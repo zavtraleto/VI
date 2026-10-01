@@ -20,6 +20,27 @@ export interface RecordsSection {
   survival: boolean;
 }
 
+/** Levels of one kind, as they stand together in the list of puzzles. */
+export interface PuzzleSection {
+  title: string;
+  levels: readonly { index: number; stars: number }[];
+}
+
+export interface PuzzleResultData {
+  stars: number;
+  moves: number;
+  par: number;
+  /** There is a level after this one. */
+  hasNext: boolean;
+}
+
+function starsLine(stars: number, total = 3): HTMLElement {
+  return h('span', { class: 'stars' }, [
+    '★'.repeat(stars),
+    h('span', { class: 'stars-off', text: '★'.repeat(Math.max(0, total - stars)) }),
+  ]);
+}
+
 export interface PauseToggles {
   muted: boolean;
   reducedMotion: boolean;
@@ -71,6 +92,7 @@ export class Screens {
     actions: {
       onEndless: () => void;
       onTimed: () => void;
+      onPuzzle: () => void;
       onTutorial: () => void;
       onRecords: () => void;
       onPlaytest: () => void;
@@ -81,6 +103,8 @@ export class Screens {
       h('h3', { class: 'menu-group', text: t('menuTrial') }),
       button('endless', actions.onEndless, tutorialFirst ? 'plain' : 'primary'),
       button('timed', actions.onTimed),
+      h('h3', { class: 'menu-group', text: t('menuPuzzle') }),
+      button('puzzle', actions.onPuzzle),
       h('div', { class: 'menu-gap' }),
       button('tutorial', actions.onTutorial, tutorialFirst ? 'primary' : 'plain'),
       button('records', actions.onRecords),
@@ -97,6 +121,8 @@ export class Screens {
       onMenu: () => void;
       onPlaytest: () => void;
       onToggle: (key: keyof PauseToggles) => PauseToggles;
+      /** Set in a puzzle: back to the list of levels, in place of the records. */
+      onLevels?: () => void;
     },
   ): void {
     let current = toggles;
@@ -119,11 +145,96 @@ export class Screens {
       h('h2', { text: t('paused') }),
       button('resume', actions.onResume, 'primary'),
       button('restart', actions.onRestart),
-      button('records', actions.onRecords),
+      actions.onLevels ? button('toLevels', actions.onLevels) : button('records', actions.onRecords),
       button('toMenu', actions.onMenu),
       h('div', { class: 'switches' }, switches),
-      button('playtest', actions.onPlaytest, 'quiet'),
+      actions.onLevels ? null : button('playtest', actions.onPlaytest, 'quiet'),
     ]);
+  }
+
+  /** The rules of the puzzle mode, shown before the first level and on request. */
+  showPuzzleRules(lines: readonly string[], actions: { onPlay?: () => void; onBack: () => void }): void {
+    this.open([
+      h('h2', { text: t('puzzleRules') }),
+      h('ol', { class: 'rules-list' }, lines.map((line) => h('li', { text: line }))),
+      actions.onPlay ? button('play', actions.onPlay, 'primary') : null,
+      button('back', actions.onBack),
+    ]);
+  }
+
+  /** Every puzzle, by kind, with the stars earned. All of them can be picked. */
+  showPuzzleLevels(
+    sections: readonly PuzzleSection[],
+    current: number,
+    actions: { onPick: (index: number) => void; onRules: () => void; onStats: () => void; onBack: () => void },
+  ): void {
+    const blocks = sections.flatMap((section) => [
+      h('h3', { text: section.title }),
+      h(
+        'div',
+        { class: 'level-grid' },
+        section.levels.map(({ index, stars }) => {
+          const el = h('button', { class: 'level-btn', attrs: { type: 'button' }, onClick: () => actions.onPick(index) }, [
+            h('span', { class: 'level-number', text: String(index + 1) }),
+            starsLine(stars),
+          ]);
+          el.classList.toggle('selected', index === current);
+          return el;
+        }),
+      ),
+    ]);
+    // The list is long: what is not a level stays at the top, in sight.
+    const rules = button('puzzleRules', actions.onRules);
+    const stats = button('puzzleStats', actions.onStats);
+    rules.classList.add('small');
+    stats.classList.add('small');
+    this.open([
+      h('h2', { text: t('puzzle') }),
+      h('div', { class: 'row' }, [rules, stats]),
+      ...blocks,
+      h('div', { class: 'menu-gap' }),
+      button('toMenu', actions.onBack),
+    ]);
+  }
+
+  showPuzzleResult(data: PuzzleResultData, actions: { onNext: () => void; onAgain: () => void; onLevels: () => void }): void {
+    const row = (label: string, value: string) =>
+      h('div', { class: 'result-row' }, [h('span', { class: 'stat-label', text: label }), h('span', { class: 'result-value', text: value })]);
+    const stars = starsLine(data.stars);
+    stars.classList.add('large');
+    this.open([
+      h('h2', { text: t('cleared') }),
+      stars,
+      h('div', { class: 'result-grid' }, [row(t('puzzleMoves'), String(data.moves)), row(t('puzzleMin'), String(data.par))]),
+      data.hasNext ? button('next', actions.onNext, 'primary') : null,
+      button('again', actions.onAgain, data.hasNext ? 'plain' : 'primary'),
+      button('toLevels', actions.onLevels),
+    ]);
+  }
+
+  /** What was played, as text to pass on. An empty report shows a line saying so. */
+  showPuzzleStats(report: string, onBack: () => void): void {
+    const text = report || t('statsEmpty');
+    const copy = button('copy', () => {
+      void navigator.clipboard?.writeText(text).then(() => (copy.textContent = t('copied')));
+    });
+    // Phones offer their own sheet of messengers; elsewhere the text is copied.
+    const canShare = report !== '' && typeof navigator.share === 'function';
+    const share = canShare
+      ? button('share', () => void navigator.share({ text }).catch(() => undefined), 'primary')
+      : null;
+    this.open(
+      [
+        h('h2', { text: t('puzzleStats') }),
+        h('p', { class: 'note', text: t('statsNote') }),
+        // The report is long: the buttons that send it come before it.
+        share,
+        report !== '' ? copy : null,
+        button('back', onBack),
+        h('pre', { class: 'stats', text }),
+      ],
+      true,
+    );
   }
 
   showResult(

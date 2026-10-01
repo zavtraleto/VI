@@ -12,6 +12,30 @@ export interface RunRecord {
   date: string;
 }
 
+/** What a player did on one puzzle, for the playtest report. */
+export interface PuzzleStat {
+  /** Starts of the level that got at least one move, the first one included. */
+  tries: number;
+  undos: number;
+  /** Groups that turned out to be dead ends. */
+  dead: number;
+  /** Time spent on the level until it was first cleared, in milliseconds. */
+  playMs: number;
+  /** Moves and seconds of the first clear; null until then. */
+  firstMoves: number | null;
+  firstSec: number | null;
+  /** Fewest moves the level has been cleared in. */
+  best: number | null;
+}
+
+export interface PuzzleProgress {
+  /** Stars earned per level code. */
+  stars: Record<string, number>;
+  stats: Record<string, PuzzleStat>;
+  /** The rules have been shown once. */
+  rulesSeen: boolean;
+}
+
 export interface Settings {
   experiments: ExperimentConfig;
   controlMode: ControlMode;
@@ -29,6 +53,7 @@ export interface Settings {
   debugPanel: boolean;
   /** Finished runs per rule key, newest last. */
   runs: Record<string, RunRecord[]>;
+  puzzle: PuzzleProgress;
 }
 
 const KEY = 'vi.settings.v3';
@@ -52,10 +77,12 @@ export function loadSettings(): Settings {
     camera: { ...DEFAULT_CAMERA },
     debugPanel: false,
     runs: {},
+    puzzle: { stars: {}, stats: {}, rulesSeen: false },
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
+  loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
   }
@@ -79,6 +106,12 @@ export function addRun(settings: Settings, key: string, run: RunRecord): void {
   } else {
     settings.runs[key] = list;
   }
+}
+
+export function puzzleStat(settings: Settings, id: string): PuzzleStat {
+  const stats = settings.puzzle.stats;
+  stats[id] ??= { tries: 0, undos: 0, dead: 0, playMs: 0, firstMoves: null, firstSec: null, best: null };
+  return stats[id];
 }
 
 export type RecordMetric = 'score' | 'chain' | 'ticks';

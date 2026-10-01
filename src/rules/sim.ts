@@ -1,8 +1,9 @@
 import { applyMove, canAcceptCommand } from './movement';
 import { pruneReactions, removeCube, resolveLanded } from './reactions';
+import { isPuzzleHeld, placePuzzleLayout, puzzleConfig, runPuzzle } from './puzzle';
 import { placeStartLayout, runSpawn } from './spawn';
 import { isHeld, placeTutorialLayout, runTutorial, tutorialConfig, tutorialMove } from './tutorial';
-import type { Dir, RulesConfig, RunState } from './types';
+import type { Dir, PuzzleLayout, RulesConfig, RunState } from './types';
 
 export interface RunOptions {
   seed: number;
@@ -10,16 +11,19 @@ export interface RunOptions {
   /** Time Limited instead of Endless. Ignored for the tutorial. */
   timed?: boolean;
   tutorial?: boolean;
+  /** A puzzle to solve: its dice and nothing else, on a board of its own size. */
+  puzzle?: PuzzleLayout;
   /** Start with no cubes and the player on the ground. Used by tests. */
   empty?: boolean;
   forceFallback?: boolean;
 }
 
 export function createRun(opts: RunOptions): RunState {
-  const config = opts.tutorial ? tutorialConfig(opts.config) : opts.config;
+  const { puzzle } = opts;
+  const config = puzzle ? puzzleConfig(opts.config, puzzle) : opts.tutorial ? tutorialConfig(opts.config) : opts.config;
   const state: RunState = {
     config,
-    mode: opts.tutorial ? 'practice' : opts.timed ? 'timed' : 'endless',
+    mode: puzzle ? 'puzzle' : opts.tutorial ? 'practice' : opts.timed ? 'timed' : 'endless',
     seed: opts.seed,
     tick: 0,
     rng: opts.seed | 0,
@@ -35,8 +39,9 @@ export function createRun(opts: RunOptions): RunState {
     spawnTimer: 0,
     liftTimer: 0,
     fullTicks: 0,
-    spawnEnabled: !opts.tutorial,
-    tutorial: opts.tutorial ? { step: 0, timer: 0, done: false } : null,
+    spawnEnabled: !opts.tutorial && !puzzle,
+    tutorial: opts.tutorial && !puzzle ? { step: 0, timer: 0, done: false } : null,
+    puzzle: puzzle ? { moves: 0, held: 0, dead: null } : null,
     over: false,
     endReason: null,
     stats: { clearTicks: [], clears: 0, blockedSteps: 0, groundTicks: 0, falls: 0, steps: 0 },
@@ -45,7 +50,8 @@ export function createRun(opts: RunOptions): RunState {
     nextReactionId: 1,
   };
   if (opts.empty) return state;
-  if (opts.tutorial) placeTutorialLayout(state);
+  if (puzzle) placePuzzleLayout(state, puzzle);
+  else if (opts.tutorial) placeTutorialLayout(state);
   else placeStartLayout(state, opts.forceFallback);
   return state;
 }
@@ -74,7 +80,7 @@ function finishMovements(state: RunState): void {
 function finishRemovals(state: RunState): void {
   const { sinkingTicks } = state.config;
   for (const cube of [...state.cubes]) {
-    if (cube.state !== 'sinking' || isHeld(state, cube)) continue;
+    if (cube.state !== 'sinking' || isHeld(state, cube) || isPuzzleHeld(state, cube)) continue;
     cube.t++;
     if (cube.t >= sinkingTicks) removeCube(state, cube);
   }
@@ -134,7 +140,9 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   }
   runTutorial(state);
   runSpawn(state);
-  checkFill(state);
+  runPuzzle(state);
+  // A puzzle is never lost to a full board: nothing rises on it.
+  if (!state.puzzle) checkFill(state);
   checkClock(state);
 
   if (state.player.level === 'ground') state.stats.groundTicks++;

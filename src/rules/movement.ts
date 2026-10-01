@@ -1,5 +1,6 @@
 import { DELTA, cellIndex, cubeAt, cubeHeight, inBounds, isFree, nearestFree } from './board';
 import { roll } from './orientation';
+import { puzzleBusy } from './puzzle';
 import { removeCube } from './reactions';
 import type { Cube, Dir, Level, MoveKind, Orientation, RunState } from './types';
 
@@ -31,7 +32,7 @@ const LEVEL_AFTER: Record<MoveKind, Level> = {
 };
 
 export function canAcceptCommand(state: RunState): boolean {
-  if (state.over) return false;
+  if (state.over || puzzleBusy(state)) return false;
   const action = state.player.action;
   return action === undefined || action.t + 1 >= state.config.actionTicks;
 }
@@ -75,7 +76,11 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
     if (!own) return blocked;
     if (own.state === 'idle') {
       const spot = landing(state, tx, tz, []);
-      if (spot) return { kind: 'roll', tx, tz, cube: own, cubeX: tx, cubeZ: tz, newOri: roll(own.ori, dir), ...spot };
+      // A puzzle die rolls into an empty cell only: nothing is rolled over.
+      const plain = spot !== null && !spot.over && !spot.displaced;
+      if (spot && (plain || !state.puzzle)) {
+        return { kind: 'roll', tx, tz, cube: own, cubeX: tx, cubeZ: tz, newOri: roll(own.ori, dir), ...spot };
+      }
     }
     if (target) {
       return target.state === 'idle' || target.state === 'sinking' ? { kind: 'hop', tx, tz } : blocked;
@@ -83,7 +88,8 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
     if (!isFree(state, tx, tz)) return blocked;
     // Only a sinking cube can be stepped off: a rising one is the way back up, so the
     // player cannot fall off it by accident.
-    const canStepDown = own.state === 'sinking' && cubeHeight(own, config) <= config.stepDownHeight;
+    // In a puzzle there is no floor to stand on: the player stays on the dice.
+    const canStepDown = !state.puzzle && own.state === 'sinking' && cubeHeight(own, config) <= config.stepDownHeight;
     return canStepDown ? { kind: 'descend', tx, tz } : blocked;
   }
 
@@ -153,6 +159,7 @@ export function applyMove(state: RunState, dir: Dir): boolean {
   player.x = intent.tx;
   player.z = intent.tz;
   player.level = LEVEL_AFTER[intent.kind];
+  if (state.puzzle && intent.kind === 'roll') state.puzzle.moves++;
   state.stats.steps++;
   state.events.push({ type: 'move', kind: intent.kind, dir });
   return true;

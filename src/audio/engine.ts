@@ -223,6 +223,12 @@ export class AudioEngine {
         this.tone(ROOT_HZ * 4, { type: 'triangle', gain: 0.12, decay: 0.35 });
         this.tone(ROOT_HZ * 6, { type: 'triangle', gain: 0.12, decay: 0.5, delay: 0.14 });
         break;
+      case 'deadEnd':
+        this.tone(110, { type: 'square', gain: 0.08, decay: 0.3, to: 70 });
+        break;
+      case 'cleared':
+        this.chord(ROOT_HZ * 4, [0, 7, 12, 16], 1.6, 0.24);
+        break;
       case 'gameOver':
         this.chord(ROOT_HZ * 2, [0, 1, 6], 2.4, 0.3);
         this.tone(ROOT_HZ, { gain: 0.4, decay: 2.6, to: 27 });

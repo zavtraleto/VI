@@ -4,6 +4,7 @@
 
 - Правила и исходная спецификация: [docs/RITE_Design_MVP.md](docs/RITE_Design_MVP.md)
 - Что решено иначе: [docs/superpowers/specs/2026-10-01-vi-mvp-design.md](docs/superpowers/specs/2026-10-01-vi-mvp-design.md)
+- Puzzle: [docs/superpowers/specs/2026-10-01-vi-puzzle-design.md](docs/superpowers/specs/2026-10-01-vi-puzzle-design.md)
 - Планы: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 Последняя сборка из `main`: https://zavtraleto.github.io/VI/ — выкладывается на GitHub Pages при каждом пуше.
@@ -40,7 +41,8 @@ npm run build   # статическая сборка в dist/
 | Папка | Что в ней |
 |---|---|
 | `src/rules` | Чистая детерминированная симуляция: шаг 20 мс, seeded PRNG, состояние — простой JSON |
-| `src/app` | Игровой цикл, журнал команд, стадии ритуала, статистика партии |
+| `src/app` | Игровой цикл, журнал команд, стадии ритуала, статистика партии и пазлов |
+| `src/puzzle` | Уровни пазл-режима и проверка их решений на настоящих правилах |
 | `src/input` | Клавиатура, жесты, логика повтора |
 | `src/render` | Three.js: сцена, кубы, фигура, процедурные текстуры, слои стадий |
 | `src/audio` | Звук-заглушки на WebAudio, без ассетов |

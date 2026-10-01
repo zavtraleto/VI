@@ -118,12 +118,37 @@ function happyOne(state: RunState, trigger: Cube): void {
 }
 
 /**
+ * Puzzle: a group clears only as a whole and nothing joins it afterwards. It waits under the
+ * player, so what matters at once is whether there is a way on from it.
+ */
+function resolvePuzzle(state: RunState, cube: Cube): void {
+  const puzzle = state.puzzle!;
+  const value = cube.ori.top;
+  if (value < 2) return;
+  const component = componentOf(state, cube);
+  if (component.length < value) return;
+  startReaction(state, component);
+  const rest = state.cubes.filter((c) => c.state === 'idle');
+  // The last group goes down with the player on it.
+  if (rest.length === 0) return;
+  puzzle.held = cube.reactionId;
+  const touches = (a: Cube, b: Cube) => Math.abs(a.x - b.x) + Math.abs(a.z - b.z) === 1;
+  if (!rest.some((r) => component.some((c) => touches(r, c)))) puzzle.dead = 'noExit';
+  else if (rest.length === 1) puzzle.dead = 'single';
+  if (puzzle.dead) state.events.push({ type: 'deadEnd', reason: puzzle.dead });
+}
+
+/**
  * Resolves what a cube causes when the player has just rolled or pushed it into place.
  * Nothing clears on its own: cubes that merely rose next to each other wait until the
  * player moves a cube into or onto the group.
  */
 export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void {
   if (cube.state !== 'idle') return;
+  if (state.puzzle) {
+    resolvePuzzle(state, cube);
+    return;
+  }
   if (cube.ori.top === 1) {
     // Only a chain counts: 1s that are themselves sinking do not set off another Happy One.
     const touching =

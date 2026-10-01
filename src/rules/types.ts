@@ -178,6 +178,8 @@ export type GameEvent =
   | { type: 'nudge'; dir: Dir } // tutorial: a step off the script was ignored
   | { type: 'tutorialStep'; step: number }
   | { type: 'tutorialDone' }
+  | { type: 'deadEnd'; reason: DeadEnd } // puzzle: the group just made cannot be followed by a win
+  | { type: 'cleared' } // puzzle: the last dice are gone
   | { type: 'gameOver' };
 
 export interface RunStats {
@@ -190,7 +192,35 @@ export interface RunStats {
   steps: number;
 }
 
-export type RunMode = 'endless' | 'timed' | 'practice';
+export type RunMode = 'endless' | 'timed' | 'practice' | 'puzzle';
+
+/** A die of a puzzle: its cell and the two faces that fix how it lies. */
+export interface PuzzleDie {
+  x: number;
+  z: number;
+  top: number;
+  north: number;
+}
+
+/** A puzzle as it stands before the first move. */
+export interface PuzzleLayout {
+  /** Cells along one side of the board. */
+  size: number;
+  dice: readonly PuzzleDie[];
+  /** Cell of the die the player starts on. */
+  start: { x: number; z: number };
+}
+
+/** Why a finished group leads nowhere: no die next to it to step onto, or one die left over. */
+export type DeadEnd = 'noExit' | 'single';
+
+export interface PuzzleState {
+  /** Rolls made so far. Steps from die to die are free. */
+  moves: number;
+  /** Reaction of the group that waits under the player; 0 when there is none. */
+  held: number;
+  dead: DeadEnd | null;
+}
 
 export interface TutorialState {
   /** Index of the current step of the script. */
@@ -223,9 +253,11 @@ export interface RunState {
   fullTicks: number;
   spawnEnabled: boolean;
   tutorial: TutorialState | null;
+  /** Set for a puzzle run only. */
+  puzzle: PuzzleState | null;
   over: boolean;
-  /** Why the run ended: the board stayed full, or the Time Limited clock ran out. */
-  endReason: null | 'full' | 'time';
+  /** Why the run ended: the board stayed full, the Time Limited clock ran out, or a puzzle was cleared. */
+  endReason: null | 'full' | 'time' | 'cleared';
   stats: RunStats;
   /** Events produced by the most recent step. */
   events: GameEvent[];

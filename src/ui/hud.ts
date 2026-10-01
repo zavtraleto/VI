@@ -28,7 +28,18 @@ function stageSign(): { el: SVGSVGElement; marks: SVGLineElement[] } {
   return { el, marks };
 }
 
+/** What the header shows in a puzzle, in place of the score. */
+export interface PuzzleHud {
+  /** Number of the level, from 1. */
+  level: number;
+  moves: number;
+  par: number;
+  /** Fewest moves the level has been cleared in so far. */
+  best: number | null;
+}
+
 export class Hud {
+  private readonly scoreLabel = h('span', { class: 'stat-label', text: t('score') });
   private readonly score = h('span', { class: 'stat-value', text: '0' });
   private readonly best = h('span', { class: 'stat-value', text: '0' });
   private readonly next = h('span', { class: 'stage-next' });
@@ -40,6 +51,7 @@ export class Hud {
   private lastBest = -1;
   private lastStage = -1;
   private lastLevel = 1;
+  private lastPuzzle = '';
 
   private readonly debugButton: HTMLButtonElement;
 
@@ -47,10 +59,7 @@ export class Hud {
     this.debugButton = h('button', { class: 'debug-btn', text: '⚙', attrs: { 'aria-label': t('debugTitle'), type: 'button' }, onClick: onDebug });
     this.debugButton.hidden = true;
     root.append(
-      h('div', { class: 'stat' }, [
-        h('span', { class: 'stat-label', text: t('score') }),
-        h('div', { class: 'stat-line' }, [this.score, this.sign.el, this.next]),
-      ]),
+      h('div', { class: 'stat' }, [this.scoreLabel, h('div', { class: 'stat-line' }, [this.score, this.sign.el, this.next])]),
       h('div', { class: 'hud-mid' }, [this.tag, this.danger, this.clock]),
       h('div', { class: 'stat right' }, [h('span', { class: 'stat-label', text: t('best') }), this.best]),
       this.debugButton,
@@ -65,7 +74,33 @@ export class Hud {
     this.debugButton.hidden = !show;
   }
 
+  /** A puzzle is counted in moves: the header shows them against the fewest possible. */
+  updatePuzzle(info: PuzzleHud): void {
+    const signature = `${info.level}:${info.moves}:${info.par}:${info.best}`;
+    if (signature === this.lastPuzzle) return;
+    if (this.lastPuzzle === '') {
+      this.scoreLabel.textContent = t('moves');
+      this.sign.el.style.display = 'none';
+      this.tag.classList.remove('alarm', 'level-up');
+      this.danger.textContent = '';
+      this.clock.textContent = '';
+    }
+    this.lastPuzzle = signature;
+    this.score.textContent = String(info.moves);
+    this.next.textContent = `★★★ ${info.par}`;
+    this.best.textContent = info.best === null ? '–' : String(info.best);
+    this.tag.textContent = `${t('level')} ${info.level}`;
+  }
+
   update(state: RunState, best: number, stage: number): void {
+    if (this.lastPuzzle !== '') {
+      // Back from a puzzle: everything is written again.
+      this.lastPuzzle = '';
+      this.scoreLabel.textContent = t('score');
+      this.sign.el.style.display = '';
+      this.lastScore = -1;
+      this.lastBest = -1;
+    }
     if (state.score !== this.lastScore) {
       this.lastScore = state.score;
       this.score.textContent = String(state.score);
