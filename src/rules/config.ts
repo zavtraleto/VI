@@ -30,6 +30,7 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   cubesPerLevel: 12,
   startCubes: 10,
   lowHeight: 0.5,
+  sinkLowHeight: 0.8,
   mountHeight: 1,
   stepDownHeight: 0.75,
   liftMs: 4000,
@@ -54,6 +55,7 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   cubesPerLevel: [5, 60, 1],
   startCubes: [2, 30, 1],
   lowHeight: [0.1, 0.9, 0.05],
+  sinkLowHeight: [0.1, 1, 0.05],
   mountHeight: [0.1, 1, 0.05],
   stepDownHeight: [0.1, 1, 0.05],
   liftMs: [500, 10000, 250],
@@ -76,7 +78,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
   const exp = { ...defaultExperiments(), ...experiments };
   const t = { ...DEFAULT_TUNING, ...tuning };
   return {
-    rulesVersion: '0.4',
+    rulesVersion: '0.5',
     size: 7,
     tickMs: TICK_MS,
     startCubes: Math.max(2, Math.round(t.startCubes)),
@@ -93,6 +95,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     warnOccupied: 42,
     rescueTicks: msToTicks(t.rescueMs),
     lowHeight: t.lowHeight,
+    sinkLowHeight: t.sinkLowHeight,
     mountHeight: t.mountHeight,
     stepDownHeight: t.stepDownHeight,
     helpRate: t.helpRate,

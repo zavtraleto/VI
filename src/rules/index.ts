@@ -5,6 +5,7 @@ export { ALL_ORIENTATIONS, roll } from './orientation';
 export { canAcceptCommand, resolveMove } from './movement';
 export { previewAll, previewMove, type MovePreview } from './preview';
 export { PUZZLE_HOLD_HEIGHT, puzzleBusy } from './puzzle';
+export { inChain } from './reactions';
 export { createRun, step, type RunOptions } from './sim';
 export {
   TUTORIAL_LINES,

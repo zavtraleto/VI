@@ -108,6 +108,7 @@ export interface Tuning {
   cubesPerLevel: number;
   startCubes: number;
   lowHeight: number;
+  sinkLowHeight: number;
   mountHeight: number;
   stepDownHeight: number;
   liftMs: number;
@@ -138,8 +139,10 @@ export interface RulesConfig {
   cubesPerLevel: number;
   warnOccupied: number;
   rescueTicks: number;
-  /** Height at or below which a rising/sinking cube can be rolled over. */
+  /** Height at or below which a rising cube can be rolled over. */
   lowHeight: number;
+  /** Height at or below which a sinking cube is see-through and can be rolled over. */
+  sinkLowHeight: number;
   /** Height at or below which a rising/sinking cube can be stepped onto from the ground. */
   mountHeight: number;
   /** Height at or below which the player can step off their sinking cube to the ground. */

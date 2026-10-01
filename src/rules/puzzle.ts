@@ -7,7 +7,10 @@ import type { Cube, PuzzleLayout, RulesConfig, RunState } from './types';
 /** A finished group stops here and waits for the player to leave it. */
 export const PUZZLE_HOLD_HEIGHT = 0.6;
 
-/** A puzzle has a board of its own size and no pace to keep: a group left behind goes quickly. */
+/**
+ * A puzzle has a board of its own size and no pace to keep: a group left behind goes quickly.
+ * Nothing is rolled over, so the group that waits under the player stays solid.
+ */
 export function puzzleConfig(config: RulesConfig, layout: PuzzleLayout): RulesConfig {
   return {
     ...config,
@@ -15,6 +18,7 @@ export function puzzleConfig(config: RulesConfig, layout: PuzzleLayout): RulesCo
     startX: layout.start.x,
     startZ: layout.start.z,
     sinkingTicks: msToTicks(700),
+    sinkLowHeight: Math.min(config.sinkLowHeight, PUZZLE_HOLD_HEIGHT - 0.1),
   };
 }
 

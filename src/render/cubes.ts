@@ -11,7 +11,7 @@ import type { Theme } from './theme';
  */
 type Look = 'idle' | 'rising' | 'risingLow' | 'sinking' | 'sinkingLow';
 
-const CUBE_SIZE = 0.94;
+export const CUBE_SIZE = 0.94;
 const LOW_OPACITY = 0.5;
 
 export interface CubeGlow {
@@ -71,7 +71,7 @@ export class CubeMeshes {
     if (cube.state === 'idle' || cube.state === 'moving') return 'idle';
     const height = cubeHeight(cube, state.config);
     if (cube.state === 'rising') return height <= state.config.mountHeight ? 'risingLow' : 'rising';
-    return height <= state.config.lowHeight ? 'sinkingLow' : 'sinking';
+    return height <= state.config.sinkLowHeight ? 'sinkingLow' : 'sinking';
   }
 
   sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number): void {

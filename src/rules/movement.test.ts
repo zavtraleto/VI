@@ -214,6 +214,16 @@ describe('rolling over low cubes', () => {
     expect([own.x, own.z]).toEqual([2, 4]);
   });
 
+  it('rolls over a sinking cube soon after it starts to sink', () => {
+    const s = sinkingThrees();
+    run(s, s.config.sinkingTicks / 4);
+    const own = putOri(s, 2, 4, { top: 6, south: 5 });
+    place(s, 2, 4, 'top');
+    act(s, 'N');
+    expect([own.x, own.z]).toEqual([2, 3]);
+    expect(s.cubes.length).toBe(3);
+  });
+
   it('joins the chain when rolled onto a low sinking cube of the same value', () => {
     const s = sinkingThrees();
     run(s, s.config.sinkingTicks / 2);

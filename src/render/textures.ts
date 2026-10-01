@@ -142,6 +142,45 @@ export function faceFrameTexture(color: string): THREE.CanvasTexture {
   });
 }
 
+/**
+ * A face left on the floor of a cell: a frame along the cell's edge and lit pips, laid out
+ * as on a die that covers `face` of the cell's width.
+ */
+export function chainMarkTexture(value: number, color: string, face: number): THREE.CanvasTexture {
+  return canvasTexture(256, (ctx, size) => {
+    const inset = size * 0.032;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = size * 0.04;
+    ctx.lineWidth = size * 0.034;
+    // Twice, so the glow gathers around a solid shape.
+    for (let i = 0; i < 2; i++) ctx.strokeRect(inset, inset, size - inset * 2, size - inset * 2);
+
+    const edge = (size * (1 - face)) / 2;
+    ctx.translate(edge, edge);
+    const scale = value === 1 ? 1.5 : 1;
+    eachPip(value, size * face, (x, y, radius) => {
+      const r = radius * scale;
+      ctx.shadowBlur = size * 0.07;
+      ctx.fillStyle = color;
+      for (let i = 0; i < 2; i++) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // A small hot core makes the pip read as a light, not as paint.
+      ctx.shadowBlur = 0;
+      const core = ctx.createRadialGradient(x, y, 0, x, y, r);
+      core.addColorStop(0, 'rgba(255, 214, 204, 0.85)');
+      core.addColorStop(0.5, 'rgba(255, 214, 204, 0)');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+}
+
 /** Chevron pointing to the right, for the arrows that show a move. */
 export function chevronTexture(color: string): THREE.CanvasTexture {
   return canvasTexture(128, (ctx, size) => {

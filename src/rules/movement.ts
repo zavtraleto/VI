@@ -54,8 +54,10 @@ function landing(
   if (!inBounds(state.config.size, x, z)) return null;
   const occupant = cubeAt(state, x, z);
   if (!occupant) return isFree(state, x, z) ? {} : null;
+  if (occupant.state === 'sinking') {
+    return isBelow(state, occupant, state.config.sinkLowHeight) ? { over: occupant } : null;
+  }
   if (!isBelow(state, occupant, state.config.lowHeight)) return null;
-  if (occupant.state === 'sinking') return { over: occupant };
   const displaceTo = nearestFree(state, x, z, leaving);
   return displaceTo ? { displaced: occupant, displaceTo } : null;
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DELTA, cubeAt, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { CubeMeshes } from './cubes';
 import { fitBoard, type FrameBounds } from './framing';
+import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { PlayerFigure } from './player';
 import { CubeSprings } from './springs';
@@ -73,6 +74,7 @@ export class BoardView {
   private readonly cubes: CubeMeshes;
   private readonly player: PlayerFigure;
   private readonly overlays: FloorOverlays;
+  private readonly marks: ChainMarks;
   private readonly warnings: SpawnWarnings;
   private readonly springs = new CubeSprings();
   /** The step the player was making on the previous frame, to notice when it ends. */
@@ -150,8 +152,9 @@ export class BoardView {
     this.cubes = new CubeMeshes(theme);
     this.player = new PlayerFigure(theme);
     this.overlays = new FloorOverlays(theme);
+    this.marks = new ChainMarks(theme);
     this.warnings = new SpawnWarnings(theme);
-    this.scene.add(this.overlays.group, this.warnings.group, this.cubes.group, this.player.group);
+    this.scene.add(this.overlays.group, this.marks.group, this.warnings.group, this.cubes.group, this.player.group);
 
     this.setCamera(angles);
     new ResizeObserver(() => this.resize()).observe(container);
@@ -303,6 +306,7 @@ export class BoardView {
     this.cubes.group.position.y = -sunk;
     this.player.group.position.y -= sunk;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
+    this.marks.sync(state, timeMs, reducedMotion);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
 
     const reaction = this.cubes.sinkingCentre(state);

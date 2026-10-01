@@ -31,6 +31,11 @@ export function removeCube(state: RunState, cube: Cube): void {
   }
 }
 
+/** A cube going down as part of a chain: until it is gone, cubes brought to it join the chain. */
+export function inChain(cube: Cube): boolean {
+  return cube.state === 'sinking' && cube.reactionId !== 0;
+}
+
 /** Idle cubes connected to `start` that show the same top value, `start` included. */
 function componentOf(state: RunState, start: Cube): Cube[] {
   const value = start.ori.top;
@@ -55,7 +60,7 @@ function touchedReactions(state: RunState, component: Cube[], over: Overrun | un
   const ids = new Set<number>();
   for (const cube of component) {
     for (const n of neighbours(state, cube.x, cube.z)) {
-      if (n.state === 'sinking' && n.reactionId !== 0 && n.ori.top === value) ids.add(n.reactionId);
+      if (inChain(n) && n.ori.top === value) ids.add(n.reactionId);
     }
   }
   // Rolling onto a low sinking cube of the same value continues its chain.
@@ -151,9 +156,7 @@ export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void
   }
   if (cube.ori.top === 1) {
     // Only a chain counts: 1s that are themselves sinking do not set off another Happy One.
-    const touching =
-      (over !== undefined && over.reactionId !== 0) ||
-      neighbours(state, cube.x, cube.z).some((n) => n.state === 'sinking' && n.reactionId !== 0);
+    const touching = (over !== undefined && over.reactionId !== 0) || neighbours(state, cube.x, cube.z).some(inChain);
     if (touching) happyOne(state, cube);
     return;
   }

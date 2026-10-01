@@ -21,6 +21,16 @@ export const CANONICAL_FACE_VALUES = [
   CANONICAL.north,
 ];
 
+/** Where the right-hand side of a face's picture points on the unrotated mesh, in the same order. */
+const FACE_RIGHT = [
+  new THREE.Vector3(0, 0, -1),
+  new THREE.Vector3(0, 0, 1),
+  new THREE.Vector3(1, 0, 0),
+  new THREE.Vector3(1, 0, 0),
+  new THREE.Vector3(1, 0, 0),
+  new THREE.Vector3(-1, 0, 0),
+];
+
 function key(o: Orientation): string {
   return `${o.top}${o.north}${o.east}`;
 }
@@ -48,4 +58,12 @@ const QUATS = build();
 /** The rotation that shows `o` on the canonical mesh. The picture follows the discrete state. */
 export function quatFor(o: Orientation): THREE.Quaternion {
   return QUATS.get(key(o))!;
+}
+
+const tmpRight = new THREE.Vector3();
+
+/** Turn around the vertical that lays a flat picture of the top face the way `o` shows it. */
+export function topTurn(o: Orientation): number {
+  tmpRight.copy(FACE_RIGHT[CANONICAL_FACE_VALUES.indexOf(o.top)]).applyQuaternion(quatFor(o));
+  return Math.atan2(-tmpRight.z, tmpRight.x);
 }
