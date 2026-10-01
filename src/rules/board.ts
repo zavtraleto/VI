@@ -67,3 +67,26 @@ export function neighbours(state: RunState, x: number, z: number): Cube[] {
   }
   return result;
 }
+
+/**
+ * Closest free cell to (x, z) by grid distance, lowest index winning ties.
+ * `skip` names cells that must not be chosen.
+ */
+export function nearestFree(
+  state: RunState,
+  x: number,
+  z: number,
+  skip: readonly { x: number; z: number }[] = [],
+): { x: number; z: number } | null {
+  let best: { x: number; z: number } | null = null;
+  let bestDistance = Infinity;
+  for (const cell of freeCells(state)) {
+    if (skip.some((s) => s.x === cell.x && s.z === cell.z)) continue;
+    const distance = Math.abs(cell.x - x) + Math.abs(cell.z - z);
+    if (distance < bestDistance) {
+      best = cell;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}

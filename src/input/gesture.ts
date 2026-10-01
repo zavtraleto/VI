@@ -5,20 +5,39 @@ export const TRIGGER_PX = 18;
 export const DEAD_ZONE_PX = 10;
 export const HYSTERESIS_DEG = 12;
 
-/**
- * Board directions on screen are the four diagonals, so the nearest direction is simply
- * the quadrant the finger is in. Screen y grows downwards.
- */
-export function quadrantDir(dx: number, dy: number): Dir {
-  if (dx >= 0) return dy < 0 ? 'N' : 'E';
-  return dy < 0 ? 'W' : 'S';
+/** Where each board direction points on screen: unit vectors, y growing downwards. */
+export type ScreenDirs = Record<Dir, { x: number; y: number }>;
+
+const ORDER: readonly Dir[] = ['N', 'E', 'S', 'W'];
+
+/** The classic diamond view: every board direction is a screen diagonal. */
+export const DIAMOND_DIRS: ScreenDirs = {
+  N: { x: Math.SQRT1_2, y: -Math.SQRT1_2 },
+  E: { x: Math.SQRT1_2, y: Math.SQRT1_2 },
+  S: { x: -Math.SQRT1_2, y: Math.SQRT1_2 },
+  W: { x: -Math.SQRT1_2, y: -Math.SQRT1_2 },
+};
+
+/** Angle in degrees between a swipe and the on-screen direction of `dir`. */
+export function degreesTo(dx: number, dy: number, dir: Dir, dirs: ScreenDirs): number {
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return 180;
+  const cos = (dx * dirs[dir].x + dy * dirs[dir].y) / length;
+  return (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
 }
 
-/** Degrees between the vector and the nearest quadrant boundary (the screen axes). */
-export function degreesFromBoundary(dx: number, dy: number): number {
-  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-  const mod = ((angle % 90) + 90) % 90;
-  return Math.min(mod, 90 - mod);
+/** The board direction whose on-screen vector is closest to the swipe. */
+export function nearestDir(dx: number, dy: number, dirs: ScreenDirs): Dir {
+  let best: Dir = 'N';
+  let bestAngle = Infinity;
+  for (const dir of ORDER) {
+    const angle = degreesTo(dx, dy, dir, dirs);
+    if (angle < bestAngle) {
+      best = dir;
+      bestAngle = angle;
+    }
+  }
+  return best;
 }
 
 /** Swipe-and-hold tracking for one pointer. */
@@ -31,6 +50,7 @@ export class GestureTracker {
   constructor(
     private readonly controller: InputController,
     private readonly now: () => number,
+    private readonly dirs: () => ScreenDirs = () => DIAMOND_DIRS,
   ) {}
 
   get direction(): Dir | null {
@@ -49,9 +69,10 @@ export class GestureTracker {
     const dx = x - this.originX;
     const dy = y - this.originY;
     const dist = Math.hypot(dx, dy);
+    const dirs = this.dirs();
     if (this.active === null) {
       if (dist >= TRIGGER_PX) {
-        this.active = quadrantDir(dx, dy);
+        this.active = nearestDir(dx, dy, dirs);
         this.controller.press(this.active, this.now());
       }
       return;
@@ -61,8 +82,11 @@ export class GestureTracker {
       this.controller.release();
       return;
     }
-    const dir = quadrantDir(dx, dy);
-    if (dir !== this.active && degreesFromBoundary(dx, dy) >= HYSTERESIS_DEG) {
+    const dir = nearestDir(dx, dy, dirs);
+    if (dir === this.active) return;
+    // The finger must be clearly past the line between the two directions before the turn.
+    const past = (degreesTo(dx, dy, this.active, dirs) - degreesTo(dx, dy, dir, dirs)) / 2;
+    if (past >= HYSTERESIS_DEG) {
       this.active = dir;
       this.controller.redirect(dir);
     }

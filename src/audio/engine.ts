@@ -177,8 +177,16 @@ export class AudioEngine {
       case 'blocked':
         this.tone(70, { type: 'square', gain: 0.07, decay: 0.06 });
         break;
+      case 'warned':
+        // A short crackle where a cube is about to rise.
+        this.noise({ duration: 0.09, freq: 3200, type: 'highpass', gain: 0.12 });
+        this.tone(1400, { type: 'square', gain: 0.04, decay: 0.08, to: 320 });
+        break;
       case 'spawn':
-        this.tone(180, { gain: 0.05, attack: 0.05, decay: 0.3, to: 260 });
+        this.tone(120, { gain: 0.05, attack: 0.2, decay: 0.9, to: 200 });
+        break;
+      case 'displaced':
+        this.noise({ duration: 0.1, freq: 900, type: 'bandpass', gain: 0.14, q: 3 });
         break;
       case 'match':
         this.chord(ROOT_HZ * 2 * 2 ** (MINOR[event.value - 1] / 12), [0, 7, 12], 0.9, 0.22);

@@ -1,6 +1,6 @@
 import { DELTA, DIRS, cubeAt } from './board';
 import { resolveMove } from './movement';
-import type { Dir, MoveKind, RunState } from './types';
+import type { Cube, Dir, MoveKind, RunState } from './types';
 
 export interface MovePreview {
   kind: MoveKind | 'blocked';
@@ -10,19 +10,32 @@ export interface MovePreview {
   clears: boolean;
 }
 
-/** Would a cube showing `value` clear if it stood at (x, z)? `movingId` is the cube being moved. */
-function wouldClear(state: RunState, movingId: number, x: number, z: number, value: number, shielded: boolean): boolean {
+/**
+ * Would a cube showing `value` clear if the player moved it to (x, z)? `movingId` is the
+ * cube being moved, `over` the low sinking cube it would replace.
+ */
+function wouldClear(
+  state: RunState,
+  movingId: number,
+  x: number,
+  z: number,
+  value: number,
+  ridden: boolean,
+  over: Cube | undefined,
+): boolean {
   const others = (cx: number, cz: number) =>
     DIRS.map((d) => cubeAt(state, cx + DELTA[d].dx, cz + DELTA[d].dz)).filter(
-      (c): c is NonNullable<typeof c> => c !== undefined && c.id !== movingId,
+      (c): c is Cube => c !== undefined && c.id !== movingId && c !== over,
     );
 
   if (value === 1) {
-    if (!others(x, z).some((c) => c.state === 'sinking')) return false;
-    if (!shielded) return true;
+    if (!over && !others(x, z).some((c) => c.state === 'sinking')) return false;
+    // A pushed 1 sinks itself; a ridden 1 stays, so it needs another 1 to take away.
+    if (!ridden) return true;
     return state.cubes.some((c) => c.id !== movingId && c.state === 'idle' && c.ori.top === 1);
   }
 
+  if (over && over.reactionId !== 0 && over.ori.top === value) return true;
   const seen = new Set<string>([`${x},${z}`]);
   const stack = [{ x, z }];
   let count = 0;
@@ -47,11 +60,10 @@ export function previewMove(state: RunState, dir: Dir): MovePreview {
   if (intent.kind === 'blocked') return { kind: 'blocked', clears: false };
   if (intent.cube && intent.newOri && intent.cubeX !== undefined && intent.cubeZ !== undefined) {
     const top = intent.newOri.top;
-    const shielded = intent.kind === 'roll';
     return {
       kind: intent.kind,
       top,
-      clears: wouldClear(state, intent.cube.id, intent.cubeX, intent.cubeZ, top, shielded),
+      clears: wouldClear(state, intent.cube.id, intent.cubeX, intent.cubeZ, top, intent.kind === 'roll', intent.over),
     };
   }
   return { kind: intent.kind, clears: false };

@@ -1,5 +1,6 @@
-import { DELTA, cellIndex, cubeAt, cubeHeight, inBounds, isFree } from './board';
+import { DELTA, cellIndex, cubeAt, cubeHeight, inBounds, isFree, nearestFree } from './board';
 import { roll } from './orientation';
+import { removeCube } from './reactions';
 import type { Cube, Dir, Level, MoveKind, Orientation, RunState } from './types';
 
 export interface MoveIntent {
@@ -12,6 +13,11 @@ export interface MoveIntent {
   cubeX?: number;
   cubeZ?: number;
   newOri?: Orientation;
+  /** Low sinking cube in the destination that the moving cube replaces. */
+  over?: Cube;
+  /** Low rising cube in the destination, and the free cell it is sent to. */
+  displaced?: Cube;
+  displaceTo?: { x: number; z: number };
 }
 
 const LEVEL_AFTER: Record<MoveKind, Level> = {
@@ -30,6 +36,29 @@ export function canAcceptCommand(state: RunState): boolean {
   return action === undefined || action.t + 1 >= state.config.actionTicks;
 }
 
+function isLow(state: RunState, cube: Cube): boolean {
+  return (cube.state === 'rising' || cube.state === 'sinking') && cubeHeight(cube, state.config) <= state.config.lowHeight;
+}
+
+/**
+ * Can a cube move into (x, z)? An empty cell always works. A low sinking cube is replaced;
+ * a low rising cube is sent to the nearest free cell, if there is one.
+ */
+function landing(
+  state: RunState,
+  x: number,
+  z: number,
+  leaving: { x: number; z: number }[],
+): Pick<MoveIntent, 'over' | 'displaced' | 'displaceTo'> | null {
+  if (!inBounds(state.config.size, x, z)) return null;
+  const occupant = cubeAt(state, x, z);
+  if (!occupant) return isFree(state, x, z) ? {} : null;
+  if (!isLow(state, occupant)) return null;
+  if (occupant.state === 'sinking') return { over: occupant };
+  const displaceTo = nearestFree(state, x, z, leaving);
+  return displaceTo ? { displaced: occupant, displaceTo } : null;
+}
+
 /** Decides what a step in `dir` would do, without changing anything. */
 export function resolveMove(state: RunState, dir: Dir): MoveIntent {
   const { config, player } = state;
@@ -44,16 +73,15 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
   if (player.level === 'top') {
     const own = cubeAt(state, player.x, player.z);
     if (!own) return blocked;
+    if (own.state === 'idle') {
+      const spot = landing(state, tx, tz, []);
+      if (spot) return { kind: 'roll', tx, tz, cube: own, cubeX: tx, cubeZ: tz, newOri: roll(own.ori, dir), ...spot };
+    }
     if (target) {
-      if (target.state === 'idle' || target.state === 'sinking') return { kind: 'hop', tx, tz };
-      return blocked;
+      return target.state === 'idle' || target.state === 'sinking' ? { kind: 'hop', tx, tz } : blocked;
     }
     if (!isFree(state, tx, tz)) return blocked;
-    if (own.state === 'idle') {
-      return { kind: 'roll', tx, tz, cube: own, cubeX: tx, cubeZ: tz, newOri: roll(own.ori, dir) };
-    }
-    if (cubeHeight(own, config) <= config.lowHeight) return { kind: 'descend', tx, tz };
-    return blocked;
+    return cubeHeight(own, config) <= config.lowHeight ? { kind: 'descend', tx, tz } : blocked;
   }
 
   if (!target) {
@@ -62,15 +90,12 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
   if (target.state === 'idle') {
     const bx = tx + dx;
     const bz = tz + dz;
-    if (isFree(state, bx, bz)) {
-      return { kind: 'push', tx, tz, cube: target, cubeX: bx, cubeZ: bz, newOri: target.ori };
-    }
+    // The cell the pushed cube leaves is where the player steps, so nothing may be sent there.
+    const spot = landing(state, bx, bz, [{ x: tx, z: tz }]);
+    if (spot) return { kind: 'push', tx, tz, cube: target, cubeX: bx, cubeZ: bz, newOri: target.ori, ...spot };
     return config.experiments.floorClimb ? { kind: 'climb', tx, tz } : blocked;
   }
-  if (target.state === 'rising' || target.state === 'sinking') {
-    return cubeHeight(target, config) <= config.lowHeight ? { kind: 'mount', tx, tz } : blocked;
-  }
-  return blocked;
+  return isLow(state, target) ? { kind: 'mount', tx, tz } : blocked;
 }
 
 /** Executes a step command. Returns false when the step is blocked. */
@@ -94,6 +119,17 @@ export function applyMove(state: RunState, dir: Dir): boolean {
 
   const cube = intent.cube;
   if (cube && intent.cubeX !== undefined && intent.cubeZ !== undefined && intent.newOri) {
+    const over = intent.over ? { value: intent.over.ori.top, reactionId: intent.over.reactionId } : undefined;
+    if (intent.over) removeCube(state, intent.over);
+    if (intent.displaced && intent.displaceTo) {
+      const moved = intent.displaced;
+      state.grid[cellIndex(config.size, moved.x, moved.z)] = 0;
+      moved.x = intent.displaceTo.x;
+      moved.z = intent.displaceTo.z;
+      moved.t = 0;
+      state.grid[cellIndex(config.size, moved.x, moved.z)] = moved.id;
+      state.events.push({ type: 'displaced', cubeId: moved.id });
+    }
     state.grid[cellIndex(config.size, cube.x, cube.z)] = 0;
     cube.move = {
       fromX: cube.x,
@@ -101,6 +137,7 @@ export function applyMove(state: RunState, dir: Dir): boolean {
       dir,
       kind: intent.kind === 'roll' ? 'roll' : 'slide',
       prevOri: cube.ori,
+      over,
     };
     cube.x = intent.cubeX;
     cube.z = intent.cubeZ;

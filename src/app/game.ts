@@ -1,12 +1,24 @@
 import { AudioEngine } from '../audio/engine';
 import { InputController } from '../input/controller';
-import { GestureTracker, bindGestures } from '../input/gesture';
+import { GestureTracker, bindGestures, type ScreenDirs } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
 import { addRun, bestOf, loadSettings, prefersReducedMotion, saveSettings, type Settings } from '../platform/settings';
 import { storageAvailable } from '../platform/storage';
 import { OCCULT_THEME } from '../render/theme';
 import { BoardView } from '../render/view';
-import { createRun, cubeAt, defaultConfig, previewMove, ruleKey, DIRS, type GameEvent, type RunState } from '../rules';
+import {
+  createRun,
+  cubeAt,
+  defaultConfig,
+  previewMove,
+  resolveMove,
+  ruleKey,
+  DIRS,
+  type Dir,
+  type GameEvent,
+  type RunState,
+} from '../rules';
+import { DebugPanel } from '../ui/debug';
 import { formatTime, h } from '../ui/dom';
 import { ChainLabels, HintBubble, Hud } from '../ui/hud';
 import { t, type TextKey } from '../ui/i18n';
@@ -17,6 +29,14 @@ import { Runner } from './runner';
 import { statsText } from './stats';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
+const ARROWS = ['→', '↗', '↑', '↖', '←', '↙', '↓', '↘'];
+
+/** Arrow glyph closest to a screen direction (y pointing down). */
+function arrowFor(v: { x: number; y: number }): string {
+  const turns = Math.atan2(-v.y, v.x) / (Math.PI / 4);
+  return ARROWS[((Math.round(turns) % 8) + 8) % 8];
+}
 
 export class Game {
   private settings: Settings = loadSettings();
@@ -36,7 +56,9 @@ export class Game {
   private readonly hint: HintBubble;
   private readonly pad: Pad;
   private readonly screens: Screens;
+  private readonly debug: DebugPanel;
   private readonly root: HTMLElement;
+  private screenDirs!: ScreenDirs;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -52,14 +74,21 @@ export class Game {
     const now = () => this.now();
     const enabled = () => this.inputEnabled();
 
-    this.view = new BoardView(stage, OCCULT_THEME, defaultConfig().size);
-    this.hud = new Hud(hudEl, () => this.togglePause());
+    if (new URLSearchParams(window.location.search).has('debug')) this.settings.debugPanel = true;
+    this.view = new BoardView(stage, OCCULT_THEME, defaultConfig().size, this.settings.camera);
+    this.hud = new Hud(hudEl, () => this.togglePause(), () => this.debug.toggle());
     this.labels = new ChainLabels(overlayLayer);
     this.hint = new HintBubble(overlayLayer);
     this.pad = new Pad(controls, this.controller, now, () => enabled() && this.settings.controlMode === 'dpad');
     this.screens = new Screens(overlay);
+    this.debug = new DebugPanel(root, this.settings, {
+      onChange: () => saveSettings(this.settings),
+      onCamera: () => this.applyCamera(),
+      onRestart: () => this.startRun(),
+    });
+    this.applyCamera();
 
-    this.tracker = new GestureTracker(this.controller, now);
+    this.tracker = new GestureTracker(this.controller, now, () => this.screenDirs);
     bindGestures(play, this.tracker, () => enabled() && this.settings.controlMode === 'gesture');
     bindKeyboard(this.controller, now, enabled, () => this.togglePause());
 
@@ -99,11 +128,23 @@ export class Game {
     return `endless:${ruleKey(state.config)}`;
   }
 
+  /** Points the camera and lines the controls up with where the board directions now point. */
+  private applyCamera(): void {
+    this.view.setCamera(this.settings.camera);
+    const dirs = {} as ScreenDirs;
+    for (const dir of DIRS) dirs[dir] = this.view.screenDir(dir);
+    this.screenDirs = dirs;
+    // The seal is drawn with north at 45 degrees and east at -45; turn it by the average offset.
+    const degrees = (dir: Dir) => (Math.atan2(-dirs[dir].y, dirs[dir].x) * 180) / Math.PI;
+    this.pad.setRotation((degrees('N') - 45 + (degrees('E') + 45)) / 2);
+  }
+
   private startRun(): void {
     const { experiments } = this.settings;
     const tutorial = experiments.guidedStart && !this.settings.tutorialDone;
     const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
-    this.runner = new Runner(createRun({ seed, config: defaultConfig(experiments), tutorial }));
+    this.runner = new Runner(createRun({ seed, config: defaultConfig(experiments, this.settings.tuning), tutorial }));
+    this.hud.showDebugButton(this.settings.debugPanel);
     this.controller.cancel();
     this.ritual.reset();
     this.view.reset();
@@ -120,7 +161,8 @@ export class Game {
     if (tutorial) {
       this.settings.hintsSeen = [];
       this.pad.setPulse('N');
-      this.hint.showSticky(`${t('hintRollHere')} · ${t(coarsePointer ? 'hintRollSwipe' : 'hintRollKey')}`);
+      const how = coarsePointer ? `${t('hintRollSwipe')} ${arrowFor(this.screenDirs.N)}` : t('hintRollKey');
+      this.hint.showSticky(`${t('hintRollHere')} · ${how}`);
     }
   }
 
@@ -182,9 +224,11 @@ export class Game {
   private showPlaytest(back: () => void): void {
     const text = this.state.tick > 0 ? statsText(this.state) : this.lastStats || t('noStats');
     this.screens.showPlaytest(this.settings, text, {
-      onApply: (experiments, mode) => {
+      onApply: (experiments, mode, debugPanel) => {
         this.settings.experiments = experiments;
         this.settings.controlMode = mode;
+        this.settings.debugPanel = debugPanel;
+        if (!debugPanel) this.debug.toggle(false);
         saveSettings(this.settings);
         this.startRun();
       },
@@ -207,6 +251,8 @@ export class Game {
     let note: string | null = null;
     if (state.mode === 'practice') {
       note = t('practiceNote');
+    } else if (state.config.custom) {
+      note = t('customNote');
     } else {
       addRun(this.settings, key, {
         score: state.score,
@@ -250,8 +296,15 @@ export class Game {
       this.onEvent(state, event);
     }
     const { player } = state;
-    if (player.level === 'ground' && !player.action && state.tick % 10 === 0) {
+    if (player.action || state.tick % 10 !== 0) return;
+    if (player.level === 'ground') {
       if (DIRS.some((dir) => previewMove(state, dir).kind === 'mount')) this.hintOnce('hintMount');
+    } else if (state.tutorial?.phase !== 'await') {
+      const rollsOver = DIRS.some((dir) => {
+        const intent = resolveMove(state, dir);
+        return intent.over !== undefined || intent.displaced !== undefined;
+      });
+      if (rollsOver) this.hintOnce('hintLow');
     }
   }
 

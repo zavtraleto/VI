@@ -14,7 +14,7 @@ export type Level = 'top' | 'ground';
 
 /** What a single step command turns into. */
 export type MoveKind =
-  | 'roll' // on a cube, into an empty cell: cube rotates, player rides
+  | 'roll' // on a cube, into an empty cell or over a low cube: cube rotates, player rides
   | 'hop' // on a cube, onto a neighbouring cube
   | 'descend' // from a low rising/sinking cube down to the ground
   | 'walk' // on the ground, into an empty cell
@@ -22,12 +22,19 @@ export type MoveKind =
   | 'mount' // from the ground onto a low rising/sinking cube
   | 'climb'; // experiment: from the ground onto a cube that cannot be pushed
 
+/** A low sinking cube that the moving cube rolled or slid over. */
+export interface Overrun {
+  value: number;
+  reactionId: number;
+}
+
 export interface CubeMove {
   fromX: number;
   fromZ: number;
   dir: Dir;
   kind: 'roll' | 'slide';
   prevOri: Orientation;
+  over?: Overrun;
 }
 
 export interface Cube {
@@ -70,6 +77,14 @@ export interface Reaction {
   total: number;
 }
 
+/** A cube that has been announced on a cell and will start rising when the warning ends. */
+export interface PendingSpawn {
+  x: number;
+  z: number;
+  ori: Orientation;
+  t: number;
+}
+
 export interface ExperimentConfig {
   guidedStart: boolean;
   gentleStart: boolean;
@@ -77,7 +92,23 @@ export interface ExperimentConfig {
   matchHint: boolean;
   floorClimb: boolean;
   floorLift: boolean;
-  relaxedPace: boolean;
+}
+
+/** Gameplay variables exposed in the debug panel. Times are in milliseconds. */
+export interface Tuning {
+  stepMs: number;
+  warnMs: number;
+  riseMs: number;
+  sinkMs: number;
+  spawnStartMs: number;
+  spawnStepMs: number;
+  spawnMinMs: number;
+  cubesPerLevel: number;
+  startCubes: number;
+  lowHeight: number;
+  liftMs: number;
+  gentleSec: number;
+  rescueMs: number;
 }
 
 export interface RulesConfig {
@@ -88,6 +119,8 @@ export interface RulesConfig {
   startX: number;
   startZ: number;
   actionTicks: number;
+  /** Warning shown on a cell before a cube starts rising there. */
+  warnTicks: number;
   risingTicks: number;
   sinkingTicks: number;
   spawnIntervalMs: number;
@@ -96,12 +129,13 @@ export interface RulesConfig {
   cubesPerLevel: number;
   warnOccupied: number;
   rescueTicks: number;
-  /** Height at or below which a rising/sinking cube can be stepped on or off. */
+  /** Height at or below which a rising/sinking cube can be stepped on, off or rolled over. */
   lowHeight: number;
   gentleTicks: number;
   floorLiftTicks: number;
   tutorialRefillTicks: number;
-  tutorialRefillCubes: number;
+  /** True when any tuning value differs from the defaults. */
+  custom: boolean;
   experiments: ExperimentConfig;
 }
 
@@ -112,9 +146,11 @@ export type GameEvent =
   | { type: 'match'; reactionId: number; value: number; count: number; points: number }
   | { type: 'chain'; reactionId: number; value: number; chain: number; count: number; points: number }
   | { type: 'happyOne'; count: number; points: number }
+  | { type: 'warned'; x: number; z: number } // a cube was announced on a cell
   | { type: 'spawn'; cubeId: number }
   | { type: 'risen'; cubeId: number }
   | { type: 'removed'; cubeId: number }
+  | { type: 'displaced'; cubeId: number } // a low rising cube was rolled over and moved away
   | { type: 'fell' } // the cube under the player was removed
   | { type: 'lifted' } // a cube appeared under the player on the ground
   | { type: 'levelUp'; level: number }
@@ -141,18 +177,19 @@ export interface RunState {
   /** size*size cells holding a cube id, or 0. */
   grid: number[];
   reactions: Reaction[];
+  pending: PendingSpawn[];
   player: Player;
   score: number;
   level: number;
   removed: number;
   maxChain: number;
   spawnTimer: number;
+  /** Ticks on the ground since the fall or since the last lift was sent. */
+  liftTimer: number;
   /** Consecutive ticks with every cell occupied. */
   fullTicks: number;
   spawnEnabled: boolean;
   tutorial: null | { phase: 'await' | 'cleared' | 'done'; timer: number };
-  /** Consecutive ticks the player has spent on the ground. */
-  groundStreak: number;
   over: boolean;
   stats: RunStats;
   /** Events produced by the most recent step. */

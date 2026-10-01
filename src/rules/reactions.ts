@@ -1,5 +1,5 @@
-import { cubeAt, neighbours, DELTA, DIRS } from './board';
-import type { Cube, RunState } from './types';
+import { cellIndex, cubeAt, neighbours } from './board';
+import type { Cube, Overrun, RunState } from './types';
 
 function startSinking(cube: Cube, reactionId: number): void {
   cube.state = 'sinking';
@@ -12,32 +12,45 @@ function recordClear(state: RunState): void {
   if (state.stats.clearTicks.length < 5) state.stats.clearTicks.push(state.tick);
 }
 
-/** Connected groups of idle cubes sharing a top value of 2..6, ordered by lowest cube id. */
-function idleComponents(state: RunState): Cube[][] {
-  const seen = new Set<number>();
-  const components: Cube[][] = [];
-  for (const start of state.cubes) {
-    if (start.state !== 'idle' || start.ori.top < 2 || seen.has(start.id)) continue;
-    const value = start.ori.top;
-    const component: Cube[] = [];
-    const stack = [start];
-    seen.add(start.id);
-    while (stack.length > 0) {
-      const cube = stack.pop()!;
-      component.push(cube);
-      for (const n of neighbours(state, cube.x, cube.z)) {
-        if (n.state === 'idle' && n.ori.top === value && !seen.has(n.id)) {
-          seen.add(n.id);
-          stack.push(n);
-        }
-      }
-    }
-    components.push(component);
+/** Takes a cube off the board and counts it towards the level. */
+export function removeCube(state: RunState, cube: Cube): void {
+  const { config, player } = state;
+  state.grid[cellIndex(config.size, cube.x, cube.z)] = 0;
+  state.cubes = state.cubes.filter((c) => c !== cube);
+  state.removed++;
+  state.events.push({ type: 'removed', cubeId: cube.id });
+  if (player.level === 'top' && player.x === cube.x && player.z === cube.z) {
+    player.level = 'ground';
+    state.stats.falls++;
+    state.events.push({ type: 'fell' });
   }
-  return components;
+  const level = 1 + Math.floor(state.removed / config.cubesPerLevel);
+  if (level > state.level) {
+    state.level = level;
+    state.events.push({ type: 'levelUp', level });
+  }
 }
 
-function touchedReactions(state: RunState, component: Cube[]): number[] {
+/** Idle cubes connected to `start` that show the same top value, `start` included. */
+function componentOf(state: RunState, start: Cube): Cube[] {
+  const value = start.ori.top;
+  const seen = new Set<number>([start.id]);
+  const component: Cube[] = [];
+  const stack = [start];
+  while (stack.length > 0) {
+    const cube = stack.pop()!;
+    component.push(cube);
+    for (const n of neighbours(state, cube.x, cube.z)) {
+      if (n.state === 'idle' && n.ori.top === value && !seen.has(n.id)) {
+        seen.add(n.id);
+        stack.push(n);
+      }
+    }
+  }
+  return component.sort((a, b) => a.id - b.id);
+}
+
+function touchedReactions(state: RunState, component: Cube[], over: Overrun | undefined): number[] {
   const value = component[0].ori.top;
   const ids = new Set<number>();
   for (const cube of component) {
@@ -45,6 +58,8 @@ function touchedReactions(state: RunState, component: Cube[]): number[] {
       if (n.state === 'sinking' && n.reactionId !== 0 && n.ori.top === value) ids.add(n.reactionId);
     }
   }
+  // Rolling onto a low sinking cube of the same value continues its chain.
+  if (over && over.value === value && state.reactions.some((r) => r.id === over.reactionId)) ids.add(over.reactionId);
   return [...ids].sort((a, b) => a - b);
 }
 
@@ -57,6 +72,7 @@ function joinReactions(state: RunState, component: Cube[], touched: number[]): v
 
   for (const cube of state.cubes) {
     if (touched.includes(cube.reactionId)) cube.reactionId = targetId;
+    if (cube.move?.over && touched.includes(cube.move.over.reactionId)) cube.move.over.reactionId = targetId;
   }
   state.reactions = state.reactions.filter((r) => r.id === targetId || !touched.includes(r.id));
   const target = state.reactions.find((r) => r.id === targetId)!;
@@ -84,34 +100,14 @@ function startReaction(state: RunState, component: Cube[]): void {
   state.events.push({ type: 'match', reactionId: id, value, count: component.length, points });
 }
 
-/** Cubes the player is standing on top of, including the one being left mid-step. */
-function protectedCubeIds(state: RunState): Set<number> {
-  const ids = new Set<number>();
+/**
+ * Happy One: a 1 brought next to dice that are already sinking makes every resting 1
+ * sink, except the one the player is standing on.
+ */
+function happyOne(state: RunState): void {
   const { player } = state;
-  if (player.level === 'top') {
-    const c = cubeAt(state, player.x, player.z);
-    if (c) ids.add(c.id);
-  }
-  if (player.action && player.action.fromLevel === 'top') {
-    const c = cubeAt(state, player.action.fromX, player.action.fromZ);
-    if (c) ids.add(c.id);
-  }
-  return ids;
-}
-
-function hasSinkingNeighbour(state: RunState, cube: Cube): boolean {
-  for (const dir of DIRS) {
-    const n = cubeAt(state, cube.x + DELTA[dir].dx, cube.z + DELTA[dir].dz);
-    if (n && n.state === 'sinking') return true;
-  }
-  return false;
-}
-
-function resolveHappyOne(state: RunState): void {
-  const ones = state.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1);
-  if (!ones.some((c) => hasSinkingNeighbour(state, c))) return;
-  const shielded = protectedCubeIds(state);
-  const victims = ones.filter((c) => !shielded.has(c.id));
+  const own = player.level === 'top' ? cubeAt(state, player.x, player.z) : undefined;
+  const victims = state.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1 && c !== own);
   if (victims.length === 0) return;
   for (const cube of victims) startSinking(cube, 0);
   state.score += victims.length;
@@ -119,24 +115,31 @@ function resolveHappyOne(state: RunState): void {
   state.events.push({ type: 'happyOne', count: victims.length, points: victims.length });
 }
 
-/** Joins to running reactions first, then new groups, then Happy One. */
-export function resolveReactions(state: RunState): void {
-  const components = idleComponents(state);
-  const leftover: Cube[][] = [];
-  for (const component of components) {
-    const touched = touchedReactions(state, component);
-    if (touched.length > 0) joinReactions(state, component, touched);
-    else leftover.push(component);
+/**
+ * Resolves what a cube causes when the player has just rolled or pushed it into place.
+ * Nothing clears on its own: cubes that merely rose next to each other wait until the
+ * player moves a cube into or onto the group.
+ */
+export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void {
+  if (cube.state !== 'idle') return;
+  if (cube.ori.top === 1) {
+    const touching = over !== undefined || neighbours(state, cube.x, cube.z).some((n) => n.state === 'sinking');
+    if (touching) happyOne(state);
+    return;
   }
-  for (const component of leftover) {
-    if (component.length >= component[0].ori.top) startReaction(state, component);
-  }
-  resolveHappyOne(state);
+  const component = componentOf(state, cube);
+  const touched = touchedReactions(state, component, over);
+  if (touched.length > 0) joinReactions(state, component, touched);
+  else if (component.length >= cube.ori.top) startReaction(state, component);
 }
 
-/** Drops reactions that no longer have a sinking cube. */
+/** Drops reactions that no longer have a sinking cube or a cube rolling onto one. */
 export function pruneReactions(state: RunState): void {
   if (state.reactions.length === 0) return;
-  const alive = new Set(state.cubes.filter((c) => c.state === 'sinking').map((c) => c.reactionId));
+  const alive = new Set<number>();
+  for (const c of state.cubes) {
+    if (c.state === 'sinking') alive.add(c.reactionId);
+    if (c.move?.over) alive.add(c.move.over.reactionId);
+  }
   state.reactions = state.reactions.filter((r) => alive.has(r.id));
 }

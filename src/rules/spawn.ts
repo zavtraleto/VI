@@ -1,4 +1,4 @@
-import { DELTA, DIRS, cellIndex, cubeAt, freeCells, inBounds, isFree } from './board';
+import { DELTA, DIRS, cellIndex, cubeAt, freeCells, inBounds, isFree, nearestFree } from './board';
 import { spawnIntervalTicks } from './config';
 import { ALL_ORIENTATIONS, orientationsWithTop } from './orientation';
 import { randomInt } from './rng';
@@ -95,9 +95,9 @@ const FALLBACK_CELLS: readonly [number, number][] = [
   [3, 2], [5, 2], [0, 4], [6, 4], [0, 6], [2, 6], [4, 6],
 ];
 
-export function fallbackLayout(): Placement[] {
+export function fallbackLayout(count = FALLBACK_CELLS.length): Placement[] {
   const ori = orientationsWithTop(6)[0];
-  return FALLBACK_CELLS.map(([x, z]) => ({ x, z, ori }));
+  return FALLBACK_CELLS.slice(0, count).map(([x, z]) => ({ x, z, ori }));
 }
 
 export function placeStartLayout(state: RunState, forceFallback = false): void {
@@ -105,7 +105,7 @@ export function placeStartLayout(state: RunState, forceFallback = false): void {
   for (let attempt = 0; attempt < 100 && !forceFallback && !layout; attempt++) {
     layout = tryStartLayout(state);
   }
-  for (const p of layout ?? fallbackLayout()) addCube(state, p.x, p.z, p.ori);
+  for (const p of layout ?? fallbackLayout(state.config.startCubes)) addCube(state, p.x, p.z, p.ori);
 }
 
 export const TUTORIAL_A: Orientation = { top: 1, bottom: 6, north: 5, south: 2, east: 4, west: 3 };
@@ -116,16 +116,42 @@ export function placeTutorialLayout(state: RunState): void {
   addCube(state, startX - 1, startZ - 1, orientationsWithTop(2)[0]);
 }
 
+/** Top values of everything that will be resting on the board: cubes and announced spawns. */
 function topsGrid(state: RunState): number[] {
+  const size = state.config.size;
   const tops = new Array<number>(state.grid.length).fill(0);
   for (const c of state.cubes) {
-    if (c.state !== 'sinking') tops[cellIndex(state.config.size, c.x, c.z)] = c.ori.top;
+    if (c.state !== 'sinking') tops[cellIndex(size, c.x, c.z)] = c.ori.top;
   }
+  for (const p of state.pending) tops[cellIndex(size, p.x, p.z)] = p.ori.top;
   return tops;
 }
 
-/** A cube showing `top` here would join a running chain or trigger Happy One once it rises. */
-function wouldReactWithSinking(state: RunState, x: number, z: number, top: number): boolean {
+/** Size of the same-value group that cell `i` belongs to. */
+function groupSizeAt(tops: number[], size: number, i: number): number {
+  const value = tops[i];
+  const seen = new Set<number>([i]);
+  const stack = [i];
+  while (stack.length > 0) {
+    const cur = stack.pop()!;
+    const x = cur % size;
+    const z = Math.floor(cur / size);
+    for (const dir of DIRS) {
+      const nx = x + DELTA[dir].dx;
+      const nz = z + DELTA[dir].dz;
+      if (!inBounds(size, nx, nz)) continue;
+      const ni = cellIndex(size, nx, nz);
+      if (!seen.has(ni) && tops[ni] === value) {
+        seen.add(ni);
+        stack.push(ni);
+      }
+    }
+  }
+  return seen.size;
+}
+
+/** A cube showing `top` here would look like it should join a running chain or Happy One. */
+function besideMatchingSinking(state: RunState, x: number, z: number, top: number): boolean {
   for (const dir of DIRS) {
     const n = cubeAt(state, x + DELTA[dir].dx, z + DELTA[dir].dz);
     if (n && n.state === 'sinking' && (top === 1 || n.ori.top === top)) return true;
@@ -133,19 +159,35 @@ function wouldReactWithSinking(state: RunState, x: number, z: number, top: numbe
   return false;
 }
 
+/**
+ * Picks an orientation for a new cube that does not complete a group by itself. Clears
+ * are the player's doing; the generator tries not to leave ready-made groups lying around.
+ */
+function chooseOrientation(state: RunState, x: number, z: number): Orientation {
+  const size = state.config.size;
+  const tops = topsGrid(state);
+  const i = cellIndex(size, x, z);
+  let ori = randomOrientation(state);
+  for (let attempt = 0; attempt < 12; attempt++) {
+    tops[i] = ori.top;
+    const readyGroup = ori.top >= 2 && groupSizeAt(tops, size, i) >= ori.top;
+    if (!readyGroup && !besideMatchingSinking(state, x, z, ori.top)) break;
+    ori = randomOrientation(state);
+  }
+  return ori;
+}
+
 function isBesidePlayer(state: RunState, x: number, z: number): boolean {
   return Math.abs(x - state.player.x) + Math.abs(z - state.player.z) === 1;
 }
 
 /**
- * After the staged first clear: fill the board with rising cubes that cannot clear on
- * their own. The first cube goes next to the player so there is a way off the sinking cube.
+ * After the staged first clear: bring the board up to the normal starting count with
+ * rising cubes. The first one goes next to the player so there is a way off the sinking cube.
  */
 export function tutorialRefill(state: RunState): void {
-  const size = state.config.size;
-  const tops = topsGrid(state);
-  let placed = 0;
-  for (let attempt = 0; attempt < 400 && placed < state.config.tutorialRefillCubes; attempt++) {
+  const wanted = Math.max(0, state.config.startCubes - 2);
+  for (let placed = 0; placed < wanted; placed++) {
     let cells = freeCells(state).filter((c) => !(c.x === state.player.x && c.z === state.player.z));
     if (placed === 0) {
       const beside = cells.filter((c) => isBesidePlayer(state, c.x, c.z));
@@ -153,16 +195,7 @@ export function tutorialRefill(state: RunState): void {
     }
     if (cells.length === 0) break;
     const cell = cells[randomInt(state, cells.length)];
-    const ori = randomOrientation(state);
-    if (wouldReactWithSinking(state, cell.x, cell.z, ori.top)) continue;
-    const i = cellIndex(size, cell.x, cell.z);
-    tops[i] = ori.top;
-    if (hasReadyGroup(tops, size)) {
-      tops[i] = 0;
-      continue;
-    }
-    spawnCube(state, cell.x, cell.z, ori);
-    placed++;
+    spawnCube(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z));
   }
   state.spawnEnabled = true;
   state.spawnTimer = 0;
@@ -180,36 +213,77 @@ export function spawnCube(state: RunState, x: number, z: number, ori: Orientatio
   return cube;
 }
 
-/** Timed spawn. Never queues spawns while the board is full. */
-export function runSpawn(state: RunState): void {
-  if (!state.spawnEnabled) return;
-  const { config, player } = state;
-  const free = freeCells(state);
-  if (free.length === 0) {
-    state.spawnTimer = 0;
+function hasPendingAt(state: RunState, x: number, z: number): boolean {
+  return state.pending.some((p) => p.x === x && p.z === z);
+}
+
+/** Announces a cube on a cell; it starts rising when the warning runs out. */
+function announce(state: RunState, x: number, z: number): void {
+  const ori = chooseOrientation(state, x, z);
+  if (state.config.warnTicks <= 0) {
+    spawnCube(state, x, z, ori);
     return;
   }
-  if (
-    config.experiments.gentleStart &&
-    state.tick < config.gentleTicks &&
-    state.cubes.length >= config.warnOccupied
-  ) {
+  state.pending.push({ x, z, ori, t: 0 });
+  state.events.push({ type: 'warned', x, z });
+}
+
+function advancePending(state: RunState): void {
+  if (state.pending.length === 0) return;
+  const due: typeof state.pending = [];
+  state.pending = state.pending.filter((p) => {
+    p.t++;
+    if (p.t < state.config.warnTicks) return true;
+    due.push(p);
+    return false;
+  });
+  for (const p of due) {
+    // If something has moved onto the announced cell, the cube comes up in the nearest free one.
+    const cell = isFree(state, p.x, p.z) ? p : nearestFree(state, p.x, p.z);
+    if (cell) spawnCube(state, cell.x, cell.z, p.ori);
+  }
+}
+
+/** Cubes on the board plus those already announced. */
+function committed(state: RunState): number {
+  return state.cubes.length + state.pending.length;
+}
+
+/**
+ * Lift: a player left on the ground gets the next cube under their feet. It replaces the
+ * next regular spawn, so it adds no pressure.
+ */
+function runLift(state: RunState): void {
+  const { config, player } = state;
+  if (!config.experiments.floorLift || player.level !== 'ground') {
+    state.liftTimer = 0;
+    return;
+  }
+  state.liftTimer++;
+  if (state.liftTimer < config.floorLiftTicks) return;
+  if (hasPendingAt(state, player.x, player.z) || !isFree(state, player.x, player.z)) return;
+  if (committed(state) >= config.size * config.size) return;
+  state.liftTimer = 0;
+  state.spawnTimer = 0;
+  announce(state, player.x, player.z);
+}
+
+/** Timed spawn. Never queues spawns while the board is full. */
+export function runSpawn(state: RunState): void {
+  advancePending(state);
+  if (!state.spawnEnabled) return;
+  runLift(state);
+
+  const { config } = state;
+  const free = freeCells(state).filter((c) => !hasPendingAt(state, c.x, c.z));
+  const gentle = config.experiments.gentleStart && state.tick < config.gentleTicks;
+  if (free.length === 0 || (gentle && committed(state) >= config.warnOccupied)) {
     state.spawnTimer = 0;
     return;
   }
   state.spawnTimer++;
   if (state.spawnTimer < spawnIntervalTicks(config, state.level)) return;
   state.spawnTimer = 0;
-
-  let cell = free[randomInt(state, free.length)];
-  const ori = randomOrientation(state);
-  if (
-    config.experiments.floorLift &&
-    player.level === 'ground' &&
-    state.groundStreak >= config.floorLiftTicks &&
-    isFree(state, player.x, player.z)
-  ) {
-    cell = { x: player.x, z: player.z };
-  }
-  spawnCube(state, cell.x, cell.z, ori);
+  const cell = free[randomInt(state, free.length)];
+  announce(state, cell.x, cell.z);
 }

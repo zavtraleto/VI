@@ -39,7 +39,11 @@ export class Hud {
   private lastBest = -1;
   private lastStage = -1;
 
-  constructor(root: HTMLElement, onPause: () => void) {
+  private readonly debugButton: HTMLButtonElement;
+
+  constructor(root: HTMLElement, onPause: () => void, onDebug: () => void) {
+    this.debugButton = h('button', { class: 'debug-btn', text: '⚙', attrs: { 'aria-label': t('debugTitle'), type: 'button' }, onClick: onDebug });
+    this.debugButton.hidden = true;
     root.append(
       h('div', { class: 'stat' }, [
         h('span', { class: 'stat-label', text: t('score') }),
@@ -47,11 +51,16 @@ export class Hud {
       ]),
       h('div', { class: 'hud-mid' }, [this.tag, this.danger]),
       h('div', { class: 'stat right' }, [h('span', { class: 'stat-label', text: t('best') }), this.best]),
+      this.debugButton,
       h('button', { class: 'pause-btn', attrs: { 'aria-label': t('paused'), type: 'button' }, onClick: onPause }, [
         h('span'),
         h('span'),
       ]),
     );
+  }
+
+  showDebugButton(show: boolean): void {
+    this.debugButton.hidden = !show;
   }
 
   update(state: RunState, best: number, stage: number): void {

@@ -47,33 +47,43 @@ function eachPip(value: number, size: number, fn: (x: number, y: number, r: numb
   }
 }
 
-/** Charcoal die face with ivory pips set slightly into the surface. */
+/** Colour-coded die face with pips set slightly into the surface. */
 export function cubeFaceTexture(value: number, theme: Theme): THREE.CanvasTexture {
+  const colors = theme.faces[value - 1];
   return canvasTexture(256, (ctx, size) => {
-    ctx.fillStyle = theme.cube;
+    ctx.fillStyle = colors.bg;
     ctx.fillRect(0, 0, size, size);
     const shade = ctx.createRadialGradient(size / 2, size / 2, size * 0.2, size / 2, size / 2, size * 0.75);
-    shade.addColorStop(0, 'rgba(255,255,255,0.05)');
-    shade.addColorStop(1, 'rgba(0,0,0,0.35)');
+    shade.addColorStop(0, 'rgba(255,255,255,0.08)');
+    shade.addColorStop(1, 'rgba(0,0,0,0.28)');
     ctx.fillStyle = shade;
     ctx.fillRect(0, 0, size, size);
     speckle(ctx, size, 900, '#ffffff', '#000000');
     ctx.strokeStyle = theme.cubeEdge;
     ctx.lineWidth = size * 0.02;
     ctx.strokeRect(size * 0.06, size * 0.06, size * 0.88, size * 0.88);
-    eachPip(value, size, (x, y, r) => {
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    // A single pip is drawn larger, like the 1 on a real die.
+    const scale = value === 1 ? 1.5 : 1;
+    eachPip(value, size, (x, y, radius) => {
+      const r = radius * scale;
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.beginPath();
-      ctx.arc(x, y + r * 0.12, r * 1.12, 0, Math.PI * 2);
+      ctx.arc(x, y + r * 0.12, r * 1.1, 0, Math.PI * 2);
       ctx.fill();
       const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
-      g.addColorStop(0, '#ffffff');
-      g.addColorStop(0.5, theme.pip);
-      g.addColorStop(1, '#c9bfa8');
-      ctx.fillStyle = g;
+      g.addColorStop(0, 'rgba(255,255,255,0.55)');
+      g.addColorStop(0.45, colors.pip);
+      g.addColorStop(1, colors.pip);
+      ctx.fillStyle = colors.pip;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = g;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
     });
   });
 }
@@ -84,11 +94,38 @@ export function pipMaskTexture(value: number): THREE.CanvasTexture {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, size, size);
     ctx.fillStyle = '#fff';
+    const scale = value === 1 ? 1.5 : 1;
     eachPip(value, size, (x, y, r) => {
       ctx.beginPath();
-      ctx.arc(x, y, r * 1.05, 0, Math.PI * 2);
+      ctx.arc(x, y, r * scale * 1.05, 0, Math.PI * 2);
       ctx.fill();
     });
+  });
+}
+
+/** Mark shown on a cell where a cube is about to rise. */
+export function warningTexture(color: string): THREE.CanvasTexture {
+  return canvasTexture(128, (ctx, size) => {
+    const c = size / 2;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = size * 0.05;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(c, c, size * 0.36, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = size * 0.035;
+    ctx.beginPath();
+    ctx.moveTo(c, size * 0.2);
+    ctx.lineTo(size * 0.8, c);
+    ctx.lineTo(c, size * 0.8);
+    ctx.lineTo(size * 0.2, c);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(c, c, size * 0.06, 0, Math.PI * 2);
+    ctx.fill();
   });
 }
 

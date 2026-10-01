@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InputController } from './controller';
-import { GestureTracker, degreesFromBoundary, quadrantDir } from './gesture';
+import { DIAMOND_DIRS, GestureTracker, nearestDir, type ScreenDirs } from './gesture';
 
 describe('InputController', () => {
   it('gives exactly one step for a quick press and release', () => {
@@ -58,18 +58,27 @@ describe('InputController', () => {
 });
 
 describe('gesture', () => {
-  it('maps screen quadrants to board directions', () => {
-    expect(quadrantDir(10, -10)).toBe('N'); // up-right
-    expect(quadrantDir(10, 10)).toBe('E'); // down-right
-    expect(quadrantDir(-10, 10)).toBe('S'); // down-left
-    expect(quadrantDir(-10, -10)).toBe('W'); // up-left
+  it('maps screen quadrants to board directions in the diamond view', () => {
+    expect(nearestDir(10, -10, DIAMOND_DIRS)).toBe('N'); // up-right
+    expect(nearestDir(10, 10, DIAMOND_DIRS)).toBe('E'); // down-right
+    expect(nearestDir(-10, 10, DIAMOND_DIRS)).toBe('S'); // down-left
+    expect(nearestDir(-10, -10, DIAMOND_DIRS)).toBe('W'); // up-left
+    expect(nearestDir(10, -1, DIAMOND_DIRS)).toBe('N');
+    expect(nearestDir(10, 1, DIAMOND_DIRS)).toBe('E');
   });
 
-  it('measures the angle to the nearest boundary', () => {
-    expect(degreesFromBoundary(10, 0)).toBeCloseTo(0);
-    expect(degreesFromBoundary(10, 10)).toBeCloseTo(45);
-    expect(degreesFromBoundary(0, -10)).toBeCloseTo(0);
-    expect(degreesFromBoundary(Math.cos(Math.PI / 18), Math.sin(Math.PI / 18))).toBeCloseTo(10);
+  it('follows the camera: with the board turned to face the player, up means north', () => {
+    const turned: ScreenDirs = {
+      N: { x: 0.26, y: -0.97 },
+      E: { x: 0.97, y: 0.26 },
+      S: { x: -0.26, y: 0.97 },
+      W: { x: -0.97, y: -0.26 },
+    };
+    expect(nearestDir(0, -10, turned)).toBe('N');
+    expect(nearestDir(10, 0, turned)).toBe('E');
+    expect(nearestDir(0, 10, turned)).toBe('S');
+    expect(nearestDir(-10, 0, turned)).toBe('W');
+    expect(nearestDir(10, -10, turned)).toBe('N'); // 45 degrees up-right is closer to north here
   });
 
   function setup() {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { GameEvent, RunState } from '../rules';
+import { DELTA, type Dir, type GameEvent, type RunState } from '../rules';
 import { CubeMeshes } from './cubes';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { PlayerFigure } from './player';
@@ -13,14 +13,23 @@ import {
   type SlabLayout,
 } from './textures';
 import type { Theme } from './theme';
+import { SpawnWarnings } from './warnings';
 
 const MAX_DPR = 1.5;
-/** World units that must stay visible around the board centre. */
-const NEED_HALF_WIDTH = 5.75;
-const NEED_HALF_HEIGHT = 4.3;
 const RIM = 0.25;
 const SLAB_DEPTH = 1.4;
 const RING_SIZE = 11.6;
+/** Tallest thing that must stay in frame: a cube with the figure on top. */
+const TOP_Y = 1.7;
+const FRAME_MARGIN = 0.25;
+const CAMERA_DISTANCE = 40;
+
+export interface CameraAngles {
+  /** Turn around the vertical axis: 45 is the diamond view, 0 looks straight at the board. */
+  yaw: number;
+  /** Elevation above the horizon: higher looks more from above. */
+  pitch: number;
+}
 
 export interface SceneParams {
   overlay: OverlayOptions;
@@ -47,17 +56,19 @@ function layer(texture: THREE.Texture, size: number, y: number): THREE.Mesh<THRE
   return mesh;
 }
 
-/** Fixed orthographic isometric view: North goes up-right, East down-right. */
+/** Fixed orthographic view of the board. North points up-right to up, East right to down-right. */
 export class BoardView {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 120);
   private readonly cameraHome = new THREE.Vector3();
   private readonly cameraRight = new THREE.Vector3();
   private readonly cameraUp = new THREE.Vector3();
+  private readonly target: THREE.Vector3;
   private readonly cubes: CubeMeshes;
   private readonly player: PlayerFigure;
   private readonly overlays: FloorOverlays;
+  private readonly warnings: SpawnWarnings;
   private readonly ambient: THREE.AmbientLight;
   private readonly reactionLight: THREE.PointLight;
   private readonly perimeter;
@@ -69,6 +80,9 @@ export class BoardView {
   private readonly voidFinal: THREE.Color;
   private readonly background = new THREE.Color();
   private readonly tmp = new THREE.Vector3();
+  private readonly slabHalf: number;
+  /** Extents of the scene on the camera's right and up axes, relative to the target. */
+  private bounds = { minR: -1, maxR: 1, minU: -1, maxU: 1 };
   private width = 1;
   private height = 1;
   private lastTime = 0;
@@ -78,7 +92,7 @@ export class BoardView {
   private burst = 0;
   private tremor = 0;
 
-  constructor(private readonly container: HTMLElement, theme: Theme, size: number) {
+  constructor(private readonly container: HTMLElement, theme: Theme, size: number, angles: CameraAngles) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.domElement.className = 'board-canvas';
     container.prepend(this.renderer.domElement);
@@ -86,12 +100,8 @@ export class BoardView {
     this.voidFinal = new THREE.Color(theme.voidFinal);
 
     const centre = (size - 1) / 2;
-    this.cameraHome.set(centre + 20, 20, centre + 20);
-    this.camera.position.copy(this.cameraHome);
-    this.camera.lookAt(centre, 0.3, centre);
-    this.camera.updateMatrixWorld();
-    this.cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
-    this.cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1);
+    this.target = new THREE.Vector3(centre, 0, centre);
+    this.slabHalf = size / 2 + RIM;
 
     this.ambient = new THREE.AmbientLight(0xdfe3ff, 0.95);
     const key = new THREE.DirectionalLight(0xfff1dd, 2.6);
@@ -128,10 +138,59 @@ export class BoardView {
     this.cubes = new CubeMeshes(theme);
     this.player = new PlayerFigure(theme);
     this.overlays = new FloorOverlays(theme);
-    this.scene.add(this.overlays.group, this.cubes.group, this.player.group);
+    this.warnings = new SpawnWarnings(theme);
+    this.scene.add(this.overlays.group, this.warnings.group, this.cubes.group, this.player.group);
 
+    this.setCamera(angles);
     new ResizeObserver(() => this.resize()).observe(container);
+  }
+
+  /** Points the camera and reframes the board. The rules never depend on this. */
+  setCamera(angles: CameraAngles): void {
+    const yaw = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(angles.yaw, 0, 45));
+    const pitch = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(angles.pitch, 20, 85));
+    const offset = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      Math.cos(yaw) * Math.cos(pitch),
+    ).multiplyScalar(CAMERA_DISTANCE);
+    this.cameraHome.copy(this.target).add(offset);
+    this.camera.position.copy(this.cameraHome);
+    this.camera.up.set(0, 1, 0);
+    this.camera.lookAt(this.target);
+    this.camera.updateMatrixWorld();
+    this.cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
+    this.cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1);
+
+    // What has to fit: the slab and a cube with the figure on every cell. The ring of the
+    // late stages is decoration and may run off the sides on a narrow screen.
+    const points: THREE.Vector3[] = [];
+    const h = this.slabHalf;
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        points.push(new THREE.Vector3(sx * h, -SLAB_DEPTH, sz * h), new THREE.Vector3(sx * h, TOP_Y, sz * h));
+      }
+    }
+    const b = { minR: Infinity, maxR: -Infinity, minU: Infinity, maxU: -Infinity };
+    for (const p of points) {
+      const r = p.dot(this.cameraRight);
+      const u = p.dot(this.cameraUp);
+      b.minR = Math.min(b.minR, r);
+      b.maxR = Math.max(b.maxR, r);
+      b.minU = Math.min(b.minU, u);
+      b.maxU = Math.max(b.maxU, u);
+    }
+    this.bounds = b;
     this.resize();
+  }
+
+  /** Direction of a board step on screen, as a unit vector with y pointing down. */
+  screenDir(dir: Dir): { x: number; y: number } {
+    this.tmp.set(DELTA[dir].dx, 0, DELTA[dir].dz);
+    const x = this.tmp.dot(this.cameraRight);
+    const y = -this.tmp.dot(this.cameraUp);
+    const length = Math.hypot(x, y) || 1;
+    return { x: x / length, y: y / length };
   }
 
   resize(): void {
@@ -140,16 +199,22 @@ export class BoardView {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
     this.renderer.setSize(this.width, this.height, false);
     const aspect = this.width / this.height;
-    const halfHeight = Math.max(NEED_HALF_HEIGHT, NEED_HALF_WIDTH / aspect);
-    this.camera.top = halfHeight;
-    this.camera.bottom = -halfHeight;
-    this.camera.left = -halfHeight * aspect;
-    this.camera.right = halfHeight * aspect;
+    const { minR, maxR, minU, maxU } = this.bounds;
+    const needHalfWidth = (maxR - minR) / 2 + FRAME_MARGIN;
+    const needHalfHeight = (maxU - minU) / 2 + FRAME_MARGIN;
+    const halfHeight = Math.max(needHalfHeight, needHalfWidth / aspect);
+    const centreR = (minR + maxR) / 2;
+    const centreU = (minU + maxU) / 2;
+    this.camera.top = centreU + halfHeight;
+    this.camera.bottom = centreU - halfHeight;
+    this.camera.left = centreR - halfHeight * aspect;
+    this.camera.right = centreR + halfHeight * aspect;
     this.camera.updateProjectionMatrix();
   }
 
   /** Lets the scene react to what happened in a tick. */
   notify(events: readonly GameEvent[]): void {
+    this.warnings.notify(events);
     for (const event of events) {
       if (event.type === 'match') {
         this.flash = Math.max(this.flash, 0.7);
@@ -168,6 +233,7 @@ export class BoardView {
     this.flash = 0;
     this.burst = 0;
     this.tremor = 0;
+    this.warnings.reset();
   }
 
   draw(state: RunState, alpha: number, timeMs: number, params: SceneParams): void {
@@ -188,6 +254,7 @@ export class BoardView {
     });
     this.player.sync(state, alpha);
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
+    this.warnings.sync(state, dt, timeMs, reducedMotion);
 
     const reaction = this.cubes.sinkingCentre(state);
     this.reactionLight.intensity = reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0;

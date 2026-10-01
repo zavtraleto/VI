@@ -1,4 +1,4 @@
-import { defaultExperiments, type ExperimentConfig } from '../rules';
+import { defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
 import { loadJson, saveJson } from './storage';
 
 export type ControlMode = 'gesture' | 'dpad';
@@ -21,11 +21,20 @@ export interface Settings {
   /** null follows the system preference. */
   reducedMotion: boolean | null;
   shake: boolean;
+  /** Overrides of gameplay variables set in the debug panel. */
+  tuning: Partial<Tuning>;
+  /** Camera angles in degrees, set in the debug panel. */
+  camera: { yaw: number; pitch: number };
+  /** Shows the button that opens the debug panel. */
+  debugPanel: boolean;
   /** Finished runs per rule key, newest last. */
   runs: Record<string, RunRecord[]>;
 }
 
-const KEY = 'vi.settings.v2';
+const KEY = 'vi.settings.v3';
+
+/** Board turned towards the player and seen more from above than the classic diamond. */
+export const DEFAULT_CAMERA = { yaw: 25, pitch: 48 } as const;
 const MAX_RUNS = 60;
 
 export function loadSettings(): Settings {
@@ -37,10 +46,14 @@ export function loadSettings(): Settings {
     muted: false,
     reducedMotion: null,
     shake: true,
+    tuning: {},
+    camera: { ...DEFAULT_CAMERA },
+    debugPanel: false,
     runs: {},
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
+  loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   return loaded;
 }
 

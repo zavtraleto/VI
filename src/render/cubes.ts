@@ -1,15 +1,18 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { cubeHeight, type Cube, type CubeState, type RunState } from '../rules';
+import { cubeHeight, type Cube, type RunState } from '../rules';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
 import { cubeFaceTexture, pipMaskTexture } from './textures';
 import type { Theme } from './theme';
 
-type Look = 'idle' | 'rising' | 'sinking';
-
-const LOOK: Record<CubeState, Look> = { idle: 'idle', moving: 'idle', rising: 'rising', sinking: 'sinking' };
+/**
+ * How a cube is drawn. The "low" looks are see-through: they mark a rising or sinking
+ * cube that is low enough to step onto or roll over.
+ */
+type Look = 'idle' | 'rising' | 'risingLow' | 'sinking' | 'sinkingLow';
 
 const CUBE_SIZE = 0.94;
+const LOW_OPACITY = 0.5;
 
 export interface CubeGlow {
   /** Glow of resting pips: stage flashes and breathing. */
@@ -28,12 +31,26 @@ export class CubeMeshes {
 
   constructor(theme: Theme) {
     const faces = CANONICAL_FACE_VALUES.map((value) => ({ map: cubeFaceTexture(value, theme), mask: pipMaskTexture(value) }));
-    const set = (color: number): THREE.MeshLambertMaterial[] =>
+    const set = (color: number, opacity = 1): THREE.MeshLambertMaterial[] =>
       faces.map(
         ({ map, mask }) =>
-          new THREE.MeshLambertMaterial({ map, color, emissive: theme.carmine, emissiveMap: mask, emissiveIntensity: 0 }),
+          new THREE.MeshLambertMaterial({
+            map,
+            color,
+            emissive: theme.carmine,
+            emissiveMap: mask,
+            emissiveIntensity: 0,
+            transparent: opacity < 1,
+            opacity,
+          }),
       );
-    this.materials = { idle: set(0xffffff), rising: set(0x8f8a84), sinking: set(0xb08a8a) };
+    this.materials = {
+      idle: set(0xffffff),
+      rising: set(0x9a958f),
+      risingLow: set(0xb8b3ac, LOW_OPACITY),
+      sinking: set(0xb08a8a),
+      sinkingLow: set(0xb08a8a, LOW_OPACITY),
+    };
   }
 
   /** The sinking cubes of running reactions, for the reaction light. */
@@ -50,10 +67,21 @@ export class CubeMeshes {
     return count > 0 ? { x: x / count, z: z / count, count } : { x: 0, z: 0, count: 0 };
   }
 
+  private look(cube: Cube, state: RunState): Look {
+    if (cube.state === 'idle' || cube.state === 'moving') return 'idle';
+    const low = cubeHeight(cube, state.config) <= state.config.lowHeight;
+    if (cube.state === 'rising') return low ? 'risingLow' : 'rising';
+    return low ? 'sinkingLow' : 'sinking';
+  }
+
   sync(state: RunState, alpha: number, glow: CubeGlow): void {
     for (const m of this.materials.idle) m.emissiveIntensity = glow.idle;
-    for (const m of this.materials.rising) m.emissiveIntensity = glow.idle * 0.5;
-    for (const m of this.materials.sinking) m.emissiveIntensity = glow.sinking;
+    for (const look of ['rising', 'risingLow'] as const) {
+      for (const m of this.materials[look]) m.emissiveIntensity = glow.idle * 0.5;
+    }
+    for (const look of ['sinking', 'sinkingLow'] as const) {
+      for (const m of this.materials[look]) m.emissiveIntensity = glow.sinking;
+    }
 
     const alive = new Set<number>();
     for (const cube of state.cubes) {
@@ -64,7 +92,7 @@ export class CubeMeshes {
         this.meshes.set(cube.id, mesh);
         this.group.add(mesh);
       }
-      mesh.material = this.materials[LOOK[cube.state]];
+      mesh.material = this.materials[this.look(cube, state)];
       this.pose(mesh, cube, state, alpha);
     }
     for (const [id, mesh] of this.meshes) {

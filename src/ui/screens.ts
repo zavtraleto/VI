@@ -24,7 +24,6 @@ const EXPERIMENTS: (keyof ExperimentConfig)[] = [
   'matchHint',
   'floorClimb',
   'floorLift',
-  'relaxedPace',
 ];
 
 function button(key: TextKey, onClick: () => void, kind: 'primary' | 'plain' | 'quiet' = 'plain'): HTMLButtonElement {
@@ -151,7 +150,11 @@ export class Screens {
   showPlaytest(
     settings: Settings,
     statsText: string,
-    actions: { onApply: (experiments: ExperimentConfig, mode: ControlMode) => void; onBack: () => void; onReplayTutorial: () => void },
+    actions: {
+      onApply: (experiments: ExperimentConfig, mode: ControlMode, debugPanel: boolean) => void;
+      onBack: () => void;
+      onReplayTutorial: () => void;
+    },
   ): void {
     const draft: ExperimentConfig = { ...settings.experiments };
     let mode: ControlMode = settings.controlMode;
@@ -162,6 +165,12 @@ export class Screens {
       input.addEventListener('change', () => (draft[key] = input.checked));
       return h('label', { class: 'toggle' }, [input, h('span', { text: t(key) })]);
     });
+
+    let debugPanel = settings.debugPanel;
+    const debugInput = h('input', { attrs: { type: 'checkbox' } });
+    debugInput.checked = debugPanel;
+    debugInput.addEventListener('change', () => (debugPanel = debugInput.checked));
+    const debugToggle = h('label', { class: 'toggle' }, [debugInput, h('span', { text: t('debugPanel') })]);
 
     const modes = ['gesture', 'dpad'] as const;
     const modeButtons = modes.map((m) => {
@@ -185,12 +194,13 @@ export class Screens {
         h('h3', { text: t('experiments') }),
         ...toggles,
         h('p', { class: 'note', text: t('expNote') }),
+        debugToggle,
         h('h3', { text: t('controls') }),
         h('div', { class: 'row' }, modeButtons),
         h('h3', { text: t('stats') }),
         h('pre', { class: 'stats', text: statsText }),
         copy,
-        button('applyRestart', () => actions.onApply(draft, mode), 'primary'),
+        button('applyRestart', () => actions.onApply(draft, mode, debugPanel), 'primary'),
         button('replayTutorial', actions.onReplayTutorial),
         button('back', actions.onBack),
       ],

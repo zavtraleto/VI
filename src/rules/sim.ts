@@ -1,6 +1,5 @@
-import { cellIndex } from './board';
 import { applyMove, canAcceptCommand } from './movement';
-import { pruneReactions, resolveReactions } from './reactions';
+import { pruneReactions, removeCube, resolveLanded } from './reactions';
 import { placeStartLayout, placeTutorialLayout, runSpawn, tutorialRefill } from './spawn';
 import type { Dir, RulesConfig, RunState } from './types';
 
@@ -24,16 +23,17 @@ export function createRun(opts: RunOptions): RunState {
     cubes: [],
     grid: new Array<number>(config.size * config.size).fill(0),
     reactions: [],
+    pending: [],
     player: { x: config.startX, z: config.startZ, level: opts.empty ? 'ground' : 'top' },
     score: 0,
     level: 1,
     removed: 0,
     maxChain: 0,
     spawnTimer: 0,
+    liftTimer: 0,
     fullTicks: 0,
     spawnEnabled: !opts.tutorial,
     tutorial: opts.tutorial ? { phase: 'await', timer: 0 } : null,
-    groundStreak: 0,
     over: false,
     stats: { clearTicks: [], clears: 0, blockedSteps: 0, groundTicks: 0, falls: 0, steps: 0 },
     events: [],
@@ -48,48 +48,33 @@ export function createRun(opts: RunOptions): RunState {
 
 function finishMovements(state: RunState): void {
   const { actionTicks } = state.config;
-  for (const cube of state.cubes) {
-    if (cube.state !== 'moving') continue;
-    cube.t++;
-    if (cube.t >= actionTicks) {
-      cube.state = 'idle';
-      cube.t = 0;
-      cube.move = undefined;
-      state.events.push({ type: 'landed' });
-    }
-  }
+  // The player's step ends first, so a rolled cube lands with the player already on it.
   const action = state.player.action;
   if (action) {
     action.t++;
     if (action.t >= actionTicks) state.player.action = undefined;
   }
+  for (const cube of [...state.cubes]) {
+    if (cube.state !== 'moving') continue;
+    cube.t++;
+    if (cube.t < actionTicks) continue;
+    const over = cube.move?.over;
+    cube.state = 'idle';
+    cube.t = 0;
+    cube.move = undefined;
+    state.events.push({ type: 'landed' });
+    resolveLanded(state, cube, over);
+  }
 }
 
 function finishRemovals(state: RunState): void {
-  const { config, player } = state;
-  let removedAny = false;
-  for (const cube of state.cubes) {
+  const { sinkingTicks } = state.config;
+  for (const cube of [...state.cubes]) {
     if (cube.state !== 'sinking') continue;
     cube.t++;
-    if (cube.t < config.sinkingTicks) continue;
-    removedAny = true;
-    state.grid[cellIndex(config.size, cube.x, cube.z)] = 0;
-    state.removed++;
-    state.events.push({ type: 'removed', cubeId: cube.id });
-    if (player.level === 'top' && player.x === cube.x && player.z === cube.z) {
-      player.level = 'ground';
-      state.stats.falls++;
-      state.events.push({ type: 'fell' });
-    }
+    if (cube.t >= sinkingTicks) removeCube(state, cube);
   }
-  if (!removedAny) return;
-  state.cubes = state.cubes.filter((c) => !(c.state === 'sinking' && c.t >= config.sinkingTicks));
   pruneReactions(state);
-  const level = 1 + Math.floor(state.removed / config.cubesPerLevel);
-  if (level > state.level) {
-    state.level = level;
-    state.events.push({ type: 'levelUp', level });
-  }
 }
 
 function finishRisings(state: RunState): void {
@@ -147,17 +132,11 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   finishRemovals(state);
   finishRisings(state);
   if (accepts) applyMove(state, cmd);
-  resolveReactions(state);
   runTutorial(state);
   runSpawn(state);
   checkFill(state);
 
-  if (state.player.level === 'ground') {
-    state.groundStreak++;
-    state.stats.groundTicks++;
-  } else {
-    state.groundStreak = 0;
-  }
+  if (state.player.level === 'ground') state.stats.groundTicks++;
   state.tick++;
   return accepts;
 }

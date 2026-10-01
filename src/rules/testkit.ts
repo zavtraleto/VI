@@ -1,12 +1,13 @@
 import { defaultConfig } from './config';
 import { ALL_ORIENTATIONS } from './orientation';
+import { resolveLanded } from './reactions';
 import { createRun, step } from './sim';
 import { addCube } from './spawn';
-import type { Cube, CubeState, Dir, ExperimentConfig, Level, Orientation, RunState } from './types';
+import type { Cube, CubeState, Dir, ExperimentConfig, Level, Orientation, RunState, Tuning } from './types';
 
 /** Empty board, timed spawning off, player on the ground at the start cell. */
-export function emptyRun(experiments: Partial<ExperimentConfig> = {}, seed = 1): RunState {
-  const state = createRun({ seed, config: defaultConfig(experiments), empty: true });
+export function emptyRun(experiments: Partial<ExperimentConfig> = {}, seed = 1, tuning: Partial<Tuning> = {}): RunState {
+  const state = createRun({ seed, config: defaultConfig({ floorLift: false, gentleStart: false, ...experiments }, tuning), empty: true });
   state.spawnEnabled = false;
   return state;
 }
@@ -43,8 +44,14 @@ export function act(state: RunState, dir: Dir): boolean {
   return accepted;
 }
 
+/** Resolves `cube` as if the player had just moved it into place. */
+export function land(state: RunState, cube: Cube): void {
+  state.events = [];
+  resolveLanded(state, cube);
+}
+
 /** State without per-tick bookkeeping, for "nothing changed" comparisons. */
 export function snapshot(state: RunState): string {
-  const { events: _e, stats: _s, tick: _t, groundStreak: _g, ...rest } = state;
+  const { events: _e, stats: _s, tick: _t, liftTimer: _l, ...rest } = state;
   return JSON.stringify(rest);
 }

@@ -95,6 +95,14 @@ export class Pad {
     this.el.classList.toggle('dpad', mode === 'dpad');
   }
 
+  /**
+   * Turns the seal so its directions match where the board directions point on screen.
+   * `degrees` is counter-clockwise; faces inside stay upright.
+   */
+  setRotation(degrees: number): void {
+    this.el.style.setProperty('--seal-turn', `${-degrees}deg`);
+  }
+
   /** Lights the edge the finger is steering towards. */
   setActive(dir: Dir | null): void {
     for (const d of DIRS) this.edges[d].classList.toggle('active', d === dir);

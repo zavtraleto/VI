@@ -160,6 +160,21 @@ button {
   cursor: pointer;
 }
 
+.debug-btn {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.debug-btn[hidden] {
+  display: none;
+}
+
 .pause-btn span {
   width: 2px;
   height: 18px;
@@ -247,6 +262,15 @@ button {
   position: relative;
   width: var(--pad-size);
   height: var(--pad-size);
+  --seal-turn: 0deg;
+  rotate: var(--seal-turn);
+}
+
+/* Faces and icons stay upright while the seal turns with the camera. */
+.pad .die-face,
+.pad .pad-icon,
+.pad .pad-floor {
+  rotate: calc(-1 * var(--seal-turn));
 }
 
 .seal-art {
@@ -398,7 +422,7 @@ button {
   background: var(--dim);
 }
 
-/* Die face: charcoal with ivory pips, as on the board */
+/* Die face: the same colour code as on the board */
 
 .die-face {
   display: grid;
@@ -407,9 +431,16 @@ button {
   padding: 13%;
   gap: 7%;
   background: var(--charcoal);
-  border: 1px solid #4a4541;
+  border: 1px solid rgba(236, 227, 207, 0.28);
   border-radius: 12%;
 }
+
+.die-face[data-value='1'] { background: #ece3cf; }
+.die-face[data-value='2'] { background: #2c3f8c; }
+.die-face[data-value='3'] { background: #1d7468; }
+.die-face[data-value='4'] { background: #9a6418; }
+.die-face[data-value='5'] { background: #6a2c78; }
+.die-face[data-value='6'] { background: #2b2827; }
 
 .pip {
   border-radius: 50%;
@@ -417,6 +448,11 @@ button {
 
 .pip.on {
   background: var(--ivory);
+}
+
+.die-face[data-value='1'] .pip.on {
+  background: var(--carmine);
+  scale: 1.5;
 }
 
 /* Panels: strict, thin rules, no cards */
@@ -666,6 +702,90 @@ button {
   line-height: 1.5;
   white-space: pre-wrap;
   font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* Debug drawer: a working tool, kept out of the way of the board */
+
+.debug-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 88vw);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 18px;
+  background: rgba(12, 11, 11, 0.94);
+  border-left: 1px solid var(--line);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  z-index: 5;
+}
+
+.debug-panel[hidden] {
+  display: none;
+}
+
+.debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.debug-head .btn {
+  flex: none;
+}
+
+.debug-panel h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.debug-panel h3 {
+  margin: 10px 0 2px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.debug-panel .btn {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.debug-panel .row {
+  margin-top: 12px;
+}
+
+.debug-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 2px 8px;
+  font-size: 13px;
+}
+
+.debug-row input {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: var(--carmine-bright);
+}
+
+.debug-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.debug-value.changed {
+  color: var(--carmine-bright);
 }
 
 @keyframes blink {
