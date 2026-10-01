@@ -28,7 +28,7 @@ import { formatTime, h } from '../ui/dom';
 import { Dpad } from '../ui/dpad';
 import { ChainLabels, HintBubble, Hud } from '../ui/hud';
 import { t, type TextKey } from '../ui/i18n';
-import { PuzzleBar } from '../ui/puzzle';
+import { PuzzleTools } from '../ui/puzzle';
 import { Screens, type PauseToggles, type PuzzleSection } from '../ui/screens';
 import { Seal } from '../ui/seal';
 import { TutorialGuide, type InputGlyph } from '../ui/tutorial';
@@ -78,7 +78,7 @@ export class Game {
   private readonly views = new Map<number, { view: BoardView; canvas: HTMLElement }>();
   private readonly stage: HTMLElement;
   private view: BoardView;
-  private readonly puzzleBar: PuzzleBar;
+  private readonly puzzleTools: PuzzleTools;
   private readonly hud: Hud;
   private readonly labels: ChainLabels;
   private readonly hint: HintBubble;
@@ -97,9 +97,7 @@ export class Game {
     stage.append(overlayLayer);
     this.stage = stage;
     const controls = h('div', { class: 'controls' });
-    const play = h('div', { class: 'play' }, [stage]);
-    this.puzzleBar = new PuzzleBar(play, { onUndo: () => this.undoPuzzle(), onRestart: () => this.restartPuzzle() });
-    play.append(controls);
+    const play = h('div', { class: 'play' }, [stage, controls]);
     const overlay = h('div', { class: 'overlay' });
     root.append(hudEl, play, overlay);
 
@@ -113,6 +111,7 @@ export class Game {
     this.hint = new HintBubble(overlayLayer);
     this.guide = new TutorialGuide(overlayLayer, () => this.skipTutorial());
     this.seal = new Seal(overlayLayer);
+    this.puzzleTools = new PuzzleTools(overlayLayer, { onUndo: () => this.undoPuzzle(), onRestart: () => this.restartPuzzle() });
     this.dpad = new Dpad(controls, this.controller, now, () => enabled() && this.settings.controlMode === 'dpad');
     this.screens = new Screens(overlay);
     this.debug = new DebugPanel(root, this.settings, {
@@ -245,7 +244,7 @@ export class Game {
     this.controller.cancel();
     this.ritual.reset();
     this.view.reset(riseIn);
-    this.puzzleBar.hide();
+    this.puzzleTools.hide();
     this.audio.setStage(0);
     this.audio.warn(null);
     this.audio.setPaused(false);
@@ -710,8 +709,8 @@ export class Game {
         par: level.par,
         best: this.settings.puzzle.stats[level.id]?.best ?? null,
       });
-      if (this.inMenu) this.puzzleBar.hide();
-      else this.puzzleBar.update({ dead: state.puzzle.dead, held: state.puzzle.held !== 0, canUndo: this.history.length > 0 });
+      if (this.inMenu) this.puzzleTools.hide();
+      else this.puzzleTools.update({ dead: state.puzzle.dead, held: state.puzzle.held !== 0, canUndo: this.history.length > 0 });
     } else {
       this.hud.update(state, bestOf(this.settings, this.currentRecordKey(), 'score'), this.ritual.stage);
     }
