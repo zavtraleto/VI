@@ -1,0 +1,64 @@
+import * as THREE from 'three';
+import { cubeAt, cubeHeight, type Level, type MoveKind, type RunState } from '../rules';
+import type { Theme } from './theme';
+
+/** Extra lift at the middle of a step, per move kind. */
+const ARC: Record<MoveKind, number> = {
+  roll: 0.21, // the cube's top rises as it turns over its edge
+  hop: 0.22,
+  mount: 0.18,
+  climb: 0.3,
+  descend: 0.12,
+  walk: 0.05,
+  push: 0.03,
+};
+
+const BODY_HEIGHT = 0.62;
+
+export class PlayerFigure {
+  readonly group = new THREE.Group();
+
+  constructor(theme: Theme) {
+    const geometry = new THREE.CapsuleGeometry(0.19, BODY_HEIGHT - 0.38, 4, 12);
+    const body = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: theme.player }));
+    body.position.y = BODY_HEIGHT / 2;
+    // Drawn only where a cube hides the figure, so the player never gets lost behind the dice.
+    const ghost = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({
+        color: theme.player,
+        transparent: true,
+        opacity: 0.45,
+        depthFunc: THREE.GreaterDepth,
+        depthWrite: false,
+      }),
+    );
+    ghost.position.y = BODY_HEIGHT / 2;
+    ghost.renderOrder = 10;
+    this.group.add(body, ghost);
+  }
+
+  sync(state: RunState, alpha: number): void {
+    const { player, config } = state;
+    const supportHeight = (x: number, z: number, level: Level): number => {
+      if (level === 'ground') return 0;
+      const cube = cubeAt(state, x, z);
+      return cube ? cubeHeight(cube, config, alpha) : 0;
+    };
+
+    const toY = supportHeight(player.x, player.z, player.level);
+    const action = player.action;
+    if (!action) {
+      this.group.position.set(player.x, toY, player.z);
+      return;
+    }
+    const p = Math.min(1, (action.t + alpha) / config.actionTicks);
+    // A rolling cube has already left its old cell, so the ride starts at full height.
+    const fromY = action.kind === 'roll' ? 1 : supportHeight(action.fromX, action.fromZ, action.fromLevel);
+    this.group.position.set(
+      action.fromX + (player.x - action.fromX) * p,
+      fromY + (toY - fromY) * p + ARC[action.kind] * Math.sin(p * Math.PI),
+      action.fromZ + (player.z - action.fromZ) * p,
+    );
+  }
+}
