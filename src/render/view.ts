@@ -91,6 +91,8 @@ export class BoardView {
   /** Extents of the scene on the camera's right and up axes, relative to the target. */
   private bounds = { minR: -1, maxR: 1, minU: -1, maxU: 1 };
   private width = 1;
+  /** How far down the board is asked to sit, in CSS pixels, to leave room above it. */
+  private drop = 0;
   private height = 1;
   private lastTime = 0;
   private backgroundCss = '';
@@ -194,6 +196,13 @@ export class BoardView {
     this.resize();
   }
 
+  /** Asks the board to sit lower on a tall screen, leaving `pixels` more room above it. */
+  setDrop(pixels: number): void {
+    if (pixels === this.drop) return;
+    this.drop = pixels;
+    this.resize();
+  }
+
   /** Direction of a board step on screen, as a unit vector with y pointing down. */
   screenDir(dir: Dir): { x: number; y: number } {
     this.tmp.set(DELTA[dir].dx, 0, DELTA[dir].dz);
@@ -214,7 +223,9 @@ export class BoardView {
     const needHalfHeight = (maxU - minU) / 2 + FRAME_MARGIN;
     const halfHeight = Math.max(needHalfHeight, needHalfWidth / aspect);
     const centreR = (minR + maxR) / 2;
-    const centreU = (minU + maxU) / 2;
+    // The board moves down only into height it does not need: on a wide screen it stays put.
+    const perPixel = (halfHeight * 2) / this.height;
+    const centreU = (minU + maxU) / 2 + Math.min(this.drop * perPixel, halfHeight - needHalfHeight);
     this.camera.top = centreU + halfHeight;
     this.camera.bottom = centreU - halfHeight;
     this.camera.left = centreR - halfHeight * aspect;

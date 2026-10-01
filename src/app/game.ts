@@ -17,6 +17,7 @@ import {
   tutorialView,
   DELTA,
   DIRS,
+  type Dir,
   type GameEvent,
   type MarkFace,
   type RunState,
@@ -34,6 +35,9 @@ import { Runner } from './runner';
 import { statsText } from './stats';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
+/** How much lower the board sits during the tutorial where the screen has height to spare. */
+const TUTORIAL_DROP_PX = 76;
 
 /** What the player picked in the menu. */
 type RunKind = 'endless' | 'timed' | 'tutorial';
@@ -93,9 +97,10 @@ export class Game {
     this.screens = new Screens(overlay);
     this.debug = new DebugPanel(root, this.settings, {
       onChange: () => saveSettings(this.settings),
-      onCamera: () => this.view.setCamera(this.settings.camera),
+      onCamera: () => this.applyCamera(),
       onRestart: () => this.startRun(),
     });
+    this.applyCamera();
 
     // Swipes are plain: up is north, right is east, as with the arrow keys.
     this.tracker = new GestureTracker(this.controller, now, () => CARDINAL_DIRS);
@@ -145,6 +150,17 @@ export class Game {
     return this.recordKey(this.state.mode === 'timed' ? 'timed' : 'endless');
   }
 
+  /** Points the camera and turns the seal to where the board directions now point on screen. */
+  private applyCamera(): void {
+    this.view.setCamera(this.settings.camera);
+    const degrees = (dir: Dir) => {
+      const v = this.view.screenDir(dir);
+      return (Math.atan2(-v.y, v.x) * 180) / Math.PI;
+    };
+    // The seal is drawn with north at 45 degrees and east at -45; turn it by the average offset.
+    this.seal.setRotation((degrees('N') - 45 + (degrees('E') + 45)) / 2);
+  }
+
   /** `start` builds the board around a cell and raises it from the floor: the tutorial's hand-off. */
   private startRun(kind: RunKind = this.kind, start?: { x: number; z: number }): void {
     this.kind = kind;
@@ -165,6 +181,8 @@ export class Game {
     this.controller.cancel();
     this.ritual.reset();
     this.view.reset(start !== undefined);
+    // On a phone the tutorial's text sits above the board: make room for it.
+    this.view.setDrop(tutorial ? TUTORIAL_DROP_PX : 0);
     this.audio.setStage(0);
     this.audio.warn(null);
     this.audio.setPaused(false);
@@ -174,6 +192,7 @@ export class Game {
     this.labels.clear();
     this.hint.reset();
     this.dpad.setPulse(null);
+    this.seal.setPulse(null);
     this.guide.hide();
     if (tutorial) {
       // The one-time hints of a normal run pick up where the tutorial stops.
@@ -188,6 +207,7 @@ export class Game {
   private updateGuide(state: RunState): BoardGuide | null {
     const view = this.inMenu ? null : tutorialView(state);
     this.sealMark = null;
+    this.seal.setPulse(view?.dir ?? null);
     if (!view) return null;
     const { dir, mark, counter } = view;
     let glyph: InputGlyph = 'none';
@@ -486,5 +506,6 @@ export class Game {
     this.hud.update(state, bestOf(this.settings, this.currentRecordKey(), 'score'), this.ritual.stage);
     this.labels.update(state, this.view);
     this.seal.update(state, this.sealMark);
+    this.seal.setActive(this.tracker.direction);
   }
 }

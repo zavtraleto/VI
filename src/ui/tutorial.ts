@@ -42,14 +42,16 @@ function place(el: HTMLElement, at: StagePoint): void {
 }
 
 /**
- * What the tutorial puts over the board: the name of the lesson and what to do, the input
- * that does it, a count of the group being built, and the rule of the game as a triangle of
- * faces whose rows light up as the lessons are passed.
+ * What the tutorial puts over the board: at the top, the name of the lesson and what to do;
+ * at the bottom, the input that does it; a count of the group being built; and the rule of
+ * the game as a triangle of faces whose rows light up as the lessons are passed.
  */
 export class TutorialGuide {
   private readonly el = h('div', { class: 'guide' });
   private readonly title = h('span', { class: 'guide-title' });
   private readonly line = h('p', { class: 'guide-line' });
+  private readonly text = h('div', { class: 'guide-text' }, [this.title, this.line]);
+  private readonly skip: HTMLButtonElement;
   private readonly swipe = h('div', { class: 'guide-swipe' }, [
     h('span', { class: 'guide-swipe-track' }),
     h('span', { class: 'guide-swipe-dot' }),
@@ -81,12 +83,12 @@ export class TutorialGuide {
       this.rows.set(value, row);
       triangle.append(row);
     }
-    const skip = h('button', { class: 'guide-skip', text: `${t('tutSkip')} ›`, attrs: { type: 'button' }, onClick: onSkip });
+    this.skip = h('button', { class: 'guide-skip', text: `${t('tutSkip')} ›`, attrs: { type: 'button' }, onClick: onSkip });
     // A tap on the button is not the start of a swipe.
-    skip.addEventListener('pointerdown', (e) => e.stopPropagation());
-    this.side.append(triangle, skip);
-    this.el.append(h('div', { class: 'guide-text' }, [this.title, this.line]), this.swipe, this.keys);
-    root.append(this.side, this.counter, this.sum, this.el);
+    this.skip.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this.side.append(triangle);
+    this.el.append(this.swipe, this.keys);
+    root.append(this.side, this.counter, this.sum, this.text, this.el, this.skip);
     this.hide();
   }
 
@@ -112,7 +114,9 @@ export class TutorialGuide {
     this.keys.hidden = glyph !== 'keys' || dir === null;
     for (const key of KEYS) this.keyEls[key.dir].classList.toggle('lit', key.dir === dir);
     this.el.hidden = false;
+    this.text.hidden = false;
     this.side.hidden = false;
+    this.skip.hidden = false;
   }
 
   /** How many dice of the group are in place, shown above it. */
@@ -155,7 +159,9 @@ export class TutorialGuide {
     this.line.textContent = '';
     this.el.classList.remove('nudge');
     this.el.hidden = true;
+    this.text.hidden = true;
     this.side.hidden = true;
+    this.skip.hidden = true;
     this.counter.hidden = true;
     this.sum.hidden = true;
   }

@@ -9,6 +9,7 @@
   --guide: #ffd98a;
   --panel: #0c0b0b;
   --pad-size: min(56vw, 30vh, 250px);
+  --seal-size: clamp(84px, 24vw, 128px);
   --serif: 'Forum', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-family: var(--serif);
   color: var(--ivory);
@@ -264,7 +265,8 @@ button {
   opacity: 1;
 }
 
-/* Tutorial guide: a line for the step, the input that makes it, the rule as a triangle of faces */
+/* Tutorial guide: what to do at the top, the input that does it at the bottom, the rule as
+   a triangle of faces */
 
 .guide {
   position: absolute;
@@ -280,6 +282,7 @@ button {
 }
 
 .guide[hidden],
+.guide-text[hidden],
 .guide-swipe[hidden],
 .guide-keys[hidden],
 .guide-side[hidden],
@@ -287,20 +290,36 @@ button {
   display: none;
 }
 
+/* Top and centre, where the eye goes first. Between the seal and the triangle on a wide
+   screen, under them on a narrow one. */
 .guide-text {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  translate: -50% 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 7px 18px 9px;
-  background: rgba(5, 5, 6, 0.88);
+  gap: 4px;
+  width: max-content;
+  max-width: min(calc(100% - 2 * var(--seal-size) - 72px), 880px);
+  padding: 9px 22px 12px;
+  background: rgba(5, 5, 6, 0.9);
   border-top: 1px solid var(--dim);
   border-bottom: 1px solid var(--dim);
   text-align: center;
 }
 
+@media (orientation: portrait) {
+  .guide-text {
+    /* Below whichever is taller: the seal or the six rows of the triangle. */
+    top: max(calc(var(--seal-size) + 22px), 140px);
+    max-width: 94%;
+  }
+}
+
 .guide-title {
-  font-size: 12px;
+  font-size: clamp(12px, 0.5vw + 9px, 15px);
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--guide);
@@ -308,8 +327,8 @@ button {
 
 .guide-line {
   margin: 0;
-  font-size: 19px;
-  line-height: 1.3;
+  font-size: clamp(23px, 1.2vw + 14px, 30px);
+  line-height: 1.25;
   letter-spacing: 0.02em;
 }
 
@@ -419,6 +438,9 @@ button {
 }
 
 .guide-skip {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
   min-height: 44px;
   padding: 0 10px;
   border: 0;
@@ -489,59 +511,130 @@ button {
   animation: row-lit 0.5s ease-out;
 }
 
-/* The die under the player, unfolded: its sides in a row, the top above the one that
-   faces the camera, the bottom below it */
+/* The orientation seal: the die under the player, opened out. The top face is in the
+   middle, each side on the edge of the rhombus it looks towards. */
 
-.net {
+.seal {
   position: absolute;
   left: 10px;
   top: 10px;
-  display: grid;
-  grid-template-columns: repeat(4, var(--net-cell));
-  grid-template-rows: repeat(3, var(--net-cell));
-  gap: 3px;
-  --net-cell: clamp(26px, 7.4vw, 36px);
+  width: var(--seal-size);
+  height: var(--seal-size);
+  --seal-turn: 0deg;
+  rotate: var(--seal-turn);
 }
 
-.net-cell {
+/* Faces stay upright while the seal turns with the camera. */
+.seal .die-face,
+.seal .seal-floor {
+  rotate: calc(-1 * var(--seal-turn));
+}
+
+.seal-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.seal-ticks {
+  stroke: var(--line);
+}
+
+.seal-cross {
+  stroke: #242120;
+}
+
+.seal-edge {
+  stroke: var(--dim);
+  stroke-width: 1.2;
+  transition: stroke 0.12s, stroke-width 0.12s;
+}
+
+.seal-edge.blocked {
+  stroke: #4a4541;
+}
+
+.seal-edge.active {
+  stroke: var(--ivory);
+  stroke-width: 2.6;
+}
+
+.seal-edge.pulse {
+  animation: edge-pulse 0.9s ease-in-out infinite;
+}
+
+.seal-hub {
+  fill: var(--void);
+  stroke: var(--dim);
+}
+
+.seal-quad {
+  position: absolute;
+  width: 50%;
+  height: 50%;
   display: flex;
-  border-radius: 12%;
-  outline: 1px solid var(--line);
-  outline-offset: -1px;
+  align-items: center;
+  justify-content: center;
 }
 
-.net-cell .die-face {
+.seal-N { right: 0; top: 0; }
+.seal-E { right: 0; bottom: 0; }
+.seal-S { left: 0; bottom: 0; }
+.seal-W { left: 0; top: 0; }
+
+/* The sides sit on the middle of each rhombus edge. */
+.seal-slot {
+  display: flex;
+  width: calc(var(--seal-size) * 0.2);
+  height: calc(var(--seal-size) * 0.2);
+}
+
+.seal-N .seal-slot { transform: translate(-10%, 10%); }
+.seal-E .seal-slot { transform: translate(-10%, -10%); }
+.seal-S .seal-slot { transform: translate(10%, -10%); }
+.seal-W .seal-slot { transform: translate(10%, 10%); }
+
+.seal-slot .die-face,
+.seal-centre .die-face {
   width: 100%;
   height: 100%;
 }
 
-.net-top { grid-area: 1 / 2; }
-.net-west { grid-area: 2 / 1; }
-.net-south { grid-area: 2 / 2; }
-.net-east { grid-area: 2 / 3; }
-.net-north { grid-area: 2 / 4; }
-.net-bottom { grid-area: 3 / 2; }
-
-/* The top face is the one that counts. */
-.net-top {
-  outline: 1px solid var(--ivory);
-  outline-offset: 2px;
-}
-
-.net.floor .net-top {
-  outline-color: var(--line);
-  outline-offset: -1px;
-}
-
-.net.sinking .net-top {
-  outline-color: var(--carmine-bright);
-  box-shadow: 0 0 14px var(--carmine);
-}
-
-.net-cell.marked {
+.seal-quad.marked .die-face {
   outline: 2px solid var(--carmine-bright);
   outline-offset: 2px;
   animation: alarm 1.7s linear infinite;
+}
+
+.seal-centre {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--seal-size) * 0.22);
+  height: calc(var(--seal-size) * 0.22);
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seal-centre.sinking .die-face {
+  border-color: var(--carmine-bright);
+  box-shadow: 0 0 14px var(--carmine);
+}
+
+.seal-centre.sinking .pip.on {
+  background: var(--carmine-bright);
+}
+
+.seal-floor {
+  width: 46%;
+  height: 1px;
+  background: var(--dim);
 }
 
 /* Buttons, for those who would rather press than swipe */
@@ -998,6 +1091,11 @@ button {
   to { scale: 1; }
 }
 
+@keyframes edge-pulse {
+  0%, 100% { stroke: var(--dim); stroke-width: 1.2; }
+  50% { stroke: var(--carmine-bright); stroke-width: 3; }
+}
+
 /* Mostly lit, with a short stutter: enough to make the eye uneasy. */
 @keyframes alarm {
   0%, 84%, 90%, 96% { outline-color: var(--carmine-bright); }
@@ -1048,22 +1146,6 @@ button {
   }
 }
 
-/* On a wide screen the board fills the height and its front corner sits in the middle of
-   the bottom edge: the guide moves to the empty corner on the left. */
-@media (orientation: landscape) {
-  .guide {
-    left: 16px;
-    translate: none;
-    align-items: flex-start;
-    max-width: min(38%, 420px);
-  }
-
-  .guide-text {
-    align-items: flex-start;
-    text-align: left;
-  }
-}
-
 @media (orientation: landscape) and (max-height: 520px) {
   .play {
     flex-direction: row;
@@ -1079,7 +1161,8 @@ button {
 }
 
 #app.reduced-motion .danger-count,
-#app.reduced-motion .net-cell.marked,
+#app.reduced-motion .seal-edge.pulse,
+#app.reduced-motion .seal-quad.marked .die-face,
 #app.reduced-motion .dpad-btn.pulse,
 #app.reduced-motion .chain-label.bump,
 #app.reduced-motion .stage-sign.turn,
@@ -1105,4 +1188,9 @@ button {
 
 #app.reduced-motion .dpad-btn.pulse {
   box-shadow: 0 0 0 2px var(--carmine-bright);
+}
+
+#app.reduced-motion .seal-edge.pulse {
+  stroke: var(--carmine-bright);
+  stroke-width: 2.6;
 }
