@@ -5,4 +5,4 @@ export { ALL_ORIENTATIONS, roll } from './orientation';
 export { canAcceptCommand, resolveMove } from './movement';
 export { previewAll, previewMove, type MovePreview } from './preview';
 export { createRun, step, type RunOptions } from './sim';
-export { TUTORIAL_SCRIPT, isHeld, tutorialDir } from './tutorial';
+export { isHeld, tutorialDir, tutorialView, type MarkFace, type TutorialLine, type TutorialView } from './tutorial';

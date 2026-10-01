@@ -98,8 +98,8 @@ export class Hud {
     this.clock.classList.toggle('ending', showClock && remaining <= 10);
     this.tag.classList.toggle('alarm', left !== null);
     if (state.level !== this.lastLevel) {
-      // A level-up is the moment the pace picks up: make it noticed.
-      if (state.level > this.lastLevel) {
+      // A level-up is the moment the pace picks up: make it noticed. The tutorial has no pace.
+      if (state.level > this.lastLevel && state.mode !== 'practice') {
         this.tag.classList.remove('level-up');
         void this.tag.getBoundingClientRect();
         this.tag.classList.add('level-up');

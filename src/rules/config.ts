@@ -102,7 +102,6 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     gentleTicks: Math.round((t.gentleSec * 1000) / TICK_MS),
     timedTicks: msToTicks(t.timedSec * 1000),
     floorLiftTicks: msToTicks(t.liftMs),
-    tutorialEndTicks: msToTicks(1600),
     custom: isCustomTuning(tuning),
     experiments: exp,
   };

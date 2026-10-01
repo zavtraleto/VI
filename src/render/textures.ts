@@ -129,6 +129,38 @@ export function warningTexture(color: string): THREE.CanvasTexture {
   });
 }
 
+/** Glowing outline laid over a die face the tutorial points at. */
+export function faceFrameTexture(color: string): THREE.CanvasTexture {
+  return canvasTexture(128, (ctx, size) => {
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = size * 0.07;
+    ctx.lineJoin = 'round';
+    // Twice, so the glow builds up around a solid line.
+    for (let i = 0; i < 2; i++) ctx.strokeRect(size * 0.12, size * 0.12, size * 0.76, size * 0.76);
+  });
+}
+
+/** Chevron pointing to the right, for the arrows that show a move. */
+export function chevronTexture(color: string): THREE.CanvasTexture {
+  return canvasTexture(128, (ctx, size) => {
+    ctx.strokeStyle = color;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = size * 0.17;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(size * 0.32, size * 0.16);
+      ctx.lineTo(size * 0.7, size * 0.5);
+      ctx.lineTo(size * 0.32, size * 0.84);
+      ctx.stroke();
+    }
+  });
+}
+
 /** Ghost of a face for the on-board preview: pips and a thin frame on transparent. */
 export function ghostFaceTexture(value: number, color: string): THREE.CanvasTexture {
   return canvasTexture(128, (ctx, size) => {

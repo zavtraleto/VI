@@ -1,5 +1,7 @@
 # VI Tutorial Implementation Plan
 
+> **Superseded.** This plan built the first tutorial (five moves, all dice on the board at once). After the playtest it was replaced by the six-lesson tutorial described in the spec; the module layout below still holds, the script and the UI do not.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the practice run with a five-move tutorial on rails that hands straight over to Endless.

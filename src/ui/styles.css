@@ -6,6 +6,7 @@
   --carmine: #b3122f;
   --carmine-bright: #e0304e;
   --charcoal: #1c1a1a;
+  --guide: #ffd98a;
   --panel: #0c0b0b;
   --pad-size: min(56vw, 30vh, 250px);
   --serif: 'Forum', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
@@ -281,20 +282,35 @@ button {
 .guide[hidden],
 .guide-swipe[hidden],
 .guide-keys[hidden],
-.rule-tri[hidden] {
+.guide-side[hidden],
+.guide-count[hidden] {
   display: none;
+}
+
+.guide-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 18px 9px;
+  background: rgba(5, 5, 6, 0.88);
+  border-top: 1px solid var(--dim);
+  border-bottom: 1px solid var(--dim);
+  text-align: center;
+}
+
+.guide-title {
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--guide);
 }
 
 .guide-line {
   margin: 0;
-  padding: 8px 18px 9px;
-  background: rgba(5, 5, 6, 0.86);
-  border-top: 1px solid var(--dim);
-  border-bottom: 1px solid var(--dim);
   font-size: 19px;
   line-height: 1.3;
-  letter-spacing: 0.04em;
-  text-align: center;
+  letter-spacing: 0.02em;
 }
 
 .guide-line.fresh {
@@ -385,14 +401,67 @@ button {
   animation: face-pulse 0.9s ease-in-out infinite;
 }
 
-.rule-tri {
+.guide-side {
   position: absolute;
   right: 10px;
   top: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 10px;
+}
+
+.rule-tri {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 3px;
+}
+
+.guide-skip {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Count of the group and the sum of opposite faces, pinned to a point of the board */
+.guide-count {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 4px 6px;
+  background: rgba(5, 5, 6, 0.88);
+  border: 1px solid var(--guide);
+  border-radius: 3px;
+  color: var(--guide);
+  font-size: 22px;
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.guide-count .rule-cell {
+  width: 20px;
+  height: 20px;
+}
+
+.guide-count.full {
+  background: var(--guide);
+  color: #0c0b0b;
+}
+
+.guide-count.bump {
+  animation: count-bump 0.35s ease-out;
 }
 
 .rule-row {
@@ -1019,6 +1088,11 @@ button {
   50% { box-shadow: 0 0 0 2px var(--carmine-bright), 0 0 14px var(--carmine); }
 }
 
+@keyframes count-bump {
+  from { scale: 1.5; }
+  to { scale: 1; }
+}
+
 @keyframes line-in {
   from { opacity: 0; translate: 0 6px; }
   to { opacity: 1; translate: 0 0; }
@@ -1074,6 +1148,7 @@ button {
 #app.reduced-motion .stage-sign.turn,
 #app.reduced-motion .mode-tag.level-up,
 #app.reduced-motion .guide-line.fresh,
+#app.reduced-motion .guide-count.bump,
 #app.reduced-motion .guide.nudge .guide-swipe,
 #app.reduced-motion .guide.nudge .guide-keys,
 #app.reduced-motion .guide-swipe-dot,

@@ -155,8 +155,6 @@ export interface RulesConfig {
   /** Length of a Time Limited run. */
   timedTicks: number;
   floorLiftTicks: number;
-  /** Pause between the last move of the tutorial and its end. */
-  tutorialEndTicks: number;
   /** True when any tuning value differs from the defaults. */
   custom: boolean;
   experiments: ExperimentConfig;
@@ -195,9 +193,9 @@ export interface RunStats {
 export type RunMode = 'endless' | 'timed' | 'practice';
 
 export interface TutorialState {
-  /** Scripted moves made so far. */
+  /** Index of the current step of the script. */
   step: number;
-  /** Ticks since the last scripted move; runs once the script is complete. */
+  /** Ticks spent on the current step, counted while it is a pause. */
   timer: number;
   done: boolean;
 }

@@ -1,7 +1,7 @@
 import { applyMove, canAcceptCommand } from './movement';
 import { pruneReactions, removeCube, resolveLanded } from './reactions';
 import { placeStartLayout, runSpawn } from './spawn';
-import { isHeld, placeTutorialLayout, runTutorial, tutorialMove } from './tutorial';
+import { isHeld, placeTutorialLayout, runTutorial, tutorialConfig, tutorialMove } from './tutorial';
 import type { Dir, RulesConfig, RunState } from './types';
 
 export interface RunOptions {
@@ -16,7 +16,7 @@ export interface RunOptions {
 }
 
 export function createRun(opts: RunOptions): RunState {
-  const { config } = opts;
+  const config = opts.tutorial ? tutorialConfig(opts.config) : opts.config;
   const state: RunState = {
     config,
     mode: opts.tutorial ? 'practice' : opts.timed ? 'timed' : 'endless',
@@ -83,7 +83,7 @@ function finishRemovals(state: RunState): void {
 
 function finishRisings(state: RunState): void {
   for (const cube of state.cubes) {
-    if (cube.state !== 'rising') continue;
+    if (cube.state !== 'rising' || isHeld(state, cube)) continue;
     cube.t++;
     if (cube.t >= state.config.risingTicks) {
       cube.state = 'idle';

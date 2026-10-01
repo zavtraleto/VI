@@ -4,7 +4,7 @@ import { GestureTracker, bindGestures, type ScreenDirs } from '../input/gesture'
 import { bindKeyboard } from '../input/keyboard';
 import { addRun, bestOf, loadSettings, prefersReducedMotion, saveSettings, type Settings } from '../platform/settings';
 import { storageAvailable } from '../platform/storage';
-import type { TutorialMarker } from '../render/overlays';
+import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { OCCULT_THEME } from '../render/theme';
 import { BoardView } from '../render/view';
 import {
@@ -14,9 +14,9 @@ import {
   previewMove,
   resolveMove,
   ruleKey,
-  tutorialDir,
+  tutorialView,
+  DELTA,
   DIRS,
-  TUTORIAL_SCRIPT,
   type Dir,
   type GameEvent,
   type RunState,
@@ -47,8 +47,6 @@ export class Game {
   private lastFrame = 0;
   private lastStats = '';
   private resultShown = false;
-  /** Line of the tutorial text on show; it follows what has happened, not what was commanded. */
-  private guideLine = 0;
   /** Cell where the tutorial ended and Endless is about to start. */
   private handoff: { x: number; z: number } | null = null;
 
@@ -86,7 +84,7 @@ export class Game {
     this.hud = new Hud(hudEl, () => this.togglePause(), () => this.debug.toggle());
     this.labels = new ChainLabels(overlayLayer);
     this.hint = new HintBubble(overlayLayer);
-    this.guide = new TutorialGuide(overlayLayer);
+    this.guide = new TutorialGuide(overlayLayer, () => this.skipTutorial());
     this.pad = new Pad(controls, this.controller, now, () => enabled() && this.settings.controlMode === 'dpad');
     this.screens = new Screens(overlay);
     this.debug = new DebugPanel(root, this.settings, {
@@ -152,7 +150,6 @@ export class Game {
     // The seal is drawn with north at 45 degrees and east at -45; turn it by the average offset.
     const degrees = (dir: Dir) => (Math.atan2(-dirs[dir].y, dirs[dir].x) * 180) / Math.PI;
     this.pad.setRotation((degrees('N') - 45 + (degrees('E') + 45)) / 2);
-    if (this.runner && this.state.tutorial && !this.inMenu) this.syncGuide();
   }
 
   /** `start` builds the board around a cell and raises it from the floor: the tutorial's hand-off. */
@@ -189,31 +186,58 @@ export class Game {
     if (tutorial) {
       // The one-time hints of a normal run pick up where the tutorial stops.
       this.settings.hintsSeen = [];
-      this.guideLine = 0;
-      this.syncGuide();
     }
   }
 
-  /** Points the guide at the step the tutorial is waiting for. */
-  private syncGuide(): void {
-    const dir = tutorialDir(this.state);
+  /**
+   * Shows what the tutorial asks for at this moment: the lesson and its line, the input, the
+   * count of the group. Returns the part that is drawn on the board itself.
+   */
+  private updateGuide(state: RunState): BoardGuide | null {
+    const view = this.inMenu ? null : tutorialView(state);
+    if (!view) return null;
+    const { dir, mark, counter } = view;
     let glyph: InputGlyph = 'none';
     if (dir !== null) {
       if (!coarsePointer) glyph = 'keys';
       // With buttons on screen the pulsing quadrant of the seal is the prompt.
       else if (this.settings.controlMode === 'gesture') glyph = 'swipe';
     }
-    this.guide.show(this.guideLine, dir, glyph, dir ? this.screenDirs[dir] : null);
+    this.guide.show({ value: view.value, line: view.line, dir, glyph, screen: dir ? this.screenDirs[dir] : null });
     this.pad.setPulse(dir);
+    this.guide.count(
+      counter && { value: view.value, have: counter.have, need: counter.need },
+      counter && this.view.project(counter.x, 1.5, counter.z),
+    );
+    // A face on the bottom cannot be lit: the sum of opposite faces says what it is.
+    this.guide.seven(mark?.face === 'bottom' ? this.view.project(mark.x, 2.05, mark.z) : null);
+
+    // Arrows lie on the floor of the cell to go to, where it can be seen. A step onto another
+    // die, or north into the cell the player's own die hides, is drawn at the height of the dice.
+    const { player } = state;
+    const onDie = player.level === 'top';
+    const arrows: GuideArrow[] = [];
+    let { x, z } = player;
+    view.path.forEach((step, i) => {
+      const tx = x + DELTA[step].dx;
+      const tz = z + DELTA[step].dz;
+      const raised = onDie && (cubeAt(state, tx, tz) !== undefined || (i === 0 && step === 'N'));
+      // From a die the arrow starts past its edge; from the figure, right beside it.
+      arrows.push({ x, z, dir: step, y: raised ? 1 : 0.04, lead: onDie && !raised ? 0.64 : 0.42, dim: i > 0 });
+      x = tx;
+      z = tz;
+    });
+    const frames: GuideFrame[] = view.group.map((die) => ({ ...die, face: 'top', strong: false }));
+    if (mark && mark.face !== 'bottom') frames.push({ x: mark.x, z: mark.z, face: mark.face, height: 1, strong: true });
+    return { arrows, frames };
   }
 
-  /** The cell the tutorial wants the player to step into, and what a die rolled there will show. */
-  private tutorialMarker(state: RunState): TutorialMarker | null {
-    const dir = this.inMenu ? null : tutorialDir(state);
-    if (dir === null) return null;
-    const intent = resolveMove(state, dir);
-    if (intent.kind === 'blocked') return null;
-    return { x: intent.tx, z: intent.tz, raised: intent.kind === 'hop', top: intent.newOri?.top };
+  /** Leaves the tutorial for a normal run, from where the player stands. */
+  private skipTutorial(): void {
+    if (!this.state.tutorial || this.inMenu) return;
+    this.settings.tutorialDone = true;
+    saveSettings(this.settings);
+    this.handoff = { x: this.state.player.x, z: this.state.player.z };
   }
 
   private showMenu(): void {
@@ -371,7 +395,8 @@ export class Game {
   private onTick(state: RunState): void {
     this.view.notify(state.events);
     for (const event of state.events) {
-      this.audio.handle(event);
+      // Levels mean nothing in the tutorial: no fanfare for passing one.
+      if (!(state.tutorial && event.type === 'levelUp')) this.audio.handle(event);
       this.onEvent(state, event);
     }
     const { player } = state;
@@ -390,23 +415,11 @@ export class Game {
   private onEvent(state: RunState, event: GameEvent): void {
     switch (event.type) {
       case 'match':
-        if (state.tutorial) {
-          this.guide.light(event.value);
-          this.showGuideLine(state.tutorial.step);
-        } else if (state.stats.clears >= 2) {
-          this.hintOnce('hintChain');
-        }
+        if (state.tutorial) this.guide.light(event.value);
+        else if (state.stats.clears >= 2) this.hintOnce('hintChain');
         break;
-      case 'chain':
-        if (state.tutorial) {
-          this.guide.finale();
-          this.showGuideLine(state.tutorial.step);
-        }
-        break;
-      case 'tutorialStep':
-        // A hop is over at once; a roll gets its line when the dice it joins start to sink.
-        if (state.player.action?.kind === 'hop') this.guideLine = event.step;
-        this.syncGuide();
+      case 'happyOne':
+        if (state.tutorial) this.guide.light(1);
         break;
       case 'nudge':
         this.guide.nudge();
@@ -427,11 +440,6 @@ export class Game {
       default:
         break;
     }
-  }
-
-  private showGuideLine(line: number): void {
-    this.guideLine = Math.min(line, TUTORIAL_SCRIPT.length);
-    this.syncGuide();
   }
 
   private frame(time: number): void {
@@ -471,9 +479,9 @@ export class Game {
     const { experiments } = this.settings;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.root.classList.toggle('reduced-motion', reducedMotion);
-    const marker = this.tutorialMarker(state);
+    const guide = this.updateGuide(state);
     this.view.draw(state, alpha, time, {
-      overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, marker },
+      overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, guide },
       levels: this.ritual.levels,
       phaseShift: this.ritual.phaseShift,
       warn: state.cubes.length >= state.config.warnOccupied && !state.over,
