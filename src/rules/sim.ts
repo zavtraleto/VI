@@ -6,6 +6,8 @@ import type { Dir, RulesConfig, RunState } from './types';
 export interface RunOptions {
   seed: number;
   config: RulesConfig;
+  /** Time Limited instead of Endless. Ignored for the tutorial. */
+  timed?: boolean;
   tutorial?: boolean;
   /** Start with no cubes and the player on the ground. Used by tests. */
   empty?: boolean;
@@ -16,7 +18,7 @@ export function createRun(opts: RunOptions): RunState {
   const { config } = opts;
   const state: RunState = {
     config,
-    mode: opts.tutorial ? 'practice' : 'endless',
+    mode: opts.tutorial ? 'practice' : opts.timed ? 'timed' : 'endless',
     seed: opts.seed,
     tick: 0,
     rng: opts.seed | 0,
@@ -35,6 +37,7 @@ export function createRun(opts: RunOptions): RunState {
     spawnEnabled: !opts.tutorial,
     tutorial: opts.tutorial ? { phase: 'await', timer: 0 } : null,
     over: false,
+    endReason: null,
     stats: { clearTicks: [], clears: 0, blockedSteps: 0, groundTicks: 0, falls: 0, steps: 0 },
     events: [],
     nextCubeId: 1,
@@ -115,8 +118,18 @@ function checkFill(state: RunState): void {
   state.fullTicks++;
   if (state.fullTicks >= config.rescueTicks) {
     state.over = true;
+    state.endReason = 'full';
     state.events.push({ type: 'gameOver' });
   }
+}
+
+/** Time Limited ends when the clock runs out. */
+function checkClock(state: RunState): void {
+  if (state.over || state.mode !== 'timed') return;
+  if (state.tick + 1 < state.config.timedTicks) return;
+  state.over = true;
+  state.endReason = 'time';
+  state.events.push({ type: 'gameOver' });
 }
 
 /**
@@ -135,6 +148,7 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   runTutorial(state);
   runSpawn(state);
   checkFill(state);
+  checkClock(state);
 
   if (state.player.level === 'ground') state.stats.groundTicks++;
   state.tick++;

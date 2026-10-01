@@ -151,6 +151,16 @@ button {
   animation: blink 0.25s steps(2) infinite;
 }
 
+.clock {
+  font-size: 28px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.clock.ending {
+  color: var(--carmine-bright);
+}
+
 .pause-btn {
   width: 44px;
   height: 44px;
@@ -188,6 +198,7 @@ button {
 /* Play area */
 
 .play {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -233,7 +244,7 @@ button {
 .hint-bubble {
   position: absolute;
   left: 50%;
-  top: 10px;
+  bottom: 14px;
   transform: translateX(-50%);
   width: max-content;
   max-width: min(92%, 440px);
@@ -260,6 +271,16 @@ button {
   justify-content: center;
   align-items: center;
   padding: 6px 0 16px;
+}
+
+/* With swipes the seal is only a readout: small, above the board, out of the way. */
+#app.gesture .controls {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 0;
+  pointer-events: none;
+  --pad-size: clamp(84px, 24vw, 128px);
 }
 
 .pad {
@@ -488,6 +509,31 @@ button {
   border-bottom: 1px solid var(--dim);
   outline: 1px solid var(--line);
   outline-offset: 5px;
+}
+
+.menu-title {
+  margin: 0 0 4px;
+  font-size: 64px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-align: center;
+  line-height: 1;
+}
+
+.panel .menu-group {
+  margin: 6px 0 0;
+  text-align: center;
+}
+
+.menu-gap {
+  height: 6px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
+}
+
+.tab[hidden] {
+  display: none;
 }
 
 .panel h2 {

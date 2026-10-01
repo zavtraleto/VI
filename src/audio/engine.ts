@@ -164,6 +164,11 @@ export class AudioEngine {
     this.tone(98, { type: 'square', gain: 0.12, decay: 0.2 });
   }
 
+  /** One second of the closing countdown in Time Limited. */
+  tick(): void {
+    this.tone(660, { type: 'triangle', gain: 0.1, decay: 0.12 });
+  }
+
   handle(event: GameEvent): void {
     switch (event.type) {
       case 'move':

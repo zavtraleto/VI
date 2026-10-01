@@ -113,6 +113,7 @@ export interface Tuning {
   liftMs: number;
   gentleSec: number;
   rescueMs: number;
+  timedSec: number;
   helpRate: number;
   sparseFactor: number;
   crowdedFactor: number;
@@ -151,6 +152,8 @@ export interface RulesConfig {
   /** Levels over which low face values stop being favoured. */
   easyLevels: number;
   gentleTicks: number;
+  /** Length of a Time Limited run. */
+  timedTicks: number;
   floorLiftTicks: number;
   tutorialRefillTicks: number;
   /** True when any tuning value differs from the defaults. */
@@ -186,9 +189,11 @@ export interface RunStats {
   steps: number;
 }
 
+export type RunMode = 'endless' | 'timed' | 'practice';
+
 export interface RunState {
   config: RulesConfig;
-  mode: 'endless' | 'practice';
+  mode: RunMode;
   seed: number;
   tick: number;
   rng: number;
@@ -210,6 +215,8 @@ export interface RunState {
   spawnEnabled: boolean;
   tutorial: null | { phase: 'await' | 'cleared' | 'done'; timer: number };
   over: boolean;
+  /** Why the run ended: the board stayed full, or the Time Limited clock ran out. */
+  endReason: null | 'full' | 'time';
   stats: RunStats;
   /** Events produced by the most recent step. */
   events: GameEvent[];

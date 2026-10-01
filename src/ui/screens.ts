@@ -4,11 +4,20 @@ import { formatTime, h } from './dom';
 import { t, type TextKey } from './i18n';
 
 export interface ResultData {
+  title: string;
   score: number;
   best: number;
   maxChain: number;
   time: string;
   note: string | null;
+}
+
+/** One mode's runs, for the records register. */
+export interface RecordsSection {
+  label: TextKey;
+  runs: readonly RunRecord[];
+  /** Survival time only means something where the run can end early. */
+  survival: boolean;
 }
 
 export interface PauseToggles {
@@ -56,12 +65,36 @@ export class Screens {
     this.panel.scrollTop = 0;
   }
 
+  /** Main menu: pick a mode or the tutorial. */
+  showMenu(
+    tutorialFirst: boolean,
+    actions: {
+      onEndless: () => void;
+      onTimed: () => void;
+      onTutorial: () => void;
+      onRecords: () => void;
+      onPlaytest: () => void;
+    },
+  ): void {
+    this.open([
+      h('h1', { class: 'menu-title', text: 'VI' }),
+      h('h3', { class: 'menu-group', text: t('menuTrial') }),
+      button('endless', actions.onEndless, tutorialFirst ? 'plain' : 'primary'),
+      button('timed', actions.onTimed),
+      h('div', { class: 'menu-gap' }),
+      button('tutorial', actions.onTutorial, tutorialFirst ? 'primary' : 'plain'),
+      button('records', actions.onRecords),
+      button('playtest', actions.onPlaytest, 'quiet'),
+    ]);
+  }
+
   showPause(
     toggles: PauseToggles,
     actions: {
       onResume: () => void;
       onRestart: () => void;
       onRecords: () => void;
+      onMenu: () => void;
       onPlaytest: () => void;
       onToggle: (key: keyof PauseToggles) => PauseToggles;
     },
@@ -87,16 +120,20 @@ export class Screens {
       button('resume', actions.onResume, 'primary'),
       button('restart', actions.onRestart),
       button('records', actions.onRecords),
+      button('toMenu', actions.onMenu),
       h('div', { class: 'switches' }, switches),
       button('playtest', actions.onPlaytest, 'quiet'),
     ]);
   }
 
-  showResult(data: ResultData, actions: { onAgain: () => void; onRecords: () => void; onPlaytest: () => void }): void {
+  showResult(
+    data: ResultData,
+    actions: { onAgain: () => void; onRecords: () => void; onMenu: () => void; onPlaytest: () => void },
+  ): void {
     const row = (label: string, value: string) =>
       h('div', { class: 'result-row' }, [h('span', { class: 'stat-label', text: label }), h('span', { class: 'result-value', text: value })]);
     this.open([
-      h('h2', { text: t('result') }),
+      h('h2', { text: data.title }),
       h('div', { class: 'result-grid' }, [
         row(t('score'), String(data.score)),
         row(t('best'), String(data.best)),
@@ -106,27 +143,46 @@ export class Screens {
       data.note ? h('p', { class: 'note', text: data.note }) : null,
       button('again', actions.onAgain, 'primary'),
       button('records', actions.onRecords),
+      button('toMenu', actions.onMenu),
       button('playtest', actions.onPlaytest, 'quiet'),
     ]);
   }
 
-  /** Local register of the best runs; the same layout later holds the online tables. */
-  showRecords(runs: readonly RunRecord[], tickMs: number, onBack: () => void): void {
+  /** Local register of the best runs per mode; the same layout later holds the online tables. */
+  showRecords(sections: readonly RecordsSection[], initial: number, tickMs: number, onBack: () => void): void {
     const metrics: { key: RecordMetric; label: TextKey; format: (r: RunRecord) => string }[] = [
       { key: 'score', label: 'recordsScore', format: (r) => String(r.score) },
       { key: 'chain', label: 'recordsChain', format: (r) => `×${r.chain}` },
       { key: 'ticks', label: 'recordsSurvival', format: (r) => formatTime(r.ticks, tickMs) },
     ];
+    let section = Math.min(Math.max(initial, 0), sections.length - 1);
+    let metric = 0;
     const table = h('div', { class: 'register' });
-    const tabs = metrics.map((m, i) => {
-      const tab = h('button', { class: 'tab', text: t(m.label), attrs: { type: 'button' } });
-      tab.addEventListener('click', () => select(i));
+    const modeTabs = sections.map((sec, i) => {
+      const tab = h('button', { class: 'btn small', text: t(sec.label), attrs: { type: 'button' } });
+      tab.addEventListener('click', () => {
+        section = i;
+        render();
+      });
       return tab;
     });
-    const select = (index: number) => {
-      tabs.forEach((tab, i) => tab.classList.toggle('selected', i === index));
-      const metric = metrics[index];
-      const top = topRuns(runs, metric.key, 10);
+    const metricTabs = metrics.map((m, i) => {
+      const tab = h('button', { class: 'tab', text: t(m.label), attrs: { type: 'button' } });
+      tab.addEventListener('click', () => {
+        metric = i;
+        render();
+      });
+      return tab;
+    });
+    const render = () => {
+      const current = sections[section];
+      if (!current.survival && metrics[metric].key === 'ticks') metric = 0;
+      modeTabs.forEach((tab, i) => tab.classList.toggle('selected', i === section));
+      metricTabs.forEach((tab, i) => {
+        tab.classList.toggle('selected', i === metric);
+        tab.hidden = !current.survival && metrics[i].key === 'ticks';
+      });
+      const top = topRuns(current.runs, metrics[metric].key, 10);
       table.replaceChildren(
         h('div', { class: 'register-row head' }, [
           h('span', { text: t('place') }),
@@ -139,13 +195,19 @@ export class Screens {
               h('div', { class: 'register-row' }, [
                 h('span', { text: String(i + 1) }),
                 h('span', { text: r.date }),
-                h('span', { text: metric.format(r) }),
+                h('span', { text: metrics[metric].format(r) }),
               ]),
             )),
       );
     };
-    select(0);
-    this.open([h('h2', { text: t('records') }), h('div', { class: 'tabs' }, tabs), table, button('back', onBack)]);
+    render();
+    this.open([
+      h('h2', { text: t('records') }),
+      h('div', { class: 'row' }, modeTabs),
+      h('div', { class: 'tabs' }, metricTabs),
+      table,
+      button('back', onBack),
+    ]);
   }
 
   showPlaytest(

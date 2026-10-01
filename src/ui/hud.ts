@@ -34,6 +34,7 @@ export class Hud {
   private readonly next = h('span', { class: 'stage-next' });
   private readonly tag = h('span', { class: 'mode-tag' });
   private readonly danger = h('span', { class: 'danger-count' });
+  private readonly clock = h('span', { class: 'clock' });
   private readonly sign = stageSign();
   private lastScore = -1;
   private lastBest = -1;
@@ -50,7 +51,7 @@ export class Hud {
         h('span', { class: 'stat-label', text: t('score') }),
         h('div', { class: 'stat-line' }, [this.score, this.sign.el, this.next]),
       ]),
-      h('div', { class: 'hud-mid' }, [this.tag, this.danger]),
+      h('div', { class: 'hud-mid' }, [this.tag, this.danger, this.clock]),
       h('div', { class: 'stat right' }, [h('span', { class: 'stat-label', text: t('best') }), this.best]),
       this.debugButton,
       h('button', { class: 'pause-btn', attrs: { 'aria-label': t('paused'), type: 'button' }, onClick: onPause }, [
@@ -81,7 +82,7 @@ export class Hud {
         this.sign.el.classList.add('turn');
       }
     }
-    const shownBest = Math.max(best, state.mode === 'endless' ? state.score : 0);
+    const shownBest = Math.max(best, state.mode === 'practice' ? 0 : state.score);
     if (shownBest !== this.lastBest) {
       this.lastBest = shownBest;
       this.best.textContent = String(shownBest);
@@ -90,6 +91,11 @@ export class Hud {
     const level = `${t('level')} ${state.level}`;
     this.tag.textContent =
       left !== null ? t('boardFull') : state.mode === 'practice' ? `${t('practice')} · ${level}` : level;
+    // Time Limited shows its clock; the full-board countdown takes its place while it runs.
+    const remaining = Hud.clockLeft(state);
+    const showClock = remaining !== null && left === null;
+    this.clock.textContent = showClock ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}` : '';
+    this.clock.classList.toggle('ending', showClock && remaining <= 10);
     this.tag.classList.toggle('alarm', left !== null);
     if (state.level !== this.lastLevel) {
       // A level-up is the moment the pace picks up: make it noticed.
@@ -101,6 +107,13 @@ export class Hud {
       this.lastLevel = state.level;
     }
     this.danger.textContent = left === null ? '' : String(left);
+  }
+
+  /** Whole seconds left in a Time Limited run, or null in other modes. */
+  static clockLeft(state: RunState): number | null {
+    if (state.mode !== 'timed') return null;
+    const { config } = state;
+    return Math.max(0, Math.ceil(((config.timedTicks - state.tick) * config.tickMs) / 1000));
   }
 
   /** Seconds left on the full-board countdown, or null when it is not running. */

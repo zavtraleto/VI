@@ -4,6 +4,7 @@
 
 - Правила и исходная спецификация: [docs/RITE_Design_MVP.md](docs/RITE_Design_MVP.md)
 - Что решено иначе: [docs/superpowers/specs/2026-10-01-vi-mvp-design.md](docs/superpowers/specs/2026-10-01-vi-mvp-design.md)
+- Планы: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Запуск
 

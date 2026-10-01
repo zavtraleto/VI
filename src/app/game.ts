@@ -32,6 +32,9 @@ const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
 const ARROWS = ['→', '↗', '↑', '↖', '←', '↙', '↓', '↘'];
 
+/** What the player picked in the menu. */
+type RunKind = 'endless' | 'timed' | 'tutorial';
+
 /** Arrow glyph closest to a screen direction (y pointing down). */
 function arrowFor(v: { x: number; y: number }): string {
   const turns = Math.atan2(-v.y, v.x) / (Math.PI / 4);
@@ -42,6 +45,9 @@ export class Game {
   private settings: Settings = loadSettings();
   private runner!: Runner;
   private paused = false;
+  private inMenu = false;
+  private kind: RunKind = 'endless';
+  private lastClock = -1;
   private lastFrame = 0;
   private lastStats = '';
   private resultShown = false;
@@ -102,12 +108,14 @@ export class Game {
       if (document.hidden) {
         this.pause();
         this.audio.setPaused(true);
-      } else if (!this.paused) {
+      } else if (!this.paused && !this.inMenu) {
         this.audio.setPaused(false);
       }
     });
 
-    this.startRun();
+    // A board is set up behind the menu so there is something to look at.
+    this.startRun('endless');
+    this.showMenu();
     requestAnimationFrame((time) => this.frame(time));
   }
 
@@ -123,9 +131,14 @@ export class Game {
     return !this.paused && !this.state.over && !this.screens.visible;
   }
 
-  /** Records are kept per rule key, for Endless only. */
-  private recordKey(state: RunState): string {
-    return `endless:${ruleKey(state.config)}`;
+  /** Records are kept per mode and rule key. */
+  private recordKey(mode: 'endless' | 'timed'): string {
+    return `${mode}:${ruleKey(this.state.config)}`;
+  }
+
+  /** The table the current run counts towards; the tutorial shows Endless. */
+  private currentRecordKey(): string {
+    return this.recordKey(this.state.mode === 'timed' ? 'timed' : 'endless');
   }
 
   /** Points the camera and lines the controls up with where the board directions now point. */
@@ -139,11 +152,17 @@ export class Game {
     this.pad.setRotation((degrees('N') - 45 + (degrees('E') + 45)) / 2);
   }
 
-  private startRun(): void {
+  private startRun(kind: RunKind = this.kind): void {
+    this.kind = kind;
     const { experiments } = this.settings;
-    const tutorial = experiments.guidedStart && !this.settings.tutorialDone;
+    const tutorial = kind === 'tutorial';
     const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
-    this.runner = new Runner(createRun({ seed, config: defaultConfig(experiments, this.settings.tuning), tutorial }));
+    this.runner = new Runner(
+      createRun({ seed, config: defaultConfig(experiments, this.settings.tuning), tutorial, timed: kind === 'timed' }),
+    );
+    this.inMenu = false;
+    this.lastClock = -1;
+    this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
     this.hud.showDebugButton(this.settings.debugPanel);
     this.controller.cancel();
     this.ritual.reset();
@@ -166,14 +185,29 @@ export class Game {
     }
   }
 
+  private showMenu(): void {
+    this.inMenu = true;
+    this.paused = false;
+    this.controller.cancel();
+    this.audio.setPaused(true);
+    this.hint.reset();
+    this.screens.showMenu(!this.settings.tutorialDone, {
+      onEndless: () => this.startRun('endless'),
+      onTimed: () => this.startRun('timed'),
+      onTutorial: () => this.startRun('tutorial'),
+      onRecords: () => this.showRecords(() => this.showMenu()),
+      onPlaytest: () => this.showPlaytest(() => this.showMenu()),
+    });
+  }
+
   private togglePause(): void {
-    if (this.state.over) return;
+    if (this.state.over || this.inMenu) return;
     if (this.paused) this.resume();
     else this.pause();
   }
 
   private pause(): void {
-    if (this.paused || this.state.over) return;
+    if (this.paused || this.inMenu || this.state.over) return;
     this.paused = true;
     this.controller.cancel();
     this.audio.setPaused(true);
@@ -200,6 +234,7 @@ export class Game {
       onResume: () => this.resume(),
       onRestart: () => this.startRun(),
       onRecords: () => this.showRecords(() => this.showPause()),
+      onMenu: () => this.showMenu(),
       onPlaytest: () => this.showPlaytest(() => this.showPause()),
       onToggle: (key) => {
         if (key === 'muted') {
@@ -218,7 +253,15 @@ export class Game {
 
   private showRecords(back: () => void): void {
     const state = this.state;
-    this.screens.showRecords(this.settings.runs[this.recordKey(state)] ?? [], state.config.tickMs, back);
+    this.screens.showRecords(
+      [
+        { label: 'endless', runs: this.settings.runs[this.recordKey('endless')] ?? [], survival: true },
+        { label: 'timed', runs: this.settings.runs[this.recordKey('timed')] ?? [], survival: false },
+      ],
+      state.mode === 'timed' ? 1 : 0,
+      state.config.tickMs,
+      back,
+    );
   }
 
   private showPlaytest(back: () => void): void {
@@ -234,11 +277,10 @@ export class Game {
       },
       onBack: back,
       onReplayTutorial: () => {
-        this.settings.tutorialDone = false;
         this.settings.hintsSeen = [];
         this.settings.experiments.guidedStart = true;
         saveSettings(this.settings);
-        this.startRun();
+        this.startRun('tutorial');
       },
     });
   }
@@ -246,7 +288,7 @@ export class Game {
   private showResult(): void {
     const state = this.state;
     this.lastStats = statsText(state);
-    const key = this.recordKey(state);
+    const key = this.currentRecordKey();
     const previous = bestOf(this.settings, key, 'score');
     let note: string | null = null;
     if (state.mode === 'practice') {
@@ -267,6 +309,7 @@ export class Game {
     const result = () =>
       this.screens.showResult(
         {
+          title: t(state.endReason === 'time' ? 'timeUp' : 'result'),
           score: state.score,
           best: bestOf(this.settings, key, 'score'),
           maxChain: state.maxChain,
@@ -276,6 +319,7 @@ export class Game {
         {
           onAgain: () => this.startRun(),
           onRecords: () => this.showRecords(result),
+          onMenu: () => this.showMenu(),
           onPlaytest: () => this.showPlaytest(result),
         },
       );
@@ -341,7 +385,7 @@ export class Game {
     const dt = this.lastFrame === 0 ? 0 : Math.max(0, time - this.lastFrame);
     this.lastFrame = time;
 
-    const running = !this.paused && !this.state.over;
+    const running = !this.paused && !this.inMenu && !this.state.over;
     let alpha = 0;
     if (running) {
       alpha = this.runner.advance(dt, () => this.controller.take(this.now()), (s) => this.onTick(s));
@@ -357,6 +401,12 @@ export class Game {
     if (reached.length > 0) this.audio.setStage(this.ritual.stage);
     const secondsLeft = Hud.secondsLeft(state);
     this.audio.warn(secondsLeft);
+    // The last ten seconds of a Time Limited run are counted out loud.
+    const clock = Hud.clockLeft(state);
+    if (clock !== null && clock !== this.lastClock) {
+      if (running && clock <= 10 && clock > 0 && this.lastClock !== -1) this.audio.tick();
+      this.lastClock = clock;
+    }
 
     const { experiments } = this.settings;
     const reducedMotion = prefersReducedMotion(this.settings);
@@ -371,7 +421,7 @@ export class Game {
       reducedMotion,
       shake: this.settings.shake,
     });
-    this.hud.update(state, bestOf(this.settings, this.recordKey(state), 'score'), this.ritual.stage);
+    this.hud.update(state, bestOf(this.settings, this.currentRecordKey(), 'score'), this.ritual.stage);
     this.labels.update(state, this.view);
     this.pad.update(state, experiments.matchHint);
     this.pad.setActive(this.tracker.direction);

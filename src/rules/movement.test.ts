@@ -268,7 +268,7 @@ describe('rolling over low cubes', () => {
     expect(s.events).toContainEqual({ type: 'displaced', cubeId: rising.id });
     expect([rising.x, rising.z]).toEqual([3, 2]); // nearest free, lowest index first
     expect(rising.state).toBe('rising');
-    expect(rising.t).toBeLessThanOrEqual(1);
+    expect(rising.t).toBe(21); // it keeps the progress it had
     run(s, s.config.actionTicks);
     expect([own.x, own.z]).toEqual([3, 3]);
     expect(cubeAt(s, 3, 3)).toBe(own);

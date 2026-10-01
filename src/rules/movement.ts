@@ -127,9 +127,9 @@ export function applyMove(state: RunState, dir: Dir): boolean {
     if (intent.displaced && intent.displaceTo) {
       const moved = intent.displaced;
       state.grid[cellIndex(config.size, moved.x, moved.z)] = 0;
+      // It keeps rising from where it had got to; only the cell changes.
       moved.x = intent.displaceTo.x;
       moved.z = intent.displaceTo.z;
-      moved.t = 0;
       state.grid[cellIndex(config.size, moved.x, moved.z)] = moved.id;
       state.events.push({ type: 'displaced', cubeId: moved.id });
     }

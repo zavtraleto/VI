@@ -403,6 +403,35 @@ describe('lift', () => {
   });
 });
 
+describe('time limited', () => {
+  it('ends when the clock runs out and says why', () => {
+    const s = createRun({ seed: 5, config: defaultConfig({}, { timedSec: 30 }), timed: true });
+    expect(s.mode).toBe('timed');
+    run(s, s.config.timedTicks - 1);
+    expect(s.over).toBe(false);
+    step(s, null);
+    expect(s.over).toBe(true);
+    expect(s.endReason).toBe('time');
+    expect(s.events).toContainEqual({ type: 'gameOver' });
+    expect(s.tick).toBe(s.config.timedTicks);
+  });
+
+  it('does not put a clock on Endless', () => {
+    const s = createRun({ seed: 5, config: defaultConfig({}, { timedSec: 30 }) });
+    run(s, s.config.timedTicks + 100);
+    expect(s.over).toBe(false);
+    expect(s.endReason).toBeNull();
+  });
+
+  it('reports a full board as the reason in Endless', () => {
+    const s = emptyRun();
+    fill(s, 49);
+    place(s, 0, 0, 'top');
+    run(s, s.config.rescueTicks);
+    expect(s.endReason).toBe('full');
+  });
+});
+
 describe('tutorial', () => {
   it('stages the first clear with a single roll north', () => {
     const s = createRun({ seed: 3, config: defaultConfig(), tutorial: true });
