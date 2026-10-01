@@ -285,37 +285,29 @@ button {
 .guide-text[hidden],
 .guide-swipe[hidden],
 .guide-keys[hidden],
-.guide-side[hidden],
 .guide-count[hidden] {
   display: none;
 }
 
-/* Top and centre, where the eye goes first. Between the seal and the triangle on a wide
-   screen, under them on a narrow one. */
+/* At the very top of the stage, centred. The board is laid out below it and is never
+   covered. On a narrow screen it runs the whole width, over the seal. */
 .guide-text {
   position: absolute;
   left: 50%;
-  top: 10px;
+  top: 6px;
+  z-index: 2;
   translate: -50% 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   width: max-content;
-  max-width: min(calc(100% - 2 * var(--seal-size) - 72px), 880px);
-  padding: 9px 22px 12px;
+  max-width: min(calc(100% - 2 * var(--seal-size) - 40px), 880px);
+  padding: clamp(4px, 1.2vh, 9px) 22px clamp(6px, 1.6vh, 12px);
   background: rgba(5, 5, 6, 0.9);
   border-top: 1px solid var(--dim);
   border-bottom: 1px solid var(--dim);
   text-align: center;
-}
-
-@media (orientation: portrait) {
-  .guide-text {
-    /* Below whichever is taller: the seal or the six rows of the triangle. */
-    top: max(calc(var(--seal-size) + 22px), 140px);
-    max-width: 94%;
-  }
 }
 
 .guide-title {
@@ -326,10 +318,40 @@ button {
 }
 
 .guide-line {
+  display: flex;
+  align-items: center;
   margin: 0;
-  font-size: clamp(23px, 1.2vw + 14px, 30px);
+  /* Large where there is room; on a low, wide screen the height decides. */
+  font-size: clamp(16px, min(1.2vw + 14px, 4.6vh), 30px);
   line-height: 1.25;
   letter-spacing: 0.02em;
+}
+
+@media (orientation: portrait) {
+  .guide-text {
+    top: 4px;
+    gap: 1px;
+    width: calc(100% - 12px);
+    max-width: none;
+    padding: 4px 8px 6px;
+    background: var(--void);
+  }
+
+  .guide-title {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+  }
+
+  .guide-line {
+    font-size: clamp(15px, 4.4vw, 19px);
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  /* The text takes the seal's place for the length of the tutorial. */
+  #app.in-tutorial .seal {
+    visibility: hidden;
+  }
 }
 
 .guide-line.fresh {
@@ -420,23 +442,6 @@ button {
   animation: face-pulse 0.9s ease-in-out infinite;
 }
 
-.guide-side {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.rule-tri {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
-
 .guide-skip {
   position: absolute;
   right: 6px;
@@ -472,7 +477,7 @@ button {
   white-space: nowrap;
 }
 
-.guide-count .rule-cell {
+.guide-count .guide-face {
   width: 20px;
   height: 20px;
 }
@@ -486,29 +491,13 @@ button {
   animation: count-bump 0.35s ease-out;
 }
 
-.rule-row {
+.guide-face {
   display: flex;
-  gap: 3px;
-  opacity: 0.32;
-  filter: saturate(0);
-  transition: opacity 0.3s, filter 0.3s;
 }
 
-.rule-cell {
-  display: flex;
-  width: 17px;
-  height: 17px;
-}
-
-.rule-cell .die-face {
+.guide-face .die-face {
   width: 100%;
   height: 100%;
-}
-
-.rule-row.lit {
-  opacity: 1;
-  filter: none;
-  animation: row-lit 0.5s ease-out;
 }
 
 /* The orientation seal: the die under the player, opened out. The top face is in the
@@ -1130,11 +1119,6 @@ button {
   100% { translate: calc(var(--sx) * 24px) calc(var(--sy) * 24px); opacity: 0; }
 }
 
-@keyframes row-lit {
-  from { scale: 1.5; filter: drop-shadow(0 0 8px var(--carmine-bright)); }
-  to { scale: 1; filter: none; }
-}
-
 @keyframes sign-turn {
   from { rotate: -120deg; scale: 1.7; }
   to { rotate: 0deg; scale: 1; }
@@ -1172,8 +1156,7 @@ button {
 #app.reduced-motion .guide.nudge .guide-swipe,
 #app.reduced-motion .guide.nudge .guide-keys,
 #app.reduced-motion .guide-swipe-dot,
-#app.reduced-motion .key.lit,
-#app.reduced-motion .rule-row.lit {
+#app.reduced-motion .key.lit {
   animation: none;
 }
 

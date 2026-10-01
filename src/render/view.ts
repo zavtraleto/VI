@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { DELTA, cubeAt, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { CubeMeshes } from './cubes';
+import { fitBoard, type FrameBounds } from './framing';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { PlayerFigure } from './player';
 import { CubeSprings } from './springs';
@@ -89,10 +90,10 @@ export class BoardView {
   private readonly tmp = new THREE.Vector3();
   private readonly slabHalf: number;
   /** Extents of the scene on the camera's right and up axes, relative to the target. */
-  private bounds = { minR: -1, maxR: 1, minU: -1, maxU: 1 };
+  private bounds: FrameBounds = { minR: -1, maxR: 1, minU: -1, maxU: 1, floorU: 0 };
   private width = 1;
-  /** How far down the board is asked to sit, in CSS pixels, to leave room above it. */
-  private drop = 0;
+  /** Height at the top of the stage, in CSS pixels, that the floor must stay out of. */
+  private clear = 0;
   private height = 1;
   private lastTime = 0;
   private backgroundCss = '';
@@ -177,7 +178,7 @@ export class BoardView {
     // Side to side only the cells have to: on a narrow screen the board is as large as it
     // can be, and the tips of the slab's rim run off the edges, as the ring of the late
     // stages does.
-    const b = { minR: Infinity, maxR: -Infinity, minU: Infinity, maxU: -Infinity };
+    const b: FrameBounds = { minR: Infinity, maxR: -Infinity, minU: Infinity, maxU: -Infinity, floorU: -Infinity };
     const p = new THREE.Vector3();
     const cellsHalf = this.slabHalf - RIM;
     for (const sx of [-1, 1]) {
@@ -190,16 +191,20 @@ export class BoardView {
           b.minU = Math.min(b.minU, u);
           b.maxU = Math.max(b.maxU, u);
         }
+        b.floorU = Math.max(b.floorU, p.set(sx * this.slabHalf, 0, sz * this.slabHalf).dot(this.cameraUp));
       }
     }
     this.bounds = b;
     this.resize();
   }
 
-  /** Asks the board to sit lower on a tall screen, leaving `pixels` more room above it. */
-  setDrop(pixels: number): void {
-    if (pixels === this.drop) return;
-    this.drop = pixels;
+  /**
+   * Keeps the top `pixels` of the stage free of the floor: the board moves down where the
+   * screen has height to spare and is drawn smaller where it has none.
+   */
+  setClear(pixels: number): void {
+    if (pixels === this.clear) return;
+    this.clear = pixels;
     this.resize();
   }
 
@@ -218,14 +223,13 @@ export class BoardView {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
     this.renderer.setSize(this.width, this.height, false);
     const aspect = this.width / this.height;
-    const { minR, maxR, minU, maxU } = this.bounds;
-    const needHalfWidth = (maxR - minR) / 2 + SIDE_MARGIN;
-    const needHalfHeight = (maxU - minU) / 2 + FRAME_MARGIN;
-    const halfHeight = Math.max(needHalfHeight, needHalfWidth / aspect);
-    const centreR = (minR + maxR) / 2;
-    // The board moves down only into height it does not need: on a wide screen it stays put.
-    const perPixel = (halfHeight * 2) / this.height;
-    const centreU = (minU + maxU) / 2 + Math.min(this.drop * perPixel, halfHeight - needHalfHeight);
+    const { halfHeight, centreR, centreU } = fitBoard(
+      this.bounds,
+      aspect,
+      this.clear / this.height,
+      SIDE_MARGIN,
+      FRAME_MARGIN,
+    );
     this.camera.top = centreU + halfHeight;
     this.camera.bottom = centreU - halfHeight;
     this.camera.left = centreR - halfHeight * aspect;

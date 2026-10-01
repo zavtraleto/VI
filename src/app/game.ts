@@ -36,8 +36,8 @@ import { statsText } from './stats';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
-/** How much lower the board sits during the tutorial where the screen has height to spare. */
-const TUTORIAL_DROP_PX = 76;
+/** Space between the tutorial's text and the far corner of the board. */
+const GUIDE_GAP_PX = 8;
 
 /** What the player picked in the menu. */
 type RunKind = 'endless' | 'timed' | 'tutorial';
@@ -106,6 +106,10 @@ export class Game {
     this.tracker = new GestureTracker(this.controller, now, () => CARDINAL_DIRS);
     bindGestures(play, this.tracker, () => enabled() && this.settings.controlMode === 'gesture');
     bindKeyboard(this.controller, now, enabled, () => this.togglePause());
+
+    // The text of the tutorial wraps differently once the screen turns or the font arrives.
+    window.addEventListener('resize', () => this.layoutGuide());
+    void document.fonts?.ready.then(() => this.layoutGuide());
 
     // Browsers keep audio locked until the first user gesture.
     const unlock = () => this.audio.unlock();
@@ -181,8 +185,6 @@ export class Game {
     this.controller.cancel();
     this.ritual.reset();
     this.view.reset(start !== undefined);
-    // On a phone the tutorial's text sits above the board: make room for it.
-    this.view.setDrop(tutorial ? TUTORIAL_DROP_PX : 0);
     this.audio.setStage(0);
     this.audio.warn(null);
     this.audio.setPaused(false);
@@ -198,6 +200,17 @@ export class Game {
       // The one-time hints of a normal run pick up where the tutorial stops.
       this.settings.hintsSeen = [];
     }
+    this.layoutGuide();
+  }
+
+  /**
+   * Lays the board out below the tutorial's text, so the text never covers it. Outside the
+   * tutorial the board has the whole stage.
+   */
+  private layoutGuide(): void {
+    const active = this.state.tutorial !== null && !this.inMenu;
+    this.root.classList.toggle('in-tutorial', active);
+    this.view.setClear(active ? this.guide.reserve() + GUIDE_GAP_PX : 0);
   }
 
   /**
@@ -261,6 +274,7 @@ export class Game {
     this.audio.setPaused(true);
     this.hint.reset();
     this.guide.hide();
+    this.layoutGuide();
     this.dpad.setPulse(null);
     this.screens.showMenu(!this.settings.tutorialDone, {
       onEndless: () => this.startRun('endless'),
@@ -429,11 +443,7 @@ export class Game {
   private onEvent(state: RunState, event: GameEvent): void {
     switch (event.type) {
       case 'match':
-        if (state.tutorial) this.guide.light(event.value);
-        else if (state.stats.clears >= 2) this.hintOnce('hintChain');
-        break;
-      case 'happyOne':
-        if (state.tutorial) this.guide.light(1);
+        if (state.stats.clears >= 2) this.hintOnce('hintChain');
         break;
       case 'nudge':
         this.guide.nudge();

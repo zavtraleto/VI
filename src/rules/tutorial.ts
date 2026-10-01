@@ -151,6 +151,11 @@ const SCRIPT: readonly Scripted[] = [
   ]),
 ];
 
+/** Every line the tutorial shows, in order of appearance. */
+export const TUTORIAL_LINES: readonly TutorialLine[] = [
+  ...new Set(SCRIPT.flatMap((step) => (step.line ? [step.line] : []))),
+];
+
 /** Moves of the whole tutorial, in order. */
 export const TUTORIAL_MOVES: readonly Dir[] = SCRIPT.flatMap((step) => (step.do === 'move' ? [step.dir] : []));
 
