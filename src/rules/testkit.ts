@@ -1,0 +1,50 @@
+import { defaultConfig } from './config';
+import { ALL_ORIENTATIONS } from './orientation';
+import { createRun, step } from './sim';
+import { addCube } from './spawn';
+import type { Cube, CubeState, Dir, ExperimentConfig, Level, Orientation, RunState } from './types';
+
+/** Empty board, timed spawning off, player on the ground at the start cell. */
+export function emptyRun(experiments: Partial<ExperimentConfig> = {}, seed = 1): RunState {
+  const state = createRun({ seed, config: defaultConfig(experiments), empty: true });
+  state.spawnEnabled = false;
+  return state;
+}
+
+/** First orientation matching every given face. */
+export function ori(faces: Partial<Orientation>): Orientation {
+  const found = ALL_ORIENTATIONS.find((o) =>
+    (Object.keys(faces) as (keyof Orientation)[]).every((k) => o[k] === faces[k]),
+  );
+  if (!found) throw new Error(`no orientation for ${JSON.stringify(faces)}`);
+  return found;
+}
+
+export function put(state: RunState, x: number, z: number, top: number, cubeState: CubeState = 'idle'): Cube {
+  return addCube(state, x, z, ori({ top }), cubeState);
+}
+
+export function putOri(state: RunState, x: number, z: number, faces: Partial<Orientation>): Cube {
+  return addCube(state, x, z, ori(faces));
+}
+
+export function place(state: RunState, x: number, z: number, level: Level): void {
+  state.player = { x, z, level };
+}
+
+export function run(state: RunState, ticks: number): void {
+  for (let i = 0; i < ticks; i++) step(state, null);
+}
+
+/** Issues a command and runs until the action has completed. */
+export function act(state: RunState, dir: Dir): boolean {
+  const accepted = step(state, dir);
+  run(state, state.config.actionTicks);
+  return accepted;
+}
+
+/** State without per-tick bookkeeping, for "nothing changed" comparisons. */
+export function snapshot(state: RunState): string {
+  const { events: _e, stats: _s, tick: _t, groundStreak: _g, ...rest } = state;
+  return JSON.stringify(rest);
+}
