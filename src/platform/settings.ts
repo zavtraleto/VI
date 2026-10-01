@@ -33,8 +33,10 @@ export interface Settings {
 
 const KEY = 'vi.settings.v3';
 
-/** Board turned towards the player and seen more from above than the classic diamond. */
-export const DEFAULT_CAMERA = { yaw: 25, pitch: 48 } as const;
+/** Board turned towards the player a little from the classic diamond. */
+export const DEFAULT_CAMERA = { yaw: 30, pitch: 38 } as const;
+/** Earlier default, replaced on load unless the player had tuned the camera themselves. */
+const OLD_CAMERA = { yaw: 25, pitch: 48 } as const;
 const MAX_RUNS = 60;
 
 export function loadSettings(): Settings {
@@ -54,6 +56,9 @@ export function loadSettings(): Settings {
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
+  if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
+    loaded.camera = { ...DEFAULT_CAMERA };
+  }
   return loaded;
 }
 

@@ -29,9 +29,10 @@ function wouldClear(
     );
 
   if (value === 1) {
-    if (!over && !others(x, z).some((c) => c.state === 'sinking')) return false;
+    const chained = (c: Cube) => c.state === 'sinking' && c.reactionId !== 0;
+    if (!(over && over.reactionId !== 0) && !others(x, z).some(chained)) return false;
     // A pushed 1 sinks itself; a ridden 1 stays, so it needs another 1 to take away.
-    if (!ridden) return true;
+    if (!ridden || state.config.experiments.soloOne) return true;
     return state.cubes.some((c) => c.id !== movingId && c.state === 'idle' && c.ori.top === 1);
   }
 

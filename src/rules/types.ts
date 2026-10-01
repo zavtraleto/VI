@@ -92,6 +92,8 @@ export interface ExperimentConfig {
   matchHint: boolean;
   floorClimb: boolean;
   floorLift: boolean;
+  /** A 1 that touches a chain sinks alone instead of taking every other 1 with it. */
+  soloOne: boolean;
 }
 
 /** Gameplay variables exposed in the debug panel. Times are in milliseconds. */
@@ -106,9 +108,15 @@ export interface Tuning {
   cubesPerLevel: number;
   startCubes: number;
   lowHeight: number;
+  mountHeight: number;
+  stepDownHeight: number;
   liftMs: number;
   gentleSec: number;
   rescueMs: number;
+  helpRate: number;
+  sparseFactor: number;
+  crowdedFactor: number;
+  easyLevels: number;
 }
 
 export interface RulesConfig {
@@ -129,8 +137,19 @@ export interface RulesConfig {
   cubesPerLevel: number;
   warnOccupied: number;
   rescueTicks: number;
-  /** Height at or below which a rising/sinking cube can be stepped on, off or rolled over. */
+  /** Height at or below which a rising/sinking cube can be rolled over. */
   lowHeight: number;
+  /** Height at or below which a rising/sinking cube can be stepped onto from the ground. */
+  mountHeight: number;
+  /** Height at or below which the player can step off their rising/sinking cube to the ground. */
+  stepDownHeight: number;
+  /** Share of spawns that are placed and oriented to be useful, at level 1. */
+  helpRate: number;
+  /** Spawn interval multiplier on a nearly empty board and on a crowded one. */
+  sparseFactor: number;
+  crowdedFactor: number;
+  /** Levels over which low face values stop being favoured. */
+  easyLevels: number;
   gentleTicks: number;
   floorLiftTicks: number;
   tutorialRefillTicks: number;

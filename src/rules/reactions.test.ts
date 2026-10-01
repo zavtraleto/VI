@@ -271,15 +271,33 @@ describe('Happy One', () => {
     expect(s.score).toBe(after);
   });
 
-  it('counts sinking 1s as sinking dice for the next 1', () => {
+  it('needs a chain: a 1 brought next to sinking 1s does nothing', () => {
     const s = sinkingPair();
     put(s, 2, 1, 1);
     place(s, 2, 2, 'ground');
-    act(s, 'N'); // the 1 at (2,0) is now sinking
+    act(s, 'N'); // the 1 at (2,0) is now sinking, but it is not part of a chain
     const second = put(s, 3, 1, 1);
+    const far = put(s, 6, 6, 1);
     place(s, 3, 2, 'ground');
-    act(s, 'N'); // pushed to (3,0), next to the sinking 1
-    expect(second.state).toBe('sinking');
+    expect(previewMove(s, 'N').clears).toBe(false);
+    act(s, 'N'); // pushed to (3,0), next to the sinking 1 only
+    expect(second.state).toBe('idle');
+    expect(far.state).toBe('idle');
+    expect(s.score).toBe(5);
+  });
+
+  it('with soloOne sinks only the 1 that touched the chain, even under the player', () => {
+    const s = emptyRun({ soloOne: true });
+    put(s, 0, 0, 2);
+    land(s, put(s, 1, 0, 2));
+    const own = putOri(s, 2, 1, { top: 2, south: 1 });
+    const far = put(s, 6, 6, 1);
+    place(s, 2, 1, 'top');
+    expect(previewMove(s, 'N')).toEqual({ kind: 'roll', top: 1, clears: true });
+    act(s, 'N');
+    expect(own.state).toBe('sinking');
+    expect(far.state).toBe('idle');
+    expect(s.score).toBe(4 + 1);
   });
 });
 

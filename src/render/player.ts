@@ -39,12 +39,12 @@ export class PlayerFigure {
     }
   }
 
-  sync(state: RunState, alpha: number): void {
+  sync(state: RunState, alpha: number, dip: (cubeId: number) => number): void {
     const { player, config } = state;
     const supportHeight = (x: number, z: number, level: Level): number => {
       if (level === 'ground') return 0;
       const cube = cubeAt(state, x, z);
-      return cube ? cubeHeight(cube, config, alpha) : 0;
+      return cube ? cubeHeight(cube, config, alpha) + dip(cube.id) : 0;
     };
 
     const toY = supportHeight(player.x, player.z, player.level);

@@ -101,13 +101,15 @@ function startReaction(state: RunState, component: Cube[]): void {
 }
 
 /**
- * Happy One: a 1 brought next to dice that are already sinking makes every resting 1
- * sink, except the one the player is standing on.
+ * Happy One: a 1 connected to a running chain makes every resting 1 on the board sink,
+ * except the one the player is standing on. With `soloOne` only the connected 1 sinks.
  */
-function happyOne(state: RunState): void {
+function happyOne(state: RunState, trigger: Cube): void {
   const { player } = state;
   const own = player.level === 'top' ? cubeAt(state, player.x, player.z) : undefined;
-  const victims = state.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1 && c !== own);
+  const victims = state.config.experiments.soloOne
+    ? [trigger]
+    : state.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1 && c !== own);
   if (victims.length === 0) return;
   for (const cube of victims) startSinking(cube, 0);
   state.score += victims.length;
@@ -123,8 +125,11 @@ function happyOne(state: RunState): void {
 export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void {
   if (cube.state !== 'idle') return;
   if (cube.ori.top === 1) {
-    const touching = over !== undefined || neighbours(state, cube.x, cube.z).some((n) => n.state === 'sinking');
-    if (touching) happyOne(state);
+    // Only a chain counts: 1s that are themselves sinking do not set off another Happy One.
+    const touching =
+      (over !== undefined && over.reactionId !== 0) ||
+      neighbours(state, cube.x, cube.z).some((n) => n.state === 'sinking' && n.reactionId !== 0);
+    if (touching) happyOne(state, cube);
     return;
   }
   const component = componentOf(state, cube);

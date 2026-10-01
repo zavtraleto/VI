@@ -14,6 +14,7 @@ export function defaultExperiments(): ExperimentConfig {
     matchHint: false,
     floorClimb: false,
     floorLift: true,
+    soloOne: false,
   };
 }
 
@@ -24,14 +25,20 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   riseMs: 3000,
   sinkMs: 5000,
   spawnStartMs: 5000,
-  spawnStepMs: 150,
+  spawnStepMs: 250,
   spawnMinMs: 1500,
-  cubesPerLevel: 20,
+  cubesPerLevel: 12,
   startCubes: 10,
   lowHeight: 0.5,
-  liftMs: 2500,
+  mountHeight: 0.75,
+  stepDownHeight: 0.75,
+  liftMs: 4000,
   gentleSec: 180,
   rescueMs: 3000,
+  helpRate: 0.65,
+  sparseFactor: 0.5,
+  crowdedFactor: 1.2,
+  easyLevels: 6,
 };
 
 /** Slider limits for the debug panel: [min, max, step]. */
@@ -46,9 +53,15 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   cubesPerLevel: [5, 60, 1],
   startCubes: [2, 30, 1],
   lowHeight: [0.1, 0.9, 0.05],
+  mountHeight: [0.1, 1, 0.05],
+  stepDownHeight: [0.1, 1, 0.05],
   liftMs: [500, 10000, 250],
   gentleSec: [0, 600, 15],
   rescueMs: [1000, 10000, 500],
+  helpRate: [0, 1, 0.05],
+  sparseFactor: [0.2, 1, 0.05],
+  crowdedFactor: [1, 2, 0.05],
+  easyLevels: [1, 15, 1],
 };
 
 export function isCustomTuning(tuning: Partial<Tuning>): boolean {
@@ -61,7 +74,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
   const exp = { ...defaultExperiments(), ...experiments };
   const t = { ...DEFAULT_TUNING, ...tuning };
   return {
-    rulesVersion: '0.2',
+    rulesVersion: '0.3',
     size: 7,
     tickMs: TICK_MS,
     startCubes: Math.max(2, Math.round(t.startCubes)),
@@ -78,6 +91,12 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     warnOccupied: 42,
     rescueTicks: msToTicks(t.rescueMs),
     lowHeight: t.lowHeight,
+    mountHeight: t.mountHeight,
+    stepDownHeight: t.stepDownHeight,
+    helpRate: t.helpRate,
+    sparseFactor: t.sparseFactor,
+    crowdedFactor: t.crowdedFactor,
+    easyLevels: Math.max(1, Math.round(t.easyLevels)),
     gentleTicks: Math.round((t.gentleSec * 1000) / TICK_MS),
     floorLiftTicks: msToTicks(t.liftMs),
     tutorialRefillTicks: msToTicks(1000),
@@ -89,11 +108,37 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
 /** Records are kept separately for each combination of rule-changing flags. */
 export function ruleKey(config: RulesConfig): string {
   const e = config.experiments;
-  const flags = [e.gentleStart ? 'g' : '', e.floorClimb ? 'c' : '', e.floorLift ? 'l' : ''].join('');
+  const flags = [e.gentleStart ? 'g' : '', e.floorClimb ? 'c' : '', e.floorLift ? 'l' : '', e.soloOne ? 's' : ''].join('');
   return `${config.rulesVersion}${flags ? '-' + flags : ''}`;
 }
 
-export function spawnIntervalTicks(config: RulesConfig, level: number): number {
-  const ms = Math.max(config.spawnMinMs, config.spawnIntervalMs - config.spawnStepMs * (level - 1));
-  return msToTicks(ms);
+/** Board fill at which spawning is at its fastest and at its slowest. */
+const SPARSE_CUBES = 10;
+const CROWDED_CUBES = 30;
+
+/**
+ * Time between spawns. It shortens with the level, and stretches with how full the board
+ * is: a thin board refills quickly so there is always something to do, a crowded one
+ * gives the player room to clear.
+ */
+export function spawnIntervalTicks(config: RulesConfig, level: number, cubes: number): number {
+  const byLevel = Math.max(config.spawnMinMs, config.spawnIntervalMs - config.spawnStepMs * (level - 1));
+  const fill = Math.min(1, Math.max(0, (cubes - SPARSE_CUBES) / (CROWDED_CUBES - SPARSE_CUBES)));
+  const factor = config.sparseFactor + (config.crowdedFactor - config.sparseFactor) * fill;
+  return msToTicks(byLevel * factor);
+}
+
+/**
+ * Relative chance of each top value (index 0 = the 1) for a new cube. Early levels favour
+ * 2s and 3s, which clear with few cubes; by `easyLevels` every value is equally likely.
+ */
+export function topWeights(config: RulesConfig, level: number): number[] {
+  const easy = [0.6, 3, 3, 2, 1, 0.8];
+  const blend = Math.min(1, (level - 1) / Math.max(1, config.easyLevels - 1));
+  return easy.map((w) => w + (1 - w) * blend);
+}
+
+/** Share of helpful spawns at a level: generous at first, tapering off as the level rises. */
+export function helpChance(config: RulesConfig, level: number): number {
+  return config.helpRate * Math.max(0.35, 1 - 0.07 * (level - 1));
 }

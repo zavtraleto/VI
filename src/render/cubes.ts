@@ -6,8 +6,8 @@ import { cubeFaceTexture, pipMaskTexture } from './textures';
 import type { Theme } from './theme';
 
 /**
- * How a cube is drawn. The "low" looks are see-through: they mark a rising or sinking
- * cube that is low enough to step onto or roll over.
+ * How a cube is drawn. The "low" looks are see-through: a rising cube that can still be
+ * stepped onto from the ground, or a sinking cube that can be rolled over.
  */
 type Look = 'idle' | 'rising' | 'risingLow' | 'sinking' | 'sinkingLow';
 
@@ -69,12 +69,12 @@ export class CubeMeshes {
 
   private look(cube: Cube, state: RunState): Look {
     if (cube.state === 'idle' || cube.state === 'moving') return 'idle';
-    const low = cubeHeight(cube, state.config) <= state.config.lowHeight;
-    if (cube.state === 'rising') return low ? 'risingLow' : 'rising';
-    return low ? 'sinkingLow' : 'sinking';
+    const height = cubeHeight(cube, state.config);
+    if (cube.state === 'rising') return height <= state.config.mountHeight ? 'risingLow' : 'rising';
+    return height <= state.config.lowHeight ? 'sinkingLow' : 'sinking';
   }
 
-  sync(state: RunState, alpha: number, glow: CubeGlow): void {
+  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number): void {
     for (const m of this.materials.idle) m.emissiveIntensity = glow.idle;
     for (const look of ['rising', 'risingLow'] as const) {
       for (const m of this.materials[look]) m.emissiveIntensity = glow.idle * 0.5;
@@ -94,6 +94,7 @@ export class CubeMeshes {
       }
       mesh.material = this.materials[this.look(cube, state)];
       this.pose(mesh, cube, state, alpha);
+      if (cube.state !== 'moving') mesh.position.y += dip(cube.id);
     }
     for (const [id, mesh] of this.meshes) {
       if (alive.has(id)) continue;

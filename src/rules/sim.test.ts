@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cubeAt, freeCells } from './board';
-import { DEFAULT_TUNING, defaultConfig, isCustomTuning, ruleKey, spawnIntervalTicks } from './config';
+import { DEFAULT_TUNING, defaultConfig, helpChance, isCustomTuning, ruleKey, spawnIntervalTicks, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationKey } from './orientation';
 import { createRun, step } from './sim';
 import { fallbackLayout, hasReadyGroup, spawnCube, TUTORIAL_A } from './spawn';
@@ -20,6 +20,11 @@ function fill(s: RunState, count: number): void {
     const z = Math.floor(i / 7);
     put(s, x, z, (x + z) % 2 === 0 ? 6 : 5);
   }
+}
+
+/** Ticks until the next regular spawn is announced, for the board as it is now. */
+function interval(s: RunState): number {
+  return spawnIntervalTicks(s.config, s.level, s.cubes.length + s.pending.length);
 }
 
 function collect(s: RunState, ticks: number): GameEvent[] {
@@ -107,10 +112,10 @@ describe('cube lifecycle', () => {
     spawnCube(s, 3, 4, ori({ top: 6 }));
     expect(s.player.level).toBe('top');
     expect(s.events).toContainEqual({ type: 'lifted' });
-    run(s, s.config.risingTicks * 0.6);
+    run(s, s.config.risingTicks * 0.8);
     step(s, 'N');
     expect(s.player.z).toBe(4); // too high to step down, cannot roll while rising
-    run(s, s.config.risingTicks * 0.4);
+    run(s, s.config.risingTicks * 0.2);
     step(s, 'N');
     expect(s.events).toContainEqual({ type: 'move', kind: 'roll', dir: 'N' });
   });
@@ -137,17 +142,37 @@ describe('cube lifecycle', () => {
 });
 
 describe('spawn and pressure', () => {
-  it('starts slow and speeds up by 150 ms per level down to 1.5 s', () => {
+  it('refills a thin board quickly and gives a crowded one more room', () => {
     const c = defaultConfig();
-    expect(spawnIntervalTicks(c, 1)).toBe(250);
-    expect(spawnIntervalTicks(c, 3)).toBe(235);
-    expect(spawnIntervalTicks(c, 30)).toBe(75);
-    expect(spawnIntervalTicks(c, 90)).toBe(75);
+    expect(spawnIntervalTicks(c, 1, 0)).toBe(125); // 5 s x 0.5
+    expect(spawnIntervalTicks(c, 1, 10)).toBe(125);
+    expect(spawnIntervalTicks(c, 1, 20)).toBe(213); // 5 s x 0.85
+    expect(spawnIntervalTicks(c, 1, 30)).toBe(300); // 5 s x 1.2
+    expect(spawnIntervalTicks(c, 1, 49)).toBe(300);
+  });
+
+  it('speeds up by 250 ms per level down to the minimum', () => {
+    const c = defaultConfig();
+    expect(spawnIntervalTicks(c, 3, 30)).toBe(270);
+    expect(spawnIntervalTicks(c, 15, 30)).toBe(90);
+    expect(spawnIntervalTicks(c, 90, 30)).toBe(90);
+  });
+
+  it('favours low values and helpful spawns early, and evens out with the level', () => {
+    const c = defaultConfig();
+    const early = topWeights(c, 1);
+    expect(early[1]).toBeGreaterThan(early[5]); // 2s over 6s
+    expect(early[2]).toBeGreaterThan(early[4]); // 3s over 5s
+    expect(topWeights(c, c.easyLevels)).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(topWeights(c, 40)).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(helpChance(c, 1)).toBeCloseTo(0.65);
+    expect(helpChance(c, 5)).toBeLessThan(helpChance(c, 1));
+    expect(helpChance(c, 40)).toBeCloseTo(0.65 * 0.35);
   });
 
   it('applies tuning, marks it as custom and keeps presentation flags out of the record key', () => {
     const c = defaultConfig({}, { spawnStartMs: 2000, sinkMs: 1000 });
-    expect(spawnIntervalTicks(c, 1)).toBe(100);
+    expect(spawnIntervalTicks(c, 1, 30)).toBe(120);
     expect(c.sinkingTicks).toBe(50);
     expect(c.custom).toBe(true);
     expect(defaultConfig().custom).toBe(false);
@@ -159,8 +184,7 @@ describe('spawn and pressure', () => {
   it('announces a cube, then raises it when the warning ends', () => {
     const s = emptyRun();
     s.spawnEnabled = true;
-    const interval = spawnIntervalTicks(s.config, 1);
-    run(s, interval - 1);
+    run(s, interval(s) - 1);
     expect(s.pending.length).toBe(0);
     step(s, null);
     expect(s.pending.length).toBe(1);
@@ -175,7 +199,7 @@ describe('spawn and pressure', () => {
   it('raises the cube in the nearest free cell when the announced one got taken', () => {
     const s = emptyRun();
     s.spawnEnabled = true;
-    run(s, spawnIntervalTicks(s.config, 1));
+    run(s, interval(s));
     const { x, z } = s.pending[0];
     put(s, x, z, 6);
     run(s, s.config.warnTicks);
@@ -187,7 +211,7 @@ describe('spawn and pressure', () => {
   it('skips the warning when it is tuned to zero', () => {
     const s = emptyRun({}, 1, { warnMs: 0 });
     s.spawnEnabled = true;
-    run(s, spawnIntervalTicks(s.config, 1));
+    run(s, interval(s));
     expect(s.pending.length).toBe(0);
     expect(s.cubes.length).toBe(1);
   });
@@ -240,7 +264,7 @@ describe('spawn and pressure', () => {
     run(s, 20);
     expect(s.cubes.length).toBe(48);
     expect(s.pending.length).toBe(0);
-    run(s, spawnIntervalTicks(s.config, 1) - 2); // the interval restarts on the tick the cell is freed
+    run(s, interval(s) - 2); // the interval restarts on the tick the cell is freed
     expect(s.pending.length).toBe(0);
     run(s, 1);
     expect(s.pending.length).toBe(1);
@@ -284,11 +308,54 @@ describe('spawn and pressure', () => {
   });
 });
 
+describe('spawn director', () => {
+  /** Share of spawned cubes that came up touching another cube. */
+  function touchingShare(helpRate: number): number {
+    let touching = 0;
+    let total = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = createRun({ seed, config: defaultConfig({ gentleStart: false, floorLift: false }, { helpRate }) });
+      for (let i = 0; i < 1500; i++) {
+        step(s, null);
+        for (const e of s.events) {
+          if (e.type !== 'spawn') continue;
+          const cube = s.cubes.find((c) => c.id === e.cubeId)!;
+          const around = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => cubeAt(s, cube.x + dx, cube.z + dz));
+          total++;
+          if (around) touching++;
+        }
+      }
+    }
+    return touching / total;
+  }
+
+  it('puts helpful spawns next to other cubes far more often than chance', () => {
+    expect(touchingShare(1)).toBeGreaterThan(touchingShare(0) + 0.15);
+  });
+
+  it('shows mostly low values on new cubes at level 1', () => {
+    const counts = [0, 0, 0, 0, 0, 0];
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = createRun({ seed, config: defaultConfig({ gentleStart: false, floorLift: false }, { helpRate: 0 }) });
+      const before = s.cubes.length;
+      run(s, 1500);
+      for (const c of s.cubes.slice(before)) counts[c.ori.top - 1]++;
+    }
+    expect(counts[1] + counts[2]).toBeGreaterThan((counts[4] + counts[5]) * 2);
+  });
+});
+
 describe('lift', () => {
-  it('sends the next cube under a player left on the ground', () => {
-    const s = emptyRun({ floorLift: true });
+  /** Regular spawning slowed right down so the lift can be watched on its own. */
+  function grounded(experiments = { floorLift: true }) {
+    const s = emptyRun(experiments, 1, { spawnStartMs: 10000, sparseFactor: 1 });
     s.spawnEnabled = true;
     place(s, 0, 6, 'ground');
+    return s;
+  }
+
+  it('sends the next cube under a player left on the ground', () => {
+    const s = grounded();
     run(s, s.config.floorLiftTicks - 1);
     expect(s.pending.length).toBe(0);
     step(s, null);
@@ -304,18 +371,27 @@ describe('lift', () => {
   });
 
   it('does nothing when the flag is off', () => {
-    const s = emptyRun();
-    s.spawnEnabled = true;
-    place(s, 0, 6, 'ground');
+    const s = grounded({ floorLift: false });
     run(s, s.config.floorLiftTicks + s.config.warnTicks + 10);
     expect(s.cubes.length).toBe(0);
     expect(s.player.level).toBe('ground');
   });
 
+  it('is not sent on top of a cube that is already on its way', () => {
+    const s = grounded();
+    run(s, 100);
+    s.pending.push({ x: 5, z: 1, ori: ori({ top: 6 }), t: 0 });
+    run(s, s.config.floorLiftTicks - 100 + 5);
+    // The announced cube has come up and can still be stepped onto: no lift yet.
+    expect(s.cubes.length).toBe(1);
+    expect(s.pending.length).toBe(0);
+    const mountable = Math.ceil(s.config.risingTicks * s.config.mountHeight);
+    run(s, 100 + s.config.warnTicks + mountable - s.config.floorLiftTicks);
+    expect(s.pending).toMatchObject([{ x: 0, z: 6 }]); // too tall to mount now: the lift comes
+  });
+
   it('tries again if the player walked away from the announced cell', () => {
-    const s = emptyRun({ floorLift: true });
-    s.spawnEnabled = true;
-    place(s, 0, 6, 'ground');
+    const s = grounded();
     run(s, s.config.floorLiftTicks);
     act(s, 'E');
     act(s, 'E');

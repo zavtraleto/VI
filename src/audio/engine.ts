@@ -208,6 +208,10 @@ export class AudioEngine {
       case 'lifted':
         this.tone(140, { gain: 0.08, attack: 0.05, decay: 0.4, to: 220 });
         break;
+      case 'levelUp':
+        this.tone(ROOT_HZ * 4, { type: 'triangle', gain: 0.12, decay: 0.35 });
+        this.tone(ROOT_HZ * 6, { type: 'triangle', gain: 0.12, decay: 0.5, delay: 0.14 });
+        break;
       case 'gameOver':
         this.chord(ROOT_HZ * 2, [0, 1, 6], 2.4, 0.3);
         this.tone(ROOT_HZ, { gain: 0.4, decay: 2.6, to: 27 });

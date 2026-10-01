@@ -24,6 +24,7 @@ const EXPERIMENTS: (keyof ExperimentConfig)[] = [
   'matchHint',
   'floorClimb',
   'floorLift',
+  'soloOne',
 ];
 
 function button(key: TextKey, onClick: () => void, kind: 'primary' | 'plain' | 'quiet' = 'plain'): HTMLButtonElement {

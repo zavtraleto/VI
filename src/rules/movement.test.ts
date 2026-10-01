@@ -100,7 +100,7 @@ describe('moving on the ground', () => {
 
     const t = emptyRun();
     const tall = put(t, 3, 3, 4, 'rising');
-    tall.t = t.config.risingTicks / 2;
+    tall.t = Math.ceil(t.config.risingTicks * 0.8);
     step(t, 'N');
     expect(t.player).toEqual({ x: 3, z: 4, level: 'ground' });
   });
@@ -159,10 +159,26 @@ describe('moving from a sinking cube', () => {
     expect(s.player).toEqual({ x: 3, z: 4, level: 'top' });
     expect([cube.x, cube.z]).toEqual([3, 4]);
 
-    cube.t = s.config.sinkingTicks / 2;
+    cube.t = Math.ceil(s.config.sinkingTicks * 0.3); // three quarters high is low enough to step off
     act(s, 'N');
     expect(s.player).toEqual({ x: 3, z: 3, level: 'ground' });
     expect([cube.x, cube.z]).toEqual([3, 4]);
+  });
+
+  it('can be mounted from the ground for most of a rise, but rolled over only when low', () => {
+    const s = emptyRun();
+    const rising = put(s, 3, 3, 4, 'rising');
+    rising.t = Math.floor(s.config.risingTicks * 0.7);
+    act(s, 'N');
+    expect(s.player).toEqual({ x: 3, z: 3, level: 'top' });
+
+    const t = emptyRun();
+    put(t, 3, 4, 6);
+    const mid = put(t, 3, 3, 4, 'rising');
+    mid.t = Math.floor(t.config.risingTicks * 0.7);
+    place(t, 3, 4, 'top');
+    step(t, 'N');
+    expect(t.events).toContainEqual({ type: 'blocked', dir: 'N' });
   });
 });
 

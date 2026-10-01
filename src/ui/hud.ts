@@ -38,6 +38,7 @@ export class Hud {
   private lastScore = -1;
   private lastBest = -1;
   private lastStage = -1;
+  private lastLevel = 1;
 
   private readonly debugButton: HTMLButtonElement;
 
@@ -86,8 +87,19 @@ export class Hud {
       this.best.textContent = String(shownBest);
     }
     const left = Hud.secondsLeft(state);
-    this.tag.textContent = left !== null ? t('boardFull') : state.mode === 'practice' ? t('practice') : '';
+    const level = `${t('level')} ${state.level}`;
+    this.tag.textContent =
+      left !== null ? t('boardFull') : state.mode === 'practice' ? `${t('practice')} · ${level}` : level;
     this.tag.classList.toggle('alarm', left !== null);
+    if (state.level !== this.lastLevel) {
+      // A level-up is the moment the pace picks up: make it noticed.
+      if (state.level > this.lastLevel) {
+        this.tag.classList.remove('level-up');
+        void this.tag.getBoundingClientRect();
+        this.tag.classList.add('level-up');
+      }
+      this.lastLevel = state.level;
+    }
     this.danger.textContent = left === null ? '' : String(left);
   }
 

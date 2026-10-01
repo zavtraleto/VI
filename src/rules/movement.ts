@@ -36,8 +36,8 @@ export function canAcceptCommand(state: RunState): boolean {
   return action === undefined || action.t + 1 >= state.config.actionTicks;
 }
 
-function isLow(state: RunState, cube: Cube): boolean {
-  return (cube.state === 'rising' || cube.state === 'sinking') && cubeHeight(cube, state.config) <= state.config.lowHeight;
+function isBelow(state: RunState, cube: Cube, height: number): boolean {
+  return (cube.state === 'rising' || cube.state === 'sinking') && cubeHeight(cube, state.config) <= height;
 }
 
 /**
@@ -53,7 +53,7 @@ function landing(
   if (!inBounds(state.config.size, x, z)) return null;
   const occupant = cubeAt(state, x, z);
   if (!occupant) return isFree(state, x, z) ? {} : null;
-  if (!isLow(state, occupant)) return null;
+  if (!isBelow(state, occupant, state.config.lowHeight)) return null;
   if (occupant.state === 'sinking') return { over: occupant };
   const displaceTo = nearestFree(state, x, z, leaving);
   return displaceTo ? { displaced: occupant, displaceTo } : null;
@@ -81,7 +81,7 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
       return target.state === 'idle' || target.state === 'sinking' ? { kind: 'hop', tx, tz } : blocked;
     }
     if (!isFree(state, tx, tz)) return blocked;
-    return cubeHeight(own, config) <= config.lowHeight ? { kind: 'descend', tx, tz } : blocked;
+    return cubeHeight(own, config) <= config.stepDownHeight ? { kind: 'descend', tx, tz } : blocked;
   }
 
   if (!target) {
@@ -95,7 +95,7 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
     if (spot) return { kind: 'push', tx, tz, cube: target, cubeX: bx, cubeZ: bz, newOri: target.ori, ...spot };
     return config.experiments.floorClimb ? { kind: 'climb', tx, tz } : blocked;
   }
-  return isLow(state, target) ? { kind: 'mount', tx, tz } : blocked;
+  return isBelow(state, target, config.mountHeight) ? { kind: 'mount', tx, tz } : blocked;
 }
 
 /** Executes a step command. Returns false when the step is blocked. */

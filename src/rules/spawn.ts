@@ -1,7 +1,7 @@
-import { DELTA, DIRS, cellIndex, cubeAt, freeCells, inBounds, isFree, nearestFree } from './board';
-import { spawnIntervalTicks } from './config';
+import { DELTA, DIRS, cellIndex, cubeAt, cubeHeight, freeCells, inBounds, isFree, nearestFree } from './board';
+import { helpChance, spawnIntervalTicks, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationsWithTop } from './orientation';
-import { randomInt } from './rng';
+import { nextRandom, randomInt } from './rng';
 import type { Cube, CubeState, Orientation, RunState } from './types';
 
 export function addCube(
@@ -159,22 +159,81 @@ function besideMatchingSinking(state: RunState, x: number, z: number, top: numbe
   return false;
 }
 
+/** Picks an index with probability proportional to its weight. */
+function weightedIndex(state: RunState, weights: readonly number[]): number {
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let roll = nextRandom(state) * total;
+  for (let i = 0; i < weights.length; i++) {
+    roll -= weights[i];
+    if (roll < 0) return i;
+  }
+  return weights.length - 1;
+}
+
+function orientationWithTop(state: RunState, top: number): Orientation {
+  const options = orientationsWithTop(top);
+  return options[randomInt(state, options.length)];
+}
+
+/** Top values of the resting cubes around a cell: the ones a new cube could pair up with. */
+function neighbourTops(state: RunState, x: number, z: number): number[] {
+  const tops: number[] = [];
+  for (const dir of DIRS) {
+    const n = cubeAt(state, x + DELTA[dir].dx, z + DELTA[dir].dz);
+    if (n && n.state === 'idle' && n.ori.top >= 2) tops.push(n.ori.top);
+  }
+  return tops;
+}
+
 /**
- * Picks an orientation for a new cube that does not complete a group by itself. Clears
- * are the player's doing; the generator tries not to leave ready-made groups lying around.
+ * Picks an orientation for a new cube. The top value follows the level's weights; a
+ * helpful spawn instead tries to show a value that a neighbour already shows, so the
+ * player is one move away from a group. Either way the cube must not complete a group by
+ * itself: clears are the player's doing.
  */
-function chooseOrientation(state: RunState, x: number, z: number): Orientation {
+function chooseOrientation(state: RunState, x: number, z: number, helpful = false): Orientation {
   const size = state.config.size;
   const tops = topsGrid(state);
   const i = cellIndex(size, x, z);
-  let ori = randomOrientation(state);
+  const weights = topWeights(state.config, state.level);
+  const wanted = helpful ? neighbourTops(state, x, z) : [];
+  let top = 1;
   for (let attempt = 0; attempt < 12; attempt++) {
-    tops[i] = ori.top;
-    const readyGroup = ori.top >= 2 && groupSizeAt(tops, size, i) >= ori.top;
-    if (!readyGroup && !besideMatchingSinking(state, x, z, ori.top)) break;
-    ori = randomOrientation(state);
+    top =
+      attempt < 3 && wanted.length > 0
+        ? wanted[randomInt(state, wanted.length)]
+        : weightedIndex(state, weights) + 1;
+    tops[i] = top;
+    const readyGroup = top >= 2 && groupSizeAt(tops, size, i) >= top;
+    if (!readyGroup && !besideMatchingSinking(state, x, z, top)) break;
   }
-  return ori;
+  return orientationWithTop(state, top);
+}
+
+/**
+ * Where the next cube goes. A helpful spawn prefers cells that touch other cubes and are
+ * near the player, so new cubes are reachable and in play; otherwise any free cell will do.
+ */
+function chooseCell(
+  state: RunState,
+  free: readonly { x: number; z: number }[],
+  helpful: boolean,
+): { x: number; z: number } {
+  if (!helpful) return free[randomInt(state, free.length)];
+  const { player } = state;
+  const weights = free.map((cell) => {
+    let weight = 1;
+    const touching = DIRS.some((dir) => {
+      const n = cubeAt(state, cell.x + DELTA[dir].dx, cell.z + DELTA[dir].dz);
+      return n !== undefined && n.state !== 'sinking';
+    });
+    if (touching) weight += 3;
+    const distance = Math.abs(cell.x - player.x) + Math.abs(cell.z - player.z);
+    if (distance <= 2) weight += 2;
+    else if (distance <= 4) weight += 1;
+    return weight;
+  });
+  return free[weightedIndex(state, weights)];
 }
 
 function isBesidePlayer(state: RunState, x: number, z: number): boolean {
@@ -218,8 +277,8 @@ function hasPendingAt(state: RunState, x: number, z: number): boolean {
 }
 
 /** Announces a cube on a cell; it starts rising when the warning runs out. */
-function announce(state: RunState, x: number, z: number): void {
-  const ori = chooseOrientation(state, x, z);
+function announce(state: RunState, x: number, z: number, helpful = false): void {
+  const ori = chooseOrientation(state, x, z, helpful);
   if (state.config.warnTicks <= 0) {
     spawnCube(state, x, z, ori);
     return;
@@ -249,9 +308,16 @@ function committed(state: RunState): number {
   return state.cubes.length + state.pending.length;
 }
 
+/** Is there already a cube the player on the ground could walk over to and step onto? */
+function hasMountableCube(state: RunState): boolean {
+  const { config } = state;
+  return state.cubes.some((c) => c.state === 'rising' && cubeHeight(c, config) <= config.mountHeight);
+}
+
 /**
- * Lift: a player left on the ground gets the next cube under their feet. It replaces the
- * next regular spawn, so it adds no pressure.
+ * Lift: a player left on the ground gets the next cube under their feet. It is a last
+ * resort, not an extra cube: it waits while another cube is on its way or can still be
+ * stepped onto, and it takes the place of the next regular spawn.
  */
 function runLift(state: RunState): void {
   const { config, player } = state;
@@ -261,7 +327,8 @@ function runLift(state: RunState): void {
   }
   state.liftTimer++;
   if (state.liftTimer < config.floorLiftTicks) return;
-  if (hasPendingAt(state, player.x, player.z) || !isFree(state, player.x, player.z)) return;
+  if (state.pending.length > 0 || hasMountableCube(state)) return;
+  if (!isFree(state, player.x, player.z)) return;
   if (committed(state) >= config.size * config.size) return;
   state.liftTimer = 0;
   state.spawnTimer = 0;
@@ -282,8 +349,9 @@ export function runSpawn(state: RunState): void {
     return;
   }
   state.spawnTimer++;
-  if (state.spawnTimer < spawnIntervalTicks(config, state.level)) return;
+  if (state.spawnTimer < spawnIntervalTicks(config, state.level, committed(state))) return;
   state.spawnTimer = 0;
-  const cell = free[randomInt(state, free.length)];
-  announce(state, cell.x, cell.z);
+  const helpful = nextRandom(state) < helpChance(config, state.level);
+  const cell = chooseCell(state, free, helpful);
+  announce(state, cell.x, cell.z, helpful);
 }
