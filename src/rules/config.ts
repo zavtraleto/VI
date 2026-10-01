@@ -30,7 +30,7 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   cubesPerLevel: 12,
   startCubes: 10,
   lowHeight: 0.5,
-  mountHeight: 0.75,
+  mountHeight: 1,
   stepDownHeight: 0.75,
   liftMs: 4000,
   gentleSec: 180,
@@ -74,7 +74,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
   const exp = { ...defaultExperiments(), ...experiments };
   const t = { ...DEFAULT_TUNING, ...tuning };
   return {
-    rulesVersion: '0.3',
+    rulesVersion: '0.4',
     size: 7,
     tickMs: TICK_MS,
     startCubes: Math.max(2, Math.round(t.startCubes)),

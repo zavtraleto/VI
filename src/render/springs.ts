@@ -1,7 +1,6 @@
-const PRESS_DEPTH = 0.05;
-const STIFFNESS = 380;
-const DAMPING_BOUNCY = 18;
-const DAMPING_CALM = 39; // critical: settles without overshoot
+const STIFFNESS = 200;
+/** Just under critical: the cube dips once and comes back without bouncing. */
+const DAMPING = 25;
 const MAX_STEP = 0.008;
 
 interface Spring {
@@ -10,8 +9,8 @@ interface Spring {
 }
 
 /**
- * Small vertical give of cubes under the player's weight: the cube being stood on sits
- * slightly lower and bobs when stepped onto. Purely visual.
+ * A cube dips briefly under the player's weight when they step onto it, then returns to
+ * rest. Purely visual; rolling and sliding cubes are not affected.
  */
 export class CubeSprings {
   private readonly springs = new Map<number, Spring>();
@@ -23,21 +22,18 @@ export class CubeSprings {
     this.springs.set(id, spring);
   }
 
-  update(dtMs: number, pressedId: number | null, bouncy: boolean): void {
-    if (pressedId !== null && !this.springs.has(pressedId)) this.springs.set(pressedId, { y: 0, v: 0 });
-    const damping = bouncy ? DAMPING_BOUNCY : DAMPING_CALM;
+  update(dtMs: number): void {
     let remaining = Math.min(dtMs, 100) / 1000;
     while (remaining > 0) {
       const dt = Math.min(MAX_STEP, remaining);
       remaining -= dt;
-      for (const [id, spring] of this.springs) {
-        const target = id === pressedId ? -PRESS_DEPTH : 0;
-        spring.v += (-STIFFNESS * (spring.y - target) - damping * spring.v) * dt;
+      for (const spring of this.springs.values()) {
+        spring.v += (-STIFFNESS * spring.y - DAMPING * spring.v) * dt;
         spring.y += spring.v * dt;
       }
     }
     for (const [id, spring] of this.springs) {
-      if (id !== pressedId && Math.abs(spring.y) < 0.0005 && Math.abs(spring.v) < 0.005) this.springs.delete(id);
+      if (Math.abs(spring.y) < 0.0005 && Math.abs(spring.v) < 0.005) this.springs.delete(id);
     }
   }
 

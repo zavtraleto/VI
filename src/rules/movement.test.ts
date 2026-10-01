@@ -91,31 +91,32 @@ describe('moving on the ground', () => {
     expect(snapshot(t)).toBe(beforeT);
   });
 
-  it('mounts a low rising cube and is blocked by a tall one', () => {
-    const s = emptyRun();
-    const cube = put(s, 3, 3, 4, 'rising');
-    cube.t = s.config.risingTicks / 2 - 1; // reaches height 0.5 on the command tick
-    act(s, 'N');
-    expect(s.player).toEqual({ x: 3, z: 3, level: 'top' });
-
-    const t = emptyRun();
-    const tall = put(t, 3, 3, 4, 'rising');
-    tall.t = Math.ceil(t.config.risingTicks * 0.8);
-    step(t, 'N');
-    expect(t.player).toEqual({ x: 3, z: 4, level: 'ground' });
+  it('mounts a rising cube at any height', () => {
+    for (const progress of [0.1, 0.5, 0.95]) {
+      const s = emptyRun();
+      const cube = put(s, 3, 3, 4, 'rising');
+      cube.t = Math.floor(s.config.risingTicks * progress);
+      act(s, 'N');
+      expect(s.player).toEqual({ x: 3, z: 3, level: 'top' });
+    }
   });
 
-  it('mounts a low sinking cube and is blocked by a tall one', () => {
-    const s = emptyRun();
-    const cube = put(s, 3, 3, 4, 'sinking');
-    cube.t = s.config.sinkingTicks / 2;
-    act(s, 'N');
-    expect(s.player.level).toBe('top');
+  it('mounts a sinking cube at any height', () => {
+    for (const progress of [0, 0.5, 0.9]) {
+      const s = emptyRun();
+      const cube = put(s, 3, 3, 4, 'sinking');
+      cube.t = Math.floor(s.config.sinkingTicks * progress);
+      act(s, 'N');
+      expect(s.player).toEqual({ x: 3, z: 3, level: 'top' });
+    }
+  });
 
-    const t = emptyRun();
-    put(t, 3, 3, 4, 'sinking');
-    step(t, 'N');
-    expect(t.player).toEqual({ x: 3, z: 4, level: 'ground' });
+  it('respects a lower mount height when it is tuned down', () => {
+    const s = emptyRun({}, 1, { mountHeight: 0.5 });
+    const tall = put(s, 3, 3, 4, 'rising');
+    tall.t = Math.ceil(s.config.risingTicks * 0.6);
+    step(s, 'N');
+    expect(s.player).toEqual({ x: 3, z: 4, level: 'ground' });
   });
 
   it('climbs an unpushable cube only with floorClimb on', () => {
@@ -163,6 +164,16 @@ describe('moving from a sinking cube', () => {
     act(s, 'N');
     expect(s.player).toEqual({ x: 3, z: 3, level: 'ground' });
     expect([cube.x, cube.z]).toEqual([3, 4]);
+  });
+
+  it('cannot be stepped off while it is rising, however low it is', () => {
+    const s = emptyRun();
+    const cube = put(s, 3, 4, 4, 'rising');
+    cube.t = 5;
+    place(s, 3, 4, 'top');
+    step(s, 'N');
+    expect(s.events).toContainEqual({ type: 'blocked', dir: 'N' });
+    expect(s.player).toEqual({ x: 3, z: 4, level: 'top' });
   });
 
   it('can be mounted from the ground for most of a rise, but rolled over only when low', () => {

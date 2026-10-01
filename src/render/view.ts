@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DELTA, cubeAt, type Dir, type GameEvent, type RunState } from '../rules';
+import { DELTA, cubeAt, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { CubeMeshes } from './cubes';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { PlayerFigure } from './player';
@@ -71,7 +71,8 @@ export class BoardView {
   private readonly overlays: FloorOverlays;
   private readonly warnings: SpawnWarnings;
   private readonly springs = new CubeSprings();
-  private pressedId: number | null = null;
+  /** The step the player was making on the previous frame, to notice when it ends. */
+  private lastStep: MoveKind | null = null;
   private readonly ambient: THREE.AmbientLight;
   private readonly reactionLight: THREE.PointLight;
   private readonly perimeter;
@@ -238,7 +239,7 @@ export class BoardView {
     this.tremor = 0;
     this.warnings.reset();
     this.springs.reset();
-    this.pressedId = null;
+    this.lastStep = null;
   }
 
   draw(state: RunState, alpha: number, timeMs: number, params: SceneParams): void {
@@ -254,15 +255,16 @@ export class BoardView {
     // Stage 2: pips answer a clear together. Stage 3: the dice breathe.
     const breathing = levels[2] * (0.1 + 0.07 * wave(3600));
 
-    // The cube under the player's feet gives a little, and bobs when stepped onto.
+    // A cube dips once when the player steps onto it. Rolling a cube does not trigger it.
     const { player } = state;
-    const stoodOn = player.level === 'top' && !player.action ? cubeAt(state, player.x, player.z) : undefined;
-    const pressedId = stoodOn && stoodOn.state !== 'moving' ? stoodOn.id : null;
-    if (pressedId !== this.pressedId) {
-      if (pressedId !== null && !reducedMotion) this.springs.kick(pressedId, -0.55);
-      this.pressedId = pressedId;
+    const stepNow = player.action?.kind ?? null;
+    const steppedOn = this.lastStep === 'hop' || this.lastStep === 'mount' || this.lastStep === 'climb';
+    if (stepNow === null && steppedOn && player.level === 'top' && !reducedMotion) {
+      const cube = cubeAt(state, player.x, player.z);
+      if (cube) this.springs.kick(cube.id, -2.2);
     }
-    this.springs.update(dt, pressedId, !reducedMotion);
+    this.lastStep = stepNow;
+    this.springs.update(dt);
     const dip = (cubeId: number) => this.springs.offset(cubeId);
 
     this.cubes.sync(

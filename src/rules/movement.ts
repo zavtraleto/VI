@@ -81,7 +81,10 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
       return target.state === 'idle' || target.state === 'sinking' ? { kind: 'hop', tx, tz } : blocked;
     }
     if (!isFree(state, tx, tz)) return blocked;
-    return cubeHeight(own, config) <= config.stepDownHeight ? { kind: 'descend', tx, tz } : blocked;
+    // Only a sinking cube can be stepped off: a rising one is the way back up, so the
+    // player cannot fall off it by accident.
+    const canStepDown = own.state === 'sinking' && cubeHeight(own, config) <= config.stepDownHeight;
+    return canStepDown ? { kind: 'descend', tx, tz } : blocked;
   }
 
   if (!target) {

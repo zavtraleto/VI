@@ -94,7 +94,7 @@ export class CubeMeshes {
       }
       mesh.material = this.materials[this.look(cube, state)];
       this.pose(mesh, cube, state, alpha);
-      if (cube.state !== 'moving') mesh.position.y += dip(cube.id);
+      mesh.position.y += dip(cube.id);
     }
     for (const [id, mesh] of this.meshes) {
       if (alive.has(id)) continue;

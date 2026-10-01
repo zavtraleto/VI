@@ -112,10 +112,9 @@ describe('cube lifecycle', () => {
     spawnCube(s, 3, 4, ori({ top: 6 }));
     expect(s.player.level).toBe('top');
     expect(s.events).toContainEqual({ type: 'lifted' });
-    run(s, s.config.risingTicks * 0.8);
     step(s, 'N');
-    expect(s.player.z).toBe(4); // too high to step down, cannot roll while rising
-    run(s, s.config.risingTicks * 0.2);
+    expect(s.player.z).toBe(4); // cannot fall off a rising cube, cannot roll it yet
+    run(s, s.config.risingTicks);
     step(s, 'N');
     expect(s.events).toContainEqual({ type: 'move', kind: 'roll', dir: 'N' });
   });

@@ -16,7 +16,7 @@ export type Level = 'top' | 'ground';
 export type MoveKind =
   | 'roll' // on a cube, into an empty cell or over a low cube: cube rotates, player rides
   | 'hop' // on a cube, onto a neighbouring cube
-  | 'descend' // from a low rising/sinking cube down to the ground
+  | 'descend' // from a sinking cube down to the ground
   | 'walk' // on the ground, into an empty cell
   | 'push' // on the ground, slides a cube without rotation
   | 'mount' // from the ground onto a low rising/sinking cube
@@ -141,7 +141,7 @@ export interface RulesConfig {
   lowHeight: number;
   /** Height at or below which a rising/sinking cube can be stepped onto from the ground. */
   mountHeight: number;
-  /** Height at or below which the player can step off their rising/sinking cube to the ground. */
+  /** Height at or below which the player can step off their sinking cube to the ground. */
   stepDownHeight: number;
   /** Share of spawns that are placed and oriented to be useful, at level 1. */
   helpRate: number;
