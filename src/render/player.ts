@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { cubeAt, cubeHeight, type Level, type MoveKind, type RunState } from '../rules';
+import { cubeAt, cubeHeight, isHeld, type Level, type MoveKind, type RunState } from '../rules';
 import type { Theme } from './theme';
 
 /** Extra lift at the middle of a step, per move kind. */
@@ -44,7 +44,7 @@ export class PlayerFigure {
     const supportHeight = (x: number, z: number, level: Level): number => {
       if (level === 'ground') return 0;
       const cube = cubeAt(state, x, z);
-      return cube ? cubeHeight(cube, config, alpha) + dip(cube.id) : 0;
+      return cube ? cubeHeight(cube, config, isHeld(state, cube) ? 0 : alpha) + dip(cube.id) : 0;
     };
 
     const toY = supportHeight(player.x, player.z, player.level);

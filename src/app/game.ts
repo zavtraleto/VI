@@ -4,6 +4,7 @@ import { GestureTracker, bindGestures, type ScreenDirs } from '../input/gesture'
 import { bindKeyboard } from '../input/keyboard';
 import { addRun, bestOf, loadSettings, prefersReducedMotion, saveSettings, type Settings } from '../platform/settings';
 import { storageAvailable } from '../platform/storage';
+import type { TutorialMarker } from '../render/overlays';
 import { OCCULT_THEME } from '../render/theme';
 import { BoardView } from '../render/view';
 import {
@@ -13,7 +14,9 @@ import {
   previewMove,
   resolveMove,
   ruleKey,
+  tutorialDir,
   DIRS,
+  TUTORIAL_SCRIPT,
   type Dir,
   type GameEvent,
   type RunState,
@@ -24,22 +27,15 @@ import { ChainLabels, HintBubble, Hud } from '../ui/hud';
 import { t, type TextKey } from '../ui/i18n';
 import { Pad } from '../ui/pad';
 import { Screens, type PauseToggles } from '../ui/screens';
+import { TutorialGuide, type InputGlyph } from '../ui/tutorial';
 import { Ritual } from './ritual';
 import { Runner } from './runner';
 import { statsText } from './stats';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
-const ARROWS = ['→', '↗', '↑', '↖', '←', '↙', '↓', '↘'];
-
 /** What the player picked in the menu. */
 type RunKind = 'endless' | 'timed' | 'tutorial';
-
-/** Arrow glyph closest to a screen direction (y pointing down). */
-function arrowFor(v: { x: number; y: number }): string {
-  const turns = Math.atan2(-v.y, v.x) / (Math.PI / 4);
-  return ARROWS[((Math.round(turns) % 8) + 8) % 8];
-}
 
 export class Game {
   private settings: Settings = loadSettings();
@@ -51,6 +47,10 @@ export class Game {
   private lastFrame = 0;
   private lastStats = '';
   private resultShown = false;
+  /** Line of the tutorial text on show; it follows what has happened, not what was commanded. */
+  private guideLine = 0;
+  /** Cell where the tutorial ended and Endless is about to start. */
+  private handoff: { x: number; z: number } | null = null;
 
   private readonly controller = new InputController();
   private readonly ritual = new Ritual();
@@ -60,6 +60,7 @@ export class Game {
   private readonly hud: Hud;
   private readonly labels: ChainLabels;
   private readonly hint: HintBubble;
+  private readonly guide: TutorialGuide;
   private readonly pad: Pad;
   private readonly screens: Screens;
   private readonly debug: DebugPanel;
@@ -85,6 +86,7 @@ export class Game {
     this.hud = new Hud(hudEl, () => this.togglePause(), () => this.debug.toggle());
     this.labels = new ChainLabels(overlayLayer);
     this.hint = new HintBubble(overlayLayer);
+    this.guide = new TutorialGuide(overlayLayer);
     this.pad = new Pad(controls, this.controller, now, () => enabled() && this.settings.controlMode === 'dpad');
     this.screens = new Screens(overlay);
     this.debug = new DebugPanel(root, this.settings, {
@@ -150,23 +152,29 @@ export class Game {
     // The seal is drawn with north at 45 degrees and east at -45; turn it by the average offset.
     const degrees = (dir: Dir) => (Math.atan2(-dirs[dir].y, dirs[dir].x) * 180) / Math.PI;
     this.pad.setRotation((degrees('N') - 45 + (degrees('E') + 45)) / 2);
+    if (this.runner && this.state.tutorial && !this.inMenu) this.syncGuide();
   }
 
-  private startRun(kind: RunKind = this.kind): void {
+  /** `start` builds the board around a cell and raises it from the floor: the tutorial's hand-off. */
+  private startRun(kind: RunKind = this.kind, start?: { x: number; z: number }): void {
     this.kind = kind;
     const { experiments } = this.settings;
     const tutorial = kind === 'tutorial';
     const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
-    this.runner = new Runner(
-      createRun({ seed, config: defaultConfig(experiments, this.settings.tuning), tutorial, timed: kind === 'timed' }),
-    );
+    const config = defaultConfig(experiments, this.settings.tuning);
+    if (start) {
+      config.startX = start.x;
+      config.startZ = start.z;
+    }
+    this.runner = new Runner(createRun({ seed, config, tutorial, timed: kind === 'timed' }));
+    this.handoff = null;
     this.inMenu = false;
     this.lastClock = -1;
     this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
     this.hud.showDebugButton(this.settings.debugPanel);
     this.controller.cancel();
     this.ritual.reset();
-    this.view.reset();
+    this.view.reset(start !== undefined);
     this.audio.setStage(0);
     this.audio.warn(null);
     this.audio.setPaused(false);
@@ -177,12 +185,35 @@ export class Game {
     this.hint.reset();
     this.pad.setMode(this.settings.controlMode);
     this.pad.setPulse(null);
+    this.guide.hide();
     if (tutorial) {
+      // The one-time hints of a normal run pick up where the tutorial stops.
       this.settings.hintsSeen = [];
-      this.pad.setPulse('N');
-      const how = coarsePointer ? `${t('hintRollSwipe')} ${arrowFor(this.screenDirs.N)}` : t('hintRollKey');
-      this.hint.showSticky(`${t('hintRollHere')} · ${how}`);
+      this.guideLine = 0;
+      this.syncGuide();
     }
+  }
+
+  /** Points the guide at the step the tutorial is waiting for. */
+  private syncGuide(): void {
+    const dir = tutorialDir(this.state);
+    let glyph: InputGlyph = 'none';
+    if (dir !== null) {
+      if (!coarsePointer) glyph = 'keys';
+      // With buttons on screen the pulsing quadrant of the seal is the prompt.
+      else if (this.settings.controlMode === 'gesture') glyph = 'swipe';
+    }
+    this.guide.show(this.guideLine, dir, glyph, dir ? this.screenDirs[dir] : null);
+    this.pad.setPulse(dir);
+  }
+
+  /** The cell the tutorial wants the player to step into, and what a die rolled there will show. */
+  private tutorialMarker(state: RunState): TutorialMarker | null {
+    const dir = this.inMenu ? null : tutorialDir(state);
+    if (dir === null) return null;
+    const intent = resolveMove(state, dir);
+    if (intent.kind === 'blocked') return null;
+    return { x: intent.tx, z: intent.tz, raised: intent.kind === 'hop', top: intent.newOri?.top };
   }
 
   private showMenu(): void {
@@ -191,6 +222,8 @@ export class Game {
     this.controller.cancel();
     this.audio.setPaused(true);
     this.hint.reset();
+    this.guide.hide();
+    this.pad.setPulse(null);
     this.screens.showMenu(!this.settings.tutorialDone, {
       onEndless: () => this.startRun('endless'),
       onTimed: () => this.startRun('timed'),
@@ -327,6 +360,8 @@ export class Game {
   }
 
   private hintOnce(id: TextKey): void {
+    // The tutorial speaks for itself; these belong to a normal run.
+    if (this.state.tutorial) return;
     if (!this.settings.experiments.guidedStart || this.settings.hintsSeen.includes(id)) return;
     this.settings.hintsSeen.push(id);
     saveSettings(this.settings);
@@ -343,7 +378,7 @@ export class Game {
     if (player.action || state.tick % 10 !== 0) return;
     if (player.level === 'ground') {
       if (DIRS.some((dir) => previewMove(state, dir).kind === 'mount')) this.hintOnce('hintMount');
-    } else if (state.tutorial?.phase !== 'await') {
+    } else {
       const rollsOver = DIRS.some((dir) => {
         const intent = resolveMove(state, dir);
         return intent.over !== undefined || intent.displaced !== undefined;
@@ -355,29 +390,48 @@ export class Game {
   private onEvent(state: RunState, event: GameEvent): void {
     switch (event.type) {
       case 'match':
-        if (state.tutorial?.phase === 'cleared') {
-          this.pad.setPulse(null);
-          this.hint.clearSticky();
-          this.hintOnce('hintTwos');
+        if (state.tutorial) {
+          this.guide.light(event.value);
+          this.showGuideLine(state.tutorial.step);
         } else if (state.stats.clears >= 2) {
           this.hintOnce('hintChain');
         }
         break;
-      case 'tutorialRefill':
+      case 'chain':
+        if (state.tutorial) {
+          this.guide.finale();
+          this.showGuideLine(state.tutorial.step);
+        }
+        break;
+      case 'tutorialStep':
+        // A hop is over at once; a roll gets its line when the dice it joins start to sink.
+        if (state.player.action?.kind === 'hop') this.guideLine = event.step;
+        this.syncGuide();
+        break;
+      case 'nudge':
+        this.guide.nudge();
+        break;
+      case 'tutorialDone':
         this.settings.tutorialDone = true;
         saveSettings(this.settings);
+        this.handoff = { x: state.player.x, z: state.player.z };
         break;
       case 'fell':
         this.hintOnce('hintFloor');
         break;
       case 'landed': {
         const own = state.player.level === 'top' ? cubeAt(state, state.player.x, state.player.z) : undefined;
-        if (own && own.ori.top === 1 && state.tutorial?.phase !== 'await') this.hintOnce('hintOne');
+        if (own && own.ori.top === 1) this.hintOnce('hintOne');
         break;
       }
       default:
         break;
     }
+  }
+
+  private showGuideLine(line: number): void {
+    this.guideLine = Math.min(line, TUTORIAL_SCRIPT.length);
+    this.syncGuide();
   }
 
   private frame(time: number): void {
@@ -389,6 +443,12 @@ export class Game {
     let alpha = 0;
     if (running) {
       alpha = this.runner.advance(dt, () => this.controller.take(this.now()), (s) => this.onTick(s));
+    }
+    if (this.handoff) {
+      // The tutorial is over: Endless starts on the spot, around the player.
+      const start = this.handoff;
+      this.startRun('endless', start);
+      this.audio.begin();
     }
     const state = this.state;
     if (state.over && !this.resultShown) {
@@ -411,7 +471,7 @@ export class Game {
     const { experiments } = this.settings;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.root.classList.toggle('reduced-motion', reducedMotion);
-    const marker = state.tutorial?.phase === 'await' ? { x: state.config.startX, z: state.config.startZ - 1 } : null;
+    const marker = this.tutorialMarker(state);
     this.view.draw(state, alpha, time, {
       overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, marker },
       levels: this.ritual.levels,

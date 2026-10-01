@@ -155,7 +155,8 @@ export interface RulesConfig {
   /** Length of a Time Limited run. */
   timedTicks: number;
   floorLiftTicks: number;
-  tutorialRefillTicks: number;
+  /** Pause between the last move of the tutorial and its end. */
+  tutorialEndTicks: number;
   /** True when any tuning value differs from the defaults. */
   custom: boolean;
   experiments: ExperimentConfig;
@@ -176,7 +177,9 @@ export type GameEvent =
   | { type: 'fell' } // the cube under the player was removed
   | { type: 'lifted' } // a cube appeared under the player on the ground
   | { type: 'levelUp'; level: number }
-  | { type: 'tutorialRefill' }
+  | { type: 'nudge'; dir: Dir } // tutorial: a step off the script was ignored
+  | { type: 'tutorialStep'; step: number }
+  | { type: 'tutorialDone' }
   | { type: 'gameOver' };
 
 export interface RunStats {
@@ -190,6 +193,14 @@ export interface RunStats {
 }
 
 export type RunMode = 'endless' | 'timed' | 'practice';
+
+export interface TutorialState {
+  /** Scripted moves made so far. */
+  step: number;
+  /** Ticks since the last scripted move; runs once the script is complete. */
+  timer: number;
+  done: boolean;
+}
 
 export interface RunState {
   config: RulesConfig;
@@ -213,7 +224,7 @@ export interface RunState {
   /** Consecutive ticks with every cell occupied. */
   fullTicks: number;
   spawnEnabled: boolean;
-  tutorial: null | { phase: 'await' | 'cleared' | 'done'; timer: number };
+  tutorial: TutorialState | null;
   over: boolean;
   /** Why the run ended: the board stayed full, or the Time Limited clock ran out. */
   endReason: null | 'full' | 'time';

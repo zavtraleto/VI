@@ -101,19 +101,17 @@ export function fallbackLayout(count = FALLBACK_CELLS.length): Placement[] {
 }
 
 export function placeStartLayout(state: RunState, forceFallback = false): void {
+  const { startCubes, startX, startZ } = state.config;
   let layout: Placement[] | null = null;
   for (let attempt = 0; attempt < 100 && !forceFallback && !layout; attempt++) {
     layout = tryStartLayout(state);
   }
-  for (const p of layout ?? fallbackLayout(state.config.startCubes)) addCube(state, p.x, p.z, p.ori);
-}
-
-export const TUTORIAL_A: Orientation = { top: 1, bottom: 6, north: 5, south: 2, east: 4, west: 3 };
-
-export function placeTutorialLayout(state: RunState): void {
-  const { startX, startZ } = state.config;
-  addCube(state, startX, startZ, TUTORIAL_A);
-  addCube(state, startX - 1, startZ - 1, orientationsWithTop(2)[0]);
+  if (!layout) {
+    layout = fallbackLayout(startCubes);
+    // The fallback is drawn for the usual start cell; any other start takes its first cube.
+    if (!layout.some((p) => p.x === startX && p.z === startZ)) layout[0] = { ...layout[0], x: startX, z: startZ };
+  }
+  for (const p of layout) addCube(state, p.x, p.z, p.ori);
 }
 
 /** Top values of everything that will be resting on the board: cubes and announced spawns. */
@@ -234,31 +232,6 @@ function chooseCell(
     return weight;
   });
   return free[weightedIndex(state, weights)];
-}
-
-function isBesidePlayer(state: RunState, x: number, z: number): boolean {
-  return Math.abs(x - state.player.x) + Math.abs(z - state.player.z) === 1;
-}
-
-/**
- * After the staged first clear: bring the board up to the normal starting count with
- * rising cubes. The first one goes next to the player so there is a way off the sinking cube.
- */
-export function tutorialRefill(state: RunState): void {
-  const wanted = Math.max(0, state.config.startCubes - 2);
-  for (let placed = 0; placed < wanted; placed++) {
-    let cells = freeCells(state).filter((c) => !(c.x === state.player.x && c.z === state.player.z));
-    if (placed === 0) {
-      const beside = cells.filter((c) => isBesidePlayer(state, c.x, c.z));
-      if (beside.length > 0) cells = beside;
-    }
-    if (cells.length === 0) break;
-    const cell = cells[randomInt(state, cells.length)];
-    spawnCube(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z));
-  }
-  state.spawnEnabled = true;
-  state.spawnTimer = 0;
-  state.events.push({ type: 'tutorialRefill' });
 }
 
 export function spawnCube(state: RunState, x: number, z: number, ori: Orientation): Cube {

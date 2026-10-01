@@ -24,6 +24,7 @@ const RING_SIZE = 11.6;
 const TOP_Y = 1.7;
 const FRAME_MARGIN = 0.25;
 const CAMERA_DISTANCE = 40;
+const RISE_IN_MS = 600;
 
 export interface CameraAngles {
   /** Turn around the vertical axis: 45 is the diamond view, 0 looks straight at the board. */
@@ -95,6 +96,8 @@ export class BoardView {
   private flash = 0;
   private burst = 0;
   private tremor = 0;
+  /** 1 when a board starts by coming up out of the floor, falling to 0. */
+  private rise = 0;
 
   constructor(private readonly container: HTMLElement, theme: Theme, size: number, angles: CameraAngles) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -233,7 +236,9 @@ export class BoardView {
     }
   }
 
-  reset(): void {
+  /** `riseIn` brings the dice and the figure up out of the floor instead of showing them at once. */
+  reset(riseIn = false): void {
+    this.rise = riseIn ? 1 : 0;
     this.flash = 0;
     this.burst = 0;
     this.tremor = 0;
@@ -250,6 +255,9 @@ export class BoardView {
     this.tremor = Math.max(0, this.tremor - dt / 260);
 
     const { levels, reducedMotion } = params;
+    this.rise = reducedMotion ? 0 : Math.max(0, this.rise - dt / RISE_IN_MS);
+    // Fast at first, settling at the end.
+    const sunk = this.rise * this.rise;
     const wave = (periodMs: number) => (reducedMotion ? 0 : Math.sin((timeMs / periodMs) * Math.PI * 2));
 
     // Stage 2: pips answer a clear together. Stage 3: the dice breathe.
@@ -274,6 +282,8 @@ export class BoardView {
       dip,
     );
     this.player.sync(state, alpha, dip);
+    this.cubes.group.position.y = -sunk;
+    this.player.group.position.y -= sunk;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
 

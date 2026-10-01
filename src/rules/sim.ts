@@ -1,6 +1,7 @@
 import { applyMove, canAcceptCommand } from './movement';
 import { pruneReactions, removeCube, resolveLanded } from './reactions';
-import { placeStartLayout, placeTutorialLayout, runSpawn, tutorialRefill } from './spawn';
+import { placeStartLayout, runSpawn } from './spawn';
+import { isHeld, placeTutorialLayout, runTutorial, tutorialMove } from './tutorial';
 import type { Dir, RulesConfig, RunState } from './types';
 
 export interface RunOptions {
@@ -35,7 +36,7 @@ export function createRun(opts: RunOptions): RunState {
     liftTimer: 0,
     fullTicks: 0,
     spawnEnabled: !opts.tutorial,
-    tutorial: opts.tutorial ? { phase: 'await', timer: 0 } : null,
+    tutorial: opts.tutorial ? { step: 0, timer: 0, done: false } : null,
     over: false,
     endReason: null,
     stats: { clearTicks: [], clears: 0, blockedSteps: 0, groundTicks: 0, falls: 0, steps: 0 },
@@ -73,7 +74,7 @@ function finishMovements(state: RunState): void {
 function finishRemovals(state: RunState): void {
   const { sinkingTicks } = state.config;
   for (const cube of [...state.cubes]) {
-    if (cube.state !== 'sinking') continue;
+    if (cube.state !== 'sinking' || isHeld(state, cube)) continue;
     cube.t++;
     if (cube.t >= sinkingTicks) removeCube(state, cube);
   }
@@ -88,23 +89,6 @@ function finishRisings(state: RunState): void {
       cube.state = 'idle';
       cube.t = 0;
       state.events.push({ type: 'risen', cubeId: cube.id });
-    }
-  }
-}
-
-function runTutorial(state: RunState): void {
-  const tutorial = state.tutorial;
-  if (!tutorial) return;
-  if (tutorial.phase === 'await') {
-    if (state.events.some((e) => e.type === 'match')) {
-      tutorial.phase = 'cleared';
-      tutorial.timer = 0;
-    }
-  } else if (tutorial.phase === 'cleared') {
-    tutorial.timer++;
-    if (tutorial.timer >= state.config.tutorialRefillTicks) {
-      tutorial.phase = 'done';
-      tutorialRefill(state);
     }
   }
 }
@@ -144,7 +128,10 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   finishMovements(state);
   finishRemovals(state);
   finishRisings(state);
-  if (accepts) applyMove(state, cmd);
+  if (accepts) {
+    if (state.tutorial && !state.tutorial.done) tutorialMove(state, cmd);
+    else applyMove(state, cmd);
+  }
   runTutorial(state);
   runSpawn(state);
   checkFill(state);

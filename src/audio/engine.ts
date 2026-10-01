@@ -164,6 +164,12 @@ export class AudioEngine {
     this.tone(98, { type: 'square', gain: 0.12, decay: 0.2 });
   }
 
+  /** The board comes up for the run that follows the tutorial. */
+  begin(): void {
+    this.tone(ROOT_HZ * 2, { type: 'triangle', gain: 0.14, attack: 0.05, decay: 0.9, to: ROOT_HZ * 4 });
+    this.noise({ duration: 0.6, freq: 700, type: 'bandpass', gain: 0.1, q: 1.5 });
+  }
+
   /** One second of the closing countdown in Time Limited. */
   tick(): void {
     this.tone(660, { type: 'triangle', gain: 0.1, decay: 0.12 });

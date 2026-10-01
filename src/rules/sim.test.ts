@@ -3,7 +3,7 @@ import { cubeAt, freeCells } from './board';
 import { DEFAULT_TUNING, defaultConfig, helpChance, isCustomTuning, ruleKey, spawnIntervalTicks, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationKey } from './orientation';
 import { createRun, step } from './sim';
-import { fallbackLayout, hasReadyGroup, spawnCube, TUTORIAL_A } from './spawn';
+import { fallbackLayout, hasReadyGroup, spawnCube } from './spawn';
 import { act, emptyRun, ori, place, put, run } from './testkit';
 import type { Dir, GameEvent, RunState } from './types';
 
@@ -72,6 +72,19 @@ describe('start layout', () => {
     expect(hasReadyGroup(topsOf(s), 7)).toBe(false);
     expect(cubeAt(s, 4, 4)).toBeDefined();
     expect(cubeAt(s, 3, 3)).toBeUndefined();
+  });
+
+  it('builds the layout around any start cell', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = createRun({ seed, config: { ...defaultConfig(), startX: 3, startZ: 1 } });
+      expect(s.player).toMatchObject({ x: 3, z: 1, level: 'top' });
+      expect(cubeAt(s, 3, 1)).toBeDefined();
+      expect(s.cubes.length).toBe(s.config.startCubes);
+      expect(hasReadyGroup(topsOf(s), 7)).toBe(false);
+    }
+    const fallback = createRun({ seed: 1, config: { ...defaultConfig(), startX: 5, startZ: 5 }, forceFallback: true });
+    expect(cubeAt(fallback, 5, 5)).toBeDefined();
+    expect(fallback.cubes.length).toBe(fallback.config.startCubes);
   });
 });
 
@@ -429,43 +442,6 @@ describe('time limited', () => {
     place(s, 0, 0, 'top');
     run(s, s.config.rescueTicks);
     expect(s.endReason).toBe('full');
-  });
-});
-
-describe('tutorial', () => {
-  it('stages the first clear with a single roll north', () => {
-    const s = createRun({ seed: 3, config: defaultConfig(), tutorial: true });
-    expect(s.mode).toBe('practice');
-    expect(s.spawnEnabled).toBe(false);
-    expect(cubeAt(s, 3, 4)?.ori).toEqual(TUTORIAL_A);
-    expect(cubeAt(s, 2, 3)?.ori.top).toBe(2);
-    expect(cubeAt(s, 3, 3)).toBeUndefined();
-    run(s, 500);
-    expect(s.cubes.length).toBe(2); // nothing spawns while waiting
-    expect(s.pending.length).toBe(0);
-
-    step(s, 'N');
-    run(s, s.config.actionTicks);
-    expect(s.score).toBe(4);
-    expect(s.tutorial?.phase).toBe('cleared');
-  });
-
-  it('refills the board one second later without feeding the running clear', () => {
-    for (let seed = 1; seed <= 40; seed++) {
-      const s = createRun({ seed, config: defaultConfig(), tutorial: true });
-      step(s, 'N');
-      const events = collect(s, s.config.actionTicks + 50 + s.config.risingTicks + 5);
-      expect(events.filter((e) => e.type === 'tutorialRefill').length).toBe(1);
-      expect(s.cubes.length).toBe(s.config.startCubes);
-      expect(s.spawnEnabled).toBe(true);
-      expect(s.tutorial?.phase).toBe('done');
-      expect(events.some((e) => e.type === 'chain' || e.type === 'happyOne')).toBe(false);
-      expect(events.filter((e) => e.type === 'match').length).toBe(1);
-      expect(s.score).toBe(4);
-      // One of the new cubes stands next to the player's sinking cube.
-      const beside = [cubeAt(s, 3, 2), cubeAt(s, 4, 3), cubeAt(s, 3, 4)];
-      expect(beside.some((c) => c !== undefined)).toBe(true);
-    }
   });
 });
 

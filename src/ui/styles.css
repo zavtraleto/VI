@@ -263,6 +263,163 @@ button {
   opacity: 1;
 }
 
+/* Tutorial guide: a line for the step, the input that makes it, the rule as a triangle of faces */
+
+.guide {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: min(94%, 460px);
+}
+
+.guide[hidden],
+.guide-swipe[hidden],
+.guide-keys[hidden],
+.rule-tri[hidden] {
+  display: none;
+}
+
+.guide-line {
+  margin: 0;
+  padding: 8px 18px 9px;
+  background: rgba(5, 5, 6, 0.86);
+  border-top: 1px solid var(--dim);
+  border-bottom: 1px solid var(--dim);
+  font-size: 19px;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.guide-line.fresh {
+  animation: line-in 0.4s ease-out;
+}
+
+.guide.nudge .guide-swipe,
+.guide.nudge .guide-keys {
+  animation: nudge 0.3s ease-out;
+}
+
+.guide-swipe {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(5, 5, 6, 0.6);
+  --sx: 0;
+  --sy: -1;
+  --angle: -90deg;
+}
+
+.guide-swipe-track {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 1px;
+  margin-left: -22px;
+  background: var(--dim);
+  rotate: var(--angle);
+}
+
+.guide-swipe-track::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-top: 1px solid var(--ivory);
+  border-right: 1px solid var(--ivory);
+  rotate: 45deg;
+}
+
+.guide-swipe-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: var(--ivory);
+  box-shadow: 0 0 10px var(--carmine-bright);
+  animation: swipe 1.2s ease-in-out infinite;
+}
+
+.guide-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 34px);
+  grid-template-rows: repeat(2, 34px);
+  gap: 4px;
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: rgba(5, 5, 6, 0.86);
+  color: var(--dim);
+  font-size: 18px;
+  font-family: system-ui, sans-serif;
+}
+
+.key-N { grid-column: 2; grid-row: 1; }
+.key-W { grid-column: 1; grid-row: 2; }
+.key-S { grid-column: 2; grid-row: 2; }
+.key-E { grid-column: 3; grid-row: 2; }
+
+.key.lit {
+  border-color: var(--ivory);
+  background: var(--ivory);
+  color: #0c0b0b;
+  animation: face-pulse 0.9s ease-in-out infinite;
+}
+
+.rule-tri {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.rule-row {
+  display: flex;
+  gap: 3px;
+  opacity: 0.32;
+  filter: saturate(0);
+  transition: opacity 0.3s, filter 0.3s;
+}
+
+.rule-cell {
+  display: flex;
+  width: 17px;
+  height: 17px;
+}
+
+.rule-cell .die-face {
+  width: 100%;
+  height: 100%;
+}
+
+.rule-row.lit {
+  opacity: 1;
+  filter: none;
+  animation: row-lit 0.5s ease-out;
+}
+
 /* The orientation seal */
 
 .controls {
@@ -862,6 +1019,29 @@ button {
   50% { box-shadow: 0 0 0 2px var(--carmine-bright), 0 0 14px var(--carmine); }
 }
 
+@keyframes line-in {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes nudge {
+  0%, 100% { translate: 0 0; }
+  30% { translate: -5px 0; }
+  70% { translate: 5px 0; }
+}
+
+@keyframes swipe {
+  0% { translate: calc(var(--sx) * -20px) calc(var(--sy) * -20px); opacity: 0; }
+  20% { opacity: 1; }
+  70% { translate: calc(var(--sx) * 20px) calc(var(--sy) * 20px); opacity: 1; }
+  100% { translate: calc(var(--sx) * 24px) calc(var(--sy) * 24px); opacity: 0; }
+}
+
+@keyframes row-lit {
+  from { scale: 1.5; filter: drop-shadow(0 0 8px var(--carmine-bright)); }
+  to { scale: 1; filter: none; }
+}
+
 @keyframes sign-turn {
   from { rotate: -120deg; scale: 1.7; }
   to { rotate: 0deg; scale: 1; }
@@ -892,8 +1072,23 @@ button {
 #app.reduced-motion .pad-quad.pulse .die-face,
 #app.reduced-motion .chain-label.bump,
 #app.reduced-motion .stage-sign.turn,
-#app.reduced-motion .mode-tag.level-up {
+#app.reduced-motion .mode-tag.level-up,
+#app.reduced-motion .guide-line.fresh,
+#app.reduced-motion .guide.nudge .guide-swipe,
+#app.reduced-motion .guide.nudge .guide-keys,
+#app.reduced-motion .guide-swipe-dot,
+#app.reduced-motion .key.lit,
+#app.reduced-motion .rule-row.lit {
   animation: none;
+}
+
+/* Without motion the dot rests at the end of its path. */
+#app.reduced-motion .guide-swipe-dot {
+  translate: calc(var(--sx) * 20px) calc(var(--sy) * 20px);
+}
+
+#app.reduced-motion .key.lit {
+  box-shadow: 0 0 0 2px var(--carmine-bright);
 }
 
 #app.reduced-motion .seal-edge.pulse {

@@ -1,14 +1,27 @@
 import * as THREE from 'three';
 import { DELTA, DIRS, previewMove, type Dir, type RunState } from '../rules';
-import { ghostFaceTexture } from './textures';
+import { cubeFaceTexture, ghostFaceTexture } from './textures';
 import type { Theme } from './theme';
 
 export interface OverlayOptions {
   boardPreview: boolean;
   matchHint: boolean;
-  /** Cell to point the player at during the tutorial. */
-  marker: { x: number; z: number } | null;
+  /** Where the tutorial points the player. */
+  marker: TutorialMarker | null;
 }
+
+export interface TutorialMarker {
+  x: number;
+  z: number;
+  /** The target is a die to step onto: the mark lies on its top face. */
+  raised: boolean;
+  /** Value a die rolled here will show: a phantom die with that face stands on the cell. */
+  top?: number;
+}
+
+/** Edge of a die as it is drawn, and the height of its top face. */
+const DIE = 0.94;
+const DIE_TOP = 0.97;
 
 function floorPlane(material: THREE.Material, size: number): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
@@ -17,13 +30,17 @@ function floorPlane(material: THREE.Material, size: number): THREE.Mesh {
   return mesh;
 }
 
-/** Things drawn on the floor: ghost previews, clear hints and the tutorial marker. */
+/** Things drawn on the board for the player's benefit: ghost previews, clear hints, the tutorial marker. */
 export class FloorOverlays {
   readonly group = new THREE.Group();
   private readonly ghostMaterials: THREE.Material[];
   private readonly ghosts = new Map<Dir, THREE.Mesh>();
   private readonly hints = new Map<Dir, THREE.Mesh>();
   private readonly marker: THREE.Mesh;
+  /** Outline of a die with the face it will show, standing where the tutorial wants one rolled. */
+  private readonly phantom = new THREE.Group();
+  private readonly phantomTop: THREE.Mesh;
+  private readonly phantomFaces: THREE.MeshBasicMaterial[];
 
   constructor(theme: Theme) {
     this.ghostMaterials = [1, 2, 3, 4, 5, 6].map(
@@ -49,8 +66,20 @@ export class FloorOverlays {
       new THREE.MeshBasicMaterial({ color: theme.carmine, transparent: true, opacity: 0.5, depthWrite: false }),
       0.9,
     );
-    this.marker.position.y = 0.015;
-    this.group.add(this.marker);
+    this.phantomFaces = [1, 2, 3, 4, 5, 6].map(
+      (value) => new THREE.MeshBasicMaterial({ map: cubeFaceTexture(value, theme), transparent: true, depthWrite: false }),
+    );
+    this.phantomTop = floorPlane(this.phantomFaces[0], DIE * 0.94);
+    this.phantomTop.position.y = DIE_TOP + 0.005;
+    this.phantomTop.visible = true;
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(DIE, DIE, DIE)),
+      new THREE.LineBasicMaterial({ color: theme.ivory, transparent: true, opacity: 0.6 }),
+    );
+    edges.position.y = 0.5;
+    this.phantom.add(edges, this.phantomTop);
+    this.phantom.visible = false;
+    this.group.add(this.marker, this.phantom);
   }
 
   sync(state: RunState, timeMs: number, options: OverlayOptions, reducedMotion: boolean): void {
@@ -80,11 +109,19 @@ export class FloorOverlays {
       }
     }
 
-    this.marker.visible = options.marker !== null;
-    if (options.marker) {
-      this.marker.position.x = options.marker.x;
-      this.marker.position.z = options.marker.z;
-      (this.marker.material as THREE.MeshBasicMaterial).opacity = reducedMotion ? 0.45 : 0.3 + 0.25 * Math.sin(timeMs / 220);
+    const { marker } = options;
+    this.marker.visible = marker !== null;
+    this.phantom.visible = marker?.top !== undefined;
+    if (marker) {
+      const pulse = reducedMotion ? 0.6 : 0.5 + 0.5 * Math.sin(timeMs / 220);
+      this.marker.position.set(marker.x, marker.raised ? DIE_TOP + 0.015 : 0.015, marker.z);
+      (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.3 + 0.25 * pulse;
+      if (marker.top !== undefined) {
+        const face = this.phantomFaces[marker.top - 1];
+        face.opacity = 0.55 + 0.3 * pulse;
+        this.phantomTop.material = face;
+        this.phantom.position.set(marker.x, 0, marker.z);
+      }
     }
   }
 }

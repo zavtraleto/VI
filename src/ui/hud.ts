@@ -90,7 +90,7 @@ export class Hud {
     const left = Hud.secondsLeft(state);
     const level = `${t('level')} ${state.level}`;
     this.tag.textContent =
-      left !== null ? t('boardFull') : state.mode === 'practice' ? `${t('practice')} · ${level}` : level;
+      left !== null ? t('boardFull') : state.mode === 'practice' ? t('practice') : level;
     // Time Limited shows its clock; the full-board countdown takes its place while it runs.
     const remaining = Hud.clockLeft(state);
     const showClock = remaining !== null && left === null;
@@ -173,40 +173,21 @@ export class HintBubble {
   private readonly el = h('div', { class: 'hint-bubble' });
   private readonly queue: { text: string; ms: number }[] = [];
   private timer: number | null = null;
-  private sticky = false;
 
   constructor(root: HTMLElement) {
     root.append(this.el);
   }
 
-  /** Stays until `clearSticky` is called. */
-  showSticky(text: string): void {
-    this.sticky = true;
-    this.display(text);
-  }
-
-  clearSticky(): void {
-    if (!this.sticky) return;
-    this.sticky = false;
-    this.next();
-  }
-
   show(text: string, ms = 4500): void {
     this.queue.push({ text, ms });
-    if (!this.sticky && this.timer === null) this.next();
+    if (this.timer === null) this.next();
   }
 
   reset(): void {
     this.queue.length = 0;
-    this.sticky = false;
     if (this.timer !== null) window.clearTimeout(this.timer);
     this.timer = null;
     this.el.classList.remove('visible');
-  }
-
-  private display(text: string): void {
-    this.el.textContent = text;
-    this.el.classList.add('visible');
   }
 
   private next(): void {
@@ -216,7 +197,8 @@ export class HintBubble {
       this.el.classList.remove('visible');
       return;
     }
-    this.display(item.text);
+    this.el.textContent = item.text;
+    this.el.classList.add('visible');
     this.timer = window.setTimeout(() => this.next(), item.ms);
   }
 }

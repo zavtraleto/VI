@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Script: `N, E, N, W, N`. Layout relative to the start cell (3,4): A (0,0) top 1 south 2 east 4; B (−1,−1) top 2; C (+1,−1) top 6 south 3; D (0,−2) top 5 south 3; E1 (+1,−3) top 3; E2 (+2,−3) top 3.
+- Script: `W, N, W, N, W`. Layout: A (5,4) top 1 east 2, under the player; B (3,4) top 2; C (4,3) top 6 east 3; D (3,2) top 5 east 3; E1 (2,3) top 3; E2 (1,3) top 3. (The first draft went north from (3,4); the browser check showed that the cell north of the player is hidden behind the player's own die, so the layout was turned west. The code blocks of Task 1 below show the first draft.)
 - A step off the script changes nothing: no `blocked` event, no `blockedSteps`, event `nudge`.
 - Sinking dice wait at height 0.6 until the tutorial is done.
 - `tutorialDone` comes 1600 ms after the fifth command, once.

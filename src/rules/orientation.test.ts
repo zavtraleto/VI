@@ -44,10 +44,10 @@ describe('orientation', () => {
     expect(roll(o, 'W')).toEqual({ top: 3, bottom: 4, north: 2, south: 5, east: 6, west: 1 });
   });
 
-  it('contains the tutorial cube and rolls it north to a 2', () => {
-    const a = { top: 1, bottom: 6, north: 5, south: 2, east: 4, west: 3 };
+  it('contains the tutorial cube and rolls it west to a 2', () => {
+    const a = { top: 1, bottom: 6, north: 4, south: 3, east: 2, west: 5 };
     expect(ALL_ORIENTATIONS.map(orientationKey)).toContain(orientationKey(a));
-    expect(roll(a, 'N').top).toBe(2);
+    expect(roll(a, 'W').top).toBe(2);
   });
 });
 

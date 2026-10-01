@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { cubeHeight, type Cube, type RunState } from '../rules';
+import { cubeHeight, isHeld, type Cube, type RunState } from '../rules';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
 import { cubeFaceTexture, pipMaskTexture } from './textures';
 import type { Theme } from './theme';
@@ -121,7 +121,8 @@ export class CubeMeshes {
       }
       return;
     }
-    mesh.position.set(cube.x, cubeHeight(cube, state.config, alpha) - 0.5, cube.z);
+    // A die held by the tutorial stays put between ticks.
+    mesh.position.set(cube.x, cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha) - 0.5, cube.z);
     mesh.quaternion.copy(quatFor(cube.ori));
   }
 }
