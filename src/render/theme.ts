@@ -1,35 +1,30 @@
-export interface FaceColors {
-  bg: string;
-  pip: string;
-}
-
 export interface Theme {
-  background: number;
-  slab: number;
+  void: number;
+  voidFinal: number;
+  slabTop: string;
+  slabGroove: string;
+  slabHighlight: string;
   slabSide: number;
-  grid: number;
-  idle: FaceColors;
-  rising: FaceColors;
-  sinking: FaceColors;
-  player: number;
-  ghost: string;
-  hint: number;
-  ambient: number;
-  key: number;
+  cube: string;
+  cubeEdge: string;
+  pip: string;
+  carmine: string;
+  ivory: number;
+  ink: string;
 }
 
-/** Plain look for the first playable: grey board, light dice, red for sinking. */
-export const PROTOTYPE_THEME: Theme = {
-  background: 0x1b1c20,
-  slab: 0x8d8f96,
-  slabSide: 0x5d5f66,
-  grid: 0x6f7178,
-  idle: { bg: '#ece8de', pip: '#141414' },
-  rising: { bg: '#a9a69d', pip: '#3a3a3a' },
-  sinking: { bg: '#c8443a', pip: '#fff3ec' },
-  player: 0xffb020,
-  ghost: '#ffffff',
-  hint: 0xff5040,
-  ambient: 0xffffff,
-  key: 0xffffff,
+/** Occult tabletop instrument: black void, ash plate, charcoal dice with ivory pips, carmine light. */
+export const OCCULT_THEME: Theme = {
+  void: 0x050506,
+  voidFinal: 0x14060a,
+  slabTop: '#a8a39a',
+  slabGroove: '#5f5b55',
+  slabHighlight: '#c4bfb5',
+  slabSide: 0x3b3936,
+  cube: '#2b2827',
+  cubeEdge: '#5a544f',
+  pip: '#ece3cf',
+  carmine: '#b3122f',
+  ivory: 0xefe6d2,
+  ink: '#2a2624',
 };

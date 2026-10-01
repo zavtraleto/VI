@@ -1,53 +1,129 @@
 import * as THREE from 'three';
-import type { RunState } from '../rules';
+import type { GameEvent, RunState } from '../rules';
 import { CubeMeshes } from './cubes';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { PlayerFigure } from './player';
+import {
+  cellLinesTexture,
+  frameTexture,
+  perimeterTexture,
+  ringTexture,
+  sealTexture,
+  slabTexture,
+  type SlabLayout,
+} from './textures';
 import type { Theme } from './theme';
 
 const MAX_DPR = 1.5;
 /** World units that must stay visible around the board centre. */
-const NEED_HALF_WIDTH = 5.5;
-const NEED_HALF_HEIGHT = 4.1;
+const NEED_HALF_WIDTH = 5.75;
+const NEED_HALF_HEIGHT = 4.3;
+const RIM = 0.25;
+const SLAB_DEPTH = 1.4;
+const RING_SIZE = 11.6;
+
+export interface SceneParams {
+  overlay: OverlayOptions;
+  /** Eased presence of ritual stages 1..5. */
+  levels: readonly number[];
+  /** 1 at the moment the last stage is reached, fading to 0. */
+  phaseShift: number;
+  /** The board is close to full. */
+  warn: boolean;
+  /** The board is full and the rescue countdown is running. */
+  danger: boolean;
+  reducedMotion: boolean;
+  shake: boolean;
+}
+
+function layer(texture: THREE.Texture, size: number, y: number): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> {
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0, depthWrite: false }),
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = y;
+  mesh.visible = false;
+  return mesh;
+}
 
 /** Fixed orthographic isometric view: North goes up-right, East down-right. */
 export class BoardView {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+  private readonly cameraHome = new THREE.Vector3();
+  private readonly cameraRight = new THREE.Vector3();
+  private readonly cameraUp = new THREE.Vector3();
   private readonly cubes: CubeMeshes;
   private readonly player: PlayerFigure;
   private readonly overlays: FloorOverlays;
+  private readonly ambient: THREE.AmbientLight;
+  private readonly reactionLight: THREE.PointLight;
+  private readonly perimeter;
+  private readonly cellLines;
+  private readonly seal;
+  private readonly frame;
+  private readonly ring;
+  private readonly voidColor: THREE.Color;
+  private readonly voidFinal: THREE.Color;
+  private readonly background = new THREE.Color();
   private readonly tmp = new THREE.Vector3();
   private width = 1;
   private height = 1;
+  private lastTime = 0;
+  private backgroundCss = '';
+  /** Decaying effect amounts, 0..1. */
+  private flash = 0;
+  private burst = 0;
+  private tremor = 0;
 
   constructor(private readonly container: HTMLElement, theme: Theme, size: number) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setClearColor(theme.background);
     this.renderer.domElement.className = 'board-canvas';
     container.prepend(this.renderer.domElement);
+    this.voidColor = new THREE.Color(theme.void);
+    this.voidFinal = new THREE.Color(theme.voidFinal);
 
     const centre = (size - 1) / 2;
-    this.camera.position.set(centre + 20, 20, centre + 20);
-    this.camera.lookAt(centre, 0.35, centre);
+    this.cameraHome.set(centre + 20, 20, centre + 20);
+    this.camera.position.copy(this.cameraHome);
+    this.camera.lookAt(centre, 0.3, centre);
+    this.camera.updateMatrixWorld();
+    this.cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
+    this.cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1);
 
-    this.scene.add(new THREE.AmbientLight(theme.ambient, 1.5));
-    const key = new THREE.DirectionalLight(theme.key, 1.6);
-    key.position.set(4, 10, 7);
-    this.scene.add(key);
+    this.ambient = new THREE.AmbientLight(0xdfe3ff, 0.95);
+    const key = new THREE.DirectionalLight(0xfff1dd, 2.6);
+    // Mostly from above, so the top face - the one that matters - is the brightest.
+    key.position.set(2, 10, 4.5);
+    this.reactionLight = new THREE.PointLight(theme.carmine, 0, 7, 1.6);
+    this.scene.add(this.ambient, key, this.reactionLight);
 
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(size, 1.4, size), [
-      new THREE.MeshLambertMaterial({ color: theme.slabSide }),
-      new THREE.MeshLambertMaterial({ color: theme.slabSide }),
-      new THREE.MeshLambertMaterial({ color: theme.slab }),
-      new THREE.MeshLambertMaterial({ color: theme.slabSide }),
-      new THREE.MeshLambertMaterial({ color: theme.slabSide }),
-      new THREE.MeshLambertMaterial({ color: theme.slabSide }),
+    const layout: SlabLayout = { cells: size, rim: RIM };
+    const slabSize = size + RIM * 2;
+    const side = new THREE.MeshLambertMaterial({ color: theme.slabSide });
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(slabSize, SLAB_DEPTH, slabSize), [
+      side,
+      side,
+      new THREE.MeshLambertMaterial({ map: slabTexture(theme, layout) }),
+      side,
+      side,
+      side,
     ]);
-    slab.position.set(centre, -0.7, centre);
+    slab.position.set(centre, -SLAB_DEPTH / 2, centre);
     this.scene.add(slab);
-    this.scene.add(this.gridLines(size, theme.grid));
+
+    this.perimeter = layer(perimeterTexture(theme, layout), slabSize, 0.004);
+    this.cellLines = layer(cellLinesTexture(theme, layout), slabSize, 0.006);
+    this.seal = layer(sealTexture(theme), slabSize, 0.008);
+    this.frame = layer(frameTexture(theme, layout), slabSize, 0.01);
+    this.ring = layer(ringTexture(theme), RING_SIZE, -0.04);
+    for (const mesh of [this.perimeter, this.cellLines, this.seal, this.frame, this.ring]) {
+      mesh.position.x = centre;
+      mesh.position.z = centre;
+      this.scene.add(mesh);
+    }
 
     this.cubes = new CubeMeshes(theme);
     this.player = new PlayerFigure(theme);
@@ -56,18 +132,6 @@ export class BoardView {
 
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
-  }
-
-  private gridLines(size: number, color: number): THREE.LineSegments {
-    const points: number[] = [];
-    for (let i = 0; i <= size; i++) {
-      const v = i - 0.5;
-      points.push(v, 0.003, -0.5, v, 0.003, size - 0.5);
-      points.push(-0.5, 0.003, v, size - 0.5, 0.003, v);
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-    return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color }));
   }
 
   resize(): void {
@@ -84,10 +148,85 @@ export class BoardView {
     this.camera.updateProjectionMatrix();
   }
 
-  draw(state: RunState, alpha: number, timeMs: number, options: OverlayOptions): void {
-    this.cubes.sync(state, alpha);
+  /** Lets the scene react to what happened in a tick. */
+  notify(events: readonly GameEvent[]): void {
+    for (const event of events) {
+      if (event.type === 'match') {
+        this.flash = Math.max(this.flash, 0.7);
+        this.burst = 1;
+      } else if (event.type === 'chain') {
+        this.flash = 1;
+        this.burst = 1;
+        this.tremor = Math.min(1, 0.35 + event.chain * 0.15);
+      } else if (event.type === 'happyOne') {
+        this.burst = 1;
+      }
+    }
+  }
+
+  reset(): void {
+    this.flash = 0;
+    this.burst = 0;
+    this.tremor = 0;
+  }
+
+  draw(state: RunState, alpha: number, timeMs: number, params: SceneParams): void {
+    const dt = this.lastTime === 0 ? 0 : Math.min(100, Math.max(0, timeMs - this.lastTime));
+    this.lastTime = timeMs;
+    this.flash = Math.max(0, this.flash - dt / 450);
+    this.burst = Math.max(0, this.burst - dt / 350);
+    this.tremor = Math.max(0, this.tremor - dt / 260);
+
+    const { levels, reducedMotion } = params;
+    const wave = (periodMs: number) => (reducedMotion ? 0 : Math.sin((timeMs / periodMs) * Math.PI * 2));
+
+    // Stage 2: pips answer a clear together. Stage 3: the dice breathe.
+    const breathing = levels[2] * (0.1 + 0.07 * wave(3600));
+    this.cubes.sync(state, alpha, {
+      idle: this.flash * levels[1] * 0.9 + breathing,
+      sinking: 1.15 + 0.3 * wave(700) + this.burst * 1.4,
+    });
     this.player.sync(state, alpha);
-    this.overlays.sync(state, timeMs, options);
+    this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
+
+    const reaction = this.cubes.sinkingCentre(state);
+    this.reactionLight.intensity = reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0;
+    this.reactionLight.position.set(reaction.x, 1.5, reaction.z);
+
+    const show = (mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>, opacity: number) => {
+      mesh.visible = opacity > 0.002;
+      mesh.material.opacity = opacity;
+    };
+    show(this.perimeter, levels[0] * 0.9);
+    show(this.cellLines, levels[1] * (0.42 + 0.14 * wave(5200) * levels[2] + this.flash * 0.3));
+    show(this.seal, levels[4] * (0.8 + 0.12 * wave(4300)));
+    show(this.ring, levels[3] * 0.85);
+    if (!reducedMotion) this.ring.rotation.z = timeMs / 24000 + levels[4] * (timeMs / 9000);
+
+    // Danger keeps its own rhythm so it never reads as decoration.
+    let frameOpacity = 0;
+    if (params.danger) frameOpacity = reducedMotion ? 1 : Math.floor(timeMs / 125) % 2 === 0 ? 1 : 0.15;
+    else if (params.warn) frameOpacity = reducedMotion ? 0.55 : 0.35 + 0.3 * (0.5 + 0.5 * wave(900));
+    show(this.frame, frameOpacity);
+
+    this.background.copy(this.voidColor).lerp(this.voidFinal, Math.min(1, levels[3] * 0.35 + levels[4] * 0.65));
+    this.renderer.setClearColor(this.background);
+    const css = `#${this.background.getHexString()}`;
+    if (css !== this.backgroundCss) {
+      // The page around the canvas follows the void so the board never sits in a visible box.
+      this.backgroundCss = css;
+      document.documentElement.style.setProperty('--void', css);
+    }
+    this.ambient.intensity = 0.95 - levels[3] * 0.12 + params.phaseShift * 1.6;
+    this.renderer.domElement.style.filter = !reducedMotion && params.phaseShift > 0.72 ? 'invert(1)' : '';
+
+    this.camera.position.copy(this.cameraHome);
+    if (params.shake && !reducedMotion && this.tremor > 0) {
+      const amount = this.tremor * 0.09;
+      this.camera.position
+        .addScaledVector(this.cameraRight, Math.sin(timeMs / 13) * amount)
+        .addScaledVector(this.cameraUp, Math.cos(timeMs / 17) * amount);
+    }
     this.renderer.render(this.scene, this.camera);
   }
 

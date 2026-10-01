@@ -13,29 +13,30 @@ const ARC: Record<MoveKind, number> = {
   push: 0.03,
 };
 
-const BODY_HEIGHT = 0.62;
-
+/** A small ivory figure: a robe and a head. */
 export class PlayerFigure {
   readonly group = new THREE.Group();
 
   constructor(theme: Theme) {
-    const geometry = new THREE.CapsuleGeometry(0.19, BODY_HEIGHT - 0.38, 4, 12);
-    const body = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: theme.player }));
-    body.position.y = BODY_HEIGHT / 2;
+    const robe = new THREE.ConeGeometry(0.2, 0.5, 14);
+    robe.translate(0, 0.25, 0);
+    const head = new THREE.SphereGeometry(0.105, 14, 10);
+    head.translate(0, 0.55, 0);
+
+    const solid = new THREE.MeshLambertMaterial({ color: theme.ivory });
     // Drawn only where a cube hides the figure, so the player never gets lost behind the dice.
-    const ghost = new THREE.Mesh(
-      geometry,
-      new THREE.MeshBasicMaterial({
-        color: theme.player,
-        transparent: true,
-        opacity: 0.45,
-        depthFunc: THREE.GreaterDepth,
-        depthWrite: false,
-      }),
-    );
-    ghost.position.y = BODY_HEIGHT / 2;
-    ghost.renderOrder = 10;
-    this.group.add(body, ghost);
+    const ghost = new THREE.MeshBasicMaterial({
+      color: theme.ivory,
+      transparent: true,
+      opacity: 0.4,
+      depthFunc: THREE.GreaterDepth,
+      depthWrite: false,
+    });
+    for (const geometry of [robe, head]) {
+      const through = new THREE.Mesh(geometry, ghost);
+      through.renderOrder = 10;
+      this.group.add(new THREE.Mesh(geometry, solid), through);
+    }
   }
 
   sync(state: RunState, alpha: number): void {

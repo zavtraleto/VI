@@ -1,4 +1,6 @@
 import { Game } from './app/game';
+import '@fontsource/forum/latin-400.css';
+import '@fontsource/forum/cyrillic-400.css';
 import './ui/styles.css';
 
 const game = new Game(document.getElementById('app')!);

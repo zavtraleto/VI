@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { DELTA, DIRS, previewMove, type Dir, type RunState } from '../rules';
-import { makeFaceTexture } from './pips';
+import { ghostFaceTexture } from './textures';
 import type { Theme } from './theme';
 
 export interface OverlayOptions {
@@ -29,31 +29,31 @@ export class FloorOverlays {
     this.ghostMaterials = [1, 2, 3, 4, 5, 6].map(
       (value) =>
         new THREE.MeshBasicMaterial({
-          map: makeFaceTexture(value, { bg: '#000000', pip: theme.ghost }, { transparent: true, border: theme.ghost }),
+          map: ghostFaceTexture(value, theme.ink),
           transparent: true,
-          opacity: 0.8,
+          opacity: 0.85,
           depthWrite: false,
         }),
     );
-    const hintMaterial = new THREE.MeshBasicMaterial({ color: theme.hint, transparent: true, opacity: 0.4, depthWrite: false });
+    const hintMaterial = new THREE.MeshBasicMaterial({ color: theme.carmine, transparent: true, opacity: 0.38, depthWrite: false });
     for (const dir of DIRS) {
       const ghost = floorPlane(this.ghostMaterials[0], 0.8);
       ghost.position.y = 0.02;
       this.ghosts.set(dir, ghost);
-      const hint = floorPlane(hintMaterial, 0.96);
-      hint.position.y = 0.01;
+      const hint = floorPlane(hintMaterial, 0.94);
+      hint.position.y = 0.012;
       this.hints.set(dir, hint);
       this.group.add(hint, ghost);
     }
     this.marker = floorPlane(
-      new THREE.MeshBasicMaterial({ color: theme.hint, transparent: true, opacity: 0.5, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color: theme.carmine, transparent: true, opacity: 0.5, depthWrite: false }),
       0.9,
     );
     this.marker.position.y = 0.015;
     this.group.add(this.marker);
   }
 
-  sync(state: RunState, timeMs: number, options: OverlayOptions): void {
+  sync(state: RunState, timeMs: number, options: OverlayOptions, reducedMotion: boolean): void {
     const idle = !state.player.action && !state.over;
     for (const dir of DIRS) {
       const ghost = this.ghosts.get(dir)!;
@@ -84,7 +84,7 @@ export class FloorOverlays {
     if (options.marker) {
       this.marker.position.x = options.marker.x;
       this.marker.position.z = options.marker.z;
-      (this.marker.material as THREE.MeshBasicMaterial).opacity = 0.3 + 0.25 * Math.sin(timeMs / 220);
+      (this.marker.material as THREE.MeshBasicMaterial).opacity = reducedMotion ? 0.45 : 0.3 + 0.25 * Math.sin(timeMs / 220);
     }
   }
 }

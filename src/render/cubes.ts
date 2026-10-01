@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { cubeHeight, type Cube, type CubeState, type RunState } from '../rules';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
-import { makeFaceTexture } from './pips';
+import { cubeFaceTexture, pipMaskTexture } from './textures';
 import type { Theme } from './theme';
 
 type Look = 'idle' | 'rising' | 'sinking';
@@ -10,23 +11,50 @@ const LOOK: Record<CubeState, Look> = { idle: 'idle', moving: 'idle', rising: 'r
 
 const CUBE_SIZE = 0.94;
 
+export interface CubeGlow {
+  /** Glow of resting pips: stage flashes and breathing. */
+  idle: number;
+  /** Glow of sinking pips. */
+  sinking: number;
+}
+
 export class CubeMeshes {
   readonly group = new THREE.Group();
-  private readonly geometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
-  private readonly materials: Record<Look, THREE.Material[]>;
+  private readonly geometry = new RoundedBoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE, 3, 0.07);
+  private readonly materials: Record<Look, THREE.MeshLambertMaterial[]>;
   private readonly meshes = new Map<number, THREE.Mesh>();
   private readonly tmpQuat = new THREE.Quaternion();
   private readonly tmpVec = new THREE.Vector3();
 
   constructor(theme: Theme) {
-    const set = (look: Look): THREE.Material[] =>
-      CANONICAL_FACE_VALUES.map(
-        (value) => new THREE.MeshLambertMaterial({ map: makeFaceTexture(value, theme[look], { border: theme[look].pip + '55' }) }),
+    const faces = CANONICAL_FACE_VALUES.map((value) => ({ map: cubeFaceTexture(value, theme), mask: pipMaskTexture(value) }));
+    const set = (color: number): THREE.MeshLambertMaterial[] =>
+      faces.map(
+        ({ map, mask }) =>
+          new THREE.MeshLambertMaterial({ map, color, emissive: theme.carmine, emissiveMap: mask, emissiveIntensity: 0 }),
       );
-    this.materials = { idle: set('idle'), rising: set('rising'), sinking: set('sinking') };
+    this.materials = { idle: set(0xffffff), rising: set(0x8f8a84), sinking: set(0xb08a8a) };
   }
 
-  sync(state: RunState, alpha: number): void {
+  /** The sinking cubes of running reactions, for the reaction light. */
+  sinkingCentre(state: RunState): { x: number; z: number; count: number } {
+    let x = 0;
+    let z = 0;
+    let count = 0;
+    for (const cube of state.cubes) {
+      if (cube.state !== 'sinking') continue;
+      x += cube.x;
+      z += cube.z;
+      count++;
+    }
+    return count > 0 ? { x: x / count, z: z / count, count } : { x: 0, z: 0, count: 0 };
+  }
+
+  sync(state: RunState, alpha: number, glow: CubeGlow): void {
+    for (const m of this.materials.idle) m.emissiveIntensity = glow.idle;
+    for (const m of this.materials.rising) m.emissiveIntensity = glow.idle * 0.5;
+    for (const m of this.materials.sinking) m.emissiveIntensity = glow.sinking;
+
     const alive = new Set<number>();
     for (const cube of state.cubes) {
       alive.add(cube.id);
