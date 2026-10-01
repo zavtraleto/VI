@@ -190,7 +190,9 @@ export class Game {
       entry = { view, canvas: this.stage.firstElementChild as HTMLElement };
       this.views.set(size, entry);
     }
-    for (const other of this.views.values()) other.canvas.hidden = other !== entry;
+    // The renderer sets `display` on its canvas itself, so a style sheet cannot hide it:
+    // the canvas that is not in use has to be switched off the same way.
+    for (const other of this.views.values()) other.canvas.style.display = other === entry ? 'block' : 'none';
     return entry.view;
   }
 

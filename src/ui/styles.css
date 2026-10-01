@@ -1180,10 +1180,6 @@ button {
 
 /* Puzzle: the line and the two buttons under the board, the list of levels, the stars */
 
-.board-canvas[hidden] {
-  display: none;
-}
-
 .puzzle-bar {
   flex: none;
   align-self: center;
