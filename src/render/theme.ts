@@ -17,8 +17,10 @@ export interface Theme {
   ivory: number;
   ivoryCss: string;
   ink: string;
-  /** What the tutorial points with: arrows and the frames around faces. */
+  /** Arrows of the tutorial. */
   guide: string;
+  /** Thin frame around a die face the tutorial points at. */
+  alarm: string;
 }
 
 /**
@@ -46,4 +48,5 @@ export const OCCULT_THEME: Theme = {
   ivoryCss: '#efe6d2',
   ink: '#2a2624',
   guide: '#ffd98a',
+  alarm: '#ff2f45',
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InputController } from './controller';
-import { DIAMOND_DIRS, GestureTracker, nearestDir, type ScreenDirs } from './gesture';
+import { CARDINAL_DIRS, DIAMOND_DIRS, GestureTracker, nearestDir, type ScreenDirs } from './gesture';
 
 describe('InputController', () => {
   it('gives exactly one step for a quick press and release', () => {
@@ -79,6 +79,23 @@ describe('gesture', () => {
     expect(nearestDir(0, 10, turned)).toBe('S');
     expect(nearestDir(-10, 0, turned)).toBe('W');
     expect(nearestDir(10, -10, turned)).toBe('N'); // 45 degrees up-right is closer to north here
+  });
+
+  it('reads plain swipes: up, right, down and left', () => {
+    expect(nearestDir(0, -20, CARDINAL_DIRS)).toBe('N');
+    expect(nearestDir(20, 0, CARDINAL_DIRS)).toBe('E');
+    expect(nearestDir(0, 20, CARDINAL_DIRS)).toBe('S');
+    expect(nearestDir(-20, 0, CARDINAL_DIRS)).toBe('W');
+    // A swipe that leans stays with the nearer axis.
+    expect(nearestDir(8, -20, CARDINAL_DIRS)).toBe('N');
+    expect(nearestDir(-20, 8, CARDINAL_DIRS)).toBe('W');
+
+    const controller = new InputController();
+    const tracker = new GestureTracker(controller, () => 0, () => CARDINAL_DIRS);
+    tracker.down(100, 100);
+    tracker.move(100, 70);
+    expect(controller.take(0)).toBe('N');
+    tracker.up();
   });
 
   function setup() {

@@ -18,10 +18,11 @@ export class PlayerFigure {
   readonly group = new THREE.Group();
 
   constructor(theme: Theme) {
-    const robe = new THREE.ConeGeometry(0.2, 0.5, 14);
-    robe.translate(0, 0.25, 0);
-    const head = new THREE.SphereGeometry(0.105, 14, 10);
-    head.translate(0, 0.55, 0);
+    // Large enough to be made out on a phone, where a cell is some forty pixels wide.
+    const robe = new THREE.ConeGeometry(0.26, 0.65, 14);
+    robe.translate(0, 0.325, 0);
+    const head = new THREE.SphereGeometry(0.135, 14, 10);
+    head.translate(0, 0.715, 0);
 
     const solid = new THREE.MeshLambertMaterial({ color: theme.ivory });
     // Drawn only where a cube hides the figure, so the player never gets lost behind the dice.

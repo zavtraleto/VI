@@ -21,8 +21,10 @@ const RIM = 0.25;
 const SLAB_DEPTH = 1.4;
 const RING_SIZE = 11.6;
 /** Tallest thing that must stay in frame: a cube with the figure on top. */
-const TOP_Y = 1.7;
+const TOP_Y = 1.9;
 const FRAME_MARGIN = 0.25;
+/** Room left beside the cells when the screen is narrower than the board. */
+const SIDE_MARGIN = 0.08;
 const CAMERA_DISTANCE = 40;
 const RISE_IN_MS = 600;
 
@@ -169,23 +171,24 @@ export class BoardView {
     this.cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
     this.cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1);
 
-    // What has to fit: the slab and a cube with the figure on every cell. The ring of the
-    // late stages is decoration and may run off the sides on a narrow screen.
-    const points: THREE.Vector3[] = [];
-    const h = this.slabHalf;
+    // What has to fit top to bottom: the slab and a cube with the figure on every cell.
+    // Side to side only the cells have to: on a narrow screen the board is as large as it
+    // can be, and the tips of the slab's rim run off the edges, as the ring of the late
+    // stages does.
+    const b = { minR: Infinity, maxR: -Infinity, minU: Infinity, maxU: -Infinity };
+    const p = new THREE.Vector3();
+    const cellsHalf = this.slabHalf - RIM;
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
-        points.push(new THREE.Vector3(sx * h, -SLAB_DEPTH, sz * h), new THREE.Vector3(sx * h, TOP_Y, sz * h));
+        const r = p.set(sx * cellsHalf, 0, sz * cellsHalf).dot(this.cameraRight);
+        b.minR = Math.min(b.minR, r);
+        b.maxR = Math.max(b.maxR, r);
+        for (const y of [-SLAB_DEPTH, TOP_Y]) {
+          const u = p.set(sx * this.slabHalf, y, sz * this.slabHalf).dot(this.cameraUp);
+          b.minU = Math.min(b.minU, u);
+          b.maxU = Math.max(b.maxU, u);
+        }
       }
-    }
-    const b = { minR: Infinity, maxR: -Infinity, minU: Infinity, maxU: -Infinity };
-    for (const p of points) {
-      const r = p.dot(this.cameraRight);
-      const u = p.dot(this.cameraUp);
-      b.minR = Math.min(b.minR, r);
-      b.maxR = Math.max(b.maxR, r);
-      b.minU = Math.min(b.minU, u);
-      b.maxU = Math.max(b.maxU, u);
     }
     this.bounds = b;
     this.resize();
@@ -207,7 +210,7 @@ export class BoardView {
     this.renderer.setSize(this.width, this.height, false);
     const aspect = this.width / this.height;
     const { minR, maxR, minU, maxU } = this.bounds;
-    const needHalfWidth = (maxR - minR) / 2 + FRAME_MARGIN;
+    const needHalfWidth = (maxR - minR) / 2 + SIDE_MARGIN;
     const needHalfHeight = (maxU - minU) / 2 + FRAME_MARGIN;
     const halfHeight = Math.max(needHalfHeight, needHalfWidth / aspect);
     const centreR = (minR + maxR) / 2;

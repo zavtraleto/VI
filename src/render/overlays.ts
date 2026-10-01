@@ -96,8 +96,8 @@ export class FloorOverlays {
       this.chevrons.push(mesh);
       this.group.add(mesh);
     }
-    const frame = faceFrameTexture(theme.guide);
-    this.frameSteady = new THREE.MeshBasicMaterial({ map: frame, transparent: true, opacity: 0.85, depthWrite: false });
+    const frame = faceFrameTexture(theme.alarm);
+    this.frameSteady = new THREE.MeshBasicMaterial({ map: frame, transparent: true, opacity: 0.8, depthWrite: false });
     this.frameStrong = new THREE.MeshBasicMaterial({ map: frame, transparent: true, depthWrite: false });
     const frameGeometry = new THREE.PlaneGeometry(DIE, DIE);
     for (let i = 0; i < MAX_FRAMES; i++) {
@@ -155,8 +155,10 @@ export class FloorOverlays {
     });
 
     const frames = guide?.frames ?? [];
-    const pulse = reducedMotion ? 1 : 0.5 + 0.5 * Math.sin(timeMs / 190);
-    this.frameStrong.opacity = 0.55 + 0.45 * pulse;
+    // Mostly lit, with a short stutter every couple of seconds: enough to make the eye uneasy.
+    const beat = (timeMs % 1700) / 1700;
+    const stutter = beat > 0.84 && Math.floor(beat * 34) % 2 === 1 ? 0.2 : 1;
+    this.frameStrong.opacity = reducedMotion ? 1 : stutter;
     this.frames.forEach((mesh, i) => {
       const frame = frames[i];
       mesh.visible = frame !== undefined;

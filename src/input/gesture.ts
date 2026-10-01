@@ -18,6 +18,14 @@ export const DIAMOND_DIRS: ScreenDirs = {
   W: { x: -Math.SQRT1_2, y: -Math.SQRT1_2 },
 };
 
+/** Plain swipes: up is north, right is east, whatever way the board is turned. */
+export const CARDINAL_DIRS: ScreenDirs = {
+  N: { x: 0, y: -1 },
+  E: { x: 1, y: 0 },
+  S: { x: 0, y: 1 },
+  W: { x: -1, y: 0 },
+};
+
 /** Angle in degrees between a swipe and the on-screen direction of `dir`. */
 export function degreesTo(dx: number, dy: number, dir: Dir, dirs: ScreenDirs): number {
   const length = Math.hypot(dx, dy);

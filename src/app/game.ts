@@ -1,6 +1,6 @@
 import { AudioEngine } from '../audio/engine';
 import { InputController } from '../input/controller';
-import { GestureTracker, bindGestures, type ScreenDirs } from '../input/gesture';
+import { CARDINAL_DIRS, GestureTracker, bindGestures } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
 import { addRun, bestOf, loadSettings, prefersReducedMotion, saveSettings, type Settings } from '../platform/settings';
 import { storageAvailable } from '../platform/storage';
@@ -17,16 +17,17 @@ import {
   tutorialView,
   DELTA,
   DIRS,
-  type Dir,
   type GameEvent,
+  type MarkFace,
   type RunState,
 } from '../rules';
 import { DebugPanel } from '../ui/debug';
 import { formatTime, h } from '../ui/dom';
+import { Dpad } from '../ui/dpad';
 import { ChainLabels, HintBubble, Hud } from '../ui/hud';
 import { t, type TextKey } from '../ui/i18n';
-import { Pad } from '../ui/pad';
 import { Screens, type PauseToggles } from '../ui/screens';
+import { Seal } from '../ui/seal';
 import { TutorialGuide, type InputGlyph } from '../ui/tutorial';
 import { Ritual } from './ritual';
 import { Runner } from './runner';
@@ -49,6 +50,8 @@ export class Game {
   private resultShown = false;
   /** Cell where the tutorial ended and Endless is about to start. */
   private handoff: { x: number; z: number } | null = null;
+  /** Face of the player's die the tutorial asks to bring on top, ringed in the seal. */
+  private sealMark: MarkFace | null = null;
 
   private readonly controller = new InputController();
   private readonly ritual = new Ritual();
@@ -59,11 +62,11 @@ export class Game {
   private readonly labels: ChainLabels;
   private readonly hint: HintBubble;
   private readonly guide: TutorialGuide;
-  private readonly pad: Pad;
+  private readonly seal: Seal;
+  private readonly dpad: Dpad;
   private readonly screens: Screens;
   private readonly debug: DebugPanel;
   private readonly root: HTMLElement;
-  private screenDirs!: ScreenDirs;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -85,16 +88,17 @@ export class Game {
     this.labels = new ChainLabels(overlayLayer);
     this.hint = new HintBubble(overlayLayer);
     this.guide = new TutorialGuide(overlayLayer, () => this.skipTutorial());
-    this.pad = new Pad(controls, this.controller, now, () => enabled() && this.settings.controlMode === 'dpad');
+    this.seal = new Seal(overlayLayer);
+    this.dpad = new Dpad(controls, this.controller, now, () => enabled() && this.settings.controlMode === 'dpad');
     this.screens = new Screens(overlay);
     this.debug = new DebugPanel(root, this.settings, {
       onChange: () => saveSettings(this.settings),
-      onCamera: () => this.applyCamera(),
+      onCamera: () => this.view.setCamera(this.settings.camera),
       onRestart: () => this.startRun(),
     });
-    this.applyCamera();
 
-    this.tracker = new GestureTracker(this.controller, now, () => this.screenDirs);
+    // Swipes are plain: up is north, right is east, as with the arrow keys.
+    this.tracker = new GestureTracker(this.controller, now, () => CARDINAL_DIRS);
     bindGestures(play, this.tracker, () => enabled() && this.settings.controlMode === 'gesture');
     bindKeyboard(this.controller, now, enabled, () => this.togglePause());
 
@@ -141,17 +145,6 @@ export class Game {
     return this.recordKey(this.state.mode === 'timed' ? 'timed' : 'endless');
   }
 
-  /** Points the camera and lines the controls up with where the board directions now point. */
-  private applyCamera(): void {
-    this.view.setCamera(this.settings.camera);
-    const dirs = {} as ScreenDirs;
-    for (const dir of DIRS) dirs[dir] = this.view.screenDir(dir);
-    this.screenDirs = dirs;
-    // The seal is drawn with north at 45 degrees and east at -45; turn it by the average offset.
-    const degrees = (dir: Dir) => (Math.atan2(-dirs[dir].y, dirs[dir].x) * 180) / Math.PI;
-    this.pad.setRotation((degrees('N') - 45 + (degrees('E') + 45)) / 2);
-  }
-
   /** `start` builds the board around a cell and raises it from the floor: the tutorial's hand-off. */
   private startRun(kind: RunKind = this.kind, start?: { x: number; z: number }): void {
     this.kind = kind;
@@ -180,8 +173,7 @@ export class Game {
     this.screens.hide();
     this.labels.clear();
     this.hint.reset();
-    this.pad.setMode(this.settings.controlMode);
-    this.pad.setPulse(null);
+    this.dpad.setPulse(null);
     this.guide.hide();
     if (tutorial) {
       // The one-time hints of a normal run pick up where the tutorial stops.
@@ -195,6 +187,7 @@ export class Game {
    */
   private updateGuide(state: RunState): BoardGuide | null {
     const view = this.inMenu ? null : tutorialView(state);
+    this.sealMark = null;
     if (!view) return null;
     const { dir, mark, counter } = view;
     let glyph: InputGlyph = 'none';
@@ -203,19 +196,20 @@ export class Game {
       // With buttons on screen the pulsing quadrant of the seal is the prompt.
       else if (this.settings.controlMode === 'gesture') glyph = 'swipe';
     }
-    this.guide.show({ value: view.value, line: view.line, dir, glyph, screen: dir ? this.screenDirs[dir] : null });
-    this.pad.setPulse(dir);
+    this.guide.show({ value: view.value, line: view.line, dir, glyph, screen: dir ? CARDINAL_DIRS[dir] : null });
+    this.dpad.setPulse(dir);
     this.guide.count(
       counter && { value: view.value, have: counter.have, need: counter.need },
       counter && this.view.project(counter.x, 1.5, counter.z),
     );
     // A face on the bottom cannot be lit: the sum of opposite faces says what it is.
-    this.guide.seven(mark?.face === 'bottom' ? this.view.project(mark.x, 2.05, mark.z) : null);
+    this.guide.seven(mark?.face === 'bottom' ? this.view.project(mark.x, 2.25, mark.z) : null);
 
     // Arrows lie on the floor of the cell to go to, where it can be seen. A step onto another
     // die, or north into the cell the player's own die hides, is drawn at the height of the dice.
     const { player } = state;
     const onDie = player.level === 'top';
+    if (mark && mark.x === player.x && mark.z === player.z) this.sealMark = mark.face;
     const arrows: GuideArrow[] = [];
     let { x, z } = player;
     view.path.forEach((step, i) => {
@@ -247,7 +241,7 @@ export class Game {
     this.audio.setPaused(true);
     this.hint.reset();
     this.guide.hide();
-    this.pad.setPulse(null);
+    this.dpad.setPulse(null);
     this.screens.showMenu(!this.settings.tutorialDone, {
       onEndless: () => this.startRun('endless'),
       onTimed: () => this.startRun('timed'),
@@ -491,7 +485,6 @@ export class Game {
     });
     this.hud.update(state, bestOf(this.settings, this.currentRecordKey(), 'score'), this.ritual.stage);
     this.labels.update(state, this.view);
-    this.pad.update(state, experiments.matchHint);
-    this.pad.setActive(this.tracker.direction);
+    this.seal.update(state, this.sealMark);
   }
 }

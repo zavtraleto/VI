@@ -489,7 +489,62 @@ button {
   animation: row-lit 0.5s ease-out;
 }
 
-/* The orientation seal */
+/* The die under the player, unfolded: its sides in a row, the top above the one that
+   faces the camera, the bottom below it */
+
+.net {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, var(--net-cell));
+  grid-template-rows: repeat(3, var(--net-cell));
+  gap: 3px;
+  --net-cell: clamp(26px, 7.4vw, 36px);
+}
+
+.net-cell {
+  display: flex;
+  border-radius: 12%;
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+
+.net-cell .die-face {
+  width: 100%;
+  height: 100%;
+}
+
+.net-top { grid-area: 1 / 2; }
+.net-west { grid-area: 2 / 1; }
+.net-south { grid-area: 2 / 2; }
+.net-east { grid-area: 2 / 3; }
+.net-north { grid-area: 2 / 4; }
+.net-bottom { grid-area: 3 / 2; }
+
+/* The top face is the one that counts. */
+.net-top {
+  outline: 1px solid var(--ivory);
+  outline-offset: 2px;
+}
+
+.net.floor .net-top {
+  outline-color: var(--line);
+  outline-offset: -1px;
+}
+
+.net.sinking .net-top {
+  outline-color: var(--carmine-bright);
+  box-shadow: 0 0 14px var(--carmine);
+}
+
+.net-cell.marked {
+  outline: 2px solid var(--carmine-bright);
+  outline-offset: 2px;
+  animation: alarm 1.7s linear infinite;
+}
+
+/* Buttons, for those who would rather press than swipe */
 
 .controls {
   flex: none;
@@ -499,178 +554,43 @@ button {
   padding: 6px 0 16px;
 }
 
-/* With swipes the seal is only a readout: small, above the board, out of the way. */
 #app.gesture .controls {
-  position: absolute;
-  left: 10px;
-  top: 10px;
-  padding: 0;
-  pointer-events: none;
-  --pad-size: clamp(84px, 24vw, 128px);
+  display: none;
 }
 
-.pad {
-  position: relative;
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
   width: var(--pad-size);
   height: var(--pad-size);
-  --seal-turn: 0deg;
-  rotate: var(--seal-turn);
 }
 
-/* Faces and icons stay upright while the seal turns with the camera. */
-.pad .die-face,
-.pad .pad-icon,
-.pad .pad-floor {
-  rotate: calc(-1 * var(--seal-turn));
-}
-
-.seal-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 1;
-  pointer-events: none;
-}
-
-.seal-ticks {
-  stroke: var(--line);
-}
-
-.seal-cross {
-  stroke: #242120;
-}
-
-.seal-edge {
-  stroke: var(--dim);
-  stroke-width: 1.2;
-  transition: stroke 0.12s, stroke-width 0.12s;
-}
-
-.seal-edge.blocked {
-  stroke: #4a4541;
-}
-
-.seal-edge.active {
-  stroke: var(--ivory);
-  stroke-width: 2.6;
-}
-
-.seal-edge.pulse {
-  animation: edge-pulse 0.9s ease-in-out infinite;
-}
-
-.seal-hub {
-  fill: var(--void);
-  stroke: var(--dim);
-}
-
-.pad-quad {
-  position: absolute;
-  width: 50%;
-  height: 50%;
-  border: 0;
-  background: transparent;
+.dpad-btn {
   padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(236, 227, 207, 0.04);
+  font-family: system-ui, sans-serif;
+  font-size: calc(var(--pad-size) * 0.13);
   touch-action: none;
-}
-
-.pad.dpad .pad-quad {
-  pointer-events: auto;
   cursor: pointer;
 }
 
-.pad.dpad .pad-quad.pressed {
-  background: radial-gradient(circle at center, rgba(236, 227, 207, 0.14), transparent 70%);
+.dpad-N { grid-area: 1 / 2; }
+.dpad-W { grid-area: 2 / 1; }
+.dpad-E { grid-area: 2 / 3; }
+.dpad-S { grid-area: 3 / 2; }
+
+.dpad-btn.pressed {
+  border-color: var(--ivory);
+  background: rgba(236, 227, 207, 0.16);
 }
 
-.pad-N { right: 0; top: 0; }
-.pad-E { right: 0; bottom: 0; }
-.pad-S { left: 0; bottom: 0; }
-.pad-W { left: 0; top: 0; }
-
-/* Previews sit on the middle of each rhombus edge. */
-.pad-slot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(var(--pad-size) * 0.2);
-  height: calc(var(--pad-size) * 0.2);
-}
-
-.pad-N .pad-slot { transform: translate(-10%, 10%); }
-.pad-E .pad-slot { transform: translate(-10%, -10%); }
-.pad-S .pad-slot { transform: translate(10%, -10%); }
-.pad-W .pad-slot { transform: translate(10%, 10%); }
-
-.pad-slot .die-face {
-  width: 100%;
-  height: 100%;
-}
-
-.pad-icon {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--void);
-  font-size: calc(var(--pad-size) * 0.11);
-  color: var(--dim);
-  font-family: system-ui, sans-serif;
-}
-
-.pad-quad.push .die-face {
-  outline: 1px dashed var(--dim);
-  outline-offset: 3px;
-}
-
-.pad-quad.clears .die-face {
-  box-shadow: 0 0 0 2px var(--carmine-bright), 0 0 12px var(--carmine);
-}
-
-.pad-quad.pulse .die-face {
-  animation: face-pulse 0.9s ease-in-out infinite;
-}
-
-.pad-centre {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(var(--pad-size) * 0.22);
-  height: calc(var(--pad-size) * 0.22);
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.pad-centre .die-face {
-  width: 100%;
-  height: 100%;
-}
-
-.pad-centre.sinking .die-face {
+.dpad-btn.pulse {
   border-color: var(--carmine-bright);
-  box-shadow: 0 0 14px var(--carmine);
-}
-
-.pad-centre.sinking .pip.on {
-  background: var(--carmine-bright);
-}
-
-.pad-floor {
-  width: 46%;
-  height: 1px;
-  background: var(--dim);
+  animation: face-pulse 0.9s ease-in-out infinite;
 }
 
 /* Die face: the same colour code as on the board */
@@ -1078,9 +998,10 @@ button {
   to { scale: 1; }
 }
 
-@keyframes edge-pulse {
-  0%, 100% { stroke: var(--dim); stroke-width: 1.2; }
-  50% { stroke: var(--carmine-bright); stroke-width: 3; }
+/* Mostly lit, with a short stutter: enough to make the eye uneasy. */
+@keyframes alarm {
+  0%, 84%, 90%, 96% { outline-color: var(--carmine-bright); }
+  87%, 93% { outline-color: transparent; }
 }
 
 @keyframes face-pulse {
@@ -1127,6 +1048,22 @@ button {
   }
 }
 
+/* On a wide screen the board fills the height and its front corner sits in the middle of
+   the bottom edge: the guide moves to the empty corner on the left. */
+@media (orientation: landscape) {
+  .guide {
+    left: 16px;
+    translate: none;
+    align-items: flex-start;
+    max-width: min(38%, 420px);
+  }
+
+  .guide-text {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 520px) {
   .play {
     flex-direction: row;
@@ -1142,8 +1079,8 @@ button {
 }
 
 #app.reduced-motion .danger-count,
-#app.reduced-motion .seal-edge.pulse,
-#app.reduced-motion .pad-quad.pulse .die-face,
+#app.reduced-motion .net-cell.marked,
+#app.reduced-motion .dpad-btn.pulse,
 #app.reduced-motion .chain-label.bump,
 #app.reduced-motion .stage-sign.turn,
 #app.reduced-motion .mode-tag.level-up,
@@ -1166,11 +1103,6 @@ button {
   box-shadow: 0 0 0 2px var(--carmine-bright);
 }
 
-#app.reduced-motion .seal-edge.pulse {
-  stroke: var(--carmine-bright);
-  stroke-width: 2.6;
-}
-
-#app.reduced-motion .pad-quad.pulse .die-face {
+#app.reduced-motion .dpad-btn.pulse {
   box-shadow: 0 0 0 2px var(--carmine-bright);
 }

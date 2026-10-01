@@ -129,16 +129,16 @@ export function warningTexture(color: string): THREE.CanvasTexture {
   });
 }
 
-/** Glowing outline laid over a die face the tutorial points at. */
+/** Thin outline laid over a die face the tutorial points at. */
 export function faceFrameTexture(color: string): THREE.CanvasTexture {
-  return canvasTexture(128, (ctx, size) => {
+  return canvasTexture(256, (ctx, size) => {
+    const inset = size * 0.085;
     ctx.strokeStyle = color;
     ctx.shadowColor = color;
-    ctx.shadowBlur = 10;
-    ctx.lineWidth = size * 0.07;
-    ctx.lineJoin = 'round';
-    // Twice, so the glow builds up around a solid line.
-    for (let i = 0; i < 2; i++) ctx.strokeRect(size * 0.12, size * 0.12, size * 0.76, size * 0.76);
+    ctx.shadowBlur = size * 0.03;
+    ctx.lineWidth = size * 0.022;
+    // Twice, so a faint glow gathers around a solid line.
+    for (let i = 0; i < 2; i++) ctx.strokeRect(inset, inset, size - inset * 2, size - inset * 2);
   });
 }
 
