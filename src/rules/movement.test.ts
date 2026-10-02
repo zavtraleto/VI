@@ -152,6 +152,24 @@ describe('moving from a sinking cube', () => {
     expect(s.player).toEqual({ x: 4, z: 4, level: 'top' });
   });
 
+  it('steps onto a rising neighbour, which a resting cube cannot do', () => {
+    const s = emptyRun();
+    put(s, 3, 4, 4, 'sinking');
+    const rising = put(s, 4, 4, 5, 'rising');
+    rising.t = Math.floor(s.config.risingTicks * 0.8);
+    place(s, 3, 4, 'top');
+    act(s, 'E');
+    expect(s.player).toEqual({ x: 4, z: 4, level: 'top' });
+
+    const t = emptyRun();
+    put(t, 3, 4, 4);
+    const tall = put(t, 4, 4, 5, 'rising');
+    tall.t = Math.floor(t.config.risingTicks * 0.8);
+    place(t, 3, 4, 'top');
+    step(t, 'E');
+    expect(t.events).toContainEqual({ type: 'blocked', dir: 'E' });
+  });
+
   it('cannot roll, and steps down only when low enough', () => {
     const s = emptyRun();
     const cube = put(s, 3, 4, 4, 'sinking');
@@ -160,7 +178,7 @@ describe('moving from a sinking cube', () => {
     expect(s.player).toEqual({ x: 3, z: 4, level: 'top' });
     expect([cube.x, cube.z]).toEqual([3, 4]);
 
-    cube.t = Math.ceil(s.config.sinkingTicks * 0.3); // three quarters high is low enough to step off
+    cube.t = Math.ceil(s.config.sinkingTicks * 0.12); // a little way down is enough to step off
     act(s, 'N');
     expect(s.player).toEqual({ x: 3, z: 3, level: 'ground' });
     expect([cube.x, cube.z]).toEqual([3, 4]);

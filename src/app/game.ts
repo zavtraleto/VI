@@ -1,6 +1,6 @@
 import { AudioEngine } from '../audio/engine';
 import { InputController } from '../input/controller';
-import { CARDINAL_DIRS, GestureTracker, bindGestures } from '../input/gesture';
+import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, type ScreenDirs } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
 import { addRun, bestOf, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
 import { storageAvailable } from '../platform/storage';
@@ -47,6 +47,9 @@ type RunKind = 'endless' | 'timed' | 'tutorial' | 'puzzle';
 
 const PUZZLE_RULES: readonly TextKey[] = ['puzzleRule1', 'puzzleRule2', 'puzzleRule3', 'puzzleRule4', 'puzzleRule5'];
 
+/** How long the direction of a swipe stays shown after the finger has let go. */
+const STEER_LINGER_MS = 280;
+
 export class Game {
   private settings: Settings = loadSettings();
   private runner!: Runner;
@@ -55,6 +58,10 @@ export class Game {
   private kind: RunKind = 'endless';
   private lastClock = -1;
   private lastFrame = 0;
+  /** Where a swipe has to point for each board direction; follows the camera. */
+  private swipeDirs: ScreenDirs = CARDINAL_DIRS;
+  /** The direction the last swipe was read as, shown on the board and the seal for a moment after it. */
+  private steer: { dir: Dir; until: number; arrow: GuideArrow } | null = null;
   private lastStats = '';
   private resultShown = false;
   /** Cell where the tutorial ended and Endless is about to start. */
@@ -121,8 +128,8 @@ export class Game {
     });
     this.applyCamera();
 
-    // Swipes are plain: up is north, right is east, as with the arrow keys.
-    this.tracker = new GestureTracker(this.controller, now, () => CARDINAL_DIRS);
+    // Swipes lean half-way from plain up, right, down and left towards the board's own directions.
+    this.tracker = new GestureTracker(this.controller, now, () => this.swipeDirs);
     bindGestures(play, this.tracker, () => enabled() && this.settings.controlMode === 'gesture');
     bindKeyboard(this.controller, now, enabled, () => this.togglePause());
     window.addEventListener('keydown', (e) => {
@@ -195,15 +202,12 @@ export class Game {
     return entry.view;
   }
 
-  /** Points the camera and turns the seal to where the board directions now point on screen. */
+  /** Points the camera and lays the seal out the way the board now lies on screen. */
   private applyCamera(): void {
     this.view.setCamera(this.settings.camera);
-    const degrees = (dir: Dir) => {
-      const v = this.view.screenDir(dir);
-      return (Math.atan2(-v.y, v.x) * 180) / Math.PI;
-    };
-    // The seal is drawn with north at 45 degrees and east at -45; turn it by the average offset.
-    this.seal.setRotation((degrees('N') - 45 + (degrees('E') + 45)) / 2);
+    this.seal.setFloor(this.view.floorAxes());
+    const at = (dir: Dir) => this.view.screenDir(dir);
+    this.swipeDirs = leanDirs({ N: at('N'), E: at('E'), S: at('S'), W: at('W') }, this.settings.camera.swipeTilt);
   }
 
   /** `start` builds the board around a cell and raises it from the floor: the tutorial's hand-off. */
@@ -395,7 +399,7 @@ export class Game {
       // With buttons on screen the pulsing quadrant of the seal is the prompt.
       else if (this.settings.controlMode === 'gesture') glyph = 'swipe';
     }
-    this.guide.show({ value: view.value, line: view.line, dir, glyph, screen: dir ? CARDINAL_DIRS[dir] : null });
+    this.guide.show({ value: view.value, line: view.line, dir, glyph, screen: dir ? this.swipeDirs[dir] : null });
     this.dpad.setPulse(dir);
     this.guide.count(
       counter && { value: view.value, have: counter.have, need: counter.need },
@@ -423,6 +427,34 @@ export class Game {
     const frames: GuideFrame[] = view.group.map((die) => ({ ...die, face: 'top', strong: false }));
     if (mark && mark.face !== 'bottom') frames.push({ x: mark.x, z: mark.z, face: mark.face, height: 1, strong: true });
     return { arrows, frames };
+  }
+
+  /**
+   * The direction a swipe is being read as, drawn on the board from where the player is: the
+   * answer to which way it went is where the eye already is. After a flick the arrow stays
+   * where it was for a moment.
+   */
+  private steerGuide(state: RunState, time: number): { dir: Dir | null; guide: BoardGuide | null } {
+    const live = this.inputEnabled() ? this.tracker.direction : null;
+    if (live) {
+      const { player } = state;
+      // A step already under way that way is the one the swipe made: the arrow runs from the
+      // cell the player is leaving. Otherwise it shows the step that comes next.
+      const action = player.action?.dir === live ? player.action : undefined;
+      const x = action ? action.fromX : player.x;
+      const z = action ? action.fromZ : player.z;
+      const onDie = (action ? action.fromLevel : player.level) === 'top';
+      const ahead = action ? action.kind === 'hop' : cubeAt(state, x + DELTA[live].dx, z + DELTA[live].dz) !== undefined;
+      // As with the tutorial's arrows: on the floor of the cell ahead where that can be seen,
+      // at the height of the dice where a die stands there or hides it.
+      const raised = onDie && (ahead || live === 'N');
+      const arrow: GuideArrow = { x, z, dir: live, y: raised ? 1 : 0.04, lead: onDie && !raised ? 0.64 : 0.42, dim: false };
+      this.steer = { dir: live, until: time + STEER_LINGER_MS, arrow };
+    } else if (this.steer && (time > this.steer.until || !this.inputEnabled())) {
+      this.steer = null;
+    }
+    if (!this.steer) return { dir: null, guide: null };
+    return { dir: this.steer.dir, guide: { arrows: [this.steer.arrow], frames: [] } };
   }
 
   /** Leaves the tutorial for a normal run, from where the player stands. */
@@ -691,7 +723,9 @@ export class Game {
     const { experiments } = this.settings;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.root.classList.toggle('reduced-motion', reducedMotion);
-    const guide = this.updateGuide(state);
+    const steer = this.steerGuide(state, time);
+    // The tutorial's own arrows say where to go; a swipe is echoed on the board outside it.
+    const guide = this.updateGuide(state) ?? steer.guide;
     this.view.draw(state, alpha, time, {
       overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, guide },
       levels: this.ritual.levels,
@@ -716,6 +750,6 @@ export class Game {
     }
     this.labels.update(state, this.view);
     this.seal.update(state, this.sealMark);
-    this.seal.setActive(this.tracker.direction);
+    this.seal.setActive(steer.dir);
   }
 }

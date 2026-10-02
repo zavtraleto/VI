@@ -10,7 +10,8 @@ interface Spring {
 
 /**
  * A cube dips briefly under the player's weight when they step onto it, then returns to
- * rest. Purely visual; rolling and sliding cubes are not affected.
+ * rest; a cube that a chain lifts comes up the same way instead of jumping. Purely visual;
+ * rolling and sliding cubes are not affected.
  */
 export class CubeSprings {
   private readonly springs = new Map<number, Spring>();
@@ -19,6 +20,13 @@ export class CubeSprings {
   kick(id: number, velocity: number): void {
     const spring = this.springs.get(id) ?? { y: 0, v: 0 };
     spring.v += velocity;
+    this.springs.set(id, spring);
+  }
+
+  /** Draws a cube `offset` away from where it is, to be let back from there. */
+  shift(id: number, offset: number): void {
+    const spring = this.springs.get(id) ?? { y: 0, v: 0 };
+    spring.y += offset;
     this.springs.set(id, spring);
   }
 

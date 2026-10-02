@@ -8,6 +8,7 @@ const TUNING_KEYS = Object.keys(DEFAULT_TUNING) as (keyof Tuning)[];
 const CAMERA_RANGES = {
   yaw: [0, 45, 1],
   pitch: [20, 80, 1],
+  swipeTilt: [0, 1, 0.1],
 } as const;
 
 interface Row {
@@ -43,7 +44,7 @@ export class DebugPanel {
         },
       ),
     );
-    const camera = (['yaw', 'pitch'] as const).map((key) =>
+    const camera = (['yaw', 'pitch', 'swipeTilt'] as const).map((key) =>
       this.row(
         `cam_${key}` as TextKey,
         CAMERA_RANGES[key],

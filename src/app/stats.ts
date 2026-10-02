@@ -8,7 +8,7 @@ export function statsText(state: RunState): string {
   const flags = (Object.keys(config.experiments) as (keyof ExperimentConfig)[]).filter((k) => config.experiments[k]);
   return [
     `VI · rules ${ruleKey(config)} · ${state.mode} · seed ${state.seed}`,
-    `time ${formatTime(state.tick, config.tickMs)} · score ${state.score} · max chain x${state.maxChain} · level ${state.level}`,
+    `time ${formatTime(state.tick, config.tickMs)} · score ${state.score} · max chain x${state.maxChain} · best chain score ${stats.bestChainScore} · level ${state.level}`,
     `first clears: ${stats.clearTicks.length > 0 ? stats.clearTicks.map(seconds).join(', ') : '-'}`,
     `clears ${stats.clears} · steps ${stats.steps} · blocked ${stats.blockedSteps}`,
     `ground time ${seconds(stats.groundTicks)} · falls ${stats.falls} · removed ${state.removed}`,

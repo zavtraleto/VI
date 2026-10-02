@@ -4,6 +4,8 @@ import type { InputController } from './controller';
 export const TRIGGER_PX = 18;
 export const DEAD_ZONE_PX = 10;
 export const HYSTERESIS_DEG = 12;
+/** The point a swipe is measured from follows the finger no further behind than this. */
+export const LEASH_PX = 30;
 
 /** Where each board direction points on screen: unit vectors, y growing downwards. */
 export type ScreenDirs = Record<Dir, { x: number; y: number }>;
@@ -25,6 +27,22 @@ export const CARDINAL_DIRS: ScreenDirs = {
   S: { x: 0, y: 1 },
   W: { x: -1, y: 0 },
 };
+
+/**
+ * Swipe directions that lean from the plain ones towards where the board's own directions
+ * point on screen. `tilt` 0 is plain swipes, 1 follows the board; half-way a swipe straight
+ * up and a swipe along the board both land well inside north.
+ */
+export function leanDirs(board: ScreenDirs, tilt: number): ScreenDirs {
+  const lean = (dir: Dir) => {
+    const plain = Math.atan2(CARDINAL_DIRS[dir].y, CARDINAL_DIRS[dir].x);
+    let turn = Math.atan2(board[dir].y, board[dir].x) - plain;
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+    const angle = plain + turn * Math.min(1, Math.max(0, tilt));
+    return { x: Math.cos(angle), y: Math.sin(angle) };
+  };
+  return { N: lean('N'), E: lean('E'), S: lean('S'), W: lean('W') };
+}
 
 /** Angle in degrees between a swipe and the on-screen direction of `dir`. */
 export function degreesTo(dx: number, dy: number, dir: Dir, dirs: ScreenDirs): number {
@@ -83,20 +101,24 @@ export class GestureTracker {
         this.active = nearestDir(dx, dy, dirs);
         this.controller.press(this.active, this.now());
       }
-      return;
-    }
-    if (dist <= DEAD_ZONE_PX) {
+    } else if (dist <= DEAD_ZONE_PX) {
       this.active = null;
       this.controller.release();
-      return;
+    } else {
+      const dir = nearestDir(dx, dy, dirs);
+      // The finger must be clearly past the line between the two directions before the turn.
+      const past = (degreesTo(dx, dy, this.active, dirs) - degreesTo(dx, dy, dir, dirs)) / 2;
+      if (dir !== this.active && past >= HYSTERESIS_DEG) {
+        this.active = dir;
+        this.controller.redirect(dir);
+      }
     }
-    const dir = nearestDir(dx, dy, dirs);
-    if (dir === this.active) return;
-    // The finger must be clearly past the line between the two directions before the turn.
-    const past = (degreesTo(dx, dy, this.active, dirs) - degreesTo(dx, dy, dir, dirs)) / 2;
-    if (past >= HYSTERESIS_DEG) {
-      this.active = dir;
-      this.controller.redirect(dir);
+    // The origin trails the finger on a short leash: turning or going back is a short move
+    // from where the finger is, not a trip back past where it first touched.
+    if (dist > LEASH_PX) {
+      const slack = (dist - LEASH_PX) / dist;
+      this.originX += dx * slack;
+      this.originY += dy * slack;
     }
   }
 

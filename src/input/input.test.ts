@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InputController } from './controller';
-import { CARDINAL_DIRS, DIAMOND_DIRS, GestureTracker, nearestDir, type ScreenDirs } from './gesture';
+import { CARDINAL_DIRS, DIAMOND_DIRS, GestureTracker, leanDirs, nearestDir, type ScreenDirs } from './gesture';
 
 describe('InputController', () => {
   it('gives exactly one step for a quick press and release', () => {
@@ -138,17 +138,87 @@ describe('gesture', () => {
   it('needs 12 degrees past the boundary to change direction', () => {
     const { controller, tracker } = setup();
     tracker.down(0, 0);
-    tracker.move(30, 30);
+    tracker.move(20, 20);
     expect(controller.take(0)).toBe('E');
+    // Within the leash the origin stays where the finger first touched.
     const at = (deg: number) => {
       const r = (deg * Math.PI) / 180;
-      tracker.move(40 * Math.cos(r), 40 * Math.sin(r));
+      tracker.move(28 * Math.cos(r), 28 * Math.sin(r));
     };
     at(-8); // just past the boundary into N: ignored
     expect(tracker.direction).toBe('E');
     at(-14);
     expect(tracker.direction).toBe('N');
     expect(controller.take(200)).toBe('N');
+  });
+
+  /** Unit vector at an angle in degrees, counter-clockwise from the right, y pointing down. */
+  function towards(deg: number): { x: number; y: number } {
+    const r = (deg * Math.PI) / 180;
+    return { x: Math.cos(r), y: -Math.sin(r) };
+  }
+
+  /** The board as the default camera shows it: north up and to the right, east a little below right. */
+  const BOARD: ScreenDirs = { N: towards(46.8), E: towards(-19.6), S: towards(226.8), W: towards(160.4) };
+
+  it('leans half-way to the board: a swipe straight up and one along the board both read as north', () => {
+    const dirs = leanDirs(BOARD, 0.5);
+    const read = (deg: number) => {
+      const { x, y } = towards(deg);
+      return nearestDir(x * 30, y * 30, dirs);
+    };
+    expect([read(90), read(0), read(270), read(180)]).toEqual(['N', 'E', 'S', 'W']);
+    expect([read(46.8), read(-19.6), read(226.8), read(160.4)]).toEqual(['N', 'E', 'S', 'W']);
+    // Both have room to spare: fifteen degrees to either side changes nothing.
+    for (const off of [-15, 15]) {
+      expect([read(90 + off), read(46.8 + off)]).toEqual(['N', 'N']);
+      expect([read(270 + off), read(226.8 + off)]).toEqual(['S', 'S']);
+      expect([read(off), read(-19.6 + off)]).toEqual(['E', 'E']);
+      expect([read(180 + off), read(160.4 + off)]).toEqual(['W', 'W']);
+    }
+  });
+
+  it('keeps plain swipes at no tilt and follows the board at full tilt', () => {
+    const plain = leanDirs(BOARD, 0);
+    const board = leanDirs(BOARD, 1);
+    for (const dir of ['N', 'E', 'S', 'W'] as const) {
+      expect(plain[dir].x).toBeCloseTo(CARDINAL_DIRS[dir].x);
+      expect(plain[dir].y).toBeCloseTo(CARDINAL_DIRS[dir].y);
+      expect(board[dir].x).toBeCloseTo(BOARD[dir].x);
+      expect(board[dir].y).toBeCloseTo(BOARD[dir].y);
+    }
+    // Along the board's north, plain swipes sit on the line between north and east.
+    const { x, y } = towards(44);
+    expect(nearestDir(x, y, plain)).toBe('E');
+  });
+
+  function plainSetup() {
+    const controller = new InputController();
+    const tracker = new GestureTracker(controller, () => 0, () => CARDINAL_DIRS);
+    return { controller, tracker };
+  }
+
+  it('turns back after a short move from where the finger is, however long the swipe was', () => {
+    const { controller, tracker } = plainSetup();
+    tracker.down(0, 0);
+    tracker.move(100, 0);
+    expect(controller.take(0)).toBe('E');
+    tracker.move(62, 0); // 8 px from the trailing origin: inside the dead zone
+    expect(tracker.direction).toBeNull();
+    tracker.move(48, 0);
+    expect(tracker.direction).toBe('W');
+    expect(controller.take(20)).toBe('W');
+  });
+
+  it('turns a corner within a short move as well', () => {
+    const { tracker } = plainSetup();
+    tracker.down(0, 0);
+    tracker.move(60, 0);
+    expect(tracker.direction).toBe('E');
+    tracker.move(60, -40); // 53 degrees from the trailing origin: not yet clearly north
+    expect(tracker.direction).toBe('E');
+    tracker.move(60, -60);
+    expect(tracker.direction).toBe('N');
   });
 
   it('clears everything on cancel', () => {

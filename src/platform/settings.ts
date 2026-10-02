@@ -47,8 +47,11 @@ export interface Settings {
   shake: boolean;
   /** Overrides of gameplay variables set in the debug panel. */
   tuning: Partial<Tuning>;
-  /** Camera angles in degrees, set in the debug panel. */
-  camera: { yaw: number; pitch: number };
+  /**
+   * Camera angles in degrees, and how far swipes lean from plain up, right, down and left
+   * towards the directions of the board on screen (0 to 1). Set in the debug panel.
+   */
+  camera: { yaw: number; pitch: number; swipeTilt: number };
   /** Shows the button that opens the debug panel. */
   debugPanel: boolean;
   /** Finished runs per rule key, newest last. */
@@ -59,7 +62,7 @@ export interface Settings {
 const KEY = 'vi.settings.v3';
 
 /** Board turned towards the player a little from the classic diamond. */
-export const DEFAULT_CAMERA = { yaw: 30, pitch: 38 } as const;
+export const DEFAULT_CAMERA = { yaw: 30, pitch: 38, swipeTilt: 0.5 } as const;
 /** Earlier default, replaced on load unless the player had tuned the camera themselves. */
 const OLD_CAMERA = { yaw: 25, pitch: 48 } as const;
 const MAX_RUNS = 60;

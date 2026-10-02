@@ -23,7 +23,7 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   stepMs: 200,
   warnMs: 1000,
   riseMs: 3000,
-  sinkMs: 5000,
+  sinkMs: 8000,
   spawnStartMs: 5000,
   spawnStepMs: 250,
   spawnMinMs: 1500,
@@ -32,12 +32,17 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   lowHeight: 0.5,
   sinkLowHeight: 0.8,
   mountHeight: 1,
-  stepDownHeight: 0.75,
-  liftMs: 4000,
+  stepDownHeight: 0.9,
+  chainLift: 0.25,
+  chainLiftMin: 0.1,
+  feedRate: 0.4,
+  liftMs: 3000,
   gentleSec: 180,
   rescueMs: 3000,
   timedSec: 180,
   helpRate: 0.65,
+  targetCubes: 14,
+  refillMs: 900,
   sparseFactor: 0.5,
   crowdedFactor: 1.2,
   easyLevels: 6,
@@ -48,7 +53,7 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   stepMs: [100, 400, 20],
   warnMs: [0, 3000, 100],
   riseMs: [400, 6000, 100],
-  sinkMs: [1000, 10000, 200],
+  sinkMs: [1000, 15000, 250],
   spawnStartMs: [1000, 10000, 250],
   spawnStepMs: [0, 500, 10],
   spawnMinMs: [300, 5000, 100],
@@ -58,11 +63,16 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   sinkLowHeight: [0.1, 1, 0.05],
   mountHeight: [0.1, 1, 0.05],
   stepDownHeight: [0.1, 1, 0.05],
+  chainLift: [0, 0.6, 0.05],
+  chainLiftMin: [0, 0.6, 0.05],
+  feedRate: [0, 1, 0.2],
   liftMs: [500, 10000, 250],
   gentleSec: [0, 600, 15],
   rescueMs: [1000, 10000, 500],
   timedSec: [30, 600, 15],
   helpRate: [0, 1, 0.05],
+  targetCubes: [0, 30, 1],
+  refillMs: [300, 3000, 100],
   sparseFactor: [0.2, 1, 0.05],
   crowdedFactor: [1, 2, 0.05],
   easyLevels: [1, 15, 1],
@@ -78,7 +88,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
   const exp = { ...defaultExperiments(), ...experiments };
   const t = { ...DEFAULT_TUNING, ...tuning };
   return {
-    rulesVersion: '0.5',
+    rulesVersion: '0.6',
     size: 7,
     tickMs: TICK_MS,
     startCubes: Math.max(2, Math.round(t.startCubes)),
@@ -98,7 +108,12 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     sinkLowHeight: t.sinkLowHeight,
     mountHeight: t.mountHeight,
     stepDownHeight: t.stepDownHeight,
+    chainLift: t.chainLift,
+    chainLiftMin: t.chainLiftMin,
+    feedRate: t.feedRate,
     helpRate: t.helpRate,
+    targetCubes: Math.max(0, Math.round(t.targetCubes)),
+    refillMs: t.refillMs,
     sparseFactor: t.sparseFactor,
     crowdedFactor: t.crowdedFactor,
     easyLevels: Math.max(1, Math.round(t.easyLevels)),
@@ -117,18 +132,26 @@ export function ruleKey(config: RulesConfig): string {
   return `${config.rulesVersion}${flags ? '-' + flags : ''}`;
 }
 
-/** Board fill at which spawning is at its fastest and at its slowest. */
-const SPARSE_CUBES = 10;
+/** Cubes in play at which spawning is at its slowest. */
 const CROWDED_CUBES = 30;
+/** Cubes short of the target at which refilling runs at full speed. */
+const REFILL_FULL = 2;
 
 /**
- * Time between spawns. It shortens with the level, and stretches with how full the board
- * is: a thin board refills quickly so there is always something to do, a crowded one
- * gives the player room to clear.
+ * Time between spawns for a number of cubes in play. The board is kept around a target:
+ * what the player clears comes back quickly, so there is always something to build with.
+ * From the target up the interval is the level's own, stretched as the board crowds to give
+ * the player room to clear.
  */
 export function spawnIntervalTicks(config: RulesConfig, level: number, cubes: number): number {
   const byLevel = Math.max(config.spawnMinMs, config.spawnIntervalMs - config.spawnStepMs * (level - 1));
-  const fill = Math.min(1, Math.max(0, (cubes - SPARSE_CUBES) / (CROWDED_CUBES - SPARSE_CUBES)));
+  const target = config.targetCubes;
+  if (cubes < target) {
+    const atTarget = byLevel * config.sparseFactor;
+    const short = Math.min(1, (target - cubes) / REFILL_FULL);
+    return msToTicks(atTarget + (Math.min(config.refillMs, atTarget) - atTarget) * short);
+  }
+  const fill = Math.min(1, (cubes - target) / Math.max(1, CROWDED_CUBES - target));
   const factor = config.sparseFactor + (config.crowdedFactor - config.sparseFactor) * fill;
   return msToTicks(byLevel * factor);
 }

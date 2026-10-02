@@ -3,8 +3,8 @@ import { cubeAt, freeCells } from './board';
 import { DEFAULT_TUNING, defaultConfig, helpChance, isCustomTuning, ruleKey, spawnIntervalTicks, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationKey } from './orientation';
 import { createRun, step } from './sim';
-import { fallbackLayout, hasReadyGroup, spawnCube } from './spawn';
-import { act, emptyRun, ori, place, put, run } from './testkit';
+import { fallbackLayout, hasReadyGroup, population, spawnCube } from './spawn';
+import { act, emptyRun, land, ori, place, put, run } from './testkit';
 import type { Dir, GameEvent, RunState } from './types';
 
 function topsOf(s: RunState): number[] {
@@ -24,7 +24,7 @@ function fill(s: RunState, count: number): void {
 
 /** Ticks until the next regular spawn is announced, for the board as it is now. */
 function interval(s: RunState): number {
-  return spawnIntervalTicks(s.config, s.level, s.cubes.length + s.pending.length);
+  return spawnIntervalTicks(s.config, s.level, population(s));
 }
 
 function collect(s: RunState, ticks: number): GameEvent[] {
@@ -154,13 +154,32 @@ describe('cube lifecycle', () => {
 });
 
 describe('spawn and pressure', () => {
-  it('refills a thin board quickly and gives a crowded one more room', () => {
+  it('refills a board below its target quickly and gives a crowded one more room', () => {
     const c = defaultConfig();
-    expect(spawnIntervalTicks(c, 1, 0)).toBe(125); // 5 s x 0.5
-    expect(spawnIntervalTicks(c, 1, 10)).toBe(125);
-    expect(spawnIntervalTicks(c, 1, 20)).toBe(213); // 5 s x 0.85
+    expect(c.targetCubes).toBe(14);
+    expect(spawnIntervalTicks(c, 1, 0)).toBe(45); // 0.9 s
+    expect(spawnIntervalTicks(c, 1, 10)).toBe(45);
+    expect(spawnIntervalTicks(c, 1, 12)).toBe(45);
+    expect(spawnIntervalTicks(c, 1, 13)).toBe(85); // half way from 0.9 s to 2.5 s
+    expect(spawnIntervalTicks(c, 1, 14)).toBe(125); // 5 s x 0.5
+    expect(spawnIntervalTicks(c, 1, 22)).toBe(213); // 5 s x 0.85
     expect(spawnIntervalTicks(c, 1, 30)).toBe(300); // 5 s x 1.2
     expect(spawnIntervalTicks(c, 1, 49)).toBe(300);
+  });
+
+  it('never refills slower than the level itself spawns', () => {
+    const c = defaultConfig();
+    expect(spawnIntervalTicks(c, 90, 0)).toBe(38); // 1.5 s x 0.5 is already under 0.9 s
+    expect(spawnIntervalTicks(defaultConfig({}, { targetCubes: 0 }), 1, 0)).toBe(125);
+  });
+
+  it('counts a sinking cube as gone: what is cleared starts coming back at once', () => {
+    const s = emptyRun();
+    fill(s, 14);
+    expect(interval(s)).toBe(125);
+    for (const cube of s.cubes.slice(0, 4)) cube.state = 'sinking';
+    expect(population(s)).toBe(10);
+    expect(interval(s)).toBe(45);
   });
 
   it('speeds up by 250 ms per level down to the minimum', () => {
@@ -194,7 +213,7 @@ describe('spawn and pressure', () => {
   });
 
   it('announces a cube, then raises it when the warning ends', () => {
-    const s = emptyRun();
+    const s = emptyRun({}, 1, { targetCubes: 0 });
     s.spawnEnabled = true;
     run(s, interval(s) - 1);
     expect(s.pending.length).toBe(0);
@@ -321,9 +340,9 @@ describe('spawn and pressure', () => {
 });
 
 describe('spawn director', () => {
-  /** Share of spawned cubes that came up touching another cube. */
-  function touchingShare(helpRate: number): number {
-    let touching = 0;
+  /** Share of spawned cubes that came up within three steps of the player, who stays put. */
+  function nearShare(helpRate: number): number {
+    let near = 0;
     let total = 0;
     for (let seed = 1; seed <= 40; seed++) {
       const s = createRun({ seed, config: defaultConfig({ gentleStart: false, floorLift: false }, { helpRate }) });
@@ -332,17 +351,56 @@ describe('spawn director', () => {
         for (const e of s.events) {
           if (e.type !== 'spawn') continue;
           const cube = s.cubes.find((c) => c.id === e.cubeId)!;
-          const around = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => cubeAt(s, cube.x + dx, cube.z + dz));
           total++;
-          if (around) touching++;
+          if (Math.abs(cube.x - s.player.x) + Math.abs(cube.z - s.player.z) <= 3) near++;
         }
       }
     }
-    return touching / total;
+    return near / total;
   }
 
-  it('puts helpful spawns next to other cubes far more often than chance', () => {
-    expect(touchingShare(1)).toBeGreaterThan(touchingShare(0) + 0.15);
+  it('puts helpful spawns within a few steps of the player far more often than chance', () => {
+    expect(nearShare(1)).toBeGreaterThan(nearShare(0) + 0.1);
+  });
+
+  /** Where the first cube of a run with nothing but helpful spawns is announced. */
+  function firstSpawn(seed: number, level: 'top' | 'ground', wall: boolean) {
+    const s = emptyRun({}, seed, { helpRate: 1 });
+    if (level === 'top') put(s, 0, 0, 6);
+    place(s, 0, 0, level);
+    // A row of rising cubes cuts the board in two: the player's corner and the rest.
+    if (wall) for (let x = 0; x < 7; x++) put(s, x, 3, 5, 'rising');
+    s.spawnEnabled = true;
+    run(s, interval(s));
+    return s.pending[0];
+  }
+
+  it('brings a player on the floor a cube right beside them most of the time', () => {
+    let beside = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const { x, z } = firstSpawn(seed, 'ground', false);
+      if (x + z >= 1 && x + z <= 2) beside++;
+    }
+    expect(beside).toBeGreaterThan(20); // 5 cells of 48 would get 6 by chance
+  });
+
+  it('keeps helpful spawns on the side of a wall of rising cubes the player can get to', () => {
+    let cutOff = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      for (const level of ['top', 'ground'] as const) {
+        if (firstSpawn(seed, level, true).z > 3) cutOff++;
+      }
+    }
+    expect(cutOff).toBeLessThan(20); // of 120: half of the free cells lie behind the wall
+  });
+
+  it('decides on helpful spawns from a deck: seven in every ten at level 1', () => {
+    const s = emptyRun();
+    s.spawnEnabled = true;
+    run(s, interval(s));
+    expect(s.helpDeck.length).toBe(9);
+    const dealt = s.helpDeck.filter(Boolean).length;
+    expect(dealt === 6 || dealt === 7).toBe(true);
   });
 
   it('shows mostly low values on new cubes at level 1', () => {
@@ -355,12 +413,58 @@ describe('spawn director', () => {
     }
     expect(counts[1] + counts[2]).toBeGreaterThan((counts[4] + counts[5]) * 2);
   });
+
+  /** Three sinking 3s in the middle of an empty board, with spawning switched on. */
+  function chainRunning(feedRate: number, seed: number): RunState {
+    const s = emptyRun({}, seed, { feedRate, helpRate: 0 });
+    put(s, 2, 3, 3);
+    put(s, 3, 3, 3);
+    land(s, put(s, 4, 3, 3));
+    s.spawnEnabled = true;
+    return s;
+  }
+
+  it('brings a cube for a running chain one move away from it, with the value where it can be seen', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = chainRunning(1, seed);
+      run(s, interval(s));
+      expect(s.pending.length).toBe(1);
+      const { x, z, ori: o } = s.pending[0];
+      const distance = Math.min(...s.cubes.map((c) => Math.abs(c.x - x) + Math.abs(c.z - z)));
+      expect(distance).toBe(2);
+      expect([o.top, o.south, o.east]).toContain(3);
+      // It never comes up as part of the chain or of a group of its own.
+      expect(hasReadyGroup(topsOf(s).map((top, i) => (i === z * 7 + x ? o.top : top)), 7)).toBe(false);
+    }
+  });
+
+  it('feeds a chain on two spawns in five, dealt from a deck', () => {
+    const s = chainRunning(DEFAULT_TUNING.feedRate, 3);
+    run(s, interval(s));
+    expect(s.feedDeck.length).toBe(4);
+    const left = s.feedDeck.filter(Boolean).length;
+    expect(left === 1 || left === 2).toBe(true);
+  });
+
+  it('deals nothing when no chain is running or feeding is off', () => {
+    const idle = emptyRun({}, 3, { helpRate: 0 });
+    put(idle, 2, 3, 3);
+    idle.spawnEnabled = true;
+    run(idle, interval(idle));
+    expect(idle.pending.length).toBe(1);
+    expect(idle.feedDeck.length).toBe(0);
+
+    const off = chainRunning(0, 3);
+    run(off, interval(off));
+    expect(off.pending.length).toBe(1);
+    expect(off.feedDeck.length).toBe(0);
+  });
 });
 
 describe('lift', () => {
   /** Regular spawning slowed right down so the lift can be watched on its own. */
   function grounded(experiments = { floorLift: true }) {
-    const s = emptyRun(experiments, 1, { spawnStartMs: 10000, sparseFactor: 1 });
+    const s = emptyRun(experiments, 1, { spawnStartMs: 10000, sparseFactor: 1, targetCubes: 0 });
     s.spawnEnabled = true;
     place(s, 0, 6, 'ground');
     return s;
@@ -400,6 +504,17 @@ describe('lift', () => {
     const mountable = Math.ceil(s.config.risingTicks * s.config.mountHeight);
     run(s, 100 + s.config.warnTicks + mountable - s.config.floorLiftTicks);
     expect(s.pending).toMatchObject([{ x: 0, z: 6 }]); // too tall to mount now: the lift comes
+  });
+
+  it('does not wait for a cube the player cannot walk to', () => {
+    const s = grounded();
+    // Two cubes shut the player in the corner; the cube on its way comes up beyond them.
+    put(s, 1, 6, 5);
+    put(s, 0, 5, 6);
+    s.pending.push({ x: 5, z: 1, ori: ori({ top: 6 }), t: 0 });
+    run(s, s.config.floorLiftTicks);
+    expect(cubeAt(s, 5, 1)?.state).toBe('rising');
+    expect(s.pending).toMatchObject([{ x: 0, z: 6 }]);
   });
 
   it('tries again if the player walked away from the announced cell', () => {

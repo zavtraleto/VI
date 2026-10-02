@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { cubeHeight } from './board';
 import { previewMove } from './preview';
+import { chainLiftAt } from './reactions';
 import { step } from './sim';
 import { act, emptyRun, land, place, put, putOri, run } from './testkit';
 
@@ -109,6 +111,43 @@ describe('chains', () => {
     run(s, 50);
     expect(s.cubes.length).toBe(0);
     expect(s.reactions.length).toBe(0);
+  });
+
+  it('brings the sinking cubes back up when the chain is added to', () => {
+    const s = threeThrees();
+    const { sinkingTicks } = s.config;
+    run(s, sinkingTicks * 0.6);
+    land(s, put(s, 2, 0, 3));
+    expect(s.cubes[0].t).toBe(sinkingTicks * (0.6 - 0.25));
+    expect(s.cubes[1].t).toBe(s.cubes[0].t);
+  });
+
+  it('never lifts a cube back to where it is solid, and leaves a solid one alone', () => {
+    const s = threeThrees();
+    const { sinkingTicks, sinkLowHeight } = s.config;
+    run(s, sinkingTicks * 0.3);
+    const fourth = put(s, 2, 0, 3);
+    land(s, fourth);
+    expect(cubeHeight(s.cubes[0], s.config)).toBeCloseTo(sinkLowHeight);
+    run(s, 10);
+    land(s, put(s, 3, 0, 3));
+    expect(fourth.t).toBe(10);
+  });
+
+  it('lifts less with every join', () => {
+    const { config } = emptyRun();
+    expect(chainLiftAt(config, 2)).toBeCloseTo(0.25);
+    expect(chainLiftAt(config, 4)).toBeCloseTo(0.19);
+    expect(chainLiftAt(config, 7)).toBeCloseTo(0.1);
+    expect(chainLiftAt(config, 30)).toBeCloseTo(0.1);
+  });
+
+  it('remembers the best score of a single addition', () => {
+    const s = threeThrees();
+    expect(s.stats.bestChainScore).toBe(0);
+    land(s, put(s, 2, 0, 3));
+    land(s, put(s, 3, 0, 3));
+    expect(s.stats.bestChainScore).toBe(3 * 5 * 3);
   });
 
   it('does not treat a lone 3 as a chain once the reaction is gone', () => {

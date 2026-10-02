@@ -111,11 +111,16 @@ export interface Tuning {
   sinkLowHeight: number;
   mountHeight: number;
   stepDownHeight: number;
+  chainLift: number;
+  chainLiftMin: number;
+  feedRate: number;
   liftMs: number;
   gentleSec: number;
   rescueMs: number;
   timedSec: number;
   helpRate: number;
+  targetCubes: number;
+  refillMs: number;
   sparseFactor: number;
   crowdedFactor: number;
   easyLevels: number;
@@ -147,9 +152,17 @@ export interface RulesConfig {
   mountHeight: number;
   /** Height at or below which the player can step off their sinking cube to the ground. */
   stepDownHeight: number;
+  /** Share of its height a chain's cubes come back up by on the first join, and on late ones. */
+  chainLift: number;
+  chainLiftMin: number;
+  /** Share of spawns that come up one move away from a running chain, showing its value. */
+  feedRate: number;
   /** Share of spawns that are placed and oriented to be useful, at level 1. */
   helpRate: number;
-  /** Spawn interval multiplier on a nearly empty board and on a crowded one. */
+  /** Cubes in play the board is kept at: below it new cubes come every `refillMs`. */
+  targetCubes: number;
+  refillMs: number;
+  /** Spawn interval multiplier with the target number of cubes in play and on a crowded board. */
   sparseFactor: number;
   crowdedFactor: number;
   /** Levels over which low face values stop being favoured. */
@@ -189,6 +202,8 @@ export interface RunStats {
   /** Ticks of the first few clears (matches, chain joins, Happy One). */
   clearTicks: number[];
   clears: number;
+  /** Most points a single addition to a chain has given. */
+  bestChainScore: number;
   blockedSteps: number;
   groundTicks: number;
   falls: number;
@@ -255,6 +270,9 @@ export interface RunState {
   /** Consecutive ticks with every cell occupied. */
   fullTicks: number;
   spawnEnabled: boolean;
+  /** Cards left in the decks that decide which spawns feed a running chain and which are helpful. */
+  feedDeck: boolean[];
+  helpDeck: boolean[];
   tutorial: TutorialState | null;
   /** Set for a puzzle run only. */
   puzzle: PuzzleState | null;

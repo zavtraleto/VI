@@ -85,7 +85,11 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
       }
     }
     if (target) {
-      return target.state === 'idle' || target.state === 'sinking' ? { kind: 'hop', tx, tz } : blocked;
+      // A cube that is going down or coming up cannot be rolled, so from it the player may
+      // step onto a rising neighbour as well: it must not hold them where they stand.
+      const standing = target.state === 'idle' || target.state === 'sinking';
+      const reachable = standing || (target.state === 'rising' && own.state !== 'idle');
+      return reachable ? { kind: 'hop', tx, tz } : blocked;
     }
     if (!isFree(state, tx, tz)) return blocked;
     // Only a sinking cube can be stepped off: a rising one is the way back up, so the

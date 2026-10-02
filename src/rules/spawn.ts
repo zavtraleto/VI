@@ -1,8 +1,9 @@
 import { DELTA, DIRS, cellIndex, cubeAt, cubeHeight, freeCells, inBounds, isFree, nearestFree } from './board';
 import { helpChance, spawnIntervalTicks, topWeights } from './config';
-import { ALL_ORIENTATIONS, orientationsWithTop } from './orientation';
+import { ALL_ORIENTATIONS, orientationsWithTop, roll } from './orientation';
+import { inChain } from './reactions';
 import { nextRandom, randomInt } from './rng';
-import type { Cube, CubeState, Orientation, RunState } from './types';
+import type { Cube, CubeState, Dir, Orientation, Reaction, RunState } from './types';
 
 export function addCube(
   state: RunState,
@@ -184,15 +185,27 @@ function neighbourTops(state: RunState, x: number, z: number): number[] {
 }
 
 /**
+ * A cube showing `top` on this cell would neither complete a group by itself nor look as if
+ * it had joined a chain: clears are the player's doing.
+ */
+function staysQuiet(state: RunState, tops: number[], x: number, z: number, top: number): boolean {
+  const size = state.config.size;
+  const i = cellIndex(size, x, z);
+  const before = tops[i];
+  tops[i] = top;
+  const readyGroup = top >= 2 && groupSizeAt(tops, size, i) >= top;
+  tops[i] = before;
+  return !readyGroup && !besideMatchingSinking(state, x, z, top);
+}
+
+/**
  * Picks an orientation for a new cube. The top value follows the level's weights; a
  * helpful spawn instead tries to show a value that a neighbour already shows, so the
  * player is one move away from a group. Either way the cube must not complete a group by
- * itself: clears are the player's doing.
+ * itself.
  */
 function chooseOrientation(state: RunState, x: number, z: number, helpful = false): Orientation {
-  const size = state.config.size;
   const tops = topsGrid(state);
-  const i = cellIndex(size, x, z);
   const weights = topWeights(state.config, state.level);
   const wanted = helpful ? neighbourTops(state, x, z) : [];
   let top = 1;
@@ -201,16 +214,136 @@ function chooseOrientation(state: RunState, x: number, z: number, helpful = fals
       attempt < 3 && wanted.length > 0
         ? wanted[randomInt(state, wanted.length)]
         : weightedIndex(state, weights) + 1;
-    tops[i] = top;
-    const readyGroup = top >= 2 && groupSizeAt(tops, size, i) >= top;
-    if (!readyGroup && !besideMatchingSinking(state, x, z, top)) break;
+    if (staysQuiet(state, tops, x, z, top)) break;
   }
   return orientationWithTop(state, top);
 }
 
+/** Cards in the decks that decide which spawns feed a running chain and which are helpful. */
+const FEED_DECK = 5;
+const HELP_DECK = 10;
+
 /**
- * Where the next cube goes. A helpful spawn prefers cells that touch other cubes and are
- * near the player, so new cubes are reachable and in play; otherwise any free cell will do.
+ * Yes or no, with `rate` of the answers being yes. The answer is dealt from a small shuffled
+ * deck rather than tossed each time, so the help neither dries up nor comes in a row. A deck
+ * is used up before the next one is made, whatever the rate has become meanwhile.
+ */
+function deal(state: RunState, deck: boolean[], size: number, rate: number): boolean {
+  if (rate <= 0) return false;
+  if (rate >= 1) return true;
+  if (deck.length === 0) {
+    const yes = Math.round(size * rate);
+    for (let i = 0; i < size; i++) deck.push(i < yes);
+    for (let i = size - 1; i > 0; i--) {
+      const j = randomInt(state, i + 1);
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+  }
+  return deck.pop()!;
+}
+
+/**
+ * Steps from the player to every cell, -1 where there is no way. On the floor the way lies
+ * over free cells; up on the cubes it lies over free cells and standing cubes, and a rising
+ * cube is a wall.
+ */
+function reach(state: RunState): number[] {
+  const { size } = state.config;
+  const { player } = state;
+  const up = player.level === 'top';
+  const steps = new Array<number>(size * size).fill(-1);
+  const start = cellIndex(size, player.x, player.z);
+  steps[start] = 0;
+  const queue = [start];
+  for (let head = 0; head < queue.length; head++) {
+    const cur = queue[head];
+    const x = cur % size;
+    const z = Math.floor(cur / size);
+    for (const dir of DIRS) {
+      const nx = x + DELTA[dir].dx;
+      const nz = z + DELTA[dir].dz;
+      if (!inBounds(size, nx, nz)) continue;
+      const next = cellIndex(size, nx, nz);
+      if (steps[next] !== -1) continue;
+      const cube = cubeAt(state, nx, nz);
+      if (cube && (!up || cube.state === 'rising')) continue;
+      steps[next] = steps[cur] + 1;
+      queue.push(next);
+    }
+  }
+  return steps;
+}
+
+/** Rolls that turn up a side the camera shows: the south face going north, the east one going west. */
+const SHOWN_ROLLS: readonly Dir[] = ['N', 'W'];
+
+/**
+ * A cube for the chain that is running. It comes up one move away from the sinking cubes,
+ * never next to them: either with the chain's value on top, to be pushed in from the floor,
+ * or with that value on a side the camera shows, so that one roll turns it up. Bringing it
+ * in, and in time, is still the player's doing.
+ */
+function chainFeeder(state: RunState, free: readonly { x: number; z: number }[]): Placement | null {
+  let reaction: Reaction | undefined;
+  for (const r of state.reactions) {
+    if (!reaction || r.chain > reaction.chain) reaction = r;
+  }
+  if (!reaction) return null;
+  const { id, value } = reaction;
+  const chain = state.cubes.filter((c) => inChain(c) && c.reactionId === id);
+  if (chain.length === 0 || !deal(state, state.feedDeck, FEED_DECK, state.config.feedRate)) return null;
+
+  const isOpen = (x: number, z: number) => free.some((c) => c.x === x && c.z === z);
+  const touchesChain = (x: number, z: number) => chain.some((c) => Math.abs(c.x - x) + Math.abs(c.z - z) === 1);
+  const tops = topsGrid(state);
+  const steps = reach(state);
+  const { size } = state.config;
+  // A push is made from the floor and a roll from on top: the cube suits where the player is.
+  const onFloor = state.player.level === 'ground';
+  const options: { x: number; z: number; oris: readonly Orientation[] }[] = [];
+  const weights: number[] = [];
+  for (const { x, z } of free) {
+    if (touchesChain(x, z)) continue;
+    const to = steps[cellIndex(size, x, z)];
+    const near = to >= 0 && to <= 4 ? 2 : 1;
+    for (const dir of DIRS) {
+      const { dx, dz } = DELTA[dir];
+      // The cell the cube is brought to: empty, and next to the chain.
+      if (!isOpen(x + dx, z + dz) || !touchesChain(x + dx, z + dz)) continue;
+      // A push needs floor behind the cube for the player to stand on.
+      if (isOpen(x - dx, z - dz) && staysQuiet(state, tops, x, z, value)) {
+        options.push({ x, z, oris: orientationsWithTop(value) });
+        weights.push((onFloor ? 3 : 1) * near);
+      }
+      if (!SHOWN_ROLLS.includes(dir)) continue;
+      const oris = ALL_ORIENTATIONS.filter((o) => roll(o, dir).top === value && staysQuiet(state, tops, x, z, o.top));
+      if (oris.length > 0) {
+        options.push({ x, z, oris });
+        weights.push((onFloor ? 1 : 3) * near);
+      }
+    }
+  }
+  if (options.length === 0) return null;
+  const { x, z, oris } = options[weightedIndex(state, weights)];
+  return { x, z, ori: oris[randomInt(state, oris.length)] };
+}
+
+/**
+ * How much a helpful spawn favours a cell, by the player's steps to it. Up on the cubes a new
+ * cube right beside the player is in the way and one a couple of steps off is material; on
+ * the floor the nearest cube is the way back up.
+ */
+const NEAR_UP: readonly number[] = [1, 2, 8, 8, 5, 3, 2];
+const NEAR_FLOOR: readonly number[] = [1, 10, 8, 5, 3, 2, 2];
+const NEAR_FAR = 1;
+const NEAR_NO_WAY = 0.25;
+/** A cell that touches other cubes is this much likelier: the new cube lands among them. */
+const NEAR_TOUCHING = 1.6;
+
+/**
+ * Where the next cube goes. A helpful spawn prefers cells the player can get to in a few
+ * steps and cells that touch other cubes, so new cubes are in play at once; otherwise any
+ * free cell will do.
  */
 function chooseCell(
   state: RunState,
@@ -218,18 +351,15 @@ function chooseCell(
   helpful: boolean,
 ): { x: number; z: number } {
   if (!helpful) return free[randomInt(state, free.length)];
-  const { player } = state;
+  const steps = reach(state);
+  const near = state.player.level === 'ground' ? NEAR_FLOOR : NEAR_UP;
   const weights = free.map((cell) => {
-    let weight = 1;
+    const to = steps[cellIndex(state.config.size, cell.x, cell.z)];
     const touching = DIRS.some((dir) => {
       const n = cubeAt(state, cell.x + DELTA[dir].dx, cell.z + DELTA[dir].dz);
       return n !== undefined && n.state !== 'sinking';
     });
-    if (touching) weight += 3;
-    const distance = Math.abs(cell.x - player.x) + Math.abs(cell.z - player.z);
-    if (distance <= 2) weight += 2;
-    else if (distance <= 4) weight += 1;
-    return weight;
+    return (to < 0 ? NEAR_NO_WAY : (near[to] ?? NEAR_FAR)) * (touching ? NEAR_TOUCHING : 1);
   });
   return free[weightedIndex(state, weights)];
 }
@@ -250,8 +380,7 @@ function hasPendingAt(state: RunState, x: number, z: number): boolean {
 }
 
 /** Announces a cube on a cell; it starts rising when the warning runs out. */
-function announce(state: RunState, x: number, z: number, helpful = false): void {
-  const ori = chooseOrientation(state, x, z, helpful);
+function announce(state: RunState, x: number, z: number, ori: Orientation): void {
   if (state.config.warnTicks <= 0) {
     spawnCube(state, x, z, ori);
     return;
@@ -281,16 +410,35 @@ function committed(state: RunState): number {
   return state.cubes.length + state.pending.length;
 }
 
-/** Is there already a cube the player on the ground could walk over to and step onto? */
-function hasMountableCube(state: RunState): boolean {
+/**
+ * Cubes in play: resting, rising or announced. A sinking cube is on its way out, so what the
+ * player clears starts coming back the moment it is cleared.
+ */
+export function population(state: RunState): number {
+  return state.cubes.filter((c) => c.state !== 'sinking').length + state.pending.length;
+}
+
+/**
+ * Is a way back up already there for a player on the ground: a cube announced on a cell they
+ * can walk to, or a rising one they can walk up to and still step onto?
+ */
+function hasWayUp(state: RunState): boolean {
   const { config } = state;
-  return state.cubes.some((c) => c.state === 'rising' && cubeHeight(c, config) <= config.mountHeight);
+  const steps = reach(state);
+  const within = (x: number, z: number) => inBounds(config.size, x, z) && steps[cellIndex(config.size, x, z)] >= 0;
+  if (state.pending.some((p) => within(p.x, p.z))) return true;
+  return state.cubes.some(
+    (c) =>
+      c.state === 'rising' &&
+      cubeHeight(c, config) <= config.mountHeight &&
+      DIRS.some((dir) => within(c.x + DELTA[dir].dx, c.z + DELTA[dir].dz)),
+  );
 }
 
 /**
  * Lift: a player left on the ground gets the next cube under their feet. It is a last
- * resort, not an extra cube: it waits while another cube is on its way or can still be
- * stepped onto, and it takes the place of the next regular spawn.
+ * resort, not an extra cube: it waits while another way up is within the player's reach, and
+ * it takes the place of the next regular spawn.
  */
 function runLift(state: RunState): void {
   const { config, player } = state;
@@ -300,12 +448,12 @@ function runLift(state: RunState): void {
   }
   state.liftTimer++;
   if (state.liftTimer < config.floorLiftTicks) return;
-  if (state.pending.length > 0 || hasMountableCube(state)) return;
+  if (hasWayUp(state)) return;
   if (!isFree(state, player.x, player.z)) return;
   if (committed(state) >= config.size * config.size) return;
   state.liftTimer = 0;
   state.spawnTimer = 0;
-  announce(state, player.x, player.z);
+  announce(state, player.x, player.z, chooseOrientation(state, player.x, player.z));
 }
 
 /** Timed spawn. Never queues spawns while the board is full. */
@@ -322,9 +470,14 @@ export function runSpawn(state: RunState): void {
     return;
   }
   state.spawnTimer++;
-  if (state.spawnTimer < spawnIntervalTicks(config, state.level, committed(state))) return;
+  if (state.spawnTimer < spawnIntervalTicks(config, state.level, population(state))) return;
   state.spawnTimer = 0;
-  const helpful = nextRandom(state) < helpChance(config, state.level);
+  const feeder = chainFeeder(state, free);
+  if (feeder) {
+    announce(state, feeder.x, feeder.z, feeder.ori);
+    return;
+  }
+  const helpful = deal(state, state.helpDeck, HELP_DECK, helpChance(config, state.level));
   const cell = chooseCell(state, free, helpful);
-  announce(state, cell.x, cell.z, helpful);
+  announce(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z, helpful));
 }

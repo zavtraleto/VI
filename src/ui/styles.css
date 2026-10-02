@@ -9,7 +9,7 @@
   --guide: #ffd98a;
   --panel: #0c0b0b;
   --pad-size: min(56vw, 30vh, 250px);
-  --seal-size: clamp(84px, 24vw, 128px);
+  --seal-size: clamp(92px, 29vw, 140px);
   --serif: 'Forum', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-family: var(--serif);
   color: var(--ivory);
@@ -500,115 +500,77 @@ button {
   height: 100%;
 }
 
-/* The orientation seal: the die under the player, opened out. The top face is in the
-   middle, each side on the edge of the rhombus it looks towards. */
+/* The orientation seal: the die under the player, unfolded, without its bottom face. The net
+   lies in the plane of the board: its transform is set from the camera. */
 
 .seal {
   position: absolute;
   left: 10px;
   top: 10px;
   width: var(--seal-size);
-  height: var(--seal-size);
-  --seal-turn: 0deg;
-  rotate: var(--seal-turn);
+  height: calc(var(--seal-size) * 0.66);
+  --seal-cell: calc(var(--seal-size) / 3.25);
 }
 
-/* Faces stay upright while the seal turns with the camera. */
-.seal .die-face,
-.seal .seal-floor {
-  rotate: calc(-1 * var(--seal-turn));
-}
-
-.seal-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 1;
-}
-
-.seal-ticks {
-  stroke: var(--line);
-}
-
-.seal-cross {
-  stroke: #242120;
-}
-
-.seal-edge {
-  stroke: var(--dim);
-  stroke-width: 1.2;
-  transition: stroke 0.12s, stroke-width 0.12s;
-}
-
-.seal-edge.blocked {
-  stroke: #4a4541;
-}
-
-.seal-edge.active {
-  stroke: var(--ivory);
-  stroke-width: 2.6;
-}
-
-.seal-edge.pulse {
-  animation: edge-pulse 0.9s ease-in-out infinite;
-}
-
-.seal-hub {
-  fill: var(--void);
-  stroke: var(--dim);
-}
-
-.seal-quad {
-  position: absolute;
-  width: 50%;
-  height: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.seal-N { right: 0; top: 0; }
-.seal-E { right: 0; bottom: 0; }
-.seal-S { left: 0; bottom: 0; }
-.seal-W { left: 0; top: 0; }
-
-/* The sides sit on the middle of each rhombus edge. */
-.seal-slot {
-  display: flex;
-  width: calc(var(--seal-size) * 0.2);
-  height: calc(var(--seal-size) * 0.2);
-}
-
-.seal-N .seal-slot { transform: translate(-10%, 10%); }
-.seal-E .seal-slot { transform: translate(-10%, -10%); }
-.seal-S .seal-slot { transform: translate(10%, -10%); }
-.seal-W .seal-slot { transform: translate(10%, 10%); }
-
-.seal-slot .die-face,
-.seal-centre .die-face {
-  width: 100%;
-  height: 100%;
-}
-
-.seal-quad.marked .die-face {
-  outline: 2px solid var(--carmine-bright);
-  outline-offset: 2px;
-  animation: alarm 1.7s linear infinite;
-}
-
-.seal-centre {
+.seal-net {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: calc(var(--seal-size) * 0.22);
-  height: calc(var(--seal-size) * 0.22);
-  transform: translate(-50%, -50%);
+  width: calc(var(--seal-cell) * 3);
+  height: calc(var(--seal-cell) * 3);
+  margin: calc(var(--seal-cell) * -1.5) 0 0 calc(var(--seal-cell) * -1.5);
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+}
+
+.seal-side,
+.seal-centre {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  outline: 1px solid var(--dim);
+  outline-offset: -1px;
+  transition: outline-color 0.12s, opacity 0.12s;
+}
+
+.seal-centre { grid-area: 2 / 2; }
+.seal-N { grid-area: 1 / 2; }
+.seal-E { grid-area: 2 / 3; }
+.seal-S { grid-area: 3 / 2; }
+.seal-W { grid-area: 2 / 1; }
+
+.seal .die-face {
+  width: 100%;
+  height: 100%;
+}
+
+/* On the floor there is no die to unfold: the net stays as an outline. */
+.seal.floor .seal-side,
+.seal.floor .seal-centre {
+  outline-style: dashed;
+}
+
+.seal-side.blocked {
+  opacity: 0.45;
+}
+
+.seal-side.active {
+  opacity: 1;
+  outline: 2px solid var(--ivory);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.seal-side.pulse {
+  outline-width: 2px;
+  outline-offset: -2px;
+  animation: side-pulse 0.9s ease-in-out infinite;
+  z-index: 1;
+}
+
+.seal-side.marked {
+  outline: 2px solid var(--carmine-bright);
+  outline-offset: 1px;
+  animation: alarm 1.7s linear infinite;
+  z-index: 2;
 }
 
 .seal-centre.sinking .die-face {
@@ -618,12 +580,6 @@ button {
 
 .seal-centre.sinking .pip.on {
   background: var(--carmine-bright);
-}
-
-.seal-floor {
-  width: 46%;
-  height: 1px;
-  background: var(--dim);
 }
 
 /* Buttons, for those who would rather press than swipe */
@@ -1080,9 +1036,9 @@ button {
   to { scale: 1; }
 }
 
-@keyframes edge-pulse {
-  0%, 100% { stroke: var(--dim); stroke-width: 1.2; }
-  50% { stroke: var(--carmine-bright); stroke-width: 3; }
+@keyframes side-pulse {
+  0%, 100% { outline-color: var(--dim); }
+  50% { outline-color: var(--carmine-bright); }
 }
 
 /* Mostly lit, with a short stutter: enough to make the eye uneasy. */
@@ -1145,8 +1101,8 @@ button {
 }
 
 #app.reduced-motion .danger-count,
-#app.reduced-motion .seal-edge.pulse,
-#app.reduced-motion .seal-quad.marked .die-face,
+#app.reduced-motion .seal-side.pulse,
+#app.reduced-motion .seal-side.marked,
 #app.reduced-motion .dpad-btn.pulse,
 #app.reduced-motion .chain-label.bump,
 #app.reduced-motion .stage-sign.turn,
@@ -1173,9 +1129,8 @@ button {
   box-shadow: 0 0 0 2px var(--carmine-bright);
 }
 
-#app.reduced-motion .seal-edge.pulse {
-  stroke: var(--carmine-bright);
-  stroke-width: 2.6;
+#app.reduced-motion .seal-side.pulse {
+  outline-color: var(--carmine-bright);
 }
 
 /* Puzzle: two buttons in the corner of the board, a line under it, the list of levels, the stars */

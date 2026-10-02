@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DELTA, cubeAt, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
+import { DELTA, cubeAt, cubeHeight, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { CubeMeshes } from './cubes';
 import { fitBoard, type FrameBounds } from './framing';
 import { ChainMarks } from './marks';
@@ -79,6 +79,9 @@ export class BoardView {
   private readonly springs = new CubeSprings();
   /** The step the player was making on the previous frame, to notice when it ends. */
   private lastStep: MoveKind | null = null;
+  /** Height of every sinking cube on the previous frame, to notice a chain lifting it. */
+  private sinking = new Map<number, number>();
+  private sinkingBefore = new Map<number, number>();
   private readonly ambient: THREE.AmbientLight;
   private readonly reactionLight: THREE.PointLight;
   private readonly perimeter;
@@ -220,6 +223,14 @@ export class BoardView {
     return { x: x / length, y: y / length };
   }
 
+  /** How the floor lies on screen: where a cell to the east and a cell to the south lead, y pointing down. */
+  floorAxes(): { east: { x: number; y: number }; south: { x: number; y: number } } {
+    return {
+      east: { x: this.cameraRight.x, y: -this.cameraUp.x },
+      south: { x: this.cameraRight.z, y: -this.cameraUp.z },
+    };
+  }
+
   resize(): void {
     this.width = Math.max(1, this.container.clientWidth);
     this.height = Math.max(1, this.container.clientHeight);
@@ -265,6 +276,7 @@ export class BoardView {
     this.tremor = 0;
     this.warnings.reset();
     this.springs.reset();
+    this.sinking.clear();
     this.lastStep = null;
   }
 
@@ -293,6 +305,17 @@ export class BoardView {
       if (cube) this.springs.kick(cube.id, -2.2);
     }
     this.lastStep = stepNow;
+
+    // A chain that is added to brings its cubes back up: they rise instead of jumping.
+    [this.sinking, this.sinkingBefore] = [this.sinkingBefore, this.sinking];
+    this.sinking.clear();
+    for (const cube of state.cubes) {
+      if (cube.state !== 'sinking') continue;
+      const height = cubeHeight(cube, state.config);
+      const before = this.sinkingBefore.get(cube.id);
+      if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
+      this.sinking.set(cube.id, height);
+    }
     this.springs.update(dt);
     const dip = (cubeId: number) => this.springs.offset(cubeId);
 

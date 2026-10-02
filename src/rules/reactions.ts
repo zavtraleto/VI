@@ -1,5 +1,5 @@
 import { cellIndex, cubeAt, neighbours } from './board';
-import type { Cube, Overrun, RunState } from './types';
+import type { Cube, Overrun, RulesConfig, RunState } from './types';
 
 function startSinking(cube: Cube, reactionId: number): void {
   cube.state = 'sinking';
@@ -68,15 +68,35 @@ function touchedReactions(state: RunState, component: Cube[], over: Overrun | un
   return [...ids].sort((a, b) => a - b);
 }
 
+/** Joins over which the lift of a chain fades from its first value to its last. */
+const CHAIN_LIFT_FADE_JOINS = 5;
+
+/**
+ * How far the cubes of a chain come back up when it is added to, as a share of a cube's
+ * height. The first join gives the most; a long chain is harder to keep whole.
+ */
+export function chainLiftAt(config: RulesConfig, chain: number): number {
+  const fade = Math.min(1, Math.max(0, chain - 2) / CHAIN_LIFT_FADE_JOINS);
+  return config.chainLift + (config.chainLiftMin - config.chainLift) * fade;
+}
+
 function joinReactions(state: RunState, component: Cube[], touched: number[]): void {
+  const { config } = state;
   const value = component[0].ori.top;
   const targetId = touched[0];
   const involved = state.reactions.filter((r) => touched.includes(r.id));
   const chain = Math.max(...involved.map((r) => r.chain)) + 1;
   const total = involved.reduce((sum, r) => sum + r.total, 0) + component.length;
 
+  // The cubes already going down come back up a little, but not past the height at which
+  // they turn solid again: what could be rolled over stays that way.
+  const lift = Math.round(config.sinkingTicks * chainLiftAt(config, chain));
+  const seeThrough = Math.round(config.sinkingTicks * (1 - config.sinkLowHeight));
   for (const cube of state.cubes) {
-    if (touched.includes(cube.reactionId)) cube.reactionId = targetId;
+    if (touched.includes(cube.reactionId)) {
+      cube.reactionId = targetId;
+      if (cube.state === 'sinking' && cube.t > seeThrough) cube.t = Math.max(seeThrough, cube.t - lift);
+    }
     if (cube.move?.over && touched.includes(cube.move.over.reactionId)) cube.move.over.reactionId = targetId;
   }
   state.reactions = state.reactions.filter((r) => r.id === targetId || !touched.includes(r.id));
@@ -89,6 +109,7 @@ function joinReactions(state: RunState, component: Cube[], touched: number[]): v
   const points = value * total * chain;
   state.score += points;
   state.maxChain = Math.max(state.maxChain, chain);
+  state.stats.bestChainScore = Math.max(state.stats.bestChainScore, points);
   recordClear(state);
   state.events.push({ type: 'chain', reactionId: targetId, value, chain, count: component.length, points });
 }
