@@ -1,4 +1,5 @@
 import { AudioEngine } from '../audio/engine';
+import { Display } from '../display/display';
 import { InputController } from '../input/controller';
 import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, type ScreenDirs } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
@@ -81,8 +82,12 @@ export class Game {
   private readonly ritual = new Ritual();
   private readonly audio = new AudioEngine();
   private readonly tracker: GestureTracker;
+  /** The one canvas of the page; the picture is put together from its layers. */
+  private readonly display = new Display();
+  /** The board, as crisp as the screen allows and looking as it would on a canvas of its own. */
+  private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: 4, encoded: true });
   /** A board is built for a size and kept: puzzles come in several. */
-  private readonly views = new Map<number, { view: BoardView; canvas: HTMLElement }>();
+  private readonly views = new Map<number, BoardView>();
   private readonly stage: HTMLElement;
   private view: BoardView;
   private readonly puzzleTools: PuzzleTools;
@@ -187,19 +192,14 @@ export class Game {
     return this.recordKey(this.state.mode === 'timed' ? 'timed' : 'endless');
   }
 
-  /** The board of the given size, built on first use; the others are put out of sight. */
+  /** The board of the given size, built on first use. All of them share a layer; only the one in use is drawn. */
   private useView(size: number): BoardView {
-    let entry = this.views.get(size);
-    if (!entry) {
-      const view = new BoardView(this.stage, OCCULT_THEME, size, this.settings.camera);
-      // A board puts its canvas first in the stage.
-      entry = { view, canvas: this.stage.firstElementChild as HTMLElement };
-      this.views.set(size, entry);
+    let view = this.views.get(size);
+    if (!view) {
+      view = new BoardView(this.stage, this.world, OCCULT_THEME, size, this.settings.camera);
+      this.views.set(size, view);
     }
-    // The renderer sets `display` on its canvas itself, so a style sheet cannot hide it:
-    // the canvas that is not in use has to be switched off the same way.
-    for (const other of this.views.values()) other.canvas.style.display = other === entry ? 'block' : 'none';
-    return entry.view;
+    return view;
   }
 
   /** Points the camera and lays the seal out the way the board now lies on screen. */
@@ -751,5 +751,6 @@ export class Game {
     this.labels.update(state, this.view);
     this.seal.update(state, this.sealMark);
     this.seal.setActive(steer.dir);
+    this.display.present();
   }
 }

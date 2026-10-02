@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Layer, Rect } from '../display/layer';
 import { DELTA, cubeAt, cubeHeight, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { CubeMeshes } from './cubes';
 import { fitBoard, type FrameBounds } from './framing';
@@ -18,7 +19,6 @@ import {
 import type { Theme } from './theme';
 import { SpawnWarnings } from './warnings';
 
-const MAX_DPR = 1.5;
 const RIM = 0.25;
 const SLAB_DEPTH = 1.4;
 const RING_SIZE = 11.6;
@@ -62,9 +62,11 @@ function layer(texture: THREE.Texture, size: number, y: number): THREE.Mesh<THRE
   return mesh;
 }
 
-/** Fixed orthographic view of the board. North points up-right to up, East right to down-right. */
+/**
+ * Fixed orthographic view of the board. North points up-right to up, East right to down-right.
+ * The board is drawn into a layer of the display, in the part of the window its container takes.
+ */
 export class BoardView {
-  private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 120);
   private readonly cameraHome = new THREE.Vector3();
@@ -96,6 +98,8 @@ export class BoardView {
   private readonly slabHalf: number;
   /** Extents of the scene on the camera's right and up axes, relative to the target. */
   private bounds: FrameBounds = { minR: -1, maxR: 1, minU: -1, maxU: 1, floorU: 0 };
+  /** Where the container is in the window, in CSS pixels. */
+  private rect: Rect = { x: 0, y: 0, width: 1, height: 1 };
   private width = 1;
   /** Height at the top of the stage, in CSS pixels, that the floor must stay out of. */
   private clear = 0;
@@ -109,10 +113,13 @@ export class BoardView {
   /** 1 when a board starts by coming up out of the floor, falling to 0. */
   private rise = 0;
 
-  constructor(private readonly container: HTMLElement, theme: Theme, size: number, angles: CameraAngles) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.domElement.className = 'board-canvas';
-    container.prepend(this.renderer.domElement);
+  constructor(
+    private readonly container: HTMLElement,
+    private readonly worldLayer: Layer,
+    theme: Theme,
+    size: number,
+    angles: CameraAngles,
+  ) {
     this.voidColor = new THREE.Color(theme.void);
     this.voidFinal = new THREE.Color(theme.voidFinal);
 
@@ -232,10 +239,10 @@ export class BoardView {
   }
 
   resize(): void {
-    this.width = Math.max(1, this.container.clientWidth);
-    this.height = Math.max(1, this.container.clientHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
-    this.renderer.setSize(this.width, this.height, false);
+    const box = this.container.getBoundingClientRect();
+    this.width = Math.max(1, box.width);
+    this.height = Math.max(1, box.height);
+    this.rect = { x: box.left, y: box.top, width: this.width, height: this.height };
     const aspect = this.width / this.height;
     const { halfHeight, centreR, centreU } = fitBoard(
       this.bounds,
@@ -353,15 +360,15 @@ export class BoardView {
     show(this.frame, frameOpacity);
 
     this.background.copy(this.voidColor).lerp(this.voidFinal, Math.min(1, levels[3] * 0.35 + levels[4] * 0.65));
-    this.renderer.setClearColor(this.background);
     const css = `#${this.background.getHexString()}`;
     if (css !== this.backgroundCss) {
-      // The page around the canvas follows the void so the board never sits in a visible box.
+      // The page follows the void: panels and marks drawn over the board take their colour from it.
       this.backgroundCss = css;
       document.documentElement.style.setProperty('--void', css);
     }
     this.ambient.intensity = 0.95 - levels[3] * 0.12 + params.phaseShift * 1.6;
-    this.renderer.domElement.style.filter = !reducedMotion && params.phaseShift > 0.72 ? 'invert(1)' : '';
+    // The phase shift turns the stage inside out; the window around it keeps the void.
+    this.worldLayer.look.invert = !reducedMotion && params.phaseShift > 0.72;
 
     this.camera.position.copy(this.cameraHome);
     if (params.shake && !reducedMotion && this.tremor > 0) {
@@ -370,7 +377,15 @@ export class BoardView {
         .addScaledVector(this.cameraRight, Math.sin(timeMs / 13) * amount)
         .addScaledVector(this.cameraUp, Math.cos(timeMs / 17) * amount);
     }
-    this.renderer.render(this.scene, this.camera);
+    // The stage can move in the window without changing its size, and no resize observer
+    // reports that: the board is no longer a child of the stage that would move along with it.
+    const box = this.container.getBoundingClientRect();
+    const { rect } = this;
+    if (box.left !== rect.x || box.top !== rect.y || Math.max(1, box.width) !== rect.width || Math.max(1, box.height) !== rect.height) {
+      this.resize();
+    }
+    // The void fills the whole window, the board goes to the part of it the stage takes.
+    this.worldLayer.render(this.scene, this.camera, { rect: this.rect, clear: this.background });
   }
 
   /** World position to CSS pixels inside the container. */
