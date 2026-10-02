@@ -13,6 +13,13 @@ export type ParamSpec =
 export type ParamValues = Record<string, number | string | boolean>;
 
 /**
+ * How disquieting a transmission is, from the lightest to the heaviest: a light daydream,
+ * sadness, strangeness, unease, fear. Every scene has all five.
+ */
+export const MOODS = ['dream', 'sad', 'strange', 'anxious', 'fear'] as const;
+export type Mood = (typeof MOODS)[number];
+
+/**
  * A transmission as code: its picture is built from parameters and a seed, with no asset
  * files. The same seed and parameters always give the same frame.
  */
@@ -20,8 +27,10 @@ export interface SceneDef {
   id: string;
   /** Defaults and ranges. */
   params: Record<string, ParamSpec>;
-  /** Named sets of differences from the defaults. */
+  /** What is in the picture: named sets of differences from the defaults. */
   variants: Record<string, Partial<ParamValues>>;
+  /** How the picture feels: differences from the defaults again. `dream` is the defaults. */
+  moods: Record<Mood, Partial<ParamValues>>;
   build(values: ParamValues, seed: number): SceneInstance;
 }
 
@@ -112,6 +121,22 @@ export function defaultValues(def: SceneDef): ParamValues {
 export function variantValues(def: SceneDef, variant: string): ParamValues {
   const values = defaultValues(def);
   for (const [name, value] of Object.entries(def.variants[variant] ?? {})) {
+    if (name in values && value !== undefined) values[name] = value;
+  }
+  return values;
+}
+
+export function isMood(name: string | null): name is Mood {
+  return (MOODS as readonly string[]).includes(name ?? '');
+}
+
+/**
+ * The defaults with a variant and then a mood laid over them: the variant says what is in
+ * the picture, the mood how it feels.
+ */
+export function sceneValues(def: SceneDef, variant: string, mood: Mood): ParamValues {
+  const values = variantValues(def, variant);
+  for (const [name, value] of Object.entries(def.moods[mood] ?? {})) {
     if (name in values && value !== undefined) values[name] = value;
   }
   return values;

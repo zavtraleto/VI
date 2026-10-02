@@ -1,10 +1,13 @@
 import { Display } from '../display/display';
 import type { CanvasLayer, Layer } from '../display/layer';
 import {
+  MOODS,
   captionLines,
+  isMood,
   sceneRecord,
+  sceneValues,
   signalLook,
-  variantValues,
+  type Mood,
   type ParamValues,
   type SceneDef,
   type SceneInstance,
@@ -75,13 +78,14 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 /**
- * The page where a transmission is looked at and tuned: `?lab=sea_pole&variant=b&seed=3`,
- * with `&ui=0` to leave the panel out.
+ * The page where a transmission is looked at and tuned:
+ * `?lab=sea_pole&variant=b&mood=strange&seed=3`, with `&ui=0` to leave the panel out.
  */
 export class Lab {
   readonly display = new Display();
   def: SceneDef;
   variant: string;
+  mood: Mood;
   seed: number;
   /** The same object for as long as the scene stays: the panel is bound to it. */
   values: ParamValues;
@@ -98,9 +102,11 @@ export class Lab {
     const query = new URLSearchParams(window.location.search);
     this.def = sceneById(query.get('lab')) ?? SCENES[0];
     this.variant = this.knownVariant(query.get('variant'));
+    const mood = query.get('mood');
+    this.mood = isMood(mood) ? mood : MOODS[0];
     const seed = Number.parseInt(query.get('seed') ?? '', 10);
     this.seed = Number.isFinite(seed) ? seed : 1;
-    this.values = variantValues(this.def, this.variant);
+    this.values = sceneValues(this.def, this.variant, this.mood);
 
     this.caption = query.get('caption') ?? '';
 
@@ -142,7 +148,7 @@ export class Lab {
     if (!def || def === this.def) return;
     this.def = def;
     this.variant = this.knownVariant(null);
-    this.values = variantValues(def, this.variant);
+    this.values = sceneValues(def, this.variant, this.mood);
     this.touch();
     this.writeAddress();
   }
@@ -153,15 +159,21 @@ export class Lab {
     this.writeAddress();
   }
 
+  setMood(mood: Mood): void {
+    this.mood = mood;
+    this.reset();
+    this.writeAddress();
+  }
+
   setSeed(seed: number): void {
     this.seed = Math.round(seed) | 0;
     this.touch();
     this.writeAddress();
   }
 
-  /** Back to the variant as it is defined. The seed stays. */
+  /** Back to the variant and the mood as they are defined. The seed stays. */
   reset(): void {
-    Object.assign(this.values, variantValues(this.def, this.variant));
+    Object.assign(this.values, sceneValues(this.def, this.variant, this.mood));
     this.touch();
   }
 
@@ -242,6 +254,7 @@ export class Lab {
     const query = new URLSearchParams(window.location.search);
     query.set('lab', this.def.id);
     query.set('variant', this.variant);
+    query.set('mood', this.mood);
     query.set('seed', String(this.seed));
     if (this.caption) query.set('caption', this.caption);
     else query.delete('caption');

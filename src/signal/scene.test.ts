@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   LOOK_PARAMS,
+  MOODS,
   captionLines,
   changedValues,
   defaultValues,
   sceneRecord,
+  sceneValues,
   seededRandom,
   signalLook,
   variantValues,
@@ -26,6 +28,13 @@ const DEF: SceneDef = {
     a: {},
     b: { broken: true, height: 5 },
     stray: { broken: true, unknown: 3 },
+  },
+  moods: {
+    dream: {},
+    sad: { sky: '#445566' },
+    strange: { height: 12 },
+    anxious: { sky: '#221100', depth: 4 },
+    fear: { sky: '#110000', broken: true, unknown: 1 },
   },
   build: () => {
     throw new Error('not built in tests');
@@ -61,6 +70,26 @@ describe('variantValues', () => {
     b.height = 1;
     expect(DEF.params.height.value).toBe(8);
     expect(variantValues(DEF, 'b').height).toBe(5);
+  });
+});
+
+describe('sceneValues', () => {
+  it('is the variant for the lightest mood', () => {
+    expect(sceneValues(DEF, 'a', 'dream')).toEqual(defaultValues(DEF));
+    expect(sceneValues(DEF, 'b', 'dream')).toEqual(variantValues(DEF, 'b'));
+  });
+
+  it('lays the mood over the variant', () => {
+    const values = sceneValues(DEF, 'b', 'strange');
+    expect(values.broken).toBe(true);
+    expect(values.height).toBe(12);
+    expect(sceneValues(DEF, 'b', 'sad')).toMatchObject({ broken: true, height: 5, sky: '#445566' });
+  });
+
+  it('ignores values of a mood for parameters the scene does not have', () => {
+    const values = sceneValues(DEF, 'a', 'fear');
+    expect(values.broken).toBe(true);
+    expect('unknown' in values).toBe(false);
   });
 });
 
@@ -204,6 +233,58 @@ describe('the registry', () => {
       }
       for (const variant of Object.values(scene.variants)) {
         for (const name of Object.keys(variant)) expect(scene.params[name]).toBeDefined();
+      }
+    }
+  });
+
+  it('gives every scene the five moods, the lightest of them being its defaults', () => {
+    for (const scene of SCENES) {
+      expect(Object.keys(scene.moods)).toEqual([...MOODS]);
+      expect(scene.moods.dream).toEqual({});
+      const seen = new Set<string>();
+      for (const mood of MOODS) {
+        for (const [name, value] of Object.entries(scene.moods[mood])) {
+          const spec = scene.params[name];
+          expect(spec, `${scene.id}.${mood}.${name}`).toBeDefined();
+          expect(typeof value, `${scene.id}.${mood}.${name}`).toBe(typeof spec.value);
+          if (spec.kind === 'number') {
+            expect(value, `${scene.id}.${mood}.${name}`).toBeGreaterThanOrEqual(spec.min);
+            expect(value, `${scene.id}.${mood}.${name}`).toBeLessThanOrEqual(spec.max);
+          }
+        }
+        // No two moods of a scene are the same picture.
+        const key = JSON.stringify(sceneValues(scene, Object.keys(scene.variants)[0], mood));
+        expect(seen.has(key), `${scene.id}.${mood}`).toBe(false);
+        seen.add(key);
+      }
+    }
+  });
+
+  it('keeps what a variant changes out of the moods, so a variant shows in every mood', () => {
+    for (const scene of SCENES) {
+      const changed = new Set(Object.values(scene.variants).flatMap((variant) => Object.keys(variant)));
+      for (const mood of MOODS) {
+        for (const name of Object.keys(scene.moods[mood])) expect(changed.has(name), `${scene.id}.${mood}.${name}`).toBe(false);
+      }
+    }
+  });
+
+  it('builds every scene in every variant and mood, the same from the same seed, and moves it', () => {
+    for (const scene of SCENES) {
+      for (const variant of Object.keys(scene.variants)) {
+        for (const mood of MOODS) {
+          const shot = (timeMs: number): number[] => {
+            const instance = scene.build(sceneValues(scene, variant, mood), 5);
+            instance.update(timeMs, 4 / 3);
+            const out = vertices(instance);
+            instance.dispose();
+            return out;
+          };
+          const first = shot(1500);
+          expect(first.every(Number.isFinite), `${scene.id}.${variant}.${mood}`).toBe(true);
+          expect(shot(1500), `${scene.id}.${variant}.${mood}`).toEqual(first);
+          expect(shot(4000), `${scene.id}.${variant}.${mood}`).not.toEqual(first);
+        }
       }
     }
   });

@@ -1,5 +1,5 @@
 import GUI, { type Controller } from 'lil-gui';
-import { LOOK_PARAMS, type ParamSpec } from '../signal/scene';
+import { LOOK_PARAMS, MOODS, type Mood, type ParamSpec } from '../signal/scene';
 import { SCENES } from '../signal/scenes';
 import type { Lab } from './lab';
 
@@ -7,7 +7,7 @@ import type { Lab } from './lab';
 const NARROW_PX = 600;
 const COPY_LABEL = 'Скопировать параметры';
 
-/** The controls of the lab: scene, variant, seed, every parameter of the scene, the caption. */
+/** The controls of the lab: scene, variant, mood, seed, every parameter of the scene, the caption. */
 export class Panel {
   private gui!: GUI;
 
@@ -25,6 +25,7 @@ export class Panel {
     const head = {
       scene: lab.def.id,
       variant: lab.variant,
+      mood: lab.mood,
       seed: lab.seed,
       next: () => seed.setValue(head.seed + 1),
       caption: lab.caption,
@@ -58,6 +59,13 @@ export class Panel {
       .name('вариант')
       .onChange((variant: string) => {
         lab.setVariant(variant);
+        this.refresh();
+      });
+    gui
+      .add(head, 'mood', [...MOODS])
+      .name('настроение')
+      .onChange((mood: Mood) => {
+        lab.setMood(mood);
         this.refresh();
       });
     const seed: Controller = gui

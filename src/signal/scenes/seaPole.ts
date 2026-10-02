@@ -1,12 +1,7 @@
 import * as THREE from 'three';
 import { ps1Material, type Ps1Fog, type Ps1Glint, type Ps1Light } from '../../display/ps1';
-import { LOOK_PARAMS, seededRandom, type ParamSpec, type ParamValues, type SceneDef, type SceneInstance } from '../scene';
-
-const DEG = Math.PI / 180;
-
-const num = (value: number, min: number, max: number, step: number): ParamSpec => ({ kind: 'number', value, min, max, step });
-const color = (value: string): ParamSpec => ({ kind: 'color', value });
-const bool = (value: boolean): ParamSpec => ({ kind: 'boolean', value });
+import { DEG, bool, color, handheld, keeper, num, streams } from '../kit';
+import { LOOK_PARAMS, type ParamValues, type SceneDef, type SceneInstance } from '../scene';
 
 /** The sea reaches this far from the camera; the fog has to end before it does. */
 const SEA_NEAR = 0.5;
@@ -89,13 +84,8 @@ function skyGeometry(topAngle: number, top: THREE.Color, horizon: THREE.Color): 
 
 function build(values: ParamValues, seed: number): SceneInstance {
   const n = (name: string) => Number(values[name]);
-  // A stream for each part, so that tuning one part leaves the chance of the others alone.
-  const stream = (part: number) => seededRandom(Math.imul(seed | 0, 31) + part);
-  const disposables: { dispose(): void }[] = [];
-  const keep = <T extends { dispose(): void }>(item: T): T => {
-    disposables.push(item);
-    return item;
-  };
+  const stream = streams(seed);
+  const { keep, dispose } = keeper();
 
   const snap = n('snap');
   const fog: Ps1Fog = { color: String(values.skyHorizon), near: n('fogNear'), far: Math.max(n('fogFar'), n('fogNear') + 1) };
@@ -354,17 +344,12 @@ function build(values: ParamValues, seed: number): SceneInstance {
     wirePositions.needsUpdate = true;
   };
 
-  // The camera floats as if held by hand: a slow wander with a quicker, smaller one on top.
-  const drift = n('drift');
-  const driftSpeed = n('driftSpeed');
-  const cameraRandom = stream(4);
-  const driftPhase = Array.from({ length: 10 }, () => cameraRandom() * Math.PI * 2);
+  const camRoll = n('camRoll') * DEG;
+  const hand = handheld(stream(4), n('drift'), n('driftSpeed'));
   const moveCamera = (seconds: number): void => {
-    const t = seconds * driftSpeed;
-    const sway = (rate: number, axis: number) =>
-      drift * (0.7 * Math.sin(t * rate + driftPhase[axis * 2]) + 0.3 * Math.sin(t * rate * 2.7 + driftPhase[axis * 2 + 1]));
-    camera.position.set(sway(0.37, 0) * 0.5, camHeight + sway(0.53, 1) * 0.2, camDistance);
-    camera.rotation.set(camPitch + sway(0.31, 2) * 0.8 * DEG, sway(0.23, 3) * 1.5 * DEG, sway(0.29, 4) * 0.6 * DEG);
+    const sway = hand(seconds);
+    camera.position.set(sway.x, camHeight + sway.y, camDistance);
+    camera.rotation.set(camPitch + sway.pitch, sway.yaw, camRoll + sway.roll);
     sky.position.copy(camera.position);
   };
 
@@ -381,9 +366,7 @@ function build(values: ParamValues, seed: number): SceneInstance {
       moveCamera(timeMs / 1000);
       seaMaterial.uniforms.uTime.value = timeMs / 1000;
     },
-    dispose() {
-      for (const item of disposables) item.dispose();
-    },
+    dispose,
   };
 }
 
@@ -416,6 +399,7 @@ export const seaPole: SceneDef = {
     camDistance: num(16, 4, 60, 0.5),
     camFov: num(45, 20, 90, 1),
     camPitch: num(6, -20, 30, 0.5),
+    camRoll: num(0, -30, 30, 0.5),
     drift: num(0.35, 0, 1, 0.01),
     driftSpeed: num(1, 0, 4, 0.05),
     // Beyond the pole and a little to the right: the glints lie between the light and the eye.
@@ -427,6 +411,35 @@ export const seaPole: SceneDef = {
     a: {},
     // IMAGE 0003: the same sea, one wire of the pole goes under the water.
     b: { wireUnderwater: true },
+  },
+  moods: {
+    dream: {},
+    // The colour has gone out of it: a grey day, a slack wire, hardly a glint.
+    sad: {
+      skyTop: '#8e9aa3', skyHorizon: '#c9cdcd', sea: '#9aa4a8', poleColor: '#4d5459', fogNear: 10, fogFar: 90,
+      wireSag: 2.4, wireTremble: 0.15, waveHeight: 0.08, waveSpeed: 0.6, glint: 0.12, glintColor: '#e6ebee',
+      camPitch: 2, drift: 0.2, driftSpeed: 0.6, lightAmount: 0.3, blur: 1, noise: 0.2, vignette: 0.35,
+    },
+    // The wrong colour and the wrong place to stand: low over the water, the pole too tall and leaning.
+    strange: {
+      skyTop: '#c9c58f', skyHorizon: '#f0e9c6', sea: '#9fb3a0', poleColor: '#4a4f45', poleHeight: 11, poleTilt: 14,
+      wireSag: 4.5, waveSpeed: 0.35, glint: 0.5, glintColor: '#fff7d0', glintSize: 0.5, glintWidth: 60,
+      camHeight: 0.6, camFov: 62, camPitch: 14, camRoll: 5, snap: 120, chroma: 1.4,
+    },
+    // Dusk, close to the pole, and nothing holds still.
+    anxious: {
+      skyTop: '#3d4048', skyHorizon: '#c98a5a', sea: '#3b3f45', poleColor: '#17181a', fogNear: 15, fogFar: 120,
+      poleTilt: 7, wireTremble: 0.8, wireSpeed: 1.8, waveHeight: 0.3, waveSpeed: 1.6, glint: 0.5,
+      glintColor: '#ffb884', glintSpeed: 11, camDistance: 9, camFov: 60, camPitch: 10, drift: 0.7, driftSpeed: 1.8,
+      depth: 4, smear: 2, chroma: 1.2, glow: 0.25, noise: 0.35, vignette: 0.4,
+    },
+    // Black, red and the white of the light on the water. It is slow again.
+    fear: {
+      skyTop: '#1a0305', skyHorizon: '#b3200f', sea: '#120609', poleColor: '#050404', fogNear: 30, fogFar: 300,
+      poleTilt: 10, wireTremble: 0.6, waveSpeed: 0.5, glint: 0.75, glintColor: '#ffcfa3', glintWidth: 16,
+      camHeight: 1.2, camDistance: 11, camFov: 55, camPitch: 9, camRoll: -3, drift: 0.5, driftSpeed: 0.5,
+      lightAngle: 180, depth: 4, blur: 1.3, smear: 2.2, chroma: 1.1, glow: 0.6, noise: 0.3, vignette: 0.5,
+    },
   },
   build,
 };
