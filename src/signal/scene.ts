@@ -5,7 +5,9 @@ import { nextRandom } from '../rules/rng';
 export type ParamSpec =
   | { kind: 'number'; value: number; min: number; max: number; step: number }
   | { kind: 'color'; value: string }
-  | { kind: 'boolean'; value: boolean };
+  | { kind: 'boolean'; value: boolean }
+  /** One of a list of names, like a font. */
+  | { kind: 'choice'; value: string; options: string[] };
 
 /** The value of every parameter by its name. */
 export type ParamValues = Record<string, number | string | boolean>;

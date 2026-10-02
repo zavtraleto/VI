@@ -15,12 +15,14 @@
 - Структура кода — таблица в [README.md](README.md).
 - Правила игры и принятые решения — [docs/superpowers/specs/2026-10-01-vi-mvp-design.md](docs/superpowers/specs/2026-10-01-vi-mvp-design.md); планы — [docs/ROADMAP.md](docs/ROADMAP.md).
 - Арт-дирекшн (черновик для обсуждения, не утверждённая спецификация) — [docs/art/VI_Art_Direction_and_Signal_v01.md](docs/art/VI_Art_Direction_and_Signal_v01.md).
+- Единый слой интерфейса: правило и перечень всех элементов интерфейса с их состоянием — [docs/art/VI_Interface_Layer.md](docs/art/VI_Interface_Layer.md). Вид оболочки: ориентиры, варианты, план — [docs/art/VI_Shell_Research.md](docs/art/VI_Shell_Research.md).
 - Спеки — `docs/superpowers/specs/`, планы реализации — `docs/superpowers/plans/`.
 
 ## Работа
 
 - `src/rules` — чистая детерминированная симуляция. Визуал, звук и интерфейс читают её состояние и события и никогда не влияют на правила.
 - Визуальный стиль ведёт пользователь. Агент исполняет принесённый им слой и не придумывает внешний вид по своей инициативе.
+- Весь интерфейс игрока — один слой: рисуется в канвасе через `src/shell`, цвета, шрифты и размеры берёт только из `src/shell/theme.ts`. Новый DOM-интерфейс не заводим; новый элемент интерфейса добавляется вместе со строкой в [VI_Interface_Layer.md](docs/art/VI_Interface_Layer.md).
 - Проверка: `npm test`, `npm run typecheck`, `npm run build`. Дев-сервер — только через preview (`vi-dev` в `.claude/launch.json`, порт 5183).
 - Работаем в `main`. Коммит и пуш — только после «ок» пользователя: пуш в `main` публикует сборку на GitHub Pages.
 - В рабочем дереве лежат незакоммиченные правки других чатов: в коммит брать только свои файлы, без `git add -A`.

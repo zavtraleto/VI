@@ -149,6 +149,12 @@ const RU = {
   puzzleRule4: 'Печать в углу показывает грани кости под тобой: по ней видно, что перекат положит наверх',
   puzzleRule5: 'Убери все кости. Чем меньше ходов, тем больше звёзд',
   play: 'Играть',
+  shellProtocol: 'СЕАНС БЕЗ СРОКА',
+  shellLimited: 'ОКНО СЕАНСА 03:00',
+  shellExercise: 'ПРОВЕРКА НАВЫКА',
+  shellTasks: 'ОЧИСТКА КАНАЛА',
+  shellRecords: 'ЖУРНАЛ СЕАНСОВ',
+  shellSystem: 'ПАРАМЕТРЫ',
 };
 
 const EN: typeof RU = {
@@ -302,6 +308,12 @@ const EN: typeof RU = {
   puzzleRule4: 'The seal in the corner shows the faces of the die under you: it tells what a roll will bring on top',
   puzzleRule5: 'Clear every die. The fewer moves, the more stars',
   play: 'Play',
+  shellProtocol: 'SESSION WITHOUT LIMIT',
+  shellLimited: 'SESSION WINDOW 03:00',
+  shellExercise: 'BASIC OPERATION TEST',
+  shellTasks: 'CLEAR THE CHANNEL',
+  shellRecords: 'SESSION LOG',
+  shellSystem: 'PARAMETERS',
 };
 
 export type TextKey = keyof typeof RU;

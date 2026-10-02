@@ -45,6 +45,22 @@ button {
   -webkit-touch-callout: none;
 }
 
+/* The boot and the menu are drawn in the canvas under the page: the board's own interface
+   gives way to them, and a panel opened from the menu hides them as it hid the board. */
+
+#app.shell-open {
+  touch-action: none;
+}
+
+#app.shell-open .hud,
+#app.shell-open .play {
+  visibility: hidden;
+}
+
+#app.shell-open .overlay {
+  background: var(--void);
+}
+
 /* HUD: thin engraved lettering, ivory numerals */
 
 .hud {

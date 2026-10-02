@@ -41,6 +41,8 @@ export interface Settings {
   controlMode: ControlMode;
   tutorialDone: boolean;
   hintsSeen: string[];
+  /** The long boot of the first start has been shown: later starts get the short one. */
+  bootSeen: boolean;
   muted: boolean;
   /** null follows the system preference. */
   reducedMotion: boolean | null;
@@ -73,6 +75,7 @@ export function loadSettings(): Settings {
     controlMode: 'gesture',
     tutorialDone: false,
     hintsSeen: [],
+    bootSeen: false,
     muted: false,
     reducedMotion: null,
     shake: true,

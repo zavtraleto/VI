@@ -35,6 +35,8 @@
 
 Отдельная задача. Направление — смесь оккультной эстетики и cyber Y2K. Текущий вид временный.
 
+Интерфейс собирается в единый слой: правило и перечень элементов — в [VI_Interface_Layer.md](art/VI_Interface_Layer.md); ориентиры, варианты и план оболочки — в [VI_Shell_Research.md](art/VI_Shell_Research.md).
+
 ### Puzzle
 
 Решения и состояние — в [документе Puzzle](superpowers/specs/2026-10-01-vi-puzzle-design.md).

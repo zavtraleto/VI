@@ -24,8 +24,10 @@ import {
   type MarkFace,
   type RunState,
 } from '../rules';
+import { Shell } from '../shell/shell';
 import { DebugPanel } from '../ui/debug';
 import { formatTime, h } from '../ui/dom';
+import { FpsCounter } from '../ui/fps';
 import { Dpad } from '../ui/dpad';
 import { ChainLabels, HintBubble, Hud } from '../ui/hud';
 import { t, type TextKey } from '../ui/i18n';
@@ -86,6 +88,8 @@ export class Game {
   private readonly display = new Display();
   /** The board, as crisp as the screen allows and looking as it would on a canvas of its own. */
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: 4, encoded: true });
+  /** The program around the game: boot and menu. Its layers come after the board's, so they lie over it. */
+  private readonly shell = new Shell(this.display, this.settings, { blocked: () => this.screens.visible });
   /** A board is built for a size and kept: puzzles come in several. */
   private readonly views = new Map<number, BoardView>();
   private readonly stage: HTMLElement;
@@ -99,6 +103,7 @@ export class Game {
   private readonly dpad: Dpad;
   private readonly screens: Screens;
   private readonly debug: DebugPanel;
+  private readonly fps = new FpsCounter();
   private readonly root: HTMLElement;
 
   constructor(root: HTMLElement) {
@@ -164,9 +169,16 @@ export class Game {
       }
     });
 
-    // A board is set up behind the menu so there is something to look at.
+    // A board is set up behind the shell and not drawn: the rest of the code leans on `this.runner`.
     this.startRun('endless');
-    this.showMenu();
+    this.inMenu = true;
+    this.audio.setPaused(true);
+    this.layoutGuide();
+    this.shell.boot(() => {
+      // The long boot is shown once per device.
+      saveSettings(this.settings);
+      this.showMenu();
+    });
     requestAnimationFrame((time) => this.frame(time));
   }
 
@@ -179,7 +191,7 @@ export class Game {
   }
 
   private inputEnabled(): boolean {
-    return !this.paused && !this.state.over && !this.screens.visible;
+    return !this.paused && !this.state.over && !this.screens.visible && !this.shell.visible;
   }
 
   /** Records are kept per mode and rule key. */
@@ -255,6 +267,7 @@ export class Game {
     this.paused = false;
     this.resultShown = false;
     this.screens.hide();
+    this.shell.hide();
     this.labels.clear();
     this.hint.reset();
     this.dpad.setPulse(null);
@@ -474,14 +487,27 @@ export class Game {
     this.guide.hide();
     this.layoutGuide();
     this.dpad.setPulse(null);
-    this.screens.showMenu(!this.settings.tutorialDone, {
-      onEndless: () => this.startRun('endless'),
-      onTimed: () => this.startRun('timed'),
-      onPuzzle: () => this.openPuzzle(),
-      onTutorial: () => this.startRun('tutorial'),
-      onRecords: () => this.showRecords(() => this.showMenu()),
-      onPlaytest: () => this.showPlaytest(() => this.showMenu()),
-    });
+    // The menu is the shell's; a panel of the old interface that led here goes away.
+    this.screens.hide();
+    this.shell.showMenu(
+      !this.settings.tutorialDone,
+      {
+        onEndless: () => this.startRun('endless'),
+        onTimed: () => this.startRun('timed'),
+        onPuzzle: () => this.openPuzzle(),
+        onTutorial: () => this.startRun('tutorial'),
+        onRecords: () => this.showRecords(() => this.showMenu()),
+        onPlaytest: () => this.showPlaytest(() => this.showMenu()),
+      },
+      {
+        bestEndless: bestOf(this.settings, this.recordKey('endless'), 'score'),
+        bestTimed: bestOf(this.settings, this.recordKey('timed'), 'score'),
+        tutorialDone: this.settings.tutorialDone,
+        tasksDone: PUZZLE_LEVELS.filter((level) => (this.settings.puzzle.stars[level.id] ?? 0) > 0).length,
+        tasksTotal: PUZZLE_LEVELS.length,
+        sessions: Object.values(this.settings.runs).reduce((sum, runs) => sum + runs.length, 0),
+      },
+    );
   }
 
   private togglePause(): void {
@@ -683,6 +709,7 @@ export class Game {
     requestAnimationFrame((next) => this.frame(next));
     const dt = this.lastFrame === 0 ? 0 : Math.max(0, time - this.lastFrame);
     this.lastFrame = time;
+    this.fps.tick(time);
 
     const running = !this.paused && !this.inMenu && !this.state.over;
     let alpha = 0;
@@ -723,18 +750,24 @@ export class Game {
     const { experiments } = this.settings;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.root.classList.toggle('reduced-motion', reducedMotion);
+    // Under the boot and the menu the board is neither drawn nor shown, and its interface is put away.
+    const covered = this.shell.covers;
+    this.root.classList.toggle('shell-open', covered);
+    this.world.look.opacity = covered ? 0 : 1;
     const steer = this.steerGuide(state, time);
     // The tutorial's own arrows say where to go; a swipe is echoed on the board outside it.
     const guide = this.updateGuide(state) ?? steer.guide;
-    this.view.draw(state, alpha, time, {
-      overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, guide },
-      levels: this.ritual.levels,
-      phaseShift: this.ritual.phaseShift,
-      warn: state.cubes.length >= state.config.warnOccupied && !state.over,
-      danger: secondsLeft !== null,
-      reducedMotion,
-      shake: this.settings.shake,
-    });
+    if (!covered) {
+      this.view.draw(state, alpha, time, {
+        overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, guide },
+        levels: this.ritual.levels,
+        phaseShift: this.ritual.phaseShift,
+        warn: state.cubes.length >= state.config.warnOccupied && !state.over,
+        danger: secondsLeft !== null,
+        reducedMotion,
+        shake: this.settings.shake,
+      });
+    }
     if (state.puzzle) {
       const level = PUZZLE_LEVELS[this.puzzleIndex];
       this.hud.updatePuzzle({
@@ -751,6 +784,7 @@ export class Game {
     this.labels.update(state, this.view);
     this.seal.update(state, this.sealMark);
     this.seal.setActive(steer.dir);
-    this.display.present();
+    this.shell.frame(time);
+    this.display.present(time);
   }
 }
