@@ -1,20 +1,29 @@
+import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import {
   LOOK_PARAMS,
   MOODS,
+  blendValues,
   captionLines,
   changedValues,
+  contactValues,
+  mixColor,
   defaultValues,
   sceneRecord,
   sceneValues,
   seededRandom,
   signalLook,
+  thingValues,
   variantValues,
   type SceneDef,
   type SceneInstance,
 } from './scene';
 import { SCENES, sceneById } from './scenes';
-import { seaPole } from './scenes/seaPole';
+import { frameDef } from './compose';
+import { PLACES } from './places';
+import { THINGS } from './things';
+
+const seaPole = sceneById('sea_pole')!;
 
 const DEF: SceneDef = {
   id: 'test',
@@ -36,6 +45,8 @@ const DEF: SceneDef = {
     anxious: { sky: '#221100', depth: 4 },
     fear: { sky: '#110000', broken: true, unknown: 1 },
   },
+  channel: 3,
+  thing: { tint: ['sky'], dissolve: ['unknown'], frame: { height: 2, stray: 1 } },
   build: () => {
     throw new Error('not built in tests');
   },
@@ -90,6 +101,24 @@ describe('sceneValues', () => {
     const values = sceneValues(DEF, 'a', 'fear');
     expect(values.broken).toBe(true);
     expect('unknown' in values).toBe(false);
+  });
+});
+
+describe('thingValues', () => {
+  it('brings the thing near, gives it the colour of its channel and leaves the rest', () => {
+    const values = thingValues(DEF, sceneValues(DEF, 'b', 'strange'), '#5fc9d6', '#0a0d1a');
+    expect(values.sky).toBe('#5fc9d6');
+    expect(values.height).toBe(2);
+    expect(values.broken).toBe(true);
+    expect('stray' in values).toBe(false);
+    expect('unknown' in values).toBe(false);
+  });
+
+  it('does not touch the values it was given', () => {
+    const before = sceneValues(DEF, 'a', 'dream');
+    const copy = { ...before };
+    thingValues(DEF, before, '#ffffff', '#000000');
+    expect(before).toEqual(copy);
   });
 });
 
@@ -260,6 +289,16 @@ describe('the registry', () => {
     }
   });
 
+  it('names in every scene colours to tint and to dissolve that it has', () => {
+    for (const scene of SCENES) {
+      expect(scene.channel).toBeGreaterThanOrEqual(0);
+      expect(scene.channel).toBeLessThanOrEqual(6);
+      for (const name of [...scene.thing.tint, ...scene.thing.dissolve]) {
+        expect(scene.params[name]?.kind, `${scene.id}.${name}`).toBe('color');
+      }
+    }
+  });
+
   it('keeps what a variant changes out of the moods, so a variant shows in every mood', () => {
     for (const scene of SCENES) {
       const changed = new Set(Object.values(scene.variants).flatMap((variant) => Object.keys(variant)));
@@ -293,7 +332,7 @@ describe('the registry', () => {
 describe('sea_pole', () => {
   it('has the two variants: the defaults, and one wire under the water', () => {
     expect(changedValues(seaPole, variantValues(seaPole, 'a'))).toEqual({});
-    expect(changedValues(seaPole, variantValues(seaPole, 'b'))).toEqual({ wireUnderwater: true });
+    expect(changedValues(seaPole, variantValues(seaPole, 'b'))).toEqual({ 'pole.wireUnderwater': true });
   });
 
   it('builds the same frame from the same seed and time', () => {
@@ -321,7 +360,7 @@ describe('sea_pole', () => {
 
   it('trembles the wires with time, and only as much as it is told to', () => {
     const wires = (wireTremble: number, timeMs: number): number[] => {
-      const instance = seaPole.build({ ...variantValues(seaPole, 'a'), drift: 0, wireTremble }, 3);
+      const instance = seaPole.build({ ...variantValues(seaPole, 'a'), drift: 0, 'pole.wireTremble': wireTremble }, 3);
       instance.update(timeMs, 16 / 9);
       let found: number[] = [];
       instance.scene.traverse((object) => {
@@ -387,5 +426,160 @@ describe('sea_pole', () => {
       expect(vertices(instance).every((v) => Number.isFinite(v))).toBe(true);
       instance.dispose();
     }
+  });
+});
+
+/** How many drawn objects a built frame has. */
+function drawn(instance: SceneInstance): number {
+  let count = 0;
+  instance.scene.traverse((object) => {
+    if ((object as { geometry?: unknown }).geometry) count++;
+  });
+  return count;
+}
+
+describe('the places and the things', () => {
+  it('have unique ids, and every place names a thing that exists or none', () => {
+    expect(new Set(PLACES.map((place) => place.id)).size).toBe(PLACES.length);
+    expect(new Set(THINGS.map((thing) => thing.id)).size).toBe(THINGS.length);
+    for (const place of PLACES) {
+      if (place.native !== null) expect(THINGS.some((thing) => thing.id === place.native), place.id).toBe(true);
+      for (const name of place.dissolve) expect(place.params[name]?.kind, `${place.id}.${name}`).toBe('color');
+    }
+    for (const thing of THINGS) {
+      for (const name of thing.tint) expect(thing.params[name]?.kind, `${thing.id}.${name}`).toBe('color');
+      expect(Object.keys(thing.moods)).toEqual([...MOODS]);
+    }
+  });
+
+  it('answer through all six channels between them, each open place through its own', () => {
+    const channels = PLACES.map((place) => place.channel).filter((channel) => channel > 0);
+    expect(new Set(channels).size).toBe(channels.length);
+    expect([...channels].sort()).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('put every thing in every place: the frame is built, is finite, and holds more than the place alone', () => {
+    for (const place of PLACES) {
+      const empty = frameDef({ id: `${place.id}:`, place: place.id, things: [] });
+      const alone = empty.build(defaultValues(empty), 5);
+      alone.update(1000, 4 / 3);
+      const base = drawn(alone);
+      alone.dispose();
+      for (const thing of THINGS) {
+        const def = frameDef({ id: `${place.id}:${thing.id}`, place: place.id, things: [thing.id] });
+        const instance = def.build(defaultValues(def), 5);
+        instance.update(1000, 4 / 3);
+        expect(vertices(instance).every(Number.isFinite), def.id).toBe(true);
+        // A thing of the sky has no place under a roof: there the frame is the place alone.
+        const indoors = thing.sky && place.channel !== 1 && !['sea', 'field', 'roof', 'nightwater', 'glare'].includes(place.id);
+        if (indoors) expect(drawn(instance), def.id).toBe(base);
+        else expect(drawn(instance), def.id).toBeGreaterThan(base);
+        instance.dispose();
+      }
+    }
+  });
+
+  it('show a thing alone: no place round it, the same from the same seed', () => {
+    for (const thing of THINGS) {
+      const def = frameDef({ id: `sea:${thing.id}`, place: 'sea', things: [thing.id] });
+      const values = thingValues(def, defaultValues(def), '#5fc9d6', '#0a0d1a');
+      for (const name of thing.tint) expect(values[`${thing.id}.${name}`]).toBe('#5fc9d6');
+      const shot = (bare: boolean): { count: number; points: number[] } => {
+        const instance = def.build(values, 5, bare);
+        instance.update(1500, 4 / 3);
+        const out = { count: drawn(instance), points: vertices(instance) };
+        instance.dispose();
+        return out;
+      };
+      const whole = shot(false);
+      const bare = shot(true);
+      expect(bare.count, thing.id).toBeGreaterThan(0);
+      expect(bare.count, thing.id).toBeLessThan(whole.count);
+      expect(bare.points.every(Number.isFinite), thing.id).toBe(true);
+      expect(shot(true).points, thing.id).toEqual(bare.points);
+    }
+  });
+
+  it('stand a thing as the frame says: sunk, doubled, many, of another size', () => {
+    const def = frameDef({ id: 'sea:chair', place: 'sea', things: ['chair'] });
+    const count = (overrides: Record<string, number | boolean>): number => {
+      const instance = def.build({ ...defaultValues(def), ...overrides }, 5);
+      instance.update(0, 4 / 3);
+      const out = drawn(instance);
+      instance.dispose();
+      return out;
+    };
+    const one = count({});
+    expect(count({ 'chair.twin': true })).toBe(one + 1);
+    expect(count({ 'chair.count': 5 })).toBe(one + 4);
+    expect(count({ 'chair.count': 3, 'chair.twin': true })).toBe(one + 3);
+
+    const lowest = (overrides: Record<string, number>): number => {
+      const instance = def.build({ ...defaultValues(def), drift: 0, ...overrides }, 5);
+      instance.update(0, 4 / 3);
+      instance.scene.updateMatrixWorld(true);
+      let top = -Infinity;
+      instance.scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.geometry.getAttribute('color') || !mesh.geometry.getAttribute('uv')) return;
+        const position = mesh.geometry.getAttribute('position');
+        const point = new THREE.Vector3();
+        // The chair is the lit thing that is not the sky: its highest point says how it stands.
+        if (position.count > 500) return;
+        for (let i = 0; i < position.count; i++) top = Math.max(top, point.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld).y);
+      });
+      instance.dispose();
+      return top;
+    };
+    const standing = lowest({});
+    expect(standing).toBeCloseTo(0.92, 2);
+    // Half of it is under the surface.
+    expect(lowest({ 'chair.sink': 0.5 })).toBeCloseTo(standing - 0.46, 2);
+    expect(lowest({ 'chair.scale': 2 })).toBeCloseTo(standing * 2, 2);
+  });
+});
+
+describe('blendValues and contactValues', () => {
+  it('is the lightest mood at no contact and the heaviest at full contact', () => {
+    for (const scene of SCENES) {
+      expect(contactValues(scene, 'a', 0)).toEqual(sceneValues(scene, 'a', 'dream'));
+      expect(contactValues(scene, 'a', 1)).toEqual(sceneValues(scene, 'a', 'fear'));
+      expect(contactValues(scene, 'a', 0.5)).toEqual(sceneValues(scene, 'a', 'strange'));
+    }
+  });
+
+  it('goes from one mood to the next without a jump, inside the ranges, counts staying whole', () => {
+    for (const scene of SCENES) {
+      let before = contactValues(scene, 'a', 0);
+      for (let contact = 0.02; contact <= 1.0001; contact += 0.02) {
+        const now = contactValues(scene, 'a', contact);
+        for (const [name, spec] of Object.entries(scene.params)) {
+          const value = now[name];
+          if (spec.kind === 'number') {
+            expect(value, `${scene.id}.${name}`).toBeGreaterThanOrEqual(spec.min);
+            expect(value, `${scene.id}.${name}`).toBeLessThanOrEqual(spec.max);
+            // What counts things is never a fraction.
+            if (spec.step >= 1) expect(Number.isInteger((value as number) / spec.step), `${scene.id}.${name}`).toBe(true);
+            // Never more than a twelfth of the whole range in one fiftieth of the contact.
+            const span = spec.max - spec.min;
+            expect(Math.abs((value as number) - (before[name] as number)), `${scene.id}.${name}`).toBeLessThanOrEqual(span / 12 + spec.step);
+          } else if (spec.kind === 'color') {
+            expect(value).toMatch(/^#[0-9a-f]{6}$/);
+          }
+        }
+        before = now;
+      }
+    }
+  });
+
+  it('mixes numbers and colours, and switches what cannot be mixed half-way', () => {
+    const from = { ...defaultValues(DEF), height: 4, sky: '#000000', broken: false };
+    const to = { ...defaultValues(DEF), height: 8, sky: '#ffffff', broken: true };
+    const mid = blendValues(DEF, from, to, 0.25);
+    expect(mid.height).toBe(5);
+    expect(mid.sky).toBe('#404040');
+    expect(mid.broken).toBe(false);
+    expect(blendValues(DEF, from, to, 0.75).broken).toBe(true);
+    expect(mixColor('#102030', '#302010', 0.5)).toBe('#202020');
   });
 });

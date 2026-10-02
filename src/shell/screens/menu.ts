@@ -16,7 +16,7 @@ export interface MenuActions {
   onPuzzle: () => void;
   onTutorial: () => void;
   onRecords: () => void;
-  onPlaytest: () => void;
+  onSystem: () => void;
 }
 
 /** What the program has on record about the one who sits at it. */
@@ -54,7 +54,7 @@ export class MenuScreen implements ShellScreen {
   private readonly actions: Record<string, () => void>;
   /** The file the figure stands on. */
   private current: MenuFile;
-  private tick = -1;
+  private beat = -1;
   private second = -1;
 
   constructor(
@@ -69,7 +69,7 @@ export class MenuScreen implements ShellScreen {
       exercise: actions.onTutorial,
       tasks: actions.onPuzzle,
       records: actions.onRecords,
-      system: actions.onPlaytest,
+      system: actions.onSystem,
     };
     // The figure waits where the player is most likely to go: at the exercise until it is done.
     this.current = MENU_FILES.find((file) => file.id === (tutorialFirst ? 'exercise' : 'protocol'))!;
@@ -101,13 +101,24 @@ export class MenuScreen implements ShellScreen {
     return MENU_FILES.find((file) => file.face === face)!.id;
   }
 
-  update(timeMs: number): boolean {
+  update(): boolean {
+    return false;
+  }
+
+  /**
+   * The line of the program's state moves by itself: the levels of the channels wander, the
+   * clock goes. It alone is drawn again, a few times a second; the rest of the picture stays.
+   */
+  tick(kit: Kit, timeMs: number): boolean {
     const rate = this.context.reducedMotion() ? 0 : Number(this.context.values.idleHz);
     const tick = rate > 0 ? Math.floor((timeMs / 1000) * rate) : 0;
     const second = Math.floor(Date.now() / 1000);
-    if (tick === this.tick && second === this.second) return false;
-    this.tick = tick;
+    if (tick === this.beat && second === this.second) return false;
+    this.beat = tick;
     this.second = second;
+    const { status } = this.plan().layout;
+    kit.clear(status);
+    this.drawStatus(kit, status);
     return true;
   }
 
@@ -261,7 +272,7 @@ export class MenuScreen implements ShellScreen {
     let x = kit.text(STATUS.channels, box.x, y, dim) + CELL_W;
     channels.forEach((channel, i) => {
       // Noise of an empty line: nothing is connected, the levels wander.
-      const level = 2 + Math.round(chance(this.tick, i) * 10);
+      const level = 2 + Math.round(chance(this.beat, i) * 10);
       kit.rect(x, y + 14 - level, 8, level, channel);
       x += 12;
     });

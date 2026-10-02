@@ -31,7 +31,21 @@ export interface SceneDef {
   variants: Record<string, Partial<ParamValues>>;
   /** How the picture feels: differences from the defaults again. `dream` is the defaults. */
   moods: Record<Mood, Partial<ParamValues>>;
-  build(values: ParamValues, seed: number): SceneInstance;
+  /** The face of the die whose channel the place answers through; 0 for a place that is here, not there. */
+  channel: number;
+  /** How the thing of the scene is shown without its place, when it leaks into the game. */
+  thing: SceneThing;
+  /** `bare` leaves the place out: only the thing is built, to stand in the dark of the board. */
+  build(values: ParamValues, seed: number, bare?: boolean): SceneInstance;
+}
+
+export interface SceneThing {
+  /** Colour parameters that take the colour of the channel: the thing carries it. */
+  tint: readonly string[];
+  /** Colour parameters that take the colour of the dark around: what the thing fades into. */
+  dissolve: readonly string[];
+  /** Values that bring the thing close enough to be seen alone. */
+  frame: Partial<ParamValues>;
 }
 
 export interface SceneInstance {
@@ -140,6 +154,81 @@ export function sceneValues(def: SceneDef, variant: string, mood: Mood): ParamVa
     if (name in values && value !== undefined) values[name] = value;
   }
   return values;
+}
+
+function parseHex(hex: string): [number, number, number] {
+  const text = hex.replace('#', '');
+  const full = text.length === 3 ? [...text].map((digit) => digit + digit).join('') : text.padEnd(6, '0');
+  const value = Number.parseInt(full.slice(0, 6), 16) || 0;
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+/** A colour between two others; `amount` 0 is the first, 1 the second. */
+export function mixColor(from: string, to: string, amount: number): string {
+  const a = parseHex(from);
+  const b = parseHex(to);
+  const t = Math.min(1, Math.max(0, amount));
+  const channel = (i: number): string => Math.round(a[i] + (b[i] - a[i]) * t).toString(16).padStart(2, '0');
+  return `#${channel(0)}${channel(1)}${channel(2)}`;
+}
+
+/**
+ * Values between two sets of a scene: numbers and colours go smoothly from one to the other,
+ * and what cannot be mixed changes over half-way. A number that counts things stays whole.
+ */
+export function blendValues(def: SceneDef, from: ParamValues, to: ParamValues, amount: number): ParamValues {
+  const t = Math.min(1, Math.max(0, amount));
+  const out: ParamValues = {};
+  for (const [name, spec] of Object.entries(def.params)) {
+    const a = from[name] ?? spec.value;
+    const b = to[name] ?? spec.value;
+    if (spec.kind === 'number' && typeof a === 'number' && typeof b === 'number') {
+      const mixed = a + (b - a) * t;
+      // Binary dust is cut off; a parameter with whole steps is a count and is rounded.
+      const kept = spec.step >= 1 ? Math.round(mixed / spec.step) * spec.step : Number(mixed.toFixed(6));
+      out[name] = Math.min(spec.max, Math.max(spec.min, kept));
+    } else if (spec.kind === 'color' && typeof a === 'string' && typeof b === 'string') {
+      out[name] = mixColor(a, b, t);
+    } else {
+      out[name] = t < 0.5 ? a : b;
+    }
+  }
+  return out;
+}
+
+/**
+ * The values of a scene for a contact of 0..1: the moods in their order, from the daydream to
+ * fear, with everything between two of them mixed. The picture gets heavier little by little
+ * as the contact grows, never by a jump.
+ */
+export function contactValues(def: SceneDef, variant: string, contact: number): ParamValues {
+  const at = Math.min(1, Math.max(0, contact)) * (MOODS.length - 1);
+  const lower = Math.min(MOODS.length - 2, Math.floor(at));
+  return blendValues(def, sceneValues(def, variant, MOODS[lower]), sceneValues(def, variant, MOODS[lower + 1]), at - lower);
+}
+
+/**
+ * What a mood does to the look of the picture, whatever the picture is: softer and dimmer
+ * for sadness, parted colours and a coarse grid for strangeness, banding and grain for
+ * unease, all of it for fear.
+ */
+export const LOOK_MOODS: Record<Mood, Partial<ParamValues>> = {
+  dream: {},
+  sad: { blur: 1, noise: 0.2, vignette: 0.35 },
+  strange: { snap: 120, chroma: 1.4 },
+  anxious: { depth: 4, smear: 2, chroma: 1.2, glow: 0.25, noise: 0.35, vignette: 0.42 },
+  fear: { depth: 4, blur: 1.25, smear: 2.1, chroma: 1.1, glow: 0.6, noise: 0.3, vignette: 0.52 },
+};
+
+/** The values of a scene for its thing alone, in the colour `tint`, fading into `dark`. */
+export function thingValues(def: SceneDef, values: ParamValues, tint: string, dark: string): ParamValues {
+  const out: ParamValues = { ...values };
+  for (const [name, value] of Object.entries(def.thing.frame)) {
+    if (name in out && value !== undefined) out[name] = value;
+  }
+  for (const name of def.thing.tint) if (name in out) out[name] = tint;
+  for (const name of def.thing.dissolve) if (name in out) out[name] = dark;
+  return out;
 }
 
 function same(a: number | string | boolean, b: number | string | boolean): boolean {

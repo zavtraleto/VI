@@ -15,7 +15,10 @@
 - Структура кода — таблица в [README.md](README.md).
 - Правила игры и принятые решения — [docs/superpowers/specs/2026-10-01-vi-mvp-design.md](docs/superpowers/specs/2026-10-01-vi-mvp-design.md); планы — [docs/ROADMAP.md](docs/ROADMAP.md).
 - Арт-дирекшн (черновик для обсуждения, не утверждённая спецификация) — [docs/art/VI_Art_Direction_and_Signal_v01.md](docs/art/VI_Art_Direction_and_Signal_v01.md).
-- Единый слой интерфейса: правило и перечень всех элементов интерфейса с их состоянием — [docs/art/VI_Interface_Layer.md](docs/art/VI_Interface_Layer.md). Вид оболочки: ориентиры, варианты, план — [docs/art/VI_Shell_Research.md](docs/art/VI_Shell_Research.md).
+- Логика мира: почему каждый элемент игры устроен так (цвета граней, персонажи, механики) — [docs/art/VI_World_Logic.md](docs/art/VI_World_Logic.md). Новый элемент геймплея или графики добавляется вместе со строкой в этой странице.
+- Лор: твёрдые факты, вопросы с несколькими чтениями, тёмные места, правила подачи сюжета — [docs/art/VI_Lore.md](docs/art/VI_Lore.md). Любой текст лора в игре сверяется с этой страницей; на «тёмные места» игра не отвечает.
+- Единый слой интерфейса: правило и перечень всех элементов интерфейса с их состоянием — [docs/art/VI_Interface_Layer.md](docs/art/VI_Interface_Layer.md). Вид оболочки: ориентиры, варианты, план — [docs/art/VI_Shell_Research.md](docs/art/VI_Shell_Research.md). Стиль шире оболочки (язык программы, опоры лора, перебивки, игра) и принятые по нему решения — [docs/art/VI_Style_Research.md](docs/art/VI_Style_Research.md).
+- Сок: что известно о том, как его делают (разбор игр-ориентиров, приёмы, границы) — [docs/art/VI_Juice_Research.md](docs/art/VI_Juice_Research.md). Порядок работ по виду игры — в [docs/ROADMAP.md](docs/ROADMAP.md).
 - Спеки — `docs/superpowers/specs/`, планы реализации — `docs/superpowers/plans/`.
 
 ## Работа

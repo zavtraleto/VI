@@ -1,7 +1,7 @@
 import { DEFAULT_CAMERA, type Settings } from '../platform/settings';
 import { DEFAULT_TUNING, TUNING_RANGES, type Tuning } from '../rules';
 import { h } from './dom';
-import { t, type TextKey } from './i18n';
+import { td, type DevKey } from './devText';
 
 const TUNING_KEYS = Object.keys(DEFAULT_TUNING) as (keyof Tuning)[];
 
@@ -33,7 +33,7 @@ export class DebugPanel {
   ) {
     const tuning = TUNING_KEYS.map((key) =>
       this.row(
-        `tune_${key}` as TextKey,
+        `tune_${key}` as DevKey,
         TUNING_RANGES[key],
         DEFAULT_TUNING[key],
         () => settings.tuning[key] ?? DEFAULT_TUNING[key],
@@ -46,7 +46,7 @@ export class DebugPanel {
     );
     const camera = (['yaw', 'pitch', 'swipeTilt'] as const).map((key) =>
       this.row(
-        `cam_${key}` as TextKey,
+        `cam_${key}` as DevKey,
         CAMERA_RANGES[key],
         DEFAULT_CAMERA[key],
         () => settings.camera[key],
@@ -60,16 +60,16 @@ export class DebugPanel {
 
     this.el.append(
       h('div', { class: 'debug-head' }, [
-        h('h2', { text: t('debugTitle') }),
-        h('button', { class: 'btn small', text: t('close'), attrs: { type: 'button' }, onClick: () => this.toggle(false) }),
+        h('h2', { text: td('debugTitle') }),
+        h('button', { class: 'btn small', text: td('close'), attrs: { type: 'button' }, onClick: () => this.toggle(false) }),
       ]),
-      h('h3', { text: t('debugCamera') }),
+      h('h3', { text: td('debugCamera') }),
       ...camera,
-      h('h3', { text: t('debugRules') }),
+      h('h3', { text: td('debugRules') }),
       ...tuning,
       h('div', { class: 'row' }, [
-        h('button', { class: 'btn small primary', text: t('restart'), attrs: { type: 'button' }, onClick: () => actions.onRestart() }),
-        h('button', { class: 'btn small', text: t('reset'), attrs: { type: 'button' }, onClick: () => this.reset() }),
+        h('button', { class: 'btn small primary', text: td('restart'), attrs: { type: 'button' }, onClick: () => actions.onRestart() }),
+        h('button', { class: 'btn small', text: td('reset'), attrs: { type: 'button' }, onClick: () => this.reset() }),
       ]),
     );
     this.el.hidden = true;
@@ -86,7 +86,7 @@ export class DebugPanel {
   }
 
   private row(
-    label: TextKey,
+    label: DevKey,
     range: readonly [number, number, number],
     fallback: number,
     read: () => number,
@@ -102,7 +102,7 @@ export class DebugPanel {
       write(v);
     });
     this.rows.push({ input, value, read, fallback });
-    return h('label', { class: 'debug-row' }, [h('span', { class: 'debug-label', text: t(label) }), value, input]);
+    return h('label', { class: 'debug-row' }, [h('span', { class: 'debug-label', text: td(label) }), value, input]);
   }
 
   private refresh(): void {

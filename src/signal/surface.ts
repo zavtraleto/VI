@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 
-/** A point of light inside a scene. */
+/** A light inside a scene: a point with a reach, or with `direction` the light of a whole sky. */
 export interface Lamp {
   position: THREE.Vector3;
   color: THREE.Color;
   /** Distance at which nothing of the light is left. */
   reach: number;
   amount: number;
+  /** Unit vector towards a light that is everywhere the same, like the sun. */
+  direction?: THREE.Vector3;
 }
 
 /** A box somewhere in the world: where it is and how it is turned, and its size. */
@@ -19,6 +21,8 @@ const u = new THREE.Vector3();
 const v = new THREE.Vector3();
 const normal = new THREE.Vector3();
 const origin = new THREE.Vector3();
+const point = new THREE.Vector3();
+const facing = new THREE.Vector3();
 
 /**
  * The lit surfaces of an interior, put together in world space out of flat sheets and boxes.
@@ -95,18 +99,27 @@ export class Surface {
     return geometry;
   }
 
-  /** Works the light out anew: `ambient` everywhere, and each lamp where it reaches. */
-  light(lamps: readonly Lamp[], ambient: THREE.Color): void {
+  /**
+   * Works the light out anew: `ambient` everywhere, and each lamp where it reaches. `matrix`
+   * is where the surface has been put, if it was built somewhere else than it stands.
+   */
+  light(lamps: readonly Lamp[], ambient: THREE.Color, matrix?: THREE.Matrix4): void {
     const colors = this.colors;
     if (!colors) return;
     const { positions, normals, base } = this;
     const out = colors.array as Float32Array;
     for (let i = 0; i < positions.length; i += 3) {
+      point.set(positions[i], positions[i + 1], positions[i + 2]);
+      facing.set(normals[i], normals[i + 1], normals[i + 2]);
+      if (matrix) {
+        point.applyMatrix4(matrix);
+        facing.transformDirection(matrix);
+      }
       let r = ambient.r;
       let g = ambient.g;
       let b = ambient.b;
       for (const lamp of lamps) {
-        const lit = lampLight(lamp, positions[i], positions[i + 1], positions[i + 2], normals[i], normals[i + 1], normals[i + 2]);
+        const lit = lampLight(lamp, point.x, point.y, point.z, facing.x, facing.y, facing.z);
         r += lamp.color.r * lit;
         g += lamp.color.g * lit;
         b += lamp.color.b * lit;
@@ -121,6 +134,9 @@ export class Surface {
 
 /** How much of a lamp arrives at a point of a surface with the normal `n`. */
 export function lampLight(lamp: Lamp, x: number, y: number, z: number, nx: number, ny: number, nz: number): number {
+  if (lamp.amount <= 0) return 0;
+  // The light of a sky falls the same everywhere and does not wrap: a side turned away is unlit.
+  if (lamp.direction) return lamp.amount * Math.max(0, nx * lamp.direction.x + ny * lamp.direction.y + nz * lamp.direction.z);
   const dx = lamp.position.x - x;
   const dy = lamp.position.y - y;
   const dz = lamp.position.z - z;

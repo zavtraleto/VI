@@ -1,48 +1,60 @@
 import { AudioEngine } from '../audio/engine';
 import { Display } from '../display/display';
+import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
 import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, type ScreenDirs } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
 import { addRun, bestOf, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
 import { storageAvailable } from '../platform/storage';
+import { Backdrop } from '../render/backdrop';
+import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
-import { OCCULT_THEME } from '../render/theme';
+import { boardDefaults, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
   createRun,
   cubeAt,
   defaultConfig,
+  previewAll,
   previewMove,
   resolveMove,
+  roll,
   ruleKey,
+  tutorialAck,
+  tutorialHint,
+  tutorialRestart,
   tutorialView,
+  tutorialWaits,
   DELTA,
   DIRS,
+  TUTORIAL_LESSONS,
+  TUTORIAL_LINES,
   type Dir,
   type GameEvent,
   type MarkFace,
+  type Orientation,
   type RunState,
 } from '../rules';
+import { GameHud, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
+import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { DebugPanel } from '../ui/debug';
-import { formatTime, h } from '../ui/dom';
-import { FpsCounter } from '../ui/fps';
-import { Dpad } from '../ui/dpad';
-import { ChainLabels, HintBubble, Hud } from '../ui/hud';
+import { shellDefaults } from '../shell/theme';
+import { SignalPlayer } from '../signal/player';
+import type { DevTools } from '../ui/devtools';
+import { h } from '../ui/dom';
 import { t, type TextKey } from '../ui/i18n';
-import { PuzzleTools } from '../ui/puzzle';
-import { Screens, type PauseToggles, type PuzzleSection } from '../ui/screens';
-import { Seal } from '../ui/seal';
-import { TutorialGuide, type InputGlyph } from '../ui/tutorial';
+import { clockLeft, secondsLeft } from './clock';
+import { Hints } from './hints';
 import { puzzleReport, starsFor } from './puzzleStats';
-import { Ritual } from './ritual';
+import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
+import { CONTACT_STEPS, Ritual, nextThreshold, soundStage } from './ritual';
 import { Runner } from './runner';
 import { statsText } from './stats';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
-/** Space between the tutorial's text and the far corner of the board. */
+/** Space between the words of the exercise and the far corner of the board. */
 const GUIDE_GAP_PX = 8;
 
 /** What the player picked in the menu. */
@@ -52,6 +64,20 @@ const PUZZLE_RULES: readonly TextKey[] = ['puzzleRule1', 'puzzleRule2', 'puzzleR
 
 /** How long the direction of a swipe stays shown after the finger has let go. */
 const STEER_LINGER_MS = 280;
+
+/** Side of the die that looks towards each board direction. */
+const SIDE: Record<Dir, keyof Orientation> = { N: 'north', E: 'east', S: 'south', W: 'west' };
+/** The roll that turns each side up: folded out, a side lies the way it would then lie on top. */
+const TURNS_UP: Record<Dir, Dir> = { N: 'S', E: 'W', S: 'N', W: 'E' };
+/** The exercise goes through the faces from the two to the six, and ends with the one. */
+const LESSONS = TUTORIAL_LESSONS;
+/** Keys that read the words of the exercise: those that run a command, and those that step. */
+const READ_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'KeyW', 'KeyD', 'KeyS', 'KeyA']);
+
+/** How many quarter turns the picture of a top face lies at. */
+function quarterTurns(ori: Orientation): number {
+  return ((Math.round(topTurn(ori) / (Math.PI / 2)) % 4) + 4) % 4;
+}
 
 export class Game {
   private settings: Settings = loadSettings();
@@ -65,12 +91,16 @@ export class Game {
   private swipeDirs: ScreenDirs = CARDINAL_DIRS;
   /** The direction the last swipe was read as, shown on the board and the seal for a moment after it. */
   private steer: { dir: Dir; until: number; arrow: GuideArrow } | null = null;
+  /** The breath the game holds on a beat. */
+  private readonly hold = new Hitstop();
+  /** The peak of the contact on the last frame, to notice it begin. */
+  private lastPeak = 0;
+  /** The way back to the end of a lesson for a player who has left its short way, and the position it is from. */
+  private wayBack: { key: string; path: Dir[] } | null = null;
   private lastStats = '';
   private resultShown = false;
   /** Cell where the tutorial ended and Endless is about to start. */
   private handoff: { x: number; z: number } | null = null;
-  /** Face of the player's die the tutorial asks to bring on top, ringed in the seal. */
-  private sealMark: MarkFace | null = null;
   /** Level being played, or last played, in the list of puzzles. */
   private puzzleIndex = 0;
   /** The puzzle as it stood before each roll, oldest first: what a move is taken back to. */
@@ -83,72 +113,112 @@ export class Game {
   private readonly controller = new InputController();
   private readonly ritual = new Ritual();
   private readonly audio = new AudioEngine();
+  private readonly hints = new Hints();
   private readonly tracker: GestureTracker;
   /** The one canvas of the page; the picture is put together from its layers. */
   private readonly display = new Display();
-  /** The board, as crisp as the screen allows and looking as it would on a canvas of its own. */
+  /** What lies behind the board: a layer under it, of as few pixels as the program's picture. */
+  private readonly backdropLayer = this.display.addLayer({ name: 'backdrop', lines: 240, look: { filter: 'linear' } });
+  private readonly backdrop = new Backdrop(this.backdropLayer);
+  /** The board, as crisp as the screen allows and looking as it would on a canvas of its own. Clear around the dice. */
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: 4, encoded: true });
-  /** The program around the game: boot and menu. Its layers come after the board's, so they lie over it. */
-  private readonly shell = new Shell(this.display, this.settings, { blocked: () => this.screens.visible });
+  /** What the board and the interface are drawn from: the board's own values, and the look of the program. */
+  private readonly look: BoardLook = { board: boardDefaults(), shell: shellDefaults() };
+  /** What the program shows of a session over the board. Its layers lie under those of the menu and the panels. */
+  private readonly hud = new GameHud(this.display, this.look, {
+    live: () => !this.inMenu && !this.shell.visible && !this.toolsOpen && !this.signal.busy,
+    onPause: () => this.togglePause(),
+    onUndo: () => this.undoPuzzle(),
+    onRestart: () => this.restartPuzzle(),
+    onSkip: () => this.skipTutorial(),
+    onContinue: () => this.outside((state) => tutorialAck(state)),
+    press: (dir) => {
+      if (!this.inputEnabled()) return;
+      // While the words of the exercise wait to be read, a button of the pad reads them.
+      if (tutorialWaits(this.state)) this.hud.proceed();
+      else this.controller.press(dir, this.now());
+    },
+    release: () => this.controller.release(),
+    cancel: () => this.controller.cancel(),
+  });
+  /** The program around the game: boot, menu, panels. Its layers come after the board's, so they lie over it. */
+  private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen });
+  /** What comes from the other side: a transmission in a window of the program, over the board. */
+  private readonly signal = new SignalPlayer(this.display, this.shell.values, this.world);
   /** A board is built for a size and kept: puzzles come in several. */
   private readonly views = new Map<number, BoardView>();
+  /** Boxes of the page that the canvas draws into: the readings, the board, the buttons. */
+  private readonly header: HTMLElement;
   private readonly stage: HTMLElement;
+  private readonly pad: HTMLElement;
   private view: BoardView;
-  private readonly puzzleTools: PuzzleTools;
-  private readonly hud: Hud;
-  private readonly labels: ChainLabels;
-  private readonly hint: HintBubble;
-  private readonly guide: TutorialGuide;
-  private readonly seal: Seal;
-  private readonly dpad: Dpad;
-  private readonly screens: Screens;
-  private readonly debug: DebugPanel;
-  private readonly fps = new FpsCounter();
+  /**
+   * The tools of development: the playtest, the debug panel, the frame counter. They are not
+   * a part of the program, are loaded in development only, and a production build has none.
+   */
+  private tools: DevTools | null = null;
   private readonly root: HTMLElement;
 
   constructor(root: HTMLElement) {
     this.root = root;
-    const hudEl = h('header', { class: 'hud' });
+    this.header = h('header', { class: 'hud' });
     const stage = h('div', { class: 'stage' });
-    const overlayLayer = h('div', { class: 'stage-layer' });
-    stage.append(overlayLayer);
     this.stage = stage;
-    const controls = h('div', { class: 'controls' });
+    this.pad = h('div', { class: 'dpad' });
+    const controls = h('div', { class: 'controls' }, [this.pad]);
     const play = h('div', { class: 'play' }, [stage, controls]);
-    const overlay = h('div', { class: 'overlay' });
-    root.append(hudEl, play, overlay);
+    root.append(this.header, play);
 
     const now = () => this.now();
     const enabled = () => this.inputEnabled();
 
-    if (new URLSearchParams(window.location.search).has('debug')) this.settings.debugPanel = true;
     this.view = this.useView(defaultConfig().size);
-    this.hud = new Hud(hudEl, () => this.togglePause(), () => this.debug.toggle());
-    this.labels = new ChainLabels(overlayLayer);
-    this.hint = new HintBubble(overlayLayer);
-    this.guide = new TutorialGuide(overlayLayer, () => this.skipTutorial());
-    this.seal = new Seal(overlayLayer);
-    this.puzzleTools = new PuzzleTools(overlayLayer, { onUndo: () => this.undoPuzzle(), onRestart: () => this.restartPuzzle() });
-    this.dpad = new Dpad(controls, this.controller, now, () => enabled() && this.settings.controlMode === 'dpad');
-    this.screens = new Screens(overlay);
-    this.debug = new DebugPanel(root, this.settings, {
-      onChange: () => saveSettings(this.settings),
-      onCamera: () => this.applyCamera(),
-      onRestart: () => this.startRun(),
-    });
+    this.hud.setLessonLines(TUTORIAL_LINES.map((line) => t(`tut_${line}` as TextKey)));
+    if (import.meta.env.DEV) {
+      if (new URLSearchParams(window.location.search).has('debug')) this.settings.debugPanel = true;
+      void import('../ui/devtools').then(({ DevTools }) => {
+        this.tools = new DevTools(root, this.settings, {
+          onChange: () => saveSettings(this.settings),
+          onCamera: () => this.applyCamera(),
+          onRestart: () => this.startRun(),
+        });
+      });
+    }
     this.applyCamera();
 
     // Swipes lean half-way from plain up, right, down and left towards the board's own directions.
     this.tracker = new GestureTracker(this.controller, now, () => this.swipeDirs);
-    bindGestures(play, this.tracker, () => enabled() && this.settings.controlMode === 'gesture');
-    bindKeyboard(this.controller, now, enabled, () => this.togglePause());
+    // While the words of the exercise wait to be read, a key or a swipe reads them and moves nothing.
+    const moving = () => enabled() && !tutorialWaits(this.state);
+    bindGestures(play, this.tracker, () => moving() && this.settings.controlMode === 'gesture');
+    // Esc opens the pause over a session. Over a panel it is the panel's "back", and the shell
+    // marks the key as taken; a transmission passes on any key, and whether one was on screen
+    // is noted on the way down, before it answers.
+    let free = true;
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.code === 'Escape') free = !this.signal.busy && !this.toolsOpen;
+      },
+      true,
+    );
+    bindKeyboard(this.controller, now, moving, () => {
+      if (free && !this.shell.visible) this.pause();
+    });
+    window.addEventListener('keydown', (e) => {
+      // The words of the exercise are read with any key that steps or runs a command.
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || this.inMenu || !enabled() || !tutorialWaits(this.state)) return;
+      if (!READ_KEYS.has(e.code)) return;
+      e.preventDefault();
+      this.hud.proceed();
+    });
     window.addEventListener('keydown', (e) => {
       if (!this.state.puzzle || !enabled()) return;
       if (e.code === 'KeyZ' || e.code === 'Backspace') this.undoPuzzle();
       else if (e.code === 'KeyR') this.restartPuzzle();
     });
 
-    // The text of the tutorial wraps differently once the screen turns or the font arrives.
+    // The words of the exercise wrap differently once the screen turns or the font arrives.
     window.addEventListener('resize', () => this.layoutGuide());
     void document.fonts?.ready.then(() => this.layoutGuide());
 
@@ -182,6 +252,11 @@ export class Game {
     requestAnimationFrame((time) => this.frame(time));
   }
 
+  /** A tool of development lies over the canvas and takes the input. */
+  private get toolsOpen(): boolean {
+    return this.tools?.visible ?? false;
+  }
+
   private get state(): RunState {
     return this.runner.state;
   }
@@ -191,7 +266,7 @@ export class Game {
   }
 
   private inputEnabled(): boolean {
-    return !this.paused && !this.state.over && !this.screens.visible && !this.shell.visible;
+    return !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy;
   }
 
   /** Records are kept per mode and rule key. */
@@ -208,16 +283,15 @@ export class Game {
   private useView(size: number): BoardView {
     let view = this.views.get(size);
     if (!view) {
-      view = new BoardView(this.stage, this.world, OCCULT_THEME, size, this.settings.camera);
+      view = new BoardView(this.stage, this.world, this.look, size, this.settings.camera);
       this.views.set(size, view);
     }
     return view;
   }
 
-  /** Points the camera and lays the seal out the way the board now lies on screen. */
+  /** Points the camera; the swipes follow the way the board now lies on screen. */
   private applyCamera(): void {
     this.view.setCamera(this.settings.camera);
-    this.seal.setFloor(this.view.floorAxes());
     const at = (dir: Dir) => this.view.screenDir(dir);
     this.swipeDirs = leanDirs({ N: at('N'), E: at('E'), S: at('S'), W: at('W') }, this.settings.camera.swipeTilt);
   }
@@ -238,6 +312,9 @@ export class Game {
       config.startZ = start.z;
     }
     this.begin(createRun({ seed, config, tutorial, timed: kind === 'timed' }), start !== undefined);
+    // Now and then something is seen before the session, for less than a second. Not before
+    // the first frame: that run is only set up behind the boot.
+    if (!tutorial && !start && this.lastFrame > 0) this.signal.glimpse();
     if (tutorial) {
       // The one-time hints of a normal run pick up where the tutorial stops.
       this.settings.hintsSeen = [];
@@ -256,23 +333,21 @@ export class Game {
     this.inMenu = false;
     this.lastClock = -1;
     this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
-    this.hud.showDebugButton(this.settings.debugPanel);
+    this.tools?.showDebugButton(this.settings.debugPanel);
     this.controller.cancel();
     this.ritual.reset();
+    this.hold.reset();
+    this.lastPeak = 0;
     this.view.reset(riseIn);
-    this.puzzleTools.hide();
     this.audio.setStage(0);
     this.audio.warn(null);
     this.audio.setPaused(false);
     this.paused = false;
     this.resultShown = false;
-    this.screens.hide();
+    this.tools?.hide();
     this.shell.hide();
-    this.labels.clear();
-    this.hint.reset();
-    this.dpad.setPulse(null);
-    this.seal.setPulse(null);
-    this.guide.hide();
+    this.hud.reset();
+    this.hints.reset();
   }
 
   private startPuzzle(index: number): void {
@@ -325,17 +400,20 @@ export class Game {
   private showPuzzleRules(first: boolean): void {
     const lines = PUZZLE_RULES.map((key) => t(key));
     if (!first) {
-      this.screens.showPuzzleRules(lines, { onBack: () => this.showPuzzleLevels() });
+      this.shell.showPanel(rulesPanel(lines, { onBack: () => this.showPuzzleLevels() }), true);
       return;
     }
-    this.screens.showPuzzleRules(lines, {
-      onPlay: () => {
-        this.settings.puzzle.rulesSeen = true;
-        saveSettings(this.settings);
-        this.startPuzzle(this.nextPuzzle());
-      },
-      onBack: () => this.showMenu(),
-    });
+    this.shell.showPanel(
+      rulesPanel(lines, {
+        onStart: () => {
+          this.settings.puzzle.rulesSeen = true;
+          saveSettings(this.settings);
+          this.startPuzzle(this.nextPuzzle());
+        },
+        onBack: () => this.showMenu(),
+      }),
+      true,
+    );
   }
 
   private showPuzzleLevels(): void {
@@ -343,24 +421,27 @@ export class Game {
     this.paused = false;
     this.controller.cancel();
     this.audio.setPaused(true);
-    this.hint.reset();
-    this.guide.hide();
+    this.hints.reset();
+    const { tools } = this;
+    tools?.hide();
     saveSettings(this.settings);
-    const sections: { title: string; levels: { index: number; stars: number }[] }[] = [];
-    PUZZLE_LEVELS.forEach((level, index) => {
-      const title = t(`tier_${level.tier}` as TextKey);
-      let section = sections.find((s) => s.title === title);
-      if (!section) sections.push((section = { title, levels: [] }));
-      section.levels.push({ index, stars: this.settings.puzzle.stars[level.id] ?? 0 });
-    });
-    const shown: readonly PuzzleSection[] = sections;
-    this.screens.showPuzzleLevels(shown, this.kind === 'puzzle' ? this.puzzleIndex : this.nextPuzzle(), {
-      onPick: (index) => this.startPuzzle(index),
-      onRules: () => this.showPuzzleRules(false),
-      onStats: () =>
-        this.screens.showPuzzleStats(puzzleReport(PUZZLE_LEVELS, this.settings.puzzle.stats), () => this.showPuzzleLevels()),
-      onBack: () => this.showMenu(),
-    });
+    const levels = PUZZLE_LEVELS.map((level) => ({
+      stars: this.settings.puzzle.stars[level.id] ?? 0,
+      tier: t(`tier_${level.tier}` as TextKey),
+    }));
+    this.shell.showPanel(
+      tasksPanel(levels, this.kind === 'puzzle' ? this.puzzleIndex : this.nextPuzzle(), {
+        onPick: (index) => this.startPuzzle(index),
+        onRules: () => this.showPuzzleRules(false),
+        // What was played, as text to pass on: a tool of the playtest, over the list.
+        tools:
+          import.meta.env.DEV && tools
+            ? [{ id: 'stats', label: { native: 'DEV', name: 'STATS' }, action: () => tools.showPuzzleStats(puzzleReport(PUZZLE_LEVELS, this.settings.puzzle.stats), () => tools.hide()) }]
+            : [],
+        onBack: () => this.showMenu(),
+      }),
+      true,
+    );
   }
 
   private showPuzzleResult(): void {
@@ -376,59 +457,78 @@ export class Game {
     }
     stat.best = stat.best === null ? moves : Math.min(stat.best, moves);
     saveSettings(this.settings);
-    this.screens.showPuzzleResult(
-      { stars, moves, par: level.par, hasNext: this.puzzleIndex + 1 < PUZZLE_LEVELS.length },
-      {
-        onNext: () => this.startPuzzle(this.puzzleIndex + 1),
-        onAgain: () => this.startPuzzle(this.puzzleIndex),
-        onLevels: () => this.showPuzzleLevels(),
-      },
+    this.shell.showPanel(
+      clearedPanel(
+        { stars, moves, target: level.par, hasNext: this.puzzleIndex + 1 < PUZZLE_LEVELS.length },
+        {
+          onNext: () => this.startPuzzle(this.puzzleIndex + 1),
+          onAgain: () => this.startPuzzle(this.puzzleIndex),
+          onTasks: () => this.showPuzzleLevels(),
+        },
+      ),
+      false,
     );
   }
 
+  /** The part of the window the board has, in CSS pixels. */
+  private stageRect(): Rect {
+    const box = this.stage.getBoundingClientRect();
+    return { x: box.left, y: box.top, width: box.width, height: box.height };
+  }
+
   /**
-   * Lays the board out below the tutorial's text, so the text never covers it. Outside the
-   * tutorial the board has the whole stage.
+   * Lays the board out below the words of the exercise, so they never cover it. Outside the
+   * exercise the board has the whole stage.
    */
   private layoutGuide(): void {
     const active = this.state.tutorial !== null && !this.inMenu;
-    this.root.classList.toggle('in-tutorial', active);
-    this.view.setClear(active ? this.guide.reserve() + GUIDE_GAP_PX : 0);
+    this.view.setClear(active ? this.hud.reserve(this.stageRect()) + GUIDE_GAP_PX : 0);
   }
 
   /**
-   * Shows what the tutorial asks for at this moment: the lesson and its line, the input, the
-   * count of the group. Returns the part that is drawn on the board itself.
+   * What the exercise asks for at this moment: for the interface, its words, the input, the
+   * count of the group; for the board, the arrows and frames drawn on it; for the net of the
+   * die, the side to bring on top.
    */
-  private updateGuide(state: RunState): BoardGuide | null {
+  private updateGuide(state: RunState, stage: Rect): { board: BoardGuide | null; lesson: HudLesson | null; mark: MarkFace | null } {
     const view = this.inMenu ? null : tutorialView(state);
-    this.sealMark = null;
-    this.seal.setPulse(view?.dir ?? null);
-    if (!view) return null;
-    const { dir, mark, counter } = view;
-    let glyph: InputGlyph = 'none';
+    if (!view) return { board: null, lesson: null, mark: null };
+    const { mark, counter } = view;
+    // Off the short way of the lesson, the way shown is the one found from where the player is.
+    const path = view.astray && !state.player.action ? (this.wayBack?.path ?? []) : view.path;
+    const dir = path[0] ?? null;
+    let glyph: HudLesson['glyph'] = 'none';
     if (dir !== null) {
       if (!coarsePointer) glyph = 'keys';
-      // With buttons on screen the pulsing quadrant of the seal is the prompt.
+      // With buttons on screen the pulsing side of the net is the prompt.
       else if (this.settings.controlMode === 'gesture') glyph = 'swipe';
     }
-    this.guide.show({ value: view.value, line: view.line, dir, glyph, screen: dir ? this.swipeDirs[dir] : null });
-    this.dpad.setPulse(dir);
-    this.guide.count(
-      counter && { value: view.value, have: counter.have, need: counter.need },
-      counter && this.view.project(counter.x, 1.5, counter.z),
-    );
-    // A face on the bottom cannot be lit: the sum of opposite faces says what it is.
-    this.guide.seven(mark?.face === 'bottom' ? this.view.project(mark.x, 2.25, mark.z) : null);
+    const over = (x: number, y: number, z: number) => {
+      const p = this.view.project(x, y, z);
+      return { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) };
+    };
+    const lesson: HudLesson = {
+      number: view.value === 1 ? LESSONS : view.value - 1,
+      count: LESSONS,
+      value: view.value,
+      line: t(`tut_${view.line}` as TextKey),
+      waits: view.waits,
+      counter: counter && { value: view.value, have: counter.have, need: counter.need, at: over(counter.x, 1.5, counter.z) },
+      // A face on the bottom cannot be lit: the sum of opposite faces says what it is.
+      seven: mark?.face === 'bottom' ? over(mark.x, 2.25, mark.z) : null,
+      glyph,
+      dir,
+      screen: dir ? this.swipeDirs[dir] : null,
+    };
 
     // Arrows lie on the floor of the cell to go to, where it can be seen. A step onto another
     // die, or north into the cell the player's own die hides, is drawn at the height of the dice.
     const { player } = state;
     const onDie = player.level === 'top';
-    if (mark && mark.x === player.x && mark.z === player.z) this.sealMark = mark.face;
+    const own = mark && mark.x === player.x && mark.z === player.z ? mark.face : null;
     const arrows: GuideArrow[] = [];
     let { x, z } = player;
-    view.path.forEach((step, i) => {
+    path.forEach((step, i) => {
       const tx = x + DELTA[step].dx;
       const tz = z + DELTA[step].dz;
       const raised = onDie && (cubeAt(state, tx, tz) !== undefined || (i === 0 && step === 'N'));
@@ -439,7 +539,7 @@ export class Game {
     });
     const frames: GuideFrame[] = view.group.map((die) => ({ ...die, face: 'top', strong: false }));
     if (mark && mark.face !== 'bottom') frames.push({ x: mark.x, z: mark.z, face: mark.face, height: 1, strong: true });
-    return { arrows, frames };
+    return { board: { arrows, frames }, lesson, mark: own };
   }
 
   /**
@@ -483,12 +583,10 @@ export class Game {
     this.paused = false;
     this.controller.cancel();
     this.audio.setPaused(true);
-    this.hint.reset();
-    this.guide.hide();
+    this.hints.reset();
     this.layoutGuide();
-    this.dpad.setPulse(null);
-    // The menu is the shell's; a panel of the old interface that led here goes away.
-    this.screens.hide();
+    // The menu is the shell's; a tool of the page that led here goes away.
+    this.tools?.hide();
     this.shell.showMenu(
       !this.settings.tutorialDone,
       {
@@ -497,7 +595,7 @@ export class Game {
         onPuzzle: () => this.openPuzzle(),
         onTutorial: () => this.startRun('tutorial'),
         onRecords: () => this.showRecords(() => this.showMenu()),
-        onPlaytest: () => this.showPlaytest(() => this.showMenu()),
+        onSystem: () => this.showSystem(() => this.showMenu()),
       },
       {
         bestEndless: bestOf(this.settings, this.recordKey('endless'), 'score'),
@@ -526,79 +624,106 @@ export class Game {
 
   private resume(): void {
     this.paused = false;
-    this.screens.hide();
+    this.tools?.hide();
+    this.shell.hide();
     this.audio.setPaused(false);
     this.lastFrame = 0;
   }
 
-  private toggles(): PauseToggles {
-    return {
-      muted: this.settings.muted,
-      reducedMotion: prefersReducedMotion(this.settings),
-      shake: this.settings.shake,
-    };
-  }
-
   private showPause(): void {
-    this.screens.showPause(this.toggles(), {
-      onLevels: this.state.puzzle ? () => this.showPuzzleLevels() : undefined,
-      onResume: () => this.resume(),
-      onRestart: () => this.startRun(),
-      onRecords: () => this.showRecords(() => this.showPause()),
-      onMenu: () => this.showMenu(),
-      onPlaytest: () => this.showPlaytest(() => this.showPause()),
-      onToggle: (key) => {
-        if (key === 'muted') {
-          this.settings.muted = !this.settings.muted;
-          this.audio.setMuted(this.settings.muted);
-        } else if (key === 'reducedMotion') {
-          this.settings.reducedMotion = !prefersReducedMotion(this.settings);
-        } else {
-          this.settings.shake = !this.settings.shake;
-        }
-        saveSettings(this.settings);
-        return this.toggles();
-      },
-    });
+    this.shell.showPanel(
+      pausePanel({
+        task: this.state.puzzle !== null,
+        onResume: () => this.resume(),
+        onRestart: () => this.startRun(),
+        onRecords: () => this.showRecords(() => this.showPause()),
+        onTasks: () => this.showPuzzleLevels(),
+        onSystem: () => this.showSystem(() => this.showPause()),
+        onMenu: () => this.showMenu(),
+      }),
+      false,
+    );
   }
 
   private showRecords(back: () => void): void {
     const state = this.state;
-    this.screens.showRecords(
-      [
-        { label: 'endless', runs: this.settings.runs[this.recordKey('endless')] ?? [], survival: true },
-        { label: 'timed', runs: this.settings.runs[this.recordKey('timed')] ?? [], survival: false },
-      ],
-      state.mode === 'timed' ? 1 : 0,
-      state.config.tickMs,
-      back,
+    this.shell.showPanel(
+      recordsPanel(
+        [
+          { runs: this.settings.runs[this.recordKey('endless')] ?? [], survival: true },
+          { runs: this.settings.runs[this.recordKey('timed')] ?? [], survival: false },
+        ],
+        state.mode === 'timed' ? 1 : 0,
+        state.config.tickMs,
+        back,
+      ),
+      this.inMenu,
     );
   }
 
-  private showPlaytest(back: () => void): void {
-    const text = this.state.tick > 0 ? statsText(this.state) : this.lastStats || t('noStats');
-    this.screens.showPlaytest(this.settings, text, {
-      onApply: (experiments, mode, debugPanel) => {
-        this.settings.experiments = experiments;
-        this.settings.controlMode = mode;
-        this.settings.debugPanel = debugPanel;
-        if (!debugPanel) this.debug.toggle(false);
-        saveSettings(this.settings);
-        this.startRun();
-      },
-      onBack: back,
-      onReplayTutorial: () => {
-        this.settings.hintsSeen = [];
-        this.settings.experiments.guidedStart = true;
-        saveSettings(this.settings);
-        this.startRun('tutorial');
-      },
+  /** What the player can set: sound, motion, shake, swipes or buttons. In development the tools of the playtest open from here. */
+  private showSystem(back: () => void): void {
+    const { tools } = this;
+    const values = (): SystemValues => ({
+      muted: this.settings.muted,
+      reducedMotion: prefersReducedMotion(this.settings),
+      shake: this.settings.shake,
+      control: this.settings.controlMode,
     });
+    this.shell.showPanel(
+      systemPanel({
+        values,
+        onToggle: (key) => {
+          if (key === 'muted') {
+            this.settings.muted = !this.settings.muted;
+            this.audio.setMuted(this.settings.muted);
+          } else if (key === 'reducedMotion') {
+            this.settings.reducedMotion = !prefersReducedMotion(this.settings);
+          } else if (key === 'shake') {
+            this.settings.shake = !this.settings.shake;
+          } else {
+            this.settings.controlMode = this.settings.controlMode === 'gesture' ? 'dpad' : 'gesture';
+            this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
+          }
+          saveSettings(this.settings);
+        },
+        // The panel of the playtest: a tool of development, over the settings.
+        tools:
+          import.meta.env.DEV && tools
+            ? [
+                {
+                  id: 'playtest',
+                  label: { native: 'DEV', name: 'PLAYTEST' },
+                  action: () =>
+                    tools.showPlaytest(this.settings, this.state.tick > 0 ? statsText(this.state) : this.lastStats, {
+                      onApply: (experiments, mode, debugPanel) => {
+                        this.settings.experiments = experiments;
+                        this.settings.controlMode = mode;
+                        this.settings.debugPanel = debugPanel;
+                        saveSettings(this.settings);
+                        this.startRun();
+                      },
+                      onBack: () => tools.hide(),
+                      onReplayTutorial: () => {
+                        this.settings.hintsSeen = [];
+                        this.settings.experiments.guidedStart = true;
+                        saveSettings(this.settings);
+                        this.startRun('tutorial');
+                      },
+                    }),
+                },
+              ]
+            : [],
+        onBack: back,
+      }),
+      this.inMenu,
+    );
   }
 
   private showResult(): void {
     const state = this.state;
-    this.lastStats = statsText(state);
+    // What the playtest reads after a session: kept in development only.
+    if (import.meta.env.DEV) this.lastStats = statsText(state);
     const key = this.currentRecordKey();
     const previous = bestOf(this.settings, key, 'score');
     let note: string | null = null;
@@ -618,22 +743,32 @@ export class Game {
       else if (state.score > previous) note = t('newBest');
     }
     const result = () =>
-      this.screens.showResult(
-        {
-          title: t(state.endReason === 'time' ? 'timeUp' : 'result'),
-          score: state.score,
-          best: bestOf(this.settings, key, 'score'),
-          maxChain: state.maxChain,
-          time: formatTime(state.tick, state.config.tickMs),
-          note,
-        },
-        {
-          onAgain: () => this.startRun(),
-          onRecords: () => this.showRecords(result),
-          onMenu: () => this.showMenu(),
-          onPlaytest: () => this.showPlaytest(result),
-        },
+      this.shell.showPanel(
+        resultPanel(
+          {
+            timeUp: state.endReason === 'time',
+            score: state.score,
+            best: bestOf(this.settings, key, 'score'),
+            maxChain: state.maxChain,
+            ticks: state.tick,
+            tickMs: state.config.tickMs,
+            note,
+          },
+          {
+            onAgain: () => answered(() => this.startRun()),
+            onRecords: () => this.showRecords(result),
+            onMenu: () => answered(() => this.showMenu()),
+          },
+        ),
+        false,
       );
+    // The answer to the session comes when the player leaves its result: over the board, and
+    // then whatever was asked for. How strong the link got is read then: the ritual keeps it
+    // until the next run begins.
+    const answered = (next: () => void): void => {
+      this.shell.hide();
+      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, next);
+    };
     result();
   }
 
@@ -643,7 +778,49 @@ export class Game {
     if (!this.settings.experiments.guidedStart || this.settings.hintsSeen.includes(id)) return;
     this.settings.hintsSeen.push(id);
     saveSettings(this.settings);
-    this.hint.show(t(id));
+    this.hints.show(t(id));
+  }
+
+  /**
+   * A change to the run made between ticks: the player has read the words of the exercise, or
+   * a lesson is laid out again. What the rules say about it is heard at once, as after a tick.
+   */
+  private outside(change: (state: RunState) => void): void {
+    const { state } = this;
+    state.events = [];
+    change(state);
+    this.view.notify(state.events);
+    for (const event of state.events) {
+      this.audio.handle(event);
+      this.onEvent(state, event);
+    }
+    state.events = [];
+  }
+
+  /**
+   * A player who has left the short way of a lesson is shown the way from where they are. It
+   * is looked for once per position. Where there is none within reach, the lesson cannot be
+   * finished from here and is laid out again.
+   */
+  private keepLesson(): void {
+    const { state } = this;
+    const view = state.tutorial ? tutorialView(state) : null;
+    if (!view?.astray || state.player.action) {
+      if (!view?.astray) this.wayBack = null;
+      return;
+    }
+    const { player } = state;
+    const dice = state.cubes.map((c) => `${c.x},${c.z},${c.ori.top}${c.ori.north}${c.state[0]}`).join(';');
+    const key = `${state.tutorial!.step}|${player.x},${player.z},${player.level}|${dice}`;
+    if (this.wayBack?.key === key) return;
+    const path = tutorialHint(state);
+    if (path) {
+      this.wayBack = { key, path };
+      return;
+    }
+    this.wayBack = null;
+    this.outside((s) => tutorialRestart(s));
+    this.hud.nudge(this.lastFrame);
   }
 
   private onTick(state: RunState): void {
@@ -653,6 +830,7 @@ export class Game {
       if (!(state.tutorial && event.type === 'levelUp')) this.audio.handle(event);
       this.onEvent(state, event);
     }
+    for (const beat of beatsOf(state, state.events)) this.beat(beat);
     const { player } = state;
     if (state.puzzle || player.action || state.tick % 10 !== 0) return;
     if (player.level === 'ground') {
@@ -664,6 +842,27 @@ export class Game {
       });
       if (rollsOver) this.hintOnce('hintLow');
     }
+  }
+
+  /**
+   * The game answers a beat: the board throws light and shakes, the points of a group leave it
+   * for the score, and for a few hundredths of a second everything holds its breath.
+   */
+  private beat(beat: Beat): void {
+    const { state } = this;
+    const reducedMotion = prefersReducedMotion(this.settings);
+    this.view.beat(beat, state, reducedMotion);
+    if (!reducedMotion) this.hold.hold(beat.tier);
+    let at: { x: number; y: number } | null = null;
+    if (beat.cells.length > 0) {
+      const stage = this.stageRect();
+      const cx = beat.cells.reduce((sum, cell) => sum + cell.x, 0) / beat.cells.length;
+      const cz = beat.cells.reduce((sum, cell) => sum + cell.z, 0) / beat.cells.length;
+      const p = this.view.project(cx, 1.1, cz);
+      at = { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) };
+    }
+    // A puzzle is not scored: nothing leaves for the score.
+    this.hud.beat({ kind: beat.kind, value: beat.value, chain: beat.chain, points: state.puzzle ? 0 : beat.points, tier: beat.tier, at });
   }
 
   private onEvent(state: RunState, event: GameEvent): void {
@@ -682,10 +881,14 @@ export class Game {
         puzzleStat(this.settings, PUZZLE_LEVELS[this.puzzleIndex].id).dead++;
         break;
       case 'match':
+        // A puzzle is not scored and its board stays as it is.
+        if (!state.puzzle) this.ritual.send(event.value, 1);
         if (state.stats.clears >= 2) this.hintOnce('hintChain');
         break;
-      case 'nudge':
-        this.guide.nudge();
+      case 'chain':
+        if (!state.puzzle) this.ritual.send(event.value, event.chain);
+        // The program may note the pattern in its log, behind the board.
+        if (!state.puzzle && !state.tutorial) this.signal.chain(event.chain);
         break;
       case 'tutorialDone':
         this.settings.tutorialDone = true;
@@ -705,16 +908,95 @@ export class Game {
     }
   }
 
+  /** The die under the player, unfolded: what the corner of the screen shows of it. */
+  private sealView(state: RunState, mark: MarkFace | null, active: Dir | null, pulse: Dir | null): HudSeal {
+    const { player } = state;
+    const own = player.level === 'top' ? cubeAt(state, player.x, player.z) : undefined;
+    const busy = player.action !== undefined || state.over;
+    const previews = busy ? null : previewAll(state);
+    const blocked = {} as Record<Dir, boolean>;
+    for (const dir of DIRS) blocked[dir] = !previews || previews[dir].kind === 'blocked';
+    const side = (dir: Dir) => {
+      const up = roll(own!.ori, TURNS_UP[dir]);
+      return { value: own!.ori[SIDE[dir]], turns: quarterTurns(up) };
+    };
+    return {
+      axes: this.view.floorAxes(),
+      faces: own ? { top: { value: own.ori.top, turns: quarterTurns(own.ori) }, N: side('N'), E: side('E'), S: side('S'), W: side('W') } : null,
+      sinking: own?.state === 'sinking',
+      blocked,
+      active,
+      pulse,
+      marked: own && mark ? (DIRS.find((dir) => SIDE[dir] === mark) ?? null) : null,
+    };
+  }
+
+  /** Everything the session shows over the board at this moment. */
+  private hudView(state: RunState, stage: Rect, lesson: HudLesson | null, mark: MarkFace | null, steer: Dir | null, reducedMotion: boolean): HudView {
+    const over = (x: number, y: number, z: number) => {
+      const p = this.view.project(x, y, z);
+      return { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) };
+    };
+    const labels: HudLabel[] = [];
+    for (const reaction of state.reactions) {
+      if (reaction.chain < 2) continue;
+      const cubes = state.cubes.filter((cube) => cube.reactionId === reaction.id && cube.state === 'sinking');
+      if (cubes.length === 0) continue;
+      const cx = cubes.reduce((sum, cube) => sum + cube.x, 0) / cubes.length;
+      const cz = cubes.reduce((sum, cube) => sum + cube.z, 0) / cubes.length;
+      labels.push({ id: reaction.id, value: reaction.value, chain: reaction.chain, at: over(cx, 1.2, cz) });
+    }
+
+    const { puzzle } = state;
+    const level = PUZZLE_LEVELS[this.puzzleIndex];
+    let note: HudView['note'] = null;
+    if (puzzle?.dead === 'noExit') note = { text: t('deadNoExit'), alarm: true };
+    else if (puzzle?.dead === 'single') note = { text: t('deadSingle'), alarm: true };
+    else if (puzzle && puzzle.held !== 0) note = { text: t('puzzleHeld'), alarm: false };
+    else if (this.hints.text) note = { text: this.hints.text, alarm: false };
+
+    const padBox = this.pad.getBoundingClientRect();
+    return {
+      header: puzzle
+        ? { kind: 'task', number: this.puzzleIndex + 1, moves: puzzle.moves, target: level.par, best: this.settings.puzzle.stats[level.id]?.best ?? null }
+        : {
+            kind: 'session',
+            score: state.score,
+            best: bestOf(this.settings, this.currentRecordKey(), 'score'),
+            level: state.mode === 'practice' ? null : state.level,
+            clock: clockLeft(state),
+            danger: secondsLeft(state),
+            stage: this.ritual.stage,
+            steps: CONTACT_STEPS.length,
+            next: nextThreshold(state.score),
+          },
+      seal: this.sealView(state, mark, steer, lesson?.dir ?? null),
+      labels,
+      lesson,
+      note,
+      tools: puzzle ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null } : null,
+      pad:
+        this.settings.controlMode === 'dpad' && padBox.width > 0
+          ? { pulse: lesson?.dir ?? null, box: { x: padBox.left, y: padBox.top, width: padBox.width, height: padBox.height } }
+          : null,
+      stage,
+      contact: { program: this.ritual.look.program, peak: this.ritual.look.peak },
+      reducedMotion,
+    };
+  }
+
   private frame(time: number): void {
     requestAnimationFrame((next) => this.frame(next));
     const dt = this.lastFrame === 0 ? 0 : Math.max(0, time - this.lastFrame);
     this.lastFrame = time;
-    this.fps.tick(time);
+    this.tools?.tick(time);
 
-    const running = !this.paused && !this.inMenu && !this.state.over;
+    const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy;
     let alpha = 0;
     if (running) {
-      alpha = this.runner.advance(dt, () => this.takeCommand(), (s) => this.onTick(s));
+      // On a beat the simulation holds its breath; the picture goes on.
+      alpha = this.runner.advance(this.hold.take(dt), () => this.takeCommand(), (s) => this.onTick(s));
+      this.keepLesson();
       if (this.state.puzzle) {
         // Time on a level counts until it is first cleared: that is how hard it was to read.
         const stat = puzzleStat(this.settings, PUZZLE_LEVELS[this.puzzleIndex].id);
@@ -737,11 +1019,16 @@ export class Game {
     // The ritual follows the score of this run only and never feeds back into the rules.
     // A puzzle is not scored: the board stays as it is at the start.
     const reached = this.ritual.update(state.puzzle ? 0 : state.score, running ? Math.min(dt, 250) : 0);
-    if (reached.length > 0) this.audio.setStage(this.ritual.stage);
-    const secondsLeft = Hud.secondsLeft(state);
-    this.audio.warn(secondsLeft);
+    if (reached.length > 0) this.audio.setStage(soundStage(this.ritual.stage));
+    // A step of the contact is a beat of its own, and so is the moment it goes past the last.
+    for (let i = 0; i < reached.length; i++) this.beat(stepBeat());
+    const { peak } = this.ritual.look;
+    if (peak > this.lastPeak + 0.5) this.beat(peakBeat());
+    this.lastPeak = peak;
+    const danger = secondsLeft(state);
+    this.audio.warn(danger);
     // The last ten seconds of a Time Limited run are counted out loud.
-    const clock = Hud.clockLeft(state);
+    const clock = clockLeft(state);
     if (clock !== null && clock !== this.lastClock) {
       if (running && clock <= 10 && clock > 0 && this.lastClock !== -1) this.audio.tick();
       this.lastClock = clock;
@@ -752,39 +1039,49 @@ export class Game {
     this.root.classList.toggle('reduced-motion', reducedMotion);
     // Under the boot and the menu the board is neither drawn nor shown, and its interface is put away.
     const covered = this.shell.covers;
-    this.root.classList.toggle('shell-open', covered);
+    // A transmission takes the screen the same way: the interface of the session is put away.
+    this.root.classList.toggle('shell-open', covered || this.signal.busy);
     this.world.look.opacity = covered ? 0 : 1;
+    this.backdropLayer.look.opacity = covered ? 0 : 1;
+    const stage = this.stageRect();
     const steer = this.steerGuide(state, time);
     // The tutorial's own arrows say where to go; a swipe is echoed on the board outside it.
-    const guide = this.updateGuide(state) ?? steer.guide;
+    const guide = this.updateGuide(state, stage);
     if (!covered) {
       this.view.draw(state, alpha, time, {
-        overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, guide },
-        levels: this.ritual.levels,
-        phaseShift: this.ritual.phaseShift,
+        overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, guide: guide.board ?? steer.guide },
+        contact: this.ritual.look,
         warn: state.cubes.length >= state.config.warnOccupied && !state.over,
-        danger: secondsLeft !== null,
+        danger: danger !== null,
         reducedMotion,
         shake: this.settings.shake,
       });
+      this.backdropLayer.look.invert = this.view.inverted;
+      this.backdrop.draw(this.view.background, this.view.lines);
     }
-    if (state.puzzle) {
-      const level = PUZZLE_LEVELS[this.puzzleIndex];
-      this.hud.updatePuzzle({
-        level: this.puzzleIndex + 1,
-        moves: state.puzzle.moves,
-        par: level.par,
-        best: this.settings.puzzle.stats[level.id]?.best ?? null,
-      });
-      if (this.inMenu) this.puzzleTools.hide();
-      else this.puzzleTools.update({ dead: state.puzzle.dead, held: state.puzzle.held !== 0, canUndo: this.history.length > 0 });
-    } else {
-      this.hud.update(state, bestOf(this.settings, this.currentRecordKey(), 'score'), this.ritual.stage);
+    const shown = !covered && !this.inMenu && !this.signal.busy;
+    this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, steer.dir, reducedMotion) : null, time);
+    // The readings stand above the board on a tall screen and beside it on a wide one: the
+    // box of the page that keeps their room follows them.
+    const header = `${this.hud.headerHeight}px`;
+    const column = `${this.hud.columnWidth}px`;
+    if (this.header.style.height !== header || this.header.style.width !== column) {
+      this.header.style.height = header;
+      this.header.style.width = column;
+      this.root.classList.toggle('wide', this.hud.columnWidth > 0);
+      this.layoutGuide();
     }
-    this.labels.update(state, this.view);
-    this.seal.update(state, this.sealMark);
-    this.seal.setActive(steer.dir);
     this.shell.frame(time);
+    // Something comes through behind the board only while a scored session is being played.
+    const session =
+      running && !state.puzzle && !state.tutorial
+        ? {
+            contact: this.ritual.stage / CONTACT_STEPS.length,
+            noise: state.cubes.length / state.config.size ** 2,
+            channel: this.ritual.look.channel,
+          }
+        : null;
+    this.signal.frame(time, session);
     this.display.present(time);
   }
 }

@@ -174,6 +174,12 @@ export function mixHex(from: string, to: string, amount: number): string {
   return `#${channel(0)}${channel(1)}${channel(2)}`;
 }
 
+/** The hour of the player's clock, with its minutes as a fraction. */
+export function clockHour(): number {
+  const now = new Date();
+  return now.getHours() + now.getMinutes() / 60;
+}
+
 /** How much of the day there is at an hour: 0 in the dead of night, 1 an hour after noon. */
 export function dayAmount(hour: number): number {
   return 0.5 + 0.5 * Math.cos(((hour - 13) / 24) * Math.PI * 2);

@@ -1,5 +1,6 @@
 import { cellIndex, cubeAt, neighbours } from './board';
-import type { Cube, Overrun, RulesConfig, RunState } from './types';
+import { isPhaseStart, sinkTicksAt, timedPhase } from './config';
+import type { Cube, LevelStats, Overrun, RulesConfig, RunState } from './types';
 
 function startSinking(cube: Cube, reactionId: number): void {
   cube.state = 'sinking';
@@ -12,23 +13,77 @@ function recordClear(state: RunState): void {
   if (state.stats.clearTicks.length < 5) state.stats.clearTicks.push(state.tick);
 }
 
-/** Takes a cube off the board and counts it towards the level. */
+/** The report's counters for the level the run is on. */
+export function levelStats(state: RunState): LevelStats {
+  const { levels } = state.stats;
+  while (levels.length < state.level) levels.push({ ticks: 0, spawned: 0, removed: 0 });
+  return levels[state.level - 1];
+}
+
+/** Endless and Time Limited follow the pace of their level; a tutorial and a puzzle keep their own. */
+function isPaced(state: RunState): boolean {
+  return state.mode === 'endless' || state.mode === 'timed';
+}
+
+/**
+ * Sets the chain window of the run. Cubes already on their way down keep their height, so
+ * nothing jumps when the window changes under them.
+ */
+function setChainWindow(state: RunState, ticks: number): void {
+  const before = state.config.sinkingTicks;
+  if (ticks === before) return;
+  for (const cube of state.cubes) {
+    if (cube.state === 'sinking') cube.t = Math.round((cube.t * ticks) / before);
+  }
+  state.config.sinkingTicks = ticks;
+}
+
+/**
+ * Moves the run on to a level. The chain window follows the level; the first level of a
+ * phase opens with a silence, and so does every new phase of a Time Limited run.
+ */
+function enterLevel(state: RunState, level: number): void {
+  const { config } = state;
+  const from = state.level;
+  state.level = level;
+  state.events.push({ type: 'levelUp', level });
+  if (!isPaced(state)) return;
+  setChainWindow(state, sinkTicksAt(config, level));
+  if (state.mode === 'timed') {
+    state.calmLeft = Math.max(state.calmLeft, config.timedCalmTicks);
+    return;
+  }
+  for (let passed = from + 1; passed <= level; passed++) {
+    if (isPhaseStart(config, passed)) state.calmLeft = Math.max(state.calmLeft, config.calmTicks);
+  }
+}
+
+/**
+ * Time Limited takes its level from the clock, not from the cubes removed: the pressure is
+ * the same for every player and the results can be compared.
+ */
+export function runPhase(state: RunState): void {
+  if (state.mode !== 'timed') return;
+  const level = timedPhase(state.config, state.tick);
+  if (level > state.level) enterLevel(state, level);
+}
+
+/** Takes a cube off the board and, in Endless, counts it towards the level. */
 export function removeCube(state: RunState, cube: Cube): void {
   const { config, player } = state;
   state.grid[cellIndex(config.size, cube.x, cube.z)] = 0;
   state.cubes = state.cubes.filter((c) => c !== cube);
   state.removed++;
+  levelStats(state).removed++;
   state.events.push({ type: 'removed', cubeId: cube.id });
   if (player.level === 'top' && player.x === cube.x && player.z === cube.z) {
     player.level = 'ground';
     state.stats.falls++;
     state.events.push({ type: 'fell' });
   }
+  if (state.mode === 'timed') return;
   const level = 1 + Math.floor(state.removed / config.cubesPerLevel);
-  if (level > state.level) {
-    state.level = level;
-    state.events.push({ type: 'levelUp', level });
-  }
+  if (level > state.level) enterLevel(state, level);
 }
 
 /** A cube going down as part of a chain: until it is gone, cubes brought to it join the chain. */
@@ -187,13 +242,25 @@ export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void
   else if (component.length >= cube.ori.top) startReaction(state, component);
 }
 
-/** Drops reactions that no longer have a sinking cube or a cube rolling onto one. */
+/**
+ * Drops reactions that no longer have a sinking cube or a cube rolling onto one. A chain of
+ * two links or more leaves a silence behind it, longer for every link: the channel was open,
+ * and the noise takes a while to come back.
+ */
 export function pruneReactions(state: RunState): void {
   if (state.reactions.length === 0) return;
+  const { config } = state;
   const alive = new Set<number>();
   for (const c of state.cubes) {
     if (c.state === 'sinking') alive.add(c.reactionId);
     if (c.move?.over) alive.add(c.move.over.reactionId);
+  }
+  if (config.experiments.chainCalm && isPaced(state)) {
+    for (const r of state.reactions) {
+      if (alive.has(r.id) || r.chain < 2) continue;
+      const bought = Math.min(config.chainCalmMaxTicks, config.chainCalmTicks * r.chain);
+      state.chainCalmLeft = Math.max(state.chainCalmLeft, bought);
+    }
   }
   state.reactions = state.reactions.filter((r) => alive.has(r.id));
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cubeAt, freeCells } from './board';
-import { DEFAULT_TUNING, defaultConfig, helpChance, isCustomTuning, ruleKey, spawnIntervalTicks, topWeights } from './config';
+import { DEFAULT_TUNING, defaultConfig, helpChance, isCustomTuning, paceIntervalTicks, ruleKey, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationKey } from './orientation';
 import { createRun, step } from './sim';
 import { fallbackLayout, hasReadyGroup, population, spawnCube } from './spawn';
@@ -24,7 +24,7 @@ function fill(s: RunState, count: number): void {
 
 /** Ticks until the next regular spawn is announced, for the board as it is now. */
 function interval(s: RunState): number {
-  return spawnIntervalTicks(s.config, s.level, population(s));
+  return paceIntervalTicks(s.config, s.mode, s.level, s.tick, population(s));
 }
 
 function collect(s: RunState, ticks: number): GameEvent[] {
@@ -154,39 +154,49 @@ describe('cube lifecycle', () => {
 });
 
 describe('spawn and pressure', () => {
-  it('refills a board below its target quickly and gives a crowded one more room', () => {
+  it('refills a board below its target sooner and gives a crowded one more room', () => {
     const c = defaultConfig();
+    const at = (cubes: number) => paceIntervalTicks(c, 'endless', 1, 0, cubes);
     expect(c.targetCubes).toBe(14);
-    expect(spawnIntervalTicks(c, 1, 0)).toBe(45); // 0.9 s
-    expect(spawnIntervalTicks(c, 1, 10)).toBe(45);
-    expect(spawnIntervalTicks(c, 1, 12)).toBe(45);
-    expect(spawnIntervalTicks(c, 1, 13)).toBe(85); // half way from 0.9 s to 2.5 s
-    expect(spawnIntervalTicks(c, 1, 14)).toBe(125); // 5 s x 0.5
-    expect(spawnIntervalTicks(c, 1, 22)).toBe(213); // 5 s x 0.85
-    expect(spawnIntervalTicks(c, 1, 30)).toBe(300); // 5 s x 1.2
-    expect(spawnIntervalTicks(c, 1, 49)).toBe(300);
+    expect(at(0)).toBe(110); // 2.2 s
+    expect(at(10)).toBe(110);
+    expect(at(12)).toBe(110);
+    expect(at(13)).toBe(205); // half way from 2.2 s to 6 s
+    expect(at(14)).toBe(300); // 6 s: the interval of the level is the one at the target
+    expect(at(22)).toBe(330); // 6 s x 1.1
+    expect(at(30)).toBe(360); // 6 s x 1.2
+    expect(at(49)).toBe(360);
+  });
+
+  it('refills faster as the level rises: from 2.2 s to 1 s by level 15', () => {
+    const c = defaultConfig();
+    const at = (level: number) => paceIntervalTicks(c, 'endless', level, 0, 0);
+    expect(at(3)).toBe(110);
+    expect(at(9)).toBe(80); // half way
+    expect(at(15)).toBe(50);
+    expect(at(40)).toBe(50);
   });
 
   it('never refills slower than the level itself spawns', () => {
-    const c = defaultConfig();
-    expect(spawnIntervalTicks(c, 90, 0)).toBe(38); // 1.5 s x 0.5 is already under 0.9 s
-    expect(spawnIntervalTicks(defaultConfig({}, { targetCubes: 0 }), 1, 0)).toBe(125);
+    expect(paceIntervalTicks(defaultConfig({}, { paceStartMs: 1500 }), 'endless', 1, 0, 0)).toBe(75);
+    expect(paceIntervalTicks(defaultConfig({}, { targetCubes: 0 }), 'endless', 1, 0, 0)).toBe(300);
   });
 
   it('counts a sinking cube as gone: what is cleared starts coming back at once', () => {
     const s = emptyRun();
     fill(s, 14);
-    expect(interval(s)).toBe(125);
+    expect(interval(s)).toBe(300);
     for (const cube of s.cubes.slice(0, 4)) cube.state = 'sinking';
     expect(population(s)).toBe(10);
-    expect(interval(s)).toBe(45);
+    expect(interval(s)).toBe(110);
   });
 
-  it('speeds up by 250 ms per level down to the minimum', () => {
+  it('speeds up by a ratio per level from the 4th one, down to the minimum', () => {
     const c = defaultConfig();
-    expect(spawnIntervalTicks(c, 3, 30)).toBe(270);
-    expect(spawnIntervalTicks(c, 15, 30)).toBe(90);
-    expect(spawnIntervalTicks(c, 90, 30)).toBe(90);
+    const crowded = (level: number) => paceIntervalTicks(c, 'endless', level, 0, 30);
+    expect(crowded(3)).toBe(360);
+    expect(crowded(4)).toBe(338); // 6 s x 0.94 x 1.2
+    expect(crowded(90)).toBe(84); // 1.4 s x 1.2
   });
 
   it('favours low values and helpful spawns early, and evens out with the level', () => {
@@ -202,12 +212,12 @@ describe('spawn and pressure', () => {
   });
 
   it('applies tuning, marks it as custom and keeps presentation flags out of the record key', () => {
-    const c = defaultConfig({}, { spawnStartMs: 2000, sinkMs: 1000 });
-    expect(spawnIntervalTicks(c, 1, 30)).toBe(120);
+    const c = defaultConfig({}, { paceStartMs: 2000, sinkStartMs: 1000 });
+    expect(paceIntervalTicks(c, 'endless', 1, 0, 30)).toBe(120);
     expect(c.sinkingTicks).toBe(50);
     expect(c.custom).toBe(true);
     expect(defaultConfig().custom).toBe(false);
-    expect(isCustomTuning({ sinkMs: DEFAULT_TUNING.sinkMs })).toBe(false);
+    expect(isCustomTuning({ sinkStartMs: DEFAULT_TUNING.sinkStartMs })).toBe(false);
     expect(ruleKey(defaultConfig({ boardPreview: true, matchHint: true }))).toBe(ruleKey(defaultConfig()));
     expect(ruleKey(defaultConfig({ floorClimb: true }))).not.toBe(ruleKey(defaultConfig()));
   });
@@ -464,7 +474,7 @@ describe('spawn director', () => {
 describe('lift', () => {
   /** Regular spawning slowed right down so the lift can be watched on its own. */
   function grounded(experiments = { floorLift: true }) {
-    const s = emptyRun(experiments, 1, { spawnStartMs: 10000, sparseFactor: 1, targetCubes: 0 });
+    const s = emptyRun(experiments, 1, { paceStartMs: 10000, targetCubes: 0 });
     s.spawnEnabled = true;
     place(s, 0, 6, 'ground');
     return s;

@@ -2,36 +2,41 @@ import { describe, expect, it } from 'vitest';
 import { cubeAt, cubeHeight } from './board';
 import { defaultConfig } from './config';
 import { createRun, step } from './sim';
-import { run, snapshot } from './testkit';
+import { run } from './testkit';
 import {
   TUTORIAL_HOLD_HEIGHT,
+  TUTORIAL_LESSONS,
+  TUTORIAL_LINES,
   TUTORIAL_MOUNT_HEIGHT,
   TUTORIAL_MOVES,
+  tutorialAck,
   tutorialDir,
+  tutorialRestart,
   tutorialView,
+  tutorialWaits,
 } from './tutorial';
+import { tutorialHint } from './tutorialHint';
 import type { Dir, GameEvent, RunState, Tuning } from './types';
 
 function tutorial(tuning: Partial<Tuning> = {}): RunState {
   return createRun({ seed: 3, config: defaultConfig({}, tuning), tutorial: true });
 }
 
-/** Runs until the tutorial asks for a move; returns what happened on the way. */
+/** Runs until the tutorial shows a move to make, reading whatever it says on the way. */
 function untilMove(s: RunState, limit = 3000): GameEvent[] {
   const events: GameEvent[] = [];
   for (let i = 0; i < limit && tutorialDir(s) === null && !s.tutorial?.done; i++) {
+    if (tutorialWaits(s)) tutorialAck(s);
     step(s, null);
     events.push(...s.events);
   }
   return events;
 }
 
-/** Waits for the tutorial to ask for a move, makes it and lets the action finish. */
-function play(s: RunState, dir: Dir): GameEvent[] {
-  const events = untilMove(s);
-  expect(tutorialDir(s)).toBe(dir);
+/** Makes a move and lets the action finish. */
+function act(s: RunState, dir: Dir): GameEvent[] {
   step(s, dir);
-  events.push(...s.events);
+  const events = [...s.events];
   for (let i = 0; i < s.config.actionTicks; i++) {
     step(s, null);
     events.push(...s.events);
@@ -39,7 +44,15 @@ function play(s: RunState, dir: Dir): GameEvent[] {
   return events;
 }
 
-/** Plays the first `count` moves of the script. */
+/** Waits for the tutorial to show a move, checks it is the one expected and makes it. */
+function play(s: RunState, dir: Dir): GameEvent[] {
+  const events = untilMove(s);
+  expect(tutorialDir(s)).toBe(dir);
+  events.push(...act(s, dir));
+  return events;
+}
+
+/** Plays the first `count` moves of the short way. */
 function playMoves(s: RunState, count: number): GameEvent[] {
   return TUTORIAL_MOVES.slice(0, count).flatMap((dir) => play(s, dir));
 }
@@ -53,7 +66,7 @@ const AFTER_SIX_MATCH = 9;
 const ALL = 13;
 
 describe('tutorial start', () => {
-  it('begins with the twos alone on the board', () => {
+  it('begins with the twos alone on the board and words to read', () => {
     const s = tutorial();
     expect(s.mode).toBe('practice');
     expect(s.spawnEnabled).toBe(false);
@@ -64,19 +77,28 @@ describe('tutorial start', () => {
     run(s, 500);
     expect(s.cubes.length).toBe(2);
     expect(s.pending.length).toBe(0);
+    expect(tutorialWaits(s)).toBe(true);
+    expect(tutorialView(s)).toMatchObject({ line: 'roll', waits: true, dir: null, path: [] });
   });
 
   it('keeps its own pace whatever the variables say', () => {
     const a = tutorial();
-    const b = tutorial({ sinkMs: 9000, riseMs: 5000, warnMs: 0, mountHeight: 0.2 });
+    const b = tutorial({ sinkStartMs: 9000, riseMs: 5000, warnMs: 0, mountHeight: 0.2 });
     for (const key of ['sinkingTicks', 'risingTicks', 'warnTicks', 'mountHeight'] as const) {
       expect(b.config[key]).toBe(a.config[key]);
     }
   });
+
+  it('has six lessons and says every line once', () => {
+    expect(TUTORIAL_LESSONS).toBe(6);
+    expect(new Set(TUTORIAL_LINES).size).toBe(TUTORIAL_LINES.length);
+    expect(TUTORIAL_LINES[0]).toBe('roll');
+    expect(TUTORIAL_LINES.at(-1)).toBe('end');
+  });
 });
 
 describe('tutorial script', () => {
-  it('walks through every lesson', () => {
+  it('walks through every lesson along the short way', () => {
     const s = tutorial();
     expect(TUTORIAL_MOVES).toEqual(['W', 'N', 'E', 'E', 'N', 'W', 'E', 'W', 'W', 'S', 'W', 'S', 'W']);
     expect(TUTORIAL_MOVES.length).toBe(ALL);
@@ -95,6 +117,7 @@ describe('tutorial script', () => {
     expect(s.score).toBe(4 + 9 + 16 + 25 + 36 + 84 + 3);
     expect(s.maxChain).toBe(2);
     expect(s.stats.blockedSteps).toBe(0);
+    expect(s.tutorial?.off).toBeFalsy();
 
     // The player ends on the 1 that set the others off: it does not sink.
     expect(s.player).toMatchObject({ x: 1, z: 5, level: 'top' });
@@ -134,24 +157,6 @@ describe('tutorial script', () => {
     expect(s.stats.falls).toBe(3);
   });
 
-  it('ignores a step off the script and anything pressed while it waits', () => {
-    const s = tutorial();
-    for (const dir of ['N', 'E', 'S'] as const) {
-      const before = snapshot(s);
-      step(s, dir);
-      expect(s.events).toEqual([{ type: 'nudge', dir }]);
-      expect(snapshot(s)).toBe(before);
-    }
-    play(s, 'W');
-    // The pair is sinking and the next lesson is not up yet: nothing to do, nothing happens.
-    expect(tutorialDir(s)).toBeNull();
-    const player = { ...s.player };
-    step(s, 'W');
-    expect(s.events.some((e) => e.type === 'nudge' || e.type === 'move')).toBe(false);
-    expect(s.player).toEqual(player);
-    expect(s.stats.blockedSteps).toBe(0);
-  });
-
   it('clears a finished lesson at once but keeps a chain waiting for the player', () => {
     const s = tutorial();
     play(s, 'W');
@@ -187,15 +192,22 @@ describe('tutorial script', () => {
     expect(s.player).toMatchObject({ x: 5, z: 3, level: 'top' });
   });
 
-  it('ends once, after the closing lines', () => {
+  it('ends once, after the closing lines have been read', () => {
     const s = tutorial();
     const events = playMoves(s, ALL);
     expect(events.some((e) => e.type === 'tutorialDone')).toBe(false);
-    events.push(...untilMove(s, 1000));
-    expect(events.filter((e) => e.type === 'tutorialDone').length).toBe(1);
+    // The two closing lines wait for the player, however long that takes.
+    run(s, 1000);
+    expect(tutorialView(s)).toMatchObject({ line: 'alone', waits: true });
+    tutorialAck(s);
+    run(s, 1000);
+    expect(tutorialView(s)).toMatchObject({ line: 'end', waits: true });
+    expect(s.tutorial?.done).toBe(false);
+    tutorialAck(s);
+    expect(s.events.filter((e) => e.type === 'tutorialDone').length).toBe(1);
     expect(s.tutorial?.done).toBe(true);
     expect(tutorialView(s)).toBeNull();
-    // Released: the chain finishes sinking and the player may move freely.
+    // Released: what was going down is gone and the player may move freely.
     run(s, s.config.sinkingTicks + 5);
     expect(s.cubes.some((c) => c.state === 'sinking')).toBe(false);
     step(s, 'E');
@@ -203,21 +215,108 @@ describe('tutorial script', () => {
   });
 });
 
+describe('tutorial without rails', () => {
+  it('moves nothing while there are words to read, and goes on when they are read', () => {
+    const s = tutorial();
+    const player = { ...s.player };
+    for (const dir of ['N', 'E', 'S', 'W'] as const) {
+      step(s, dir);
+      expect(s.events.some((e) => e.type === 'move' || e.type === 'blocked')).toBe(false);
+    }
+    expect(s.player).toEqual(player);
+    tutorialAck(s);
+    expect(tutorialWaits(s)).toBe(false);
+    expect(tutorialView(s)).toMatchObject({ line: 'pair', waits: false, dir: 'W', path: ['W'] });
+    // Reading is asked for once: a second "read" does nothing.
+    const at = s.tutorial!.step;
+    tutorialAck(s);
+    expect(s.tutorial!.step).toBe(at);
+  });
+
+  it('lets the player step off the short way and finds the way from wherever they are', () => {
+    const s = tutorial();
+    untilMove(s);
+    // Away from the other two: a move of the player's own, made as in a session.
+    const events = act(s, 'N');
+    expect(events).toContainEqual({ type: 'move', kind: 'roll', dir: 'N' });
+    expect(s.player).toMatchObject({ x: 4, z: 4, level: 'top' });
+    const view = tutorialView(s)!;
+    expect(view).toMatchObject({ astray: true, dir: null, path: [], mark: null });
+
+    const hint = tutorialHint(s)!;
+    expect(hint.length).toBeGreaterThan(0);
+    expect(hint.length).toBeLessThanOrEqual(4);
+    const made: GameEvent[] = [];
+    for (const dir of hint) made.push(...act(s, dir));
+    expect(made.filter((e) => e.type === 'match').map((e) => (e.type === 'match' ? e.value : 0))).toEqual([2]);
+    // The lesson goes on as if the short way had been kept.
+    expect(tutorialView(s)).toMatchObject({ line: 'count', waits: true, astray: false });
+  });
+
+  it('finds a way for a player who went to another die', () => {
+    const s = tutorial();
+    playMoves(s, AFTER_TWOS);
+    untilMove(s);
+    // Threes: off the own die onto the one on the left, then back down the board with it.
+    act(s, 'W');
+    act(s, 'N');
+    expect(tutorialView(s)!.astray).toBe(true);
+    const hint = tutorialHint(s);
+    expect(hint).not.toBeNull();
+    const made: GameEvent[] = [];
+    for (const dir of hint!) made.push(...act(s, dir));
+    expect(made.some((e) => e.type === 'match' && e.value === 3)).toBe(true);
+  });
+
+  it('lays a lesson out again when asked to', () => {
+    const s = tutorial();
+    playMoves(s, AFTER_TWOS);
+    untilMove(s);
+    act(s, 'S');
+    act(s, 'E');
+    tutorialRestart(s);
+    expect(s.cubes.length).toBe(0);
+    expect(s.player).toMatchObject({ x: 3, z: 5, level: 'ground' });
+    untilMove(s);
+    expect(s.cubes.length).toBe(3);
+    expect(s.player).toMatchObject({ x: 3, z: 5, level: 'top' });
+    expect(tutorialView(s)).toMatchObject({ value: 3, line: 'three', dir: 'N', astray: false });
+    // And it plays to its end from there.
+    const events = TUTORIAL_MOVES.slice(AFTER_TWOS).flatMap((dir) => play(s, dir));
+    expect(events.filter((e) => e.type === 'happyOne').length).toBe(1);
+  });
+
+  it('starts the ones over from the sixes: they lean on the group that is going down', () => {
+    const s = tutorial();
+    playMoves(s, ALL - 2);
+    untilMove(s);
+    expect(tutorialView(s)!.value).toBe(1);
+    tutorialRestart(s);
+    untilMove(s);
+    expect(tutorialView(s)).toMatchObject({ value: 6, line: 'mount', dir: 'E' });
+    expect(s.player).toMatchObject({ x: 4, z: 3, level: 'ground' });
+  });
+});
+
 describe('tutorial view', () => {
   it('points at the face to turn up and counts the group', () => {
     const s = tutorial();
+    tutorialAck(s);
     expect(tutorialView(s)).toEqual({
       value: 2,
-      line: 'ii1',
+      line: 'pair',
       dir: 'W',
       path: ['W'],
       mark: { x: 4, z: 5, face: 'east' },
       group: [{ x: 2, z: 5, height: 1 }],
       counter: { have: 1, need: 2, x: 2, z: 5 },
+      waits: false,
+      astray: false,
     });
-    play(s, 'W');
+    act(s, 'W');
     const after = tutorialView(s)!;
-    expect(after.line).toBe('ii2');
+    expect(after.line).toBe('count');
+    expect(after.waits).toBe(true);
     expect(after.dir).toBeNull();
     expect(after.mark).toBeNull();
     expect(after.group.length).toBe(2);
@@ -230,23 +329,22 @@ describe('tutorial view', () => {
     untilMove(s);
     expect(tutorialView(s)).toMatchObject({
       value: 4,
-      line: 'iv1',
+      line: 'carry',
       path: ['E', 'E', 'N'],
       mark: { x: 3, z: 4, face: 'south' },
       counter: { have: 3, need: 4 },
     });
     play(s, 'E');
     play(s, 'E');
-    expect(tutorialView(s)).toMatchObject({ line: 'iv2', path: ['N'], mark: { x: 5, z: 4, face: 'south' } });
+    expect(tutorialView(s)).toMatchObject({ line: 'carry', path: ['N'], mark: { x: 5, z: 4, face: 'south' } });
 
-    playMoves(s, 0);
     play(s, 'N');
     play(s, 'W');
     play(s, 'E');
     untilMove(s);
     expect(tutorialView(s)).toMatchObject({
       value: 6,
-      line: 'vi2',
+      line: 'seven',
       path: ['W', 'W'],
       mark: { x: 5, z: 3, face: 'bottom' },
       counter: { have: 5, need: 6 },
@@ -256,12 +354,91 @@ describe('tutorial view', () => {
     play(s, 'W');
     untilMove(s);
     // The chain: the die to hop onto carries the 6 on its east face; the count is gone.
-    expect(tutorialView(s)).toMatchObject({ line: 'vi3', path: ['S', 'W'], mark: { x: 3, z: 4, face: 'east' }, counter: null });
+    expect(tutorialView(s)).toMatchObject({ line: 'chain', path: ['S', 'W'], mark: { x: 3, z: 4, face: 'east' }, counter: null });
     play(s, 'S');
     play(s, 'W');
     untilMove(s);
     const ones = tutorialView(s)!;
-    expect(ones).toMatchObject({ value: 1, line: 'i1', path: ['S', 'W'], counter: null });
+    expect(ones).toMatchObject({ value: 1, line: 'ones', path: ['S', 'W'], counter: null });
     expect(ones.group.length).toBe(3);
+  });
+});
+
+describe('tutorial boards', () => {
+  const DIRS: readonly Dir[] = ['N', 'E', 'S', 'W'];
+
+  /** Every way of at most `moves` moves that ends the part of the lesson in hand, with the cell it leaves the player on. */
+  function waysOut(s: RunState, moves: number): { way: Dir[]; x: number; z: number }[] {
+    const from = s.tutorial!.step;
+    const found: { way: Dir[]; x: number; z: number }[] = [];
+    const walk = (state: RunState, way: Dir[]): void => {
+      if (way.length === moves) return;
+      for (const dir of DIRS) {
+        const copy = structuredClone(state);
+        step(copy, dir);
+        if (!copy.player.action) continue;
+        let done = copy.tutorial!.done || copy.tutorial!.step !== from;
+        for (let i = 0; i <= copy.config.actionTicks + 1 && !done; i++) {
+          step(copy, null);
+          done = copy.tutorial!.done || copy.tutorial!.step !== from;
+        }
+        if (done) found.push({ way: [...way, dir], x: copy.player.x, z: copy.player.z });
+        else walk(copy, [...way, dir]);
+      }
+    };
+    walk(s, []);
+    return found;
+  }
+
+  it('have no way to a group that is shorter than the one shown, or as short and ending elsewhere', () => {
+    const s = tutorial();
+    for (const dir of TUTORIAL_MOVES) {
+      untilMove(s);
+      const shown = tutorialView(s)!.path;
+      expect(shown[0]).toBe(dir);
+      const ways = waysOut(s, shown.length);
+      expect(ways.map((found) => found.way.join(''))).toContain(shown.join(''));
+      const end = ways.find((found) => found.way.join('') === shown.join(''))!;
+      for (const found of ways) {
+        expect(found.way.length, `${found.way.join('')} against ${shown.join('')}`).toBe(shown.length);
+        expect({ x: found.x, z: found.z }, found.way.join('')).toEqual({ x: end.x, z: end.z });
+      }
+      act(s, dir);
+    }
+  });
+
+  it('do not make the fours with the die tipped up at once', () => {
+    const s = tutorial();
+    playMoves(s, AFTER_THREES);
+    untilMove(s);
+    const events = act(s, 'N');
+    expect(events.some((e) => e.type === 'match')).toBe(false);
+    expect(tutorialView(s)).toMatchObject({ value: 4, astray: true });
+    expect(tutorialHint(s)).not.toBeNull();
+  });
+
+  it('put a player found elsewhere on the floor onto the cell the lesson starts on', () => {
+    const s = tutorial();
+    playMoves(s, AFTER_FOURS);
+    // The fours go down; the fives have not come yet.
+    for (let i = 0; i < 3000 && s.cubes.length > 0; i++) step(s, null);
+    expect(s.cubes.length).toBe(0);
+    s.player = { x: 3, z: 3, level: 'ground' };
+    untilMove(s);
+    expect(s.player).toMatchObject({ x: 5, z: 3, level: 'ground' });
+    // The five to push is right beside the player.
+    expect(tutorialView(s)).toMatchObject({ value: 5, line: 'floor', dir: 'W', astray: false });
+    expect(act(s, 'W').some((e) => e.type === 'match' && e.value === 5)).toBe(true);
+  });
+
+  it('show the way from where the player is when a part finds them off its start', () => {
+    const s = tutorial();
+    playMoves(s, AFTER_FIVES);
+    untilMove(s);
+    // Sixes: the die to step onto rises to the east; the player walks off the other way first.
+    act(s, 'S');
+    const view = tutorialView(s)!;
+    expect(view).toMatchObject({ value: 6, astray: true, path: [] });
+    expect(tutorialHint(s)).not.toBeNull();
   });
 });

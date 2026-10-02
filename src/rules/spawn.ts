@@ -1,7 +1,7 @@
 import { DELTA, DIRS, cellIndex, cubeAt, cubeHeight, freeCells, inBounds, isFree, nearestFree } from './board';
-import { helpChance, spawnIntervalTicks, topWeights } from './config';
+import { helpChance, paceIntervalTicks, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationsWithTop, roll } from './orientation';
-import { inChain } from './reactions';
+import { inChain, levelStats } from './reactions';
 import { nextRandom, randomInt } from './rng';
 import type { Cube, CubeState, Dir, Orientation, Reaction, RunState } from './types';
 
@@ -366,6 +366,7 @@ function chooseCell(
 
 export function spawnCube(state: RunState, x: number, z: number, ori: Orientation): Cube {
   const cube = addCube(state, x, z, ori, 'rising');
+  levelStats(state).spawned++;
   state.events.push({ type: 'spawn', cubeId: cube.id });
   const { player } = state;
   if (player.level === 'ground' && player.x === x && player.z === z) {
@@ -456,10 +457,26 @@ function runLift(state: RunState): void {
   announce(state, player.x, player.z, chooseOrientation(state, player.x, player.z));
 }
 
-/** Timed spawn. Never queues spawns while the board is full. */
+/**
+ * The silence a chain buys: while a chain of two links or more runs, and for a while after
+ * it, the channel is open and the noise holds off.
+ */
+export function chainQuiet(state: RunState): boolean {
+  if (!state.config.experiments.chainCalm) return false;
+  return state.chainCalmLeft > 0 || state.reactions.some((r) => r.chain >= 2);
+}
+
+/**
+ * Timed spawn. Never queues spawns while the board is full. In a silence, at the start of a
+ * phase or bought by a chain, the timer keeps its beat but brings no regular cube: only a cube
+ * for the running chain comes, as often as it would have.
+ */
 export function runSpawn(state: RunState): void {
   advancePending(state);
   if (!state.spawnEnabled) return;
+  const quiet = state.calmLeft > 0 || chainQuiet(state);
+  if (state.calmLeft > 0) state.calmLeft--;
+  if (state.chainCalmLeft > 0) state.chainCalmLeft--;
   runLift(state);
 
   const { config } = state;
@@ -470,13 +487,14 @@ export function runSpawn(state: RunState): void {
     return;
   }
   state.spawnTimer++;
-  if (state.spawnTimer < spawnIntervalTicks(config, state.level, population(state))) return;
+  if (state.spawnTimer < paceIntervalTicks(config, state.mode, state.level, state.tick, population(state))) return;
   state.spawnTimer = 0;
   const feeder = chainFeeder(state, free);
   if (feeder) {
     announce(state, feeder.x, feeder.z, feeder.ori);
     return;
   }
+  if (quiet) return;
   const helpful = deal(state, state.helpDeck, HELP_DECK, helpChance(config, state.level));
   const cell = chooseCell(state, free, helpful);
   announce(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z, helpful));

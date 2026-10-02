@@ -4,6 +4,7 @@ import type { ParamValues } from '../signal/scene';
 import type { Kit } from './kit';
 import type { Dir4, Insets } from './layout';
 import type { Palette } from './theme';
+import type { Voice } from './voice';
 
 /** A zone of a screen that can be pressed. */
 export interface ShellItem {
@@ -35,6 +36,8 @@ export interface ShellContext {
   /** What the edges of the screen keep to themselves, in pixels of the picture. */
   safe(): Insets;
   reducedMotion(): boolean;
+  /** Prose in the language of the player: a screen says it while it draws. */
+  readonly voice: Voice;
 }
 
 export interface ShellScreen {
@@ -45,6 +48,12 @@ export interface ShellScreen {
   /** Returns true when the picture has to be drawn again. */
   update(timeMs: number): boolean;
   draw(kit: Kit, focus: ShellFocus): void;
+  /**
+   * Draws again the small part of the picture that moves by itself — a clock, a level — over
+   * the picture as it stands, without drawing the rest. Returns true when it has drawn.
+   * Called on the frames `update` has asked nothing of.
+   */
+  tick?(kit: Kit, timeMs: number): boolean;
   /** Where a key takes the focus from a zone, on a screen that knows better than the places of its zones. */
   move?(focus: string | null, dir: Dir4): string | null;
   /** Esc and the system's "back". */

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Layer, Rect } from '../display/layer';
+import { figureGeometry } from '../render/figure';
 import type { ParamValues } from '../signal/scene';
 import { NET, netPosition, type NetProjection } from './layout';
 import type { Palette } from './theme';
@@ -21,6 +22,8 @@ const SIDE_LIGHT = [0.5, 0.28, 1, 0.12, 0.7, 0.2];
 const CAMERA_DISTANCE = 30;
 /** How high the figure rises in the middle of a step, in dice. */
 const HOP_ARC = 0.4;
+/** The size of the figure here against its size on the board. */
+const FIGURE_SCALE = 12 / 13;
 /** Radii of the rings under the dice, in distances between dice. */
 const RING_RADII = [1.9, 2.75];
 const WHITE = new THREE.Color('#ffffff');
@@ -115,13 +118,11 @@ export class ShellSpace {
       this.disposables.push(die.glass, die.edges, die.pips, die.pips.map!);
     });
 
-    const robe = new THREE.ConeGeometry(0.24, 0.6, 10);
-    robe.translate(0, 0.3, 0);
-    const head = new THREE.SphereGeometry(0.125, 10, 8);
-    head.translate(0, 0.66, 0);
-    this.figure.add(new THREE.Mesh(robe, this.figureMaterial), new THREE.Mesh(head, this.figureMaterial));
+    // The body of the board, a little smaller: the dice here stand apart.
+    const body = figureGeometry(FIGURE_SCALE);
+    this.figure.add(new THREE.Mesh(body, this.figureMaterial));
     this.scene.add(this.figure);
-    this.disposables.push(robe, head, this.figureMaterial);
+    this.disposables.push(body, this.figureMaterial);
 
     for (const radius of RING_RADII) {
       const points: THREE.Vector3[] = [];

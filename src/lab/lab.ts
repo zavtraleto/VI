@@ -3,6 +3,7 @@ import type { CanvasLayer, Layer } from '../display/layer';
 import {
   MOODS,
   captionLines,
+  contactValues,
   isMood,
   sceneRecord,
   sceneValues,
@@ -12,45 +13,13 @@ import {
   type SceneDef,
   type SceneInstance,
 } from '../signal/scene';
-import { SCENES, sceneById } from '../signal/scenes';
+import { captionLook, drawCaption, loadCaptionFont } from '../signal/caption';
+import { frameDef, type Recipe } from '../signal/compose';
+import { randomFrame } from '../signal/director';
+import { placeById } from '../signal/places';
+import { RECIPES } from '../signal/recipes';
+import { thingById } from '../signal/things';
 import { Panel } from './panel';
-
-/**
- * The caption is a subtitle burnt into the picture: light letters with a dark edge, centred
- * low in the frame. The letters are sized as a fraction of the frame a 4:3 screen would show.
- */
-const CAPTION_SIZE = 1 / 13;
-const CAPTION_LEADING = 1.3;
-/** The widest a line gets and how far the last line stays from the bottom, as fractions of the frame. */
-const CAPTION_WIDTH = 0.82;
-const CAPTION_BOTTOM = 0.12;
-/** The game's own serif. A stand-in until the fonts of the program are chosen. */
-const CAPTION_FONT = 'Forum, Georgia, "Times New Roman", serif';
-const CAPTION_COLOR = '#f4f1ea';
-const CAPTION_EDGE = 'rgba(8, 8, 10, 0.9)';
-/** How much of the picture's blur, smear and colour parting the letters take. */
-const CAPTION_SOFTNESS = 0.35;
-/** A line breaks here whatever its width. */
-const CAPTION_BREAK = /\s*[|\n]\s*/;
-
-/** Words put into lines no wider than `width`, as `measure` sees them. */
-function wrap(text: string, width: number, measure: (line: string) => number): string[] {
-  const lines: string[] = [];
-  for (const part of text.split(CAPTION_BREAK)) {
-    let line = '';
-    for (const word of part.split(/\s+/).filter(Boolean)) {
-      const longer = line ? `${line} ${word}` : word;
-      if (line && measure(longer) > width) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = longer;
-      }
-    }
-    if (line) lines.push(line);
-  }
-  return lines;
-}
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -77,13 +46,21 @@ async function copyText(text: string): Promise<boolean> {
   return copied;
 }
 
+/** The name a frame goes by in the address when it has no name of its own. */
+const CUSTOM = 'frame';
+
 /**
  * The page where a transmission is looked at and tuned:
- * `?lab=sea_pole&variant=b&mood=strange&seed=3`, with `&ui=0` to leave the panel out.
+ * `?lab=sea_pole&variant=b&mood=strange&seed=3`, with `&ui=0` to leave the panel out. A frame
+ * put together by hand is `?lab=frame&place=sea&things=pole,chair`.
  */
 export class Lab {
   readonly display = new Display();
+  /** What the frame is made of: a place and the things in it. */
+  recipe: Recipe;
   def: SceneDef;
+  /** How strong the contact is, 0..1: the moods in their order, with everything between them. */
+  contact = 0;
   variant: string;
   mood: Mood;
   seed: number;
@@ -100,13 +77,21 @@ export class Lab {
 
   constructor() {
     const query = new URLSearchParams(window.location.search);
-    this.def = sceneById(query.get('lab')) ?? SCENES[0];
+    const place = query.get('place');
+    this.recipe =
+      RECIPES.find((recipe) => recipe.id === query.get('lab')) ??
+      (placeById(place) ? custom(place!, (query.get('things') ?? '').split(',')) : RECIPES[0]);
+    this.def = frameDef(this.recipe);
     this.variant = this.knownVariant(query.get('variant'));
     const mood = query.get('mood');
     this.mood = isMood(mood) ? mood : MOODS[0];
     const seed = Number.parseInt(query.get('seed') ?? '', 10);
     this.seed = Number.isFinite(seed) ? seed : 1;
-    this.values = sceneValues(this.def, this.variant, this.mood);
+    const contact = Number.parseFloat(query.get('contact') ?? '');
+    this.contact = Number.isFinite(contact) ? Math.min(1, Math.max(0, contact)) : MOODS.indexOf(this.mood) / (MOODS.length - 1);
+    // The contact is the finer of the two: the mood shown is the one nearest to it.
+    this.mood = MOODS[Math.round(this.contact * (MOODS.length - 1))];
+    this.values = contactValues(this.def, this.variant, this.contact);
 
     this.caption = query.get('caption') ?? '';
 
@@ -115,8 +100,7 @@ export class Lab {
     this.captionLayer = this.display.addCanvasLayer({ name: 'caption', lines: this.captionLines(lines) });
     this.captionLayer.onResize = () => this.drawCaption();
     this.drawCaption();
-    // The serif comes with the page and may not be there yet for the first drawing.
-    void document.fonts?.load(`16px ${CAPTION_FONT}`, this.caption || 'VI').then(() => this.drawCaption());
+    void loadCaptionFont(this.caption).then(() => this.drawCaption());
 
     if (query.get('ui') !== '0') new Panel(this);
     const loop = (time: number): void => {
@@ -143,12 +127,43 @@ export class Lab {
     this.stale = true;
   }
 
+  /** A frame that has a name. */
   setScene(id: string): void {
-    const def = sceneById(id);
-    if (!def || def === this.def) return;
-    this.def = def;
-    this.variant = this.knownVariant(null);
-    this.values = sceneValues(def, this.variant, this.mood);
+    const recipe = RECIPES.find((item) => item.id === id);
+    if (recipe) this.setRecipe(recipe);
+  }
+
+  /** A frame put together by hand: a place and the things in it. Things that are not there are left out. */
+  setFrame(place: string, things: readonly string[]): void {
+    if (placeById(place)) this.setRecipe(custom(place, things));
+  }
+
+  /** A frame as chance and the contact make it: what the game shows. */
+  random(): void {
+    const frame = randomFrame(Math.random, this.contact);
+    this.setRecipe(frame.recipe, frame.variant);
+    for (const [name, value] of Object.entries(frame.values)) {
+      if (name in this.values && value !== undefined) this.values[name] = value;
+    }
+    this.seed = 1 + Math.floor(Math.random() * 9999);
+    this.touch();
+    this.writeAddress();
+  }
+
+  /** The moods in their order, with everything between two of them mixed. */
+  setContact(contact: number): void {
+    this.contact = Math.min(1, Math.max(0, contact));
+    this.mood = MOODS[Math.round(this.contact * (MOODS.length - 1))];
+    Object.assign(this.values, contactValues(this.def, this.variant, this.contact));
+    this.touch();
+    this.writeAddress();
+  }
+
+  private setRecipe(recipe: Recipe, variant: string | null = null): void {
+    this.recipe = recipe;
+    this.def = frameDef(recipe);
+    this.variant = this.knownVariant(variant);
+    this.values = contactValues(this.def, this.variant, this.contact);
     this.touch();
     this.writeAddress();
   }
@@ -161,6 +176,7 @@ export class Lab {
 
   setMood(mood: Mood): void {
     this.mood = mood;
+    this.contact = MOODS.indexOf(mood) / (MOODS.length - 1);
     this.reset();
     this.writeAddress();
   }
@@ -210,16 +226,7 @@ export class Lab {
     const look = signalLook(this.values);
     this.signal.setLines(Number(this.values.lines));
     Object.assign(this.signal.look, look);
-    // The caption goes through the same signal, but it has to stay readable: letters are not
-    // dithered and take only a part of the blur.
-    Object.assign(this.captionLayer.look, look, {
-      depth: 8,
-      dither: 0,
-      glow: 0,
-      blur: look.blur * CAPTION_SOFTNESS,
-      smear: look.smear * CAPTION_SOFTNESS,
-      chroma: look.chroma * CAPTION_SOFTNESS,
-    });
+    Object.assign(this.captionLayer.look, captionLook(look));
   }
 
   private captionLines(lines: number): number {
@@ -229,37 +236,36 @@ export class Lab {
   private drawCaption(): void {
     const { ctx, width, height } = this.captionLayer;
     ctx.clearRect(0, 0, width, height);
-    if (this.caption) {
-      const unit = Math.min(height, (width * 3) / 4);
-      const size = unit * CAPTION_SIZE;
-      ctx.font = `${size}px ${CAPTION_FONT}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = Math.max(1.5, size / 7);
-      ctx.strokeStyle = CAPTION_EDGE;
-      ctx.fillStyle = CAPTION_COLOR;
-      const lines = wrap(this.caption, width * CAPTION_WIDTH, (line) => ctx.measureText(line).width);
-      lines.forEach((line, i) => {
-        const y = height * (1 - CAPTION_BOTTOM) - (lines.length - 1 - i) * size * CAPTION_LEADING;
-        ctx.strokeText(line, width / 2, y);
-        ctx.fillText(line, width / 2, y);
-      });
-    }
+    drawCaption(ctx, this.caption, 0, 0, width, height);
     this.captionLayer.markDirty();
   }
 
   /** The address always names what is on screen, so it can be reloaded or sent to a phone. */
   private writeAddress(): void {
     const query = new URLSearchParams(window.location.search);
-    query.set('lab', this.def.id);
+    const named = RECIPES.includes(this.recipe);
+    query.set('lab', named ? this.recipe.id : CUSTOM);
+    if (named) {
+      query.delete('place');
+      query.delete('things');
+    } else {
+      query.set('place', this.recipe.place);
+      query.set('things', this.recipe.things.join(','));
+    }
     query.set('variant', this.variant);
     query.set('mood', this.mood);
+    query.set('contact', String(Number(this.contact.toFixed(2))));
     query.set('seed', String(this.seed));
     if (this.caption) query.set('caption', this.caption);
     else query.delete('caption');
     window.history.replaceState(null, '', `${window.location.pathname}?${query.toString()}`);
   }
+}
+
+/** A frame put together by hand; what is named but is not there is left out. */
+function custom(place: string, things: readonly string[]): Recipe {
+  const known = [...new Set(things.map((id) => id.trim()).filter((id) => thingById(id)))];
+  return { id: `${place}:${known.join('+')}`, place, things: known };
 }
 
 export function startLab(): Lab {

@@ -19,24 +19,6 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-const PIPS: Record<number, number[]> = {
-  1: [4],
-  2: [0, 8],
-  3: [0, 4, 8],
-  4: [0, 2, 6, 8],
-  5: [0, 2, 4, 6, 8],
-  6: [0, 3, 6, 2, 5, 8],
-};
-
-/** A die face drawn with DOM dots. */
-export function dieFace(value: number): HTMLElement {
-  const face = h('div', { class: 'die-face', attrs: { 'data-value': String(value) } });
-  for (let i = 0; i < 9; i++) {
-    face.append(h('span', { class: PIPS[value].includes(i) ? 'pip on' : 'pip' }));
-  }
-  return face;
-}
-
 export function formatTime(ticks: number, tickMs: number): string {
   const seconds = Math.floor((ticks * tickMs) / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;

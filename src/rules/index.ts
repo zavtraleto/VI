@@ -8,11 +8,16 @@ export { PUZZLE_HOLD_HEIGHT, puzzleBusy } from './puzzle';
 export { inChain } from './reactions';
 export { createRun, step, type RunOptions } from './sim';
 export {
+  TUTORIAL_LESSONS,
   TUTORIAL_LINES,
   isHeld,
+  tutorialAck,
   tutorialDir,
+  tutorialRestart,
   tutorialView,
+  tutorialWaits,
   type MarkFace,
   type TutorialLine,
   type TutorialView,
 } from './tutorial';
+export { tutorialHint } from './tutorialHint';

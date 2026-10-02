@@ -46,7 +46,9 @@ void main() {
   vec2 at = uNearest ? (cell + 0.5) / uSize : vUv;
   vec4 texel = texture2D(uMap, at);
   float alpha = clamp(texel.a, 0.0, 1.0);
-  vec3 colour = alpha > 0.0 ? texel.rgb / alpha : vec3(0.0);
+  // Light added over nothing has colour and no alpha: it is taken as it is.
+  float cover = alpha > 0.0 ? alpha : 1.0;
+  vec3 colour = texel.rgb / cover;
   if (uLinear) colour = toSrgb(max(colour, 0.0));
   colour = clamp(colour, 0.0, 1.0);
 
@@ -58,10 +60,9 @@ void main() {
   }
 
   bool inside = vUv.x >= uArea.x && vUv.y >= uArea.y && vUv.x < uArea.z && vUv.y < uArea.w;
-  if (uInvert && inside) colour = 1.0 - colour;
+  if (uInvert && inside && alpha > 0.0) colour = 1.0 - colour;
 
-  alpha *= uOpacity;
-  gl_FragColor = vec4(colour * alpha, alpha);
+  gl_FragColor = vec4(colour * cover, alpha) * uOpacity;
 }
 `;
 
@@ -150,6 +151,8 @@ uniform float uOpacity;
 uniform bool uInvert;
 uniform bool uNearest;
 uniform float uScanlines;
+/** Lines the scanlines are counted in. */
+uniform float uPitch;
 uniform float uVignette;
 
 varying vec2 vUv;
@@ -161,8 +164,8 @@ void main() {
   float alpha = texel.a;
 
   if (uScanlines > 0.0) {
-    // Brightest in the middle of a line of the layer, darkest between two of them.
-    float line = 0.5 - 0.5 * cos(6.2831853 * vUv.y * uSize.y);
+    // Brightest in the middle of a line, darkest between two of them.
+    float line = 0.5 - 0.5 * cos(6.2831853 * vUv.y * uPitch);
     colour *= 1.0 - uScanlines * (1.0 - line);
   }
   if (uVignette > 0.0) {
@@ -230,6 +233,7 @@ export class Presenter {
     uInvert: { value: false },
     uNearest: { value: true },
     uScanlines: { value: 0 },
+    uPitch: { value: 1 },
     uVignette: { value: 0 },
   };
   private readonly material: THREE.ShaderMaterial;
@@ -279,16 +283,22 @@ export class Presenter {
       return;
     }
 
-    const stage = this.stage(layer);
-    renderer.setClearColor(0x000000, 0);
+    // A layer that already holds what the screen pass reads - sRGB, every bit of it, colour
+    // premultiplied - goes straight to it: one pass over the screen instead of two.
+    let worked: { texture: THREE.Texture } = layer;
+    if (video || !layer.encoded || look.depth < 7.5) {
+      const stage = this.stage(layer);
+      renderer.setClearColor(0x000000, 0);
 
-    // Colour depth and dither, pixel for pixel.
-    renderer.setRenderTarget(stage.a);
-    renderer.clear(true, false, false);
-    this.plain(renderer, layer, true, false, 1);
-    let worked = stage.a;
+      // Colour depth and dither, pixel for pixel.
+      renderer.setRenderTarget(stage.a);
+      renderer.clear(true, false, false);
+      this.plain(renderer, layer, true, false, 1);
+      worked = stage.a;
+    }
 
     if (video) {
+      const stage = this.stage(layer);
       const uniforms = this.videoUniforms;
       uniforms.uMap.value = stage.a.texture;
       uniforms.uSize.value.set(layer.width, layer.height);
@@ -311,6 +321,7 @@ export class Presenter {
     uniforms.uInvert.value = look.invert;
     uniforms.uNearest.value = look.filter === 'nearest';
     uniforms.uScanlines.value = look.scanlines;
+    uniforms.uPitch.value = look.scanlinePitch > 0 ? look.scanlinePitch : layer.height;
     uniforms.uVignette.value = look.vignette;
     renderer.setRenderTarget(null);
     this.pass(renderer, this.screenMaterial);

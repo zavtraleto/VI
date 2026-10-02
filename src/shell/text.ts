@@ -100,3 +100,120 @@ export const MENU_FILES: readonly MenuFile[] = [
 export function digits(value: number, places: number): string {
   return String(Math.max(0, Math.round(value))).padStart(places, '0');
 }
+
+/** What the session shows while it runs: the names of its readings. */
+export const HUD = {
+  /** "Score". */
+  score: '得点',
+  /** "Highest". */
+  best: '最高',
+  level: 'LV',
+  /** "Connection": the steps the contact has taken, and the score of the next one. */
+  link: '接続',
+  /** "Detected": what the link reads once the program has found a pattern on it. */
+  found: '検出',
+  /** A session that is not counted: the exercise. */
+  practice: 'TEST',
+  /** "Full": every cell holds a die, and the seconds left to free one. */
+  full: '満杯',
+  /** "Moves", "task", "target": the readings of a task. */
+  moves: '手数',
+  task: '課題',
+  target: '目標',
+  /** "Calibration": a part of the exercise sets one channel of the device, and says which. */
+  exercise: '較正',
+  channel: 'CH',
+  /** "Next": the words have been read. */
+  next: '次へ',
+  /** "Take back", "again", "skip": what can be pressed over the board. */
+  undo: '取消',
+  retry: '再試',
+  skip: '省略 SKIP',
+} as const;
+
+/** A panel of the program: its name in its own language and in English. */
+export interface PanelName {
+  native: string;
+  name: string;
+}
+
+export const PANELS = {
+  /** "Pause". */
+  pause: { native: '一時停止', name: 'PAUSE' },
+  /** "Result". */
+  result: { native: '結果', name: 'RESULT' },
+  /** "Time is out". */
+  timeUp: { native: '時間切れ', name: 'TIME UP' },
+  /** "Records". */
+  records: { native: '記録', name: 'RECORDS' },
+  /** "Settings". */
+  system: { native: '設定', name: 'SYSTEM' },
+  /** "Rules". */
+  rules: { native: '規則', name: 'RULES' },
+  /** "Tasks". */
+  tasks: { native: '課題', name: 'TASKS' },
+  /** "Completed". */
+  cleared: { native: '完了', name: 'CLEARED' },
+} as const satisfies Record<string, PanelName>;
+
+/** What a panel can be told to do. */
+export const COMMANDS = {
+  /** "Resume". */
+  resume: { native: '再開', name: 'RESUME' },
+  /** "Try again". */
+  restart: { native: '再試行', name: 'RESTART' },
+  again: { native: '再試行', name: 'AGAIN' },
+  records: { native: '記録', name: 'RECORDS' },
+  system: { native: '設定', name: 'SYSTEM' },
+  /** "End". */
+  menu: { native: '終了', name: 'MENU' },
+  tasks: { native: '課題', name: 'TASKS' },
+  /** "Back". */
+  back: { native: '戻る', name: 'BACK' },
+  /** "To the next". */
+  next: { native: '次へ', name: 'NEXT' },
+  /** "Start". */
+  start: { native: '開始', name: 'START' },
+  rules: { native: '規則', name: 'RULES' },
+} as const satisfies Record<string, PanelName>;
+
+/** The readings of a result. */
+export const RESULT = {
+  score: { native: '得点', name: 'SCORE' },
+  best: { native: '最高', name: 'BEST' },
+  /** "Chain". */
+  chain: { native: '連鎖', name: 'MAX CHAIN' },
+  /** "Time". */
+  time: { native: '時間', name: 'TIME' },
+  moves: { native: '手数', name: 'MOVES' },
+  /** "Fewest". */
+  least: { native: '最少', name: 'FEWEST' },
+} as const satisfies Record<string, PanelName>;
+
+/** The log of sessions: which sessions, which reading, and the heads of its columns. */
+export const RECORDS = {
+  modes: ['PROTOCOL', 'LIMITED'],
+  metrics: ['SCORE', 'CHAIN', 'TIME'],
+  /** "Date". */
+  date: '日付',
+  /** "No entries". */
+  empty: '記録なし NO ENTRY',
+} as const;
+
+/** What the program lets the player set, and the values it shows. */
+export const SYSTEM = {
+  /** "Sound". */
+  sound: { native: '音声', name: 'SOUND' },
+  /** "Motion". */
+  motion: { native: '動作', name: 'MOTION' },
+  /** "Shake". */
+  shake: { native: '振動', name: 'SHAKE' },
+  /** "Operation": swipes or buttons. */
+  control: { native: '操作', name: 'CONTROL' },
+  on: 'ON',
+  off: 'OFF',
+  full: 'FULL',
+  reduced: 'LESS',
+  swipe: 'SWIPE',
+  buttons: 'BUTTONS',
+} as const;

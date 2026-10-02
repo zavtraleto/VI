@@ -9,13 +9,17 @@ import { pictureSize, type Insets } from './layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from './screen';
 import { BootScreen } from './screens/boot';
 import { MenuScreen, type MenuActions, type MenuData } from './screens/menu';
-import { paletteAt, shellDefaults, type Palette } from './theme';
+import { PanelScreen, type PanelSpec } from './screens/panel';
+import { clockHour, paletteAt, shellDefaults, type Palette } from './theme';
+import { Voice } from './voice';
 
 export type { MenuActions, MenuData } from './screens/menu';
 
 export interface ShellOptions {
-  /** Something of the page lies over the shell and takes the input: a panel of the old interface. */
+  /** Something of the page lies over the shell and takes the input: a tool of the playtest. */
   blocked?: () => boolean;
+  /** The look of the interface, where whoever owns the shell shares it with what else it draws. */
+  values?: ParamValues;
 }
 
 let probe: HTMLElement | null = null;
@@ -39,12 +43,6 @@ function safeInsets(): Insets {
   };
 }
 
-/** The hour of the player's clock, with its minutes as a fraction. */
-function clockHour(): number {
-  const now = new Date();
-  return now.getHours() + now.getMinutes() / 60;
-}
-
 /**
  * The interface of the found program: its boot, its menu, its screens. It is one layer of
  * the one canvas — a picture of few pixels, drawn as a tube shows it — and takes the pointer
@@ -56,11 +54,13 @@ function clockHour(): number {
  */
 export class Shell {
   /** The look of the interface. The same object for as long as the shell lives: the lab's panel is bound to it. */
-  readonly values: ParamValues = shellDefaults();
+  readonly values: ParamValues;
   /** How many times the picture has been drawn anew. A screen that stands still does not add to it. */
   redraws = 0;
   private readonly sceneLayer: Layer;
   private readonly layer: CanvasLayer;
+  /** Prose in the language of the player, over the picture of the program. */
+  private readonly voice: Voice;
   private readonly kit: Kit;
   private readonly input: ShellInput;
   private readonly context: ShellContext;
@@ -68,7 +68,7 @@ export class Shell {
   private covering = false;
   private dirty = true;
   private fontsReady = false;
-  private palette: Palette = paletteAt(this.values, clockHour());
+  private palette: Palette;
   /** The zone that was pressed and is answering before its action; `start` is the frame it began at. */
   private firing: { item: ShellItem; start: number | null } | null = null;
 
@@ -77,9 +77,12 @@ export class Shell {
     private readonly settings: Settings,
     private readonly options: ShellOptions = {},
   ) {
+    this.values = options.values ?? shellDefaults();
+    this.palette = paletteAt(this.values, clockHour());
     this.sceneLayer = display.addLayer({ name: 'shell-scene', lines: 240, look: { opacity: 0 } });
     this.layer = display.addCanvasLayer({ name: 'shell', lines: 240, look: { opacity: 0 } });
     this.layer.onResize = () => this.invalidate();
+    this.voice = new Voice(display, this.values, 'shell-voice');
     this.kit = new Kit(this.layer, display, this.values, this.palette);
     this.context = {
       values: this.values,
@@ -92,6 +95,7 @@ export class Shell {
         return { top: css.top * scale, right: css.right * scale, bottom: css.bottom * scale, left: css.left * scale };
       },
       reducedMotion: () => prefersReducedMotion(this.settings),
+      voice: this.voice,
     };
     this.input = new ShellInput({
       active: () => this.screen !== null && this.fontsReady && this.firing === null && !this.options.blocked?.(),
@@ -135,10 +139,19 @@ export class Shell {
     this.show(new MenuScreen(this.context, tutorialFirst, actions, data), true);
   }
 
+  /**
+   * A panel of the program. Over a session it lies on the board, which stays in sight and
+   * steps back; opened from the menu it stands alone on the dark of the tube.
+   */
+  showPanel(spec: PanelSpec, alone: boolean): void {
+    this.show(new PanelScreen(this.context, spec, alone), alone);
+  }
+
   hide(): void {
     if (!this.screen) return;
     this.screen.dispose?.();
     this.screen = null;
+    this.voice.clear();
     this.firing = null;
     this.input.reset(null);
     this.layer.look.opacity = 0;
@@ -196,8 +209,13 @@ export class Shell {
     if (this.dirty) {
       this.dirty = false;
       this.redraws++;
+      this.voice.begin();
       this.kit.begin();
       screen.draw(this.kit, focus);
+      this.kit.end();
+      this.voice.end();
+    } else if (screen.tick?.(this.kit, timeMs)) {
+      // Only a corner of the picture has changed: it alone was drawn again.
       this.kit.end();
     }
     const drawn = screen.scene?.(this.sceneLayer, this.palette, focus, timeMs) ?? false;

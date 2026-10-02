@@ -1,0 +1,252 @@
+/* The tools of development: panels of the page over the canvas. Loaded with
+   `devtools.ts`, in development only. */
+
+#app.shell-open .overlay {
+  background: var(--void);
+}
+
+.debug-btn {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.debug-btn[hidden] {
+  display: none;
+}
+
+/* The tools of the playtest: panels of the page over the canvas */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 5, 6, 0.82);
+  padding: 16px;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.panel {
+  width: min(100%, 360px);
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 18px;
+  background: var(--panel);
+  border-top: 1px solid var(--dim);
+  border-bottom: 1px solid var(--dim);
+  outline: 1px solid var(--line);
+  outline-offset: 5px;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.panel h3 {
+  margin: 10px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.btn {
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 18px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: var(--ivory);
+  color: #0c0b0b;
+  border-color: var(--ivory);
+}
+
+.btn.quiet {
+  border-color: transparent;
+  color: var(--dim);
+  font-size: 14px;
+  min-height: 44px;
+}
+
+.btn.small {
+  min-height: 44px;
+  font-size: 14px;
+  flex: 1;
+}
+
+.btn.selected {
+  border-color: var(--ivory);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.note {
+  margin: 0;
+  font-size: 15px;
+  color: var(--dim);
+  text-align: center;
+}
+
+/* Playtest panel is a working tool, not part of the instrument */
+
+.panel.utility {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.panel.utility h2 {
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  text-align: left;
+}
+
+.panel.utility .btn {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.panel.utility .note {
+  font-size: 14px;
+  text-align: left;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14px;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  accent-color: var(--carmine);
+}
+
+.stats {
+  margin: 0;
+  padding: 10px;
+  background: #151313;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* Debug drawer: a working tool, kept out of the way of the board */
+
+.debug-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 88vw);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 18px;
+  background: rgba(12, 11, 11, 0.94);
+  border-left: 1px solid var(--line);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  z-index: 5;
+}
+
+.debug-panel[hidden] {
+  display: none;
+}
+
+.debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.debug-head .btn {
+  flex: none;
+}
+
+.debug-panel h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.debug-panel h3 {
+  margin: 10px 0 2px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.debug-panel .btn {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.debug-panel .row {
+  margin-top: 12px;
+}
+
+.debug-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 2px 8px;
+  font-size: 13px;
+}
+
+.debug-row input {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: var(--carmine-bright);
+}
+
+.debug-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.debug-value.changed {
+  color: var(--carmine-bright);
+}

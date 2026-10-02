@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { DELTA, DIRS, previewMove, type Dir, type RunState } from '../rules';
+import type { ParamValues } from '../signal/scene';
+import type { Palette } from '../shell/theme';
 import { chevronTexture, faceFrameTexture, ghostFaceTexture } from './textures';
-import type { Theme } from './theme';
 
 export interface OverlayOptions {
   boardPreview: boolean;
@@ -53,10 +54,14 @@ function floorPlane(material: THREE.Material, size: number): THREE.Mesh {
   return mesh;
 }
 
-/** Things drawn on the board for the player's benefit: ghost previews, clear hints, the tutorial's arrows and frames. */
+/**
+ * Things drawn on the board for the player's benefit: ghost previews, clear hints, the
+ * tutorial's arrows and frames. All of them are the tone of the program.
+ */
 export class FloorOverlays {
   readonly group = new THREE.Group();
-  private readonly ghostMaterials: THREE.Material[];
+  private readonly ghostMaterials: THREE.MeshBasicMaterial[];
+  private readonly hintMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.38, depthWrite: false });
   private readonly ghosts = new Map<Dir, THREE.Mesh>();
   private readonly hints = new Map<Dir, THREE.Mesh>();
   private readonly chevrons: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
@@ -64,28 +69,27 @@ export class FloorOverlays {
   private readonly frameSteady: THREE.MeshBasicMaterial;
   private readonly frameStrong: THREE.MeshBasicMaterial;
 
-  constructor(theme: Theme) {
+  constructor(values: ParamValues) {
     this.ghostMaterials = [1, 2, 3, 4, 5, 6].map(
       (value) =>
         new THREE.MeshBasicMaterial({
-          map: ghostFaceTexture(value, theme.ink),
+          map: ghostFaceTexture(value, values),
           transparent: true,
           opacity: 0.85,
           depthWrite: false,
         }),
     );
-    const hintMaterial = new THREE.MeshBasicMaterial({ color: theme.carmine, transparent: true, opacity: 0.38, depthWrite: false });
     for (const dir of DIRS) {
       const ghost = floorPlane(this.ghostMaterials[0], 0.8);
       ghost.position.y = 0.02;
       this.ghosts.set(dir, ghost);
-      const hint = floorPlane(hintMaterial, 0.94);
+      const hint = floorPlane(this.hintMaterial, 0.94);
       hint.position.y = 0.012;
       this.hints.set(dir, hint);
       this.group.add(hint, ghost);
     }
     // Arrows are drawn over everything: a die in front must not hide where to go.
-    const chevron = chevronTexture(theme.guide);
+    const chevron = chevronTexture();
     for (let i = 0; i < MAX_ARROWS * CHEVRONS; i++) {
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(0.52, 0.52),
@@ -96,7 +100,7 @@ export class FloorOverlays {
       this.chevrons.push(mesh);
       this.group.add(mesh);
     }
-    const frame = faceFrameTexture(theme.alarm);
+    const frame = faceFrameTexture();
     this.frameSteady = new THREE.MeshBasicMaterial({ map: frame, transparent: true, opacity: 0.8, depthWrite: false });
     this.frameStrong = new THREE.MeshBasicMaterial({ map: frame, transparent: true, depthWrite: false });
     const frameGeometry = new THREE.PlaneGeometry(DIE, DIE);
@@ -106,6 +110,27 @@ export class FloorOverlays {
       this.frames.push(mesh);
       this.group.add(mesh);
     }
+  }
+
+  setPalette(palette: Palette): void {
+    for (const material of this.ghostMaterials) material.color.set(palette.ink);
+    this.hintMaterial.color.set(palette.ink);
+    for (const mesh of this.chevrons) mesh.material.color.set(palette.ink);
+    this.frameSteady.color.set(palette.ink);
+    this.frameStrong.color.set(palette.ink);
+  }
+
+  dispose(): void {
+    const materials = [...this.ghostMaterials, this.hintMaterial, this.frameSteady, this.frameStrong];
+    for (const material of materials) {
+      material.map?.dispose();
+      material.dispose();
+    }
+    this.chevrons[0]?.material.map?.dispose();
+    for (const mesh of [...this.chevrons, ...this.frames, ...this.ghosts.values(), ...this.hints.values()]) {
+      mesh.geometry.dispose();
+    }
+    for (const mesh of this.chevrons) mesh.material.dispose();
   }
 
   sync(state: RunState, timeMs: number, options: OverlayOptions, reducedMotion: boolean): void {

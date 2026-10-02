@@ -43,12 +43,13 @@ export class Display implements LayerHost {
     return this.ratio;
   }
 
-  addLayer(options: LayerOptions): Layer {
-    return this.add(new Layer(this, options));
+  /** A new layer over all the others, or right under the layer `under`. */
+  addLayer(options: LayerOptions, under?: Layer): Layer {
+    return this.add(new Layer(this, options), under);
   }
 
-  addCanvasLayer(options: LayerOptions): CanvasLayer {
-    return this.add(new CanvasLayer(this, options));
+  addCanvasLayer(options: LayerOptions, under?: Layer): CanvasLayer {
+    return this.add(new CanvasLayer(this, options), under);
   }
 
   removeLayer(layer: Layer): void {
@@ -92,9 +93,11 @@ export class Display implements LayerHost {
     }
   }
 
-  private add<T extends Layer>(layer: T): T {
+  private add<T extends Layer>(layer: T, under?: Layer): T {
     layer.fit();
-    this.layers.push(layer);
+    const at = under ? this.layers.indexOf(under) : -1;
+    if (at === -1) this.layers.push(layer);
+    else this.layers.splice(at, 0, layer);
     return layer;
   }
 }

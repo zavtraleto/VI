@@ -1,16 +1,26 @@
 import { Display } from '../display/display';
 import { loadSettings, type Settings } from '../platform/settings';
 import type { ParamValues } from '../signal/scene';
+import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel } from '../shell/panels';
+import type { PanelSpec } from '../shell/screens/panel';
 import { Shell, type MenuActions } from '../shell/shell';
 import { SHELL_PARAMS, parseShellValue, shellChanged, shellDefaults } from '../shell/theme';
 import { FpsCounter } from '../ui/fps';
+import { t } from '../ui/i18n';
 import { ShellPanel } from './shellPanel';
 
-export const SHELL_SCREENS = ['boot', 'menu'] as const;
+export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'records', 'rules', 'tasks', 'cleared'] as const;
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
 const SAMPLE_DATA = { bestEndless: 12840, bestTimed: 4310, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
+/** Sessions for the sample of the log. */
+const SAMPLE_RUNS = [
+  { score: 12840, chain: 7, ticks: 31200, date: '2026-10-01' },
+  { score: 8020, chain: 5, ticks: 24100, date: '2026-10-02' },
+  { score: 4310, chain: 4, ticks: 15300, date: '2026-10-02' },
+  { score: 870, chain: 2, ticks: 6100, date: '2026-10-02' },
+];
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -103,8 +113,11 @@ export class ShellLab {
       this.settings.bootSeen = !this.first;
       // As in the game: the menu follows the boot.
       this.shell.boot(() => this.showMenu());
-    } else {
+    } else if (screen === 'menu') {
       this.showMenu();
+    } else {
+      // Here a panel stands alone: there is no board under it.
+      this.shell.showPanel(this.samplePanel(screen), true);
     }
     this.writeAddress();
   }
@@ -137,6 +150,35 @@ export class ShellLab {
     return done;
   }
 
+  /** A panel with sample data; what it is told to do does nothing. */
+  private samplePanel(screen: Exclude<ShellScreenName, 'boot' | 'menu'>): PanelSpec {
+    const nothing = (): void => undefined;
+    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const };
+    switch (screen) {
+      case 'pause':
+        return pausePanel({ task: false, onResume: nothing, onRestart: nothing, onRecords: nothing, onTasks: nothing, onSystem: nothing, onMenu: nothing });
+      case 'system':
+        return systemPanel({ values: () => values, onToggle: nothing, onBack: nothing });
+      case 'result':
+        return resultPanel(
+          { timeUp: false, score: 8020, best: 12840, maxChain: 5, ticks: 24100, tickMs: 20, note: t('newBest') },
+          { onAgain: nothing, onRecords: nothing, onMenu: nothing },
+        );
+      case 'records':
+        return recordsPanel([{ runs: SAMPLE_RUNS, survival: true }, { runs: SAMPLE_RUNS.slice(2), survival: false }], 0, 20, nothing);
+      case 'rules':
+        return rulesPanel([t('puzzleRule1'), t('puzzleRule2'), t('puzzleRule3'), t('puzzleRule4'), t('puzzleRule5')], { onStart: nothing, onBack: nothing });
+      case 'tasks':
+        return tasksPanel(
+          Array.from({ length: 30 }, (_, i) => ({ stars: i < 7 ? 3 - (i % 3) : 0, tier: t(i < 6 ? 'tier_intro' : 'tier_path') })),
+          7,
+          { onPick: nothing, onRules: nothing, onBack: nothing },
+        );
+      case 'cleared':
+        return clearedPanel({ stars: 2, moves: 6, target: 4, hasNext: true }, { onNext: nothing, onAgain: nothing, onTasks: nothing });
+    }
+  }
+
   private showMenu(): void {
     const nothing = (): void => undefined;
     const actions: MenuActions = {
@@ -145,7 +187,7 @@ export class ShellLab {
       onPuzzle: nothing,
       onTutorial: nothing,
       onRecords: nothing,
-      onPlaytest: nothing,
+      onSystem: nothing,
     };
     this.shell.showMenu(this.tutorialFirst, actions, SAMPLE_DATA);
   }

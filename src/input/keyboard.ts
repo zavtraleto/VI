@@ -23,7 +23,8 @@ export function bindKeyboard(
 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
-      onPause();
+      // A key that something else has already answered is not a pause.
+      if (!e.defaultPrevented) onPause();
       return;
     }
     const dir = KEY_DIR[e.code];

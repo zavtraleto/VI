@@ -29,6 +29,11 @@ export interface LayerLook {
   noise: number;
   /** 0..1, how dark the gaps between the lines are. */
   scanlines: number;
+  /**
+   * Lines of the screen the scanlines are counted in; 0 is the layer's own. A crisp layer
+   * takes the lines of the tube it is shown on, so its picture stays sharp under them.
+   */
+  scanlinePitch: number;
   /** 0..1, how dark the corners are. */
   vignette: number;
 }
@@ -68,6 +73,7 @@ const DEFAULT_LOOK: LayerLook = {
   glow: 0,
   noise: 0,
   scanlines: 0,
+  scanlinePitch: 0,
   vignette: 0,
 };
 
@@ -203,7 +209,9 @@ export class CanvasLayer extends Layer {
   constructor(host: LayerHost, options: LayerOptions) {
     super(host, { ...options, encoded: true });
     this.canvas = document.createElement('canvas');
-    this.ctx = this.canvas.getContext('2d')!;
+    // Kept in memory, not on the graphics card: the picture is read back on every upload, and a
+    // canvas of the card's own has to be fetched from it first, which stalls the frame.
+    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true })!;
     this.canvasTexture = new THREE.CanvasTexture(this.canvas);
     this.canvasTexture.premultiplyAlpha = true;
     this.canvasTexture.generateMipmaps = false;

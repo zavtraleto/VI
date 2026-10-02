@@ -1,3 +1,4 @@
+import { CAPTION_FONT } from '../signal/caption';
 import type { CanvasLayer } from '../display/layer';
 import type { Rect, Size } from '../display/sizing';
 import type { ParamValues } from '../signal/scene';
@@ -29,6 +30,15 @@ const LIGHT_SHIFT = -0.25;
 const BOLD_SHIFT = 0.25;
 /** Lines of text kept as dots; when there are more, all are thrown away and drawn anew. */
 const MASK_LIMIT = 600;
+/** Pips of each value on a grid of three by three, row by row. */
+export const FACE_PIPS: Record<number, readonly number[]> = {
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 3, 6, 2, 5, 8],
+};
 
 /**
  * Drawing of the interface on its canvas layer. The picture has few pixels and every one of
@@ -40,6 +50,7 @@ export class Kit {
   palette: Palette;
   private readonly masks = new Map<string, Mask>();
   private readonly tint = document.createElement('canvas');
+  private readonly strip = document.createElement('canvas');
 
   constructor(
     private readonly layer: CanvasLayer,
@@ -83,6 +94,47 @@ export class Kit {
     ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, this.layer.width, this.layer.height);
+  }
+
+  /** Empties a part of the picture, to draw that part alone again. */
+  clear(box: Box): void {
+    this.layer.ctx.clearRect(Math.round(box.x), Math.round(box.y), Math.round(box.w), Math.round(box.h));
+  }
+
+  /**
+   * Slides rows of the picture sideways, between `x` and `x + w`: a signal that slips. What was
+   * drawn so far moves; what is drawn after stays where it is put.
+   */
+  tear(rows: readonly { y: number; h: number; dx: number }[], x = 0, w = this.layer.width): void {
+    const { ctx } = this.layer;
+    const { strip } = this;
+    const left = Math.round(x);
+    const wide = Math.round(w);
+    for (const row of rows) {
+      const y = Math.round(row.y);
+      const h = Math.max(1, Math.round(row.h));
+      const dx = Math.round(row.dx);
+      if (dx === 0 || wide <= 0) continue;
+      // Setting the size empties the strip.
+      strip.width = wide;
+      strip.height = h;
+      strip.getContext('2d')!.drawImage(ctx.canvas, left, y, wide, h, 0, 0, wide, h);
+      ctx.clearRect(left, y, wide, h);
+      ctx.drawImage(strip, left + dx, y);
+    }
+  }
+
+  /**
+   * A sign in a hand that is not the program's: the serif of the captions of transmissions,
+   * soft among the dots of the raster. `size` is the height of the program's letters it stands in for.
+   */
+  foreign(text: string, x: number, y: number, size: number, color: string): void {
+    const { ctx } = this.layer;
+    ctx.font = `${Math.round(size * 1.1)}px ${CAPTION_FONT}`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = color;
+    ctx.fillText(text, Math.round(x), Math.round(y + size * 0.86));
   }
 
   /** The picture is finished: the layer takes it to the screen. */
@@ -204,6 +256,38 @@ export class Kit {
     paint.fillRect(0, 0, mask.canvas.width, mask.canvas.height);
     this.layer.ctx.drawImage(tint, 0, 0, mask.canvas.width, mask.canvas.height, left, Math.round(y), mask.canvas.width, mask.canvas.height);
     return left + width;
+  }
+
+  /**
+   * A line of text that stays readable over a picture: the same text in the dark of the tube
+   * all around it first, as an edge.
+   */
+  edged(text: string, x: number, y: number, color: string, options: TextOptions = {}): number {
+    for (const dx of [-1, 0, 1]) {
+      for (const dy of [-1, 0, 1]) if (dx !== 0 || dy !== 0) this.text(text, x + dx, y + dy, this.palette.bg, options);
+    }
+    return this.text(text, x, y, color, options);
+  }
+
+  /** The face of a die, flat: a square of its colour with its pips as dots. The one has a single large pip. */
+  face(value: number, x: number, y: number, size: number, color: string, pip: string): void {
+    this.rect(x, y, size, size, color);
+    const dot = Math.max(1, Math.round(size * (value === 1 ? 0.3 : 0.18)));
+    for (const cell of FACE_PIPS[value] ?? []) {
+      const cx = x + size * (0.22 + 0.28 * (cell % 3));
+      const cy = y + size * (0.22 + 0.28 * Math.floor(cell / 3));
+      this.rect(Math.round(cx - dot / 2), Math.round(cy - dot / 2), dot, dot, pip);
+    }
+  }
+
+  /** A small picture made elsewhere, dot for dot, with its top left corner at `x, y`. */
+  image(source: CanvasImageSource, x: number, y: number): void {
+    this.layer.ctx.drawImage(source, Math.round(x), Math.round(y));
+  }
+
+  /** The dark of the tube over every other dot of the picture: what lies under a panel is still there, but has stepped back. */
+  veil(): void {
+    this.dither(0, 0, this.layer.width, this.layer.height, this.palette.bg);
   }
 
   /** A row of dots between two points of a line, on the grid of places: what joins a name to its value. */

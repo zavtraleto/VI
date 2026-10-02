@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { cubeAt, cubeHeight, isHeld, type Level, type MoveKind, type RunState } from '../rules';
-import type { Theme } from './theme';
+import { figureGeometry } from './figure';
 
 /** Extra lift at the middle of a step, per move kind. */
 const ARC: Record<MoveKind, number> = {
@@ -13,35 +13,38 @@ const ARC: Record<MoveKind, number> = {
   push: 0.03,
 };
 
-/** A small ivory figure: a robe and a head. */
+/**
+ * The one who plays, as a pictogram of one colour: a grey mannequin, for the program has no
+ * record of them, that grows into the red of the seventh. The same body is the cursor of the
+ * program's menu.
+ */
 export class PlayerFigure {
   readonly group = new THREE.Group();
+  private readonly geometry = figureGeometry();
+  private readonly solid = new THREE.MeshBasicMaterial();
+  // Drawn only where a cube hides the figure, so the player never gets lost behind the dice.
+  private readonly ghost = new THREE.MeshBasicMaterial({
+    transparent: true,
+    depthFunc: THREE.GreaterDepth,
+    depthWrite: false,
+  });
 
-  constructor(theme: Theme) {
-    // Large enough to be made out on a phone, where a cell is some forty pixels wide.
-    const robe = new THREE.ConeGeometry(0.26, 0.65, 14);
-    robe.translate(0, 0.325, 0);
-    const head = new THREE.SphereGeometry(0.135, 14, 10);
-    head.translate(0, 0.715, 0);
+  constructor() {
+    const through = new THREE.Mesh(this.geometry, this.ghost);
+    through.renderOrder = 10;
+    this.group.add(new THREE.Mesh(this.geometry, this.solid), through);
+  }
 
-    const solid = new THREE.MeshLambertMaterial({ color: theme.ivory });
-    // Drawn only where a cube hides the figure, so the player never gets lost behind the dice.
-    const ghost = new THREE.MeshBasicMaterial({
-      color: theme.ivory,
-      transparent: true,
-      opacity: 0.4,
-      depthFunc: THREE.GreaterDepth,
-      depthWrite: false,
-    });
-    for (const geometry of [robe, head]) {
-      const through = new THREE.Mesh(geometry, ghost);
-      through.renderOrder = 10;
-      this.group.add(new THREE.Mesh(geometry, solid), through);
-    }
+  /** `through` is how much of the figure shows where a die stands in front of it. */
+  setColor(color: string, through: number): void {
+    this.solid.color.set(color);
+    this.ghost.color.set(color);
+    this.ghost.opacity = through;
   }
 
   sync(state: RunState, alpha: number, dip: (cubeId: number) => number): void {
     const { player, config } = state;
+
     const supportHeight = (x: number, z: number, level: Level): number => {
       if (level === 'ground') return 0;
       const cube = cubeAt(state, x, z);
@@ -62,5 +65,11 @@ export class PlayerFigure {
       fromY + (toY - fromY) * p + ARC[action.kind] * Math.sin(p * Math.PI),
       action.fromZ + (player.z - action.fromZ) * p,
     );
+  }
+
+  dispose(): void {
+    this.geometry.dispose();
+    this.solid.dispose();
+    this.ghost.dispose();
   }
 }

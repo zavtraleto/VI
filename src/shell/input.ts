@@ -16,7 +16,7 @@ const KEY_DIR: Record<string, FocusDir> = {
 };
 
 /** What on the page takes presses of its own while it lies over the shell. */
-const FOREIGN = '.overlay, .debug-panel, .lil-gui, button, input, select, textarea, a';
+const FOREIGN = `${import.meta.env.DEV ? '.overlay, .debug-panel, .lil-gui, ' : ''}button, input, select, textarea, a`;
 
 interface Zone {
   id: string;
@@ -186,6 +186,8 @@ export class ShellInput {
       const item = this.host.items().find((candidate) => candidate.id === this.focus);
       if (item) this.host.activate(item);
     } else if (e.code === 'Escape') {
+      // Taken: whoever else listens for this key leaves it alone.
+      e.preventDefault();
       this.host.back();
     }
   }

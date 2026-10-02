@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { inChain, type RunState } from '../rules';
+import type { ParamValues } from '../signal/scene';
+import type { Palette } from '../shell/theme';
 import { CUBE_SIZE } from './cubes';
 import { topTurn } from './orientationQuat';
 import { chainMarkTexture } from './textures';
-import type { Theme } from './theme';
 
 /**
  * Shows where a chain can still be added to. The cell of every die sinking in a chain carries
- * that die's top face, lit, until the die is gone: a die that has all but sunk out of sight
- * still counts, and the mark is what says so.
+ * that die's top face, lit in the colour of its channel, until the die is gone: a die that has
+ * all but sunk out of sight still counts, and the mark is what says so.
  */
 export class ChainMarks {
   readonly group = new THREE.Group();
@@ -16,15 +17,20 @@ export class ChainMarks {
   private readonly materials: THREE.MeshBasicMaterial[];
   private readonly marks: THREE.Mesh[] = [];
 
-  constructor(theme: Theme) {
+  constructor(values: ParamValues) {
     this.materials = [1, 2, 3, 4, 5, 6].map(
       (value) =>
         new THREE.MeshBasicMaterial({
-          map: chainMarkTexture(value, theme.alarm, CUBE_SIZE),
+          map: chainMarkTexture(value, CUBE_SIZE, values),
           transparent: true,
           depthWrite: false,
         }),
     );
+  }
+
+  setPalette(palette: Palette): void {
+    // The one is not a channel: where it goes down, the mark is the red of its pip.
+    this.materials.forEach((material, i) => material.color.set(i === 0 ? palette.signal : palette.channels[i]));
   }
 
   sync(state: RunState, timeMs: number, reducedMotion: boolean): void {
@@ -44,6 +50,14 @@ export class ChainMarks {
       }
     }
     for (let i = used; i < this.marks.length; i++) this.marks[i].visible = false;
+  }
+
+  dispose(): void {
+    this.geometry.dispose();
+    for (const material of this.materials) {
+      material.map?.dispose();
+      material.dispose();
+    }
   }
 
   private add(): THREE.Mesh {

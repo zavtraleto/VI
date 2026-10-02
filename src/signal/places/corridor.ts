@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { ps1Material, type Ps1Fog } from '../../display/ps1';
-import { DEG, color, flickering, grainTexture, handheld, keeper, num, streams } from '../kit';
-import { LOOK_PARAMS, type ParamValues, type SceneDef, type SceneInstance } from '../scene';
+import { CameraRig, color, flickering, grainTexture, handheld, num } from '../kit';
+import { LOOK_PARAMS, type ParamValues } from '../scene';
+import type { PlaceContext, PlaceDef, PlaceInstance, Stage } from '../stage';
 import { Surface, type Lamp } from '../surface';
+import { floodWater } from './water';
 
 /** The light of the doorway comes from behind the end wall, so the wall itself stays dark. */
 const DOOR_LAMP_BEHIND = 0.3;
@@ -12,25 +14,30 @@ const CEILING_LAMP = new THREE.Vector3(0.25, 0.04, 0.9);
 /** The slow walk of `dolly` and the swing of the door: radians per second at speed 1. */
 const DOLLY_RATE = 0.15;
 const SWING_RATE = 0.5;
+/** What stands in the corridor stands this far along from the camera to the door, and then farther. */
+const SPOT_SHARE = 0.45;
 
-function build(values: ParamValues, seed: number): SceneInstance {
+function build(values: ParamValues, context: PlaceContext): PlaceInstance {
   const n = (name: string) => Number(values[name]);
   const tone = (name: string) => new THREE.Color(String(values[name]));
-  const stream = streams(seed);
-  const { keep, dispose } = keeper();
+  const { scene, keep, stream, bare } = context;
 
   const snap = n('snap');
   const fog: Ps1Fog = { color: String(values.dark), near: n('fogNear'), far: Math.max(n('fogFar'), n('fogNear') + 1) };
   const ambient = tone('dark').multiplyScalar(n('ambient'));
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(n('camFov'), 1, 0.05, 300);
-  camera.rotation.order = 'YXZ';
-
   // The corridor runs along z: the end wall with the door is at 0, the camera looks down -z.
   const length = n('length');
   const width = n('width');
   const height = n('height');
+  const camDistance = Math.min(n('camDistance'), length - 0.5);
+  const camera = new THREE.PerspectiveCamera(n('camFov'), 1, 0.05, 300);
+  const rig = new CameraRig(
+    camera,
+    { x: n('camX'), height: n('camHeight'), distance: camDistance, pitch: n('camPitch'), yaw: n('camYaw'), roll: n('camRoll') },
+    handheld(stream(4), n('drift'), n('driftSpeed')),
+  );
+
   const doorWidth = Math.min(n('doorWidth'), width - 0.2);
   const doorHeight = Math.min(n('doorHeight'), height - 0.1);
   const dado = Math.min(n('dado'), height);
@@ -55,20 +62,14 @@ function build(values: ParamValues, seed: number): SceneInstance {
   wallSheet(new THREE.Vector3(doorWidth / 2, 0, 0), new THREE.Vector3(side, 0, 0), 0, height);
   wallSheet(new THREE.Vector3(-doorWidth / 2, 0, 0), new THREE.Vector3(doorWidth, 0, 0), doorHeight, height);
   const plaster = keep(grainTexture(stream(1), n('stains')));
-  const shellMesh = new THREE.Mesh(
-    keep(shell.geometry()),
-    keep(ps1Material({ map: plaster, vertexColors: true, fog, snap, light: null })),
-  );
+  const shellMesh = new THREE.Mesh(keep(shell.geometry()), keep(ps1Material({ map: plaster, vertexColors: true, fog, snap, light: null })));
   shellMesh.frustumCulled = false;
-  scene.add(shellMesh);
+  if (!bare) scene.add(shellMesh);
 
   // What stands in the corridor: the frame of the door, and shut doors along both walls.
   const fittings = new Surface();
   const doorTone = tone('doorColor');
-  const block = (x: number, y: number, z: number, size: THREE.Vector3) => ({
-    size,
-    matrix: new THREE.Matrix4().makeTranslation(x, y, z),
-  });
+  const block = (x: number, y: number, z: number, size: THREE.Vector3) => ({ size, matrix: new THREE.Matrix4().makeTranslation(x, y, z) });
   fittings
     .box(block(-doorWidth / 2 - FRAME / 2, doorHeight / 2, 0.02, new THREE.Vector3(FRAME, doorHeight, 0.06)), doorTone)
     .box(block(doorWidth / 2 + FRAME / 2, doorHeight / 2, 0.02, new THREE.Vector3(FRAME, doorHeight, 0.06)), doorTone)
@@ -76,13 +77,11 @@ function build(values: ParamValues, seed: number): SceneInstance {
   const sideDoors = Math.round(n('sideDoors'));
   for (let i = 0; i < sideDoors; i++) {
     const z = (length * (i + 0.75)) / (sideDoors + 0.5);
-    for (const wallSide of [-1, 1]) {
-      fittings.box(block(wallSide * (width / 2 - SIDE_DOOR.x / 2), SIDE_DOOR.y / 2, z, SIDE_DOOR), doorTone);
-    }
+    for (const wallSide of [-1, 1]) fittings.box(block(wallSide * (width / 2 - SIDE_DOOR.x / 2), SIDE_DOOR.y / 2, z, SIDE_DOOR), doorTone);
   }
   const fittingsMesh = new THREE.Mesh(keep(fittings.geometry()), keep(ps1Material({ vertexColors: true, fog, snap, light: null })));
   fittingsMesh.frustumCulled = false;
-  scene.add(fittingsMesh);
+  if (!bare) scene.add(fittingsMesh);
 
   // Beyond the doorway there is only light. The leaf of the door hangs on the left jamb and
   // opens away from the corridor, a dark shape against it.
@@ -92,7 +91,6 @@ function build(values: ParamValues, seed: number): SceneInstance {
   );
   beyond.position.set(0, height / 2, -1.2);
   beyond.frustumCulled = false;
-  scene.add(beyond);
   const hinge = new THREE.Group();
   hinge.position.set(-doorWidth / 2, 0, 0);
   const leaf = new THREE.Mesh(
@@ -102,7 +100,7 @@ function build(values: ParamValues, seed: number): SceneInstance {
   leaf.position.set(doorWidth / 2, doorHeight / 2, -0.02);
   leaf.frustumCulled = false;
   hinge.add(leaf);
-  scene.add(hinge);
+  if (!bare) scene.add(beyond, hinge);
   const doorOpen = n('doorOpen');
   const doorSwing = n('doorSwing');
   const doorGlow = n('doorGlow');
@@ -127,44 +125,58 @@ function build(values: ParamValues, seed: number): SceneInstance {
   const lampAmount = n('lampAmount');
   const lampTone = tone('lampColor');
   const swingPhase = random() * Math.PI * 2;
+  const seed = Math.floor(stream(6)() * 1e6);
   const ceilingLamps = Array.from({ length: count }, (_, i) => {
     const z = (length * (i + 0.5)) / count;
     const material = keep(ps1Material({ color: String(values.lampColor), fog, snap, light: null }));
     const mesh = new THREE.Mesh(keep(new THREE.BoxGeometry(CEILING_LAMP.x, CEILING_LAMP.y, CEILING_LAMP.z)), material);
     mesh.position.set(0, height - CEILING_LAMP.y / 2, z);
     mesh.frustumCulled = false;
-    scene.add(mesh);
+    if (!bare) scene.add(mesh);
     const lamp: Lamp = { position: new THREE.Vector3(0, height - 0.3, z), color: lampTone, reach: n('lampReach'), amount: 0 };
     return { lamp, material, dead: dead.has(i), failing: i === failing, salt: seed + i * 7.3 };
   });
-  const lamps: Lamp[] = [doorLamp, ...ceilingLamps.map((item) => item.lamp)];
 
-  const camX = n('camX');
-  const camHeight = n('camHeight');
-  const camDistance = Math.min(n('camDistance'), length - 0.5);
-  const camPitch = n('camPitch') * DEG;
-  const camYaw = n('camYaw') * DEG;
-  const camRoll = n('camRoll') * DEG;
+  const water = n('flood') > 0 && !bare ? floodWater(context, { x0: -width / 2, x1: width / 2, z0: 0, z1: length }, n('flood'), fog, snap) : null;
+  if (water) scene.add(water.mesh);
+
   const dolly = Math.min(n('dolly'), camDistance - 1);
   const driftSpeed = n('driftSpeed');
-  const hand = handheld(stream(4), n('drift'), driftSpeed);
+  const spot = camDistance * SPOT_SHARE;
+  const jitter = stream(5);
+  const stage: Stage = {
+    scene,
+    rig,
+    keep,
+    stream,
+    snap,
+    fog,
+    lamps: [doorLamp, ...ceilingLamps.map((item) => item.lamp)],
+    ambient,
+    cell: 1,
+    sky: false,
+    lightTurn: Math.PI,
+    // Down the middle, then nearer the door and closer to the walls.
+    spots: Array.from({ length: 10 }, (_, i) =>
+      i === 0
+        ? new THREE.Vector3(0, 0, spot)
+        : new THREE.Vector3((i % 2 ? -1 : 1) * Math.min(width / 2 - 0.35, 0.3 + jitter() * 0.5), 0, Math.max(1, spot - i * spot * 0.12)),
+    ),
+  };
+  // The camera looks at the door, wherever things stand.
+  rig.target.set(0, 0, 0);
 
   return {
-    scene,
-    camera,
-    update(timeMs, aspect) {
-      if (camera.aspect !== aspect) {
-        camera.aspect = aspect;
-        camera.updateProjectionMatrix();
-      }
-      const seconds = timeMs / 1000;
-
+    stage,
+    subject(size, portrait) {
+      if (portrait) rig.portrait(portrait, size);
+    },
+    update(seconds, aspect) {
       // The door: how far it stands open decides how much light gets into the corridor.
       const open = Math.min(1, Math.max(0, doorOpen + doorSwing * Math.sin(seconds * SWING_RATE + swingPhase)));
-      const angle = open * 90 * DEG;
+      const angle = (open * Math.PI) / 2;
       hinge.rotation.y = angle;
       doorLamp.amount = doorGlow * (1 - Math.cos(angle));
-
       for (const item of ceilingLamps) {
         // The failing lamp takes the whole of `flicker`, the others a faint echo of it.
         const strength = item.failing ? flicker : flicker * flicker * 0.4;
@@ -172,24 +184,21 @@ function build(values: ParamValues, seed: number): SceneInstance {
         item.lamp.amount = lampAmount * power;
         (item.material.uniforms.uColor.value as THREE.Color).copy(lampTone).multiplyScalar(0.12 + 0.88 * power);
       }
-
-      shell.light(lamps, ambient);
-      fittings.light(lamps, ambient);
-
-      const sway = hand(seconds);
-      const walked = dolly * 0.5 * (1 - Math.cos(seconds * DOLLY_RATE * driftSpeed));
-      // A tall window is too narrow for a camera that stands or looks aside: bring it back in.
-      const narrow = Math.min(1, aspect);
-      camera.position.set(camX * narrow + sway.x * 0.5, camHeight + sway.y, camDistance - walked);
-      camera.rotation.set(camPitch + sway.pitch, camYaw * narrow + sway.yaw, camRoll + sway.roll);
+      shell.light(stage.lamps, ambient);
+      fittings.light(stage.lamps, ambient);
+      water?.update(seconds);
+      rig.walked = dolly * 0.5 * (1 - Math.cos(seconds * DOLLY_RATE * driftSpeed));
+      rig.update(seconds, aspect);
     },
-    dispose,
   };
 }
 
 /** IMAGE 0004: an empty corridor, a bright door at the end of it. */
-export const corridorDoor: SceneDef = {
-  id: 'corridor_door',
+export const corridor: PlaceDef = {
+  id: 'corridor',
+  channel: 2,
+  // The door at the end is part of the corridor itself.
+  native: null,
   params: {
     wall: color('#dcdfd6'),
     wallLow: color('#a9bdb2'),
@@ -207,6 +216,7 @@ export const corridorDoor: SceneDef = {
     width: num(2.4, 1.2, 8, 0.05),
     height: num(2.7, 2.1, 7, 0.05),
     dado: num(1.1, 0, 3, 0.05),
+    flood: num(0, 0, 1.5, 0.01),
     doorWidth: num(0.9, 0.5, 3, 0.05),
     doorHeight: num(2.05, 1.5, 5, 0.05),
     doorOpen: num(1, 0, 1, 0.01),
@@ -231,11 +241,6 @@ export const corridorDoor: SceneDef = {
     driftSpeed: num(1, 0, 4, 0.05),
     ...LOOK_PARAMS,
     glow: { ...LOOK_PARAMS.glow, value: 0.3 },
-  },
-  variants: {
-    a: {},
-    // The same corridor, the door has almost shut: one line of light is left.
-    b: { doorOpen: 0.4 },
   },
   moods: {
     dream: {},
@@ -270,5 +275,6 @@ export const corridorDoor: SceneDef = {
       blur: 1.2, smear: 2, chroma: 1.1, glow: 0.7, noise: 0.3, vignette: 0.55,
     },
   },
+  dissolve: ['dark'],
   build,
 };
