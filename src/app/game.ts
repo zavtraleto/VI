@@ -67,7 +67,7 @@ import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
 import { Hints } from './hints';
 import { puzzleReport, starsFor } from './puzzleStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
-import { CONTACT_STEPS, Ritual, nextThreshold, soundStage } from './ritual';
+import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
 import { statsText } from './stats';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
@@ -210,6 +210,9 @@ export class Game {
     onRestart: () => this.restartPuzzle(),
     onSkip: () => this.skipTutorial(),
     onContinue: () => this.outside((state) => tutorialAck(state)),
+    onPoints: (points, tier) => this.audio.points(points, tier),
+    onCount: () => this.audio.count(),
+    onSign: (sign) => this.audio.sign(sign),
     press: (dir) => {
       if (!this.inputEnabled()) return;
       // While the words of the exercise wait to be read, a button of the pad reads them.
@@ -220,7 +223,7 @@ export class Game {
     cancel: () => this.controller.cancel(),
   });
   /** The program around the game: boot, menu, panels. Its layers come after the board's, so they lie over it. */
-  private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen });
+  private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen, sound: (event) => this.audio.ui(event) });
   /** What comes from the other side: a transmission in a window of the program, over the board. */
   private readonly signal = new SignalPlayer(this.display, this.shell.values, this.world);
   /** A board is built for a size and kept: puzzles come in several. */
@@ -304,6 +307,7 @@ export class Game {
     const unlock = () => this.audio.unlock();
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
+    this.signal.onSound = (event) => this.audio.signal(event);
     this.applySound();
     onPlatformAudio((enabled) => {
       this.platformSound = enabled;
@@ -348,8 +352,7 @@ export class Game {
 
   /**
    * The page is hidden, or the platform asks the game to wait: the session stops and falls
-   * silent. The sound comes back when nothing outside keeps the game waiting any more, unless
-   * the session itself waits.
+   * silent. The sound comes back when nothing outside keeps the game waiting any more.
    */
   private setAway(by: 'page' | 'platform', away: boolean): void {
     if (away) {
@@ -357,11 +360,11 @@ export class Game {
       // What has been gathered so far is kept even if the page never comes back.
       saveSettings(this.settings);
       this.pause();
-      this.audio.setPaused(true);
+      this.audio.setAway(true);
       return;
     }
     this.away.delete(by);
-    if (this.away.size === 0 && !this.paused && !this.inMenu) this.audio.setPaused(false);
+    if (this.away.size === 0) this.audio.setAway(false);
   }
 
   /** How long the run has been played, in seconds. */
@@ -492,7 +495,7 @@ export class Game {
     this.hold.reset();
     this.lastPeak = 0;
     this.view.reset(riseIn);
-    this.audio.setStage(0);
+    this.audio.reset();
     this.audio.warn(null);
     this.audio.setPaused(false);
     this.paused = false;
@@ -800,7 +803,7 @@ export class Game {
     this.paused = false;
     this.tools?.hide();
     this.shell.hide();
-    this.audio.setPaused(this.away.size > 0);
+    this.audio.setPaused(false);
     tell('level_resumed', this.levelName());
     this.lastFrame = 0;
   }
@@ -1031,7 +1034,7 @@ export class Game {
     change(state);
     this.view.notify(state.events);
     for (const event of state.events) {
-      this.audio.handle(event);
+      this.audio.handle(event, state);
       this.onEvent(state, event);
     }
     state.events = [];
@@ -1067,7 +1070,7 @@ export class Game {
     this.view.notify(state.events);
     for (const event of state.events) {
       // Levels mean nothing in the tutorial: no fanfare for passing one.
-      if (!(state.tutorial && event.type === 'levelUp')) this.audio.handle(event);
+      if (!(state.tutorial && event.type === 'levelUp')) this.audio.handle(event, state);
       this.tally.note(event);
       this.onEvent(state, event);
     }
@@ -1099,6 +1102,7 @@ export class Game {
     const { state } = this;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.view.beat(beat, state, reducedMotion);
+    this.audio.beat(beat, state);
     if (!reducedMotion) this.hold.hold(beat.tier);
     let at: { x: number; y: number } | null = null;
     if (beat.cells.length > 0) {
@@ -1280,7 +1284,7 @@ export class Game {
     // The ritual follows the score of this run only and never feeds back into the rules.
     // A puzzle is not scored: the board stays as it is at the start.
     const reached = this.ritual.update(state.puzzle ? 0 : state.score, running ? Math.min(dt, 250) : 0);
-    if (reached.length > 0) this.audio.setStage(soundStage(this.ritual.stage));
+    if (reached.length > 0) this.audio.setContact(this.ritual.stage / CONTACT_STEPS.length);
     // A step of the contact is a beat of its own, and so is the moment it goes past the last.
     for (let i = 0; i < reached.length; i++) this.beat(stepBeat());
     const { peak } = this.ritual.look;

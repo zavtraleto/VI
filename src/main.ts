@@ -32,6 +32,9 @@ if (lab === 'shell') {
   const game = new Game(document.getElementById('app')!);
   (window as unknown as { vi: Game }).vi = game;
   void import('./lab/juiceLab').then(({ startJuiceLab }) => startJuiceLab(game));
+} else if (lab === 'sound') {
+  // The lab for the sound: no game, a button for everything that can be heard and a panel of its parameters.
+  void import('./lab/soundLab').then(({ startSoundLab }) => startSoundLab());
 } else if (lab !== null) {
   // The lab for the transmissions takes the page instead of the game. It is loaded only here,
   // with its panel, so the game does not carry it.

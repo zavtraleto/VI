@@ -6,7 +6,7 @@ import { loadShellFonts } from './fonts';
 import { ShellInput } from './input';
 import { Kit } from './kit';
 import { pictureSize, type Insets } from './layout';
-import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from './screen';
+import type { ShellContext, ShellFocus, ShellItem, ShellScreen, ShellSound } from './screen';
 import { BootScreen } from './screens/boot';
 import { MenuScreen, type MenuActions, type MenuData } from './screens/menu';
 import { PanelScreen, type PanelSpec } from './screens/panel';
@@ -14,12 +14,15 @@ import { clockHour, paletteAt, shellDefaults, type Palette } from './theme';
 import { Voice } from './voice';
 
 export type { MenuActions, MenuData } from './screens/menu';
+export type { ShellSound } from './screen';
 
 export interface ShellOptions {
   /** Something of the page lies over the shell and takes the input: a tool of the playtest. */
   blocked?: () => boolean;
   /** The look of the interface, where whoever owns the shell shares it with what else it draws. */
   values?: ParamValues;
+  /** Hears what the interface does. */
+  sound?: (event: ShellSound) => void;
 }
 
 let probe: HTMLElement | null = null;
@@ -71,6 +74,10 @@ export class Shell {
   private palette: Palette;
   /** The zone that was pressed and is answering before its action; `start` is the frame it began at. */
   private firing: { item: ShellItem; start: number | null } | null = null;
+  /** The zone the focus was on when it was last heard. */
+  private heard: string | null = null;
+  /** A press on the interface is being carried out: the screens it puts up or takes away are its own, and are heard as the press. */
+  private acting = false;
 
   constructor(
     private readonly display: Display,
@@ -96,6 +103,7 @@ export class Shell {
       },
       reducedMotion: () => prefersReducedMotion(this.settings),
       voice: this.voice,
+      sound: (event) => this.sound(event),
     };
     this.input = new ShellInput({
       active: () => this.screen !== null && this.fontsReady && this.firing === null && !this.options.blocked?.(),
@@ -103,10 +111,16 @@ export class Shell {
       changed: () => this.invalidate(),
       activate: (item) => {
         this.firing = { item, start: null };
+        this.sound({ kind: item.id === 'back' ? 'back' : 'run' });
         this.invalidate();
       },
       move: (focus, dir) => this.screen?.move?.(focus, dir),
-      back: () => this.screen?.back?.(),
+      stuck: () => this.sound({ kind: 'stuck' }),
+      back: () => {
+        if (!this.screen?.back) return;
+        this.sound({ kind: 'back' });
+        this.act(() => this.screen?.back?.());
+      },
       skip: () => {
         if (!this.screen?.skip) return false;
         this.screen.skip();
@@ -144,6 +158,7 @@ export class Shell {
    * steps back; opened from the menu it stands alone on the dark of the tube.
    */
   showPanel(spec: PanelSpec, alone: boolean): void {
+    if (!this.acting) this.sound({ kind: 'open' });
     this.show(new PanelScreen(this.context, spec, alone), alone);
   }
 
@@ -153,8 +168,10 @@ export class Shell {
   }
 
   hide(): void {
-    if (!this.screen) return;
-    this.screen.dispose?.();
+    const screen = this.screen;
+    if (!screen) return;
+    if (!this.acting && screen instanceof PanelScreen) this.sound({ kind: 'close' });
+    this.screen?.dispose?.();
     this.screen = null;
     this.voice.clear();
     this.firing = null;
@@ -196,9 +213,10 @@ export class Shell {
         const { item } = this.firing;
         this.firing = null;
         this.dirty = true;
-        item.action();
+        this.act(item.action);
       }
     }
+    this.hearFocus();
     // An action or the end of the boot may have put another screen up, or none.
     screen = this.screen;
     if (!screen) return;
@@ -233,7 +251,30 @@ export class Shell {
     this.covering = covers;
     this.firing = null;
     this.input.reset(screen.home ?? null);
+    this.heard = this.input.focus;
     this.invalidate();
+  }
+
+  private sound(event: ShellSound): void {
+    this.options.sound?.(event);
+  }
+
+  /** Carries out a press on the interface. */
+  private act(action: () => void): void {
+    this.acting = true;
+    try {
+      action();
+    } finally {
+      this.acting = false;
+    }
+  }
+
+  /** The focus has stepped onto another zone since it was last heard: the step is said. */
+  private hearFocus(): void {
+    const focus = this.input.focus;
+    if (focus === this.heard) return;
+    this.heard = focus;
+    if (focus !== null && this.screen) this.sound({ kind: 'step', face: this.screen.face?.(focus) ?? null });
   }
 
   private invalidate(): void {

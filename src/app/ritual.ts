@@ -130,8 +130,3 @@ export class Ritual {
     return reached;
   }
 }
-
-/** The stage of the sound, which has five: the steps of the contact spread over them. */
-export function soundStage(stage: number): number {
-  return Math.ceil((stage * 5) / CONTACT_STEPS.length);
-}

@@ -155,6 +155,11 @@ export interface HudActions {
   onSkip(): void;
   /** The words of the exercise have been read. */
   onContinue(): void;
+  /** One more sign of the words of the exercise has come. */
+  onSign?(sign: string): void;
+  /** Points of a group have reached the score; the score has counted a little further up. */
+  onPoints?(points: number, tier: number): void;
+  onCount?(): void;
   press(dir: Dir): void;
   release(): void;
   cancel(): void;
@@ -265,6 +270,8 @@ export class GameHud {
   private lineStart = 0;
   /** The moment all of them were there. */
   private lineFull = 0;
+  /** How many of them had come by the last frame. */
+  private signsSaid = 0;
   private lastTime = 0;
   /** Points on their way from a group to the score. `from` is in pixels of the picture. */
   private flyers: { points: number; value: number; tier: number; from: Point; born: number }[] = [];
@@ -394,6 +401,8 @@ export class GameHud {
       this.lineFull = view.reducedMotion ? timeMs : timeMs + words.length * SIGN_MS;
     }
     const signs = Math.min(words.length, this.signs(timeMs));
+    if (signs > this.signsSaid) this.actions.onSign?.(words[signs - 1]);
+    this.signsSaid = signs;
     this.headerHeight = layout.wide ? 0 : Math.round(layout.height * zoom - css.top);
     this.columnWidth = layout.wide ? Math.round(layout.column * zoom - css.left) : 0;
     this.follow(view, timeMs);
@@ -467,12 +476,16 @@ export class GameHud {
           return true;
         }
         this.hit = { at: timeMs, value: flyer.value, tier: flyer.tier };
+        this.actions.onPoints?.(flyer.points, flyer.tier);
         return false;
       });
       const gap = header.score - coming - this.shown;
       // A fifth of the way each frame, and never slower than one: the number runs up to the score.
       if (view.reducedMotion || header.score < this.shown) this.shown = header.score;
-      else if (gap > 0) this.shown += Math.max(1, Math.ceil(gap * 0.2));
+      else if (gap > 0) {
+        this.shown += Math.max(1, Math.ceil(gap * 0.2));
+        this.actions.onCount?.();
+      }
       if (header.level !== null && header.level > this.lastLevel) this.levelFlash = timeMs + FLASH_MS;
       if (header.level !== null) this.lastLevel = header.level;
       if (header.stage > this.lastStage) this.stageFlash = timeMs + FLASH_MS;

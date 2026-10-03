@@ -28,6 +28,8 @@ interface Playing {
   values: ParamValues;
   instance: SceneInstance;
   contact: number;
+  /** It comes before a session and asks for nothing, instead of answering one. */
+  glimpse: boolean;
   /** Where the window stands in the room the screen leaves it. */
   place: WindowPlace;
   durationMs: number;
@@ -42,6 +44,11 @@ interface Playing {
   onDone: () => void;
 }
 
+/** What a transmission does that can be heard: its window opens, and closes. */
+export type SignalSound =
+  | { kind: 'open'; figure: number; contact: number; seconds: number; glimpse: boolean }
+  | { kind: 'close' };
+
 /**
  * Shows a transmission over the game: the program opens what it has received as a file in a
  * window of its own. The picture is a layer of the display; the window around it is drawn
@@ -55,6 +62,8 @@ interface Playing {
 export class SignalPlayer {
   /** In development `?signal=off` in the address keeps the transmissions out of the game. */
   enabled = !import.meta.env.DEV || new URLSearchParams(window.location.search).get('signal') !== 'off';
+  /** Hears the window open and close. */
+  onSound: ((event: SignalSound) => void) | null = null;
   /** In development `?signal=always` shows one before every session, to look at them without waiting. */
   private readonly always = import.meta.env.DEV && new URLSearchParams(window.location.search).get('signal') === 'always';
   private readonly picture: Layer;
@@ -124,7 +133,7 @@ export class SignalPlayer {
     // Right after an answer the session starts at once; the glimpse waits for the next one.
     if (answered || (this.untilGlimpse > 0 && !this.always)) return;
     this.untilGlimpse = this.glimpseGap();
-    this.play(randomCard(this.random, 0, GLIMPSE_SECONDS), 0, () => undefined);
+    this.play(randomCard(this.random, 0, GLIMPSE_SECONDS), 0, () => undefined, true);
   }
 
   /** Closes the window that is open, if it has been open long enough to have been seen. */
@@ -148,6 +157,9 @@ export class SignalPlayer {
     const { playing, display } = this;
     this.leak?.frame(timeMs, this.enabled && !playing ? session : null);
     if (!playing || !playing.ready) return;
+    if (playing.start === null) {
+      this.onSound?.({ kind: 'open', figure: playing.card.figure, contact: playing.contact, seconds: playing.card.seconds, glimpse: playing.glimpse });
+    }
     playing.start ??= timeMs;
     const elapsed = timeMs - playing.start;
     playing.elapsed = elapsed;
@@ -183,7 +195,7 @@ export class SignalPlayer {
     return from + Math.floor(this.random() * (to - from + 1));
   }
 
-  private play(card: SignalCard, contact: number, onDone: () => void): void {
+  private play(card: SignalCard, contact: number, onDone: () => void, glimpse = false): void {
     this.finish();
     const { def, values } = cardScene(card);
     const playing: Playing = {
@@ -192,6 +204,7 @@ export class SignalPlayer {
       values,
       instance: def.build(values, card.seed),
       contact,
+      glimpse,
       place: { x: this.random(), y: this.random() },
       durationMs: card.seconds * 1000,
       start: null,
@@ -216,6 +229,7 @@ export class SignalPlayer {
     this.picture.look.opacity = 0;
     this.words.look.opacity = 0;
     this.chrome.look.opacity = 0;
+    if (playing.start !== null) this.onSound?.({ kind: 'close' });
     playing.onDone();
   }
 

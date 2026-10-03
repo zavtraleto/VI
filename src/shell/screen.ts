@@ -26,6 +26,25 @@ export interface ShellFocus {
   pressed: string | null;
 }
 
+/**
+ * What the interface does that can be heard. The shell only says that it has happened: what
+ * it sounds like is not its business.
+ */
+export type ShellSound =
+  /** The focus has stepped onto a zone; `face` is the face of the die it stands on, where the screen is made of dice. */
+  | { kind: 'step'; face: number | null }
+  /** A key asked for a step there is nowhere to take. */
+  | { kind: 'stuck' }
+  | { kind: 'run' }
+  | { kind: 'back' }
+  /** A panel has come up, or gone, by something other than a press on the interface itself. */
+  | { kind: 'open' }
+  | { kind: 'close' }
+  /** The boot: a line of the check, the answer of a line (`found` is false for the device that is not there), the logo. */
+  | { kind: 'check' }
+  | { kind: 'answer'; found: boolean }
+  | { kind: 'logo' };
+
 /** What a screen is given to lay itself out. */
 export interface ShellContext {
   readonly values: ParamValues;
@@ -38,6 +57,8 @@ export interface ShellContext {
   reducedMotion(): boolean;
   /** Prose in the language of the player: a screen says it while it draws. */
   readonly voice: Voice;
+  /** Something a screen has done that can be heard. */
+  sound(event: ShellSound): void;
 }
 
 export interface ShellScreen {
@@ -56,6 +77,8 @@ export interface ShellScreen {
   tick?(kit: Kit, timeMs: number): boolean;
   /** Where a key takes the focus from a zone, on a screen that knows better than the places of its zones. */
   move?(focus: string | null, dir: Dir4): string | null;
+  /** The face of the die a zone stands on, on a screen that is made of dice. */
+  face?(id: string): number | null;
   /** Esc and the system's "back". */
   back?(): void;
   /** Any press or key, on a screen that only waits to be passed. */

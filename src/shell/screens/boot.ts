@@ -22,6 +22,8 @@ export class BootScreen implements ShellScreen {
   private frame: BootFrame;
   private drawn = '';
   private finished = false;
+  /** What of the boot has been said already. */
+  private heard = { labels: 0, values: 0, logo: false };
   private readonly options: BootOptions;
 
   constructor(
@@ -45,6 +47,7 @@ export class BootScreen implements ShellScreen {
       this.finish();
       return false;
     }
+    this.hear(this.frame);
     const { labels, values, tail, logo, line } = this.frame;
     const key = `${labels}/${values}/${tail}/${logo > 0}/${line}`;
     if (key === this.drawn) return false;
@@ -66,7 +69,21 @@ export class BootScreen implements ShellScreen {
   private finish(): void {
     if (this.finished) return;
     this.finished = true;
+    // A boot that is passed before its logo still says the name of the program.
+    if (!this.heard.logo) {
+      this.heard.logo = true;
+      this.context.sound({ kind: 'logo' });
+    }
     this.onDone();
+  }
+
+  /** What has come on screen since the last frame is said: a line of the check, its answer, the logo. */
+  private hear(frame: BootFrame): void {
+    const { heard } = this;
+    if (frame.labels > heard.labels) this.context.sound({ kind: 'check' });
+    if (frame.values > heard.values) this.context.sound({ kind: 'answer', found: frame.values < this.options.rows });
+    if (frame.logo > 0 && !heard.logo) this.context.sound({ kind: 'logo' });
+    this.heard = { labels: frame.labels, values: frame.values, logo: frame.logo > 0 };
   }
 
   private drawCheck(kit: Kit, frame: BootFrame): void {

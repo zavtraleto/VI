@@ -7,7 +7,6 @@ import {
   STAGE_TRANSITION_MS,
   lineLevel,
   nextThreshold,
-  soundStage,
   stageForScore,
 } from './ritual';
 
@@ -46,12 +45,6 @@ describe('contact steps', () => {
     expect(lineLevel(first, 1)).toBe(1);
     const all = CONTACT_LINES.reduce((sum, line) => sum + lineLevel(line, CONTACT_STEPS.length), 0);
     expect(all).toBe(CONTACT_STEPS.length);
-  });
-
-  it('spreads the steps over the five stages of the sound', () => {
-    expect(soundStage(0)).toBe(0);
-    expect(soundStage(1)).toBe(1);
-    expect(soundStage(CONTACT_STEPS.length)).toBe(5);
   });
 });
 

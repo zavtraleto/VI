@@ -1,158 +1,368 @@
-import type { GameEvent, MoveKind } from '../rules';
+import type { Beat } from '../app/juice';
+import type { GameEvent, RunState } from '../rules';
+import type { ShellSound } from '../shell/screen';
+import type { SignalSound } from '../signal/player';
+import type { ParamValues } from '../signal/scene';
+import { soundDefaults, soundNumber } from './params';
+import { CUTS, HELD, INTERFACE, REPLY_MOST, SPACING, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, notesFor, replyCount, silentSign, type Cue, type Note } from './score';
+import { Variety, soundRandom, type Rand } from './variation';
+import { FADE, startVoice, type Voice, type VoicePort } from './voices';
 
 /**
- * Placeholder sound made entirely with WebAudio: no assets. Every sound here is a stand-in
- * for the final sound design and is meant to be replaced, not tuned.
+ * The sound of the game, made entirely in code with WebAudio: no files. Between two sounds
+ * there is silence: nothing here hums, loops or runs on. What lasts is the tail of a note.
  */
 
-/** Natural minor scale steps, in semitones, used to raise a chain. */
-const MINOR = [0, 2, 3, 5, 7, 8, 10, 12, 14, 15];
-const ROOT_HZ = 55;
+/** A note is asked for this far ahead of the clock of the context, so it never falls into its past. */
+const LEAD = 0.004;
+/** The noise the clicks of the knocks are cut from, in seconds. */
+const NOISE_SECONDS = 0.5;
+/** How long a context may take to start after it has been opened, in milliseconds. */
+const OPENING_MS = 1000;
+/** An echo that is replaced while notes still go into it is kept this long past its own tail, in seconds: the longest note there is. */
+const RING_OUT = 12;
 
-interface DroneLayer {
-  osc: OscillatorNode;
-  gain: GainNode;
-  level: number;
+interface Echo {
+  wet: GainNode;
+  node: ConvolverNode;
+  out: GainNode;
+  seconds: number;
 }
 
-export class AudioEngine {
-  private ctx: AudioContext | null = null;
-  private master: GainNode | null = null;
-  private noiseBuffer: AudioBuffer | null = null;
-  private drones: DroneLayer[] = [];
+/**
+ * The echo: a burst of noise that dies away and grows darker as it does, different on each
+ * side. It has no walls in it, no first returns: the board hangs in a void, and this is the
+ * void. Its low part is taken out, so that it does not rumble, and its high part is soft from
+ * the start, so that it never hisses. Made once, from the sound's own numbers.
+ */
+function impulse(ctx: BaseAudioContext, seconds: number, rand: Rand): AudioBuffer {
+  const rate = ctx.sampleRate;
+  const length = Math.max(2, Math.floor(rate * seconds));
+  const before = Math.min(length - 1, Math.floor(rate * 0.012));
+  const buffer = ctx.createBuffer(2, length, rate);
+  // How fast a one-pole filter follows what it is given, for a corner in hertz, at any rate of the context.
+  const follow = (hz: number): number => 1 - Math.exp((-2 * Math.PI * hz) / rate);
+  const under = follow(160);
+  for (let channel = 0; channel < 2; channel++) {
+    const data = buffer.getChannelData(channel);
+    let smooth = 0;
+    let slow = 0;
+    for (let i = before; i < length; i++) {
+      const t = (i - before) / (length - before);
+      // From about five thousand hertz down to a few hundred: the tail grows dark.
+      smooth += (rand() * 2 - 1 - smooth) * follow(5200 * (1 - t) ** 2 + 500);
+      slow += (smooth - slow) * under;
+      // Sixty decibels down by its end, and to nothing exactly at it.
+      data[i] = (smooth - slow) * Math.exp(-6.9 * t) * (1 - t);
+    }
+  }
+  return buffer;
+}
+
+function noiseBuffer(ctx: BaseAudioContext, rand: Rand): AudioBuffer {
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * NOISE_SECONDS), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = rand() * 2 - 1;
+  return buffer;
+}
+
+/**
+ * What every note goes through on its way out: the volume, the one echo all voices share, and
+ * a limiter at the end so that peaks do not crackle. It also keeps count of the voices: there
+ * are never more than the most allowed, and the oldest are taken off quietly.
+ */
+export class SoundChain {
+  private readonly dry: GainNode;
+  private readonly master: GainNode;
+  private readonly limiter: DynamicsCompressorNode;
+  private readonly noise: AudioBuffer;
+  /** The echo: the way into it, the echo itself, the way out of it, and how long it rings. */
+  private echo: Echo;
+  /** What has been taken out of the chain and is let go once it is silent. */
+  private retired: { nodes: AudioNode[]; at: number }[] = [];
+  private readonly voices = new Set<Voice>();
+  private held = 0;
   private muted = false;
-  private stage = 0;
-  private lastWarnSecond = -1;
+
+  constructor(
+    readonly ctx: BaseAudioContext,
+    private readonly values: ParamValues,
+    private readonly rand: Rand,
+  ) {
+    this.dry = ctx.createGain();
+    this.master = ctx.createGain();
+    this.limiter = ctx.createDynamicsCompressor();
+    // A safeguard, not a way of mixing: it only works when notes pile up.
+    this.limiter.threshold.value = -8;
+    this.limiter.knee.value = 4;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.002;
+    this.limiter.release.value = 0.15;
+    this.master.gain.value = soundNumber(values, 'volMaster');
+    this.dry.connect(this.master);
+    this.master.connect(this.limiter);
+    this.limiter.connect(ctx.destination);
+    this.noise = noiseBuffer(ctx, rand);
+    this.echo = this.makeEcho();
+    this.refresh();
+  }
+
+  private makeEcho(): Echo {
+    const seconds = soundNumber(this.values, 'verbTail');
+    const wet = this.ctx.createGain();
+    const node = this.ctx.createConvolver();
+    node.buffer = impulse(this.ctx, seconds, this.rand);
+    const out = this.ctx.createGain();
+    out.gain.value = soundNumber(this.values, 'verbLevel');
+    wet.connect(node);
+    node.connect(out);
+    out.connect(this.master);
+    return { wet, node, out, seconds };
+  }
+
+  /**
+   * Takes the echo out of the chain, with everything that still goes into it: at once, or
+   * leaving what rings in it to die away. The notes that come after get an echo of their own.
+   */
+  private retireEcho(now: number, ringOut: boolean): void {
+    const { wet, node, out, seconds } = this.echo;
+    if (!ringOut) {
+      out.gain.cancelScheduledValues(now);
+      out.gain.setValueAtTime(out.gain.value, now);
+      out.gain.linearRampToValueAtTime(0, now + FADE);
+    }
+    this.retired.push({ nodes: [wet, node, out], at: now + (ringOut ? seconds + RING_OUT : FADE + 0.05) });
+    this.echo = this.makeEcho();
+  }
+
+  /** The values of the panel have changed: the volume, the echo. */
+  refresh(): void {
+    const now = this.ctx.currentTime;
+    this.master.gain.setTargetAtTime(this.muted ? 0 : soundNumber(this.values, 'volMaster'), now, 0.02);
+    if (soundNumber(this.values, 'verbTail') !== this.echo.seconds) this.retireEcho(now, true);
+    this.echo.out.gain.setTargetAtTime(soundNumber(this.values, 'verbLevel'), now, 0.02);
+  }
+
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    this.refresh();
+  }
+
+  /** Lets go of what has ended. A note lets itself go when it stops; this is for what could not. */
+  tidy(): void {
+    const now = this.ctx.currentTime;
+    for (const voice of [...this.voices]) if (now > voice.end + 0.25) voice.dispose();
+    this.retired = this.retired.filter((old) => {
+      if (now < old.at) return true;
+      for (const node of old.nodes) node.disconnect();
+      return false;
+    });
+  }
+
+  /** Plays notes: `at` is the moment their times are counted from, in the time of the context. */
+  play(notes: readonly Note[], at = this.ctx.currentTime + LEAD): void {
+    this.tidy();
+    const most = Math.max(1, Math.round(soundNumber(this.values, 'maxVoices')));
+    const port: VoicePort = { ctx: this.ctx, dry: this.dry, wet: this.echo.wet, noise: this.noise, values: this.values, rand: this.rand };
+    for (const note of notes) {
+      // No more voices than the most there may be: the oldest gives way, quietly.
+      let staying = [...this.voices].filter((voice) => !voice.leaving);
+      while (staying.length >= most) {
+        const oldest = staying.reduce((a, b) => (b.start < a.start ? b : a));
+        oldest.release(at);
+        staying = staying.filter((voice) => voice !== oldest);
+      }
+      const voice = startVoice(port, note, at + note.at, (ended) => {
+        this.voices.delete(ended);
+        this.held -= ended.nodes;
+      });
+      this.voices.add(voice);
+      this.held += voice.nodes;
+    }
+  }
+
+  /** Takes off the notes of one part of a sound, over `fade` seconds: a note that was being held is let go. */
+  release(part: string, fade: number, at = this.ctx.currentTime + LEAD): void {
+    for (const voice of this.voices) if (voice.part === part) voice.release(at, fade);
+  }
+
+  /** Cuts every tail off: the voices fall silent at once, and what rings in the echo goes with them. */
+  cut(at = this.ctx.currentTime + LEAD): void {
+    for (const voice of this.voices) voice.release(at);
+    this.retireEcho(at, false);
+  }
+
+  /** Voices that sound or are about to, those of them that are being taken off, and the nodes they hold. */
+  get count(): { voices: number; leaving: number; nodes: number } {
+    let leaving = 0;
+    for (const voice of this.voices) if (voice.leaving) leaving++;
+    return { voices: this.voices.size - leaving, leaving, nodes: this.held };
+  }
+
+  /** A tap on what goes out, after the limiter, for a meter. It makes no sound. */
+  tap(): AnalyserNode {
+    const analyser = this.ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    this.limiter.connect(analyser);
+    return analyser;
+  }
+}
+
+/**
+ * The sound as the game uses it: it is told what happens and plays it. The context is opened
+ * by the first press, as browsers ask; a pause holds everything, and the platform or the
+ * player can turn the sound off.
+ */
+export class AudioEngine {
+  /** The values the sound is made from. The lab's panel changes them in place. */
+  readonly values: ParamValues = soundDefaults();
+  private ctx: AudioContext | null = null;
+  private chain: SoundChain | null = null;
+  private muted = false;
+  /** The page is hidden, or the platform has asked for quiet: the context stands still. */
   private suspended = false;
+  /** The session waits: only the interface is heard. */
+  private waiting = false;
+  /**
+   * The program started before the sound could be opened, and its name was not heard. It is
+   * said as soon as there is a voice to say it with: at the first press.
+   */
+  private owed: Cue | null = null;
+  /** The notes the player has last played, as their frequencies: what the other side may give back. */
+  private heard: number[] = [];
+  /** When the context was opened, by the clock of the page. */
+  private openedAt = 0;
+  /** How far the contact has gone, 0 to 1. */
+  private contact = 0;
+  private lastWarnSecond = -1;
+  /** The sound's own chance: it has nothing to do with the rules and never reaches the state of a run. */
+  private readonly rand: Rand = soundRandom(Math.floor(Math.random() * 0x7fffffff));
+  private readonly variety = new Variety();
+  private readonly memory = new ScoreMemory();
+  /** When a sound of a kind was last played, for those that may not come too often. */
+  private readonly last = new Map<Cue['kind'], number>();
 
   /** Must be called from a user gesture; browsers keep audio locked until then. */
   unlock(): void {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended' && !this.suspended) void this.ctx.resume();
+      if (this.ctx.state !== 'running' && !this.suspended) void this.ctx.resume();
       return;
     }
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
     const ctx = new Ctor();
     this.ctx = ctx;
-    this.master = ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.6;
-    this.master.connect(ctx.destination);
-
-    const buffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    this.noiseBuffer = buffer;
-
-    // One drone layer per ritual stage: root, fifth, detuned octave, a dissonant second, a low fourth.
-    const layers: [number, OscillatorType, number][] = [
-      [ROOT_HZ, 'sine', 0.16],
-      [ROOT_HZ * 1.5, 'sine', 0.07],
-      [ROOT_HZ * 2.01, 'triangle', 0.045],
-      [ROOT_HZ * 1.06, 'sine', 0.07],
-      [ROOT_HZ * 0.75, 'sawtooth', 0.035],
-    ];
-    this.drones = layers.map(([freq, type, level]) => {
-      const osc = ctx.createOscillator();
-      osc.type = type;
-      osc.frequency.value = freq;
-      const gain = ctx.createGain();
-      gain.gain.value = 0;
-      osc.connect(gain).connect(this.master!);
-      osc.start();
-      return { osc, gain, level };
-    });
-    this.applyStage(0.05);
+    this.openedAt = performance.now();
+    this.chain = new SoundChain(ctx, this.values, this.rand);
+    this.chain.setMuted(this.muted);
+    // A phone holds the sound until something has been started inside a touch: one empty sample is enough.
+    const blank = ctx.createBufferSource();
+    blank.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    blank.connect(ctx.destination);
+    blank.onended = () => blank.disconnect();
+    blank.start();
+    if (ctx.state !== 'running' && !this.suspended) void ctx.resume();
+    const { owed } = this;
+    this.owed = null;
+    if (owed) this.play(owed);
   }
 
   setMuted(muted: boolean): void {
     this.muted = muted;
-    if (this.ctx && this.master) this.master.gain.setTargetAtTime(muted ? 0 : 0.6, this.ctx.currentTime, 0.03);
+    this.chain?.setMuted(muted);
   }
 
-  /** Silences everything while the game is paused or the tab is hidden. */
+  /**
+   * The session waits: it is paused, or the player is in the menu. Nothing of the session is
+   * played until it goes on; what was ringing dies away by itself, and the interface goes on
+   * being heard.
+   */
   setPaused(paused: boolean): void {
-    this.suspended = paused;
+    this.waiting = paused;
+  }
+
+  /** The page is hidden, or the platform asks for quiet: everything is held, and nothing new is played. */
+  setAway(away: boolean): void {
+    this.suspended = away;
     if (!this.ctx) return;
-    if (paused) void this.ctx.suspend();
+    if (away) void this.ctx.suspend();
     else void this.ctx.resume();
   }
 
-  setStage(stage: number): void {
-    if (stage === this.stage) return;
-    const rising = stage > this.stage;
-    this.stage = stage;
-    this.applyStage(1.2);
-    if (rising) this.swell(stage);
+  /** How far the contact has gone, 0 to 1. */
+  setContact(level: number): void {
+    this.contact = Math.min(1, Math.max(0, level));
   }
 
-  private applyStage(seconds: number): void {
-    if (!this.ctx) return;
-    const now = this.ctx.currentTime;
-    this.drones.forEach((layer, i) => {
-      layer.gain.gain.setTargetAtTime(i < this.stage ? layer.level : 0, now, seconds / 3);
-    });
+  /** A new run: the contact is back at nothing, and what the sound kept of the last run is dropped. */
+  reset(): void {
+    this.contact = 0;
+    this.lastWarnSecond = -1;
+    this.memory.reset();
+    this.last.clear();
+    this.heard = [];
   }
 
-  private tone(
-    freq: number,
-    opts: { type?: OscillatorType; gain?: number; attack?: number; decay: number; to?: number; delay?: number },
-  ): void {
-    if (!this.ctx || !this.master) return;
-    const start = this.ctx.currentTime + (opts.delay ?? 0);
-    const osc = this.ctx.createOscillator();
-    osc.type = opts.type ?? 'sine';
-    osc.frequency.setValueAtTime(freq, start);
-    if (opts.to) osc.frequency.exponentialRampToValueAtTime(opts.to, start + opts.decay);
-    const gain = this.ctx.createGain();
-    const peak = opts.gain ?? 0.2;
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(peak, start + (opts.attack ?? 0.005));
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + opts.decay);
-    osc.connect(gain).connect(this.master);
-    osc.start(start);
-    osc.stop(start + opts.decay + 0.05);
+  /** The values of the panel have changed. */
+  refresh(): void {
+    this.chain?.refresh();
   }
 
-  private noise(opts: { duration: number; freq: number; type?: BiquadFilterType; gain?: number; q?: number }): void {
-    if (!this.ctx || !this.master || !this.noiseBuffer) return;
-    const start = this.ctx.currentTime;
-    const source = this.ctx.createBufferSource();
-    source.buffer = this.noiseBuffer;
-    source.loop = true;
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = opts.type ?? 'lowpass';
-    filter.frequency.value = opts.freq;
-    filter.Q.value = opts.q ?? 0.7;
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(opts.gain ?? 0.3, start);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + opts.duration);
-    source.connect(filter).connect(gain).connect(this.master);
-    source.start(start, Math.random() * 0.5);
-    source.stop(start + opts.duration + 0.02);
+  /** Cuts off everything that is sounding. */
+  silence(): void {
+    this.chain?.cut();
   }
 
-  private chord(rootHz: number, semitones: number[], decay: number, gain: number): void {
-    semitones.forEach((s, i) => {
-      this.tone(rootHz * 2 ** (s / 12), { type: i === 0 ? 'triangle' : 'sine', gain: gain / (1 + i * 0.4), attack: 0.01, decay, delay: i * 0.012 });
-    });
-  }
-
-  private swell(stage: number): void {
-    this.tone(ROOT_HZ * 0.5, { type: 'sine', gain: 0.35, attack: 0.4, decay: 2.2 });
-    this.tone(ROOT_HZ * 2 * 2 ** (MINOR[stage] / 12), { type: 'triangle', gain: 0.12, attack: 0.6, decay: 1.8 });
-    this.noise({ duration: 1.6, freq: 500 + stage * 250, type: 'bandpass', gain: 0.1, q: 1.5 });
-  }
-
-  private move(kind: MoveKind): void {
-    if (kind === 'walk' || kind === 'hop' || kind === 'mount' || kind === 'descend' || kind === 'climb') {
-      this.noise({ duration: 0.05, freq: 1400, type: 'bandpass', gain: 0.1, q: 2 });
-    } else if (kind === 'push') {
-      this.noise({ duration: 0.2, freq: 320, gain: 0.22 });
+  /** Plays a sound. Nothing is played while the sound is off, held, or not yet opened. */
+  play(cue: Cue): void {
+    const { ctx, chain } = this;
+    if (!ctx || !chain) {
+      if (cue.kind === 'logo') this.owed = cue;
+      return;
     }
+    if (this.muted || this.suspended) return;
+    if (this.waiting && !INTERFACE.includes(cue.kind)) return;
+    // A context that has just been opened takes a moment to start: what is asked of it then is
+    // played when it does. One that stands still for any other reason is not given sounds to
+    // pile up and let out all at once.
+    if (ctx.state !== 'running' && performance.now() - this.openedAt > OPENING_MS) return;
+    const now = ctx.currentTime;
+    const gap = SPACING[cue.kind];
+    if (gap !== undefined) {
+      const last = this.last.get(cue.kind);
+      if (last !== undefined && now >= last && now - last < gap) return;
+      this.last.set(cue.kind, now);
+    }
+    if (CUTS.includes(cue.kind)) chain.cut();
+    const notes = notesFor(cue, { values: this.values, contact: this.contact, rand: this.rand, variety: this.variety });
+    chain.play(notes);
+    this.answer(cue, notes);
   }
 
-  /** Board is full: one low pulse per second of the countdown. */
+  /**
+   * The other side answers what the player has just played: not at low contact, and the more
+   * often the further it has gone. A roll is answered more rarely than a group: there are many.
+   */
+  private answer(cue: Cue, notes: readonly Note[]): void {
+    const lead = leadNote(cue, notes);
+    if (!lead) return;
+    this.heard = [...this.heard, lead.hz].slice(-REPLY_MOST);
+    const count = replyCount(this.contact, this.values, this.rand, cue.kind === 'roll' ? 0.25 : 1);
+    if (count > 0) this.play({ kind: 'reply', heard: this.heard.slice(-count) });
+  }
+
+  /** What the rules have just said. The state is read, never changed. */
+  handle(event: GameEvent, state: RunState): void {
+    for (const cue of cuesOfEvent(event, state, this.memory)) this.play(cue);
+  }
+
+  /** A beat: the sound answers it with the same strength as the picture. */
+  beat(beat: Beat, state: RunState): void {
+    const cue = cueOfBeat(beat, state.config.size, this.contact);
+    if (cue) this.play(cue);
+  }
+
+  /** Board is full: one low beat per second of the countdown. */
   warn(secondsLeft: number | null): void {
     if (secondsLeft === null) {
       this.lastWarnSecond = -1;
@@ -160,81 +370,86 @@ export class AudioEngine {
     }
     if (secondsLeft === this.lastWarnSecond) return;
     this.lastWarnSecond = secondsLeft;
-    this.tone(196, { type: 'square', gain: 0.1, decay: 0.16 });
-    this.tone(98, { type: 'square', gain: 0.12, decay: 0.2 });
+    this.play({ kind: 'danger', secondsLeft });
   }
 
   /** The board comes up for the run that follows the tutorial. */
   begin(): void {
-    this.tone(ROOT_HZ * 2, { type: 'triangle', gain: 0.14, attack: 0.05, decay: 0.9, to: ROOT_HZ * 4 });
-    this.noise({ duration: 0.6, freq: 700, type: 'bandpass', gain: 0.1, q: 1.5 });
+    this.play({ kind: 'begin' });
   }
 
   /** One second of the closing countdown in Time Limited. */
   tick(): void {
-    this.tone(660, { type: 'triangle', gain: 0.1, decay: 0.12 });
+    this.play({ kind: 'clock' });
   }
 
-  handle(event: GameEvent): void {
-    switch (event.type) {
-      case 'move':
-        this.move(event.kind);
+  /** Points of a group have reached the score. */
+  points(points: number, tier: number): void {
+    this.play({ kind: 'points', points, tier });
+  }
+
+  /** The score has counted a little further up. */
+  count(): void {
+    this.play({ kind: 'count' });
+  }
+
+  /** What the interface of the program has done. */
+  ui(event: ShellSound): void {
+    switch (event.kind) {
+      case 'step':
+        this.play({ kind: 'uiStep', face: event.face });
         break;
-      case 'landed':
-        // Short dry thud when a cube comes to rest.
-        this.noise({ duration: 0.07, freq: 520, gain: 0.34 });
-        this.tone(92, { gain: 0.3, decay: 0.09, to: 60 });
+      case 'stuck':
+        this.play({ kind: 'uiStuck' });
         break;
-      case 'blocked':
-        this.tone(70, { type: 'square', gain: 0.07, decay: 0.06 });
+      case 'run':
+        this.play({ kind: 'uiRun' });
         break;
-      case 'warned':
-        // A short crackle where a cube is about to rise.
-        this.noise({ duration: 0.09, freq: 3200, type: 'highpass', gain: 0.12 });
-        this.tone(1400, { type: 'square', gain: 0.04, decay: 0.08, to: 320 });
+      case 'back':
+        this.play({ kind: 'uiBack' });
         break;
-      case 'spawn':
-        this.tone(120, { gain: 0.05, attack: 0.2, decay: 0.9, to: 200 });
+      case 'open':
+        this.play({ kind: 'uiOpen' });
         break;
-      case 'displaced':
-        this.noise({ duration: 0.1, freq: 900, type: 'bandpass', gain: 0.14, q: 3 });
+      case 'close':
+        this.play({ kind: 'uiClose' });
         break;
-      case 'match':
-        this.chord(ROOT_HZ * 2 * 2 ** (MINOR[event.value - 1] / 12), [0, 7, 12], 0.9, 0.22);
+      case 'check':
+        this.play({ kind: 'bootCheck' });
         break;
-      case 'chain': {
-        const step = MINOR[Math.min(event.chain + event.value - 2, MINOR.length - 1)];
-        this.chord(ROOT_HZ * 2 * 2 ** (step / 12), [0, 3, 7, 10, 12], 1.3, 0.26);
+      case 'answer':
+        this.play({ kind: 'bootAnswer', found: event.found });
         break;
-      }
-      case 'happyOne':
-        for (const [i, f] of [880, 1320, 1760].entries()) this.tone(f, { gain: 0.08, decay: 0.5, delay: i * 0.05 });
-        break;
-      case 'removed':
-        this.tone(200, { gain: 0.06, decay: 0.4, to: 55 });
-        break;
-      case 'fell':
-        this.noise({ duration: 0.14, freq: 240, gain: 0.3 });
-        break;
-      case 'lifted':
-        this.tone(140, { gain: 0.08, attack: 0.05, decay: 0.4, to: 220 });
-        break;
-      case 'levelUp':
-        this.tone(ROOT_HZ * 4, { type: 'triangle', gain: 0.12, decay: 0.35 });
-        this.tone(ROOT_HZ * 6, { type: 'triangle', gain: 0.12, decay: 0.5, delay: 0.14 });
-        break;
-      case 'deadEnd':
-        this.tone(110, { type: 'square', gain: 0.08, decay: 0.3, to: 70 });
-        break;
-      case 'cleared':
-        this.chord(ROOT_HZ * 4, [0, 7, 12, 16], 1.6, 0.24);
-        break;
-      case 'gameOver':
-        this.chord(ROOT_HZ * 2, [0, 1, 6], 2.4, 0.3);
-        this.tone(ROOT_HZ, { gain: 0.4, decay: 2.6, to: 27 });
-        break;
-      default:
+      case 'logo':
+        this.play({ kind: 'logo' });
         break;
     }
+  }
+
+  /** The window of a transmission opens, or shuts: the note held while it stood open is let go. */
+  signal(event: SignalSound): void {
+    if (event.kind === 'open') {
+      this.play({ kind: 'window', figure: event.figure, seconds: event.seconds, glimpse: event.glimpse });
+      return;
+    }
+    this.chain?.release(HELD, 0.05);
+    this.play({ kind: 'windowShut' });
+  }
+
+  /** One more sign of the words of the other side has come. */
+  sign(sign: string): void {
+    if (silentSign(sign)) return;
+    this.play({ kind: 'sign', code: sign.codePointAt(0) ?? 0 });
+  }
+
+  /** What the lab reads: whether the sound is open, and how many voices and nodes are alive. */
+  probe(): { open: boolean; voices: number; leaving: number; nodes: number } {
+    this.chain?.tidy();
+    return { open: this.ctx?.state === 'running', ...(this.chain?.count ?? { voices: 0, leaving: 0, nodes: 0 }) };
+  }
+
+  /** A meter on what goes out, for the lab. */
+  meter(): AnalyserNode | null {
+    return this.chain?.tap() ?? null;
   }
 }

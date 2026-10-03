@@ -101,6 +101,10 @@ export class MenuScreen implements ShellScreen {
     return MENU_FILES.find((file) => file.face === face)!.id;
   }
 
+  face(id: string): number | null {
+    return MENU_FILES.find((file) => file.id === id)?.face ?? null;
+  }
+
   update(): boolean {
     return false;
   }

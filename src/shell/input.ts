@@ -85,6 +85,8 @@ export interface InputHost {
   activate(item: ShellItem): void;
   /** Where a key takes the focus, on a screen that says so itself; undefined leaves it to the places of the zones. */
   move(focus: string | null, dir: FocusDir): string | null | undefined;
+  /** A key asked for a step, and there is nowhere to go that way. */
+  stuck(): void;
   back(): void;
   /** Passes a screen that only waits; false where the screen is not of that kind. */
   skip(): boolean;
@@ -179,6 +181,8 @@ export class ShellInput {
       if (next !== this.focus) {
         this.focus = next;
         this.host.changed();
+      } else if (!e.repeat) {
+        this.host.stuck();
       }
     } else if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') {
       e.preventDefault();
