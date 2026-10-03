@@ -45,24 +45,33 @@ export function loadJson<T>(key: string, fallback: T): T {
   }
 }
 
-export function saveJson(key: string, value: unknown): boolean {
+/**
+ * Saves several things together. On a platform they go in one call, as the platform asks:
+ * whatever is saved at the same moment is handed over at once, not key by key.
+ */
+export function saveAll(entries: readonly (readonly [key: string, value: unknown])[]): boolean {
   try {
-    const raw = JSON.stringify(value);
+    const keys = entries.map(([key]) => key);
+    const raws = entries.map(([, value]) => JSON.stringify(value));
     if (kept) {
-      kept.set(key, raw);
+      keys.forEach((key, i) => kept!.set(key, raws[i]));
       // The platform answers later; a save it refuses shows in `storageAvailable`.
-      platformWrite([key], [raw]).then(
+      platformWrite(keys, raws).then(
         () => (available = true),
         () => (available = false),
       );
     } else {
-      window.localStorage.setItem(key, raw);
+      keys.forEach((key, i) => window.localStorage.setItem(key, raws[i]));
     }
     return true;
   } catch {
     available = false;
     return false;
   }
+}
+
+export function saveJson(key: string, value: unknown): boolean {
+  return saveAll([[key, value]]);
 }
 
 export function storageAvailable(): boolean {

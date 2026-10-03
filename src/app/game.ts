@@ -22,8 +22,8 @@ import {
   trackPerformance,
   type BoardEntry,
 } from '../platform/bridge';
-import { addRun, bestOf, bestOn, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
-import { loadJson, saveJson, storageAvailable } from '../platform/storage';
+import { SETTINGS_KEY, addRun, bestOf, bestOn, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
+import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
@@ -71,7 +71,7 @@ import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
 import { statsText } from './stats';
-import { RUN_KEY, packRun, unpackRun } from './savedRun';
+import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
@@ -159,6 +159,8 @@ export class Game {
   private resultShown = false;
   /** A run is kept in storage for later: it is taken out when the run ends or is given up. */
   private runKept = false;
+  /** The tick the kept run stood at: a run that has not moved since is not written again. */
+  private keptTick = -1;
   /** The scored runs of this visit: how many were started, and how many in a row the board took. */
   private runIndex = 0;
   private lossesInRow = 0;
@@ -350,10 +352,13 @@ export class Game {
     this.audio.setPaused(true);
     this.layoutGuide();
     this.shell.boot(() => {
-      // The long boot is shown once per device.
-      saveSettings(this.settings);
       // A run the player was taken away from waits for them on its pause; otherwise, the menu.
-      if (!this.continueRun()) this.showMenu();
+      const kept = this.keptRun();
+      // The long boot is shown once per device. What was kept of the run has been read and goes
+      // out of storage with the same save.
+      this.saveWithoutRun();
+      if (kept) this.continueRun(kept);
+      else this.showMenu();
     });
     requestAnimationFrame((time) => this.frame(time));
   }
@@ -379,9 +384,9 @@ export class Game {
   private setAway(by: 'page' | 'platform', away: boolean): void {
     if (away) {
       this.away.add(by);
-      // What has been gathered so far is kept even if the page never comes back.
-      saveSettings(this.settings);
-      this.keepRun();
+      // What has been gathered so far is kept even if the page never comes back: the settings
+      // and the run in hand, in one call to storage.
+      this.keepAll();
       this.pause();
       this.audio.setAway(true);
       return;
@@ -395,9 +400,27 @@ export class Game {
    * the run would be gone with it: kept, it is put back the next time the game is opened.
    */
   private keepRun(): void {
-    if (!this.opened || this.inMenu || this.handoff || (this.kind !== 'endless' && this.kind !== 'timed')) return;
-    const kept = packRun(this.kind, this.day.date, this.state, this.tally);
-    if (kept && saveJson(RUN_KEY, kept)) this.runKept = true;
+    const kept = this.packedRun();
+    if (!kept || (this.runKept && this.keptTick === kept.state.tick)) return;
+    if (saveJson(RUN_KEY, kept)) this.noteKept(kept);
+  }
+
+  /** The settings and, with them, the scored run in hand: one call to storage for both. */
+  private keepAll(): void {
+    const kept = this.packedRun();
+    if (!kept) saveSettings(this.settings);
+    else if (saveAll([[SETTINGS_KEY, this.settings], [RUN_KEY, kept]])) this.noteKept(kept);
+  }
+
+  /** The scored run in hand as it would be kept; null when there is nothing to come back to. */
+  private packedRun(): KeptRun | null {
+    if (!this.opened || this.inMenu || this.handoff || (this.kind !== 'endless' && this.kind !== 'timed')) return null;
+    return packRun(this.kind, this.day.date, this.state, this.tally);
+  }
+
+  private noteKept(kept: KeptRun): void {
+    this.runKept = true;
+    this.keptTick = kept.state.tick;
   }
 
   /** Takes the kept run out of storage: it has ended, or the player has given it up. */
@@ -407,20 +430,27 @@ export class Game {
     saveJson(RUN_KEY, null);
   }
 
+  /** Saves the settings; a kept run that is no longer wanted goes out of storage in the same call. */
+  private saveWithoutRun(): boolean {
+    if (!this.runKept) return saveSettings(this.settings);
+    this.runKept = false;
+    return saveAll([[SETTINGS_KEY, this.settings], [RUN_KEY, null]]);
+  }
+
   /**
-   * Puts back the run the player was taken away from, if one was kept and this build can go on
-   * with it. It waits on its pause: nothing moves until the player says so.
+   * The run the player was taken away from, if one was kept and this build can go on with it.
+   * Whatever was kept has been read by now: it is marked to be taken out of storage.
    */
-  private continueRun(): boolean {
-    const today = dayAt(platformNow());
+  private keptRun(): KeptRun | null {
     const found = loadJson<{ version?: number }>(RUN_KEY, {});
-    const kept = unpackRun(found, today.date);
-    // Whatever was there has been read: a run that cannot be taken up is not kept any longer.
     this.runKept = found.version !== undefined;
-    this.dropRun();
-    if (!kept) return false;
+    return unpackRun(found, dayAt(platformNow()).date);
+  }
+
+  /** Puts a kept run back. It waits on its pause: nothing moves until the player says so. */
+  private continueRun(kept: KeptRun): void {
     this.kind = kept.kind;
-    this.day = today;
+    this.day = dayAt(platformNow());
     this.begin(kept.state, false);
     this.tally.take(kept.tally);
     // The contact stands where the run left it, without its steps being played again.
@@ -431,7 +461,6 @@ export class Game {
     tell('level_started', this.kind);
     this.layoutGuide();
     this.pause();
-    return true;
   }
 
   /** What is known of the run beyond its own board: where it stands in the visit, and how it is played. */
@@ -1062,7 +1091,8 @@ export class Game {
         ticks: state.tick,
         date,
       });
-      const saved = saveSettings(this.settings) && storageAvailable();
+      // The run is over: what was kept of it goes out of storage with the record of it.
+      const saved = this.saveWithoutRun() && storageAvailable();
       if (!saved) note = t('notSaved');
       // The session of the day says what it is: one for everyone, and new every day.
       else if (mode === 'timed') note = t(best ? 'dailyBest' : 'dailyNote');
