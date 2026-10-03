@@ -37,7 +37,48 @@ describe('what a run adds up to', () => {
   });
 });
 
+describe('the longest stretch without a group', () => {
+  it('is counted from the start of the run and from every group made', () => {
+    const tally = new RunTally();
+    const state = run();
+    const pass = (ticks: number) => {
+      for (let i = 0; i < ticks; i++) {
+        state.tick++;
+        tally.watch(state);
+      }
+    };
+    pass(300);
+    state.stats.clears = 1;
+    pass(100);
+    state.stats.clears = 2;
+    pass(50);
+    expect(runSummary(state, tally).drought_max_sec).toBe((300 * state.config.tickMs) / 1000);
+    pass(400);
+    expect(runSummary(state, tally).drought_max_sec).toBe((450 * state.config.tickMs) / 1000);
+  });
+
+  it('is kept with the rest of the count when a run is put away', () => {
+    const tally = new RunTally();
+    const state = run();
+    for (let i = 0; i < 200; i++) {
+      state.tick++;
+      tally.watch(state);
+    }
+    const again = new RunTally();
+    again.take(JSON.parse(JSON.stringify(tally.keep())));
+    expect(runSummary(state, again).drought_max_sec).toBe(runSummary(state, tally).drought_max_sec);
+  });
+});
+
 describe('the summary of a session', () => {
+  it('says what the director and the waves did in it', () => {
+    const state = run();
+    state.stats.gifts = 3;
+    state.stats.wipes = 1;
+    state.wave = { ...state.wave, index: 6 };
+    expect(runSummary(state, new RunTally())).toMatchObject({ gifts: 3, clean_boards: 1, wave: 7 });
+  });
+
   it('is made of plain values, with the rules it was played by', () => {
     const state = run();
     const data = runSummary(state, new RunTally());

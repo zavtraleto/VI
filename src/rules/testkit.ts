@@ -5,10 +5,16 @@ import { createRun, step } from './sim';
 import { addCube } from './spawn';
 import type { Cube, CubeState, Dir, ExperimentConfig, Level, Orientation, RunState, Tuning } from './types';
 
-/** Empty board, timed spawning off, player on the ground at the start cell. */
+/**
+ * Empty board, timed spawning off, the pace even with no waves, no salvos and no gifts, no
+ * points for a clean board unless the tuning asks for them, player on the ground at the start cell.
+ */
 export function emptyRun(experiments: Partial<ExperimentConfig> = {}, seed = 1, tuning: Partial<Tuning> = {}): RunState {
-  const state = createRun({ seed, config: defaultConfig({ floorLift: false, gentleStart: false, ...experiments }, tuning), empty: true });
+  const quiet = { floorLift: false, gentleStart: false, waves: false, surge: false, gift: false };
+  const state = createRun({ seed, config: defaultConfig({ ...quiet, ...experiments }, tuning), empty: true });
   state.spawnEnabled = false;
+  // A test board is a few cubes: clearing them all would be a clean board every time.
+  if (tuning.wipeBonus === undefined) state.config.wipeBonus = 0;
   return state;
 }
 

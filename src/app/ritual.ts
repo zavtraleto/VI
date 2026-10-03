@@ -6,63 +6,69 @@ export type ContactLine = 'grid' | 'dice' | 'backdrop' | 'screen' | 'program' | 
 export const CONTACT_LINES: readonly ContactLine[] = ['grid', 'dice', 'backdrop', 'screen', 'program', 'red'];
 
 /**
- * The steps of the contact, by the score that reaches them. A step moves one line one step on:
- * the board changes a little at a time and never all at once. Presentation only: rules never
- * read these.
+ * The steps of the contact, by the dice sent to the other side that reach them. A step moves
+ * one line one step on: the board changes a little at a time and never all at once.
+ * Presentation only: rules never read these.
+ *
+ * They are counted in dice and not in points: the score of a pro is hundreds of times that of
+ * a novice, and steps by score came all at once in a pro's first two minutes and hardly at all
+ * to a novice. Dice sent differ a few times over, so that everybody goes through the first
+ * half in a run, and the last step waits for a run a strong player would call long.
  */
-export const CONTACT_STEPS: readonly { score: number; line: ContactLine }[] = [
+export const CONTACT_STEPS: readonly { sent: number; line: ContactLine }[] = [
   // A group sent runs over the lines of the surface.
-  { score: 100, line: 'grid' },
+  { sent: 4, line: 'grid' },
   // The program no longer reads its link as empty: a pattern is found.
-  { score: 200, line: 'program' },
+  { sent: 8, line: 'program' },
   // The pips of every die answer a group sent.
-  { score: 350, line: 'dice' },
+  { sent: 13, line: 'dice' },
   // The dark leans to the channel sent most.
-  { score: 550, line: 'backdrop' },
+  { sent: 18, line: 'backdrop' },
   // The colours of the picture part for a moment when a group goes.
-  { score: 800, line: 'screen' },
+  { sent: 24, line: 'screen' },
   // The lines pulse by themselves.
-  { score: 1100, line: 'grid' },
+  { sent: 30, line: 'grid' },
   // The readings slip sideways now and then.
-  { score: 1500, line: 'program' },
+  { sent: 37, line: 'program' },
   // The dice breathe.
-  { score: 2000, line: 'dice' },
+  { sent: 45, line: 'dice' },
   // The dark answers a group sent.
-  { score: 2600, line: 'backdrop' },
+  { sent: 55, line: 'backdrop' },
   // The picture jolts when a large group goes.
-  { score: 3300, line: 'screen' },
+  { sent: 70, line: 'screen' },
   // The run over the lines takes the colour of the group.
-  { score: 4100, line: 'grid' },
+  { sent: 90, line: 'grid' },
   // Signs of a hand that is not the program's turn up among the digits.
-  { score: 5000, line: 'program' },
+  { sent: 115, line: 'program' },
   // Red seeps into the dark.
-  { score: 6000, line: 'red' },
+  { sent: 145, line: 'red' },
   // The light of the dice going down stands longer and taller.
-  { score: 7200, line: 'dice' },
+  { sent: 180, line: 'dice' },
   // The readings come apart.
-  { score: 8500, line: 'program' },
+  { sent: 220, line: 'program' },
   // Black, white and red.
-  { score: 10000, line: 'red' },
+  { sent: 270, line: 'red' },
 ];
 
-/** Scores of the steps alone. */
-export const RITUAL_THRESHOLDS: readonly number[] = CONTACT_STEPS.map((step) => step.score);
+/** Dice sent at the steps alone. */
+export const RITUAL_THRESHOLDS: readonly number[] = CONTACT_STEPS.map((step) => step.sent);
 
 export const STAGE_TRANSITION_MS = 1500;
 export const PHASE_SHIFT_MS = 900;
-/** How long a chain holds the contact above its score. */
+/** How long a chain holds the contact above what the dice sent have earned. */
 export const BOOST_MS = 4000;
 /** A chain this long, made past the last step, turns the picture inside out. */
 const PEAK_CHAIN = 3;
 
-export function stageForScore(score: number): number {
+export function stageForSent(sent: number): number {
   let stage = 0;
-  while (stage < RITUAL_THRESHOLDS.length && score >= RITUAL_THRESHOLDS[stage]) stage++;
+  while (stage < RITUAL_THRESHOLDS.length && sent >= RITUAL_THRESHOLDS[stage]) stage++;
   return stage;
 }
 
-export function nextThreshold(score: number): number | null {
-  const stage = stageForScore(score);
+/** Dice sent at which the next step comes, or null past the last one. */
+export function nextThreshold(sent: number): number | null {
+  const stage = stageForSent(sent);
   return stage < RITUAL_THRESHOLDS.length ? RITUAL_THRESHOLDS[stage] : null;
 }
 
@@ -78,7 +84,7 @@ export function lineLevel(line: ContactLine, depth: number): number {
 /**
  * Tracks how far the contact has gone in the current run and eases what the board shows of it.
  * A step, once reached, stays until the run ends. A chain lifts the contact for a few seconds
- * above what the score has earned: a glimpse of what lies deeper.
+ * above what the dice sent have earned: a glimpse of what lies deeper.
  */
 export class Ritual {
   stage = 0;
@@ -109,10 +115,10 @@ export class Ritual {
     if (this.stage === CONTACT_STEPS.length && chain >= PEAK_CHAIN) this.look.peak = 1;
   }
 
-  /** Returns the steps newly reached by this update, in order. */
-  update(score: number, dtMs: number): number[] {
+  /** Returns the steps newly reached by this update, in order. `sent` is the dice gone to the other side in this run. */
+  update(sent: number, dtMs: number): number[] {
     const reached: number[] = [];
-    const target = stageForScore(score);
+    const target = stageForSent(sent);
     while (this.stage < target) {
       this.stage++;
       reached.push(this.stage);

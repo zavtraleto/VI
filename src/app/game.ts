@@ -23,7 +23,7 @@ import {
   type BoardEntry,
 } from '../platform/bridge';
 import { addRun, bestOf, bestOn, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
-import { storageAvailable } from '../platform/storage';
+import { loadJson, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
@@ -71,6 +71,7 @@ import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
 import { statsText } from './stats';
+import { RUN_KEY, packRun, unpackRun } from './savedRun';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
@@ -156,6 +157,17 @@ export class Game {
   private wayBack: { key: string; path: Dir[] } | null = null;
   private lastStats = '';
   private resultShown = false;
+  /** A run is kept in storage for later: it is taken out when the run ends or is given up. */
+  private runKept = false;
+  /** The scored runs of this visit: how many were started, and how many in a row the board took. */
+  private runIndex = 0;
+  private lossesInRow = 0;
+  /** When the last scored run ended, on the player's clock; 0 before the first. */
+  private lastRunEnd = 0;
+  /** Seconds between the end of the run before and the start of this one; -1 for the first. */
+  private sinceLastRun = -1;
+  /** The run in hand was put back after the page had gone away. */
+  private resumed = false;
   /** Cell where the tutorial ended and Endless is about to start. */
   private handoff: { x: number; z: number } | null = null;
   /** Level being played, or last played, in the list of puzzles. */
@@ -316,6 +328,8 @@ export class Game {
     });
 
     document.addEventListener('visibilitychange', () => this.setAway('page', document.hidden));
+    // A page that is closed or thrown out of memory says so here, if it says anything at all.
+    window.addEventListener('pagehide', () => this.keepRun());
     // What goes wrong while the game is played is counted with the frames, and nothing more is said of it.
     window.addEventListener('error', () => this.frames.noteError('error'));
     window.addEventListener('unhandledrejection', () => this.frames.noteError('rejection'));
@@ -338,7 +352,8 @@ export class Game {
     this.shell.boot(() => {
       // The long boot is shown once per device.
       saveSettings(this.settings);
-      this.showMenu();
+      // A run the player was taken away from waits for them on its pause; otherwise, the menu.
+      if (!this.continueRun()) this.showMenu();
     });
     requestAnimationFrame((time) => this.frame(time));
   }
@@ -366,12 +381,70 @@ export class Game {
       this.away.add(by);
       // What has been gathered so far is kept even if the page never comes back.
       saveSettings(this.settings);
+      this.keepRun();
       this.pause();
       this.audio.setAway(true);
       return;
     }
     this.away.delete(by);
     if (this.away.size === 0) this.audio.setAway(false);
+  }
+
+  /**
+   * Keeps the scored run in hand for later. A phone drops a page that is out of sight, and
+   * the run would be gone with it: kept, it is put back the next time the game is opened.
+   */
+  private keepRun(): void {
+    if (!this.opened || this.inMenu || this.handoff || (this.kind !== 'endless' && this.kind !== 'timed')) return;
+    const kept = packRun(this.kind, this.day.date, this.state, this.tally);
+    if (kept && saveJson(RUN_KEY, kept)) this.runKept = true;
+  }
+
+  /** Takes the kept run out of storage: it has ended, or the player has given it up. */
+  private dropRun(): void {
+    if (!this.runKept) return;
+    this.runKept = false;
+    saveJson(RUN_KEY, null);
+  }
+
+  /**
+   * Puts back the run the player was taken away from, if one was kept and this build can go on
+   * with it. It waits on its pause: nothing moves until the player says so.
+   */
+  private continueRun(): boolean {
+    const today = dayAt(platformNow());
+    const found = loadJson<{ version?: number }>(RUN_KEY, {});
+    const kept = unpackRun(found, today.date);
+    // Whatever was there has been read: a run that cannot be taken up is not kept any longer.
+    this.runKept = found.version !== undefined;
+    this.dropRun();
+    if (!kept) return false;
+    this.kind = kept.kind;
+    this.day = today;
+    this.begin(kept.state, false);
+    this.tally.take(kept.tally);
+    // The contact stands where the run left it, without its steps being played again.
+    this.ritual.update(kept.state.removed, 0);
+    this.resumed = true;
+    this.runIndex++;
+    track('progression_resumed', { ...this.step(), duration_sec: this.seconds() });
+    tell('level_started', this.kind);
+    this.layoutGuide();
+    this.pause();
+    return true;
+  }
+
+  /** What is known of the run beyond its own board: where it stands in the visit, and how it is played. */
+  private visit(): EventData {
+    const data: EventData = {
+      run_index: this.runIndex,
+      losses_in_row: this.lossesInRow,
+      resumed: this.resumed,
+      control: this.settings.controlMode,
+      touch: window.matchMedia?.('(pointer: coarse)').matches ?? false,
+    };
+    if (this.sinceLastRun >= 0) data.since_last_run_sec = this.sinceLastRun;
+    return data;
   }
 
   /** How long the run has been played, in seconds. */
@@ -394,8 +467,14 @@ export class Game {
   private leaveRun(how: 'menu' | 'restart'): void {
     if (!this.opened || this.inMenu || this.handoff || this.state.over || this.state.tick === 0) return;
     const { state } = this;
-    const reached: EventData = state.puzzle ? { moves: state.puzzle.moves } : state.tutorial ? { lesson: state.tutorial.step } : runSummary(state, this.tally);
+    const reached: EventData = state.puzzle
+      ? { moves: state.puzzle.moves }
+      : state.tutorial
+        ? { lesson: state.tutorial.step }
+        : { ...runSummary(state, this.tally), ...this.visit() };
     track('progression_failed', { ...this.step(), reason: how === 'menu' ? 'left' : 'restart', duration_sec: this.seconds(), ...reached });
+    // A run given up is not one to come back to.
+    this.dropRun();
     this.frames.flush(this.lastFrame);
   }
 
@@ -473,6 +552,11 @@ export class Game {
       config.startZ = start.z;
     }
     this.begin(createRun({ seed, config, tutorial, timed: kind === 'timed' }), start !== undefined);
+    this.resumed = false;
+    if (this.opened && (kind === 'endless' || kind === 'timed')) {
+      this.runIndex++;
+      this.sinceLastRun = this.lastRunEnd > 0 ? Math.round((Date.now() - this.lastRunEnd) / 1000) : -1;
+    }
     if (this.opened) {
       track('progression_started', this.step());
       tell('level_started', kind);
@@ -774,6 +858,8 @@ export class Game {
     this.layoutGuide();
     // The menu is the shell's; a tool of the page that led here goes away.
     this.tools?.hide();
+    // The session with a limit lasts as long as the rules say: the menu reads it from them.
+    const rules = defaultConfig(this.settings.experiments, this.settings.tuning);
     this.shell.showMenu(
       !this.settings.tutorialDone,
       {
@@ -787,6 +873,7 @@ export class Game {
       {
         bestEndless: this.bestScore('endless'),
         bestTimed: this.bestScore('timed'),
+        limitSec: (rules.timedTicks * rules.tickMs) / 1000,
         tutorialDone: this.settings.tutorialDone,
         tasksDone: PUZZLE_LEVELS.filter((level) => (this.settings.puzzle.stars[level.id] ?? 0) > 0).length,
         tasksTotal: PUZZLE_LEVELS.length,
@@ -988,7 +1075,11 @@ export class Game {
       }
     }
     // What the session came to, for tuning the pace and the spawn: a session with a limit that ran its time is completed, any other end is a failure.
-    const summary: EventData = { ...this.step(), ...runSummary(state, this.tally), contact: this.ritual.stage, scored, best };
+    const summary: EventData = { ...this.step(), ...runSummary(state, this.tally), ...this.visit(), contact: this.ritual.stage, scored, best };
+    // The run is over: nothing of it is left to come back to, and the next one knows how this one went.
+    this.dropRun();
+    this.lossesInRow = state.endReason === 'full' ? this.lossesInRow + 1 : 0;
+    this.lastRunEnd = Date.now();
     if (mode === 'timed') summary.day = day.date;
     if (state.endReason === 'time') track('progression_completed', summary);
     else track('progression_failed', { ...summary, reason: state.endReason ?? 'full' });
@@ -1240,7 +1331,7 @@ export class Game {
             danger: secondsLeft(state),
             stage: this.ritual.stage,
             steps: CONTACT_STEPS.length,
-            next: nextThreshold(state.score),
+            next: nextThreshold(state.removed),
           },
       seal: this.sealView(state, mark, steer, lesson?.dir ?? null),
       labels,
@@ -1292,9 +1383,9 @@ export class Game {
       else this.showResult();
     }
 
-    // The ritual follows the score of this run only and never feeds back into the rules.
-    // A puzzle is not scored: the board stays as it is at the start.
-    const reached = this.ritual.update(state.puzzle ? 0 : state.score, running ? Math.min(dt, 250) : 0);
+    // The ritual follows the dice sent in this run only and never feeds back into the rules.
+    // A puzzle has no contact: the board stays as it is at the start.
+    const reached = this.ritual.update(state.puzzle ? 0 : state.removed, running ? Math.min(dt, 250) : 0);
     if (reached.length > 0) this.audio.setContact(this.ritual.stage / CONTACT_STEPS.length);
     // A step of the contact is a beat of its own, and so is the moment it goes past the last.
     for (let i = 0; i < reached.length; i++) this.beat(stepBeat());

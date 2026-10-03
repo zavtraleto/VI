@@ -355,7 +355,7 @@ export function startSoundLab(): void {
   events.add(actions, 'contact').name('Порог контакта');
   events.add(actions, 'peak').name('За последним порогом');
   events.add(actions, 'danger').name('Опасность: поле заполнено');
-  events.add(actions, 'clock').name('Последние секунды трёх минут');
+  events.add(actions, 'clock').name('Последние секунды сеанса дня');
   events.add(actions, 'end').name('Конец сессии');
   events.add(actions, 'cleared').name('Задача решена');
   events.add(actions, 'deadEnd').name('Задача: тупик');

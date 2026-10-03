@@ -161,11 +161,12 @@ describe('spawn and pressure', () => {
     expect(at(0)).toBe(110); // 2.2 s
     expect(at(10)).toBe(110);
     expect(at(12)).toBe(110);
-    expect(at(13)).toBe(205); // half way from 2.2 s to 6 s
-    expect(at(14)).toBe(300); // 6 s: the interval of the level is the one at the target
-    expect(at(22)).toBe(330); // 6 s x 1.1
-    expect(at(30)).toBe(360); // 6 s x 1.2
-    expect(at(49)).toBe(360);
+    expect(at(13)).toBe(180); // half way from 2.2 s to 5 s
+    expect(at(14)).toBe(250); // 5 s: the interval of the level is the one at the target
+    expect(at(22)).toBe(275); // 5 s x 1.1
+    expect(at(30)).toBe(300); // 5 s x 1.2
+    expect(at(42)).toBe(300);
+    expect(at(49)).toBe(625); // 5 s x 2.5: the last sliver of the board
   });
 
   it('refills faster as the level rises: from 2.2 s to 1 s by level 15', () => {
@@ -179,24 +180,24 @@ describe('spawn and pressure', () => {
 
   it('never refills slower than the level itself spawns', () => {
     expect(paceIntervalTicks(defaultConfig({}, { paceStartMs: 1500 }), 'endless', 1, 0, 0)).toBe(75);
-    expect(paceIntervalTicks(defaultConfig({}, { targetCubes: 0 }), 'endless', 1, 0, 0)).toBe(300);
+    expect(paceIntervalTicks(defaultConfig({}, { targetCubes: 0 }), 'endless', 1, 0, 0)).toBe(250);
   });
 
   it('counts a sinking cube as gone: what is cleared starts coming back at once', () => {
     const s = emptyRun();
     fill(s, 14);
-    expect(interval(s)).toBe(300);
+    expect(interval(s)).toBe(250);
     for (const cube of s.cubes.slice(0, 4)) cube.state = 'sinking';
     expect(population(s)).toBe(10);
     expect(interval(s)).toBe(110);
   });
 
-  it('speeds up by a ratio per level from the 4th one, down to the minimum', () => {
+  it('speeds up from the 2nd level on, down to the minimum', () => {
     const c = defaultConfig();
     const crowded = (level: number) => paceIntervalTicks(c, 'endless', level, 0, 30);
-    expect(crowded(3)).toBe(360);
-    expect(crowded(4)).toBe(338); // 6 s x 0.94 x 1.2
-    expect(crowded(90)).toBe(84); // 1.4 s x 1.2
+    expect(crowded(1)).toBe(300);
+    expect(crowded(2)).toBeLessThan(300);
+    expect(crowded(200)).toBe(30); // 0.5 s x 1.2
   });
 
   it('favours low values and helpful spawns early, and evens out with the level', () => {
@@ -227,8 +228,8 @@ describe('spawn and pressure', () => {
   it('climbs from the floor and steps on docks by default, under rules of their own version', () => {
     const { experiments, rulesVersion } = defaultConfig();
     expect(experiments).toMatchObject({ floorClimb: true, dockSteps: true, floorLift: true });
-    expect(rulesVersion).toBe('0.8');
-    expect(ruleKey(defaultConfig())).toBe('0.8-gclqd');
+    expect(rulesVersion).toBe('0.9');
+    expect(ruleKey(defaultConfig())).toBe('0.9-gclqdtwuepo');
   });
 
   it('announces a cube, then raises it when the warning ends', () => {
@@ -364,7 +365,8 @@ describe('spawn director', () => {
     let near = 0;
     let total = 0;
     for (let seed = 1; seed <= 40; seed++) {
-      const s = createRun({ seed, config: defaultConfig({ gentleStart: false, floorLift: false }, { helpRate }) });
+      // No gifts: they take the place of some regular cubes, and it is the regular ones that are measured.
+      const s = createRun({ seed, config: defaultConfig({ gentleStart: false, floorLift: false, gift: false }, { helpRate }) });
       for (let i = 0; i < 1500; i++) {
         step(s, null);
         for (const e of s.events) {

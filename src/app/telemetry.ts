@@ -12,6 +12,18 @@ export type EventData = Record<string, string | number | boolean>;
 /** Longest chains are counted together from this length on. */
 const LONG_CHAIN = 4;
 
+/** The count of a run as plain data, to be kept with a run that is put away. */
+export interface TallyData {
+  matches: number[];
+  chains: [number, number][];
+  ones: number;
+  saves: number;
+  danger: boolean;
+  clears: number;
+  lastClear: number;
+  drought: number;
+}
+
 /** What the events of a run add up to, beyond what the rules count themselves. */
 export class RunTally {
   /** Groups made, by the number on their dice: index 2 to 6. */
@@ -22,6 +34,10 @@ export class RunTally {
   /** Times the board has come back from the danger mark. */
   private saves = 0;
   private danger = false;
+  /** Groups the rules have counted, the tick of the last one, and the longest wait for one, in ticks. */
+  private clears = 0;
+  private lastClear = 0;
+  private drought = 0;
 
   reset(): void {
     this.matches.fill(0);
@@ -29,6 +45,33 @@ export class RunTally {
     this.ones = 0;
     this.saves = 0;
     this.danger = false;
+    this.clears = 0;
+    this.lastClear = 0;
+    this.drought = 0;
+  }
+
+  /** The count as plain data. */
+  keep(): TallyData {
+    const { ones, saves, danger, clears, lastClear, drought } = this;
+    return { matches: [...this.matches], chains: [...this.chains], ones, saves, danger, clears, lastClear, drought };
+  }
+
+  /** Takes up a count that was kept. */
+  take(data: TallyData): void {
+    this.reset();
+    data.matches.forEach((count, value) => (this.matches[value] = count));
+    for (const [reaction, chain] of data.chains) this.chains.set(reaction, chain);
+    this.ones = data.ones;
+    this.saves = data.saves;
+    this.danger = data.danger;
+    this.clears = data.clears;
+    this.lastClear = data.lastClear;
+    this.drought = data.drought;
+  }
+
+  /** The longest the run has gone without a group, in ticks. */
+  get longestDrought(): number {
+    return this.drought;
   }
 
   note(event: GameEvent): void {
@@ -42,6 +85,11 @@ export class RunTally {
     const danger = state.cubes.length >= state.config.warnOccupied;
     if (this.danger && !danger && !state.over) this.saves++;
     this.danger = danger;
+    if (state.stats.clears !== this.clears) {
+      this.clears = state.stats.clears;
+      this.lastClear = state.tick;
+    }
+    this.drought = Math.max(this.drought, state.tick - this.lastClear);
   }
 
   values(): EventData {
@@ -79,6 +127,11 @@ export function runSummary(state: RunState, tally: RunTally): EventData {
     dock_climbs: stats.dockClimbs,
     danger_sec: seconds(stats.dangerTicks),
     chain_quiet_max_sec: seconds(stats.longestChainQuiet),
+    // What a bot is measured by as well: the longest wait for a group, and what the director and the waves did.
+    drought_max_sec: seconds(tally.longestDrought),
+    gifts: stats.gifts,
+    clean_boards: stats.wipes,
+    wave: state.wave.index + 1,
     ...tally.values(),
   };
   // A session without a single group has no first one: the reading is left out, not set to zero.

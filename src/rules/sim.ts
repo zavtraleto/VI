@@ -3,6 +3,7 @@ import { levelStats, pruneReactions, removeCube, resolveLanded, runPhase } from 
 import { isPuzzleHeld, placePuzzleLayout, puzzleConfig, runPuzzle } from './puzzle';
 import { chainQuiet, placeStartLayout, runSpawn } from './spawn';
 import { isHeld, placeTutorialLayout, runTutorial, tutorialConfig, tutorialMove } from './tutorial';
+import { runWave, waveAt } from './wave';
 import type { Dir, PuzzleLayout, RulesConfig, RunState } from './types';
 
 export interface RunOptions {
@@ -38,8 +39,12 @@ export function createRun(opts: RunOptions): RunState {
     removed: 0,
     maxChain: 0,
     spawnTimer: 0,
-    calmLeft: 0,
+    wave: waveAt(config, opts.seed, 0, 0),
     chainCalmLeft: 0,
+    chainQuietSpent: 0,
+    edgeCalmLeft: 0,
+    edgeCalmSpent: false,
+    sinceClear: 0,
     liftTimer: 0,
     fullTicks: 0,
     spawnEnabled: !opts.tutorial && !puzzle,
@@ -60,6 +65,8 @@ export function createRun(opts: RunOptions): RunState {
       floorClimbs: 0,
       dockDescents: 0,
       dockClimbs: 0,
+      gifts: 0,
+      wipes: 0,
       levels: [],
       dangerTicks: 0,
       chainQuietTicks: 0,
@@ -179,6 +186,7 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   }
   runTutorial(state);
   runPhase(state);
+  runWave(state);
   countChainQuiet(state);
   runSpawn(state);
   runPuzzle(state);

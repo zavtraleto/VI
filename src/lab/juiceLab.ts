@@ -110,15 +110,15 @@ export function startJuiceLab(game: Game): void {
     else join(chain);
   }, 1000);
 
-  // The contact follows the score: a step, once reached, stays until the session ends.
+  // The contact follows the dice sent: a step, once reached, stays until the session ends.
   const contact = gui.addFolder('Контакт');
-  const last = CONTACT_STEPS[CONTACT_STEPS.length - 1].score;
+  const last = CONTACT_STEPS[CONTACT_STEPS.length - 1].sent;
   const score = contact
-    .add(head, 'score', 0, Math.round(last * 1.2), 50)
-    .name('счёт')
+    .add(head, 'score', 0, Math.round(last * 1.2), 1)
+    .name('отправлено костей')
     .onChange((value: number) => {
-      if (value < inside.state.score) inside.ritual.reset();
-      inside.state.score = value;
+      if (value < inside.state.removed) inside.ritual.reset();
+      inside.state.removed = value;
     });
   contact.add(reading, 'stage').name(`порогов из ${CONTACT_STEPS.length}`).listen().disable();
   for (const [name, at] of [
@@ -131,8 +131,8 @@ export function startJuiceLab(game: Game): void {
           go: () => {
             const stage = Math.max(0, Math.min(CONTACT_STEPS.length, inside.ritual.stage + at));
             if (at < 0) inside.ritual.reset();
-            inside.state.score = stage === 0 ? 0 : CONTACT_STEPS[stage - 1].score;
-            head.score = inside.state.score;
+            inside.state.removed = stage === 0 ? 0 : CONTACT_STEPS[stage - 1].sent;
+            head.score = inside.state.removed;
             score.updateDisplay();
           },
         },

@@ -2,6 +2,7 @@ import { DELTA, DIRS, cellIndex, cubeAt, cubeHeight, floorStep, freeCells, inBou
 import { helpChance, paceIntervalTicks, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationsWithTop, roll } from './orientation';
 import { levelStats } from './reactions';
+import { resting, silent, surge, swell } from './wave';
 import { nextRandom, randomInt } from './rng';
 import type { Cube, CubeState, Dir, Orientation, Reaction, RunState } from './types';
 
@@ -58,21 +59,54 @@ interface Placement {
   ori: Orientation;
 }
 
-function tryStartLayout(state: RunState): Placement[] | null {
+/** The value of the group the opening of a run offers: two 2s, the smallest group there is. */
+const OPENING_VALUE = 2;
+
+/**
+ * The opening of a run: the cell the die under the player rolls into with its first move, and
+ * the die beside that cell it will match. The roll is one that turns up a face the camera
+ * shows, so the first clear of a run is there to be read by anybody. Null when the start cell
+ * leaves no room for it.
+ */
+function openingOf(state: RunState): { dir: Dir; to: number; partner: number } | null {
+  const { size, startX, startZ } = state.config;
+  // One of the two rolls, by chance; the other when the first has no cell to go to.
+  const first = randomInt(state, SHOWN_ROLLS.length);
+  const dir = [SHOWN_ROLLS[first], SHOWN_ROLLS[1 - first]].find((d) => inBounds(size, startX + DELTA[d].dx, startZ + DELTA[d].dz));
+  if (!dir) return null;
+  const tx = startX + DELTA[dir].dx;
+  const tz = startZ + DELTA[dir].dz;
+  const beside = DIRS.map((d) => ({ x: tx + DELTA[d].dx, z: tz + DELTA[d].dz })).filter(
+    (c) => inBounds(size, c.x, c.z) && !(c.x === startX && c.z === startZ),
+  );
+  const partner = beside[randomInt(state, beside.length)];
+  return { dir, to: cellIndex(size, tx, tz), partner: cellIndex(size, partner.x, partner.z) };
+}
+
+function tryStartLayout(state: RunState, opening: boolean): Placement[] | null {
   const { size, startCubes, startX, startZ } = state.config;
+  const start = cellIndex(size, startX, startZ);
+  const lead = opening ? openingOf(state) : null;
   const cells: number[] = [];
   for (let i = 0; i < size * size; i++) {
-    if (i !== cellIndex(size, startX, startZ)) cells.push(i);
+    if (i !== start && i !== lead?.to && i !== lead?.partner) cells.push(i);
   }
-  // Partial Fisher-Yates: the first startCubes - 1 entries become the picked cells.
-  for (let i = 0; i < startCubes - 1; i++) {
+  // Partial Fisher-Yates: the first entries become the picked cells.
+  const others = startCubes - 1 - (lead ? 1 : 0);
+  for (let i = 0; i < others; i++) {
     const j = i + randomInt(state, cells.length - i);
     [cells[i], cells[j]] = [cells[j], cells[i]];
   }
-  const picked = [cellIndex(size, startX, startZ), ...cells.slice(0, startCubes - 1)];
+  const picked = [start, ...(lead ? [lead.partner] : []), ...cells.slice(0, others)];
   const tops = new Array<number>(size * size).fill(0);
   const layout: Placement[] = picked.map((i) => {
-    const ori = randomOrientation(state);
+    let ori = randomOrientation(state);
+    if (lead && i === start) {
+      const fits = ALL_ORIENTATIONS.filter((o) => roll(o, lead.dir).top === OPENING_VALUE);
+      ori = fits[randomInt(state, fits.length)];
+    } else if (lead && i === lead.partner) {
+      ori = orientationWithTop(state, OPENING_VALUE);
+    }
     tops[i] = ori.top;
     return { x: i % size, z: Math.floor(i / size), ori };
   });
@@ -103,9 +137,10 @@ export function fallbackLayout(count = FALLBACK_CELLS.length): Placement[] {
 
 export function placeStartLayout(state: RunState, forceFallback = false): void {
   const { startCubes, startX, startZ } = state.config;
+  const opening = state.config.experiments.opening && state.mode === 'endless';
   let layout: Placement[] | null = null;
   for (let attempt = 0; attempt < 100 && !forceFallback && !layout; attempt++) {
-    layout = tryStartLayout(state);
+    layout = tryStartLayout(state, opening);
   }
   if (!layout) {
     layout = fallbackLayout(startCubes);
@@ -217,6 +252,78 @@ function chooseOrientation(state: RunState, x: number, z: number, helpful = fals
     if (staysQuiet(state, tops, x, z, top)) break;
   }
   return orientationWithTop(state, top);
+}
+
+/** The resting cubes that show the same value as `start` and are joined to it, `start` included. */
+function restingGroup(state: RunState, start: Cube): Cube[] {
+  const group = [start];
+  const seen = new Set<number>([start.id]);
+  for (let i = 0; i < group.length; i++) {
+    for (const dir of DIRS) {
+      const n = cubeAt(state, group[i].x + DELTA[dir].dx, group[i].z + DELTA[dir].dz);
+      if (n && n.state === 'idle' && n.ori.top === start.ori.top && !seen.has(n.id)) {
+        seen.add(n.id);
+        group.push(n);
+      }
+    }
+  }
+  return group;
+}
+
+/**
+ * A gift: a cube for a group that lacks a single die. It comes up one roll away from the cell
+ * beside the group, never next to the group itself, and the roll that takes it there turns up
+ * a face the camera shows, with the group's value on it: the way out is there to be read, and
+ * taking it is the player's doing. Where it can, it comes up beside a die that stands, so
+ * that it can be stepped onto. The longer nothing has been cleared, the likelier it is;
+ * a clear starts the count over, so gifts do not come to a player who is doing well. Only in
+ * Endless: the session of the day is the same test for everyone.
+ */
+function gift(state: RunState, free: readonly { x: number; z: number }[]): Placement | null {
+  const { config } = state;
+  if (!config.experiments.gift || state.mode !== 'endless') return null;
+  const chance = Math.min(config.giftMax, config.giftRate * state.sinceClear);
+  if (chance <= 0 || nextRandom(state) >= chance) return null;
+
+  const isOpen = (x: number, z: number) => free.some((c) => c.x === x && c.z === z);
+  const tops = topsGrid(state);
+  const { steps } = reach(state);
+  let options: { x: number; z: number; oris: readonly Orientation[]; touches: boolean }[] = [];
+  const counted = new Set<number>();
+  for (const cube of state.cubes) {
+    const value = cube.ori.top;
+    if (cube.state !== 'idle' || value < 2 || counted.has(cube.id)) continue;
+    const group = restingGroup(state, cube);
+    for (const member of group) counted.add(member.id);
+    if (group.length !== value - 1) continue;
+    const beside = (x: number, z: number) => group.some((c) => Math.abs(c.x - x) + Math.abs(c.z - z) === 1);
+    for (const member of group) {
+      for (const side of DIRS) {
+        // The cell beside the group that the gift is rolled into.
+        const tx = member.x + DELTA[side].dx;
+        const tz = member.z + DELTA[side].dz;
+        if (!isOpen(tx, tz)) continue;
+        for (const dir of SHOWN_ROLLS) {
+          const x = tx - DELTA[dir].dx;
+          const z = tz - DELTA[dir].dz;
+          if (!isOpen(x, z) || beside(x, z)) continue;
+          const oris = ALL_ORIENTATIONS.filter((o) => roll(o, dir).top === value && staysQuiet(state, tops, x, z, o.top));
+          if (oris.length === 0) continue;
+          // A die that stands beside the cell is the way onto the gift without going down to the floor.
+          const touches = DIRS.some((d) => cubeAt(state, x + DELTA[d].dx, z + DELTA[d].dz)?.state === 'idle');
+          options.push({ x, z, oris, touches });
+        }
+      }
+    }
+  }
+  if (options.some((option) => option.touches)) options = options.filter((option) => option.touches);
+  if (options.length === 0) return null;
+  const weights = options.map((option) => {
+    const to = steps[cellIndex(config.size, option.x, option.z)];
+    return to >= 0 && to <= 4 ? 2 : 1;
+  });
+  const { x, z, oris } = options[weightedIndex(state, weights)];
+  return { x, z, ori: oris[randomInt(state, oris.length)] };
 }
 
 /** Cards in the decks that decide which spawns feed a running chain and which are helpful. */
@@ -487,37 +594,70 @@ function runLift(state: RunState): void {
   announce(state, player.x, player.z, chooseOrientation(state, player.x, player.z));
 }
 
-/**
- * The silence a chain buys: while a chain of two links or more runs, and for a while after
- * it, the channel is open and the noise holds off.
- */
-export function chainQuiet(state: RunState): boolean {
+/** A chain of two links or more is running, or has only just ended: it asks the noise to hold off. */
+function chainHolds(state: RunState): boolean {
   if (!state.config.experiments.chainCalm) return false;
   return state.chainCalmLeft > 0 || state.reactions.some((r) => r.chain >= 2);
 }
 
 /**
- * Timed spawn. Never queues spawns while the board is full. In a silence, at the start of a
- * phase or bought by a chain, the timer keeps its beat but brings no regular cube: only a cube
- * for the running chain comes, as often as it would have.
+ * The silence a chain buys: while a chain of two links or more runs, and for a while after
+ * it, the channel is open and the noise holds off. But only for so long in one stretch: a
+ * chain kept going past the limit runs in the noise again, and the next silence takes a new
+ * chain. Without the limit a player who keeps one chain alive never hears the noise at all.
+ */
+export function chainQuiet(state: RunState): boolean {
+  return chainHolds(state) && state.chainQuietSpent < state.config.chainCalmMaxTicks;
+}
+
+/** Counts the silence chains are holding against its limit; with no chain asking, the count starts over. */
+function spendChainQuiet(state: RunState): void {
+  if (!chainHolds(state)) state.chainQuietSpent = 0;
+  else if (chainQuiet(state)) state.chainQuietSpent++;
+}
+
+/**
+ * Timed spawn. Never queues spawns while the board is full. In a silence, one bought by a
+ * chain or one a clear at the danger mark has held, the timer keeps its beat but brings no
+ * regular cube: only a cube for the running chain comes, as often as it would have. The
+ * trough of a wave is a silence too when its flow is set to nothing; otherwise cubes come in
+ * it slowly, and every one of them is a helpful one.
  */
 export function runSpawn(state: RunState): void {
   advancePending(state);
+  // Out of danger: the next stay at the mark has its silence to give again.
+  if (state.cubes.length < state.config.warnOccupied) state.edgeCalmSpent = false;
   if (!state.spawnEnabled) return;
-  const quiet = state.calmLeft > 0 || chainQuiet(state);
-  if (state.calmLeft > 0) state.calmLeft--;
+  const quiet = silent(state) || chainQuiet(state) || state.edgeCalmLeft > 0;
+  spendChainQuiet(state);
   if (state.chainCalmLeft > 0) state.chainCalmLeft--;
+  if (state.edgeCalmLeft > 0) state.edgeCalmLeft--;
   runLift(state);
 
   const { config } = state;
   const free = freeCells(state).filter((c) => !hasPendingAt(state, c.x, c.z));
-  const gentle = config.experiments.gentleStart && state.tick < config.gentleTicks;
+  // A gentle start is Endless's: the session of the day is a test, and can be lost from its first second.
+  const gentle = config.experiments.gentleStart && state.mode !== 'timed' && state.tick < config.gentleTicks;
   if (free.length === 0 || (gentle && committed(state) >= config.warnOccupied)) {
     state.spawnTimer = 0;
     return;
   }
+  // The crest of a wave: its cubes come together, and the beat starts over into the trough.
+  const salvo = quiet ? 0 : surge(state);
+  if (salvo > 0) {
+    const room = gentle ? config.warnOccupied - committed(state) : free.length;
+    for (let i = 0; i < Math.min(salvo, room, free.length); i++) {
+      const open = free.filter((c) => !hasPendingAt(state, c.x, c.z));
+      if (open.length === 0) break;
+      const cell = chooseCell(state, open, false);
+      announce(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z));
+      state.sinceClear++;
+    }
+    state.spawnTimer = 0;
+    return;
+  }
   state.spawnTimer++;
-  if (state.spawnTimer < paceIntervalTicks(config, state.mode, state.level, state.tick, population(state))) return;
+  if (state.spawnTimer < paceIntervalTicks(config, state.mode, state.level, state.tick, population(state), swell(state))) return;
   state.spawnTimer = 0;
   const feeder = chainFeeder(state, free);
   if (feeder) {
@@ -525,7 +665,14 @@ export function runSpawn(state: RunState): void {
     return;
   }
   if (quiet) return;
-  const helpful = deal(state, state.helpDeck, HELP_DECK, helpChance(config, state.level));
+  const present = gift(state, free);
+  state.sinceClear++;
+  if (present) {
+    state.stats.gifts++;
+    announce(state, present.x, present.z, present.ori);
+    return;
+  }
+  const helpful = deal(state, state.helpDeck, HELP_DECK, helpChance(config, state.level, resting(state)));
   const cell = chooseCell(state, free, helpful);
   announce(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z, helpful));
 }

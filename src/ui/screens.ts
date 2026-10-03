@@ -13,6 +13,12 @@ const EXPERIMENTS: (keyof ExperimentConfig)[] = [
   'floorLift',
   'soloOne',
   'chainCalm',
+  'timeFloor',
+  'waves',
+  'surge',
+  'opening',
+  'lastSliver',
+  'gift',
 ];
 
 function button(key: DevKey, onClick: () => void, kind: 'primary' | 'plain' | 'quiet' = 'plain'): HTMLButtonElement {

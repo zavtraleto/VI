@@ -7,14 +7,21 @@ import {
   STAGE_TRANSITION_MS,
   lineLevel,
   nextThreshold,
-  stageForScore,
+  stageForSent,
 } from './ritual';
 
-const LAST = CONTACT_STEPS[CONTACT_STEPS.length - 1].score;
+const LAST = CONTACT_STEPS[CONTACT_STEPS.length - 1].sent;
 
 describe('contact steps', () => {
-  it('rise in score, and every line has a step', () => {
-    const scores = CONTACT_STEPS.map((step) => step.score);
+  it('are counted in dice sent, not in points: a player of any strength gets through the first of them', () => {
+    // A novice sends some fifty dice in a run, a pro close to three hundred.
+    expect(CONTACT_STEPS[0].sent).toBeLessThanOrEqual(5);
+    expect(CONTACT_STEPS[7].sent).toBeLessThanOrEqual(45);
+    expect(LAST).toBe(270);
+  });
+
+  it('rise in dice sent, and every line has a step', () => {
+    const scores = CONTACT_STEPS.map((step) => step.sent);
     expect([...scores].sort((a, b) => a - b)).toEqual(scores);
     expect(new Set(scores).size).toBe(scores.length);
     for (const line of CONTACT_LINES) {
@@ -22,18 +29,18 @@ describe('contact steps', () => {
     }
   });
 
-  it('maps score to stage at the thresholds', () => {
+  it('maps dice sent to stage at the thresholds', () => {
     CONTACT_STEPS.forEach((step, i) => {
-      expect(stageForScore(step.score - 1)).toBe(i);
-      expect(stageForScore(step.score)).toBe(i + 1);
+      expect(stageForSent(step.sent - 1)).toBe(i);
+      expect(stageForSent(step.sent)).toBe(i + 1);
     });
-    expect(stageForScore(0)).toBe(0);
-    expect(stageForScore(999999)).toBe(CONTACT_STEPS.length);
+    expect(stageForSent(0)).toBe(0);
+    expect(stageForSent(999999)).toBe(CONTACT_STEPS.length);
   });
 
   it('names the next threshold until the last stage', () => {
-    expect(nextThreshold(0)).toBe(CONTACT_STEPS[0].score);
-    expect(nextThreshold(CONTACT_STEPS[0].score)).toBe(CONTACT_STEPS[1].score);
+    expect(nextThreshold(0)).toBe(CONTACT_STEPS[0].sent);
+    expect(nextThreshold(CONTACT_STEPS[0].sent)).toBe(CONTACT_STEPS[1].sent);
     expect(nextThreshold(LAST - 1)).toBe(LAST);
     expect(nextThreshold(LAST)).toBeNull();
   });
@@ -51,20 +58,20 @@ describe('contact steps', () => {
 describe('ritual', () => {
   it('fires each stage once and eases its line in', () => {
     const r = new Ritual();
-    const { score, line } = CONTACT_STEPS[0];
-    expect(r.update(score - 50, 16)).toEqual([]);
-    expect(r.update(score + 20, 16)).toEqual([1]);
-    expect(r.update(score + 30, 16)).toEqual([]);
+    const { sent, line } = CONTACT_STEPS[0];
+    expect(r.update(sent - 1, 16)).toEqual([]);
+    expect(r.update(sent, 16)).toEqual([1]);
+    expect(r.update(sent + 1, 16)).toEqual([]);
     expect(r.look[line]).toBeGreaterThan(0);
     expect(r.look[line]).toBeLessThan(1);
-    r.update(score + 30, STAGE_TRANSITION_MS);
+    r.update(sent + 1, STAGE_TRANSITION_MS);
     expect(r.look[line]).toBe(1);
     expect(r.look[CONTACT_STEPS[1].line]).toBe(0);
   });
 
   it('reports every stage crossed by one big jump', () => {
     const r = new Ritual();
-    expect(r.update(CONTACT_STEPS[2].score, 16)).toEqual([1, 2, 3]);
+    expect(r.update(CONTACT_STEPS[2].sent, 16)).toEqual([1, 2, 3]);
     expect(r.stage).toBe(3);
   });
 
@@ -80,16 +87,16 @@ describe('ritual', () => {
   it('is lifted by a chain for a while, and comes back', () => {
     const r = new Ritual();
     const second = CONTACT_STEPS[1].line;
-    r.update(CONTACT_STEPS[0].score, STAGE_TRANSITION_MS);
+    r.update(CONTACT_STEPS[0].sent, STAGE_TRANSITION_MS);
     expect(r.look[second]).toBe(0);
     // A group alone lifts nothing.
     r.send(4, 1);
-    r.update(CONTACT_STEPS[0].score, 100);
+    r.update(CONTACT_STEPS[0].sent, 100);
     expect(r.look[second]).toBe(0);
     r.send(4, 3);
-    r.update(CONTACT_STEPS[0].score, 100);
+    r.update(CONTACT_STEPS[0].sent, 100);
     expect(r.look[second]).toBeGreaterThan(0);
-    for (let t = 0; t < BOOST_MS * 4; t += 100) r.update(CONTACT_STEPS[0].score, 100);
+    for (let t = 0; t < BOOST_MS * 4; t += 100) r.update(CONTACT_STEPS[0].sent, 100);
     expect(r.look[second]).toBe(0);
     expect(r.stage).toBe(1);
   });

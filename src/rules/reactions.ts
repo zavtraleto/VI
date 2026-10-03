@@ -1,5 +1,5 @@
 import { cellIndex, cubeAt, inChain, neighbours } from './board';
-import { isPhaseStart, sinkTicksAt, timedPhase } from './config';
+import { sinkTicksAt, timeLevel, timedPhase } from './config';
 import type { Cube, LevelStats, Overrun, RulesConfig, RunState } from './types';
 
 function startSinking(cube: Cube, reactionId: number): void {
@@ -8,9 +8,35 @@ function startSinking(cube: Cube, reactionId: number): void {
   cube.reactionId = reactionId;
 }
 
+/**
+ * Counts a clear. The drought of cubes without one is over; and a clear made with the board at
+ * the danger mark holds the noise off for a while, so that getting out of there is possible.
+ * It does so once for a stay at the mark: a player who lives there cannot keep the noise off.
+ */
 function recordClear(state: RunState): void {
+  const { config } = state;
   state.stats.clears++;
   if (state.stats.clearTicks.length < 5) state.stats.clearTicks.push(state.tick);
+  state.sinceClear = 0;
+  const atEdge = state.cubes.length >= config.warnOccupied;
+  if (config.experiments.lastSliver && isPaced(state) && atEdge && !state.edgeCalmSpent) {
+    state.edgeCalmLeft = config.edgeCalmTicks;
+    state.edgeCalmSpent = true;
+  }
+}
+
+/**
+ * A clear that leaves no die standing: the board is clean, and that is worth points of its own,
+ * more the further the run has gone. Dice that are still coming up do not stand yet.
+ */
+function rewardWipe(state: RunState): void {
+  const { config } = state;
+  if (config.wipeBonus <= 0 || !isPaced(state)) return;
+  if (state.cubes.some((c) => c.state === 'idle' || c.state === 'moving')) return;
+  const points = config.wipeBonus * state.level;
+  state.score += points;
+  state.stats.wipes++;
+  state.events.push({ type: 'wiped', points });
 }
 
 /** The report's counters for the level the run is on. */
@@ -38,33 +64,24 @@ function setChainWindow(state: RunState, ticks: number): void {
   state.config.sinkingTicks = ticks;
 }
 
-/**
- * Moves the run on to a level. The chain window follows the level; the first level of a
- * phase opens with a silence, and so does every new phase of a Time Limited run.
- */
+/** Moves the run on to a level. The chain window follows the level. */
 function enterLevel(state: RunState, level: number): void {
-  const { config } = state;
-  const from = state.level;
   state.level = level;
   state.events.push({ type: 'levelUp', level });
-  if (!isPaced(state)) return;
-  setChainWindow(state, sinkTicksAt(config, level));
-  if (state.mode === 'timed') {
-    state.calmLeft = Math.max(state.calmLeft, config.timedCalmTicks);
-    return;
-  }
-  for (let passed = from + 1; passed <= level; passed++) {
-    if (isPhaseStart(config, passed)) state.calmLeft = Math.max(state.calmLeft, config.calmTicks);
-  }
+  if (isPaced(state)) setChainWindow(state, sinkTicksAt(state.config, level));
 }
 
 /**
- * Time Limited takes its level from the clock, not from the cubes removed: the pressure is
- * the same for every player and the results can be compared.
+ * What the clock does to the level. Time Limited takes its level from the clock, not from the
+ * cubes removed: the pressure is the same for every player and the results can be compared.
+ * In Endless the clock is a floor under the level the cubes give: the run is on the greater
+ * of the two, so an unhurried player is not left on the first levels for good.
  */
 export function runPhase(state: RunState): void {
-  if (state.mode !== 'timed') return;
-  const level = timedPhase(state.config, state.tick);
+  const { config } = state;
+  let level = state.level;
+  if (state.mode === 'timed') level = timedPhase(config, state.tick);
+  else if (state.mode === 'endless' && config.experiments.timeFloor) level = timeLevel(config, state.tick);
   if (level > state.level) enterLevel(state, level);
 }
 
@@ -162,6 +179,7 @@ function joinReactions(state: RunState, component: Cube[], touched: number[]): v
   state.stats.bestChainScore = Math.max(state.stats.bestChainScore, points);
   recordClear(state);
   state.events.push({ type: 'chain', reactionId: targetId, value, chain, count: component.length, points });
+  rewardWipe(state);
 }
 
 function startReaction(state: RunState, component: Cube[]): void {
@@ -174,6 +192,7 @@ function startReaction(state: RunState, component: Cube[]): void {
   state.maxChain = Math.max(state.maxChain, 1);
   recordClear(state);
   state.events.push({ type: 'match', reactionId: id, value, count: component.length, points });
+  rewardWipe(state);
 }
 
 /**
@@ -191,6 +210,7 @@ function happyOne(state: RunState, trigger: Cube): void {
   state.score += victims.length;
   recordClear(state);
   state.events.push({ type: 'happyOne', count: victims.length, points: victims.length });
+  rewardWipe(state);
 }
 
 /**

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { cubeHeight } from './board';
-import { DEFAULT_TUNING, defaultConfig, msToTicks, paceIntervalTicks, ruleKey, sinkTicksAt, timedPhase } from './config';
+import { DEFAULT_TUNING, defaultConfig, msToTicks, paceIntervalTicks, ruleKey, sinkTicksAt, timedPhase, timedPhases } from './config';
 import { createRun, step } from './sim';
-import { population, spawnCube } from './spawn';
+import { chainQuiet, population, spawnCube } from './spawn';
 import { emptyRun, land, ori, place, put, run } from './testkit';
-import type { Dir, ExperimentConfig, GameEvent, RunState, Tuning } from './types';
+import type { Dir, ExperimentConfig, GameEvent, RunState, Tuning, Wave } from './types';
 
 function collect(s: RunState, ticks: number): GameEvent[] {
   const events: GameEvent[] = [];
@@ -32,40 +32,56 @@ function reach(s: RunState, level: number): void {
 
 describe('endless curve', () => {
   const c = defaultConfig();
-  const at = (level: number) => paceIntervalTicks(c, 'endless', level, 0, c.targetCubes);
+  const at = (level: number, config = c) => paceIntervalTicks(config, 'endless', level, 0, config.targetCubes);
 
-  it('holds the starting interval over levels 1 to 3 and speeds up from the 4th', () => {
-    expect(at(1)).toBe(300); // 6 s
-    expect(at(2)).toBe(300);
-    expect(at(3)).toBe(300);
-    expect(at(4)).toBe(282); // 6 s x 0.94
-    expect(at(5)).toBe(265); // 6 s x 0.94 x 0.94
+  /** Cubes in a tick at a level: the flow, where the interval is the time between two of them. */
+  const flow = (level: number, config = c) => 1 / at(level, config);
+
+  it('holds the starting interval on the first level alone: the second is already faster', () => {
+    expect(at(1)).toBe(250); // 5 s
+    expect(at(2)).toBeLessThan(at(1));
+    expect(at(3)).toBeLessThan(at(2));
   });
 
-  it('is gentle at first and steep in the deep: 3.9 s at level 10, 2.9 at 15, 2.1 at 20, 1.5 at 25', () => {
-    expect(at(10)).toBe(195);
-    expect(at(15)).toBe(143);
-    expect(at(20)).toBe(105);
-    expect(at(25)).toBe(77);
+  it('holds it for as many levels as the variable says', () => {
+    const flat = defaultConfig({}, { paceFlatLevels: 3 });
+    expect(at(2, flat)).toBe(at(1, flat));
+    expect(at(3, flat)).toBe(at(1, flat));
+    expect(at(4, flat)).toBe(at(2));
   });
 
-  it('never slows down inside a phase', () => {
-    for (let level = 1; level < 60; level++) {
-      const nextOpensPhase = level % c.phaseLevels === 0;
-      if (!nextOpensPhase) expect(at(level + 1)).toBeLessThanOrEqual(at(level));
-    }
+  it('adds the same flow with every level: cubes in a minute grow by a line, not by a curve', () => {
+    const growth = DEFAULT_TUNING.paceGrowth;
+    expect(growth).toBeGreaterThan(0);
+    expect(flow(11) / flow(1)).toBeCloseTo(1 + growth * 10, 1);
+    expect(flow(21) / flow(1)).toBeCloseTo(1 + growth * 20, 1);
+    // Five levels add the same flow wherever they are, give or take the rounding of an interval to ticks.
+    const added = flow(6) - flow(1);
+    expect(Math.abs(flow(11) - flow(6) - added) / added).toBeLessThan(0.1);
+    expect(Math.abs(flow(21) - flow(16) - added) / added).toBeLessThan(0.1);
   });
 
-  it('rests on the first level of a phase: the interval goes two levels back', () => {
-    for (const level of [6, 11, 16, 21, 26]) {
-      expect(at(level)).toBeGreaterThan(at(level - 1));
-      expect(at(level)).toBe(at(level - 2));
-    }
+  it('speeds up less the faster it goes: skill buys time in proportion', () => {
+    expect(at(1) - at(2)).toBeGreaterThan(at(11) - at(12));
+    expect(at(11) - at(12)).toBeGreaterThan(at(31) - at(32));
+  });
+
+  it('follows the growth it is given', () => {
+    const steep = defaultConfig({}, { paceGrowth: 0.2 });
+    expect(at(6, steep)).toBe(125); // 5 s at twice the starting flow
+    expect(at(6, defaultConfig({}, { paceGrowth: 0 }))).toBe(250);
+  });
+
+  it('never slows down with the level: the rests are the waves\' own', () => {
+    for (let level = 1; level < 60; level++) expect(at(level + 1)).toBeLessThanOrEqual(at(level));
   });
 
   it('stops at the lowest interval', () => {
-    expect(at(40)).toBe(70); // 1.4 s
-    expect(at(90)).toBe(70);
+    const steep = defaultConfig({}, { paceGrowth: 0.2 });
+    expect(at(45, steep)).toBeGreaterThan(25);
+    expect(at(46, steep)).toBe(25); // 0.5 s: ten times the starting flow
+    expect(at(90, steep)).toBe(25);
+    expect(at(200)).toBe(25);
   });
 
   it('keeps the step, the warning and the rise of a cube the same on every level', () => {
@@ -74,6 +90,58 @@ describe('endless curve', () => {
     reach(s, 30);
     expect(s.level).toBe(30);
     expect(s.config).toMatchObject({ actionTicks, warnTicks, risingTicks });
+  });
+});
+
+describe('level of an endless run', () => {
+  const levelTicks = msToTicks(DEFAULT_TUNING.levelSec * 1000);
+  const levelUp = (e: GameEvent) => e.type === 'levelUp';
+
+  it('rises with the time alone: a level every 40 s with no cube removed', () => {
+    const s = emptyRun();
+    expect(DEFAULT_TUNING.levelSec).toBe(40);
+    expect(collect(s, levelTicks).some(levelUp)).toBe(false);
+    expect(s.level).toBe(1);
+    step(s, null);
+    expect(s.level).toBe(2);
+    expect(s.events).toContainEqual({ type: 'levelUp', level: 2 });
+    // When the sixth minute is out the run is on the tenth level.
+    run(s, levelTicks * 8);
+    expect(s.level).toBe(10);
+    expect(s.removed).toBe(0);
+  });
+
+  it('takes sixteen cubes for a level', () => {
+    expect(defaultConfig().cubesPerLevel).toBe(16);
+  });
+
+  it('is led by the cubes when they go faster than the clock: the greater of the two', () => {
+    const s = emptyRun();
+    reach(s, 4);
+    expect(s.level).toBe(4);
+    run(s, levelTicks * 2);
+    expect(s.level).toBe(4);
+    run(s, levelTicks * 2);
+    expect(s.level).toBe(5);
+  });
+
+  it('is an experiment: switched off, only the cubes removed raise the level', () => {
+    const s = emptyRun({ timeFloor: false });
+    run(s, levelTicks * 3);
+    expect(s.level).toBe(1);
+    reach(s, 2);
+    expect(s.level).toBe(2);
+  });
+
+  it('is on by default and belongs to the record key', () => {
+    expect(defaultConfig().experiments.timeFloor).toBe(true);
+    expect(ruleKey(defaultConfig({ timeFloor: false }))).not.toBe(ruleKey(defaultConfig()));
+  });
+
+  it('leaves the exercise on its own level', () => {
+    const s = createRun({ seed: 1, config: defaultConfig(), tutorial: true });
+    run(s, levelTicks * 2);
+    expect(s.level).toBe(1);
   });
 });
 
@@ -123,50 +191,6 @@ describe('chain window', () => {
   });
 });
 
-describe('silence at the start of a phase', () => {
-  function playing(tuning: Partial<Tuning> = {}): RunState {
-    const s = emptyRun({}, 1, { helpRate: 0, ...tuning });
-    s.spawnEnabled = true;
-    return s;
-  }
-
-  it('does not open a run', () => {
-    expect(createRun({ seed: 3, config: defaultConfig() }).calmLeft).toBe(0);
-    const s = playing();
-    expect(collect(s, interval(s)).some(warned)).toBe(true);
-  });
-
-  it('holds every regular cube for the calm time, then lets them come again', () => {
-    const s = playing();
-    reach(s, 6);
-    expect(s.level).toBe(6);
-    const calm = msToTicks(DEFAULT_TUNING.calmMs);
-    expect(collect(s, calm - 1).some(warned)).toBe(false);
-    expect(s.cubes.length + s.pending.length).toBe(0);
-    expect(collect(s, interval(s)).some(warned)).toBe(true);
-  });
-
-  it('comes with the first level of a phase only', () => {
-    for (const level of [2, 5, 7, 10]) {
-      const s = playing();
-      reach(s, level);
-      expect(s.calmLeft).toBe(0);
-      expect(collect(s, interval(s)).some(warned)).toBe(true);
-    }
-    for (const level of [6, 11, 16]) {
-      const s = playing();
-      reach(s, level);
-      expect(s.calmLeft).toBeGreaterThan(0);
-    }
-  });
-
-  it('can be tuned away', () => {
-    const s = playing({ calmMs: 0 });
-    reach(s, 6);
-    expect(collect(s, interval(s)).some(warned)).toBe(true);
-  });
-});
-
 describe('silence a chain buys', () => {
   /** Three sinking 3s and a fourth that joined them: a chain of two links. */
   function chainOfTwo(experiments: Partial<ExperimentConfig> = {}, tuning: Partial<Tuning> = {}, seed = 1): RunState {
@@ -179,12 +203,13 @@ describe('silence a chain buys', () => {
     return s;
   }
 
-  it('holds regular cubes while the chain runs and for 1.5 s a link after it', () => {
-    const s = chainOfTwo();
+  it('holds regular cubes while the chain runs and for 0.8 s a link after it', () => {
+    const s = chainOfTwo({}, { chainCalmMaxMs: 20000 });
     expect(s.reactions).toMatchObject([{ chain: 2 }]);
     expect(collect(s, s.config.sinkingTicks).some(warned)).toBe(false);
     expect(s.cubes.length).toBe(0);
     expect(s.reactions.length).toBe(0);
+    expect(DEFAULT_TUNING.chainCalmMs).toBe(800);
     const calm = msToTicks(2 * DEFAULT_TUNING.chainCalmMs);
     expect(collect(s, calm - 1).some(warned)).toBe(false);
     expect(collect(s, interval(s)).some(warned)).toBe(true);
@@ -202,13 +227,47 @@ describe('silence a chain buys', () => {
     expect(s.chainCalmLeft).toBe(0);
   });
 
-  it('is never longer than its limit', () => {
-    const s = chainOfTwo({}, { chainCalmMs: 5000 });
+  it('holds the noise no longer than its limit in one stretch, however long the chain runs', () => {
+    const s = chainOfTwo({}, { chainCalmMaxMs: 3000 });
+    const limit = msToTicks(3000);
+    expect(limit).toBeLessThan(s.config.sinkingTicks);
+    expect(collect(s, limit).some(warned)).toBe(false);
+    // The chain is still running, and the noise is back.
+    expect(s.reactions).toMatchObject([{ chain: 2 }]);
+    expect(chainQuiet(s)).toBe(false);
+    expect(collect(s, interval(s)).some(warned)).toBe(true);
+  });
+
+  it('is bought anew by the next chain, once the one that spent it is over', () => {
+    // No cube comes by itself: the board is what the test puts on it.
+    const s = chainOfTwo({}, { chainCalmMaxMs: 3000, targetCubes: 0, paceStartMs: 600000 });
+    run(s, s.config.sinkingTicks + msToTicks(3000));
+    expect(s.cubes.length).toBe(0);
+    expect(s.reactions.length).toBe(0);
+    expect(chainQuiet(s)).toBe(false);
+    put(s, 0, 0, 2);
+    land(s, put(s, 1, 0, 2));
+    land(s, put(s, 2, 0, 2));
+    expect(s.reactions).toMatchObject([{ chain: 2 }]);
+    expect(chainQuiet(s)).toBe(true);
+    run(s, msToTicks(3000));
+    expect(chainQuiet(s)).toBe(false);
+  });
+
+  it('adds no more silence after a chain than its limit', () => {
+    const s = chainOfTwo({}, { chainCalmMs: 30000 });
     run(s, s.config.sinkingTicks);
     expect(s.reactions.length).toBe(0);
+    expect(DEFAULT_TUNING.chainCalmMaxMs).toBe(8000);
     const limit = msToTicks(DEFAULT_TUNING.chainCalmMaxMs);
     expect(s.chainCalmLeft).toBeLessThanOrEqual(limit);
     expect(s.chainCalmLeft).toBeGreaterThan(limit - 5);
+  });
+
+  it('can be tuned away: with no limit to spend there is no silence', () => {
+    const s = chainOfTwo({}, { chainCalmMaxMs: 0 });
+    expect(chainQuiet(s)).toBe(false);
+    expect(collect(s, interval(s)).some(warned)).toBe(true);
   });
 
   it('is an experiment: switched off, cubes come through a chain as before', () => {
@@ -221,7 +280,7 @@ describe('silence a chain buys', () => {
   it('is on by default and belongs to the record key', () => {
     expect(defaultConfig().experiments.chainCalm).toBe(true);
     expect(ruleKey(defaultConfig({ chainCalm: false }))).not.toBe(ruleKey(defaultConfig()));
-    expect(ruleKey(defaultConfig()).startsWith('0.8')).toBe(true);
+    expect(ruleKey(defaultConfig()).startsWith('0.9')).toBe(true);
   });
 });
 
@@ -235,8 +294,11 @@ describe('cubes for a chain', () => {
     expect([o.top, o.south, o.east]).toContain(3);
   }
 
+  /** A wave that has broken and rests for longer than a test lasts. */
+  const AT_REST: Wave = { index: 0, start: 0, build: 0, rest: 100000 };
+
   function sinkingThrees(seed: number, joined: boolean): RunState {
-    const s = emptyRun({}, seed, { feedRate: 1, helpRate: 0 });
+    const s = emptyRun({ waves: true }, seed, { feedRate: 1, helpRate: 0, restFlow: 0 });
     put(s, 2, 3, 3);
     put(s, 3, 3, 3);
     land(s, put(s, 4, 3, 3));
@@ -254,41 +316,48 @@ describe('cubes for a chain', () => {
     }
   });
 
-  it('come through the silence of a phase', () => {
+  it('come through the rest of a wave', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const s = sinkingThrees(seed, false);
-      s.calmLeft = 1000;
+      s.wave = AT_REST;
       run(s, interval(s));
       expectFeeder(s);
     }
   });
 
   it('are the only ones that do: with no feeding the silence is complete', () => {
-    const s = emptyRun({}, 1, { feedRate: 0, helpRate: 0 });
+    const s = emptyRun({ waves: true }, 1, { feedRate: 0, helpRate: 0, restFlow: 0 });
     put(s, 2, 3, 3);
     put(s, 3, 3, 3);
     land(s, put(s, 4, 3, 3));
     s.spawnEnabled = true;
-    s.calmLeft = 1000;
+    s.wave = AT_REST;
     expect(collect(s, interval(s) * 3).some(warned)).toBe(false);
   });
 });
 
 describe('time limited profile', () => {
   const c = defaultConfig();
+  const minute = msToTicks(60_000);
   const at = (tick: number, level = 1, cubes = c.targetCubes) => paceIntervalTicks(c, 'timed', level, tick, cubes);
+  const levelUp = (e: GameEvent) => e.type === 'levelUp';
+  // Nobody plays: the pace is slowed so that the board does not fill before the clock runs out.
+  const slow = { timedStartMs: 12000, timedEndMs: 12000 };
+
+  it('lasts three minutes', () => {
+    expect(c.timedTicks).toBe(3 * minute);
+  });
 
   it('is fast from the first second and faster to the end', () => {
     expect(at(0)).toBe(150); // 3 s
-    expect(at(c.timedTicks / 3)).toBe(125); // 2.5 s
-    expect(at((c.timedTicks * 2) / 3)).toBe(100); // 2 s
+    expect(at(c.timedTicks / 2)).toBe(113); // 2.25 s
     expect(at(c.timedTicks)).toBe(75); // 1.5 s
     for (let tick = 0; tick < c.timedTicks; tick += 50) expect(at(tick + 50)).toBeLessThanOrEqual(at(tick));
     expect(at(0)).toBeLessThan(paceIntervalTicks(c, 'endless', 1, 0, c.targetCubes));
   });
 
   it('depends on the tick alone, not on the level', () => {
-    for (const tick of [0, 1000, 4000, 8999]) {
+    for (const tick of [0, 1000, 4000, 8999, 14999]) {
       for (const cubes of [0, 13, 14, 22, 30]) {
         expect(at(tick, 9, cubes)).toBe(at(tick, 1, cubes));
         expect(at(tick, 40, cubes)).toBe(at(tick, 1, cubes));
@@ -296,51 +365,54 @@ describe('time limited profile', () => {
     }
   });
 
-  it('counts three phases by the clock', () => {
+  it('counts three phases by the clock, a minute each', () => {
+    expect(timedPhases(c)).toBe(3);
     expect(timedPhase(c, 0)).toBe(1);
-    expect(timedPhase(c, c.timedTicks / 3 - 1)).toBe(1);
-    expect(timedPhase(c, c.timedTicks / 3)).toBe(2);
-    expect(timedPhase(c, (c.timedTicks * 2) / 3)).toBe(3);
+    expect(timedPhase(c, minute - 1)).toBe(1);
+    expect(timedPhase(c, minute)).toBe(2);
+    expect(timedPhase(c, 2 * minute)).toBe(3);
     expect(timedPhase(c, c.timedTicks * 5)).toBe(3);
   });
 
-  it('takes its level from the clock: cubes removed do not raise it', () => {
-    const s = createRun({ seed: 5, config: defaultConfig({}, { cubesPerLevel: 1 }), timed: true });
+  it('has a phase to every minute of a run of another length', () => {
+    const five = defaultConfig({}, { timedSec: 300 });
+    expect(timedPhases(five)).toBe(5);
+    expect(timedPhase(five, 10 * minute)).toBe(5);
+    expect(timedPhases(defaultConfig({}, { timedSec: 30 }))).toBe(1);
+  });
+
+  it('takes its level from the clock through all three phases: cubes removed do not raise it', () => {
+    const config = defaultConfig({ gentleStart: false, floorLift: false }, { cubesPerLevel: 1, ...slow });
+    const s = createRun({ seed: 5, config, timed: true });
     for (const cube of s.cubes.slice(1, 5)) cube.state = 'sinking';
-    const third = s.config.timedTicks / 3;
-    const first = collect(s, third);
+    const first = collect(s, minute);
     expect(s.removed).toBe(4);
     expect(s.level).toBe(1);
-    expect(first.some((e) => e.type === 'levelUp')).toBe(false);
+    expect(first.some(levelUp)).toBe(false);
     step(s, null);
     expect(s.level).toBe(2);
     expect(s.events).toContainEqual({ type: 'levelUp', level: 2 });
     const rest = collect(s, s.config.timedTicks);
+    expect(rest.filter(levelUp)).toEqual([{ type: 'levelUp', level: 3 }]);
     expect(s.level).toBe(3);
-    expect(rest.filter((e) => e.type === 'levelUp')).toEqual([{ type: 'levelUp', level: 3 }]);
     expect(s.endReason).toBe('time');
+    expect(s.tick).toBe(3 * minute);
   });
 
-  it('rests for a moment at the start of the second and the third minute', () => {
-    // Nobody plays: the pace is slowed so that the board does not fill before the clock runs out.
-    const slow = { timedStartMs: 6000, timedEndMs: 6000 };
-    const s = createRun({ seed: 5, config: defaultConfig({ gentleStart: false, floorLift: false }, slow), timed: true });
-    const third = s.config.timedTicks / 3;
-    const calm = msToTicks(DEFAULT_TUNING.timedCalmMs);
-    expect(s.calmLeft).toBe(0);
-    expect(collect(s, third).filter(warned).length).toBeGreaterThan(5);
-    expect(collect(s, calm).some(warned)).toBe(false);
-    expect(collect(s, third - calm).some(warned)).toBe(true);
-    expect(s.over).toBe(false);
-    expect(collect(s, calm).some(warned)).toBe(false);
-    expect(collect(s, third - calm - 1).some(warned)).toBe(true);
-    expect(s.over).toBe(false);
-  });
-
-  it('keeps Endless on the cubes removed', () => {
-    const s = createRun({ seed: 5, config: defaultConfig() });
+  it('can be lost: it has no gentle start, and with nobody at it the board fills before the clock runs out', () => {
+    const s = createRun({ seed: 5, config: defaultConfig({ floorLift: false }), timed: true });
+    expect(s.config.experiments.gentleStart).toBe(true);
     run(s, s.config.timedTicks);
-    expect(s.level).toBe(1);
+    expect(s.endReason).toBe('full');
+    expect(s.tick).toBeLessThan(s.config.timedTicks);
+  });
+
+  it('leaves Endless to be lost once its gentle start is over', () => {
+    const s = createRun({ seed: 5, config: defaultConfig({ floorLift: false }) });
+    run(s, s.config.gentleTicks);
+    expect(s.over).toBe(false);
+    run(s, s.config.timedTicks);
+    expect(s.endReason).toBe('full');
   });
 });
 
@@ -377,7 +449,7 @@ describe('run report', () => {
   });
 
   it('remembers the longest silence a chain has bought', () => {
-    const s = emptyRun({}, 1, { feedRate: 0, helpRate: 0 });
+    const s = emptyRun({}, 1, { feedRate: 0, helpRate: 0, chainCalmMaxMs: 20000 });
     put(s, 2, 3, 3);
     put(s, 3, 3, 3);
     land(s, put(s, 4, 3, 3));
@@ -395,7 +467,7 @@ describe('determinism of the pace', () => {
   function play(timed: boolean, config = defaultConfig()): string {
     const s = createRun({ seed: 99, config, timed });
     const dirs: Dir[] = ['N', 'E', 'S', 'W'];
-    for (let i = 0; i < 9000 && !s.over; i++) {
+    for (let i = 0; i < 16000 && !s.over; i++) {
       step(s, i % 7 === 0 ? dirs[(i / 7) % 4 | 0] : null);
     }
     return JSON.stringify(s);

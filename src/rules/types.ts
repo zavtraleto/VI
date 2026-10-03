@@ -100,8 +100,29 @@ export interface ExperimentConfig {
   dockSteps: boolean;
   /** A 1 that touches a chain sinks alone instead of taking every other 1 with it. */
   soloOne: boolean;
-  /** A chain of two links or more holds regular cubes off while it runs and for a while after. */
+  /** A chain of two links or more holds regular cubes off while it runs and for a while after, up to a limit. */
   chainCalm: boolean;
+  /** Endless: the level rises with the time too, so an unhurried run does not stay on the first levels. */
+  timeFloor: boolean;
+  /** The flow of cubes comes in waves: it gathers to a crest, breaks into a rest and comes back. */
+  waves: boolean;
+  /** The crest of a wave is an event: several cubes come at once as the wave breaks. */
+  surge: boolean;
+  /**
+   * Endless: the board a run opens on is laid out so that the first roll can clear, a 2 coming
+   * up beside a 2 on a face the camera shows. The first success is seconds away for anybody.
+   */
+  opening: boolean;
+  /**
+   * Past the danger mark the cubes come slower the fuller the board, and a clear made there
+   * holds them off for a while: the player stays on the edge longer and gets out more often.
+   */
+  lastSliver: boolean;
+  /**
+   * Endless: after cubes that came without a clear, one comes up a roll away from a group that
+   * lacks a single die, with the value on a face the camera shows.
+   */
+  gift: boolean;
 }
 
 /** Gameplay variables exposed in the debug panel. Times are in milliseconds. */
@@ -109,25 +130,38 @@ export interface Tuning {
   stepMs: number;
   warnMs: number;
   riseMs: number;
-  /** Endless: interval at the target number of cubes on levels 1 to 3, its ratio per level, its floor. */
+  /**
+   * Endless: interval at the target number of cubes on the first levels, how many they are, the
+   * share of the starting flow that every further level adds, and the interval's floor.
+   */
   paceStartMs: number;
-  paceRatio: number;
+  paceFlatLevels: number;
+  paceGrowth: number;
   paceMinMs: number;
-  /** Levels in a phase; on the first one the interval goes `breathLevels` back and `calmMs` pass in silence. */
-  phaseLevels: number;
-  breathLevels: number;
-  calmMs: number;
+  /**
+   * Waves: how long one gathers on average, in seconds; how much the lengths of waves and rests
+   * differ, as a share; what the interval is multiplied by where a wave opens and at its crest;
+   * the trough after the crest, on average, and the share of the level's flow that comes in it
+   * (0 makes the trough a silence).
+   */
+  waveSec: number;
+  waveSpread: number;
+  waveEase: number;
+  wavePeak: number;
+  restMs: number;
+  restFlow: number;
   cubesPerLevel: number;
-  /** Silence after a chain for each of its links, and the most a chain can buy. */
+  /** Endless: seconds of play that raise the level by one, whatever has been removed. */
+  levelSec: number;
+  /** Silence after a chain for each of its links, and the longest silence chains hold in one stretch. */
   chainCalmMs: number;
   chainCalmMaxMs: number;
   /** Chain window: how long a cleared cube sinks, on the first levels and in the deep. */
   sinkStartMs: number;
   sinkFloorMs: number;
-  /** Time Limited: interval at the target at the start and at the end, and the rest between its phases. */
+  /** Time Limited: interval at the target at the start and at the end. */
   timedStartMs: number;
   timedEndMs: number;
-  timedCalmMs: number;
   startCubes: number;
   lowHeight: number;
   sinkLowHeight: number;
@@ -147,6 +181,20 @@ export interface Tuning {
   refillEndMs: number;
   crowdedFactor: number;
   easyLevels: number;
+  /** The crest of a wave: cubes that come at once on the first waves, and the most they grow to. */
+  surgeCubes: number;
+  surgeMax: number;
+  /** The big breather: after how many waves a trough is a long one (0 for never), and how many times longer. */
+  breatherEvery: number;
+  breatherFactor: number;
+  /** Points for a clear that leaves no die standing, for every level of the run; 0 gives none. */
+  wipeBonus: number;
+  /** The last sliver: interval multiplier on a full board, and the silence a clear at the danger mark holds. */
+  edgeFactor: number;
+  edgeCalmMs: number;
+  /** A gift: the chance of one that every cube come without a clear adds, and the most it gets to. */
+  giftRate: number;
+  giftMax: number;
 }
 
 export interface RulesConfig {
@@ -167,26 +215,41 @@ export interface RulesConfig {
   sinkingTicks: number;
   sinkStartTicks: number;
   sinkFloorTicks: number;
-  /** Endless: interval with the target number of cubes in play on levels 1 to 3. */
+  /** Endless: interval with the target number of cubes in play on the first levels, and how many of them hold it. */
   paceStartMs: number;
-  /** What every further level multiplies that interval by, and the interval it never goes under. */
-  paceRatio: number;
+  paceFlatLevels: number;
+  /** The share of the starting flow of cubes that every further level adds, and the interval it never goes under. */
+  paceGrowth: number;
   paceMinMs: number;
-  /** Levels in a phase. The first level of a new phase is a rest. */
-  phaseLevels: number;
-  /** Levels the interval goes back by on the first level of a phase. */
-  breathLevels: number;
-  /** Ticks without regular cubes at the start of a phase. */
-  calmTicks: number;
-  /** Ticks without regular cubes after a chain for each of its links, and the most it can buy. */
+  /** Ticks a wave gathers for and ticks it rests for, on average, and the share by which waves differ. */
+  waveTicks: number;
+  restTicks: number;
+  waveSpread: number;
+  /** What a wave multiplies the interval by where it opens and at its crest. */
+  waveEase: number;
+  wavePeak: number;
+  /** The share of the level's flow that comes in the trough after a crest; 0 makes it a silence. */
+  restFlow: number;
+  /** Cubes that come at once at the crest of the first waves, and the most the salvo grows to. */
+  surgeCubes: number;
+  surgeMax: number;
+  /** Waves to a long trough, 0 for none, and how many times longer than a usual one it is. */
+  breatherEvery: number;
+  breatherFactor: number;
+  /** Points for a clear that leaves no die standing, for every level of the run. */
+  wipeBonus: number;
+  /**
+   * Ticks without regular cubes after a chain for each of its links, and the longest silence
+   * chains can hold in one stretch, while they run and after.
+   */
   chainCalmTicks: number;
   chainCalmMaxTicks: number;
   /** Time Limited: interval at the target at the start and at the end of the run. */
   timedStartMs: number;
   timedEndMs: number;
-  /** Time Limited: ticks without regular cubes at the start of the second and the third phase. */
-  timedCalmTicks: number;
   cubesPerLevel: number;
+  /** Endless: ticks of play that raise the level by one, with `timeFloor`. */
+  levelTicks: number;
   warnOccupied: number;
   rescueTicks: number;
   /** Height at or below which a rising cube can be rolled over. */
@@ -211,6 +274,13 @@ export interface RulesConfig {
   refillEndMs: number;
   /** Spawn interval multiplier on a crowded board. */
   crowdedFactor: number;
+  /** Spawn interval multiplier on a full board: past the danger mark the interval grows from the crowded one to this. */
+  edgeFactor: number;
+  /** Ticks without regular cubes after a clear made with the board at the danger mark. */
+  edgeCalmTicks: number;
+  /** Chance of a gift that every cube come without a clear adds, and the most the chance gets to. */
+  giftRate: number;
+  giftMax: number;
   /** Levels over which low face values stop being favoured. */
   easyLevels: number;
   gentleTicks: number;
@@ -229,6 +299,7 @@ export type GameEvent =
   | { type: 'match'; reactionId: number; value: number; count: number; points: number }
   | { type: 'chain'; reactionId: number; value: number; chain: number; count: number; points: number }
   | { type: 'happyOne'; count: number; points: number }
+  | { type: 'wiped'; points: number } // a clear left no die standing: the board is clean
   | { type: 'warned'; x: number; z: number } // a cube was announced on a cell
   | { type: 'spawn'; cubeId: number }
   | { type: 'risen'; cubeId: number }
@@ -252,6 +323,14 @@ export interface LevelStats {
   removed: number;
 }
 
+/** A wave of the pace: the flow of cubes gathers for `build` ticks from `start`, then holds off for `rest`. */
+export interface Wave {
+  index: number;
+  start: number;
+  build: number;
+  rest: number;
+}
+
 export interface RunStats {
   /** Ticks of the first few clears (matches, chain joins, Happy One). */
   clearTicks: number[];
@@ -267,6 +346,10 @@ export interface RunStats {
   /** Steps from a sinking cube down onto a dock, and from a dock up onto a standing cube. */
   dockDescents: number;
   dockClimbs: number;
+  /** Gifts that came: cubes a roll away from finishing a group. */
+  gifts: number;
+  /** Times a clear left no die standing. */
+  wipes: number;
   /** One entry for each level reached, the first level first. */
   levels: LevelStats[];
   /** Ticks with the board at the danger mark: `warnOccupied` cubes or more. */
@@ -335,10 +418,21 @@ export interface RunState {
   removed: number;
   maxChain: number;
   spawnTimer: number;
-  /** Ticks of silence left at the start of a phase: no regular cubes until it runs out. */
-  calmLeft: number;
+  /** The wave of the pace the run is on. */
+  wave: Wave;
   /** Ticks of silence left after a chain. */
   chainCalmLeft: number;
+  /**
+   * Ticks of silence chains have held in one stretch. At the limit the noise comes back, and
+   * stays until no chain asks for silence: only the next chain buys it anew.
+   */
+  chainQuietSpent: number;
+  /** Ticks of silence left after a clear made at the danger mark. */
+  edgeCalmLeft: number;
+  /** That silence has been held in this stay at the danger mark: the next one takes getting out and coming back. */
+  edgeCalmSpent: boolean;
+  /** Regular cubes that have come since the last clear: the longer the drought, the likelier a gift. */
+  sinceClear: number;
   /** Ticks on the ground since the fall or since the last lift was sent. */
   liftTimer: number;
   /** Consecutive ticks with every cell occupied. */

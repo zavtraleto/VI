@@ -1,5 +1,6 @@
 import { Display } from '../display/display';
 import { loadSettings, type Settings } from '../platform/settings';
+import { DEFAULT_TUNING } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel } from '../shell/panels';
 import type { PanelSpec } from '../shell/screens/panel';
@@ -13,7 +14,7 @@ export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'reco
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
-const SAMPLE_DATA = { bestEndless: 12840, bestTimed: 4310, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
+const SAMPLE_DATA = { bestEndless: 12840, bestTimed: 4310, limitSec: DEFAULT_TUNING.timedSec, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
 /** Players for the sample of the table a platform keeps: the one who plays is far below the top. */
 const SAMPLE_BOARD = [
   ...['Guest 4f1c09', 'Мария', 'kuro_neko', '', 'A name far too long for the table', 'Tomás', 'Guest 77ab31', 'ольга', 'N0body'].map((name, i) => ({

@@ -18,12 +18,12 @@ export function statsText(state: RunState): string {
     `first clears: ${stats.clearTicks.length > 0 ? stats.clearTicks.map(seconds).join(', ') : '-'}`,
     `clears ${stats.clears} · steps ${stats.steps} · blocked ${stats.blockedSteps}`,
     `ground time ${seconds(stats.groundTicks)} · falls ${stats.falls} · removed ${state.removed}`,
-    `climbs from the floor ${stats.floorClimbs} · steps down to a dock ${stats.dockDescents} · climbs from a dock ${stats.dockClimbs}`,
+    `climbs from the floor ${stats.floorClimbs} · steps down to a dock ${stats.dockDescents} · climbs from a dock ${stats.dockClimbs} · gifts ${stats.gifts} · clean boards ${stats.wipes}`,
     `danger time ${seconds(stats.dangerTicks)} · longest chain silence ${seconds(stats.longestChainQuiet)}`,
     `levels (time +came -removed): ${levels.length > 0 ? levels.join(' · ') : '-'}`,
     `flags: ${flags.length > 0 ? flags.join(', ') : 'none'}${config.custom ? ' · custom variables' : ''}`,
     `step ${ms(config.actionTicks)} · warn ${ms(config.warnTicks)} · rise ${ms(config.risingTicks)} · sink ${sink} ms`,
-    `pace ${config.paceStartMs} x${config.paceRatio}/lvl, min ${config.paceMinMs} · phase ${config.phaseLevels} lvl, back ${config.breathLevels}, calm ${ms(config.calmTicks)} · refill ${config.refillMs} to ${config.refillEndMs} · ${config.cubesPerLevel} cubes/lvl`,
-    `chain calm ${ms(config.chainCalmTicks)}/link, max ${ms(config.chainCalmMaxTicks)} · timed ${config.timedStartMs} to ${config.timedEndMs}, calm ${ms(config.timedCalmTicks)} ms`,
+    `pace ${config.paceStartMs}, flow +${config.paceGrowth}/lvl after level ${config.paceFlatLevels}, min ${config.paceMinMs} · a level in ${config.cubesPerLevel} cubes or ${seconds(config.levelTicks)} · refill ${config.refillMs} to ${config.refillEndMs}`,
+    `on wave ${state.wave.index + 1} · waves ${seconds(config.waveTicks)} ±${config.waveSpread}, x${config.waveEase} to x${config.wavePeak}, trough ${ms(config.restTicks)} at ${config.restFlow} of the flow · chain calm ${ms(config.chainCalmTicks)}/link, max ${ms(config.chainCalmMaxTicks)} · timed ${config.timedStartMs} to ${config.timedEndMs} ms`,
   ].join('\n');
 }

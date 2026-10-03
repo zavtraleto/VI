@@ -107,6 +107,14 @@ export function digits(value: number, places: number): string {
   return String(Math.max(0, Math.round(value))).padStart(places, '0');
 }
 
+/**
+ * The dry line of a file as its record shows it. The session with a limit says how long it
+ * lasts where its words have `{time}`: the length is the rules', not the words'.
+ */
+export function fileLine(words: string, limitSec: number): string {
+  return words.replace('{time}', `${digits(Math.floor(limitSec / 60), 2)}:${digits(limitSec % 60, 2)}`);
+}
+
 /** What the session shows while it runs: the names of its readings. */
 export const HUD = {
   /** "Score". */
@@ -114,7 +122,7 @@ export const HUD = {
   /** "Highest". */
   best: '最高',
   level: 'LV',
-  /** "Connection": the steps the contact has taken, and the score of the next one. */
+  /** "Connection": the steps the contact has taken, and the dice sent at which the next one comes. */
   link: '接続',
   /** "Detected": what the link reads once the program has found a pattern on it. */
   found: '検出',

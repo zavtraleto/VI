@@ -6,7 +6,7 @@ import { CELL_H, CELL_W, MIN_ZONE, menuLayout, netProjection, netStep, type Box,
 import { drawLogo } from '../logo';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { ShellSpace } from '../space';
-import { EXEC_LABEL, EXEC_NAME, LEGEND, MENU_FILES, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, type FileField, type MenuFile } from '../text';
+import { EXEC_LABEL, EXEC_NAME, LEGEND, MENU_FILES, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, fileLine, type FileField, type MenuFile } from '../text';
 import type { Palette } from '../theme';
 
 /** What the files of the main menu do. */
@@ -24,6 +24,8 @@ export interface MenuData {
   /** Best score of a session without a limit, and of one with it. */
   bestEndless: number;
   bestTimed: number;
+  /** Seconds a session with a limit lasts, as the rules have it. */
+  limitSec: number;
   tutorialDone: boolean;
   /** Puzzles cleared, out of how many there are. */
   tasksDone: number;
@@ -253,7 +255,7 @@ export class MenuScreen implements ShellScreen {
 
     const nameEnd = kit.text(file.name, left, box.y + 22, ink, { scale: 2, bold: true });
     kit.text(file.native, nameEnd + CELL_W, box.y + 22 + CELL_H, dim);
-    kit.text(t(file.line), left, box.y + 60, ink);
+    kit.text(fileLine(t(file.line), this.data.limitSec), left, box.y + 60, ink);
     kit.field(file.field[0], this.value(file.field[1]), left, right, box.y + 82, dim, ink);
 
     const exec = layout.exec;

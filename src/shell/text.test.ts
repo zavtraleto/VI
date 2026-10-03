@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import i18n from '../ui/i18n.ts?raw';
 import kanji from './fonts/kanji.txt?raw';
 import { textWidth } from './layout';
-import { MENU_FILES, eraDate } from './text';
+import { MENU_FILES, eraDate, fileLine } from './text';
 import source from './text.ts?raw';
 import { dayAmount, mixHex, paletteAt, shellDefaults } from './theme';
 
@@ -18,6 +18,17 @@ describe('the files of the menu', () => {
   it('are six, one on each face of the die', () => {
     expect(MENU_FILES.map((file) => file.face)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(new Set(MENU_FILES.map((file) => file.id)).size).toBe(6);
+  });
+
+  it('say how long the session of the day lasts as the rules have it, not in words of their own', () => {
+    const lines = [...i18n.matchAll(/shellLimited: '([^']*)'/g)].map((match) => match[1]);
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line).not.toMatch(/\d/);
+      expect(fileLine(line, 300)).toContain('05:00');
+      expect(fileLine(line, 180)).toContain('03:00');
+    }
+    expect(fileLine('SESSION WITHOUT LIMIT', 300)).toBe('SESSION WITHOUT LIMIT');
   });
 
   it('have dry lines short enough for the record of a phone, in every language', () => {

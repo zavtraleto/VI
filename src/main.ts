@@ -1,6 +1,7 @@
 import { Game } from './app/game';
 import { quality } from './display/quality';
 import { initPlatform, platformLanguage } from './platform/bridge';
+import { RUN_KEY } from './app/savedRun';
 import { SETTINGS_KEY } from './platform/settings';
 import { openStorage } from './platform/storage';
 import { setLanguage } from './ui/i18n';
@@ -11,7 +12,7 @@ import './ui/styles.css';
 // The platform comes first: what it keeps for the player and the language it names are read
 // before anything of the game is built.
 await initPlatform();
-await openStorage([SETTINGS_KEY]);
+await openStorage([SETTINGS_KEY, RUN_KEY]);
 const language = platformLanguage();
 if (language) setLanguage(language);
 
