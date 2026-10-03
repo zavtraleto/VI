@@ -3,6 +3,7 @@ import { clockHour, paletteAt, type Palette } from '../shell/theme';
 
 const number = (value: number, min: number, max: number, step: number): ParamSpec => ({ kind: 'number', value, min, max, step });
 const color = (value: string): ParamSpec => ({ kind: 'color', value });
+const choice = (value: string, options: string[]): ParamSpec => ({ kind: 'choice', value, options });
 
 /**
  * Every parameter of the look of the board that is the board's own, by the folder it stands
@@ -88,6 +89,48 @@ export const BOARD_GROUPS = {
     scanlines: number(0.12, 0, 1, 0.01),
     vignette: number(0.3, 0, 1, 0.01),
   },
+  view: {
+    /**
+     * The whole board in view, or the player followed: the middle of the screen enlarged, the
+     * edges of the board pressed together by a lens. `auto` follows where a cell of the whole
+     * board would be small, unless the player keeps the whole board or keeps motion low.
+     */
+    view: choice('auto', ['auto', 'full', 'follow']),
+    /**
+     * Followed: the least share of the board that fits across the screen at the scale the
+     * player is seen at. The player is at most `1 / focus` times as large as with the whole
+     * board in view, and the lens presses the rest of the board together by as much.
+     */
+    focus: number(0.6, 0.3, 1, 0.01),
+    /**
+     * The least strength of the lens towards any side. The side of the screen the board is
+     * fitted to is pressed together by `1 / focus - 1` whatever this is; the other side, where
+     * the board has room, is bent by this much and no more. 0 keeps that side flat and the
+     * board at its largest.
+     */
+    lens: number(0, 0, 2, 0.05),
+    /** How long the lens takes to come up with the player, in milliseconds. */
+    followMs: number(250, 0, 1000, 10),
+    /**
+     * How near the player comes to an edge of the screen at the very edge of the board, as a
+     * share of the screen: that much of it is left to the dark beside them. 0 keeps the board
+     * from edge to edge of the screen always; 0.5 keeps the player in the middle of it.
+     */
+    edge: number(0.1, 0, 0.5, 0.01),
+    /**
+     * The size of a cell under the player, in CSS pixels. The player is followed when a cell of
+     * the whole board would be smaller than this, and the board is enlarged only as far as
+     * makes it this size: 64 is a centimetre on a phone, a size a finger and an eye are at
+     * ease with.
+     */
+    minCell: number(64, 0, 120, 1),
+    /**
+     * How much of what the lens enlarges the board is drawn denser by while it is followed: 1
+     * keeps its middle as sharp as with the whole board in view, 0 draws it no denser than the
+     * canvas, which costs the graphics card nothing and is softer.
+     */
+    sharp: number(1, 0, 1, 0.05),
+  },
 } satisfies Record<string, Record<string, ParamSpec>>;
 
 export const BOARD_PARAMS: Record<string, ParamSpec> = Object.assign({}, ...Object.values(BOARD_GROUPS));
@@ -122,6 +165,25 @@ export function parseBoardValue(name: string, text: string): number | string | b
   if (spec.kind === 'boolean') return text === 'true' || text === '1';
   if (spec.kind === 'choice') return spec.options.includes(text) ? text : undefined;
   return text;
+}
+
+/**
+ * What an address says of the view, in any build, to try on a device what it is like:
+ * `?view=follow&focus=0.6&lens=0&followMs=250&edge=0.1&minCell=64&sharp=1`. Only what is
+ * named and makes sense is returned; the rest stays as it is defined.
+ */
+export function readView(search: string): ParamValues {
+  const query = new URLSearchParams(search);
+  const values: ParamValues = {};
+  for (const [name, spec] of Object.entries(BOARD_GROUPS.view as Record<string, ParamSpec>)) {
+    const text = query.get(name);
+    if (text === null || text === '') continue;
+    const value = parseBoardValue(name, text);
+    if (value === undefined) continue;
+    if (spec.kind === 'number' && (typeof value !== 'number' || value < spec.min || value > spec.max)) continue;
+    values[name] = value;
+  }
+  return values;
 }
 
 /** What the board is drawn from: its own values and the values of the shell, which hold the colours. */

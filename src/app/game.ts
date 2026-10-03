@@ -26,7 +26,7 @@ import { storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
-import { boardDefaults, type BoardLook } from '../render/params';
+import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
@@ -200,8 +200,8 @@ export class Game {
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: this.governor?.samples ?? quality().samples, encoded: true });
   /** The least time between two frames drawn, in milliseconds, where the frames of the screen are held to a limit; 0 where they are not. */
   private readonly frameGap = quality().fpsCap > 0 ? 1000 / quality().fpsCap - 1 : 0;
-  /** What the board and the interface are drawn from: the board's own values, and the look of the program. */
-  private readonly look: BoardLook = { board: boardDefaults(), shell: shellDefaults() };
+  /** What the board and the interface are drawn from: the board's own values, and the look of the program. The address may name the view. */
+  private readonly look: BoardLook = { board: { ...boardDefaults(), ...readView(window.location.search) }, shell: shellDefaults() };
   /** What the program shows of a session over the board. Its layers lie under those of the menu and the panels. */
   private readonly hud = new GameHud(this.display, this.look, {
     live: () => !this.inMenu && !this.shell.visible && !this.toolsOpen && !this.signal.busy,
@@ -874,7 +874,7 @@ export class Game {
     );
   }
 
-  /** What the player can set: sound, motion, shake, swipes or buttons. In development the tools of the playtest open from here. */
+  /** What the player can set: sound, motion, shake, swipes or buttons, the camera. In development the tools of the playtest open from here. */
   private showSystem(back: () => void): void {
     const { tools } = this;
     const values = (): SystemValues => ({
@@ -882,6 +882,7 @@ export class Game {
       reducedMotion: prefersReducedMotion(this.settings),
       shake: this.settings.shake,
       control: this.settings.controlMode,
+      view: this.settings.view,
     });
     this.shell.showPanel(
       systemPanel({
@@ -894,6 +895,8 @@ export class Game {
             this.settings.reducedMotion = !prefersReducedMotion(this.settings);
           } else if (key === 'shake') {
             this.settings.shake = !this.settings.shake;
+          } else if (key === 'view') {
+            this.settings.view = this.settings.view === 'full' ? 'auto' : 'full';
           } else {
             this.settings.controlMode = this.settings.controlMode === 'gesture' ? 'dpad' : 'gesture';
             this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
@@ -1312,6 +1315,7 @@ export class Game {
         danger: danger !== null,
         reducedMotion,
         shake: this.settings.shake,
+        whole: this.settings.view === 'full',
       });
       this.backdrop.draw(this.view.background, this.view.inverted);
     } else {

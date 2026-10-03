@@ -2,6 +2,11 @@ import { defaultExperiments, type ExperimentConfig, type Tuning } from '../rules
 import { loadJson, saveJson } from './storage';
 
 export type ControlMode = 'gesture' | 'dpad';
+/**
+ * How the board is seen: `auto` follows the player where the whole board would be small on
+ * the screen, `full` keeps the whole board in view everywhere.
+ */
+export type ViewSetting = 'auto' | 'full';
 
 /** One finished Endless run, kept for the local records register. */
 export interface RunRecord {
@@ -47,6 +52,7 @@ export interface Settings {
   /** null follows the system preference. */
   reducedMotion: boolean | null;
   shake: boolean;
+  view: ViewSetting;
   /** Overrides of gameplay variables set in the debug panel. */
   tuning: Partial<Tuning>;
   /**
@@ -81,6 +87,7 @@ export function loadSettings(): Settings {
     muted: false,
     reducedMotion: null,
     shake: true,
+    view: 'auto',
     tuning: {},
     camera: { ...DEFAULT_CAMERA },
     debugPanel: false,

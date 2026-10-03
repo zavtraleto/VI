@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { shellDefaults } from '../shell/theme';
-import { BOARD_GROUPS, BOARD_PARAMS, boardChanged, boardDefaults, boardPalette, parseBoardValue } from './params';
+import { BOARD_GROUPS, BOARD_PARAMS, boardChanged, boardDefaults, boardPalette, parseBoardValue, readView } from './params';
 
 describe('board params', () => {
   it('names every parameter once across the folders', () => {
@@ -31,6 +31,29 @@ describe('board params', () => {
     expect(parseBoardValue('gridBright', 'bright')).toBeUndefined();
     expect(parseBoardValue('mannequin', '#445566')).toBe('#445566');
     expect(parseBoardValue('nothing', '1')).toBeUndefined();
+  });
+
+  it('takes the view from an address, and only the view', () => {
+    expect(readView('')).toEqual({});
+    expect(readView('?lab=board&perf&msaa=2')).toEqual({});
+    expect(readView('?view=follow&focus=0.5&lens=1&followMs=400&edge=0.2&minCell=70&sharp=0.5')).toEqual({
+      view: 'follow',
+      focus: 0.5,
+      lens: 1,
+      followMs: 400,
+      edge: 0.2,
+      minCell: 70,
+      sharp: 0.5,
+    });
+    // The rest of the look is not set from the address of the game.
+    expect(readView('?view=full&gridBright=1')).toEqual({ view: 'full' });
+  });
+
+  it('keeps the view as it is defined where the address makes no sense', () => {
+    expect(readView('?view=sideways&focus=abc&lens=-1&followMs=&edge=99&sharp=9')).toEqual({});
+    const defaults = boardDefaults();
+    expect(defaults.view).toBe('auto');
+    expect({ ...defaults, ...readView('?focus=7') }).toEqual(defaults);
   });
 
   it('has no colours of the channels of its own: they are the program\'s', () => {

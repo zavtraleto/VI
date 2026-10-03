@@ -1,4 +1,4 @@
-import { topRuns, type ControlMode, type RecordMetric, type RunRecord } from '../platform/settings';
+import { topRuns, type ControlMode, type RecordMetric, type RunRecord, type ViewSetting } from '../platform/settings';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
 import { COMMANDS, PANELS, RECORDS, RESULT, SYSTEM, digits } from './text';
@@ -41,6 +41,7 @@ export interface SystemValues {
   reducedMotion: boolean;
   shake: boolean;
   control: ControlMode;
+  view: ViewSetting;
 }
 
 export function systemPanel(actions: {
@@ -72,6 +73,7 @@ export function systemPanel(actions: {
         value: () => (values().control === 'gesture' ? SYSTEM.swipe : SYSTEM.buttons),
         action: () => actions.onToggle('control'),
       },
+      { kind: 'switch', id: 'view', label: SYSTEM.view, value: () => (values().view === 'auto' ? SYSTEM.auto : SYSTEM.fixed), action: () => actions.onToggle('view') },
       { kind: 'gap' },
       { kind: 'commands', commands: [...(actions.tools ?? []), { id: 'back', label: COMMANDS.back, action: actions.onBack }] },
     ],

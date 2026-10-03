@@ -230,10 +230,14 @@ export const SYSTEM = {
   shake: { native: '振動', name: 'SHAKE' },
   /** "Operation": swipes or buttons. */
   control: { native: '操作', name: 'CONTROL' },
+  /** "Camera": follows the player where the whole board would be small, or stays on the whole board. */
+  view: { native: 'カメラ', name: 'CAMERA' },
   on: 'ON',
   off: 'OFF',
   full: 'FULL',
   reduced: 'LESS',
   swipe: 'SWIPE',
   buttons: 'BUTTONS',
+  auto: 'AUTO',
+  fixed: 'FIXED',
 } as const;

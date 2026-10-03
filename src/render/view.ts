@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import type { Layer, Rect } from '../display/layer';
+import { lensTo, type Lens, type LensSides } from '../display/lens';
 import { DELTA, cubeAt, cubeHeight, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { pictureSize } from '../shell/layout';
 import { mixHex, type Palette } from '../shell/theme';
 import { BoardBursts, type BoardBeat } from './burst';
 import { CubeMeshes } from './cubes';
-import { fitBoard, type FrameBounds } from './framing';
+import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { boardPalette, type BoardLook } from './params';
@@ -43,6 +44,20 @@ const WAVE_MS_PER_CELL = 45;
 /** How far the colours part at the first step of the screen, in pixels of the program's picture. */
 const CHROMA_TUBE_PX = 1.2;
 const JOLT_TUBE_PX = 4;
+/**
+ * The height the lens of the followed view stands at: the top of a die, where the figure is
+ * most of the time. It is the cell that is followed, so a hop or a climb does not move the lens.
+ */
+const FOLLOW_Y = 1;
+/** The words of an exercise never take more of the stage than this from the followed board. */
+const FOLLOW_CLEAR = 0.7;
+/**
+ * The followed board is drawn denser than the canvas, for its enlarged middle to stay sharp:
+ * never more than this many times either way, nor larger than this on a side, in pixels.
+ */
+const SHARP_MAX = 2;
+const SHARP_SIDE_PX = 2048;
+const VIEWS: readonly string[] = ['auto', 'full', 'follow'];
 
 export interface CameraAngles {
   /** Turn around the vertical axis: 45 is the diamond view, 0 looks straight at the board. */
@@ -84,6 +99,8 @@ export interface SceneParams {
   danger: boolean;
   reducedMotion: boolean;
   shake: boolean;
+  /** The player keeps the whole board in view, however small it is on this screen. */
+  whole?: boolean;
 }
 
 type FlatMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -107,6 +124,11 @@ function step(level: number, n: number): number {
  * The board has no plate under it: its surface is lines in the dark, and the layer is clear
  * around the dice, so what lies behind the board shows. The surface is the border between two
  * sides: what is under it is not seen.
+ *
+ * Where the whole board would be small on the screen, the view follows the player instead: a
+ * lens goes with them over the board and enlarges what is around them, and presses the rest
+ * of the board together towards the edges of the screen, so all of it stays in view. The
+ * camera does not turn.
  */
 export class BoardView {
   /** The dark behind the board as this frame has it: for the layer that lies under this one. */
@@ -115,6 +137,8 @@ export class BoardView {
   inverted = false;
   /** Lines of the program's picture on this window: the tube the board is shown on. */
   lines = 240;
+  /** How the board is seen: whole, or followed through a lens. Picked anew on every frame drawn. */
+  mode: ViewMode = 'full';
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 120);
   private readonly cameraHome = new THREE.Vector3();
@@ -179,6 +203,25 @@ export class BoardView {
   private readonly red = new THREE.Color();
   /** 1 when a board starts by coming up out of the floor, falling to 0. */
   private rise = 0;
+  /** Size of a cell with the whole board in view, in CSS pixels: what the view is picked by. */
+  private wholeCell = 0;
+  /** The point of the board the lens of the followed view is over, on the camera's right and up axes, and how fast it is moving. */
+  private readonly at = { r: 0, u: 0 };
+  private readonly speed = { r: 0, u: 0 };
+  /** The followed view has been brought to the player: until then it does not glide, it is put there. */
+  private settled = false;
+  /** How many times the lens enlarges the middle of what is drawn, side to side and bottom to top. */
+  private readonly enlarged = { x: 1, y: 1 };
+  /** The part of the container the board is drawn to, in CSS pixels from its corner. */
+  private region: Rect = { x: 0, y: 0, width: 1, height: 1 };
+  /** The lens the board is put on screen through; null with the whole board in view. */
+  private lens: Lens | null = null;
+  /** The lens of the followed view, kept from frame to frame: only its numbers change. */
+  private readonly followed: Lens & { k: LensSides } = {
+    centre: { x: 0.5, y: 0.5 },
+    from: { x: 0.5, y: 0.5 },
+    k: { left: 0, right: 0, bottom: 0, top: 0 },
+  };
 
   constructor(
     private readonly container: HTMLElement,
@@ -346,6 +389,21 @@ export class BoardView {
     this.height = Math.max(1, box.height);
     this.rect = { x: box.left, y: box.top, width: this.width, height: this.height };
     const aspect = this.width / this.height;
+    // The view is picked by the cell of the whole board with nothing over it: words that come
+    // and go over the board do not change the view.
+    this.wholeCell = cellPixels(fitBoard(this.bounds, aspect, 0, SIDE_MARGIN, FRAME_MARGIN), this.height);
+    // After a turn of the screen or a change of view the camera is put on the player at once.
+    this.settled = false;
+    if (this.mode === 'follow') {
+      // The words of the exercise have the top of the stage, and the board is drawn under
+      // them: the player, in the middle of it, is never covered. The frame itself goes with
+      // the player and is set on every draw.
+      const clear = Math.min(this.clear, this.height * FOLLOW_CLEAR);
+      this.region = { x: 0, y: clear, width: this.width, height: Math.max(1, this.height - clear) };
+      return;
+    }
+    this.region = { x: 0, y: 0, width: this.width, height: this.height };
+    this.lens = null;
     const { halfHeight, centreR, centreU } = fitBoard(
       this.bounds,
       aspect,
@@ -421,6 +479,8 @@ export class BoardView {
     this.springs.reset();
     this.sinking.clear();
     this.lastStep = null;
+    // A new board: the followed view is put on the player where they start.
+    this.settled = false;
   }
 
   draw(state: RunState, alpha: number, timeMs: number, params: SceneParams): void {
@@ -443,6 +503,16 @@ export class BoardView {
     const values = this.look.board;
     const n = (name: string): number => Number(values[name] ?? 0);
     const { contact, reducedMotion } = params;
+
+    // The whole board, or the player followed: by the size of a cell, by what the player
+    // keeps, by what the address names.
+    const forced = VIEWS.includes(String(values.view)) ? (values.view as ViewChoice) : 'auto';
+    const mode = viewMode(this.wholeCell, n('minCell'), { forced, whole: params.whole === true, reducedMotion });
+    if (mode !== this.mode) {
+      this.mode = mode;
+      this.resize();
+    }
+
     this.rise = reducedMotion ? 0 : Math.max(0, this.rise - dt / RISE_IN_MS);
     // Fast at first, settling at the end.
     const sunk = this.rise * this.rise;
@@ -537,7 +607,7 @@ export class BoardView {
     this.camera.position.copy(this.cameraHome);
     // A beat leans the camera in for a moment.
     const zoom = params.shake && !reducedMotion ? 1 + this.punch : 1;
-    if (Math.abs(zoom - this.camera.zoom) > 1e-5) {
+    if (this.mode === 'full' && Math.abs(zoom - this.camera.zoom) > 1e-5) {
       this.camera.zoom = zoom;
       this.camera.updateProjectionMatrix();
     }
@@ -554,29 +624,117 @@ export class BoardView {
     if (box.left !== rect.x || box.top !== rect.y || Math.max(1, box.width) !== rect.width || Math.max(1, box.height) !== rect.height) {
       this.resize();
     }
+    // Followed, the lens goes after the player; the shake and the lean of a beat stay on top of that.
+    const follows = this.mode === 'follow';
+    if (follows) this.frameFollowed(dt, zoom);
 
     // The board is sharp, and is shown on the same tube as the rest of the program: its lines
     // are counted as the program's picture has them, not in the pixels of the board.
     const layer = this.worldLayer;
     const { shell } = this.look;
-    this.lines = pictureSize({ width: layer.width, height: layer.height }, Number(shell.pixelsTall), Number(shell.pixelsWide)).height;
+    // Followed, the layer is denser than the canvas, and seen through the lens; the lens lies
+    // over the part of the layer the board is drawn to.
+    if (follows) {
+      const dense = this.sharpness(layer);
+      layer.setDensity(dense.x, dense.y);
+    } else {
+      layer.setDensity(1);
+    }
+    layer.look.lens = this.lens?.k ?? 0;
+    layer.look.lensFrom = this.lens?.from ?? null;
+    layer.look.lensCentre.x = this.lens?.centre.x ?? 0.5;
+    layer.look.lensCentre.y = this.lens?.centre.y ?? 0.5;
+    this.lines = pictureSize(layer.screen, Number(shell.pixelsTall), Number(shell.pixelsWide)).height;
     layer.look.invert = this.inverted;
     layer.look.scanlines = n('scanlines');
     layer.look.scanlinePitch = this.lines;
     layer.look.vignette = n('vignette');
     // The screen, first step: the colours part for a moment when a group goes. Second: the
     // picture jolts sideways on a large one.
-    const tube = layer.height / Math.max(1, this.lines);
+    // The colours part along the lines: counted in the pixels the layer has from side to side.
+    const tube = (layer.width / Math.max(1, layer.screen.width)) * (layer.screen.height / Math.max(1, this.lines));
     layer.look.chroma = reducedMotion ? 0 : this.chroma * CHROMA_TUBE_PX * tube;
     const jolt = reducedMotion || this.jolt <= 0 ? 0 : Math.round(Math.sin(timeMs / 11) * this.jolt * JOLT_TUBE_PX) * (this.rect.height / Math.max(1, this.lines));
     // The layer stays clear around the board: what lies behind shows.
-    layer.render(this.scene, this.camera, { rect: jolt === 0 ? this.rect : { ...this.rect, x: this.rect.x + jolt } });
+    const { region } = this;
+    const place = follows ? { x: this.rect.x + region.x, y: this.rect.y + region.y, width: region.width, height: region.height } : this.rect;
+    layer.render(this.scene, this.camera, { rect: jolt === 0 ? place : { ...place, x: place.x + jolt } });
+  }
+
+  /**
+   * The followed view for this frame. The lens goes after the player as a spring that never
+   * swings; the camera draws the whole board, and the lens enlarges what is around the player
+   * and presses the rest together towards the edges of the screen. `zoom` is the lean of a
+   * beat: everything is drawn that much larger around the player.
+   */
+  private frameFollowed(dt: number, zoom: number): void {
+    const values = this.look.board;
+    const n = (name: string): number => Number(values[name] ?? 0);
+    const figure = this.player.group.position;
+    this.tmp.set(figure.x - this.target.x, FOLLOW_Y, figure.z - this.target.z);
+    const goalR = this.tmp.dot(this.cameraRight);
+    const goalU = this.tmp.dot(this.cameraUp);
+    const { at, speed, camera, region } = this;
+    if (this.settled) {
+      const r = follow(at.r, speed.r, goalR, dt, n('followMs'));
+      const u = follow(at.u, speed.u, goalU, dt, n('followMs'));
+      at.r = r.at;
+      speed.r = r.speed;
+      at.u = u.at;
+      speed.u = u.speed;
+    } else {
+      at.r = goalR;
+      at.u = goalU;
+      speed.r = 0;
+      speed.u = 0;
+      this.settled = true;
+    }
+    const aspect = region.width / region.height;
+    // Enlarged as far as a cell under the player needs; a view named in the address is taken
+    // with the share it names, to be looked at on any screen.
+    const cell = cellPixels(fitBoard(this.bounds, aspect, 0, SIDE_MARGIN, FRAME_MARGIN), region.height);
+    const focus = values.view === 'follow' ? n('focus') : followFocus(cell, n('minCell'), n('focus'));
+    const frame = followFrame(this.bounds, aspect, focus, n('lens'), n('edge'), at, SIDE_MARGIN, FRAME_MARGIN);
+    const point = frame.at;
+    camera.left = point.r - frame.left / zoom;
+    camera.right = point.r + frame.right / zoom;
+    camera.bottom = point.u - frame.down / zoom;
+    camera.top = point.u + frame.up / zoom;
+    camera.zoom = 1;
+    camera.updateProjectionMatrix();
+    // The lens stands on the screen where the player is on the board, over the point followed.
+    const lens = this.followed;
+    lens.centre.x = frame.centre.x;
+    lens.centre.y = frame.centre.y;
+    lens.from.x = frame.left / (frame.left + frame.right);
+    lens.from.y = frame.down / (frame.down + frame.up);
+    Object.assign(lens.k, frame.lens);
+    this.lens = lens;
+    this.enlarged.x = frame.dense.x;
+    this.enlarged.y = frame.dense.y;
+  }
+
+  /**
+   * How many times denser than the canvas the followed board is drawn, side to side and top
+   * to bottom: as much as the lens enlarges its middle, or the share of that the look asks for.
+   */
+  private sharpness(layer: Layer): { x: number; y: number } {
+    const share = THREE.MathUtils.clamp(Number(this.look.board.sharp ?? 1), 0, 1);
+    const { width, height } = layer.screen;
+    const one = (enlarged: number, side: number): number =>
+      Math.max(1, Math.min(1 + (enlarged - 1) * share, SHARP_MAX, SHARP_SIDE_PX / Math.max(1, side)));
+    return { x: one(this.enlarged.x, width), y: one(this.enlarged.y, height) };
   }
 
   /** World position to CSS pixels inside the container. */
   project(x: number, y: number, z: number): { x: number; y: number } {
     this.tmp.set(x, y, z).project(this.camera);
-    return { x: ((this.tmp.x + 1) / 2) * this.width, y: ((1 - this.tmp.y) / 2) * this.height };
+    let u = (this.tmp.x + 1) / 2;
+    let v = (this.tmp.y + 1) / 2;
+    // Through the lens a point of the board is not where the camera has it.
+    if (this.lens) ({ x: u, y: v } = lensTo(this.lens, u, v));
+    const { region } = this;
+    return { x: region.x + u * region.width, y: region.y + (1 - v) * region.height };
   }
 
   /** Frees what the view holds on the graphics card. A view that is replaced is never drawn again. */

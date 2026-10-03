@@ -16,6 +16,7 @@ const FOLDERS: Record<keyof typeof BOARD_GROUPS, string> = {
   figure: 'Фигура',
   signs: 'Знаки',
   screen: 'Экран',
+  view: 'Вид',
 };
 
 /** What the parameters are called on the panel; one without a name here shows its own. */
@@ -52,6 +53,13 @@ const LABELS: Record<string, string> = {
   warnBright: 'предупреждение',
   scanlines: 'строки развёртки',
   vignette: 'виньетка',
+  view: 'вид: авто, вся доска, слежение',
+  focus: 'доля доски у игрока, не меньше',
+  lens: 'линза по свободной стороне',
+  followMs: 'догон линзы, мс',
+  edge: 'игрок от края экрана, доля',
+  minCell: 'клетка у игрока, px',
+  sharp: 'плотность слоя, доля',
   bgNight: 'фон ночью',
   bgDay: 'фон днём',
   toneNight: 'тон ночью',
@@ -107,6 +115,10 @@ export class BoardPanel {
     const camera = gui.addFolder('Камера');
     camera.add(lab.camera, 'yaw', 0, 45, 1).name('поворот, °').onChange(() => lab.setCamera());
     camera.add(lab.camera, 'pitch', 20, 85, 1).name('взгляд сверху, °').onChange(() => lab.setCamera());
+    // Where the figure stands: the followed view goes after it.
+    camera.add(lab.stand, 'x', 0, lab.cells - 1, 1).name('игрок: x').onChange(() => lab.place());
+    camera.add(lab.stand, 'z', 0, lab.cells - 1, 1).name('игрок: z').onChange(() => lab.place());
+    camera.add(lab, 'viewNow').name('вид сейчас').listen().disable();
     camera.close();
 
     const contact = gui.addFolder('Пороги');

@@ -5,7 +5,7 @@ import { loadSettings } from '../platform/settings';
 import { Backdrop } from '../render/backdrop';
 import { BOARD_PARAMS, boardChanged, boardDefaults, parseBoardValue, type BoardLook } from '../render/params';
 import { BoardView, type CameraAngles } from '../render/view';
-import { createRun, defaultConfig, type PuzzleDie, type RunState } from '../rules';
+import { createRun, cubeAt, defaultConfig, type PuzzleDie, type RunState } from '../rules';
 import { SHELL_PARAMS, parseShellValue, shellChanged, shellDefaults } from '../shell/theme';
 import { FpsCounter } from '../ui/fps';
 import { BoardPanel } from './boardPanel';
@@ -97,6 +97,12 @@ export class BoardLab {
   cost = 0;
   /** What the last copy put on the clipboard. */
   copied: string | null = null;
+  /** Cells along a side of the sample board. */
+  readonly cells = SIZE;
+  /** The cell the figure stands on: the followed view goes after it. */
+  readonly stand = { ...PLAYER };
+  /** How the board is seen at this moment: whole, or followed. */
+  viewNow = 'full';
   private readonly container: HTMLElement;
   private readonly backdrop = new Backdrop(this.display);
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
@@ -179,6 +185,7 @@ export class BoardLab {
     });
     this.backdrop.draw(view.background, view.inverted);
     this.display.present(timeMs);
+    this.viewNow = view.mode;
 
     this.spent += performance.now() - started;
     this.frames++;
@@ -202,7 +209,16 @@ export class BoardLab {
   setFull(full: boolean): void {
     this.full = full;
     this.state = sampleState(full);
+    this.place();
     this.view?.reset();
+  }
+
+  /** Puts the figure on the cell it is told to stand on: on the die that is there, or on the floor. */
+  place(): void {
+    const { player } = this.state;
+    player.x = this.stand.x;
+    player.z = this.stand.z;
+    player.level = cubeAt(this.state, player.x, player.z) ? 'top' : 'ground';
   }
 
   setGrey(grey: boolean): void {

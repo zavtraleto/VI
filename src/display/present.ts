@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Layer } from './layer';
+import { LENS_PASS, lensUniforms, setLens } from './lensPass';
 import { quality } from './quality';
 
 const VERTEX = /* glsl */ `
@@ -28,7 +29,7 @@ uniform bool uLinear;
 uniform bool uTopDown;
 
 varying vec2 vUv;
-
+${LENS_PASS}
 const float BAYER[16] = float[16](
   0.0, 8.0, 2.0, 10.0,
   12.0, 4.0, 14.0, 6.0,
@@ -45,10 +46,13 @@ vec3 toSrgb(vec3 c) {
 void main() {
   // Everything below is counted in the pixels of the layer, not of the screen: a layer of
   // 240 lines has coarse dither dots however large the window is.
-  vec2 cell = floor(vUv * uSize);
-  vec2 at = uNearest ? (cell + 0.5) / uSize : vUv;
+  vec2 point = uLens ? lensPoint(vUv) : vUv;
+  vec2 cell = floor(point * uSize);
+  // Through a lens the pixels of the layer no longer lie on those of the screen: it is read softly.
+  vec2 at = uNearest && !uLens ? (cell + 0.5) / uSize : point;
   if (uTopDown) at.y = 1.0 - at.y;
-  vec4 texel = texture2D(uMap, at);
+  vec4 texel = uLens ? lensTexel(at) : texture2D(uMap, at);
+  if (uLens && lensMisses(point)) texel = vec4(0.0);
   float alpha = clamp(texel.a, 0.0, 1.0);
   // Light added over nothing has colour and no alpha: it is taken as it is.
   float cover = alpha > 0.0 ? alpha : 1.0;
@@ -173,11 +177,13 @@ uniform bool uTopDown;
 uniform float uChroma;
 
 varying vec2 vUv;
-
+${LENS_PASS}
 void main() {
-  vec2 at = uNearest ? (floor(vUv * uSize) + 0.5) / uSize : vUv;
+  vec2 point = uLens ? lensPoint(vUv) : vUv;
+  // Through a lens the pixels of the layer no longer lie on those of the screen: it is read softly.
+  vec2 at = uNearest && !uLens ? (floor(point * uSize) + 0.5) / uSize : point;
   if (uTopDown) at.y = 1.0 - at.y;
-  vec4 texel = texture2D(uMap, at);
+  vec4 texel = uLens ? lensTexel(at) : texture2D(uMap, at);
   if (uChroma > 0.0) {
     vec2 shift = vec2(uChroma / uSize.x, 0.0);
     texel.r = texture2D(uMap, at + shift).r;
@@ -185,6 +191,7 @@ void main() {
     // Colour stays under its alpha; light added over nothing has no alpha and is left as it is.
     if (texel.a > 0.0) texel.rgb = min(texel.rgb, texel.a);
   }
+  if (uLens && lensMisses(point)) texel = vec4(0.0);
   vec3 colour = texel.rgb;
   float alpha = texel.a;
 
@@ -273,6 +280,7 @@ export class Presenter {
     uNearest: { value: true },
     uLinear: { value: true },
     uTopDown: { value: false },
+    ...lensUniforms(),
   };
   private readonly videoUniforms = {
     uMap: { value: null as THREE.Texture | null },
@@ -296,6 +304,7 @@ export class Presenter {
     uVignette: { value: 0 },
     uTopDown: { value: false },
     uChroma: { value: 0 },
+    ...lensUniforms(),
   };
   private readonly material: THREE.ShaderMaterial;
   private readonly videoMaterial: THREE.ShaderMaterial;
@@ -352,7 +361,7 @@ export class Presenter {
       renderer.setClearColor(0x000000, 0);
       renderer.setRenderTarget(stage.a);
       renderer.clear(true, false, false);
-      this.plain(renderer, layer, true, false, 1);
+      this.plain(renderer, layer, true, false, 1, false);
       // What was made from the picture before this one is no longer of it.
       stage.second[5] = -1;
     }
@@ -381,7 +390,7 @@ export class Presenter {
     const { look } = layer;
     const way = this.wayOf(layer);
     if (!way.dressed) {
-      this.plain(renderer, layer, look.filter === 'nearest', look.invert, Math.min(1, look.opacity));
+      this.plain(renderer, layer, look.filter === 'nearest', look.invert, Math.min(1, look.opacity), true);
       return;
     }
 
@@ -400,6 +409,8 @@ export class Presenter {
     uniforms.uPitch.value = look.scanlinePitch > 0 ? look.scanlinePitch : layer.height;
     uniforms.uVignette.value = look.vignette;
     uniforms.uChroma.value = way.chroma;
+    // The lens is the last thing done to a layer: on its way to the screen, whichever way it came.
+    setLens(uniforms, look, true);
     this.pass(renderer, this.screenMaterial);
   }
 
@@ -427,9 +438,11 @@ export class Presenter {
     return way;
   }
 
-  private plain(renderer: THREE.WebGLRenderer, layer: Layer, nearest: boolean, invert: boolean, opacity: number): void {
+  /** `lens` is false where the layer is copied into a picture of its own size, and not put on the screen. */
+  private plain(renderer: THREE.WebGLRenderer, layer: Layer, nearest: boolean, invert: boolean, opacity: number, lens: boolean): void {
     const { uniforms } = this;
     const { look } = layer;
+    setLens(uniforms, look, lens);
     uniforms.uMap.value = layer.texture;
     uniforms.uTopDown.value = layer.topDown;
     uniforms.uSize.value.set(layer.width, layer.height);

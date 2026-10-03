@@ -27,7 +27,7 @@ describe('the panels of the program', () => {
   it('open with the focus on something that can be pressed', () => {
     const specs = [
       pausePanel({ task: false, ...PAUSE }),
-      systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' }), onToggle: nothing, onBack: nothing }),
+      systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture', view: 'auto' }), onToggle: nothing, onBack: nothing }),
       resultPanel({ timeUp: false, score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
       recordsPanel([{ runs: [], survival: true }], 0, 20, nothing),
       rulesPanel(['a', 'b'], { onBack: nothing }),
@@ -50,11 +50,12 @@ describe('the panels of the program', () => {
   });
 
   it('show a setting as it stands now', () => {
-    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const };
+    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as 'auto' | 'full' };
     const spec = systemPanel({
       values: () => values,
       onToggle: (key) => {
         if (key === 'muted') values.muted = !values.muted;
+        if (key === 'view') values.view = values.view === 'auto' ? 'full' : 'auto';
       },
       onBack: nothing,
     });
@@ -62,6 +63,12 @@ describe('the panels of the program', () => {
     expect(sound.value()).toBe('ON');
     sound.action();
     expect(sound.value()).toBe('OFF');
+    // The camera follows by itself, or is kept on the whole board.
+    const view = spec.rows.find((candidate) => candidate.kind === 'switch' && candidate.id === 'view');
+    if (view?.kind !== 'switch') throw new Error('no switch of the view');
+    expect(view.value()).toBe('AUTO');
+    view.action();
+    expect(view.value()).toBe('FIXED');
   });
 
   it('offer the next task only where there is one', () => {
@@ -210,8 +217,8 @@ describe('the tools of development', () => {
   const tool = { id: 'playtest', label: { native: 'DEV', name: 'PLAYTEST' }, action: nothing };
 
   it('are in a panel only when they are passed to it', () => {
-    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' as const });
-    expect(pressed(systemPanel({ values, onToggle: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'control', 'back']);
+    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const });
+    expect(pressed(systemPanel({ values, onToggle: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'control', 'view', 'back']);
     expect(pressed(systemPanel({ values, onToggle: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
     const levels = [{ stars: 0, tier: 'first' }];
     expect(pressed(tasksPanel(levels, 0, { onPick: nothing, onRules: nothing, onBack: nothing }))).toEqual(['rules', 'back']);

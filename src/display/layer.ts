@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import type { LensStrength, Point } from './lens';
 import { quality } from './quality';
-import { targetSize, targetViewport, type Rect, type Size } from './sizing';
+import { canvasSize, targetSize, targetViewport, type Rect, type Size } from './sizing';
 
 export type { Rect } from './sizing';
 
@@ -37,6 +38,16 @@ export interface LayerLook {
   scanlinePitch: number;
   /** 0..1, how dark the corners are. */
   vignette: number;
+  /**
+   * Strength of the lens the layer is put on screen through: the middle of the part the scene
+   * was drawn to is enlarged `1 + k` times and its edges are pressed together, so all of it
+   * stays in view. 0 is no lens. See `lens.ts`.
+   */
+  lens: LensStrength;
+  /** Where the centre of the lens stands on screen, as fractions of that part from its left and its bottom. */
+  lensCentre: Point;
+  /** The point of the layer that is shown at the centre; null is the point that lies there anyway. */
+  lensFrom: Point | null;
 }
 
 export interface LayerOptions {
@@ -89,6 +100,9 @@ const DEFAULT_LOOK: LayerLook = {
   scanlines: 0,
   scanlinePitch: 0,
   vignette: 0,
+  lens: 0,
+  lensCentre: { x: 0.5, y: 0.5 },
+  lensFrom: null,
 };
 
 /** A picture the size of the window, at a resolution of its own, that scenes are drawn into. */
@@ -105,6 +119,8 @@ export class Layer {
   readonly area = new THREE.Vector4(0, 0, 1, 1);
   protected lines: number | null;
   protected readonly size: Size = { width: 0, height: 0 };
+  /** How many times denser than its lines say the layer is, side to side and top to bottom. */
+  private readonly dense = { x: 1, y: 1 };
   private samples: number;
   private target: THREE.WebGLRenderTarget | null = null;
 
@@ -117,6 +133,8 @@ export class Layer {
     this.samples = options.samples ?? 0;
     this.encoded = options.encoded ?? false;
     this.look = { ...DEFAULT_LOOK, ...options.look };
+    // A point of its own: one layer moving its lens moves no other's.
+    this.look.lensCentre = { ...this.look.lensCentre };
   }
 
   /** Size of the layer in its own pixels. */
@@ -153,9 +171,29 @@ export class Layer {
     this.fit();
   }
 
+  /**
+   * Draws the layer denser than its lines say, `x` times from side to side and `y` times
+   * from top to bottom: room for a picture whose middle is enlarged on the way to the screen,
+   * as a lens does. A lens that draws the picture together one way only costs that way only.
+   */
+  setDensity(x: number, y = x): void {
+    const dense = { x: x > 0 ? x : 1, y: y > 0 ? y : 1 };
+    if (dense.x === this.dense.x && dense.y === this.dense.y) return;
+    this.dense.x = dense.x;
+    this.dense.y = dense.y;
+    this.fit();
+  }
+
+  /** Size of the canvas of the page, which the layer is put on, in its pixels. */
+  get screen(): Size {
+    return canvasSize(this.host, this.host.pixelRatio);
+  }
+
   /** Takes the size the window gives it. The display calls this when the window changes. */
   fit(): void {
-    const { width, height } = targetSize(this.host, this.lines, this.host.pixelRatio);
+    const plain = targetSize(this.host, this.lines, this.host.pixelRatio);
+    const width = Math.max(1, Math.round(plain.width * this.dense.x));
+    const height = Math.max(1, Math.round(plain.height * this.dense.y));
     if (width === this.size.width && height === this.size.height) return;
     this.size.width = width;
     this.size.height = height;
