@@ -59,53 +59,89 @@ interface Placement {
   ori: Orientation;
 }
 
-/** The value of the group the opening of a run offers: two 2s, the smallest group there is. */
-const OPENING_VALUE = 2;
+/** The values of the group an opening offers, each as often as it is listed: small groups, read at a glance. */
+const OPENING_VALUES: readonly number[] = [2, 2, 2, 3, 3, 3, 3, 4, 4];
+/** Out of five openings, how many are made with the die beside the player and not the one under them. */
+const OPENING_BESIDE = 2;
+
+/** The opening of a run: a group that lacks one die, and the die that one roll brings to it. */
+interface Opening {
+  /** Cell of the die that finishes the group: the player's own, or the one beside it. */
+  lead: number;
+  dir: Dir;
+  /** Cell that die rolls into: it is kept empty. */
+  to: number;
+  /** Cells of the dice that wait for it, each showing the value. */
+  partners: number[];
+  value: number;
+}
 
 /**
- * The opening of a run: the cell the die under the player rolls into with its first move, and
- * the die beside that cell it will match. The roll is one that turns up a face the camera
- * shows, so the first clear of a run is there to be read by anybody. Null when the start cell
- * leaves no room for it.
+ * Lays an opening out. No two runs need begin alike: the group is of 2s, 3s or 4s, of one
+ * shape or another, and the die that finishes it is the one under the player or the one a
+ * step away. What stays the same is that it is found fast: one roll, and one that turns up a
+ * face the camera shows. Null when the start cell leaves no room for the opening drawn.
  */
-function openingOf(state: RunState): { dir: Dir; to: number; partner: number } | null {
+function openingOf(state: RunState): Opening | null {
   const { size, startX, startZ } = state.config;
-  // One of the two rolls, by chance; the other when the first has no cell to go to.
-  const first = randomInt(state, SHOWN_ROLLS.length);
-  const dir = [SHOWN_ROLLS[first], SHOWN_ROLLS[1 - first]].find((d) => inBounds(size, startX + DELTA[d].dx, startZ + DELTA[d].dz));
-  if (!dir) return null;
-  const tx = startX + DELTA[dir].dx;
-  const tz = startZ + DELTA[dir].dz;
-  const beside = DIRS.map((d) => ({ x: tx + DELTA[d].dx, z: tz + DELTA[d].dz })).filter(
-    (c) => inBounds(size, c.x, c.z) && !(c.x === startX && c.z === startZ),
-  );
-  const partner = beside[randomInt(state, beside.length)];
-  return { dir, to: cellIndex(size, tx, tz), partner: cellIndex(size, partner.x, partner.z) };
+  const start = cellIndex(size, startX, startZ);
+  const around = (cell: number): number[] => {
+    const x = cell % size;
+    const z = Math.floor(cell / size);
+    return DIRS.filter((d) => inBounds(size, x + DELTA[d].dx, z + DELTA[d].dz)).map((d) => cellIndex(size, x + DELTA[d].dx, z + DELTA[d].dz));
+  };
+  const value = OPENING_VALUES[randomInt(state, OPENING_VALUES.length)];
+  const beside = randomInt(state, 5) < OPENING_BESIDE;
+  // Every die and roll the opening could be made with: the roll needs a cell to end in that is not the player's.
+  const ways: { lead: number; dir: Dir; to: number }[] = [];
+  for (const lead of beside ? around(start) : [start]) {
+    for (const dir of SHOWN_ROLLS) {
+      const tx = (lead % size) + DELTA[dir].dx;
+      const tz = Math.floor(lead / size) + DELTA[dir].dz;
+      if (inBounds(size, tx, tz) && cellIndex(size, tx, tz) !== start) ways.push({ lead, dir, to: cellIndex(size, tx, tz) });
+    }
+  }
+  if (ways.length === 0) return null;
+  const way = ways[randomInt(state, ways.length)];
+  // The dice that wait: each joined to the cell the roll ends in, or to one another.
+  const taken = new Set<number>([start, way.lead, way.to]);
+  const partners: number[] = [];
+  while (partners.length < value - 1) {
+    const open = [...new Set([way.to, ...partners].flatMap(around))].filter((cell) => !taken.has(cell));
+    if (open.length === 0) return null;
+    const next = open[randomInt(state, open.length)];
+    partners.push(next);
+    taken.add(next);
+  }
+  return { ...way, partners, value };
 }
 
 function tryStartLayout(state: RunState, opening: boolean): Placement[] | null {
   const { size, startCubes, startX, startZ } = state.config;
   const start = cellIndex(size, startX, startZ);
   const lead = opening ? openingOf(state) : null;
+  // The dice of the opening stand where it puts them; the rest are scattered.
+  const placed = lead ? [...(lead.lead !== start ? [lead.lead] : []), ...lead.partners] : [];
+  const kept = new Set<number>([start, ...placed, ...(lead ? [lead.to] : [])]);
   const cells: number[] = [];
   for (let i = 0; i < size * size; i++) {
-    if (i !== start && i !== lead?.to && i !== lead?.partner) cells.push(i);
+    if (!kept.has(i)) cells.push(i);
   }
   // Partial Fisher-Yates: the first entries become the picked cells.
-  const others = startCubes - 1 - (lead ? 1 : 0);
+  const others = Math.max(0, startCubes - 1 - placed.length);
   for (let i = 0; i < others; i++) {
     const j = i + randomInt(state, cells.length - i);
     [cells[i], cells[j]] = [cells[j], cells[i]];
   }
-  const picked = [start, ...(lead ? [lead.partner] : []), ...cells.slice(0, others)];
+  const picked = [start, ...placed, ...cells.slice(0, others)];
   const tops = new Array<number>(size * size).fill(0);
   const layout: Placement[] = picked.map((i) => {
     let ori = randomOrientation(state);
-    if (lead && i === start) {
-      const fits = ALL_ORIENTATIONS.filter((o) => roll(o, lead.dir).top === OPENING_VALUE);
+    if (lead && i === lead.lead) {
+      const fits = ALL_ORIENTATIONS.filter((o) => roll(o, lead.dir).top === lead.value);
       ori = fits[randomInt(state, fits.length)];
-    } else if (lead && i === lead.partner) {
-      ori = orientationWithTop(state, OPENING_VALUE);
+    } else if (lead && lead.partners.includes(i)) {
+      ori = orientationWithTop(state, lead.value);
     }
     tops[i] = ori.top;
     return { x: i % size, z: Math.floor(i / size), ori };

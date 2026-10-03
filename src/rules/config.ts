@@ -80,8 +80,8 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   refillEndMs: 1000,
   crowdedFactor: 1.2,
   easyLevels: 6,
-  edgeFactor: 2.5,
-  edgeCalmMs: 8000,
+  edgeFactor: 1.5,
+  edgeCalmMs: 2500,
   giftRate: 0.08,
   giftMax: 0.4,
 };

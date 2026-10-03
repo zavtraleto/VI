@@ -109,8 +109,9 @@ export interface ExperimentConfig {
   /** The crest of a wave is an event: several cubes come at once as the wave breaks. */
   surge: boolean;
   /**
-   * Endless: the board a run opens on is laid out so that the first roll can clear, a 2 coming
-   * up beside a 2 on a face the camera shows. The first success is seconds away for anybody.
+   * Endless: the board a run opens on holds a group of 2s, 3s or 4s that lacks one die, and the
+   * die under the player or the one beside it finishes it with one roll, of a face the camera
+   * shows. The first success is seconds away for anybody, and not the same one every run.
    */
   opening: boolean;
   /**

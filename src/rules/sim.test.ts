@@ -166,7 +166,7 @@ describe('spawn and pressure', () => {
     expect(at(22)).toBe(275); // 5 s x 1.1
     expect(at(30)).toBe(300); // 5 s x 1.2
     expect(at(42)).toBe(300);
-    expect(at(49)).toBe(625); // 5 s x 2.5: the last sliver of the board
+    expect(at(49)).toBe(375); // 5 s x 1.5: the last sliver of the board
   });
 
   it('refills faster as the level rises: from 2.2 s to 1 s by level 15', () => {

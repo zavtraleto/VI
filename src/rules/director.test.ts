@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DELTA, cubeAt, isFree } from './board';
+import { findPlans } from './bot';
 import { DEFAULT_TUNING, defaultConfig, msToTicks, paceIntervalTicks, ruleKey } from './config';
 import { roll } from './orientation';
 import { createRun, step } from './sim';
@@ -228,16 +229,39 @@ describe('the opening', () => {
   const SHOWN: readonly Dir[] = ['N', 'W'];
   const firstClears = (s: RunState) => SHOWN.filter((dir) => previewMove(s, dir).clears);
 
-  it('lays an Endless run out so that the very first roll can clear: a 2 comes up beside a 2, on a face the camera shows', () => {
-    for (let seed = 1; seed <= 40; seed++) {
+  /**
+   * The clear the opening lays out, if the board has it: within two moves, made by one roll that
+   * turns up a face the camera shows. A board may hold another clear as near by chance.
+   */
+  const nearest = (s: RunState) =>
+    findPlans(s, 2, 200, 16, 1).find((plan) => plan.kinds.at(-1) === 'roll' && SHOWN.includes(plan.moves.at(-1)!));
+
+  it('lays an Endless run out with a clear a move or two away: one roll, of a face the camera shows, by the die under the player or the one beside it', () => {
+    for (let seed = 1; seed <= 60; seed++) {
       const s = createRun({ seed, config: defaultConfig() });
-      const dirs = firstClears(s);
-      expect(dirs.length).toBeGreaterThan(0);
-      act(s, dirs[0]);
+      const plan = nearest(s)!;
+      expect(plan).toBeDefined();
+      if (plan.moves.length === 2) expect(plan.kinds[0]).toBe('hop');
+      for (const dir of plan.moves) act(s, dir);
       expect(s.stats.clears).toBe(1);
-      expect(s.reactions).toMatchObject([{ value: 2, chain: 1 }]);
-      expect(s.reactions[0].total).toBeGreaterThanOrEqual(2);
+      expect(s.reactions).toMatchObject([{ chain: 1 }]);
     }
+  });
+
+  it('is not the same every time: the group is of 2s, 3s or 4s, and the die that finishes it is not always the player\'s own', () => {
+    const values: number[] = [];
+    const moves: number[] = [];
+    for (let seed = 1; seed <= 60; seed++) {
+      const s = createRun({ seed, config: defaultConfig() });
+      const plan = nearest(s)!;
+      for (const dir of plan.moves) act(s, dir);
+      values.push(s.reactions[0].value);
+      moves.push(plan.moves.length);
+    }
+    expect([...new Set(values)].sort()).toEqual([2, 3, 4]);
+    expect([...new Set(moves)].sort()).toEqual([1, 2]);
+    // No one kind of group takes most of the openings.
+    for (const value of [2, 3, 4]) expect(values.filter((v) => v === value).length).toBeLessThan(36);
   });
 
   it('leaves the clear to the player: nothing on the board goes together by itself', () => {
@@ -251,9 +275,9 @@ describe('the opening', () => {
 
   it('finds room at an edge, and does without at a corner that has none', () => {
     for (let seed = 1; seed <= 20; seed++) {
-      // West of the start there is no board: the first roll goes north.
+      // West of the start there is no board: the opening is laid out with the rolls that are left.
       const edge = { ...defaultConfig(), startX: 0, startZ: 3 };
-      expect(firstClears(createRun({ seed, config: edge }))).toEqual(['N']);
+      expect(nearest(createRun({ seed, config: edge }))).toBeDefined();
       // In the north-west corner neither roll has a cell to go to: the run is laid out as it would be without an opening.
       const corner = { ...defaultConfig(), startX: 0, startZ: 0 };
       const s = createRun({ seed, config: corner });
