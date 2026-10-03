@@ -1,5 +1,7 @@
 import { AudioEngine } from '../audio/engine';
 import { Display } from '../display/display';
+import { Governor, SAMPLE_STEPS } from '../display/governor';
+import { quality } from '../display/quality';
 import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
 import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, type ScreenDirs } from '../input/gesture';
@@ -100,6 +102,34 @@ const LESSONS = TUTORIAL_LESSONS;
 /** Keys that read the words of the exercise: those that run a command, and those that step. */
 const READ_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'KeyW', 'KeyD', 'KeyS', 'KeyA']);
 
+/**
+ * Where the step of anti-aliasing this device has come down to is kept between visits, and for
+ * how long. The step only goes down while the game runs, so it is forgotten after a few days:
+ * a device that was slow once, hot or busy with something else, gets its samples back.
+ */
+const SAMPLE_STEP_KEY = 'vi.samples.v1';
+const SAMPLE_STEP_DAYS = 3;
+
+function keptSampleStep(): number {
+  try {
+    const kept = JSON.parse(window.localStorage.getItem(SAMPLE_STEP_KEY) ?? 'null') as { step?: unknown; at?: unknown } | null;
+    const step = Number(kept?.step);
+    const age = Date.now() - Number(kept?.at);
+    const fresh = age >= 0 && age < SAMPLE_STEP_DAYS * 24 * 60 * 60 * 1000;
+    return fresh && Number.isInteger(step) && step >= 0 && step < SAMPLE_STEPS.length ? step : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function keepSampleStep(step: number): void {
+  try {
+    window.localStorage.setItem(SAMPLE_STEP_KEY, JSON.stringify({ step, at: Date.now() }));
+  } catch {
+    // Without storage the device starts from the most samples again: it comes down in a few seconds.
+  }
+}
+
 /** How many quarter turns the picture of a top face lies at. */
 function quarterTurns(ori: Orientation): number {
   return ((Math.round(topTurn(ori) / (Math.PI / 2)) % 4) + 4) % 4;
@@ -162,11 +192,14 @@ export class Game {
   private readonly tracker: GestureTracker;
   /** The one canvas of the page; the picture is put together from its layers. */
   private readonly display = new Display();
-  /** What lies behind the board: a layer under it, of as few pixels as the program's picture. */
-  private readonly backdropLayer = this.display.addLayer({ name: 'backdrop', lines: 240, look: { filter: 'linear' } });
-  private readonly backdrop = new Backdrop(this.backdropLayer);
+  /** What lies behind the board: the dark the screen starts from. */
+  private readonly backdrop = new Backdrop(this.display);
+  /** Gives samples of anti-aliasing up where the device does not keep up; null where the address has set them. */
+  private readonly governor = quality().auto ? new Governor(keptSampleStep()) : null;
   /** The board, as crisp as the screen allows and looking as it would on a canvas of its own. Clear around the dice. */
-  private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: 4, encoded: true });
+  private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: this.governor?.samples ?? quality().samples, encoded: true });
+  /** The least time between two frames drawn, in milliseconds, where the frames of the screen are held to a limit; 0 where they are not. */
+  private readonly frameGap = quality().fpsCap > 0 ? 1000 / quality().fpsCap - 1 : 0;
   /** What the board and the interface are drawn from: the board's own values, and the look of the program. */
   private readonly look: BoardLook = { board: boardDefaults(), shell: shellDefaults() };
   /** What the program shows of a session over the board. Its layers lie under those of the menu and the panels. */
@@ -297,6 +330,15 @@ export class Game {
       this.showMenu();
     });
     requestAnimationFrame((time) => this.frame(time));
+  }
+
+  /** Draws the board with the samples the governor has come down to, and keeps the step for the next visit. */
+  private applySamples(): void {
+    const { governor } = this;
+    if (!governor) return;
+    quality().samples = governor.samples;
+    this.world.setSamples(governor.samples);
+    keepSampleStep(governor.step);
   }
 
   /** The sound is on when the player has it on and the platform allows it. */
@@ -1199,11 +1241,14 @@ export class Game {
 
   private frame(time: number): void {
     requestAnimationFrame((next) => this.frame(next));
+    // A screen faster than the limit has some of its frames let pass.
+    if (this.frameGap > 0 && this.lastFrame !== 0 && time > this.lastFrame && time - this.lastFrame < this.frameGap) return;
     const dt = this.lastFrame === 0 ? 0 : Math.max(0, time - this.lastFrame);
     this.lastFrame = time;
     this.tools?.tick(time);
 
     const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy;
+    if (this.governor?.frame(dt, running && !document.hidden)) this.applySamples();
     this.frames.frame(running && !document.hidden, dt, time);
     let alpha = 0;
     if (running) {
@@ -1255,7 +1300,6 @@ export class Game {
     // A transmission takes the screen the same way: the interface of the session is put away.
     this.root.classList.toggle('shell-open', covered || this.signal.busy);
     this.world.look.opacity = covered ? 0 : 1;
-    this.backdropLayer.look.opacity = covered ? 0 : 1;
     const stage = this.stageRect();
     const steer = this.steerGuide(state, time);
     // The tutorial's own arrows say where to go; a swipe is echoed on the board outside it.
@@ -1269,8 +1313,9 @@ export class Game {
         reducedMotion,
         shake: this.settings.shake,
       });
-      this.backdropLayer.look.invert = this.view.inverted;
-      this.backdrop.draw(this.view.background, this.view.lines);
+      this.backdrop.draw(this.view.background, this.view.inverted);
+    } else {
+      this.backdrop.clear();
     }
     const shown = !covered && !this.inMenu && !this.signal.busy;
     this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, steer.dir, reducedMotion) : null, time);

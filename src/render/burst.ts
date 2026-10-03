@@ -50,7 +50,9 @@ export class BoardBursts {
   private lit: readonly THREE.Color[] = [];
 
   constructor() {
-    this.sparks = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ ...LIGHT, side: THREE.DoubleSide }), MAX_SPARKS);
+    // Light adds up the same in any order: both sides go in one draw, not the far side and then the near.
+    const light = { ...LIGHT, side: THREE.DoubleSide, forceSinglePass: true } as const;
+    this.sparks = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial(light), MAX_SPARKS);
     this.sparks.count = 0;
     this.sparks.frustumCulled = false;
     this.sparks.renderOrder = 4;
@@ -59,7 +61,7 @@ export class BoardBursts {
     this.group.add(this.sparks);
     this.ringGeometry.rotateX(-Math.PI / 2);
     for (let i = 0; i < MAX_RINGS; i++) {
-      const mesh = new THREE.Mesh(this.ringGeometry, new THREE.MeshBasicMaterial({ ...LIGHT, side: THREE.DoubleSide, opacity: 0 }));
+      const mesh = new THREE.Mesh(this.ringGeometry, new THREE.MeshBasicMaterial({ ...light, opacity: 0 }));
       mesh.visible = false;
       mesh.renderOrder = -2;
       this.rings.push({ mesh, age: 0, life: 1, reach: 1, strength: 0 });

@@ -27,6 +27,16 @@ const DIM = 'rgba(244, 241, 234, 0.62)';
 const EDGE = 'rgba(8, 8, 10, 0.9)';
 /** The picture of the voice has this many times the lines of the program's own picture. */
 const DETAIL = 2;
+/** Texts kept as they were put into lines; when there are more, all are thrown away. */
+const WRAP_LIMIT = 200;
+
+/** A part of the picture, in its own pixels. */
+interface Patch {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
 
 /**
  * Text that is not the program's: prose in the language of the one who plays - what the
@@ -35,13 +45,19 @@ const DETAIL = 2;
  * sentence addressed to the player is not the program reading out its own records.
  *
  * It is a layer of its own, finer than the program's picture and under the same lines of the
- * tube. It is drawn anew only when what it says has changed.
+ * tube. It is drawn anew only when what it says has changed, and then only the part of the
+ * picture that holds the words is written and sent to the graphics card: the picture is as
+ * large as the screen, and words that come sign by sign change it many times a second.
  */
 export class Voice {
   private readonly layer: CanvasLayer;
   private readonly probe = document.createElement('canvas').getContext('2d')!;
   private said = '';
   private queue: VoiceLine[] = [];
+  /** The part of the picture the words now on it take; null while it is empty. */
+  private written: Patch | null = null;
+  /** Texts as they were put into lines, by the text, the width and the size of the letters. */
+  private readonly wraps = new Map<string, string[]>();
 
   constructor(
     private readonly display: Display,
@@ -50,15 +66,35 @@ export class Voice {
     name: string,
   ) {
     this.layer = display.addCanvasLayer({ name, lines: 480, look: { opacity: 0, filter: 'linear' } });
-    this.layer.onResize = () => (this.said = '');
-    void loadCaptionFont('VI Жя').then(() => (this.said = ''));
+    this.layer.onResize = () => {
+      // A canvas that has taken a new size is empty.
+      this.said = '';
+      this.written = null;
+    };
+    void loadCaptionFont('VI Жя').then(() => {
+      // The letters of the stand-in font were of other widths.
+      this.said = '';
+      this.wraps.clear();
+    });
   }
 
   /** Height in CSS pixels that a text takes at a width and a size of letters. */
   height(text: string, width: number, size: number): number {
     if (!text) return 0;
-    this.probe.font = `${size}px ${CAPTION_FONT}`;
-    return wrapCaption(text, width, (line) => this.probe.measureText(line).width).length * size * LEADING;
+    return this.wrap(this.probe, text, width, size).length * size * LEADING;
+  }
+
+  /** A text in lines no wider than `width`, with letters of `size`: worked out once and kept. */
+  private wrap(ctx: CanvasRenderingContext2D, text: string, width: number, size: number): string[] {
+    const key = `${size}|${width}|${text}`;
+    let rows = this.wraps.get(key);
+    if (!rows) {
+      if (this.wraps.size >= WRAP_LIMIT) this.wraps.clear();
+      ctx.font = `${size}px ${CAPTION_FONT}`;
+      rows = wrapCaption(text, width, (line) => ctx.measureText(line).width);
+      this.wraps.set(key, rows);
+    }
+    return rows;
   }
 
   /** Starts what is said this frame. */
@@ -90,17 +126,25 @@ export class Voice {
     const { ctx } = layer;
     const scale = layer.scale;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, layer.width, layer.height);
+    // What was written before is taken away; the rest of the picture is empty already.
+    const before = this.written;
+    if (before) ctx.clearRect(before.left, before.top, before.right - before.left, before.bottom - before.top);
+    const now: Patch = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
     ctx.lineJoin = 'round';
     ctx.textBaseline = 'alphabetic';
     for (const line of this.queue) {
       const size = line.size * scale;
-      ctx.font = `${size}px ${CAPTION_FONT}`;
       const width = line.box.width * scale;
-      const rows = wrapCaption(line.text, width, (row) => ctx.measureText(row).width);
+      const rows = this.wrap(ctx, line.text, width, size);
+      ctx.font = `${size}px ${CAPTION_FONT}`;
       const tall = rows.length * size * LEADING;
       const free = line.box.height * scale - tall;
       const top = line.box.y * scale + (line.anchor === 'bottom' ? free : line.anchor === 'middle' ? free / 2 : 0);
+      // Room for the edge of the letters, and for a word that is wider than its line.
+      now.left = Math.min(now.left, line.box.x * scale - size);
+      now.right = Math.max(now.right, line.box.x * scale + width + size);
+      now.top = Math.min(now.top, top - size * 0.5);
+      now.bottom = Math.max(now.bottom, top + tall + size * 0.5);
       const centre = (line.align ?? 'center') === 'center';
       ctx.textAlign = centre ? 'center' : 'left';
       ctx.lineWidth = Math.max(1.5, size / 7);
@@ -122,7 +166,31 @@ export class Voice {
         if (centre) ctx.textAlign = 'center';
       });
     }
-    layer.markDirty();
+    now.left = Math.max(0, Math.floor(now.left));
+    now.top = Math.max(0, Math.floor(now.top));
+    now.right = Math.min(layer.width, Math.ceil(now.right));
+    now.bottom = Math.min(layer.height, Math.ceil(now.bottom));
+    this.written = now;
+    // Only what has changed goes to the graphics card: where the words were, and where they are.
+    const left = Math.min(now.left, before?.left ?? now.left);
+    const top = Math.min(now.top, before?.top ?? now.top);
+    const right = Math.max(now.right, before?.right ?? now.right);
+    const bottom = Math.max(now.bottom, before?.bottom ?? now.bottom);
+    layer.markDirty({ x: left, y: top, width: right - left, height: bottom - top });
+  }
+
+  /**
+   * More of the words that come little by little are there: `signs` of them. What was said
+   * last stands as it was, and those words alone are written again.
+   */
+  reveal(signs: number): void {
+    let more = false;
+    for (const line of this.queue) {
+      if (line.reveal === undefined || line.reveal === signs) continue;
+      line.reveal = signs;
+      more = true;
+    }
+    if (more) this.end();
   }
 
   /** Nothing is said. */

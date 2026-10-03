@@ -15,14 +15,14 @@ import { ATLAS_COLUMNS, ATLAS_INSET, ATLAS_ROWS, dieTextures } from './textures'
  * climbed.
  */
 type Look = 'idle' | 'rising' | 'risingLow' | 'sinking' | 'sinkingLow';
-type GlassLook = Exclude<Look, 'idle'>;
-const GLASS_LOOKS: readonly GlassLook[] = ['rising', 'risingLow', 'sinking', 'sinkingLow'];
 
 export const CUBE_SIZE = 0.94;
 /** How much of the rounding of a die its lit edges are drawn inside of: they run along the middle of it. */
 const EDGE_INSET = 0.586;
 /** How far the lit edges of the glass are from the colour of the channel towards white. */
 const EDGE_PALE = 0.3;
+/** Most dice there can be: one on every cell of the largest board. */
+const MAX_DICE = 9 * 9;
 
 export interface CubeGlow {
   /** Glow of the pips of dice at rest: the answer to a clear, and breathing. */
@@ -33,13 +33,7 @@ export interface CubeGlow {
   flash: number;
 }
 
-interface Die {
-  mesh: THREE.Mesh;
-  /** The lit edges of a die that is glass. */
-  edges: THREE.LineSegments;
-  /** Its own material while it is glass: every such die is here to a degree of its own. */
-  glass: THREE.MeshLambertMaterial | null;
-}
+type GlassDie = THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>;
 
 /** A die with its six faces taken from the one picture of them: a single draw. */
 function dieGeometry(round: number): THREE.BufferGeometry {
@@ -75,16 +69,42 @@ function smoothstep(from: number, to: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
+/**
+ * The dice of the board. Those at rest and on the move are all one draw: they are the same
+ * matter and differ only in where they stand and how they are turned. The lit edges of the
+ * glass ones are one draw too. A glass die itself is a draw of its own: every such die is here
+ * to a degree of its own, and they are seen through one another in the order they stand in.
+ *
+ * A draw is a round of talk with the graphics card, and on a phone thirty of them where two
+ * would do take a good part of the time a frame has.
+ */
 export class CubeMeshes {
   readonly group = new THREE.Group();
   private readonly geometry: THREE.BufferGeometry;
-  private readonly edgeGeometry: THREE.BufferGeometry;
   private readonly material: THREE.MeshLambertMaterial;
-  /** Edges of the glass by its look and by the value on top, index 0 = the 1. */
-  private readonly edges: Record<GlassLook, THREE.LineBasicMaterial[]>;
+  /** Every solid die, each at its own place. */
+  private readonly solids: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>;
+  /** The twelve edges of a die, as the ends of their lines around its middle. */
+  private readonly outline: Float32Array;
+  /** The lit edges of every glass die, in the colour each of them has. */
+  private readonly edges: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+  private readonly edgePlaces: THREE.BufferAttribute;
+  private readonly edgeColours: THREE.BufferAttribute;
   private readonly channels: THREE.Color[] = [];
-  private readonly dice = new Map<number, Die>();
-  private readonly tmpQuat = new THREE.Quaternion();
+  /** The glass dice now on the board, by the cube they show. */
+  private readonly worn = new Map<number, GlassDie>();
+  /**
+   * Glass dice nothing wears at the moment, unseen. They are kept and handed to the next cube
+   * that needs one: the program glass is drawn with lives as long as one material of it does,
+   * and building it again in the middle of a session holds a frame up.
+   */
+  private readonly spare: GlassDie[] = [];
+  private readonly alive = new Set<number>();
+  private readonly matrix = new THREE.Matrix4();
+  private readonly at = new THREE.Vector3();
+  private readonly turn = new THREE.Quaternion();
+  private readonly whole = new THREE.Vector3(1, 1, 1);
+  private readonly colour = new THREE.Color();
   private readonly tmpVec = new THREE.Vector3();
 
   constructor(
@@ -93,17 +113,38 @@ export class CubeMeshes {
   ) {
     const round = Number(values.dieRound);
     this.geometry = dieGeometry(round);
-    const frame = CUBE_SIZE - round * EDGE_INSET;
-    const box = new THREE.BoxGeometry(frame, frame, frame);
-    this.edgeGeometry = new THREE.EdgesGeometry(box);
-    box.dispose();
     const { map, glow } = dieTextures(palette, values);
     this.material = new THREE.MeshLambertMaterial({ map, emissive: 0xffffff, emissiveMap: glow, emissiveIntensity: 0 });
-    this.edges = Object.fromEntries(
-      // Drawn with the glass, after it: the edges of the far side show through the die.
-      GLASS_LOOKS.map((look) => [look, [1, 2, 3, 4, 5, 6].map(() => new THREE.LineBasicMaterial({ transparent: true }))]),
-    ) as Record<GlassLook, THREE.LineBasicMaterial[]>;
+    this.solids = new THREE.InstancedMesh(this.geometry, this.material, MAX_DICE);
+    this.solids.count = 0;
+    this.solids.frustumCulled = false;
+
+    const frame = CUBE_SIZE - round * EDGE_INSET;
+    const box = new THREE.BoxGeometry(frame, frame, frame);
+    const outline = new THREE.EdgesGeometry(box);
+    this.outline = Float32Array.from(outline.getAttribute('position').array);
+    box.dispose();
+    outline.dispose();
+    this.edgePlaces = new THREE.BufferAttribute(new Float32Array(MAX_DICE * this.outline.length), 3);
+    this.edgeColours = new THREE.BufferAttribute(new Float32Array(MAX_DICE * this.outline.length), 3);
+    this.edgePlaces.setUsage(THREE.DynamicDrawUsage);
+    this.edgeColours.setUsage(THREE.DynamicDrawUsage);
+    const edgeGeometry = new THREE.BufferGeometry();
+    edgeGeometry.setAttribute('position', this.edgePlaces);
+    edgeGeometry.setAttribute('color', this.edgeColours);
+    // The edges of one die, of no size, until the first frame: something to be made ready with.
+    edgeGeometry.setDrawRange(0, this.outline.length / 3);
+    // Drawn with the glass, after it: the edges of the far side show through the die.
+    this.edges = new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ transparent: true, vertexColors: true }));
+    this.edges.frustumCulled = false;
+    // Over the glass they belong to, whichever of the two is nearer.
+    this.edges.renderOrder = 2;
+    this.group.add(this.solids, this.edges);
     this.setPalette(palette);
+
+    // One glass die is there from the start, unseen: the board has none when it is made
+    // ready, and what glass is drawn with has to be there to be made ready with it.
+    this.spare.push(this.glassDie());
   }
 
   /** The colours have changed with the hour. The faces of the dice keep theirs. */
@@ -143,82 +184,106 @@ export class CubeMeshes {
     const low = n('glassLow');
     const solid = n('glassSolid');
     const frost = n('glassFrost');
-    for (const look of GLASS_LOOKS) {
-      const sinking = look === 'sinking' || look === 'sinkingLow';
-      const share = (sinking ? Math.max(1, glow.sinking) : 1) * (look === 'risingLow' || look === 'sinkingLow' ? low : 1);
-      this.edges[look].forEach((material, i) => material.color.copy(this.channels[i]).multiplyScalar(Math.min(1, n('glassEdge') * share)));
-    }
+    const edge = n('glassEdge');
+    const { alive, outline } = this;
+    const places = this.edgePlaces.array as Float32Array;
+    const colours = this.edgeColours.array as Float32Array;
 
-    const alive = new Set<number>();
+    alive.clear();
+    let solids = 0;
+    let glasses = 0;
     for (const cube of state.cubes) {
-      alive.add(cube.id);
-      const die = this.dice.get(cube.id) ?? this.add(cube.id);
       const look = this.look(cube, state);
       if (look === 'idle') {
-        die.mesh.material = this.material;
-        die.edges.visible = false;
-        this.pose(die.mesh, cube, state, alpha);
-        die.mesh.position.y += dip(cube.id);
+        if (solids >= MAX_DICE) continue;
+        this.pose(cube, state, alpha);
+        this.at.y += dip(cube.id);
+        this.solids.setMatrixAt(solids++, this.matrix.compose(this.at, this.turn, this.whole));
         continue;
       }
-      const glass = (die.glass ??= this.glass());
+      alive.add(cube.id);
+      let die = this.worn.get(cube.id);
+      if (!die) {
+        die = this.spare.pop() ?? this.glassDie();
+        die.visible = true;
+        this.worn.set(cube.id, die);
+      }
+      const glass = die.material;
+      const faint = look === 'risingLow' || look === 'sinkingLow';
       // A die held by the tutorial stays put between ticks.
       const height = cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha);
       // The nearer its full height, the more of the die is here: it comes up into being solid,
       // and stops being solid as it starts to go down.
       const here = body + (1 - body) * smoothstep(solid, 1, height);
-      glass.opacity = here * (look === 'risingLow' || look === 'sinkingLow' ? low : 1);
+      glass.opacity = here * (faint ? low : 1);
       // The frost is the light of the channel spread evenly over the die: its faces and pips
       // show through it, and none of them shines by itself.
-      glass.emissive.copy(this.channels[cube.ori.top - 1]);
+      const channel = this.channels[cube.ori.top - 1];
+      glass.emissive.copy(channel);
       glass.emissiveIntensity = frost * (1 - smoothstep(solid, 1, height)) + (cube.state === 'sinking' ? glow.flash * 0.6 : 0);
-      die.mesh.material = glass;
-      die.mesh.position.set(cube.x, height - 0.5 + dip(cube.id), cube.z);
-      die.mesh.quaternion.copy(quatFor(cube.ori));
-      die.edges.visible = true;
-      die.edges.material = this.edges[look][cube.ori.top - 1];
-      die.edges.position.copy(die.mesh.position);
+      const y = height - 0.5 + dip(cube.id);
+      die.position.set(cube.x, y, cube.z);
+      die.quaternion.copy(quatFor(cube.ori));
+
+      // Its edges, around where it stands: brighter on the way down, fainter while it is low.
+      if (glasses >= MAX_DICE) continue;
+      const sinking = look === 'sinking' || look === 'sinkingLow';
+      const share = (sinking ? Math.max(1, glow.sinking) : 1) * (faint ? low : 1);
+      this.colour.copy(channel).multiplyScalar(Math.min(1, edge * share));
+      const from = glasses++ * outline.length;
+      for (let i = 0; i < outline.length; i += 3) {
+        places[from + i] = outline[i] + cube.x;
+        places[from + i + 1] = outline[i + 1] + y;
+        places[from + i + 2] = outline[i + 2] + cube.z;
+        colours[from + i] = this.colour.r;
+        colours[from + i + 1] = this.colour.g;
+        colours[from + i + 2] = this.colour.b;
+      }
     }
-    for (const [id, die] of this.dice) {
+
+    this.solids.count = solids;
+    this.solids.visible = solids > 0;
+    if (solids > 0) this.solids.instanceMatrix.needsUpdate = true;
+    this.edges.geometry.setDrawRange(0, (glasses * outline.length) / 3);
+    this.edges.visible = glasses > 0;
+    if (glasses > 0) {
+      this.edgePlaces.needsUpdate = true;
+      this.edgeColours.needsUpdate = true;
+    }
+    for (const [id, die] of this.worn) {
       if (alive.has(id)) continue;
-      this.group.remove(die.mesh, die.edges);
-      die.glass?.dispose();
-      this.dice.delete(id);
+      die.visible = false;
+      this.spare.push(die);
+      this.worn.delete(id);
     }
   }
 
   dispose(): void {
     this.geometry.dispose();
-    this.edgeGeometry.dispose();
     this.material.map?.dispose();
     this.material.emissiveMap?.dispose();
     this.material.dispose();
-    for (const die of this.dice.values()) die.glass?.dispose();
-    for (const look of GLASS_LOOKS) for (const material of this.edges[look]) material.dispose();
+    this.solids.dispose();
+    this.edges.geometry.dispose();
+    this.edges.material.dispose();
+    for (const die of this.worn.values()) die.material.dispose();
+    for (const die of this.spare) die.material.dispose();
   }
 
-  /** The material of a die that is not all here. What lies behind it shows through; the die hides nothing. */
-  private glass(): THREE.MeshLambertMaterial {
+  /** A die that is not all here, unseen until a cube wears it. What lies behind it shows through; the die hides nothing. */
+  private glassDie(): GlassDie {
     const glass = this.material.clone();
     glass.transparent = true;
     glass.depthWrite = false;
     glass.emissiveMap = null;
-    return glass;
-  }
-
-  private add(id: number): Die {
-    const mesh = new THREE.Mesh(this.geometry, this.material);
-    const edges = new THREE.LineSegments(this.edgeGeometry, this.edges.rising[0]);
-    edges.visible = false;
-    // Over the glass they belong to, whichever of the two is nearer.
-    edges.renderOrder = 2;
-    const die: Die = { mesh, edges, glass: null };
-    this.dice.set(id, die);
-    this.group.add(mesh, edges);
+    const die: GlassDie = new THREE.Mesh(this.geometry, glass);
+    die.visible = false;
+    this.group.add(die);
     return die;
   }
 
-  private pose(mesh: THREE.Mesh, cube: Cube, state: RunState, alpha: number): void {
+  /** Where a solid die stands and how it is turned, into `at` and `turn`. */
+  private pose(cube: Cube, state: RunState, alpha: number): void {
     const move = cube.move;
     if (cube.state === 'moving' && move) {
       const p = Math.min(1, (cube.t + alpha) / state.config.actionTicks);
@@ -226,17 +291,17 @@ export class CubeMeshes {
         // Turn around the bottom edge shared by the two cells.
         const pivotX = (move.fromX + cube.x) / 2;
         const pivotZ = (move.fromZ + cube.z) / 2;
-        this.tmpQuat.setFromAxisAngle(ROLL_AXIS[move.dir], (p * Math.PI) / 2);
-        this.tmpVec.set(move.fromX - pivotX, 0.5, move.fromZ - pivotZ).applyQuaternion(this.tmpQuat);
-        mesh.position.set(pivotX + this.tmpVec.x, this.tmpVec.y, pivotZ + this.tmpVec.z);
-        mesh.quaternion.copy(this.tmpQuat).multiply(quatFor(move.prevOri));
+        this.turn.setFromAxisAngle(ROLL_AXIS[move.dir], (p * Math.PI) / 2);
+        this.tmpVec.set(move.fromX - pivotX, 0.5, move.fromZ - pivotZ).applyQuaternion(this.turn);
+        this.at.set(pivotX + this.tmpVec.x, this.tmpVec.y, pivotZ + this.tmpVec.z);
+        this.turn.multiply(quatFor(move.prevOri));
       } else {
-        mesh.position.set(move.fromX + (cube.x - move.fromX) * p, 0.5, move.fromZ + (cube.z - move.fromZ) * p);
-        mesh.quaternion.copy(quatFor(cube.ori));
+        this.at.set(move.fromX + (cube.x - move.fromX) * p, 0.5, move.fromZ + (cube.z - move.fromZ) * p);
+        this.turn.copy(quatFor(cube.ori));
       }
       return;
     }
-    mesh.position.set(cube.x, 0.5, cube.z);
-    mesh.quaternion.copy(quatFor(cube.ori));
+    this.at.set(cube.x, 0.5, cube.z);
+    this.turn.copy(quatFor(cube.ori));
   }
 }

@@ -145,6 +145,9 @@ export class BoardView {
   private readonly grid: FlatMesh;
   private readonly frame: FlatMesh;
   private readonly observer: ResizeObserver;
+  /** Kept when what the board is drawn with has been made ready. */
+  private readonly warmed: Promise<void>;
+  private disposed = false;
   private palette: Palette;
   /** The minute the colours were taken at: they follow the player's clock. */
   private minute = -1;
@@ -238,6 +241,36 @@ export class BoardView {
     this.setCamera(angles);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
+    // What the board is drawn with is made ready now, while it is not on screen yet: the
+    // programs for the glass, the sparks, the ring and the light on the pips would otherwise
+    // be built at the first group sent, and hold up the very frame that answers it.
+    this.warmed = worldLayer.warm(this.scene, this.camera).then(() => this.rehearse());
+  }
+
+  /**
+   * Draws the board once with one of everything on it, seen or not, where nobody looks. A
+   * graphics card may leave a part of the work on a program until something is first drawn
+   * with it, and that part too would hold up a frame of a session.
+   */
+  private rehearse(): void {
+    if (this.disposed) return;
+    const unseen: THREE.Object3D[] = [];
+    const empty: THREE.InstancedMesh[] = [];
+    this.scene.traverse((object) => {
+      if (!object.visible) {
+        unseen.push(object);
+        object.visible = true;
+      }
+      const instanced = object as THREE.InstancedMesh;
+      if (instanced.isInstancedMesh && instanced.count === 0) {
+        empty.push(instanced);
+        instanced.count = 1;
+      }
+    });
+    // The next frame of the board draws over this one before the layer is shown.
+    this.worldLayer.render(this.scene, this.camera, { rect: this.rect });
+    for (const object of unseen) object.visible = false;
+    for (const mesh of empty) mesh.count = 0;
   }
 
   /** Points the camera and reframes the board. The rules never depend on this. */
@@ -549,6 +582,12 @@ export class BoardView {
   /** Frees what the view holds on the graphics card. A view that is replaced is never drawn again. */
   dispose(): void {
     this.observer.disconnect();
+    this.disposed = true;
+    // Programs that are still being built are let go once they are there: the building looks for them.
+    void this.warmed.then(() => this.free());
+  }
+
+  private free(): void {
     this.cubes.dispose();
     this.player.dispose();
     this.overlays.dispose();

@@ -1,4 +1,5 @@
 import { Game } from './app/game';
+import { quality } from './display/quality';
 import { initPlatform, platformLanguage } from './platform/bridge';
 import { SETTINGS_KEY } from './platform/settings';
 import { openStorage } from './platform/storage';
@@ -13,6 +14,10 @@ await initPlatform();
 await openStorage([SETTINGS_KEY]);
 const language = platformLanguage();
 if (language) setLanguage(language);
+
+// Lines of measurements over the game, in any build: `?perf` in the address. They stand
+// between the game and the frames of the browser, so they come before the game is built.
+if (new URLSearchParams(window.location.search).has('perf')) (await import('./ui/perf')).startPerf(quality());
 
 // The labs are tools of development: a production build has none of them.
 const lab = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('lab') : null;

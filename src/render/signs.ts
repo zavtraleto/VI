@@ -11,6 +11,8 @@ import { PIP_LAYOUT, PIP_STEP, dockTexture, pipRadius } from './textures';
 const PILLAR_SIDES = 10;
 /** Most pillars there can be: six pips on every die of the largest board. */
 const MAX_PILLARS = 7 * 7 * 6;
+/** Most frames there can be: one on every cell of the largest board. */
+const MAX_DOCKS = 9 * 9;
 
 /** A tube of unit height standing on the origin, bright at the foot and gone at the top. */
 function pillarGeometry(): THREE.BufferGeometry {
@@ -31,37 +33,46 @@ function pillarGeometry(): THREE.BufferGeometry {
  */
 export class ChainSigns {
   readonly group = new THREE.Group();
-  private readonly dockGeometry = new THREE.PlaneGeometry(1, 1);
-  private readonly dockMaterials: THREE.MeshBasicMaterial[];
-  private readonly docks: THREE.Mesh[] = [];
+  /** The frames of the cells beside a chain: one draw for all of them, each in the colour of its chain. */
+  private readonly docks: THREE.InstancedMesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  private readonly dockColours: THREE.Color[] = [];
   private readonly pillars: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private readonly lit: THREE.Color[] = [];
   private readonly cells = new Map<number, number>();
   private readonly matrix = new THREE.Matrix4();
   private readonly at = new THREE.Vector3();
   private readonly scale = new THREE.Vector3();
+  private readonly whole = new THREE.Vector3(1, 1, 1);
   private readonly upright = new THREE.Quaternion();
   private readonly colour = new THREE.Color();
 
   constructor(private readonly values: ParamValues) {
-    this.dockGeometry.rotateX(-Math.PI / 2);
-    const frame = dockTexture();
-    this.dockMaterials = [1, 2, 3, 4, 5, 6].map(
-      () => new THREE.MeshBasicMaterial({ ...LIGHT, map: frame }),
-    );
+    const lying = new THREE.PlaneGeometry(1, 1);
+    lying.rotateX(-Math.PI / 2);
+    this.docks = new THREE.InstancedMesh(lying, new THREE.MeshBasicMaterial({ ...LIGHT, map: dockTexture() }), MAX_DOCKS);
+    this.docks.count = 0;
+    this.docks.frustumCulled = false;
+    // Before the see-through dice, as the marks of the chain are.
+    this.docks.renderOrder = -1;
+    // The colours of the frames are there from the start: the program for them is built with the board.
+    this.docks.setColorAt(0, this.colour.set(0, 0, 0));
+    this.group.add(this.docks);
     this.pillars = new THREE.InstancedMesh(
       pillarGeometry(),
-      new THREE.MeshBasicMaterial({ ...LIGHT, vertexColors: true, side: THREE.DoubleSide }),
+      // Light adds up the same in any order: both sides go in one draw, not the far side and then the near.
+      new THREE.MeshBasicMaterial({ ...LIGHT, vertexColors: true, side: THREE.DoubleSide, forceSinglePass: true }),
       MAX_PILLARS,
     );
     this.pillars.count = 0;
     this.pillars.frustumCulled = false;
     this.pillars.renderOrder = 3;
+    // The colours of the pillars are there from the start: the program for them is built with the board.
+    this.pillars.setColorAt(0, this.colour.set(0, 0, 0));
     this.group.add(this.pillars);
   }
 
   setPalette(palette: Palette): void {
-    this.dockMaterials.forEach((material, i) => material.color.set(i === 0 ? palette.signal : palette.channels[i]));
+    for (let i = 0; i < 6; i++) this.dockColours[i] = new THREE.Color(i === 0 ? palette.signal : palette.channels[i]);
     // The light of a die is the colour of its channel; the one is not a channel, and its light is red.
     for (let value = 1; value <= 6; value++) {
       this.lit[value - 1] = new THREE.Color(value === 1 ? palette.signal : palette.channels[value - 1]);
@@ -122,32 +133,32 @@ export class ChainSigns {
     }
 
     const opacity = n('dockBright') * (reducedMotion ? 1 : 0.75 + 0.25 * Math.sin((timeMs / 700) * Math.PI * 2));
-    for (const material of this.dockMaterials) material.opacity = opacity;
-    let used = 0;
-    for (const [cell, value] of this.cells) {
-      const dock = this.docks[used++] ?? this.add();
-      dock.material = this.dockMaterials[value - 1];
-      dock.position.set(cell % size, 0.012, Math.floor(cell / size));
-      dock.visible = opacity > 0;
+    this.docks.material.opacity = opacity;
+    let docks = 0;
+    if (opacity > 0) {
+      for (const [cell, value] of this.cells) {
+        if (docks >= MAX_DOCKS) break;
+        this.at.set(cell % size, 0.012, Math.floor(cell / size));
+        this.docks.setMatrixAt(docks, this.matrix.compose(this.at, this.upright, this.whole));
+        this.docks.setColorAt(docks, this.dockColours[value - 1]);
+        docks++;
+      }
     }
-    for (let i = used; i < this.docks.length; i++) this.docks[i].visible = false;
+    this.docks.count = docks;
+    this.docks.visible = docks > 0;
+    if (docks > 0) {
+      this.docks.instanceMatrix.needsUpdate = true;
+      if (this.docks.instanceColor) this.docks.instanceColor.needsUpdate = true;
+    }
   }
 
   dispose(): void {
-    this.dockGeometry.dispose();
-    this.dockMaterials[0].map?.dispose();
-    for (const material of this.dockMaterials) material.dispose();
+    this.docks.geometry.dispose();
+    this.docks.material.map?.dispose();
+    this.docks.material.dispose();
+    this.docks.dispose();
     this.pillars.geometry.dispose();
     this.pillars.material.dispose();
     this.pillars.dispose();
-  }
-
-  private add(): THREE.Mesh {
-    const dock = new THREE.Mesh(this.dockGeometry, this.dockMaterials[0]);
-    // Before the see-through dice, as the marks of the chain are.
-    dock.renderOrder = -1;
-    this.docks.push(dock);
-    this.group.add(dock);
-    return dock;
   }
 }

@@ -93,6 +93,10 @@ interface Coming {
   instance: SceneInstance | null;
   /** A line of the other side, or the lines of the program's log. */
   text: string[];
+  /** What it is drawn with is ready. Until then it waits unseen, and its time has not begun. */
+  ready: boolean;
+  /** Kept when it is. */
+  warmed: Promise<unknown>;
 }
 
 /**
@@ -176,7 +180,7 @@ export class SignalLeak {
       if (next) this.start(next, false);
     }
     const { coming } = this;
-    if (!coming) return;
+    if (!coming || !coming.ready) return;
     coming.age += dt;
     if (coming.age >= coming.lifeMs) {
       this.end();
@@ -201,7 +205,7 @@ export class SignalLeak {
   private start(kind: LeakKind, pattern: boolean): void {
     const { random } = this;
     this.schedule(false, kind);
-    const coming: Coming = { kind, age: 0, lifeMs: 0, along: random(), across: random(), values: null, instance: null, text: [] };
+    const coming: Coming = { kind, age: 0, lifeMs: 0, along: random(), across: random(), values: null, instance: null, text: [], ready: true, warmed: Promise.resolve() };
 
     if (kind === 'words') {
       const line = this.pool.next();
@@ -233,6 +237,11 @@ export class SignalLeak {
         coming.instance = def.build(coming.values, seed, true);
         coming.lifeMs = THING.inMs + THING.holdMs + THING.outMs;
       }
+      // The programs of a scene are built before it is first drawn: built at the drawing, in
+      // the middle of a session, they would hold the board up.
+      const { instance } = coming;
+      coming.ready = false;
+      coming.warmed = this.picture.warm(instance.scene, instance.camera).then(() => (coming.ready = true));
     }
     this.coming = coming;
     this.written = '';
@@ -241,7 +250,9 @@ export class SignalLeak {
   private end(): void {
     const { coming } = this;
     if (!coming) return;
-    coming.instance?.dispose();
+    // A scene whose programs are still being built is let go once they are there: the building looks for them.
+    const { instance } = coming;
+    if (instance) void coming.warmed.then(() => instance.dispose());
     this.coming = null;
     this.restUntil = this.clock + REST_MS;
     this.hide();

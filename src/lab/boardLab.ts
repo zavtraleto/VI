@@ -1,5 +1,6 @@
 import { CONTACT_STEPS, PHASE_SHIFT_MS, lineLevel } from '../app/ritual';
 import { Display } from '../display/display';
+import { quality } from '../display/quality';
 import { loadSettings } from '../platform/settings';
 import { Backdrop } from '../render/backdrop';
 import { BOARD_PARAMS, boardChanged, boardDefaults, parseBoardValue, type BoardLook } from '../render/params';
@@ -97,9 +98,8 @@ export class BoardLab {
   /** What the last copy put on the clipboard. */
   copied: string | null = null;
   private readonly container: HTMLElement;
-  private readonly backdropLayer = this.display.addLayer({ name: 'backdrop', lines: 240, look: { filter: 'linear' } });
-  private readonly backdrop = new Backdrop(this.backdropLayer);
-  private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: 4, encoded: true });
+  private readonly backdrop = new Backdrop(this.display);
+  private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
   private readonly fps = new FpsCounter();
   private view: BoardView | null = null;
   private state: RunState;
@@ -177,8 +177,7 @@ export class BoardLab {
       reducedMotion: false,
       shake: true,
     });
-    this.backdropLayer.look.invert = view.inverted;
-    this.backdrop.draw(view.background, view.lines);
+    this.backdrop.draw(view.background, view.inverted);
     this.display.present(timeMs);
 
     this.spent += performance.now() - started;

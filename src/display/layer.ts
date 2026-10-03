@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { quality } from './quality';
 import { targetSize, targetViewport, type Rect, type Size } from './sizing';
 
 export type { Rect } from './sizing';
@@ -53,6 +54,19 @@ export interface LayerOptions {
   look?: Partial<LayerLook>;
 }
 
+/** The pictures a material is drawn with: those it names itself, and those among its uniforms. */
+function texturesOf(material: THREE.Material): THREE.Texture[] {
+  const found: THREE.Texture[] = [];
+  const take = (value: unknown): void => {
+    const texture = value as THREE.Texture | null;
+    if (texture?.isTexture && !texture.isRenderTargetTexture) found.push(texture);
+  };
+  for (const value of Object.values(material)) take(value);
+  const { uniforms } = material as THREE.ShaderMaterial;
+  if (uniforms) for (const uniform of Object.values(uniforms)) take(uniform.value);
+  return found;
+}
+
 /** What a layer needs from the display that owns it. */
 export interface LayerHost extends Size {
   readonly renderer: THREE.WebGLRenderer;
@@ -82,11 +96,16 @@ export class Layer {
   readonly name: string;
   readonly encoded: boolean;
   look: LayerLook;
+  /**
+   * Grows whenever the picture changes. What is worked out from the picture is kept until it
+   * does, instead of being worked out again on every frame.
+   */
+  revision = 0;
   /** Part of the layer the last scene went to: left, bottom, right, top, as fractions of it. */
   readonly area = new THREE.Vector4(0, 0, 1, 1);
   protected lines: number | null;
   protected readonly size: Size = { width: 0, height: 0 };
-  private readonly samples: number;
+  private samples: number;
   private target: THREE.WebGLRenderTarget | null = null;
 
   constructor(
@@ -112,6 +131,20 @@ export class Layer {
   /** The picture, with colour premultiplied by alpha. */
   get texture(): THREE.Texture {
     return this.renderTarget().texture;
+  }
+
+  /** The rows of the picture run from the top down, as those of a canvas do, and not from the bottom up. */
+  get topDown(): boolean {
+    return false;
+  }
+
+  /** Draws the layer with this many samples of anti-aliasing from the next scene on. */
+  setSamples(samples: number): void {
+    if (samples === this.samples) return;
+    this.samples = samples;
+    // A picture is made for a number of samples: this one is let go, and the next drawing makes another.
+    this.target?.dispose();
+    this.target = null;
   }
 
   setLines(lines: number | null): void {
@@ -157,7 +190,33 @@ export class Layer {
     renderer.render(scene, camera);
     renderer.setRenderTarget(null);
     this.area.set(view.x / width, view.y / height, (view.x + view.width) / width, (view.y + view.height) / height);
+    this.revision++;
   }
+
+  /**
+   * Has what a scene is drawn with into this layer made ready ahead of time: its programs
+   * are built and its pictures sent to the graphics card. Left to the first drawing, they
+   * hold that frame up. Everything of the scene is taken, seen or not. The promise is kept
+   * when the programs are ready.
+   */
+  warm(scene: THREE.Scene, camera: THREE.Camera): Promise<unknown> {
+    const { renderer } = this.host;
+    // A program is built for the picture it writes to: this layer's, not the screen.
+    renderer.setRenderTarget(this.renderTarget());
+    const ready = renderer.compileAsync(scene, camera);
+    renderer.setRenderTarget(null);
+    scene.traverse((object) => {
+      const { material } = object as THREE.Mesh;
+      if (!material) return;
+      for (const one of Array.isArray(material) ? material : [material]) {
+        for (const texture of texturesOf(one)) renderer.initTexture(texture);
+      }
+    });
+    return ready;
+  }
+
+  /** Sends to the graphics card what has changed in the picture. The display calls this before it shows the layer. */
+  flush(): void {}
 
   dispose(): void {
     this.target?.dispose();
@@ -205,6 +264,16 @@ export class CanvasLayer extends Layer {
   onResize: (() => void) | null = null;
   private readonly canvas: HTMLCanvasElement;
   private readonly canvasTexture: THREE.CanvasTexture;
+  /**
+   * The same canvas as a picture the graphics card never holds: a part of the canvas is sent
+   * from it. three.js takes a source that is on the card for a copy from one of the card's
+   * pictures to another, and this one has to be read from memory.
+   */
+  private readonly source: THREE.CanvasTexture;
+  /** What is sent next: the whole canvas, or only the part of it in `patch`. */
+  private whole = true;
+  private readonly patch = new THREE.Box2();
+  private readonly corner = new THREE.Vector2();
 
   constructor(host: LayerHost, options: LayerOptions) {
     super(host, { ...options, encoded: true });
@@ -217,10 +286,19 @@ export class CanvasLayer extends Layer {
     this.canvasTexture.generateMipmaps = false;
     this.canvasTexture.minFilter = THREE.LinearFilter;
     this.canvasTexture.magFilter = THREE.LinearFilter;
+    // Rows go up as the canvas has them, top first: turning them over costs a copy of the
+    // picture on every upload, and a part of it could not be sent to its place. The pass that
+    // reads the layer turns it instead.
+    this.canvasTexture.flipY = false;
+    this.source = new THREE.CanvasTexture(this.canvas);
   }
 
   override get texture(): THREE.Texture {
     return this.canvasTexture;
+  }
+
+  override get topDown(): boolean {
+    return true;
   }
 
   /** Pixels of the canvas per CSS pixel of the window. */
@@ -228,9 +306,28 @@ export class CanvasLayer extends Layer {
     return this.size.height / this.host.height;
   }
 
-  /** The texture is uploaded again only after this call. */
-  markDirty(): void {
-    this.canvasTexture.needsUpdate = true;
+  /**
+   * The picture has changed, and is sent to the graphics card before the next frame: all of it,
+   * or only `part` of it, in pixels of the canvas from its top left corner.
+   */
+  markDirty(part?: Rect): void {
+    this.revision++;
+    if (!part || !quality().patches) this.whole = true;
+    if (this.whole || !part) return;
+    const left = Math.max(0, Math.floor(part.x));
+    const top = Math.max(0, Math.floor(part.y));
+    const right = Math.min(this.size.width, Math.ceil(part.x + part.width));
+    const bottom = Math.min(this.size.height, Math.ceil(part.y + part.height));
+    if (right <= left || bottom <= top) return;
+    this.patch.expandByPoint(this.corner.set(left, top));
+    this.patch.expandByPoint(this.corner.set(right, bottom));
+  }
+
+  override flush(): void {
+    if (this.whole) this.canvasTexture.needsUpdate = true;
+    else if (!this.patch.isEmpty()) this.host.renderer.copyTextureToTexture(this.source, this.canvasTexture, this.patch, this.patch.min);
+    this.whole = false;
+    this.patch.makeEmpty();
   }
 
   override render(): void {
@@ -239,6 +336,7 @@ export class CanvasLayer extends Layer {
 
   override dispose(): void {
     this.canvasTexture.dispose();
+    this.source.dispose();
   }
 
   protected override resized(): void {

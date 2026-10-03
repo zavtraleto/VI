@@ -6,16 +6,29 @@ import { CUBE_SIZE } from './cubes';
 import { topTurn } from './orientationQuat';
 import { chainMarkTexture } from './textures';
 
+/** Most marks of one value there can be: a die on every cell of the largest board. */
+const MAX_MARKS = 9 * 9;
+
 /**
  * Shows where a chain can still be added to. The cell of every die sinking in a chain carries
  * that die's top face, lit in the colour of its channel, until the die is gone: a die that has
  * all but sunk out of sight still counts, and the mark is what says so.
+ *
+ * All the marks of one value are one draw: a chain with twenty dice in it would otherwise be
+ * twenty, each a round of talk with the graphics card.
  */
 export class ChainMarks {
   readonly group = new THREE.Group();
   private readonly geometry = new THREE.PlaneGeometry(1, 1);
   private readonly materials: THREE.MeshBasicMaterial[];
-  private readonly marks: THREE.Mesh[] = [];
+  /** The marks of each value, index 0 = the 1. */
+  private readonly marks: THREE.InstancedMesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[];
+  private readonly counts = [0, 0, 0, 0, 0, 0];
+  private readonly matrix = new THREE.Matrix4();
+  private readonly at = new THREE.Vector3();
+  private readonly turn = new THREE.Quaternion();
+  private readonly lying = new THREE.Euler();
+  private readonly whole = new THREE.Vector3(1, 1, 1);
 
   constructor(values: ParamValues) {
     this.materials = [1, 2, 3, 4, 5, 6].map(
@@ -26,6 +39,15 @@ export class ChainMarks {
           depthWrite: false,
         }),
     );
+    this.marks = this.materials.map((material) => {
+      const mesh = new THREE.InstancedMesh(this.geometry, material, MAX_MARKS);
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      // Before the see-through dice, so a mark shows through the die that stands on it.
+      mesh.renderOrder = -1;
+      this.group.add(mesh);
+      return mesh;
+    });
   }
 
   setPalette(palette: Palette): void {
@@ -37,35 +59,32 @@ export class ChainMarks {
     const opacity = reducedMotion ? 1 : 0.82 + 0.18 * Math.sin((timeMs / 700) * Math.PI * 2);
     for (const material of this.materials) material.opacity = opacity;
 
-    let used = 0;
+    const { counts } = this;
+    counts.fill(0);
     // Nothing joins a finished group in a puzzle.
     if (!state.puzzle) {
       for (const cube of state.cubes) {
         if (!inChain(cube)) continue;
-        const mark = this.marks[used++] ?? this.add();
-        mark.material = this.materials[cube.ori.top - 1];
-        mark.position.set(cube.x, 0.014, cube.z);
-        mark.rotation.set(-Math.PI / 2, 0, topTurn(cube.ori));
-        mark.visible = true;
+        const value = cube.ori.top - 1;
+        if (counts[value] >= MAX_MARKS) continue;
+        this.at.set(cube.x, 0.014, cube.z);
+        this.turn.setFromEuler(this.lying.set(-Math.PI / 2, 0, topTurn(cube.ori)));
+        this.marks[value].setMatrixAt(counts[value]++, this.matrix.compose(this.at, this.turn, this.whole));
       }
     }
-    for (let i = used; i < this.marks.length; i++) this.marks[i].visible = false;
+    this.marks.forEach((mesh, value) => {
+      mesh.count = counts[value];
+      mesh.visible = counts[value] > 0;
+      if (counts[value] > 0) mesh.instanceMatrix.needsUpdate = true;
+    });
   }
 
   dispose(): void {
     this.geometry.dispose();
+    for (const mesh of this.marks) mesh.dispose();
     for (const material of this.materials) {
       material.map?.dispose();
       material.dispose();
     }
-  }
-
-  private add(): THREE.Mesh {
-    const mark = new THREE.Mesh(this.geometry, this.materials[0]);
-    // Before the see-through dice, so a mark shows through the die that stands on it.
-    mark.renderOrder = -1;
-    this.marks.push(mark);
-    this.group.add(mark);
-    return mark;
   }
 }

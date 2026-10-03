@@ -14,7 +14,7 @@ export interface TextOptions {
   bold?: boolean;
 }
 
-/** A line of text as dots: drawn once, kept, tinted every time it is used. */
+/** A line of text as dots: drawn once and kept. */
 interface Mask {
   canvas: HTMLCanvasElement;
   width: number;
@@ -30,6 +30,10 @@ const LIGHT_SHIFT = -0.25;
 const BOLD_SHIFT = 0.25;
 /** Lines of text kept as dots; when there are more, all are thrown away and drawn anew. */
 const MASK_LIMIT = 600;
+/** Lines of text kept in their colours, ready to be put on the picture; the same rule. */
+const SPRITE_LIMIT = 900;
+/** The eight dots around a dot: where the dark edge of a line of text lies. */
+const AROUND: readonly (readonly [number, number])[] = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
 /** Pips of each value on a grid of three by three, row by row. */
 export const FACE_PIPS: Record<number, readonly number[]> = {
   1: [4],
@@ -49,7 +53,12 @@ export class Kit {
   /** The colours of this moment of the day. Whoever owns the kit keeps them current. */
   palette: Palette;
   private readonly masks = new Map<string, Mask>();
-  private readonly tint = document.createElement('canvas');
+  /**
+   * Lines of text in their colours. Tinting a line anew every time it is written took three
+   * operations of the canvas, and a line with an edge is written nine times over: with the
+   * points of a chain in the air that was most of the time a frame of a phone had.
+   */
+  private readonly sprites = new Map<string, HTMLCanvasElement>();
   private readonly strip = document.createElement('canvas');
 
   constructor(
@@ -118,7 +127,8 @@ export class Kit {
       // Setting the size empties the strip.
       strip.width = wide;
       strip.height = h;
-      strip.getContext('2d')!.drawImage(ctx.canvas, left, y, wide, h, 0, 0, wide, h);
+      // In memory, as the picture is: between a canvas of the graphics card and one in memory a copy is slow.
+      strip.getContext('2d', { willReadFrequently: true })!.drawImage(ctx.canvas, left, y, wide, h, 0, 0, wide, h);
       ctx.clearRect(left, y, wide, h);
       ctx.drawImage(strip, left + dx, y);
     }
@@ -145,6 +155,7 @@ export class Kit {
   /** A new font has arrived: text drawn with the stand-in is forgotten. */
   forgetText(): void {
     this.masks.clear();
+    this.sprites.clear();
   }
 
   /** The whole picture in one colour. */
@@ -242,19 +253,7 @@ export class Kit {
     const width = textWidth(text, scale);
     const left = Math.round(options.align === 'right' ? x - width : options.align === 'center' ? x - width / 2 : x);
     if (text === '') return left;
-    const mask = this.mask(text, scale, options.bold ?? false);
-    const { tint } = this;
-    if (tint.width < mask.canvas.width || tint.height < mask.canvas.height) {
-      tint.width = Math.max(tint.width, mask.canvas.width);
-      tint.height = Math.max(tint.height, mask.canvas.height);
-    }
-    const paint = tint.getContext('2d')!;
-    paint.globalCompositeOperation = 'copy';
-    paint.drawImage(mask.canvas, 0, 0);
-    paint.globalCompositeOperation = 'source-in';
-    paint.fillStyle = color;
-    paint.fillRect(0, 0, mask.canvas.width, mask.canvas.height);
-    this.layer.ctx.drawImage(tint, 0, 0, mask.canvas.width, mask.canvas.height, left, Math.round(y), mask.canvas.width, mask.canvas.height);
+    this.layer.ctx.drawImage(this.sprite(text, scale, options.bold ?? false, color, null), left, Math.round(y));
     return left + width;
   }
 
@@ -263,10 +262,13 @@ export class Kit {
    * all around it first, as an edge.
    */
   edged(text: string, x: number, y: number, color: string, options: TextOptions = {}): number {
-    for (const dx of [-1, 0, 1]) {
-      for (const dy of [-1, 0, 1]) if (dx !== 0 || dy !== 0) this.text(text, x + dx, y + dy, this.palette.bg, options);
-    }
-    return this.text(text, x, y, color, options);
+    const scale = Math.max(1, Math.round(options.scale ?? 1));
+    const width = textWidth(text, scale);
+    const left = Math.round(options.align === 'right' ? x - width : options.align === 'center' ? x - width / 2 : x);
+    if (text === '') return left;
+    // The edge reaches one dot past the text on every side.
+    this.layer.ctx.drawImage(this.sprite(text, scale, options.bold ?? false, color, this.palette.bg), left - 1, Math.round(y) - 1);
+    return left + width;
   }
 
   /** The face of a die, flat: a square of its colour with its pips as dots. The one has a single large pip. */
@@ -302,6 +304,39 @@ export class Kit {
     const valueStart = right - this.measure(value);
     this.text(value, valueStart, y, valueColor);
     this.leader(labelEnd + CELL_W, valueStart - CELL_W, y, this.palette.faint);
+  }
+
+  /**
+   * A line of text in its colour, made once and kept. With `edge`, the same text in that
+   * colour lies around it, one dot out on every side, and the picture is that much larger.
+   */
+  private sprite(text: string, scale: number, bold: boolean, color: string, edge: string | null): HTMLCanvasElement {
+    const key = `${color}|${edge ?? ''}|${scale}${bold ? 'b' : 'l'}${text}`;
+    const kept = this.sprites.get(key);
+    if (kept) return kept;
+    if (this.sprites.size >= SPRITE_LIMIT) this.sprites.clear();
+
+    const mask = this.mask(text, scale, bold).canvas;
+    const pad = edge === null ? 0 : 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = mask.width + pad * 2;
+    canvas.height = mask.height + pad * 2;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    if (edge === null) {
+      ctx.drawImage(mask, 0, 0);
+    } else {
+      for (const [dx, dy] of AROUND) ctx.drawImage(mask, pad + dx, pad + dy);
+    }
+    // The dots take the colour; what is not a dot stays empty.
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = edge ?? color;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (edge !== null) {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(this.sprite(text, scale, bold, color, null), pad, pad);
+    }
+    this.sprites.set(key, canvas);
+    return canvas;
   }
 
   /** The dots of a line of text: every sign at its own place, each dot lit or not. */

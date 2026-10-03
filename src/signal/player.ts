@@ -1,5 +1,6 @@
 import type { Display } from '../display/display';
 import type { CanvasLayer, Layer } from '../display/layer';
+import { quality } from '../display/quality';
 import { loadShellFonts } from '../shell/fonts';
 import { Kit } from '../shell/kit';
 import { CELL_W, pictureSize } from '../shell/layout';
@@ -34,6 +35,10 @@ interface Playing {
   start: number | null;
   /** How long it has been on screen, as of the last frame. */
   elapsed: number;
+  /** What it is drawn with is ready. Until then the window stays shut, and its time has not begun. */
+  ready: boolean;
+  /** Kept when it is. */
+  warmed: Promise<unknown>;
   onDone: () => void;
 }
 
@@ -75,7 +80,7 @@ export class SignalPlayer {
     board?: Layer,
     private readonly random: () => number = Math.random,
   ) {
-    this.leak = board ? new SignalLeak(display, shell, board, random) : null;
+    this.leak = board && quality().leak ? new SignalLeak(display, shell, board, random) : null;
     this.picture = display.addLayer({ name: 'signal', lines: 240, look: { opacity: 0 } });
     this.words = display.addCanvasLayer({ name: 'signal-caption', lines: 240, look: { opacity: 0 } });
     this.words.onResize = () => (this.written = '');
@@ -142,7 +147,7 @@ export class SignalPlayer {
   frame(timeMs: number, session: SessionReading | null = null): void {
     const { playing, display } = this;
     this.leak?.frame(timeMs, this.enabled && !playing ? session : null);
-    if (!playing) return;
+    if (!playing || !playing.ready) return;
     playing.start ??= timeMs;
     const elapsed = timeMs - playing.start;
     playing.elapsed = elapsed;
@@ -181,7 +186,7 @@ export class SignalPlayer {
   private play(card: SignalCard, contact: number, onDone: () => void): void {
     this.finish();
     const { def, values } = cardScene(card);
-    this.playing = {
+    const playing: Playing = {
       card,
       title: cardTitle(card),
       values,
@@ -191,8 +196,13 @@ export class SignalPlayer {
       durationMs: card.seconds * 1000,
       start: null,
       elapsed: 0,
+      ready: false,
+      warmed: Promise.resolve(),
       onDone,
     };
+    this.playing = playing;
+    // The programs of the scene are built before the window opens, not on its first frame.
+    playing.warmed = this.picture.warm(playing.instance.scene, playing.instance.camera).then(() => (playing.ready = true));
     this.drawn = '';
     this.written = '';
   }
@@ -201,7 +211,8 @@ export class SignalPlayer {
     const { playing } = this;
     if (!playing) return;
     this.playing = null;
-    playing.instance.dispose();
+    // A scene whose programs are still being built is let go once they are there: the building looks for them.
+    void playing.warmed.then(() => playing.instance.dispose());
     this.picture.look.opacity = 0;
     this.words.look.opacity = 0;
     this.chrome.look.opacity = 0;

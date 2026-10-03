@@ -1,27 +1,37 @@
-import * as THREE from 'three';
-import type { Layer } from '../display/layer';
+import type * as THREE from 'three';
+import type { Display } from '../display/display';
 
 /**
- * What lies behind the board: a layer of its own under it, a picture of few pixels as the
- * program's menu is. For now it is the dark of the tube alone, in the colour the board gives
- * it. The things of the other side that leak through will be drawn here.
+ * What lies behind the board. For now it is the dark of the tube alone, in the colour the
+ * board gives it, so it is the colour the screen starts from before any layer is put on it,
+ * and costs no picture of its own. The things of the other side that leak through have
+ * layers of their own, over it and under the board.
  */
 export class Backdrop {
-  readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private css = '';
 
-  constructor(private readonly layer: Layer) {}
+  constructor(private readonly display: Display) {}
 
-  /** Draws the layer; `lines` is the height of the program's picture in its own pixels. */
-  draw(colour: THREE.Color, lines: number): void {
-    this.layer.setLines(lines);
-    this.layer.render(this.scene, this.camera, { clear: colour });
+  /** Sets the dark for this frame. `inverted` turns it inside out, as the board's own picture is turned. */
+  draw(colour: THREE.Color, inverted: boolean): void {
+    const { background } = this.display;
+    background.copy(colour);
+    if (inverted) {
+      // The picture is turned as the screen shows it, not as light adds up.
+      background.convertLinearToSRGB();
+      background.setRGB(1 - background.r, 1 - background.g, 1 - background.b);
+      background.convertSRGBToLinear();
+    }
     const css = `#${colour.getHexString()}`;
     if (css !== this.css) {
       // The page follows the dark: panels and marks drawn over the board take their colour from it.
       this.css = css;
       document.documentElement.style.setProperty('--void', css);
     }
+  }
+
+  /** Nothing of the board is on screen: the screen starts from black. */
+  clear(): void {
+    this.display.background.setRGB(0, 0, 0);
   }
 }

@@ -14,9 +14,9 @@ export interface Rect {
   height: number;
 }
 
-/** Pixels of the canvas per CSS pixel. */
-export function pixelRatio(devicePixelRatio: number): number {
-  return Math.min(devicePixelRatio > 0 ? devicePixelRatio : 1, MAX_PIXEL_RATIO);
+/** Pixels of the canvas per CSS pixel: those of the screen, up to `max`. */
+export function pixelRatio(devicePixelRatio: number, max = MAX_PIXEL_RATIO): number {
+  return Math.min(devicePixelRatio > 0 ? devicePixelRatio : 1, max);
 }
 
 /** Drawing buffer of the canvas for a window; the same rounding as the renderer's own. */

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CanvasLayer, Layer, type LayerHost, type LayerOptions } from './layer';
 import { Presenter } from './present';
+import { quality } from './quality';
 import { pixelRatio } from './sizing';
 
 /**
@@ -10,6 +11,8 @@ import { pixelRatio } from './sizing';
  */
 export class Display implements LayerHost {
   readonly renderer: THREE.WebGLRenderer;
+  /** What the screen is before any layer is put on it: the dark behind them all. */
+  readonly background = new THREE.Color(0x000000);
   private readonly canvas: HTMLCanvasElement;
   private readonly layers: Layer[] = [];
   private readonly presenter = new Presenter();
@@ -68,7 +71,7 @@ export class Display implements LayerHost {
   sync(): void {
     const width = Math.max(1, this.canvas.clientWidth);
     const height = Math.max(1, this.canvas.clientHeight);
-    const ratio = pixelRatio(window.devicePixelRatio);
+    const ratio = pixelRatio(window.devicePixelRatio, quality().maxRatio);
     if (width === this.cssWidth && height === this.cssHeight && ratio === this.ratio) return;
     this.cssWidth = width;
     this.cssHeight = height;
@@ -84,12 +87,21 @@ export class Display implements LayerHost {
    */
   present(timeMs = 0): void {
     this.sync();
-    const { renderer } = this;
+    const { renderer, presenter } = this;
+    // Everything that is drawn off the screen comes first, so that the screen itself is drawn
+    // in one go: a graphics card of a phone keeps a picture it has to come back to, and pays
+    // for the keeping.
+    for (const layer of this.layers) {
+      if (layer.look.opacity <= 0) continue;
+      layer.flush();
+      presenter.prepare(renderer, layer, timeMs);
+    }
+    // The clear colour is taken for the target that is set, so the screen is set first.
     renderer.setRenderTarget(null);
-    renderer.setClearColor(0x000000, 1);
+    renderer.setClearColor(this.background, 1);
     renderer.clear(true, false, false);
     for (const layer of this.layers) {
-      if (layer.look.opacity > 0) this.presenter.draw(renderer, layer, timeMs);
+      if (layer.look.opacity > 0) presenter.compose(renderer, layer);
     }
   }
 
