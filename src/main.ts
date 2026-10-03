@@ -1,7 +1,18 @@
 import { Game } from './app/game';
+import { initPlatform, platformLanguage } from './platform/bridge';
+import { SETTINGS_KEY } from './platform/settings';
+import { openStorage } from './platform/storage';
+import { setLanguage } from './ui/i18n';
 import '@fontsource/forum/latin-400.css';
 import '@fontsource/forum/cyrillic-400.css';
 import './ui/styles.css';
+
+// The platform comes first: what it keeps for the player and the language it names are read
+// before anything of the game is built.
+await initPlatform();
+await openStorage([SETTINGS_KEY]);
+const language = platformLanguage();
+if (language) setLanguage(language);
 
 // The labs are tools of development: a production build has none of them.
 const lab = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('lab') : null;

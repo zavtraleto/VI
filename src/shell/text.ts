@@ -84,8 +84,8 @@ export interface MenuFile {
 export const MENU_FILES: readonly MenuFile[] = [
   /** "Protocol"; "best record". */
   { id: 'protocol', face: 1, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', field: ['最高記録', 'bestEndless'] },
-  /** "Time limit". */
-  { id: 'limited', face: 2, name: 'LIMITED', native: '時限', line: 'shellLimited', field: ['最高記録', 'bestTimed'] },
+  /** "Time limit"; "today's record": the session with a limit is the session of the day. */
+  { id: 'limited', face: 2, name: 'LIMITED', native: '時限', line: 'shellLimited', field: ['本日記録', 'bestTimed'] },
   /** "Exercise"; "state". */
   { id: 'exercise', face: 3, name: 'EXERCISE', native: '演習', line: 'shellExercise', field: ['状態', 'exercise'] },
   /** "Tasks"; "completed". */
@@ -95,6 +95,12 @@ export const MENU_FILES: readonly MenuFile[] = [
   /** "Settings"; "revision". */
   { id: 'system', face: 6, name: 'SYSTEM', native: '設定', line: 'shellSystem', field: ['改訂', 'revision'] },
 ];
+
+/** A date given as YYYY-MM-DD, as the program writes it: by the era, where Heisei 38 is 2026. */
+export function eraDate(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return `H${String(year - 1988).padStart(2, '0')}.${String(month).padStart(2, '0')}.${String(day).padStart(2, '0')}`;
+}
 
 /** A count as the program writes it: with leading zeros. */
 export function digits(value: number, places: number): string {
@@ -175,6 +181,8 @@ export const COMMANDS = {
   /** "Start". */
   start: { native: '開始', name: 'START' },
   rules: { native: '規則', name: 'RULES' },
+  /** "Registration": the platform gives the player a name. */
+  register: { native: '登録', name: 'REGISTER' },
 } as const satisfies Record<string, PanelName>;
 
 /** The readings of a result. */
@@ -188,6 +196,8 @@ export const RESULT = {
   moves: { native: '手数', name: 'MOVES' },
   /** "Fewest". */
   least: { native: '最少', name: 'FEWEST' },
+  /** "Today": the day a session of the day belongs to. */
+  day: { native: '本日', name: 'TODAY' },
 } as const satisfies Record<string, PanelName>;
 
 /** The log of sessions: which sessions, which reading, and the heads of its columns. */
@@ -198,6 +208,16 @@ export const RECORDS = {
   date: '日付',
   /** "No entries". */
   empty: '記録なし NO ENTRY',
+  /** Whose sessions: those of this device, or those of everyone on the platform. */
+  sources: ['LOCAL', 'NETWORK'],
+  /** "Name": the head of the column of players. */
+  name: '名前',
+  /** "Connecting": the table of the platform is on its way. */
+  waiting: '接続中 CONNECTING',
+  /** "No connection": the table did not come. */
+  failed: '接続なし NO LINK',
+  /** A player the platform has no name for. */
+  nameless: 'NO NAME',
 } as const;
 
 /** What the program lets the player set, and the values it shows. */

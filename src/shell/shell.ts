@@ -147,6 +147,11 @@ export class Shell {
     this.show(new PanelScreen(this.context, spec, alone), alone);
   }
 
+  /** The font of the program has come: what is on screen is written with it. */
+  get ready(): boolean {
+    return this.fontsReady;
+  }
+
   hide(): void {
     if (!this.screen) return;
     this.screen.dispose?.();

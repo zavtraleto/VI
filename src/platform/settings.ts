@@ -61,7 +61,9 @@ export interface Settings {
   puzzle: PuzzleProgress;
 }
 
-const KEY = 'vi.settings.v3';
+/** The one key everything the game keeps is under. */
+export const SETTINGS_KEY = 'vi.settings.v3';
+const KEY = SETTINGS_KEY;
 
 /** Board turned towards the player a little from the classic diamond. */
 export const DEFAULT_CAMERA = { yaw: 30, pitch: 38, swipeTilt: 0.5 } as const;
@@ -128,6 +130,11 @@ export function topRuns(runs: readonly RunRecord[], metric: RecordMetric, count:
 
 export function bestOf(settings: Settings, key: string, metric: RecordMetric): number {
   return (settings.runs[key] ?? []).reduce((best, r) => Math.max(best, r[metric]), 0);
+}
+
+/** The best score among the sessions of one day, given as YYYY-MM-DD. */
+export function bestOn(settings: Settings, key: string, date: string): number {
+  return (settings.runs[key] ?? []).reduce((best, r) => (r.date === date ? Math.max(best, r.score) : best), 0);
 }
 
 export function prefersReducedMotion(settings: Settings): boolean {

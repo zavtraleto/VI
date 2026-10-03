@@ -23,8 +23,8 @@ export type PanelRow =
   | { kind: 'switch'; id: string; label: PanelName; value: () => string; action: () => void }
   /** One of several, side by side: the one picked is filled. */
   | { kind: 'tabs'; id: string; labels: () => readonly string[]; selected: () => number; pick: (index: number) => void }
-  /** A log: its place, a date and a value on every line. `lines` is the most it shows. */
-  | { kind: 'table'; head: string; rows: () => readonly (readonly [date: string, value: string])[]; empty: string; lines: number }
+  /** A log: its place, a date or a name and a value on every line. `lines` is the most it shows. */
+  | { kind: 'table'; head: () => string; rows: () => readonly TableLine[]; empty: () => string; lines: number }
   /** The tasks, as numbered cells with what each has earned; `note` is said under them for the cell in focus. */
   | { kind: 'levels'; id: string; levels: readonly { stars: number }[]; current: number; pick: (index: number) => void; note: (index: number) => string }
   /** What a task has earned, out of three. */
@@ -32,6 +32,13 @@ export type PanelRow =
   /** Prose in the language of the player, in the voice. */
   | { kind: 'say'; text: string; dim?: boolean }
   | { kind: 'gap' };
+
+/**
+ * A line of a log. `own` marks the line of the one who is playing: it is written in full
+ * tone and stays in sight when the log is cut short. `place` stands in for the count of lines
+ * where the log has places of its own.
+ */
+export type TableLine = readonly [label: string, value: string, own?: boolean, place?: number];
 
 export interface PanelSpec {
   title: PanelName;
@@ -149,18 +156,22 @@ export class PanelScreen implements ShellScreen {
           break;
         }
         case 'table': {
-          const rows = row.rows().slice(0, this.tableLines(row, box));
+          const all = row.rows();
+          const count = this.tableLines(row, box);
+          const own = all.findIndex((line) => line[2]);
+          // The line of the one who is playing takes the last place in sight when it lies below it.
+          const rows = own >= count ? [...all.slice(0, count - 1), all[own]] : all.slice(0, count);
           kit.text('No.', left, box.y, dim);
-          kit.text(row.head, left + CELL_W * 4, box.y, dim);
+          kit.text(row.head(), left + CELL_W * 4, box.y, dim);
           kit.rect(left, box.y + CELL_H - 1, right - left, 1, faint);
-          if (rows.length === 0) kit.text(row.empty, plate.x + plate.w / 2, box.y + CELL_H + 4, dim, { align: 'center' });
-          rows.forEach(([date, value], i) => {
+          if (rows.length === 0) kit.text(row.empty(), plate.x + plate.w / 2, box.y + CELL_H + 4, dim, { align: 'center' });
+          rows.forEach(([label, value, mine, place], i) => {
             const y = box.y + CELL_H + 2 + i * CELL_H;
-            kit.text(digits(i + 1, 2), left, y, dim);
-            const dateEnd = kit.text(date, left + CELL_W * 4, y, dim);
+            kit.text(digits(place ?? i + 1, 2), left, y, mine ? ink : dim);
+            const labelEnd = kit.text(label, left + CELL_W * 4, y, mine ? ink : dim, { bold: mine === true });
             const valueStart = right - kit.measure(value);
-            kit.text(value, valueStart, y, ink, { bold: i === 0 });
-            kit.leader(dateEnd + CELL_W, valueStart - CELL_W, y, faint);
+            kit.text(value, valueStart, y, ink, { bold: i === 0 || mine === true });
+            kit.leader(labelEnd + CELL_W, valueStart - CELL_W, y, faint);
           });
           break;
         }

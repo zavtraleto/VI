@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import i18n from '../ui/i18n.ts?raw';
 import kanji from './fonts/kanji.txt?raw';
 import { textWidth } from './layout';
-import { MENU_FILES } from './text';
+import { MENU_FILES, eraDate } from './text';
 import source from './text.ts?raw';
 import { dayAmount, mixHex, paletteAt, shellDefaults } from './theme';
 
@@ -30,6 +30,13 @@ describe('the files of the menu', () => {
 
   it('have names that fit beside their Japanese at twice the size', () => {
     for (const file of MENU_FILES) expect(textWidth(file.name, 2) + 8 + textWidth(file.native)).toBeLessThanOrEqual(240);
+  });
+});
+
+describe('a date of the program', () => {
+  it('is written by the era, as the date of the previous start is', () => {
+    expect(eraDate('2001-03-21')).toBe('H13.03.21');
+    expect(eraDate('2026-10-03')).toBe('H38.10.03');
   });
 });
 

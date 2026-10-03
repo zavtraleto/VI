@@ -4,7 +4,22 @@ import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
 import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, type ScreenDirs } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
-import { addRun, bestOf, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
+import {
+  boardEntries,
+  canRegister,
+  hasBoard,
+  onPlatformAudio,
+  onPlatformPause,
+  platformNow,
+  register,
+  showInterstitial,
+  submitScore,
+  tell,
+  track,
+  trackPerformance,
+  type BoardEntry,
+} from '../platform/bridge';
+import { addRun, bestOf, bestOn, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
 import { storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { topTurn } from '../render/orientationQuat';
@@ -37,20 +52,23 @@ import {
   type RunState,
 } from '../rules';
 import { GameHud, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
-import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type NetworkLine, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
+import { eraDate } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
 import { t, type TextKey } from '../ui/i18n';
 import { clockLeft, secondsLeft } from './clock';
+import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
 import { Hints } from './hints';
 import { puzzleReport, starsFor } from './puzzleStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold, soundStage } from './ritual';
 import { Runner } from './runner';
 import { statsText } from './stats';
+import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
@@ -59,6 +77,14 @@ const GUIDE_GAP_PX = 8;
 
 /** What the player picked in the menu. */
 type RunKind = 'endless' | 'timed' | 'tutorial' | 'puzzle';
+
+/** The kinds of session that are scored, in the order the log shows them. Each has a table of players on the platform, under its own name. */
+const SCORED = ['endless', 'timed'] as const;
+type Scored = (typeof SCORED)[number];
+
+/** An advertisement may come after this many tasks cleared: a number picked anew each time, from the first to the second. */
+const TASKS_TO_AD = [5, 7] as const;
+const tasksToAd = (): number => TASKS_TO_AD[0] + Math.floor(Math.random() * (TASKS_TO_AD[1] - TASKS_TO_AD[0] + 1));
 
 const PUZZLE_RULES: readonly TextKey[] = ['puzzleRule1', 'puzzleRule2', 'puzzleRule3', 'puzzleRule4', 'puzzleRule5'];
 
@@ -109,6 +135,25 @@ export class Game {
   private beforeCommand: RunState | null = null;
   /** This start of the level has had a move, so it counts as a try. */
   private tryCounted = false;
+  /** The program is up: what starts from here on is started by the player. */
+  private opened = false;
+  /** The platform has been told that the game can be played. */
+  private announced = false;
+  /** The platform lets the game sound. */
+  private platformSound = true;
+  /** What keeps the game waiting from outside: the page is hidden, the platform has asked for a pause. */
+  private readonly away = new Set<'page' | 'platform'>();
+  /** The tables of players the platform keeps, by kind of session: their lines, or how the asking for them stands. */
+  private readonly boards = new Map<string, readonly BoardEntry[] | 'waiting' | 'failed'>();
+  /** The day the run on the board was started on: the session with a limit is the session of that day. */
+  private day: Day = dayAt(platformNow());
+  /** What the events of the run add up to, for the analytics. */
+  private readonly tally = new RunTally();
+  /** The frames of active play, measured for the platform. */
+  private readonly frames = new FrameSampler(trackPerformance);
+  /** Tasks cleared since an advertisement had its chance, and how many it takes for the next one. */
+  private clearedSinceAd = 0;
+  private clearsToAd = tasksToAd();
 
   private readonly controller = new InputController();
   private readonly ritual = new Ritual();
@@ -226,21 +271,23 @@ export class Game {
     const unlock = () => this.audio.unlock();
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
-    this.audio.setMuted(this.settings.muted);
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        // What the playtest has gathered so far is kept even if the page never comes back.
-        saveSettings(this.settings);
-        this.pause();
-        this.audio.setPaused(true);
-      } else if (!this.paused && !this.inMenu) {
-        this.audio.setPaused(false);
-      }
+    this.applySound();
+    onPlatformAudio((enabled) => {
+      this.platformSound = enabled;
+      this.applySound();
     });
+
+    document.addEventListener('visibilitychange', () => this.setAway('page', document.hidden));
+    // What goes wrong while the game is played is counted with the frames, and nothing more is said of it.
+    window.addEventListener('error', () => this.frames.noteError('error'));
+    window.addEventListener('unhandledrejection', () => this.frames.noteError('rejection'));
+    window.addEventListener('webglcontextlost', () => this.frames.noteError('contextLoss'), true);
+    // The platform asks for the same while its advertisement is open.
+    onPlatformPause((paused) => this.setAway('platform', paused));
 
     // A board is set up behind the shell and not drawn: the rest of the code leans on `this.runner`.
     this.startRun('endless');
+    this.opened = true;
     this.inMenu = true;
     this.audio.setPaused(true);
     this.layoutGuide();
@@ -250,6 +297,62 @@ export class Game {
       this.showMenu();
     });
     requestAnimationFrame((time) => this.frame(time));
+  }
+
+  /** The sound is on when the player has it on and the platform allows it. */
+  private applySound(): void {
+    this.audio.setMuted(this.settings.muted || !this.platformSound);
+  }
+
+  /**
+   * The page is hidden, or the platform asks the game to wait: the session stops and falls
+   * silent. The sound comes back when nothing outside keeps the game waiting any more, unless
+   * the session itself waits.
+   */
+  private setAway(by: 'page' | 'platform', away: boolean): void {
+    if (away) {
+      this.away.add(by);
+      // What has been gathered so far is kept even if the page never comes back.
+      saveSettings(this.settings);
+      this.pause();
+      this.audio.setPaused(true);
+      return;
+    }
+    this.away.delete(by);
+    if (this.away.size === 0 && !this.paused && !this.inMenu) this.audio.setPaused(false);
+  }
+
+  /** How long the run has been played, in seconds. */
+  private seconds(): number {
+    return Math.round((this.state.tick * this.state.config.tickMs) / 1000);
+  }
+
+  /** What the platform calls the thing being played: a kind of session, or a task. */
+  private levelName(): string {
+    return this.kind === 'puzzle' ? `task_${PUZZLE_LEVELS[this.puzzleIndex].id}` : this.kind;
+  }
+
+  /** What is being played, as the analytics name it: a kind of session, the exercise, or a task with its number. */
+  private step(): EventData {
+    if (this.kind !== 'puzzle') return { step_id: this.kind };
+    return { step_id: 'task', step_index: this.puzzleIndex + 1, level_id: PUZZLE_LEVELS[this.puzzleIndex].id };
+  }
+
+  /** A run that is left before its end is noted, with how far it got. */
+  private leaveRun(how: 'menu' | 'restart'): void {
+    if (!this.opened || this.inMenu || this.handoff || this.state.over || this.state.tick === 0) return;
+    const { state } = this;
+    const reached: EventData = state.puzzle ? { moves: state.puzzle.moves } : state.tutorial ? { lesson: state.tutorial.step } : runSummary(state, this.tally);
+    track('progression_failed', { ...this.step(), reason: how === 'menu' ? 'left' : 'restart', duration_sec: this.seconds(), ...reached });
+    this.frames.flush(this.lastFrame);
+  }
+
+  /**
+   * The best score a session is measured against: of all time for the session without a
+   * limit, of one day for the session of the day.
+   */
+  private bestScore(mode: Scored, date = dayAt(platformNow()).date): number {
+    return mode === 'timed' ? bestOn(this.settings, this.recordKey('timed'), date) : bestOf(this.settings, this.recordKey('endless'), 'score');
   }
 
   /** A tool of development lies over the canvas and takes the input. */
@@ -305,13 +408,19 @@ export class Game {
     this.kind = kind;
     const { experiments } = this.settings;
     const tutorial = kind === 'tutorial';
-    const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
+    this.day = dayAt(platformNow());
+    // The session with a limit is the session of the day: everyone is dealt it from one seed.
+    const seed = kind === 'timed' ? this.day.seed : (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
     const config = defaultConfig(experiments, this.settings.tuning);
     if (start) {
       config.startX = start.x;
       config.startZ = start.z;
     }
     this.begin(createRun({ seed, config, tutorial, timed: kind === 'timed' }), start !== undefined);
+    if (this.opened) {
+      track('progression_started', this.step());
+      tell('level_started', kind);
+    }
     // Now and then something is seen before the session, for less than a second. Not before
     // the first frame: that run is only set up behind the boot.
     if (!tutorial && !start && this.lastFrame > 0) this.signal.glimpse();
@@ -324,6 +433,8 @@ export class Game {
 
   /** Puts a new run on the board and clears away what the previous one left on screen. */
   private begin(state: RunState, riseIn: boolean): void {
+    this.leaveRun('restart');
+    this.tally.reset();
     this.runner = new Runner(state);
     this.view = this.useView(state.config.size);
     this.applyCamera();
@@ -357,6 +468,8 @@ export class Game {
     this.tryCounted = false;
     // A puzzle keeps the default pace whatever the debug sliders say: nothing in it is timed.
     this.begin(createRun({ seed: 1, config: defaultConfig(this.settings.experiments), puzzle: level }), false);
+    track('progression_started', this.step());
+    tell('level_started', this.levelName());
     this.layoutGuide();
   }
 
@@ -417,6 +530,7 @@ export class Game {
   }
 
   private showPuzzleLevels(): void {
+    this.leaveRun('menu');
     this.inMenu = true;
     this.paused = false;
     this.controller.cancel();
@@ -457,13 +571,28 @@ export class Game {
     }
     stat.best = stat.best === null ? moves : Math.min(stat.best, moves);
     saveSettings(this.settings);
+    track('progression_completed', { ...this.step(), moves, stars, target: level.par, tries: stat.tries, undos: stat.undos, duration_sec: this.seconds() });
+    tell('level_completed', this.levelName());
+    this.frames.flush(this.lastFrame);
+    this.clearedSinceAd++;
+    // Once in several cleared tasks the platform may show its advertisement: between two tasks, never over one.
+    const then = (next: () => void) => (): void => {
+      if (this.clearedSinceAd < this.clearsToAd) {
+        next();
+        return;
+      }
+      this.clearedSinceAd = 0;
+      this.clearsToAd = tasksToAd();
+      this.shell.hide();
+      showInterstitial(next);
+    };
     this.shell.showPanel(
       clearedPanel(
         { stars, moves, target: level.par, hasNext: this.puzzleIndex + 1 < PUZZLE_LEVELS.length },
         {
-          onNext: () => this.startPuzzle(this.puzzleIndex + 1),
-          onAgain: () => this.startPuzzle(this.puzzleIndex),
-          onTasks: () => this.showPuzzleLevels(),
+          onNext: then(() => this.startPuzzle(this.puzzleIndex + 1)),
+          onAgain: then(() => this.startPuzzle(this.puzzleIndex)),
+          onTasks: then(() => this.showPuzzleLevels()),
         },
       ),
       false,
@@ -575,10 +704,12 @@ export class Game {
     if (!this.state.tutorial || this.inMenu) return;
     this.settings.tutorialDone = true;
     saveSettings(this.settings);
+    track('progression_failed', { step_id: 'tutorial', reason: 'skipped', lesson: this.state.tutorial.step, duration_sec: this.seconds() });
     this.handoff = { x: this.state.player.x, z: this.state.player.z };
   }
 
   private showMenu(): void {
+    this.leaveRun('menu');
     this.inMenu = true;
     this.paused = false;
     this.controller.cancel();
@@ -598,8 +729,8 @@ export class Game {
         onSystem: () => this.showSystem(() => this.showMenu()),
       },
       {
-        bestEndless: bestOf(this.settings, this.recordKey('endless'), 'score'),
-        bestTimed: bestOf(this.settings, this.recordKey('timed'), 'score'),
+        bestEndless: this.bestScore('endless'),
+        bestTimed: this.bestScore('timed'),
         tutorialDone: this.settings.tutorialDone,
         tasksDone: PUZZLE_LEVELS.filter((level) => (this.settings.puzzle.stars[level.id] ?? 0) > 0).length,
         tasksTotal: PUZZLE_LEVELS.length,
@@ -619,6 +750,7 @@ export class Game {
     this.paused = true;
     this.controller.cancel();
     this.audio.setPaused(true);
+    tell('level_paused', this.levelName());
     this.showPause();
   }
 
@@ -626,7 +758,8 @@ export class Game {
     this.paused = false;
     this.tools?.hide();
     this.shell.hide();
-    this.audio.setPaused(false);
+    this.audio.setPaused(this.away.size > 0);
+    tell('level_resumed', this.levelName());
     this.lastFrame = 0;
   }
 
@@ -645,17 +778,55 @@ export class Game {
     );
   }
 
+  /** Asks the platform for its tables of players. The log is drawn again when they come. */
+  private loadBoards(): void {
+    for (const mode of SCORED) {
+      if (!Array.isArray(this.boards.get(mode))) this.boards.set(mode, 'waiting');
+      void boardEntries(mode)
+        .then(
+          (entries) => this.boards.set(mode, entries),
+          () => this.boards.set(mode, 'failed'),
+        )
+        .then(() => this.shell.touch());
+    }
+  }
+
+  /** The lines of a table of the platform as the log shows them. The table of the session of the day is that of today alone. */
+  private boardLines(mode: Scored): readonly NetworkLine[] | 'waiting' | 'failed' {
+    const board = this.boards.get(mode) ?? 'waiting';
+    if (typeof board === 'string' || mode === 'endless') return board;
+    const today = dayAt(platformNow()).index;
+    return board
+      .map((entry) => ({ entry, kept: readDailyValue(entry.score) }))
+      .filter(({ kept }) => kept.day === today)
+      .map(({ entry, kept }, i) => ({ ...entry, score: kept.score, rank: i + 1 }));
+  }
+
   private showRecords(back: () => void): void {
     const state = this.state;
+    const shared = hasBoard();
+    if (shared) this.loadBoards();
+    track('records_opened', { network: shared });
     this.shell.showPanel(
       recordsPanel(
-        [
-          { runs: this.settings.runs[this.recordKey('endless')] ?? [], survival: true },
-          { runs: this.settings.runs[this.recordKey('timed')] ?? [], survival: false },
-        ],
+        SCORED.map((mode) => ({ runs: this.settings.runs[this.recordKey(mode)] ?? [], survival: mode === 'endless' })),
         state.mode === 'timed' ? 1 : 0,
         state.config.tickMs,
         back,
+        shared
+          ? {
+              lines: (section) => this.boardLines(SCORED[section]),
+              day: (section) => (SCORED[section] === 'timed' ? eraDate(dayAt(platformNow()).date) : null),
+              // A guest is given a name by the platform's own sign-in; the log opens again with what it says.
+              onRegister: canRegister()
+                ? () =>
+                    void register().then((known) => {
+                      track('player_registered', { known });
+                      this.showRecords(back);
+                    })
+                : undefined,
+            }
+          : undefined,
       ),
       this.inMenu,
     );
@@ -676,7 +847,7 @@ export class Game {
         onToggle: (key) => {
           if (key === 'muted') {
             this.settings.muted = !this.settings.muted;
-            this.audio.setMuted(this.settings.muted);
+            this.applySound();
           } else if (key === 'reducedMotion') {
             this.settings.reducedMotion = !prefersReducedMotion(this.settings);
           } else if (key === 'shake') {
@@ -686,6 +857,7 @@ export class Game {
             this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
           }
           saveSettings(this.settings);
+          track('settings_changed', { setting: key, value: String(values()[key]) });
         },
         // The panel of the playtest: a tool of development, over the settings.
         tools:
@@ -725,8 +897,14 @@ export class Game {
     // What the playtest reads after a session: kept in development only.
     if (import.meta.env.DEV) this.lastStats = statsText(state);
     const key = this.currentRecordKey();
-    const previous = bestOf(this.settings, key, 'score');
+    const mode: Scored = state.mode === 'timed' ? 'timed' : 'endless';
+    // The session of the day is measured against the day it was started on.
+    const { day } = this;
+    const date = mode === 'timed' ? day.date : dayAt(platformNow()).date;
+    const previous = this.bestScore(mode, day.date);
     let note: string | null = null;
+    const scored = state.mode !== 'practice' && !state.config.custom;
+    const best = scored && state.score > previous;
     if (state.mode === 'practice') {
       note = t('practiceNote');
     } else if (state.config.custom) {
@@ -736,19 +914,35 @@ export class Game {
         score: state.score,
         chain: state.maxChain,
         ticks: state.tick,
-        date: new Date().toISOString().slice(0, 10),
+        date,
       });
       const saved = saveSettings(this.settings) && storageAvailable();
       if (!saved) note = t('notSaved');
-      else if (state.score > previous) note = t('newBest');
+      // The session of the day says what it is: one for everyone, and new every day.
+      else if (mode === 'timed') note = t(best ? 'dailyBest' : 'dailyNote');
+      else if (best) note = t('newBest');
+      // The table of the platform takes a new best of a session played by the rules everyone has.
+      if (best && ruleKey(state.config) === ruleKey(defaultConfig())) {
+        // In a table the game draws itself, a score of the session of the day goes with its day.
+        void submitScore(mode, mode === 'timed' && hasBoard() ? dailyValue(day.index, state.score) : state.score);
+        tell('player_got_achievement');
+      }
     }
+    // What the session came to, for tuning the pace and the spawn: a session with a limit that ran its time is completed, any other end is a failure.
+    const summary: EventData = { ...this.step(), ...runSummary(state, this.tally), contact: this.ritual.stage, scored, best };
+    if (mode === 'timed') summary.day = day.date;
+    if (state.endReason === 'time') track('progression_completed', summary);
+    else track('progression_failed', { ...summary, reason: state.endReason ?? 'full' });
+    this.frames.flush(this.lastFrame);
+    tell(state.endReason === 'time' ? 'level_completed' : 'level_failed', this.kind);
     const result = () =>
       this.shell.showPanel(
         resultPanel(
           {
             timeUp: state.endReason === 'time',
             score: state.score,
-            best: bestOf(this.settings, key, 'score'),
+            best: this.bestScore(mode, day.date),
+            day: mode === 'timed' ? eraDate(day.date) : null,
             maxChain: state.maxChain,
             ticks: state.tick,
             tickMs: state.config.tickMs,
@@ -765,9 +959,10 @@ export class Game {
     // The answer to the session comes when the player leaves its result: over the board, and
     // then whatever was asked for. How strong the link got is read then: the ritual keeps it
     // until the next run begins.
+    // After it, at the break between sessions, the platform may show its advertisement.
     const answered = (next: () => void): void => {
       this.shell.hide();
-      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, next);
+      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, () => showInterstitial(next));
     };
     result();
   }
@@ -828,7 +1023,14 @@ export class Game {
     for (const event of state.events) {
       // Levels mean nothing in the tutorial: no fanfare for passing one.
       if (!(state.tutorial && event.type === 'levelUp')) this.audio.handle(event);
+      this.tally.note(event);
       this.onEvent(state, event);
+    }
+    this.tally.watch(state);
+    // A scored session says how it stands at every whole minute.
+    const minute = Math.round(60_000 / state.config.tickMs);
+    if (state.tick % minute === 0 && (state.mode === 'endless' || state.mode === 'timed')) {
+      track('session_checkpoint', { step_id: this.kind, ...checkpoint(state, state.tick / minute) });
     }
     for (const beat of beatsOf(state, state.events)) this.beat(beat);
     const { player } = state;
@@ -890,9 +1092,19 @@ export class Game {
         // The program may note the pattern in its log, behind the board.
         if (!state.puzzle && !state.tutorial) this.signal.chain(event.chain);
         break;
+      case 'levelUp':
+        // A level of a scored session is passed: how long it took and what it did to the board.
+        if (state.mode === 'endless' || state.mode === 'timed') {
+          track('progression_completed', { step_id: `${this.kind}_level`, ...levelSummary(state, event.level - 1) });
+        }
+        break;
+      case 'tutorialStep':
+        track('progression_started', { step_id: 'tutorial_step', step_index: event.step });
+        break;
       case 'tutorialDone':
         this.settings.tutorialDone = true;
         saveSettings(this.settings);
+        track('progression_completed', { step_id: 'tutorial', duration_sec: this.seconds() });
         this.handoff = { x: state.player.x, z: state.player.z };
         break;
       case 'fell':
@@ -962,7 +1174,7 @@ export class Game {
         : {
             kind: 'session',
             score: state.score,
-            best: bestOf(this.settings, this.currentRecordKey(), 'score'),
+            best: this.bestScore(state.mode === 'timed' ? 'timed' : 'endless', this.day.date),
             level: state.mode === 'practice' ? null : state.level,
             clock: clockLeft(state),
             danger: secondsLeft(state),
@@ -992,6 +1204,7 @@ export class Game {
     this.tools?.tick(time);
 
     const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy;
+    this.frames.frame(running && !document.hidden, dt, time);
     let alpha = 0;
     if (running) {
       // On a beat the simulation holds its breath; the picture goes on.
@@ -1083,5 +1296,10 @@ export class Game {
         : null;
     this.signal.frame(time, session);
     this.display.present(time);
+    // The first picture with the program's own letters is on screen: the platform takes its loading screen away.
+    if (!this.announced && this.shell.ready) {
+      this.announced = true;
+      tell('game_ready');
+    }
   }
 }

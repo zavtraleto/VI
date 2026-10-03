@@ -125,6 +125,87 @@ describe('the log of sessions', () => {
   });
 });
 
+describe('the result of a session', () => {
+  const data = { timeUp: true, score: 10, best: 20, maxChain: 2, ticks: 9000, tickMs: 20, note: null };
+  const actions = { onAgain: nothing, onRecords: nothing, onMenu: nothing };
+  const fields = (spec: PanelSpec) => spec.rows.flatMap((candidate) => (candidate.kind === 'field' ? [`${candidate.label.name} ${candidate.value}`] : []));
+
+  it('names its day when it is the session of the day, and only then', () => {
+    expect(fields(resultPanel({ ...data, day: 'H38.10.03' }, actions))).toContain('TODAY H38.10.03');
+    expect(fields(resultPanel({ ...data, day: null }, actions)).join()).not.toContain('TODAY');
+    expect(fields(resultPanel(data, actions)).join()).not.toContain('TODAY');
+  });
+});
+
+describe('the table of players of a platform', () => {
+  const sections = [
+    { runs: [run(100, 2, 500, '2026-10-01')], survival: true },
+    { runs: [], survival: false },
+  ];
+  const line = (rank: number, name: string, score: number, own = false) => ({ rank, name, score, own });
+  const tables: Record<number, ReturnType<typeof line>[] | 'waiting' | 'failed'> = {
+    0: [line(1, 'Ada', 5200), line(2, '  ', 900), line(41, 'A name far too long for the table', 70, true)],
+    1: 'waiting',
+  };
+  const network = { lines: (section: number) => tables[section] };
+
+  it('is not in the log where the platform has none', () => {
+    const spec = recordsPanel(sections, 0, 20, nothing);
+    expect(spec.rows.filter((candidate) => candidate.kind === 'tabs')).toHaveLength(2);
+    expect(pressed(spec)).toEqual(['back']);
+  });
+
+  it('shows the players by name, with their places and the line of the one who plays', () => {
+    const spec = recordsPanel(sections, 0, 20, nothing, network);
+    const table = row(spec, 'table');
+    expect(table.head()).toBe('日付');
+    row(spec, 'tabs', 0).pick(1);
+    expect(table.head()).toBe('名前');
+    expect(table.rows()).toEqual([
+      ['Ada', '005200', false, 1],
+      ['NO NAME', '000900', false, 2],
+      ['A name far too l', '000070', true, 41],
+    ]);
+  });
+
+  it('is kept by score alone', () => {
+    const spec = recordsPanel(sections, 0, 20, nothing, network);
+    row(spec, 'tabs', 2).pick(2);
+    row(spec, 'tabs', 0).pick(1);
+    expect(row(spec, 'tabs', 2).labels()).toEqual(['SCORE']);
+    expect(row(spec, 'tabs', 2).selected()).toBe(0);
+  });
+
+  it('says that the table is on its way, or did not come', () => {
+    const spec = recordsPanel(sections, 1, 20, nothing, network);
+    const table = row(spec, 'table');
+    expect(table.empty()).toBe('記録なし NO ENTRY');
+    row(spec, 'tabs', 0).pick(1);
+    expect(table.rows()).toEqual([]);
+    expect(table.empty()).toBe('接続中 CONNECTING');
+    tables[1] = 'failed';
+    expect(table.empty()).toBe('接続なし NO LINK');
+  });
+
+  it('names the day of a table that starts anew every day', () => {
+    const spec = recordsPanel(sections, 0, 20, nothing, { ...network, day: (section) => (section === 1 ? 'H38.10.03' : null) });
+    const table = row(spec, 'table');
+    row(spec, 'tabs', 0).pick(1);
+    expect(table.head()).toBe('名前');
+    row(spec, 'tabs', 1).pick(1);
+    expect(table.head()).toBe('名前 H38.10.03');
+    row(spec, 'tabs', 0).pick(0);
+    expect(table.head()).toBe('日付');
+  });
+
+  it('lets a guest be given a name where the platform can give one', () => {
+    expect(pressed(recordsPanel(sections, 0, 20, nothing, network))).toEqual(['back']);
+    const spec = recordsPanel(sections, 0, 20, nothing, { ...network, onRegister: nothing });
+    expect(pressed(spec)).toEqual(['register', 'back']);
+    expect(spec.home).toBe('back');
+  });
+});
+
 describe('the tools of development', () => {
   const tool = { id: 'playtest', label: { native: 'DEV', name: 'PLAYTEST' }, action: nothing };
 

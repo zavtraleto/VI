@@ -14,6 +14,16 @@ export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
 const SAMPLE_DATA = { bestEndless: 12840, bestTimed: 4310, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
+/** Players for the sample of the table a platform keeps: the one who plays is far below the top. */
+const SAMPLE_BOARD = [
+  ...['Guest 4f1c09', 'Мария', 'kuro_neko', '', 'A name far too long for the table', 'Tomás', 'Guest 77ab31', 'ольга', 'N0body'].map((name, i) => ({
+    rank: i + 1,
+    name,
+    score: 48200 - i * 4170,
+    own: false,
+  })),
+  { rank: 41, name: 'Guest 0c52e7', score: 870, own: true },
+];
 /** Sessions for the sample of the log. */
 const SAMPLE_RUNS = [
   { score: 12840, chain: 7, ticks: 31200, date: '2026-10-01' },
@@ -165,7 +175,10 @@ export class ShellLab {
           { onAgain: nothing, onRecords: nothing, onMenu: nothing },
         );
       case 'records':
-        return recordsPanel([{ runs: SAMPLE_RUNS, survival: true }, { runs: SAMPLE_RUNS.slice(2), survival: false }], 0, 20, nothing);
+        return recordsPanel([{ runs: SAMPLE_RUNS, survival: true }, { runs: SAMPLE_RUNS.slice(2), survival: false }], 0, 20, nothing, {
+          lines: (section) => (section === 0 ? SAMPLE_BOARD : 'waiting'),
+          onRegister: nothing,
+        });
       case 'rules':
         return rulesPanel([t('puzzleRule1'), t('puzzleRule2'), t('puzzleRule3'), t('puzzleRule4'), t('puzzleRule5')], { onStart: nothing, onBack: nothing });
       case 'tasks':

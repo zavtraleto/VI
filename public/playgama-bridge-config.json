@@ -1,0 +1,32 @@
+{
+  "advertisement": {
+    "minimumDelayBetweenInterstitial": 120,
+    "interstitial": {
+      "placementFallback": "session_end",
+      "placements": [
+        {
+          "id": "session_end"
+        }
+      ]
+    }
+  },
+  "leaderboards": [
+    {
+      "id": "endless",
+      "isMain": true
+    },
+    {
+      "id": "timed"
+    }
+  ],
+  "saas": {
+    "publicToken": "cmusa94kw028hpr0hzb9wqkrf",
+    "leaderboards": {
+      "platforms": [
+        "playgama",
+        "playgama_sandbox",
+        "qa_tool"
+      ]
+    }
+  }
+}

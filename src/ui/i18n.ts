@@ -19,6 +19,8 @@ const RU = {
   tut_alone: 'Ушли все отдельные. Остался один: тот, на котором стоишь',
   tut_end: 'Дальше кости приходят сами. Не дай полю заполниться, иначе мы тебя не услышим',
   newBest: 'Новый рекорд',
+  dailyBest: 'Лучший результат дня. Сеанс дня один на всех, новый придёт в полночь по UTC',
+  dailyNote: 'Сеанс дня один на всех. Новый придёт в полночь по UTC',
   practiceNote: 'Тренировочная партия: рекорд не записан',
   notSaved: 'Хранилище недоступно: рекорд не сохранён',
   hintFloor: 'На полу ты толкаешь кубы',
@@ -43,7 +45,7 @@ const RU = {
   puzzleRule4: 'Печать в углу показывает грани кости под тобой: по ней видно, что перекат положит наверх',
   puzzleRule5: 'Убери все кости. Чем меньше ходов, тем больше звёзд',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
-  shellLimited: 'ОКНО СЕАНСА 03:00',
+  shellLimited: 'СЕАНС ДНЯ 03:00',
   shellExercise: 'ПРОВЕРКА НАВЫКА',
   shellTasks: 'ОЧИСТКА КАНАЛА',
   shellRecords: 'ЖУРНАЛ СЕАНСОВ',
@@ -64,6 +66,8 @@ const EN: typeof RU = {
   tut_alone: 'Every separate one is gone. One is left: the one you stand on',
   tut_end: 'From here the dice come by themselves. Do not let the board fill up, or we will not hear you',
   newBest: 'New best',
+  dailyBest: 'Best of the day. The session of the day is the same for everyone, a new one comes at midnight UTC',
+  dailyNote: 'The session of the day is the same for everyone. A new one comes at midnight UTC',
   practiceNote: 'Practice run: record not saved',
   notSaved: 'Storage unavailable: record not saved',
   hintFloor: 'On the floor you push cubes',
@@ -88,7 +92,7 @@ const EN: typeof RU = {
   puzzleRule4: 'The seal in the corner shows the faces of the die under you: it tells what a roll will bring on top',
   puzzleRule5: 'Clear every die. The fewer moves, the more stars',
   shellProtocol: 'SESSION WITHOUT LIMIT',
-  shellLimited: 'SESSION WINDOW 03:00',
+  shellLimited: 'SESSION OF THE DAY 03:00',
   shellExercise: 'BASIC OPERATION TEST',
   shellTasks: 'CLEAR THE CHANNEL',
   shellRecords: 'SESSION LOG',
@@ -97,7 +101,12 @@ const EN: typeof RU = {
 
 export type TextKey = keyof typeof RU;
 
-const lang = typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('ru') ? RU : EN;
+let lang = typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('ru') ? RU : EN;
+
+/** The language the platform names for the player takes the place of the browser's. Set before anything is said. */
+export function setLanguage(code: string): void {
+  lang = code.toLowerCase().startsWith('ru') ? RU : EN;
+}
 
 export function t(key: TextKey): string {
   return lang[key];
