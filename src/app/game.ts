@@ -16,6 +16,7 @@ import {
   register,
   showInterstitial,
   submitScore,
+  takeFocus,
   tell,
   track,
   trackPerformance,
@@ -319,8 +320,14 @@ export class Game {
     window.addEventListener('error', () => this.frames.noteError('error'));
     window.addEventListener('unhandledrejection', () => this.frames.noteError('rejection'));
     window.addEventListener('webglcontextlost', () => this.frames.noteError('contextLoss'), true);
-    // The platform asks for the same while its advertisement is open.
-    onPlatformPause((paused) => this.setAway('platform', paused));
+    // The platform asks for the same while its advertisement is open. What stood over the game
+    // took the keys, and they come back with the game.
+    onPlatformPause((paused) => {
+      this.setAway('platform', paused);
+      if (!paused) takeFocus();
+    });
+    // In a frame of the platform's page the keys are that page's until the game takes them.
+    takeFocus();
 
     // A board is set up behind the shell and not drawn: the rest of the code leans on `this.runner`.
     this.startRun('endless');
@@ -1357,6 +1364,8 @@ export class Game {
     if (!this.announced && this.shell.ready) {
       this.announced = true;
       tell('game_ready');
+      // Whatever was pressed on the platform's page while the game was loading, the keys are the game's now.
+      takeFocus();
     }
   }
 }

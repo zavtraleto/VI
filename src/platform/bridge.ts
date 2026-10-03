@@ -53,6 +53,16 @@ export function platformNow(): number {
   return Date.now() + clockAhead;
 }
 
+/**
+ * On a platform the game stands in a frame of somebody else's page, and that page keeps the
+ * keys until the frame is clicked. The game takes them to itself: when it opens, and again
+ * when what the platform had over it is gone. It needs no SDK, and where the game is the page
+ * itself it changes nothing.
+ */
+export function takeFocus(): void {
+  window.focus();
+}
+
 /** The language the player has set on the platform, as `ru` or `en`; null where there is no platform. */
 export function platformLanguage(): string | null {
   return sdk?.platform.language ?? null;
@@ -117,6 +127,8 @@ export function showInterstitial(done: () => void): void {
     finished = true;
     window.clearTimeout(timer);
     bridge.advertisement.off(bridge.EVENT_NAME.INTERSTITIAL_STATE_CHANGED, onState);
+    // An advertisement that was open took the keys with it.
+    takeFocus();
     done();
   };
   let timer = window.setTimeout(finish, AD_SILENCE_MS);
