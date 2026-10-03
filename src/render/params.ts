@@ -105,22 +105,28 @@ export const BOARD_GROUPS = {
     focus: number(0.6, 0.3, 1, 0.01),
     /**
      * How much of the screen to either side of the player the sheet lies flat on, as a share
-     * of that side, before it starts to curl. The curl takes room too: where there is not
-     * enough of it for a curl as wide as `curl`, the flat part is smaller than this.
+     * of that side: the player sees a flat board, and only the strip that is left at the edge
+     * of the screen is curled up. Where that strip has no room for a curl as wide as `curl`,
+     * the flat part is smaller than this.
      */
-    flat: number(0.3, 0, 0.9, 0.01),
+    flat: number(0.85, 0, 0.95, 0.01),
     /**
-     * The least radius of the curl, in cells. A die is a cell high, and on the inside of a
-     * curl it is pressed together at the top by its height against this radius: the wider
-     * the curl, the less the dice on it are bent, and the less of the sheet is left flat.
+     * The least radius of the curl, in cells. The smaller it is, the sharper the edge of the
+     * sheet is turned up and the more of it stays flat.
      */
-    curl: number(2, 0.3, 4, 0.05),
+    curl: number(0.25, 0.05, 4, 0.05),
     /**
      * The steepest the sheet gets, in degrees: past the curl it goes on at this angle as a
-     * wall. The steeper the wall, the more of the board it takes in, and the less of the top
-     * of a die on it is seen.
+     * wall. The steeper the wall, the narrower the strip it stands in, and the less of the
+     * dice on it is seen: they show that something is there, not what it is.
      */
-    wall: number(75, 30, 88, 1),
+    wall: number(85, 30, 89, 1),
+    /**
+     * How high things stand on the wall, against their own height. A die on a wall leans
+     * over the flat part by its height: made low, it stays out of the way of the board the
+     * player plays on.
+     */
+    relief: number(0.35, 0.05, 1, 0.05),
     /** How long the view takes to come up with the player, in milliseconds. */
     followMs: number(250, 0, 1000, 10),
     /**
@@ -182,7 +188,7 @@ export function parseBoardValue(name: string, text: string): number | string | b
 
 /**
  * What an address says of the view, in any build, to try on a device what it is like:
- * `?view=follow&focus=0.6&flat=0.3&curl=2&wall=75&followMs=250&edge=0.1&minCell=64`. Only what is
+ * `?view=follow&focus=0.6&flat=0.85&curl=0.25&wall=85&relief=0.35&followMs=250&edge=0.1&minCell=64`. Only what is
  * named and makes sense is returned; the rest stays as it is defined.
  */
 export function readView(search: string): ParamValues {

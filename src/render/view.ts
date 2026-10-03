@@ -728,6 +728,8 @@ export class BoardView {
       this.target.dot(this.cameraRight) + point.r,
       curl(frame.reach.left, frame.left),
       curl(frame.reach.right, frame.right),
+      steepest,
+      n('relief'),
     );
 
     // From the bottom up a board too tall for the screen is drawn whole, and a lens over the
