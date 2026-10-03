@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DELTA, DIRS, cubeHeight, inChain, isHeld, type RunState } from '../rules';
+import { DELTA, DIRS, cubeHeight, inChain, isDock, isHeld, isStep, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
 import { CUBE_SIZE } from './cubes';
@@ -11,8 +11,13 @@ import { PIP_LAYOUT, PIP_STEP, dockTexture, pipRadius } from './textures';
 const PILLAR_SIDES = 10;
 /** Most pillars there can be: six pips on every die of the largest board. */
 const MAX_PILLARS = 7 * 7 * 6;
-/** Most frames there can be: one on every cell of the largest board. */
+/** Most frames there can be at one height: one on every cell of the largest board. */
 const MAX_DOCKS = 9 * 9;
+/**
+ * Under this height the frame at the top of a chain fades into the one on the floor. The two
+ * are about to meet there, and two frames that nearly lie on each other are one frame too bright.
+ */
+const RAISED_FADE = 0.5;
 
 /** A tube of unit height standing on the origin, bright at the foot and gone at the top. */
 function pillarGeometry(): THREE.BufferGeometry {
@@ -28,13 +33,20 @@ function pillarGeometry(): THREE.BufferGeometry {
 /**
  * What a chain that is still open looks like on the board, apart from the marks on its own
  * cells. A frame of its colour lies on every cell beside it: that is where a die can be
- * brought. Light stands on the pips of its dice and shortens as they go down: that is how
- * long there is. When the light is gone, so is the chain.
+ * brought, and it is brighter where the player's next step can use the cell. Where the cell is
+ * free and the docks are steps, the frame lies a second time at the height of the top of the
+ * chain's dice and comes down with them: the cell is walked on from up there as well. Light
+ * stands on the pips of its dice and shortens as they go down: that is how long there is. When
+ * the light is gone, so is the chain.
  */
 export class ChainSigns {
   readonly group = new THREE.Group();
   /** The frames of the cells beside a chain: one draw for all of them, each in the colour of its chain. */
   private readonly docks: THREE.InstancedMesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  /** The same frames at the height of the top of the chain's dice, over the cells that are steps. */
+  private readonly raised: THREE.InstancedMesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  /** How high the top of the chain is beside a cell: the highest of its dice there. */
+  private readonly tops = new Map<number, number>();
   private readonly dockColours: THREE.Color[] = [];
   private readonly pillars: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private readonly lit: THREE.Color[] = [];
@@ -57,6 +69,14 @@ export class ChainSigns {
     // The colours of the frames are there from the start: the program for them is built with the board.
     this.docks.setColorAt(0, this.colour.set(0, 0, 0));
     this.group.add(this.docks);
+    // Up at the height of the dice the frames are drawn after them, as the pillars are: a die
+    // that stands behind a frame shows through its light, and one in front hides it.
+    this.raised = new THREE.InstancedMesh(lying, this.docks.material, MAX_DOCKS);
+    this.raised.count = 0;
+    this.raised.frustumCulled = false;
+    this.raised.renderOrder = 3;
+    this.raised.setColorAt(0, this.colour.set(0, 0, 0));
+    this.group.add(this.raised);
     this.pillars = new THREE.InstancedMesh(
       pillarGeometry(),
       // Light adds up the same in any order: both sides go in one draw, not the far side and then the near.
@@ -84,6 +104,7 @@ export class ChainSigns {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     const { size } = state.config;
     this.cells.clear();
+    this.tops.clear();
     let pillars = 0;
 
     // Nothing joins a finished group in a puzzle.
@@ -93,17 +114,20 @@ export class ChainSigns {
       for (const cube of state.cubes) {
         if (!inChain(cube)) continue;
         const value = cube.ori.top;
+        const left = cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha);
+        // Where the top face of the die is, apart from the dip a step makes in it.
+        const face = left - 0.5 + CUBE_SIZE / 2;
         for (const dir of DIRS) {
           const x = cube.x + DELTA[dir].dx;
           const z = cube.z + DELTA[dir].dz;
           if (x < 0 || z < 0 || x >= size || z >= size) continue;
           const cell = x + z * size;
           if (!this.cells.has(cell)) this.cells.set(cell, value);
+          this.tops.set(cell, Math.max(this.tops.get(cell) ?? 0, face));
         }
 
-        const left = cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha);
         if (tall <= 0 || bright <= 0 || left <= 0) continue;
-        const top = left - 0.5 + dip(cube.id) + CUBE_SIZE / 2;
+        const top = face + dip(cube.id);
         const turn = topTurn(cube.ori);
         const cos = Math.cos(turn);
         const sin = Math.sin(turn);
@@ -135,24 +159,53 @@ export class ChainSigns {
     const opacity = n('dockBright') * (reducedMotion ? 1 : 0.75 + 0.25 * Math.sin((timeMs / 700) * Math.PI * 2));
     this.docks.material.opacity = opacity;
     let docks = 0;
+    let raised = 0;
     if (opacity > 0) {
+      // A dock the player's next step can use, down to it or up from it, is brighter than one
+      // that only takes a die. A colour cannot be brighter than itself, and light adds up: the
+      // frame is laid as many times as it is brighter, the last time at a part of its strength.
+      const step = Math.max(1, n('dockStep'));
+      // With the steps of the docks a free cell beside a chain is walked on from the top of its
+      // dice as well as from the floor: its frame lies up there too, and comes down with them.
+      const upper = state.config.experiments.dockSteps ? n('dockTop') : 0;
       for (const [cell, value] of this.cells) {
-        if (docks >= MAX_DOCKS) break;
-        this.at.set(cell % size, 0.012, Math.floor(cell / size));
-        this.docks.setMatrixAt(docks, this.matrix.compose(this.at, this.upright, this.whole));
-        this.docks.setColorAt(docks, this.dockColours[value - 1]);
-        docks++;
+        const x = cell % size;
+        const z = Math.floor(cell / size);
+        const times = step > 1 && isStep(state, x, z) ? step : 1;
+        docks = this.lay(this.docks, docks, x, 0.012, z, value, times, 1);
+        const lift = upper > 0 && isDock(state, x, z) ? (this.tops.get(cell) ?? 0) : 0;
+        if (lift > 0) raised = this.lay(this.raised, raised, x, lift, z, value, times, upper * Math.min(1, lift / RAISED_FADE));
       }
     }
-    this.docks.count = docks;
-    this.docks.visible = docks > 0;
-    if (docks > 0) {
-      this.docks.instanceMatrix.needsUpdate = true;
-      if (this.docks.instanceColor) this.docks.instanceColor.needsUpdate = true;
+    this.show(this.docks, docks);
+    this.show(this.raised, raised);
+  }
+
+  /**
+   * Lays the frame of a cell at a height, `times` over and the last time at the part that is
+   * left of it. Returns how many frames the mesh holds after that.
+   */
+  private lay(mesh: THREE.InstancedMesh, count: number, x: number, y: number, z: number, value: number, times: number, strength: number): number {
+    this.at.set(x, y, z);
+    this.matrix.compose(this.at, this.upright, this.whole);
+    for (let left = times; left > 0 && count < MAX_DOCKS; left--) {
+      mesh.setMatrixAt(count, this.matrix);
+      mesh.setColorAt(count, this.colour.copy(this.dockColours[value - 1]).multiplyScalar(strength * Math.min(1, left)));
+      count++;
     }
+    return count;
+  }
+
+  private show(mesh: THREE.InstancedMesh, count: number): void {
+    mesh.count = count;
+    mesh.visible = count > 0;
+    if (count === 0) return;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
 
   dispose(): void {
+    this.raised.dispose();
     this.docks.geometry.dispose();
     this.docks.material.map?.dispose();
     this.docks.material.dispose();

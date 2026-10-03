@@ -58,7 +58,7 @@ npm run fonts   # пересобрать набор японских знако�
 | `performance_sample` | каждые 30 секунд игры | кадры активной игры: средний FPS, перцентили времени кадра, число долгих кадров, ошибки |
 | `settings_changed`, `records_opened`, `player_registered` | настройка, журнал, вход | что изменено |
 
-Сводка сессии (по ней настраивается темп и приход костей): `rules` — ключ правил, `score`, `level`, `duration_sec`, `max_chain`, `best_chain_score`, `clears`, `removed`, `spawned`, `cubes_end`, `first_clear_sec`, `steps`, `blocked_steps`, `falls`, `ground_sec`, `danger_sec`, `saves` (сколько раз поле уходило от опасной отметки), `chain_quiet_max_sec`, `match_2`…`match_6` (группы по числу на гранях), `ones`, `chains_2`, `chains_3`, `chains_4plus` (цепочки по длине), `contact`, `scored`, `best`. Считает [src/app/telemetry.ts](src/app/telemetry.ts).
+Сводка сессии (по ней настраивается темп и приход костей): `rules` — ключ правил, `score`, `level`, `duration_sec`, `max_chain`, `best_chain_score`, `clears`, `removed`, `spawned`, `cubes_end`, `first_clear_sec`, `steps`, `blocked_steps`, `falls`, `ground_sec`, `floor_climbs` (подъёмы с пола на кость, которую нельзя толкнуть), `dock_descents` и `dock_climbs` (сходы с уходящей кости на клетку рядом с цепочкой и подъёмы с такой клетки на стоящую кость), `danger_sec`, `saves` (сколько раз поле уходило от опасной отметки), `chain_quiet_max_sec`, `match_2`…`match_6` (группы по числу на гранях), `ones`, `chains_2`, `chains_3`, `chains_4plus` (цепочки по длине), `contact`, `scored`, `best`. Считает [src/app/telemetry.ts](src/app/telemetry.ts).
 
 ## Управление
 
@@ -68,6 +68,8 @@ npm run fonts   # пересобрать набор японских знако�
 ## Плейтест
 
 Пауза → «Плейтест». Там переключатели экспериментов, выбор управления, повтор обучения и статистика последней партии, которую можно скопировать текстом. Изменения правил применяются со следующей партии; рекорды ведутся отдельно для каждого набора правил.
+
+Два правила пола включены по умолчанию и выключаются там же по отдельности: `floorClimb` — с пола на кость, которую нельзя толкнуть, поднимаются; `dockSteps` — клетки рядом с уходящей группой работают как ступени. Обучение идёт без обоих. Спека — [docs/superpowers/specs/2026-10-03-vi-floor-and-islands-design.md](docs/superpowers/specs/2026-10-03-vi-floor-and-islands-design.md).
 
 ### Дебаг-панель
 

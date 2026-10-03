@@ -60,9 +60,15 @@ export class PlayerFigure {
     const p = Math.min(1, (action.t + alpha) / config.actionTicks);
     // A rolling cube has already left its old cell, so the ride starts at full height.
     const fromY = action.kind === 'roll' ? 1 : supportHeight(action.fromX, action.fromZ, action.fromLevel);
+    // A step up goes up first and over after, a step down goes over first and down after: the
+    // figure clears the edge of the die it climbs or leaves, and the step reads as one move up
+    // or one move down, not as a slide through the corner of the die. A ride on a rolling cube
+    // stays even.
+    const rise = toY - fromY;
+    const lifted = action.kind === 'roll' ? p : rise > 0 ? 1 - (1 - p) * (1 - p) : p * p;
     this.group.position.set(
       action.fromX + (player.x - action.fromX) * p,
-      fromY + (toY - fromY) * p + ARC[action.kind] * Math.sin(p * Math.PI),
+      fromY + rise * lifted + ARC[action.kind] * Math.sin(p * Math.PI),
       action.fromZ + (player.z - action.fromZ) * p,
     );
   }

@@ -6,14 +6,18 @@ export function msToTicks(ms: number): number {
   return Math.max(1, Math.round(ms / TICK_MS));
 }
 
+/** The version of the rules. Records of another version are kept apart. */
+export const RULES_VERSION = '0.8';
+
 export function defaultExperiments(): ExperimentConfig {
   return {
     guidedStart: true,
     gentleStart: true,
     boardPreview: false,
     matchHint: false,
-    floorClimb: false,
+    floorClimb: true,
     floorLift: true,
+    dockSteps: true,
     soloOne: false,
     chainCalm: true,
   };
@@ -110,7 +114,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
   const exp = { ...defaultExperiments(), ...experiments };
   const t = { ...DEFAULT_TUNING, ...tuning };
   return {
-    rulesVersion: '0.7',
+    rulesVersion: RULES_VERSION,
     size: 7,
     tickMs: TICK_MS,
     startCubes: Math.max(2, Math.round(t.startCubes)),
@@ -166,6 +170,7 @@ export function ruleKey(config: RulesConfig): string {
     e.floorLift ? 'l' : '',
     e.soloOne ? 's' : '',
     e.chainCalm ? 'q' : '',
+    e.dockSteps ? 'd' : '',
   ].join('');
   return `${config.rulesVersion}${flags ? '-' + flags : ''}`;
 }

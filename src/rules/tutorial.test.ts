@@ -89,6 +89,16 @@ describe('tutorial start', () => {
     }
   });
 
+  it('keeps the rules its boards were laid for: no climbing from the floor, no steps on docks', () => {
+    const s = tutorial();
+    expect(defaultConfig().experiments).toMatchObject({ floorClimb: true, dockSteps: true });
+    expect(s.config.experiments).toMatchObject({ floorClimb: false, dockSteps: false });
+    // The session it leads to is given the config as it was: the lessons change a copy.
+    const config = defaultConfig();
+    createRun({ seed: 3, config, tutorial: true });
+    expect(config.experiments).toMatchObject({ floorClimb: true, dockSteps: true });
+  });
+
   it('has six lessons and says every line once', () => {
     expect(TUTORIAL_LESSONS).toBe(6);
     expect(new Set(TUTORIAL_LINES).size).toBe(TUTORIAL_LINES.length);

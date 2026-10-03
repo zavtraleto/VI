@@ -197,7 +197,12 @@ export const TUTORIAL_MOVES: readonly Dir[] = SCRIPT.flatMap((step) => (step.do 
 /** How many lessons there are. */
 export const TUTORIAL_LESSONS = new Set(SCRIPT.map((step) => step.value)).size;
 
-/** The tutorial keeps its own pace: quick to clear a finished lesson, quick to bring the next. */
+/**
+ * The tutorial keeps its own pace: quick to clear a finished lesson, quick to bring the next.
+ * It keeps the rules its boards were laid for as well: the ways a session has between the
+ * floor and the dice, climbing what cannot be pushed and the steps of the docks, would be
+ * short cuts through the lessons.
+ */
 export function tutorialConfig(config: RulesConfig): RulesConfig {
   return {
     ...config,
@@ -205,6 +210,7 @@ export function tutorialConfig(config: RulesConfig): RulesConfig {
     risingTicks: msToTicks(700),
     sinkingTicks: msToTicks(1400),
     mountHeight: 1,
+    experiments: { ...config.experiments, floorClimb: false, dockSteps: false },
   };
 }
 

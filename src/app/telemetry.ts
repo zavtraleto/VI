@@ -73,6 +73,10 @@ export function runSummary(state: RunState, tally: RunTally): EventData {
     blocked_steps: stats.blockedSteps,
     falls: stats.falls,
     ground_sec: seconds(stats.groundTicks),
+    // The ways between the floor and the dice: climbs onto a cube that could not be pushed, steps down to a dock, climbs from one.
+    floor_climbs: stats.floorClimbs,
+    dock_descents: stats.dockDescents,
+    dock_climbs: stats.dockClimbs,
     danger_sec: seconds(stats.dangerTicks),
     chain_quiet_max_sec: seconds(stats.longestChainQuiet),
     ...tally.values(),

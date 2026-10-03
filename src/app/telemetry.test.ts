@@ -46,6 +46,15 @@ describe('the summary of a session', () => {
     expect(data).toMatchObject({ score: 0, level: 1, clears: 0, cubes_end: state.cubes.length });
   });
 
+  it('counts the ways up from the floor and the steps the docks gave', () => {
+    const state = run();
+    expect(runSummary(state, new RunTally())).toMatchObject({ floor_climbs: 0, dock_descents: 0, dock_climbs: 0 });
+    state.stats.floorClimbs = 3;
+    state.stats.dockDescents = 2;
+    state.stats.dockClimbs = 1;
+    expect(runSummary(state, new RunTally())).toMatchObject({ floor_climbs: 3, dock_descents: 2, dock_climbs: 1 });
+  });
+
   it('leaves the first group out where there was none, and gives its time where there was', () => {
     const state = run();
     expect('first_clear_sec' in runSummary(state, new RunTally())).toBe(false);

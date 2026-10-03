@@ -74,6 +74,18 @@ export const BOARD_GROUPS = {
     /** Frames on the cells next to an open chain. */
     dockBright: number(0.75, 0, 1, 0.01),
     /**
+     * How many times brighter the frame of a dock is when the player's next step can use it:
+     * one to come down to from the sinking cube they stand on, or the one under their feet
+     * with a standing cube beside it to go up onto. 1 marks no difference.
+     */
+    dockStep: number(1.6, 1, 3, 0.05),
+    /**
+     * The frame once more at the height of the top of the chain's dice, over the free cells
+     * beside it: with the steps of the docks they are walked on from up there as well as from
+     * the floor. How strong it is against the frame on the floor; 0 leaves the floor alone.
+     */
+    dockTop: number(0.7, 0, 1, 0.01),
+    /**
      * Light that stands on the pips of a die going down: how high, in dice, how bright, and how
      * wide against the pip it stands on. Faint and thin: with many dice going down at once the
      * board behind them has to stay readable.

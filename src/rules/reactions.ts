@@ -1,4 +1,4 @@
-import { cellIndex, cubeAt, neighbours } from './board';
+import { cellIndex, cubeAt, inChain, neighbours } from './board';
 import { isPhaseStart, sinkTicksAt, timedPhase } from './config';
 import type { Cube, LevelStats, Overrun, RulesConfig, RunState } from './types';
 
@@ -84,11 +84,6 @@ export function removeCube(state: RunState, cube: Cube): void {
   if (state.mode === 'timed') return;
   const level = 1 + Math.floor(state.removed / config.cubesPerLevel);
   if (level > state.level) enterLevel(state, level);
-}
-
-/** A cube going down as part of a chain: until it is gone, cubes brought to it join the chain. */
-export function inChain(cube: Cube): boolean {
-  return cube.state === 'sinking' && cube.reactionId !== 0;
 }
 
 /** Idle cubes connected to `start` that show the same top value, `start` included. */

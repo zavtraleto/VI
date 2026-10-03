@@ -18,6 +18,7 @@ export function statsText(state: RunState): string {
     `first clears: ${stats.clearTicks.length > 0 ? stats.clearTicks.map(seconds).join(', ') : '-'}`,
     `clears ${stats.clears} · steps ${stats.steps} · blocked ${stats.blockedSteps}`,
     `ground time ${seconds(stats.groundTicks)} · falls ${stats.falls} · removed ${state.removed}`,
+    `climbs from the floor ${stats.floorClimbs} · steps down to a dock ${stats.dockDescents} · climbs from a dock ${stats.dockClimbs}`,
     `danger time ${seconds(stats.dangerTicks)} · longest chain silence ${seconds(stats.longestChainQuiet)}`,
     `levels (time +came -removed): ${levels.length > 0 ? levels.join(' · ') : '-'}`,
     `flags: ${flags.length > 0 ? flags.join(', ') : 'none'}${config.custom ? ' · custom variables' : ''}`,

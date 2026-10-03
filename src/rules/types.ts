@@ -16,11 +16,11 @@ export type Level = 'top' | 'ground';
 export type MoveKind =
   | 'roll' // on a cube, into an empty cell or over a low cube: cube rotates, player rides
   | 'hop' // on a cube, onto a neighbouring cube
-  | 'descend' // from a sinking cube down to the ground
+  | 'descend' // from a sinking cube down to the ground: once it is low, or onto a dock at any height
   | 'walk' // on the ground, into an empty cell
   | 'push' // on the ground, slides a cube without rotation
   | 'mount' // from the ground onto a low rising/sinking cube
-  | 'climb'; // experiment: from the ground onto a cube that cannot be pushed
+  | 'climb'; // from the ground onto a standing cube: one that cannot be pushed, or any one from a dock
 
 /** A low sinking cube that the moving cube rolled or slid over. */
 export interface Overrun {
@@ -90,8 +90,14 @@ export interface ExperimentConfig {
   gentleStart: boolean;
   boardPreview: boolean;
   matchHint: boolean;
+  /** From the floor, a standing cube that cannot be pushed is stepped onto. */
   floorClimb: boolean;
   floorLift: boolean;
+  /**
+   * Docks, the free cells beside an open chain, are steps: the player comes down onto one from a
+   * sinking cube at any height, and goes up from one onto any standing cube beside it.
+   */
+  dockSteps: boolean;
   /** A 1 that touches a chain sinks alone instead of taking every other 1 with it. */
   soloOne: boolean;
   /** A chain of two links or more holds regular cubes off while it runs and for a while after. */
@@ -256,6 +262,11 @@ export interface RunStats {
   groundTicks: number;
   falls: number;
   steps: number;
+  /** Steps from the plain floor up onto a standing cube that could not be pushed. */
+  floorClimbs: number;
+  /** Steps from a sinking cube down onto a dock, and from a dock up onto a standing cube. */
+  dockDescents: number;
+  dockClimbs: number;
   /** One entry for each level reached, the first level first. */
   levels: LevelStats[];
   /** Ticks with the board at the danger mark: `warnOccupied` cubes or more. */

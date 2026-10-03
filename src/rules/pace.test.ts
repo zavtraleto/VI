@@ -221,7 +221,7 @@ describe('silence a chain buys', () => {
   it('is on by default and belongs to the record key', () => {
     expect(defaultConfig().experiments.chainCalm).toBe(true);
     expect(ruleKey(defaultConfig({ chainCalm: false }))).not.toBe(ruleKey(defaultConfig()));
-    expect(ruleKey(defaultConfig()).startsWith('0.7')).toBe(true);
+    expect(ruleKey(defaultConfig()).startsWith('0.8')).toBe(true);
   });
 });
 

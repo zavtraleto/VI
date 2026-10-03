@@ -1,4 +1,4 @@
-import { defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
+import { RULES_VERSION, defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
 import { loadJson, saveJson } from './storage';
 
 export type ControlMode = 'gesture' | 'dpad';
@@ -43,6 +43,8 @@ export interface PuzzleProgress {
 
 export interface Settings {
   experiments: ExperimentConfig;
+  /** The version of the rules the experiments were saved under; absent in what was saved before 0.8. */
+  rulesVersion?: string;
   controlMode: ControlMode;
   tutorialDone: boolean;
   hintsSeen: string[];
@@ -96,6 +98,10 @@ export function loadSettings(): Settings {
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
+  // Climbing from the floor was an experiment before the rules of 0.8, and every save of that
+  // time has it switched off. It is a rule now: such a save takes the default.
+  if (loaded.rulesVersion === undefined) loaded.experiments.floorClimb = defaultExperiments().floorClimb;
+  loaded.rulesVersion = RULES_VERSION;
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {

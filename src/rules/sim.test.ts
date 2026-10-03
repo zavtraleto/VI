@@ -5,7 +5,7 @@ import { ALL_ORIENTATIONS, orientationKey } from './orientation';
 import { createRun, step } from './sim';
 import { fallbackLayout, hasReadyGroup, population, spawnCube } from './spawn';
 import { act, emptyRun, land, ori, place, put, run } from './testkit';
-import type { Dir, GameEvent, RunState } from './types';
+import type { Dir, ExperimentConfig, GameEvent, RunState } from './types';
 
 function topsOf(s: RunState): number[] {
   const tops = new Array<number>(49).fill(0);
@@ -219,7 +219,16 @@ describe('spawn and pressure', () => {
     expect(defaultConfig().custom).toBe(false);
     expect(isCustomTuning({ sinkStartMs: DEFAULT_TUNING.sinkStartMs })).toBe(false);
     expect(ruleKey(defaultConfig({ boardPreview: true, matchHint: true }))).toBe(ruleKey(defaultConfig()));
-    expect(ruleKey(defaultConfig({ floorClimb: true }))).not.toBe(ruleKey(defaultConfig()));
+    expect(ruleKey(defaultConfig({ floorClimb: false }))).not.toBe(ruleKey(defaultConfig()));
+    expect(ruleKey(defaultConfig({ dockSteps: false }))).not.toBe(ruleKey(defaultConfig()));
+    expect(ruleKey(defaultConfig({ dockSteps: false }))).not.toBe(ruleKey(defaultConfig({ floorClimb: false })));
+  });
+
+  it('climbs from the floor and steps on docks by default, under rules of their own version', () => {
+    const { experiments, rulesVersion } = defaultConfig();
+    expect(experiments).toMatchObject({ floorClimb: true, dockSteps: true, floorLift: true });
+    expect(rulesVersion).toBe('0.8');
+    expect(ruleKey(defaultConfig())).toBe('0.8-gclqd');
   });
 
   it('announces a cube, then raises it when the warning ends', () => {
@@ -469,11 +478,42 @@ describe('spawn director', () => {
     expect(off.pending.length).toBe(1);
     expect(off.feedDeck.length).toBe(0);
   });
+
+  it('never brings a cube to be pushed in from a dock: from a dock it would be stepped onto', () => {
+    /**
+     * Two cubes of one chain with three cells between them. A cube for the chain on the middle
+     * cell could be pushed in only from the cell beside it, and that cell is a dock.
+     */
+    function between(experiments: Partial<ExperimentConfig>, seed: number) {
+      const s = emptyRun(experiments, seed, { feedRate: 1, helpRate: 0 });
+      for (const x of [1, 5]) put(s, x, 3, 3, 'sinking').reactionId = 1;
+      s.reactions.push({ id: 1, value: 3, chain: 1, total: 2 });
+      s.nextReactionId = 2;
+      place(s, 0, 0, 'ground');
+      s.spawnEnabled = true;
+      run(s, interval(s));
+      return s.pending[0];
+    }
+    let toPush = 0;
+    let toRoll = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const on = between({}, seed);
+      if (on.x === 3 && on.z === 3) {
+        // It still comes there to be rolled in: with the 3 on a side, never on top.
+        expect(on.ori.top).not.toBe(3);
+        toRoll++;
+      }
+      const off = between({ dockSteps: false }, seed);
+      if (off.x === 3 && off.z === 3 && off.ori.top === 3) toPush++;
+    }
+    expect(toPush).toBeGreaterThan(0);
+    expect(toRoll).toBeGreaterThan(0);
+  });
 });
 
 describe('lift', () => {
   /** Regular spawning slowed right down so the lift can be watched on its own. */
-  function grounded(experiments = { floorLift: true }) {
+  function grounded(experiments: Partial<ExperimentConfig> = { floorLift: true }) {
     const s = emptyRun(experiments, 1, { paceStartMs: 10000, targetCubes: 0 });
     s.spawnEnabled = true;
     place(s, 0, 6, 'ground');
@@ -529,15 +569,88 @@ describe('lift', () => {
 
   it('tries again if the player walked away from the announced cell', () => {
     const s = grounded();
+    // In the open: the cube that comes up there has room on every side, so it can only be pushed.
+    place(s, 3, 3, 'ground');
     run(s, s.config.floorLiftTicks);
     act(s, 'E');
     act(s, 'E');
     run(s, s.config.warnTicks);
-    expect(cubeAt(s, 0, 6)?.state).toBe('rising');
-    expect(s.player).toEqual({ x: 2, z: 6, level: 'ground' });
+    expect(cubeAt(s, 3, 3)?.state).toBe('rising');
+    expect(s.player).toEqual({ x: 5, z: 3, level: 'ground' });
     run(s, s.config.floorLiftTicks + s.config.warnTicks);
-    expect(s.player).toEqual({ x: 2, z: 6, level: 'top' });
-    expect(cubeAt(s, 2, 6)?.state).toBe('rising');
+    expect(s.player).toEqual({ x: 5, z: 3, level: 'top' });
+    expect(cubeAt(s, 5, 3)?.state).toBe('rising');
+  });
+
+  it('is not sent while a cube that can be climbed is within the player\'s reach', () => {
+    // At the edge of the board: from the side the player comes from it cannot be pushed.
+    const s = grounded();
+    const cube = put(s, 6, 6, 5);
+    run(s, s.config.floorLiftTicks + 60);
+    expect(s.pending.length).toBe(0);
+    expect(s.cubes.length).toBe(1);
+    // The cube goes: nothing is left to climb, and the lift comes at once.
+    cube.state = 'sinking';
+    cube.t = s.config.sinkingTicks - 1;
+    run(s, 2);
+    expect(s.pending).toMatchObject([{ x: 0, z: 6 }]);
+
+    // Propped by another cube.
+    const t = grounded();
+    put(t, 3, 3, 5);
+    put(t, 3, 2, 6);
+    run(t, t.config.floorLiftTicks + 60);
+    expect(t.pending.length).toBe(0);
+    expect(t.cubes.length).toBe(2);
+
+    // By the rules before, neither is a way up.
+    const off = grounded({ floorLift: true, floorClimb: false });
+    put(off, 6, 6, 5);
+    run(off, off.config.floorLiftTicks);
+    expect(off.pending).toMatchObject([{ x: 0, z: 6 }]);
+  });
+
+  it('is sent when the cubes within reach can only be pushed', () => {
+    const s = grounded();
+    put(s, 3, 3, 5);
+    run(s, s.config.floorLiftTicks);
+    expect(s.pending).toMatchObject([{ x: 0, z: 6 }]);
+  });
+
+  it('is not held back by a cube that could be climbed only from where the player cannot walk', () => {
+    const s = grounded();
+    // Two cubes shut the player in the corner; each has room behind it, so neither is climbed.
+    put(s, 1, 6, 5);
+    put(s, 0, 5, 6);
+    // Beyond them, a cube at the edge.
+    put(s, 6, 0, 4);
+    run(s, s.config.floorLiftTicks);
+    expect(s.pending).toMatchObject([{ x: 0, z: 6 }]);
+  });
+
+  it('is not sent while a dock with a standing cube beside it is within reach', () => {
+    /** An open chain in the middle and, a cell away from it, a cube with room on every side. */
+    function withDock(experiments: Partial<ExperimentConfig>): RunState {
+      const s = grounded({ floorLift: true, ...experiments });
+      put(s, 3, 3, 2);
+      land(s, put(s, 4, 3, 2));
+      put(s, 4, 5, 6);
+      return s;
+    }
+    const s = withDock({});
+    run(s, s.config.floorLiftTicks + 60);
+    expect(s.pending.length).toBe(0);
+    expect(s.cubes.length).toBe(3);
+
+    // Without the steps the cube can only be pushed: the lift comes as it did.
+    const off = withDock({ dockSteps: false });
+    run(off, off.config.floorLiftTicks);
+    expect(off.pending).toMatchObject([{ x: 0, z: 6 }]);
+  });
+
+  it('comes as fast as it did: three seconds on the floor, whatever the new ways up', () => {
+    expect(defaultConfig().floorLiftTicks).toBe(150);
+    expect(DEFAULT_TUNING.liftMs).toBe(3000);
   });
 });
 

@@ -1,10 +1,11 @@
-import { DELTA, cellIndex, cubeAt, cubeHeight, inBounds, isFree, nearestFree } from './board';
+import { DELTA, cellIndex, cubeAt, cubeHeight, floorStep, inBounds, isBelow, isDock, isFree, landing, type Landing } from './board';
 import { roll } from './orientation';
 import { puzzleBusy } from './puzzle';
 import { removeCube } from './reactions';
 import type { Cube, Dir, Level, MoveKind, Orientation, RunState } from './types';
 
-export interface MoveIntent {
+/** A step and, when a cube rolls or slides with it, what that cube does where it lands. */
+export interface MoveIntent extends Landing {
   kind: MoveKind | 'blocked';
   /** Cell the player ends up in. */
   tx: number;
@@ -14,11 +15,8 @@ export interface MoveIntent {
   cubeX?: number;
   cubeZ?: number;
   newOri?: Orientation;
-  /** Low sinking cube in the destination that the moving cube replaces. */
-  over?: Cube;
-  /** Low rising cube in the destination, and the free cell it is sent to. */
-  displaced?: Cube;
-  displaceTo?: { x: number; z: number };
+  /** The step is one a dock gives: down onto it, or up from it onto a standing cube. */
+  dock?: boolean;
 }
 
 const LEVEL_AFTER: Record<MoveKind, Level> = {
@@ -35,31 +33,6 @@ export function canAcceptCommand(state: RunState): boolean {
   if (state.over || puzzleBusy(state)) return false;
   const action = state.player.action;
   return action === undefined || action.t + 1 >= state.config.actionTicks;
-}
-
-function isBelow(state: RunState, cube: Cube, height: number): boolean {
-  return (cube.state === 'rising' || cube.state === 'sinking') && cubeHeight(cube, state.config) <= height;
-}
-
-/**
- * Can a cube move into (x, z)? An empty cell always works. A low sinking cube is replaced;
- * a low rising cube is sent to the nearest free cell, if there is one.
- */
-function landing(
-  state: RunState,
-  x: number,
-  z: number,
-  leaving: { x: number; z: number }[],
-): Pick<MoveIntent, 'over' | 'displaced' | 'displaceTo'> | null {
-  if (!inBounds(state.config.size, x, z)) return null;
-  const occupant = cubeAt(state, x, z);
-  if (!occupant) return isFree(state, x, z) ? {} : null;
-  if (occupant.state === 'sinking') {
-    return isBelow(state, occupant, state.config.sinkLowHeight) ? { over: occupant } : null;
-  }
-  if (!isBelow(state, occupant, state.config.lowHeight)) return null;
-  const displaceTo = nearestFree(state, x, z, leaving);
-  return displaceTo ? { displaced: occupant, displaceTo } : null;
 }
 
 /** Decides what a step in `dir` would do, without changing anything. */
@@ -95,20 +68,21 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
     // Only a sinking cube can be stepped off: a rising one is the way back up, so the
     // player cannot fall off it by accident.
     // In a puzzle there is no floor to stand on: the player stays on the dice.
-    const canStepDown = !state.puzzle && own.state === 'sinking' && cubeHeight(own, config) <= config.stepDownHeight;
-    return canStepDown ? { kind: 'descend', tx, tz } : blocked;
+    if (state.puzzle || own.state !== 'sinking') return blocked;
+    // A dock is a step: the player comes down onto it from any height. Any other empty cell
+    // has to wait until the cube is low.
+    if (config.experiments.dockSteps && isDock(state, tx, tz)) return { kind: 'descend', tx, tz, dock: true };
+    return cubeHeight(own, config) <= config.stepDownHeight ? { kind: 'descend', tx, tz } : blocked;
   }
 
   if (!target) {
     return isFree(state, tx, tz) ? { kind: 'walk', tx, tz } : blocked;
   }
   if (target.state === 'idle') {
-    const bx = tx + dx;
-    const bz = tz + dz;
-    // The cell the pushed cube leaves is where the player steps, so nothing may be sent there.
-    const spot = landing(state, bx, bz, [{ x: tx, z: tz }]);
-    if (spot) return { kind: 'push', tx, tz, cube: target, cubeX: bx, cubeZ: bz, newOri: target.ori, ...spot };
-    return config.experiments.floorClimb ? { kind: 'climb', tx, tz } : blocked;
+    const into = floorStep(state, player.x, player.z, dir);
+    if (!into) return blocked;
+    if (into.kind === 'climb') return into.dock ? { kind: 'climb', tx, tz, dock: true } : { kind: 'climb', tx, tz };
+    return { kind: 'push', tx, tz, cube: target, cubeX: tx + dx, cubeZ: tz + dz, newOri: target.ori, ...into.spot };
   }
   return isBelow(state, target, config.mountHeight) ? { kind: 'mount', tx, tz } : blocked;
 }
@@ -167,6 +141,9 @@ export function applyMove(state: RunState, dir: Dir): boolean {
   player.level = LEVEL_AFTER[intent.kind];
   if (state.puzzle && intent.kind === 'roll') state.puzzle.moves++;
   state.stats.steps++;
+  // The ways between the floor and the cubes, for the report of the run.
+  if (intent.kind === 'climb') state.stats[intent.dock ? 'dockClimbs' : 'floorClimbs']++;
+  else if (intent.kind === 'descend' && intent.dock) state.stats.dockDescents++;
   state.events.push({ type: 'move', kind: intent.kind, dir });
   return true;
 }

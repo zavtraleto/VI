@@ -1,7 +1,7 @@
-import { DELTA, DIRS, cellIndex, cubeAt, cubeHeight, freeCells, inBounds, isFree, nearestFree } from './board';
+import { DELTA, DIRS, cellIndex, cubeAt, cubeHeight, floorStep, freeCells, inBounds, inChain, isDock, isFree, nearestFree } from './board';
 import { helpChance, paceIntervalTicks, topWeights } from './config';
 import { ALL_ORIENTATIONS, orientationsWithTop, roll } from './orientation';
-import { inChain, levelStats } from './reactions';
+import { levelStats } from './reactions';
 import { nextRandom, randomInt } from './rng';
 import type { Cube, CubeState, Dir, Orientation, Reaction, RunState } from './types';
 
@@ -242,21 +242,37 @@ function deal(state: RunState, deck: boolean[], size: number, rate: number): boo
   return deck.pop()!;
 }
 
+/** Where the player can get to. Steps are counted from where they stand; -1 where there is no way. */
+interface Reach {
+  /** Steps to every cell by the shortest way. */
+  steps: number[];
+  /** Steps to the cells a player on the floor gets to without leaving it. */
+  floor: number[];
+  /** A player on the floor has a standing cube to step up onto along the way. */
+  climbs: boolean;
+}
+
 /**
- * Steps from the player to every cell, -1 where there is no way. On the floor the way lies
- * over free cells; up on the cubes it lies over free cells and standing cubes, and a rising
+ * How far every cell is from the player. On the floor the way lies over free cells, and up
+ * from them onto a standing cube that is climbed: one that cannot be pushed, or any one
+ * beside a dock. Up on the cubes it lies over free cells and standing cubes, and a rising
  * cube is a wall.
  */
-function reach(state: RunState): number[] {
+function reach(state: RunState): Reach {
   const { size } = state.config;
   const { player } = state;
-  const up = player.level === 'top';
-  const steps = new Array<number>(size * size).fill(-1);
+  const cells = size * size;
+  const floor = new Array<number>(cells).fill(-1);
+  const top = new Array<number>(cells).fill(-1);
   const start = cellIndex(size, player.x, player.z);
-  steps[start] = 0;
-  const queue = [start];
+  const startsUp = player.level === 'top';
+  (startsUp ? top : floor)[start] = 0;
+  // A place is a cell on the floor, or the same cell up on the cubes: `cells` further on.
+  const queue = [startsUp ? start + cells : start];
+  let climbs = false;
   for (let head = 0; head < queue.length; head++) {
-    const cur = queue[head];
+    const up = queue[head] >= cells;
+    const cur = queue[head] % cells;
     const x = cur % size;
     const z = Math.floor(cur / size);
     for (const dir of DIRS) {
@@ -264,14 +280,24 @@ function reach(state: RunState): number[] {
       const nz = z + DELTA[dir].dz;
       if (!inBounds(size, nx, nz)) continue;
       const next = cellIndex(size, nx, nz);
-      if (steps[next] !== -1) continue;
       const cube = cubeAt(state, nx, nz);
-      if (cube && (!up || cube.state === 'rising')) continue;
-      steps[next] = steps[cur] + 1;
-      queue.push(next);
+      if (up) {
+        if (top[next] !== -1 || cube?.state === 'rising') continue;
+        top[next] = top[cur] + 1;
+        queue.push(next + cells);
+      } else if (!cube) {
+        if (floor[next] !== -1) continue;
+        floor[next] = floor[cur] + 1;
+        queue.push(next);
+      } else if (cube.state === 'idle' && top[next] === -1 && floorStep(state, x, z, dir)?.kind === 'climb') {
+        climbs = true;
+        top[next] = floor[cur] + 1;
+        queue.push(next + cells);
+      }
     }
   }
-  return steps;
+  const steps = floor.map((onFloor, i) => (onFloor === -1 || (top[i] !== -1 && top[i] < onFloor) ? top[i] : onFloor));
+  return { steps, floor, climbs };
 }
 
 /** Rolls that turn up a side the camera shows: the south face going north, the east one going west. */
@@ -296,10 +322,12 @@ function chainFeeder(state: RunState, free: readonly { x: number; z: number }[])
   const isOpen = (x: number, z: number) => free.some((c) => c.x === x && c.z === z);
   const touchesChain = (x: number, z: number) => chain.some((c) => Math.abs(c.x - x) + Math.abs(c.z - z) === 1);
   const tops = topsGrid(state);
-  const steps = reach(state);
-  const { size } = state.config;
+  const { steps } = reach(state);
+  const { size, experiments } = state.config;
   // A push is made from the floor and a roll from on top: the cube suits where the player is.
   const onFloor = state.player.level === 'ground';
+  // From a dock a cube is stepped onto, not pushed: it is no place to push from.
+  const pushFrom = (x: number, z: number) => isOpen(x, z) && !(experiments.dockSteps && isDock(state, x, z));
   const options: { x: number; z: number; oris: readonly Orientation[] }[] = [];
   const weights: number[] = [];
   for (const { x, z } of free) {
@@ -311,7 +339,7 @@ function chainFeeder(state: RunState, free: readonly { x: number; z: number }[])
       // The cell the cube is brought to: empty, and next to the chain.
       if (!isOpen(x + dx, z + dz) || !touchesChain(x + dx, z + dz)) continue;
       // A push needs floor behind the cube for the player to stand on.
-      if (isOpen(x - dx, z - dz) && staysQuiet(state, tops, x, z, value)) {
+      if (pushFrom(x - dx, z - dz) && staysQuiet(state, tops, x, z, value)) {
         options.push({ x, z, oris: orientationsWithTop(value) });
         weights.push((onFloor ? 3 : 1) * near);
       }
@@ -351,7 +379,7 @@ function chooseCell(
   helpful: boolean,
 ): { x: number; z: number } {
   if (!helpful) return free[randomInt(state, free.length)];
-  const steps = reach(state);
+  const { steps } = reach(state);
   const near = state.player.level === 'ground' ? NEAR_FLOOR : NEAR_UP;
   const weights = free.map((cell) => {
     const to = steps[cellIndex(state.config.size, cell.x, cell.z)];
@@ -420,13 +448,15 @@ export function population(state: RunState): number {
 }
 
 /**
- * Is a way back up already there for a player on the ground: a cube announced on a cell they
- * can walk to, or a rising one they can walk up to and still step onto?
+ * Is a way back up already there for a player on the ground: a standing cube they can walk up
+ * to and step onto, because it cannot be pushed or because they come to it from a dock; a cube
+ * announced on a cell they can walk to; or a rising one they can walk up to and still step onto?
  */
 function hasWayUp(state: RunState): boolean {
   const { config } = state;
-  const steps = reach(state);
-  const within = (x: number, z: number) => inBounds(config.size, x, z) && steps[cellIndex(config.size, x, z)] >= 0;
+  const { floor, climbs } = reach(state);
+  if (climbs) return true;
+  const within = (x: number, z: number) => inBounds(config.size, x, z) && floor[cellIndex(config.size, x, z)] >= 0;
   if (state.pending.some((p) => within(p.x, p.z))) return true;
   return state.cubes.some(
     (c) =>

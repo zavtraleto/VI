@@ -9,6 +9,7 @@ const EXPERIMENTS: (keyof ExperimentConfig)[] = [
   'boardPreview',
   'matchHint',
   'floorClimb',
+  'dockSteps',
   'floorLift',
   'soloOne',
   'chainCalm',

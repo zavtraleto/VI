@@ -47,6 +47,8 @@ const LABELS: Record<string, string> = {
   figureRed: 'манекен → красный',
   figureGhost: 'видна сквозь кости',
   dockBright: 'стыки',
+  dockStep: 'стык-ступень: ярче, ×',
+  dockTop: 'стык на высоте кости',
   pillarHeight: 'столбы: высота',
   pillarBright: 'столбы: яркость',
   pillarWidth: 'столбы: толщина',

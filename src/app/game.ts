@@ -417,9 +417,13 @@ export class Game {
     return !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy;
   }
 
-  /** Records are kept per mode and rule key. */
+  /**
+   * Records are kept per mode and rule key. The exercise keeps rules of its own and is not
+   * scored: while it is on the board, the key is the one of the session it leads to.
+   */
   private recordKey(mode: 'endless' | 'timed'): string {
-    return `${mode}:${ruleKey(this.state.config)}`;
+    const config = this.state.tutorial ? defaultConfig(this.settings.experiments) : this.state.config;
+    return `${mode}:${ruleKey(config)}`;
   }
 
   /** The table the current run counts towards; the tutorial shows Endless. */
