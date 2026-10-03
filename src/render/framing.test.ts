@@ -164,13 +164,13 @@ describe('followFrame', () => {
   const PORTRAIT = 375 / 733;
   const FOCUS = 0.6;
   const width = BOARD.maxR - BOARD.minR;
-  const frameAt = (aspect: number, r: number, u: number, least = 0, edge = 0) =>
-    followFrame(BOARD, aspect, FOCUS, least, edge, { r, u }, SIDE, MARGIN);
+  const frameAt = (aspect: number, r: number, u: number, edge = 0) => followFrame(BOARD, aspect, FOCUS, edge, { r, u }, SIDE, MARGIN);
 
   it('shows the asked share of the board in the middle of the screen', () => {
-    const frame = followFrame(BOARD, PORTRAIT, FOCUS, 0, 0, { r: 0, u: 0 }, 0, MARGIN);
+    const frame = followFrame(BOARD, PORTRAIT, FOCUS, 0, { r: 0, u: 0 }, 0, MARGIN);
     // Upright the board is fitted by its width: at the scale of the middle, the screen is as wide as `focus` of it.
     expect(frame.halfHeight * PORTRAIT * 2).toBeCloseTo(FOCUS * width);
+    expect(frame.left + frame.right).toBeCloseTo(FOCUS * width);
     // And a cell there is that much larger than with the whole board in view.
     const whole = fitBoard(BOARD, PORTRAIT, 0, 0, MARGIN);
     expect(whole.halfHeight / frame.halfHeight).toBeCloseTo(1 / FOCUS);
@@ -179,26 +179,40 @@ describe('followFrame', () => {
     expect(wide.halfHeight).toBeCloseTo(FOCUS * fitBoard(BOARD, 1.8, 0, SIDE, MARGIN).halfHeight);
   });
 
-  it('fills an upright screen from side to side wherever the player is, and bends only that way', () => {
+  it('on an upright screen has the player cross the screen as they cross the board, and leaves the rest to the curl', () => {
     const still = frameAt(PORTRAIT, 0, 0);
     const bottomOf = (frame: typeof still): number => frame.centre.y - (frame.at.u - (BOARD.minU - MARGIN)) / (frame.halfHeight * 2);
     for (const r of [-4.1, -2, 0, 1.3, 4.1]) {
       for (const u of [-3, 0, 2.5]) {
         const frame = frameAt(PORTRAIT, r, u);
-        expect(frame.at.r - frame.left).toBeCloseTo(BOARD.minR - SIDE);
-        expect(frame.at.r + frame.right).toBeCloseTo(BOARD.maxR + SIDE);
-        expect(frame.lens.left).toBeCloseTo(1 / FOCUS - 1);
-        expect(frame.lens.right).toBeCloseTo(1 / FOCUS - 1);
-        // Top to bottom the board fits at the scale of the middle: it is not pressed together, and does not move.
+        // The screen is as wide as it is at the scale of the player, wherever they are on it.
+        expect(frame.left + frame.right).toBeCloseTo(frame.halfHeight * PORTRAIT * 2);
+        expect(frame.centre.x).toBeCloseTo(frame.left / (frame.left + frame.right));
+        expect(frame.centre.x).toBeCloseTo((r - (BOARD.minR - SIDE)) / (width + 2 * SIDE));
+        // The board goes on past what the screen has room for, by the same share to either side.
+        expect(frame.reach.left).toBeCloseTo(r - (BOARD.minR - SIDE));
+        expect(frame.reach.right).toBeCloseTo(BOARD.maxR + SIDE - r);
+        expect(frame.left / frame.reach.left).toBeCloseTo(FOCUS);
+        expect(frame.right / frame.reach.right).toBeCloseTo(FOCUS);
+        // Top to bottom the board fits at this scale: it is not pressed together, and does not move.
         expect(frame.lens.bottom).toBeCloseTo(0);
         expect(frame.lens.top).toBeCloseTo(0);
+        expect(frame.dense).toBe(1);
         expect(frame.down + frame.up).toBeCloseTo(frame.halfHeight * 2);
         expect(bottomOf(frame)).toBeCloseTo(bottomOf(still));
       }
     }
   });
 
-  it('has the lens over the player: in the middle of the screen with the player in the middle of the board', () => {
+  it('keeps the player away from the sides of the screen by the share asked for', () => {
+    const corner = frameAt(PORTRAIT, BOARD.minR - SIDE, 0, 0.1);
+    expect(corner.centre.x).toBeCloseTo(0.1);
+    // Beside the edge of the board the screen has more room than the board needs.
+    expect(corner.left).toBeGreaterThan(corner.reach.left);
+    expect(frameAt(PORTRAIT, 0, 0, 0.1).centre.x).toBeCloseTo(0.5);
+  });
+
+  it('has the player in the middle of the screen in the middle of the board', () => {
     const middle = frameAt(PORTRAIT, 0, (BOARD.minU + BOARD.maxU) / 2);
     expect(middle.centre.x).toBeCloseTo(0.5);
     expect(middle.centre.y).toBeCloseTo(0.5);
@@ -208,55 +222,45 @@ describe('followFrame', () => {
     expect(right.at).toEqual({ r: 3, u: 1 });
   });
 
-  it('on a screen on its side bends top to bottom instead', () => {
+  it('on a screen on its side has room across, and draws the board together from the bottom up', () => {
     const frame = frameAt(1.8, 2, 1);
+    // Nothing is left to curl: the screen has room for the board to either side.
+    expect(frame.left).toBeGreaterThanOrEqual(frame.reach.left);
+    expect(frame.right).toBeGreaterThanOrEqual(frame.reach.right);
     expect(frame.at.u - frame.down).toBeCloseTo(BOARD.minU - MARGIN);
     expect(frame.at.u + frame.up).toBeCloseTo(BOARD.maxU + MARGIN);
     expect(frame.lens.top).toBeCloseTo(1 / FOCUS - 1);
     expect(frame.lens.bottom).toBeCloseTo(1 / FOCUS - 1);
-    expect(frame.lens.left).toBeCloseTo(0);
-    expect(frame.lens.right).toBeCloseTo(0);
+    expect(frame.dense).toBeCloseTo(1 / FOCUS);
   });
 
-  it('says how much denser the board has to be drawn for its middle to stay sharp', () => {
-    const upright = frameAt(PORTRAIT, 1, 1);
-    expect(upright.dense.x).toBeCloseTo(1 / FOCUS);
-    expect(upright.dense.y).toBeCloseTo(1);
-    // It is the same wherever the player stands: the layer keeps its size.
-    expect(frameAt(PORTRAIT, -4, -3, 0, 0.1).dense).toEqual(frameAt(PORTRAIT, 2, 2, 0, 0.1).dense);
-    // A lens asked for all round costs as much on the side the board fits along.
-    expect(frameAt(PORTRAIT, 0, 0, 0.25).dense.y).toBeCloseTo(1.25);
-  });
-
-  it('keeps the whole board in the frame wherever the target is', () => {
+  it('keeps the whole height of the board in the frame wherever the target is', () => {
     for (const aspect of [0.45, PORTRAIT, 1, 1.8]) {
       for (const edge of [0, 0.1, 0.3]) {
         for (const r of [-3.3, -1, 0, 2, 3.3]) {
           for (const u of [-2.5, 0, 2.5]) {
-            const frame = frameAt(aspect, r, u, 0.2, edge);
-            expect(frame.at.r - frame.left).toBeLessThanOrEqual(BOARD.minR - SIDE + 1e-9);
-            expect(frame.at.r + frame.right).toBeGreaterThanOrEqual(BOARD.maxR + SIDE - 1e-9);
+            const frame = frameAt(aspect, r, u, edge);
             expect(frame.at.u - frame.down).toBeLessThanOrEqual(BOARD.minU - MARGIN + 1e-9);
             expect(frame.at.u + frame.up).toBeGreaterThanOrEqual(BOARD.maxU + MARGIN - 1e-9);
-            for (const strength of Object.values(frame.lens)) expect(strength).toBeGreaterThanOrEqual(0.2 - 1e-9);
+            expect(frame.left).toBeGreaterThan(0);
+            expect(frame.right).toBeGreaterThan(0);
+            expect(frame.lens.bottom).toBeGreaterThanOrEqual(0);
+            expect(frame.lens.top).toBeGreaterThanOrEqual(0);
           }
         }
       }
     }
   });
 
-  it('has the same scale in the middle towards every side, whatever the lens there', () => {
-    const frame = frameAt(PORTRAIT, 2.7, -1.2, 0.2, 0.1);
-    const halfWidth = frame.halfHeight * PORTRAIT;
-    // A small step on the screen is the same step of the world to the left, to the right and upwards.
+  it('has the same scale in the middle across the screen and up it, whatever the lens there', () => {
+    const frame = frameAt(1.8, 2.7, -1.2, 0.1);
+    // A small step up the screen is the same step of the world as a step across it.
     const step = 1e-4;
-    const { x, y } = frame.centre;
-    const left = -lensInverse(-step / x, 0, frame.lens).x * frame.left;
-    const right = lensInverse(step / (1 - x), 0, frame.lens).x * frame.right;
-    const up = lensInverse(0, step / (1 - y), frame.lens).y * frame.up;
-    expect(left).toBeCloseTo(step * halfWidth * 2, 9);
-    expect(right).toBeCloseTo(step * halfWidth * 2, 9);
+    const lens = { left: 0, right: 0, bottom: frame.lens.bottom, top: frame.lens.top };
+    const up = lensInverse(0, step / (1 - frame.centre.y), lens).y * frame.up;
+    const down = -lensInverse(0, -step / frame.centre.y, lens).y * frame.down;
     expect(up).toBeCloseTo(step * frame.halfHeight * 2, 9);
+    expect(down).toBeCloseTo(step * frame.halfHeight * 2, 9);
   });
 });
 

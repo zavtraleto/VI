@@ -138,40 +138,48 @@ export function followAxis(low: number, high: number, at: number, shown: number,
   return { centre, at: point, before, after, lensBefore, lensAfter };
 }
 
-/** The followed view: what the camera draws, and the lens that draws it together. */
+/** The followed view: what the camera draws, where the player is in it, and what is left to bring in. */
 export interface FollowFrame {
-  /** The point of the board under the centre of the lens, on the camera's right and up axes. */
+  /** The point of the board the view is about: the point followed, kept on the board. */
   at: { r: number; u: number };
-  /** From that point to each edge of what is drawn, in world units. */
+  /** From that point to each edge of what the camera draws, in world units. */
   left: number;
   right: number;
   down: number;
   up: number;
   /** Half the height the screen shows at the scale of its middle, in world units. */
   halfHeight: number;
-  /** Where the centre of the lens stands on the screen, as shares of it from its left and its bottom. */
+  /** Where that point stands on the screen, as shares of it from its left and its bottom. */
   centre: { x: number; y: number };
-  /** Strength of the lens towards each side. */
-  lens: { left: number; right: number; bottom: number; top: number };
   /**
-   * How many times the lens enlarges the middle of what is drawn, side to side and bottom to
-   * top: drawn that much denser, the middle is as sharp as with the whole board in view. It
-   * does not change with the point followed.
+   * How far the board goes on from that point to the left and to the right. Where that is
+   * farther than `left` or `right`, the screen has no room for it: the board is curled up
+   * there, as a sheet of paper, to bring its edge to the edge of the screen.
    */
-  dense: { x: number; y: number };
+  reach: { left: number; right: number };
+  /** Strength of the lens that draws the board together from the bottom up, where it is too tall for the screen. */
+  lens: { bottom: number; top: number };
+  /**
+   * How many times that lens enlarges the middle of what is drawn: drawn that much denser
+   * from top to bottom, the middle is as sharp as with the whole board in view.
+   */
+  dense: number;
 }
 
 /**
- * The frame of the followed view, `aspect` times as wide as it is tall. The middle of the
- * lens is at a scale at which `focus` of the board fits, counted along the side of the screen
- * that the whole board is fitted to. Each side of the screen is worked out by `followAxis`:
- * the whole board is in view wherever the target is.
+ * The frame of the followed view, `aspect` times as wide as it is tall. The player is seen
+ * at a scale at which `focus` of the board fits, counted along the side of the screen that
+ * the whole board is fitted to, and crosses the screen as they cross the board.
+ *
+ * Across the screen the camera draws what the screen has room for, flat: the rest of the
+ * board is brought in by curling it up (`curl.ts`), which the camera knows nothing of. From
+ * the bottom up a curl would turn the back of the sheet to the camera, so a board too tall
+ * for the screen is drawn whole and pressed together by a lens instead.
  */
 export function followFrame(
   b: FrameBounds,
   aspect: number,
   focus: number,
-  least: number,
   edge: number,
   target: { r: number; u: number },
   sideMargin: number,
@@ -181,19 +189,19 @@ export function followFrame(
   const halfWidth = halfHeight * aspect;
   const [lowR, highR] = [b.minR - sideMargin, b.maxR + sideMargin];
   const [lowU, highU] = [b.minU - margin, b.maxU + margin];
-  const across = followAxis(lowR, highR, target.r, halfWidth * 2, edge, least);
-  const along = followAxis(lowU, highU, target.u, halfHeight * 2, edge, least);
-  const floor = 1 + Math.max(0, least);
+  const across = followAxis(lowR, highR, target.r, halfWidth * 2, edge, 0);
+  const along = followAxis(lowU, highU, target.u, halfHeight * 2, edge, 0);
   return {
     at: { r: across.at, u: along.at },
-    left: across.before,
-    right: across.after,
+    left: across.centre * halfWidth * 2,
+    right: (1 - across.centre) * halfWidth * 2,
     down: along.before,
     up: along.after,
     halfHeight,
     centre: { x: across.centre, y: along.centre },
-    lens: { left: across.lensBefore, right: across.lensAfter, bottom: along.lensBefore, top: along.lensAfter },
-    dense: { x: Math.max(floor, (highR - lowR) / (halfWidth * 2)), y: Math.max(floor, (highU - lowU) / (halfHeight * 2)) },
+    reach: { left: across.at - lowR, right: highR - across.at },
+    lens: { bottom: along.lensBefore, top: along.lensAfter },
+    dense: Math.max(1, (highU - lowU) / (halfHeight * 2)),
   };
 }
 

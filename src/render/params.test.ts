@@ -36,10 +36,12 @@ describe('board params', () => {
   it('takes the view from an address, and only the view', () => {
     expect(readView('')).toEqual({});
     expect(readView('?lab=board&perf&msaa=2')).toEqual({});
-    expect(readView('?view=follow&focus=0.5&lens=1&followMs=400&edge=0.2&minCell=70&sharp=0.5')).toEqual({
+    expect(readView('?view=follow&focus=0.5&flat=0.2&curl=1.5&wall=80&followMs=400&edge=0.2&minCell=70&sharp=0.5')).toEqual({
       view: 'follow',
       focus: 0.5,
-      lens: 1,
+      flat: 0.2,
+      curl: 1.5,
+      wall: 80,
       followMs: 400,
       edge: 0.2,
       minCell: 70,
@@ -50,7 +52,7 @@ describe('board params', () => {
   });
 
   it('keeps the view as it is defined where the address makes no sense', () => {
-    expect(readView('?view=sideways&focus=abc&lens=-1&followMs=&edge=99&sharp=9')).toEqual({});
+    expect(readView('?view=sideways&focus=abc&curl=-1&wall=120&followMs=&edge=99&sharp=9')).toEqual({});
     const defaults = boardDefaults();
     expect(defaults.view).toBe('auto');
     expect({ ...defaults, ...readView('?focus=7') }).toEqual(defaults);

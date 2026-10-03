@@ -91,25 +91,37 @@ export const BOARD_GROUPS = {
   },
   view: {
     /**
-     * The whole board in view, or the player followed: the middle of the screen enlarged, the
-     * edges of the board pressed together by a lens. `auto` follows where a cell of the whole
-     * board would be small, unless the player keeps the whole board or keeps motion low.
+     * The whole board in view, or the player followed: the board seen larger, and what the
+     * screen has no room for curled up at its sides like a sheet of paper. `auto` follows
+     * where a cell of the whole board would be small, unless the player keeps the whole board
+     * or keeps motion low.
      */
     view: choice('auto', ['auto', 'full', 'follow']),
     /**
      * Followed: the least share of the board that fits across the screen at the scale the
      * player is seen at. The player is at most `1 / focus` times as large as with the whole
-     * board in view, and the lens presses the rest of the board together by as much.
+     * board in view; the rest of the board has to be curled up to stay in view.
      */
     focus: number(0.6, 0.3, 1, 0.01),
     /**
-     * The least strength of the lens towards any side. The side of the screen the board is
-     * fitted to is pressed together by `1 / focus - 1` whatever this is; the other side, where
-     * the board has room, is bent by this much and no more. 0 keeps that side flat and the
-     * board at its largest.
+     * How much of the screen to either side of the player the sheet lies flat on, as a share
+     * of that side, before it starts to curl. The curl takes room too: where there is not
+     * enough of it for a curl as wide as `curl`, the flat part is smaller than this.
      */
-    lens: number(0, 0, 2, 0.05),
-    /** How long the lens takes to come up with the player, in milliseconds. */
+    flat: number(0.3, 0, 0.9, 0.01),
+    /**
+     * The least radius of the curl, in cells. A die is a cell high, and on the inside of a
+     * curl it is pressed together at the top by its height against this radius: the wider
+     * the curl, the less the dice on it are bent, and the less of the sheet is left flat.
+     */
+    curl: number(2, 0.3, 4, 0.05),
+    /**
+     * The steepest the sheet gets, in degrees: past the curl it goes on at this angle as a
+     * wall. The steeper the wall, the more of the board it takes in, and the less of the top
+     * of a die on it is seen.
+     */
+    wall: number(75, 30, 88, 1),
+    /** How long the view takes to come up with the player, in milliseconds. */
     followMs: number(250, 0, 1000, 10),
     /**
      * How near the player comes to an edge of the screen at the very edge of the board, as a
@@ -125,9 +137,10 @@ export const BOARD_GROUPS = {
      */
     minCell: number(64, 0, 120, 1),
     /**
-     * How much of what the lens enlarges the board is drawn denser by while it is followed: 1
-     * keeps its middle as sharp as with the whole board in view, 0 draws it no denser than the
-     * canvas, which costs the graphics card nothing and is softer.
+     * On a screen on its side the board is too tall, not too wide, and a lens draws it
+     * together from the bottom up. This is how much of what the lens enlarges the board is
+     * drawn denser by: 1 keeps its middle as sharp as with the whole board in view, 0 draws it
+     * no denser than the canvas, which costs the graphics card nothing and is softer.
      */
     sharp: number(1, 0, 1, 0.05),
   },
@@ -169,7 +182,7 @@ export function parseBoardValue(name: string, text: string): number | string | b
 
 /**
  * What an address says of the view, in any build, to try on a device what it is like:
- * `?view=follow&focus=0.6&lens=0&followMs=250&edge=0.1&minCell=64&sharp=1`. Only what is
+ * `?view=follow&focus=0.6&flat=0.3&curl=2&wall=75&followMs=250&edge=0.1&minCell=64`. Only what is
  * named and makes sense is returned; the rest stays as it is defined.
  */
 export function readView(search: string): ParamValues {
