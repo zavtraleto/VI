@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DELTA, DIRS, cubeHeight, inChain, isDock, isHeld, isStep, type RunState } from '../rules';
+import { DELTA, DIRS, cubeAt, cubeHeight, inChain, isDock, isHeld, isStep, type Cube, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
 import { CUBE_SIZE } from './cubes';
@@ -18,6 +18,13 @@ const MAX_DOCKS = 9 * 9;
  * are about to meet there, and two frames that nearly lie on each other are one frame too bright.
  */
 const RAISED_FADE = 0.5;
+
+/** How much of a die is above the floor. A die held by the tutorial stays put between ticks. */
+const heightOf = (state: RunState, cube: Cube, alpha: number): number =>
+  cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha);
+
+/** Where the top face of a die that high is, apart from the dip a step makes in it. */
+const faceAt = (height: number): number => height - 0.5 + CUBE_SIZE / 2;
 
 /** A tube of unit height standing on the origin, bright at the foot and gone at the top. */
 function pillarGeometry(): THREE.BufferGeometry {
@@ -114,9 +121,8 @@ export class ChainSigns {
       for (const cube of state.cubes) {
         if (!inChain(cube)) continue;
         const value = cube.ori.top;
-        const left = cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha);
-        // Where the top face of the die is, apart from the dip a step makes in it.
-        const face = left - 0.5 + CUBE_SIZE / 2;
+        const left = heightOf(state, cube, alpha);
+        const face = faceAt(left);
         for (const dir of DIRS) {
           const x = cube.x + DELTA[dir].dx;
           const z = cube.z + DELTA[dir].dz;
@@ -179,6 +185,23 @@ export class ChainSigns {
     }
     this.show(this.docks, docks);
     this.show(this.raised, raised);
+  }
+
+  /**
+   * How high the upper frame of a cell lies: at the top face of the highest die of the chain
+   * beside it. Nought where there is none. The one who plays stands on it, not on the floor
+   * under it: from the frame the next die is one step away, as it is from a die.
+   */
+  lift(state: RunState, x: number, z: number, alpha: number): number {
+    const n = (name: string): number => Number(this.values[name] ?? 0);
+    if (!state.config.experiments.dockSteps || n('dockTop') <= 0 || n('dockBright') <= 0) return 0;
+    if (!isDock(state, x, z)) return 0;
+    let lift = 0;
+    for (const dir of DIRS) {
+      const cube = cubeAt(state, x + DELTA[dir].dx, z + DELTA[dir].dz);
+      if (cube && inChain(cube)) lift = Math.max(lift, faceAt(heightOf(state, cube, alpha)));
+    }
+    return lift;
   }
 
   /**

@@ -13,6 +13,9 @@ const ARC: Record<MoveKind, number> = {
   push: 0.03,
 };
 
+/** How fast the figure comes down when what held it up is gone, in cells a second. */
+const FALL = 6;
+
 /**
  * The one who plays, as a pictogram of one colour: a grey mannequin, for the program has no
  * record of them, that grows into the red of the seventh. The same body is the cursor of the
@@ -28,6 +31,9 @@ export class PlayerFigure {
     depthFunc: THREE.GreaterDepth,
     depthWrite: false,
   });
+  /** The cell the figure was in on the last frame and how high it stood there. */
+  private cell = -1;
+  private y = 0;
 
   constructor() {
     const through = new THREE.Mesh(this.geometry, this.ghost);
@@ -42,19 +48,34 @@ export class PlayerFigure {
     this.ghost.opacity = through;
   }
 
-  sync(state: RunState, alpha: number, dip: (cubeId: number) => number): void {
+  /** A new board: the figure is put where it stands, it does not come down to there. */
+  reset(): void {
+    this.cell = -1;
+  }
+
+  /**
+   * `frame` is how high the upper frame of a cell beside a chain lies, nought where there is
+   * none: off the dice the figure stands on that frame and comes down with it, not on the floor
+   * under it.
+   */
+  sync(state: RunState, alpha: number, dt: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number): void {
     const { player, config } = state;
 
     const supportHeight = (x: number, z: number, level: Level): number => {
-      if (level === 'ground') return 0;
+      if (level === 'ground') return frame(x, z);
       const cube = cubeAt(state, x, z);
       return cube ? cubeHeight(cube, config, isHeld(state, cube) ? 0 : alpha) + dip(cube.id) : 0;
     };
 
     const toY = supportHeight(player.x, player.z, player.level);
     const action = player.action;
+    const cell = player.x + player.z * config.size;
     if (!action) {
-      this.group.position.set(player.x, toY, player.z);
+      // A die that comes up under the figure on a frame takes the cell from the frame: the
+      // figure comes down to it, quickly, and is not put on it at once.
+      this.y = cell === this.cell ? Math.max(toY, this.y - (FALL * dt) / 1000) : toY;
+      this.cell = cell;
+      this.group.position.set(player.x, this.y, player.z);
       return;
     }
     const p = Math.min(1, (action.t + alpha) / config.actionTicks);
@@ -66,9 +87,11 @@ export class PlayerFigure {
     // stays even.
     const rise = toY - fromY;
     const lifted = action.kind === 'roll' ? p : rise > 0 ? 1 - (1 - p) * (1 - p) : p * p;
+    this.y = fromY + rise * lifted;
+    this.cell = cell;
     this.group.position.set(
       action.fromX + (player.x - action.fromX) * p,
-      fromY + rise * lifted + ARC[action.kind] * Math.sin(p * Math.PI),
+      this.y + ARC[action.kind] * Math.sin(p * Math.PI),
       action.fromZ + (player.z - action.fromZ) * p,
     );
   }

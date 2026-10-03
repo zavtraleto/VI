@@ -479,6 +479,7 @@ export class BoardView {
     this.sent = 0;
     this.warnings.reset();
     this.springs.reset();
+    this.player.reset();
     this.sinking.clear();
     this.lastStep = null;
     // A new board: the followed view is put on the player where they start.
@@ -564,7 +565,7 @@ export class BoardView {
     );
     // The figure is a grey mannequin that grows into the red of the seventh.
     this.player.setColor(mixHex(String(values.mannequin), this.palette.signal, n('figureRed')), n('figureGhost'));
-    this.player.sync(state, alpha, dip);
+    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha));
     this.cubes.group.position.y = -sunk;
     this.player.group.position.y -= sunk;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
