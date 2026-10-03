@@ -90,8 +90,6 @@ export class CubeMeshes {
   private readonly edges: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   private readonly edgePlaces: THREE.BufferAttribute;
   private readonly edgeColours: THREE.BufferAttribute;
-  /** The middle of the die each point of an edge belongs to: on a board that is bent, a die is turned around it as one piece. */
-  private readonly edgeMiddles: THREE.BufferAttribute;
   private readonly channels: THREE.Color[] = [];
   /** The glass dice now on the board, by the cube they show. */
   private readonly worn = new Map<number, GlassDie>();
@@ -129,14 +127,11 @@ export class CubeMeshes {
     outline.dispose();
     this.edgePlaces = new THREE.BufferAttribute(new Float32Array(MAX_DICE * this.outline.length), 3);
     this.edgeColours = new THREE.BufferAttribute(new Float32Array(MAX_DICE * this.outline.length), 3);
-    this.edgeMiddles = new THREE.BufferAttribute(new Float32Array(MAX_DICE * this.outline.length), 3);
     this.edgePlaces.setUsage(THREE.DynamicDrawUsage);
     this.edgeColours.setUsage(THREE.DynamicDrawUsage);
-    this.edgeMiddles.setUsage(THREE.DynamicDrawUsage);
     const edgeGeometry = new THREE.BufferGeometry();
     edgeGeometry.setAttribute('position', this.edgePlaces);
     edgeGeometry.setAttribute('color', this.edgeColours);
-    edgeGeometry.setAttribute('pivot', this.edgeMiddles);
     // The edges of one die, of no size, until the first frame: something to be made ready with.
     edgeGeometry.setDrawRange(0, this.outline.length / 3);
     // Drawn with the glass, after it: the edges of the far side show through the die.
@@ -193,7 +188,6 @@ export class CubeMeshes {
     const { alive, outline } = this;
     const places = this.edgePlaces.array as Float32Array;
     const colours = this.edgeColours.array as Float32Array;
-    const middles = this.edgeMiddles.array as Float32Array;
 
     alive.clear();
     let solids = 0;
@@ -241,9 +235,6 @@ export class CubeMeshes {
         places[from + i] = outline[i] + cube.x;
         places[from + i + 1] = outline[i + 1] + y;
         places[from + i + 2] = outline[i + 2] + cube.z;
-        middles[from + i] = cube.x;
-        middles[from + i + 1] = y;
-        middles[from + i + 2] = cube.z;
         colours[from + i] = this.colour.r;
         colours[from + i + 1] = this.colour.g;
         colours[from + i + 2] = this.colour.b;
@@ -258,7 +249,6 @@ export class CubeMeshes {
     if (glasses > 0) {
       this.edgePlaces.needsUpdate = true;
       this.edgeColours.needsUpdate = true;
-      this.edgeMiddles.needsUpdate = true;
     }
     for (const [id, die] of this.worn) {
       if (alive.has(id)) continue;

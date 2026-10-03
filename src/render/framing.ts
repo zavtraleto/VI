@@ -86,59 +86,60 @@ export function followFocus(cell: number, wanted: number, least: number): number
 
 /** The followed view along one side of the screen: from left to right, or from the bottom up. */
 export interface FollowAxis {
-  /** Where the centre of the lens stands on the screen, as a share of it from its start. */
+  /** Where the point followed stands on the screen, as a share of it from its start. */
   centre: number;
   /** The point of the board that is shown there: the point followed, kept on the board. */
   at: number;
   /** From that point to the two ends of what is drawn, in world units. */
   before: number;
   after: number;
-  /** Strength of the lens towards each of them. */
+  /** Strength of the lens towards each of them; 0 where the picture is as it is drawn. */
   lensBefore: number;
   lensAfter: number;
 }
 
-/** Below this a side of the screen shows nothing to be pressed together. */
+/** Below this a side of the screen shows nothing. */
 const NO_ROOM = 1e-9;
 
 /**
  * The followed view along one side of the screen. The board lies from `low` to `high`; `at`
- * is the point followed; `shown` is how much of the world the screen would show from end to
- * end at the scale of its middle.
+ * is the point followed; `shown` is how much of the world the screen shows from end to end
+ * at the scale the player is seen at.
  *
- * The lens stands over the point followed, and that point crosses the screen as it crosses
- * the board: the ends of the board stay at the ends of the screen, and the lens draws
- * together what the scale of the middle has no room for. The player is at their largest
- * wherever they stand, and the board never gives way to the dark.
+ * The point followed crosses the screen as it crosses the board, so the screen is a window
+ * that moves over the board with the player and never leaves it for the dark: with the player
+ * at an end of the board, that end is at the end of the screen. `edge` is the share of the
+ * screen the player is kept away from its ends by: at the very end of the board they are that
+ * far from the end of the screen, with the dark beside them.
  *
- * `edge` is the share of the screen its ends are kept clear of the centre of the lens by: a
- * player at the very end of the board is that far from the end of the screen, with the dark
- * beside them. `least` is the least strength of the lens towards either end.
+ * A board that fits at that scale stays where it is.
  *
- * A board that fits at the scale of the middle is not pressed together and does not move.
+ * `pull` is the lens, 0 to 1: how much of what the window has no room for is drawn anyway
+ * and pressed together towards the end of the screen. 0 is no lens: the window shows a part
+ * of the board, flat. 1 brings the whole board in, its ends at the ends of the screen.
  */
-export function followAxis(low: number, high: number, at: number, shown: number, edge: number, least: number): FollowAxis {
+export function followAxis(low: number, high: number, at: number, shown: number, edge: number, pull: number): FollowAxis {
   const length = Math.max(0, high - low);
   const span = Math.max(shown, NO_ROOM);
-  const floor = Math.max(0, least);
+  const drawn = clamp(pull, 0, 1);
   const point = clamp(at, low, high);
   const share = length > 0 ? (point - low) / length : 0.5;
-  // How far the lens goes over the screen while the point goes over the board. A board that
-  // fits goes over its own length of the screen: the board stays where it is.
+  // How far the point goes over the screen while it goes over the board. A board that fits
+  // goes over its own length of the screen: the board stays where it is.
   const travel = Math.min(length / span, 1 - 2 * clamp(edge, 0, 0.5));
   const centre = 0.5 + (share - 0.5) * travel;
   const side = (room: number, toEnd: number): [reach: number, lens: number] => {
-    // What this side of the screen shows at the scale of the middle.
+    // What this side of the screen shows at the scale of the player.
     const plain = room * span;
-    const reach = Math.max(toEnd, plain * (1 + floor));
-    return [reach, plain > NO_ROOM ? reach / plain - 1 : floor];
+    const reach = plain + drawn * Math.max(0, toEnd - plain);
+    return [reach, plain > NO_ROOM ? reach / plain - 1 : 0];
   };
   const [before, lensBefore] = side(centre, point - low);
   const [after, lensAfter] = side(1 - centre, high - point);
   return { centre, at: point, before, after, lensBefore, lensAfter };
 }
 
-/** The followed view: what the camera draws, where the player is in it, and what is left to bring in. */
+/** The followed view: what the camera draws, where the player is in it, and the lens over it. */
 export interface FollowFrame {
   /** The point of the board the view is about: the point followed, kept on the board. */
   at: { r: number; u: number };
@@ -147,40 +148,31 @@ export interface FollowFrame {
   right: number;
   down: number;
   up: number;
-  /** Half the height the screen shows at the scale of its middle, in world units. */
+  /** Half the height the screen shows at the scale of the player, in world units. */
   halfHeight: number;
   /** Where that point stands on the screen, as shares of it from its left and its bottom. */
   centre: { x: number; y: number };
+  /** Strength of the lens towards each side; all 0 with no lens. */
+  lens: { left: number; right: number; bottom: number; top: number };
   /**
-   * How far the board goes on from that point to the left and to the right. Where that is
-   * farther than `left` or `right`, the screen has no room for it: the board is curled up
-   * there, as a sheet of paper, to bring its edge to the edge of the screen.
+   * How many times the lens enlarges the middle of what is drawn, side to side and bottom to
+   * top: drawn that much denser, the middle is as sharp as with no lens. 1 with no lens. It
+   * does not change with the point followed.
    */
-  reach: { left: number; right: number };
-  /** Strength of the lens that draws the board together from the bottom up, where it is too tall for the screen. */
-  lens: { bottom: number; top: number };
-  /**
-   * How many times that lens enlarges the middle of what is drawn: drawn that much denser
-   * from top to bottom, the middle is as sharp as with the whole board in view.
-   */
-  dense: number;
+  dense: { x: number; y: number };
 }
 
 /**
  * The frame of the followed view, `aspect` times as wide as it is tall. The player is seen
  * at a scale at which `focus` of the board fits, counted along the side of the screen that
- * the whole board is fitted to, and crosses the screen as they cross the board.
- *
- * Across the screen the camera draws what the screen has room for, flat: the rest of the
- * board is brought in by curling it up (`curl.ts`), which the camera knows nothing of. From
- * the bottom up a curl would turn the back of the sheet to the camera, so a board too tall
- * for the screen is drawn whole and pressed together by a lens instead.
+ * the whole board is fitted to. Each side of the screen is worked out by `followAxis`.
  */
 export function followFrame(
   b: FrameBounds,
   aspect: number,
   focus: number,
   edge: number,
+  pull: number,
   target: { r: number; u: number },
   sideMargin: number,
   margin: number,
@@ -189,19 +181,20 @@ export function followFrame(
   const halfWidth = halfHeight * aspect;
   const [lowR, highR] = [b.minR - sideMargin, b.maxR + sideMargin];
   const [lowU, highU] = [b.minU - margin, b.maxU + margin];
-  const across = followAxis(lowR, highR, target.r, halfWidth * 2, edge, 0);
-  const along = followAxis(lowU, highU, target.u, halfHeight * 2, edge, 0);
+  const across = followAxis(lowR, highR, target.r, halfWidth * 2, edge, pull);
+  const along = followAxis(lowU, highU, target.u, halfHeight * 2, edge, pull);
+  const drawn = clamp(pull, 0, 1);
+  const dense = (length: number, shown: number): number => 1 + drawn * Math.max(0, length / shown - 1);
   return {
     at: { r: across.at, u: along.at },
-    left: across.centre * halfWidth * 2,
-    right: (1 - across.centre) * halfWidth * 2,
+    left: across.before,
+    right: across.after,
     down: along.before,
     up: along.after,
     halfHeight,
     centre: { x: across.centre, y: along.centre },
-    reach: { left: across.at - lowR, right: highR - across.at },
-    lens: { bottom: along.lensBefore, top: along.lensAfter },
-    dense: Math.max(1, (highU - lowU) / (halfHeight * 2)),
+    lens: { left: across.lensBefore, right: across.lensAfter, bottom: along.lensBefore, top: along.lensAfter },
+    dense: { x: dense(highR - lowR, halfWidth * 2), y: dense(highU - lowU, halfHeight * 2) },
   };
 }
 
