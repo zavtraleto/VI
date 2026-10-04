@@ -8,13 +8,16 @@ export {
   LEVEL_LIFT_MOVES,
   LEVEL_REFILL,
   LEVEL_SINK_MOVES,
+  LEVEL_UNDOS,
   chainWindows,
   goalLines,
   goalOf,
   goalReached,
   levelConfig,
   levelStuck,
+  shortGroups,
   worldRuns,
+  type ShortGroup,
 } from './level';
 export { canAcceptCommand, resolveMove } from './movement';
 export { previewAll, previewMove, type MovePreview } from './preview';

@@ -19,7 +19,7 @@ export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'clim
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
-const SAMPLE_DATA = { bestEndless: 12840, bestTimed: 4310, limitSec: DEFAULT_TUNING.timedSec, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
+const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 20, limitSec: DEFAULT_TUNING.timedSec, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
 /** Players for the sample of the table a platform keeps. */
 const SAMPLE_PLAYERS = ['Guest 4f1c09', 'Мария', 'kuro_neko', '', 'A name far too long for the table', 'Tomás', 'Guest 77ab31', 'ольга', 'N0body'].map((name, i) => ({
   name,
@@ -236,7 +236,7 @@ export class ShellLab {
     const nothing = (): void => undefined;
     const actions: MenuActions = {
       onEndless: nothing,
-      onTimed: nothing,
+      onLevels: nothing,
       onPuzzle: nothing,
       onTutorial: nothing,
       onRecords: nothing,

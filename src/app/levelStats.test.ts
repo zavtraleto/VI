@@ -13,15 +13,17 @@ describe('level report', () => {
     bestLeft: null,
     bestMoves: null,
     undos: 0,
+    stuck: 0,
     short: [],
     playMs: 0,
+    liked: null,
     ...over,
   });
-  const levels: { id: string; goal: LevelGoal; moves: number }[] = [
+  const levels: { id: string; goal: LevelGoal; moves: number; par?: number }[] = [
     { id: 'a', goal: { kind: 'send', count: 6 }, moves: 20 },
     { id: 'b', goal: { kind: 'order', items: [{ value: 2, count: 4 }, { value: 3, count: 6 }] }, moves: 60 },
     { id: 'c', goal: { kind: 'chain', links: 3 }, moves: 9 },
-    { id: 'd', goal: { kind: 'clear' }, moves: 0 },
+    { id: 'd', goal: { kind: 'clear' }, moves: 0, par: 12 },
   ];
 
   it('lists only the levels that were played, by number', () => {
@@ -32,18 +34,27 @@ describe('level report', () => {
     const lines = text.split('\n');
     expect(lines).toHaveLength(3);
     expect(lines[0]).toBe('VI levels playtest, 2 of 4 levels played');
-    expect(lines[1]).toBe('1. send 6, in 20 moves: passed on try 1, best 14 left, tries 2, passes 2, fails 0, 41s');
-    expect(lines[2]).toBe('3. chain 3, in 9 moves: not passed, tries 4, passes 0, fails 3, short by 2 1 1, 187s');
+    expect(lines[1]).toBe('1. send 6, in 20 moves: passed on try 1, best 14 left, tries 2, passes 2, fails 0, undos 0, dead ends 0, 41s, liked -');
+    expect(lines[2]).toBe('3. chain 3, in 9 moves: not passed, tries 4, passes 0, fails 3, short by 2 1 1, undos 0, dead ends 0, 187s, liked -');
   });
 
   it('names every face of an order, and shows the fails of a level passed later', () => {
     const text = levelReport(levels, { b: stat({ tries: 3, passes: 1, fails: 2, firstPassTry: 3, bestLeft: 0, bestMoves: 60, short: [5, 2], playMs: 90000 }) });
-    expect(text.split('\n')[1]).toBe('2. order 4 of 2 and 6 of 3, in 60 moves: passed on try 3, best 0 left, tries 3, passes 1, fails 2, short by 5 2, 90s');
+    expect(text.split('\n')[1]).toBe('2. order 4 of 2 and 6 of 3, in 60 moves: passed on try 3, best 0 left, tries 3, passes 1, fails 2, short by 5 2, undos 0, dead ends 0, 90s, liked -');
   });
 
-  it('says of a level with no limit how few moves it took, and how many were taken back', () => {
-    const text = levelReport(levels, { d: stat({ tries: 2, passes: 1, firstPassTry: 2, bestLeft: 0, bestMoves: 17, undos: 9, playMs: 240000 }) });
-    expect(text.split('\n')[1]).toBe('4. clear the board, no limit: passed on try 2, best in 17 moves, tries 2, passes 1, fails 0, undos 9, 240s');
+  it('says of a board to clear how few moves it took against the fewest known, the moves taken back, the dead ends and the answer', () => {
+    const text = levelReport(levels, { d: stat({ tries: 2, passes: 1, fails: 1, firstPassTry: 2, bestLeft: 0, bestMoves: 17, undos: 3, stuck: 2, playMs: 240000, liked: true }) });
+    expect(text.split('\n')[1]).toBe('4. clear: passed on try 2, best in 17 moves (par 12), tries 2, passes 1, fails 1, undos 3, dead ends 2, 240s, liked yes');
+    const lost = levelReport(levels, { d: stat({ tries: 3, fails: 3, stuck: 3, undos: 9, playMs: 61000, liked: false }) });
+    expect(lost.split('\n')[1]).toBe('4. clear: not passed (par 12), tries 3, passes 0, fails 3, undos 9, dead ends 3, 61s, liked no');
+  });
+
+  it('reads what was saved before dead ends and answers were kept', () => {
+    const old = stat({ tries: 1, passes: 1, firstPassTry: 1, bestMoves: 9 }) as Partial<LevelStat>;
+    delete old.stuck;
+    delete old.liked;
+    expect(levelReport(levels, { d: old as LevelStat }).split('\n')[1]).toBe('4. clear: passed on try 1, best in 9 moves (par 12), tries 1, passes 1, fails 0, undos 0, dead ends 0, 0s, liked -');
   });
 
   it('leaves out a level that was opened and not played', () => {

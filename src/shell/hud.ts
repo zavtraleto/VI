@@ -70,6 +70,19 @@ export interface HudSeal {
   active: Dir | null;
   pulse: Dir | null;
   marked: Dir | null;
+  /**
+   * Sides a step to which is a commitment on a level: from the die that is going onto one that
+   * stands, with no step back. They are marked as the side to bring on top is.
+   */
+  commits?: readonly Dir[];
+}
+
+/** How many dice of a group are in place, over the group: `at` is in CSS pixels of the window. */
+export interface HudCounter {
+  value: number;
+  have: number;
+  need: number;
+  at: Point;
 }
 
 /** The multiplier of a chain, over its dice. `at` is in CSS pixels of the window. */
@@ -103,7 +116,7 @@ export interface HudLesson {
   /** The words wait to be read: the exercise goes on when the player presses. */
   waits: boolean;
   /** How many dice of the group are in place, over the group. */
-  counter: { value: number; have: number; need: number; at: Point } | null;
+  counter: HudCounter | null;
   /** Over the die whose hidden face matters: opposite faces add up to seven. */
   seven: Point | null;
   glyph: 'swipe' | 'keys' | 'none';
@@ -120,8 +133,13 @@ export interface HudView {
   lesson: HudLesson | null;
   /** One line at the bottom: a hint, or what a task says about the group just made. */
   note: { text: string; alarm: boolean } | null;
-  /** The two buttons of a task. A level has no move to take back: `retryOnly` leaves the one that starts over. */
-  tools: { canUndo: boolean; urgent: boolean; retryOnly?: boolean } | null;
+  /** On a level: over every group that is short, how many dice it has of how many it takes. */
+  counters?: readonly HudCounter[];
+  /**
+   * The two buttons of a task. `retryOnly` leaves the one that starts over, where no move can be
+   * taken back; `undos` is how many moves can still be, written beside the button of a level.
+   */
+  tools: HudTools | null;
   /** The four buttons of those who would rather press than swipe; `box` is theirs in the window. */
   pad: { pulse: Dir | null; box: Rect } | null;
   /** The part of the window the board has, in CSS pixels. */
@@ -132,6 +150,13 @@ export interface HudView {
    */
   contact: { program: number; peak: number };
   reducedMotion: boolean;
+}
+
+export interface HudTools {
+  canUndo: boolean;
+  urgent: boolean;
+  retryOnly?: boolean;
+  undos?: number;
 }
 
 /** What the contact does to the readings at one moment. */
@@ -428,7 +453,7 @@ export class GameHud {
     const decay = this.decayAt(view.header.kind === 'session' ? program : 0, timeMs, still, layout.rule + 2);
     // Points in the air and the score they have just reached are drawn anew every frame.
     const moving = this.flyers.length > 0 || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
-    const state = [JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       // Words that are still coming change nothing but themselves: the readings stay as they are.
       this.voice.reveal(signs);
@@ -464,6 +489,7 @@ export class GameHud {
       this.flagged(text, Math.round(stage.x + (stage.w - kit.measure(text)) / 2), Math.round(stage.y + 6), blink === 0);
     }
     if (view.lesson) this.drawLesson(view.lesson, view.stage, stage, timeMs, still, signs, blink);
+    for (const counter of view.counters ?? []) this.drawCounter(counter);
     if (view.tools) this.drawTools(view.tools, stage, blink);
     if (view.pad) this.drawPad(view.pad, blink);
     if (view.note) {
@@ -908,7 +934,7 @@ export class GameHud {
         if (!hit) continue;
         const dir = hit.cell === 'top' ? null : hit.cell;
         const edge = Math.min(hit.u, 1 - hit.u, hit.v, 1 - hit.v);
-        const marked = dir !== null && dir === seal.marked;
+        const marked = dir !== null && (dir === seal.marked || (seal.commits?.includes(dir) ?? false));
         const lit = dir !== null && (dir === seal.active || ((dir === seal.pulse || marked) && blink === 1));
         const outline = edge < (marked ? NET_EDGE * 2 : NET_EDGE);
         let colour: [number, number, number] | null = null;
@@ -962,11 +988,39 @@ export class GameHud {
     return { x: stage.x + (stage.width - width) / 2, width, size };
   }
 
+  /** A small plate over the board, its foot at `at`: filled when what it says is complete. */
+  private plate(at: Point, width: number, full: boolean): Box {
+    const { kit } = this;
+    const { bg, ink } = kit.palette;
+    const zoom = kit.zoom;
+    const plate: Box = { x: Math.round(at.x / zoom - width / 2), y: Math.round(at.y / zoom - CELL_H - 4), w: width, h: CELL_H + 2 };
+    kit.box(plate, full ? ink : bg);
+    kit.frame(plate, ink);
+    return plate;
+  }
+
+  private plateFace(value: number, x: number, y: number): void {
+    const { kit } = this;
+    const values = this.look.board;
+    kit.face(value, x, y, 12, faceColour(value, kit.palette, values), value === 1 ? kit.palette.signal : String(values.pipLight));
+  }
+
+  /** Over a group: its face, and how many dice it has of how many it takes. */
+  private drawCounter(counter: HudCounter): void {
+    const { kit } = this;
+    const { bg, ink } = kit.palette;
+    const { value, have, need, at } = counter;
+    const text = `${have}/${need}`;
+    const full = have >= need;
+    const plate = this.plate(at, 12 + 6 + kit.measure(text) + 6, full);
+    this.plateFace(value, plate.x + 3, plate.y + 3);
+    kit.text(text, plate.x + 12 + 6, plate.y + 1, full ? bg : ink, { bold: full });
+  }
+
   private drawLesson(lesson: HudLesson, stage: Rect, box: Box, timeMs: number, still: boolean, signs: number, blink: number): void {
     const { kit } = this;
     const { bg, ink, dim, faint } = kit.palette;
     const zoom = kit.zoom;
-    const values = this.look.board;
     const middle = Math.round(box.x + box.w / 2);
 
     // At the very top: which channel this part of the exercise sets, in the program's hand, and
@@ -982,29 +1036,13 @@ export class GameHud {
       reveal: signs,
     });
 
-    const plate = (at: Point, width: number, full: boolean): Box => {
-      const plate: Box = { x: Math.round(at.x / zoom - width / 2), y: Math.round(at.y / zoom - CELL_H - 4), w: width, h: CELL_H + 2 };
-      kit.box(plate, full ? ink : bg);
-      kit.frame(plate, ink);
-      return plate;
-    };
-    const face = (value: number, x: number, y: number): void => {
-      kit.face(value, x, y, 12, faceColour(value, kit.palette, values), value === 1 ? kit.palette.signal : String(values.pipLight));
-    };
-    if (lesson.counter) {
-      const { value, have, need, at } = lesson.counter;
-      const text = `${have}/${need}`;
-      const full = have >= need;
-      const at2 = plate(at, 12 + 6 + kit.measure(text) + 6, full);
-      face(value, at2.x + 3, at2.y + 3);
-      kit.text(text, at2.x + 12 + 6, at2.y + 1, full ? bg : ink, { bold: full });
-    }
+    if (lesson.counter) this.drawCounter(lesson.counter);
     if (lesson.seven) {
       const text = '=7';
-      const at2 = plate(lesson.seven, 12 + CELL_W + 12 + kit.measure(text) + 8, false);
-      face(1, at2.x + 3, at2.y + 3);
+      const at2 = this.plate(lesson.seven, 12 + CELL_W + 12 + kit.measure(text) + 8, false);
+      this.plateFace(1, at2.x + 3, at2.y + 3);
       kit.text('+', at2.x + 16, at2.y + 1, ink);
-      face(6, at2.x + 16 + CELL_W, at2.y + 3);
+      this.plateFace(6, at2.x + 16 + CELL_W, at2.y + 3);
       kit.text(text, at2.x + 16 + CELL_W + 14, at2.y + 1, ink);
     }
 
@@ -1060,12 +1098,16 @@ export class GameHud {
     if (lesson.waits) this.zones.push({ id: 'continue', rect: { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }, action: () => this.proceed() });
   }
 
-  /** The two buttons every task needs, in the corner of the board and out of the way of swipes. A level has the one that starts over. */
-  private drawTools(tools: { canUndo: boolean; urgent: boolean; retryOnly?: boolean }, stage: Box, blink: number): void {
+  /**
+   * The two buttons every task needs, in the corner of the board and out of the way of swipes.
+   * On a level the one that takes a move back says how many moves it still has, and goes out at none.
+   */
+  private drawTools(tools: HudTools, stage: Box, blink: number): void {
     const { kit } = this;
     const { bg, ink, dim, faint } = kit.palette;
     const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / kit.zoom));
-    const wide = Math.max(tall, kit.measure(HUD.undo) + 12);
+    const undo = tools.undos === undefined ? HUD.undo : `${HUD.undo} ${tools.undos}`;
+    const wide = Math.max(tall, kit.measure(undo) + 12);
     const button = (id: string, text: string, x: number, on: boolean, urgent: boolean, action: () => void): void => {
       const box: Box = { x, y: Math.round(stage.y + 6), w: wide, h: tall };
       const filled = this.held?.zone.id === id || (urgent && blink === 0);
@@ -1081,7 +1123,7 @@ export class GameHud {
     button('retry', HUD.retry, right - wide, true, false, () => this.actions.onRestart());
     if (tools.retryOnly) return;
     // A dead end is left by taking the move back: that button becomes the one to press.
-    button('undo', HUD.undo, right - wide * 2 - 6, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
+    button('undo', undo, right - wide * 2 - 6, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
   }
 
   /** Four buttons in a cross: up is north, right is east. */

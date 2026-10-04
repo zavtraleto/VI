@@ -1,5 +1,6 @@
+import { DELTA, DIRS, cubeAt, inBounds } from './board';
 import { refillLevel } from './spawn';
-import type { GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from './types';
+import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from './types';
 
 /**
  * A level: a run the world of which moves only with a move. A move is a roll or a push; while
@@ -9,6 +10,9 @@ import type { GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from './typ
  *
  * A die on its way out is glass at once: it can be rolled over from the first move. So a step
  * from a group onto a die that stands is a commitment: the way back is a roll, not a step.
+ *
+ * A level may be a board given die by die. Such a board is the same every time, nothing comes
+ * to it, and a board to be cleared is lost at a dead end: one die standing and nothing going.
  */
 
 /** Moves a group takes to go: a die that lands on any of them joins it. */
@@ -24,6 +28,29 @@ export const LEVEL_GHOST_HEIGHT = 0.5;
 export const LEVEL_REFILL = 1;
 /** Share of the dice that come placed and turned to be of use. */
 export const LEVEL_HELP_RATE = 0.65;
+/** Moves that may be taken back in one try of a level, unless the level says otherwise. */
+export const LEVEL_UNDOS = 3;
+
+/**
+ * A board given die by die has to be a board: every die on a cell of its own, as many of them
+ * as the level says, and the player starting on one. Anything else is a mistake in the level,
+ * and it says so.
+ */
+function checkLayout(spec: LevelSpec): void {
+  const { layout } = spec;
+  if (!layout) return;
+  const wrong = (what: string): never => {
+    throw new Error(`level ${spec.id}: ${what}`);
+  };
+  if (layout.dice.length !== spec.norm) wrong(`${layout.dice.length} dice laid, ${spec.norm} named`);
+  const taken = new Set<string>();
+  for (const { x, z } of layout.dice) {
+    if (!inBounds(spec.size, x, z)) wrong(`a die off the board at ${x},${z}`);
+    if (taken.has(`${x},${z}`)) wrong(`two dice at ${x},${z}`);
+    taken.add(`${x},${z}`);
+  }
+  if (!taken.has(`${layout.start.x},${layout.start.z}`)) wrong(`no die to start on at ${layout.start.x},${layout.start.z}`);
+}
 
 /**
  * The config of a level: a board of its size with the player in the middle. Everything is
@@ -32,17 +59,19 @@ export const LEVEL_HELP_RATE = 0.65;
  * and a tick: its dice take their first tick of sinking on the tick they land, and with that
  * tick a die landing on the last move of the window still finds the group, and one landing on
  * the next does not. A die that sinks is rolled over and stepped off at any height. What
- * belongs to the pace of Endless is switched off.
+ * belongs to the pace of Endless is switched off. On a board given die by die the player starts
+ * where the board says.
  */
 export function levelConfig(config: RulesConfig, spec: LevelSpec): RulesConfig {
+  checkLayout(spec);
   const sinkingTicks = (spec.sinkMoves ?? LEVEL_SINK_MOVES) * config.actionTicks + 1;
   const lift = ((spec.liftMoves ?? LEVEL_LIFT_MOVES) * config.actionTicks) / sinkingTicks;
   const middle = Math.floor(spec.size / 2);
   return {
     ...config,
     size: spec.size,
-    startX: middle,
-    startZ: middle,
+    startX: spec.layout?.start.x ?? middle,
+    startZ: spec.layout?.start.z ?? middle,
     startCubes: spec.norm,
     targetCubes: spec.norm,
     warnTicks: 0,
@@ -112,12 +141,47 @@ export function goalReached(state: RunState): boolean {
 
 /**
  * A board to be cleared has come to a dead end: one die stands and no group is open for it to
- * join. Alone it makes no group, so it will never go.
+ * join. Alone it makes no group, so it will never go. The level ends there, and this goes on
+ * saying why.
  */
 export function levelStuck(state: RunState): boolean {
   const run = state.levelRun;
-  if (!run || state.over || run.spec.goal.kind !== 'clear') return false;
+  if (!run || run.spec.goal.kind !== 'clear') return false;
   return standing(state) === 1 && state.reactions.length === 0 && !state.cubes.some((cube) => cube.state === 'moving');
+}
+
+/** Dice that stand together showing one face, and are too few to go: what they have and what the face asks for. */
+export interface ShortGroup {
+  value: number;
+  have: number;
+  need: number;
+  cells: { x: number; z: number }[];
+}
+
+/**
+ * The groups that are short: two or more standing dice of one face side by side, fewer than the
+ * face asks for. Two 3s are one; a die alone is not a group, and a 1 makes none.
+ */
+export function shortGroups(state: RunState): ShortGroup[] {
+  const groups: ShortGroup[] = [];
+  const seen = new Set<number>();
+  const standing = state.cubes.filter((cube) => cube.state === 'idle').sort((a, b) => a.z - b.z || a.x - b.x);
+  for (const first of standing) {
+    const value = first.ori.top;
+    if (value < 2 || seen.has(first.id)) continue;
+    const members: Cube[] = [first];
+    seen.add(first.id);
+    for (let i = 0; i < members.length; i++) {
+      for (const dir of DIRS) {
+        const next = cubeAt(state, members[i].x + DELTA[dir].dx, members[i].z + DELTA[dir].dz);
+        if (!next || next.state !== 'idle' || next.ori.top !== value || seen.has(next.id)) continue;
+        seen.add(next.id);
+        members.push(next);
+      }
+    }
+    if (members.length >= 2 && members.length < value) groups.push({ value, have: members.length, need: value, cells: members.map(({ x, z }) => ({ x, z })) });
+  }
+  return groups;
 }
 
 /** Open chains: the value and how many more moves a die that lands still joins. */
@@ -154,8 +218,10 @@ function countSent(state: RunState, run: LevelRun): void {
 /**
  * The end of a beat: the tick a moved die lands, or the last tick of a beat the world played by
  * itself. What the tick has sent is counted towards the goal; the level ends if the goal is met,
- * or if the moves are spent, and a goal met with the last move is a level passed; and if the
- * level goes on and is one that dice come to, the board gets its next die.
+ * if its board is at a dead end, or if the moves are spent, and a goal met with the last move is
+ * a level passed; and if the level goes on and is one that dice come to, the board gets its next
+ * die. A dead end is found on the beat the last group has gone, and not before: while a group is
+ * going, the last die may still be brought to it.
  */
 export function endBeat(state: RunState): void {
   const run = state.levelRun;
@@ -168,7 +234,7 @@ export function endBeat(state: RunState): void {
     state.events.push({ type: 'levelPassed' });
     return;
   }
-  if (spec.moves > 0 && run.moves >= spec.moves) {
+  if (levelStuck(state) || (spec.moves > 0 && run.moves >= spec.moves)) {
     state.over = true;
     state.endReason = 'failed';
     state.events.push({ type: 'levelFailed' });

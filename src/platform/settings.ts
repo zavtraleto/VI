@@ -55,10 +55,14 @@ export interface LevelStat {
   bestMoves: number | null;
   /** Moves taken back. */
   undos: number;
+  /** Times the level came to a dead end. */
+  stuck: number;
   /** How far short of the goal each failed try ended, the last 20 of them. */
   short: number[];
   /** Time spent playing the level, in milliseconds. */
   playMs: number;
+  /** What the player said when asked whether they liked the level; null until they answer. */
+  liked: boolean | null;
 }
 
 export interface LevelProgress {
@@ -193,11 +197,13 @@ const MAX_SHORT = 20;
 
 export function levelStat(settings: Settings, id: string): LevelStat {
   const stats = settings.levels.stats;
-  stats[id] ??= { tries: 0, passes: 0, fails: 0, firstPassTry: null, bestLeft: null, bestMoves: null, undos: 0, short: [], playMs: 0 };
+  stats[id] ??= { tries: 0, passes: 0, fails: 0, firstPassTry: null, bestLeft: null, bestMoves: null, undos: 0, stuck: 0, short: [], playMs: 0, liked: null };
   const stat = stats[id];
   // What was saved before these were counted has none of them.
   stat.undos ??= 0;
   stat.bestMoves ??= null;
+  stat.stuck ??= 0;
+  stat.liked ??= null;
   return stat;
 }
 

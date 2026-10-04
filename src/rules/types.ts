@@ -314,7 +314,7 @@ export type GameEvent =
   | { type: 'deadEnd'; reason: DeadEnd } // puzzle: the group just made cannot be followed by a win
   | { type: 'cleared' } // puzzle: the last dice are gone
   | { type: 'levelPassed' } // level: its goal is met
-  | { type: 'levelFailed' } // level: its moves are spent with the goal not met
+  | { type: 'levelFailed' } // level: its moves are spent with the goal not met, or its board is at a dead end
   | { type: 'gameOver' };
 
 /** What happened on one level of a run. */
@@ -374,6 +374,18 @@ export type LevelGoal =
   | { kind: 'chain'; links: number }
   | { kind: 'clear' };
 
+/** The dice of a level as they are given, and the cell of the die the player starts on. */
+export interface LevelLayout {
+  dice: readonly PuzzleDie[];
+  start: { x: number; z: number };
+}
+
+/**
+ * What a way through a level can lean on: a die brought to a group that is going, a roll over a
+ * die that is going, a step down to the floor, and the 1s that go together.
+ */
+export type Technique = 'link' | 'glass' | 'floor' | 'ones';
+
 /** A level as it is given: a board, its dice, whether more of them come, a goal and the moves to meet it in. */
 export interface LevelSpec {
   id: string;
@@ -393,6 +405,19 @@ export interface LevelSpec {
   helpRate?: number;
   sinkMoves?: number;
   liftMoves?: number;
+  /** The board as given; when present, nothing is laid from the seed. */
+  layout?: LevelLayout;
+  /** Moves that may be taken back in one try. */
+  undos?: number;
+  /** Key of the line the level teaches with. */
+  lesson?: string;
+  /** The first roll, shown on the board until it is made. */
+  arrow?: Dir;
+  /** Fewest moves the board is known to be cleared in, whether that is proved the fewest, and one way to do it. */
+  par?: number;
+  exact?: boolean;
+  /** A move is `x,z,D`: the cell of the die before the move and the side it goes to; a push is `x,z,D,p`. */
+  solution?: readonly string[];
 }
 
 /** What a line of a goal counts: dice of any face, dice of one face, links of a chain, dice cleared off the board. */

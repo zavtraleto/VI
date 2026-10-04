@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { DELTA, DIRS, cubeAt, cubeHeight } from './board';
 import { SKILLS, botCommand, createBot } from './bot';
 import { defaultConfig } from './config';
-import { LEVEL_GHOST_HEIGHT, LEVEL_SINK_MOVES, chainWindows, goalLines, goalOf, goalReached, levelConfig, levelStuck, worldRuns } from './level';
+import { LEVEL_GHOST_HEIGHT, LEVEL_SINK_MOVES, LEVEL_UNDOS, chainWindows, goalLines, goalOf, goalReached, levelConfig, levelStuck, shortGroups, worldRuns } from './level';
 import { previewMove } from './preview';
 import { createRun, step } from './sim';
 import { hasReadyGroup, population } from './spawn';
 import { act, levelRun, place, put, putOri, run } from './testkit';
-import type { Cube, Dir, GameEvent, LevelGoal, LevelSpec, RunState } from './types';
+import type { Cube, Dir, GameEvent, LevelGoal, LevelLayout, LevelSpec, RunState } from './types';
 
 const BEAT = defaultConfig().actionTicks;
 const BASE: LevelSpec = { id: 'test', seed: 1, size: 5, goal: { kind: 'send', count: 999 }, moves: 0, values: [2, 3], norm: 8, arrival: 'refill' };
@@ -710,7 +710,7 @@ describe('a board to be cleared', () => {
     expect(s.over).toBe(false);
   });
 
-  it('is at a dead end when one die stands and no group is open for it', () => {
+  it('is lost at a dead end: one die stands and no group is open for it', () => {
     const s = clear(3);
     put(s, 0, 0, 2);
     putOri(s, 2, 0, { top: 6, east: 2 });
@@ -720,10 +720,54 @@ describe('a board to be cleared', () => {
     act(s, 'W');
     // The group is open: the last die can still be brought to it showing a 2.
     expect(levelStuck(s)).toBe(false);
+    expect(s.over).toBe(false);
     place(s, 4, 4, 'top');
-    for (let i = 0; i < LEVEL_SINK_MOVES; i++) idleMove(s);
+    for (let i = 0; i < LEVEL_SINK_MOVES - 1; i++) {
+      idleMove(s);
+      expect(s.over).toBe(false);
+    }
+    // The move the group is gone with: the level ends on the tick its die lands.
+    step(s, DIRS.find((dir) => previewMove(s, dir).kind === 'roll')!);
+    run(s, BEAT - 1);
+    expect(s.over).toBe(false);
+    step(s, null);
     expect(s.reactions).toHaveLength(0);
+    expect(types(s.events)).toEqual(expect.arrayContaining(['landed', 'removed', 'levelFailed']));
+    expect(s.over).toBe(true);
+    expect(s.endReason).toBe('failed');
+    // Why it ended is still there to be told.
     expect(levelStuck(s)).toBe(true);
+    expect(s.levelRun!.moves).toBe(1 + LEVEL_SINK_MOVES);
+  });
+
+  it('goes on while the last die can still be brought to the group that is going', () => {
+    const s = clear(3);
+    put(s, 0, 0, 2);
+    putOri(s, 2, 0, { top: 6, east: 2 });
+    // Rolled north twice, over the die that is going, this one shows the 2 it stood on.
+    putOri(s, 1, 2, { top: 5, south: 3 });
+    place(s, 2, 0, 'top');
+    act(s, 'W');
+    place(s, 1, 2, 'top');
+    act(s, 'N');
+    expect(s.over).toBe(false);
+    expect(levelStuck(s)).toBe(false);
+    act(s, 'N');
+    expect(s.events).toContainEqual(expect.objectContaining({ type: 'chain', value: 2 }));
+    expect(s.endReason).toBe('passed');
+  });
+
+  it('is not lost with two dice standing, whatever they show', () => {
+    const s = clear(4);
+    put(s, 0, 0, 2);
+    putOri(s, 2, 0, { top: 6, east: 2 });
+    put(s, 4, 4, 5);
+    put(s, 0, 4, 6);
+    place(s, 2, 0, 'top');
+    act(s, 'W');
+    place(s, 4, 4, 'top');
+    for (let i = 0; i < LEVEL_SINK_MOVES + 3; i++) idleMove(s);
+    expect(s.reactions).toHaveLength(0);
     expect(s.over).toBe(false);
   });
 
@@ -731,6 +775,9 @@ describe('a board to be cleared', () => {
     const s = levelRun({ arrival: 'none', norm: 1 });
     put(s, 4, 4, 5);
     expect(levelStuck(s)).toBe(false);
+    place(s, 4, 4, 'top');
+    for (let i = 0; i < 3; i++) idleMove(s);
+    expect(s.over).toBe(false);
   });
 });
 
@@ -926,5 +973,102 @@ describe('a level played through', () => {
     for (const cmd of commands) while (!step(eager, cmd));
     rest(eager);
     expect(JSON.stringify(eager)).toBe(JSON.stringify(s));
+  });
+});
+
+describe('a board given die by die', () => {
+  const LAYOUT: LevelLayout = {
+    dice: [
+      { x: 0, z: 0, top: 2, north: 1 },
+      { x: 2, z: 0, top: 6, north: 3 },
+      { x: 1, z: 2, top: 3, north: 6 },
+    ],
+    start: { x: 2, z: 0 },
+  };
+  const given = (spec: Partial<LevelSpec> = {}): RunState =>
+    level({ size: 3, norm: 3, arrival: 'none', goal: { kind: 'clear' }, layout: LAYOUT, ...spec });
+
+  it('stands exactly as given, with the player on the die it names', () => {
+    const s = given();
+    expect(s.config.size).toBe(3);
+    expect([s.config.startX, s.config.startZ]).toEqual([2, 0]);
+    expect(s.player).toEqual({ x: 2, z: 0, level: 'top' });
+    expect(s.cubes.map((c) => [c.x, c.z, c.ori.top, c.ori.north, c.state])).toEqual([
+      [0, 0, 2, 1, 'idle'],
+      [2, 0, 6, 3, 'idle'],
+      [1, 2, 3, 6, 'idle'],
+    ]);
+    expect(cubeAt(s, 2, 0)?.ori).toEqual({ top: 6, bottom: 1, north: 3, south: 4, east: 2, west: 5 });
+  });
+
+  it('is the same whatever the seed, and asks nothing of the generator', () => {
+    const a = given({ seed: 1 });
+    const b = given({ seed: 77 });
+    expect(JSON.stringify(a.cubes)).toBe(JSON.stringify(b.cubes));
+    expect(a.rng).toBe(1);
+    expect(b.rng).toBe(77);
+  });
+
+  it('is played by the rules of any level', () => {
+    const s = given();
+    act(s, 'W');
+    expect(s.events).toContainEqual(expect.objectContaining({ type: 'match', value: 2, count: 2 }));
+    expect(goalLines(s)).toEqual([{ what: 'cleared', value: 0, have: 2, need: 3 }]);
+    expect(s.over).toBe(false);
+  });
+
+  it('says what is wrong with a board that is not one', () => {
+    const [a, b, c] = LAYOUT.dice;
+    expect(() => given({ id: 'L07', norm: 4 })).toThrow(/L07.*3 dice laid, 4 named/);
+    expect(() => given({ id: 'L07', layout: { ...LAYOUT, dice: [a, b, { ...c, x: 0, z: 0 }] } })).toThrow(/L07.*two dice at 0,0/);
+    expect(() => given({ id: 'L07', layout: { ...LAYOUT, start: { x: 1, z: 1 } } })).toThrow(/L07.*no die to start on at 1,1/);
+    expect(() => given({ id: 'L07', layout: { ...LAYOUT, dice: [a, b, { ...c, x: 3 }] } })).toThrow(/L07.*off the board/);
+    // A die cannot show a face on top and its opposite to the north.
+    expect(() => given({ id: 'L07', layout: { ...LAYOUT, dice: [a, b, { ...c, top: 3, north: 4 }] } })).toThrow(/L07.*no die shows 3 on top and 4 to the north/);
+  });
+
+  it('gives three moves to take back unless the level says otherwise', () => {
+    expect(LEVEL_UNDOS).toBe(3);
+  });
+});
+
+describe('groups that are short', () => {
+  it('are two or more standing dice of one face, fewer than the face asks for', () => {
+    const s = levelRun();
+    put(s, 0, 0, 3);
+    put(s, 1, 0, 3);
+    put(s, 3, 0, 4);
+    put(s, 3, 1, 4);
+    put(s, 4, 1, 4);
+    expect(shortGroups(s)).toEqual([
+      { value: 3, have: 2, need: 3, cells: [{ x: 0, z: 0 }, { x: 1, z: 0 }] },
+      { value: 4, have: 3, need: 4, cells: [{ x: 3, z: 0 }, { x: 3, z: 1 }, { x: 4, z: 1 }] },
+    ]);
+  });
+
+  it('are not a die alone, dice of different faces, 1s, or dice that touch by a corner', () => {
+    const s = levelRun();
+    put(s, 0, 0, 3);
+    put(s, 1, 1, 3);
+    put(s, 3, 0, 5);
+    put(s, 4, 0, 6);
+    put(s, 0, 3, 1);
+    put(s, 0, 4, 1);
+    expect(shortGroups(s)).toEqual([]);
+  });
+
+  it('leave out dice that are going or coming', () => {
+    const s = levelRun();
+    put(s, 0, 0, 4);
+    put(s, 1, 0, 4, 'sinking');
+    put(s, 0, 1, 4, 'rising');
+    expect(shortGroups(s)).toEqual([]);
+    put(s, 0, 2, 5);
+    put(s, 1, 2, 5);
+    expect(shortGroups(s).map((group) => [group.value, group.have])).toEqual([[5, 2]]);
+  });
+
+  it('are none on a board that is not a level, or where nothing stands together', () => {
+    expect(shortGroups(levelRun())).toEqual([]);
   });
 });

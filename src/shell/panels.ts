@@ -3,7 +3,7 @@ import type { GoalLine } from '../rules';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
-import { COMMANDS, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { ANSWERS, COMMANDS, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -346,40 +346,67 @@ export function levelsPanel(
   };
 }
 
-/**
- * The card a level opens with: what it asks for, in the language of the player, a thought to
- * a line. The level begins when the card is read.
- */
-export function levelGoalPanel(data: { number: number; lines: readonly string[] }, actions: { onStart: () => void; onBack: () => void }): PanelSpec {
-  const rows: PanelRow[] = data.lines.map((text) => ({ kind: 'say', text }));
-  rows.push(
-    { kind: 'gap' },
-    { kind: 'command', id: 'start', label: COMMANDS.start, action: actions.onStart },
-    { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack },
-  );
-  return { title: { native: PANELS.levels.native, name: `LEVEL ${digits(data.number, 2)}` }, home: 'start', back: actions.onBack, rows };
+/** What a level that is over shows and asks. */
+export interface LevelResult {
+  passed: boolean;
+  /** Moves left of a limit; null on a level with none. */
+  left: number | null;
+  moves: number;
+  /** Fewest moves the player has passed the level in; null before the first pass. */
+  best?: number | null;
+  goal: readonly GoalLine[];
+  hasNext: boolean;
+  /** Why the level was not passed, in the language of the player. */
+  reason?: string;
+  /** Moves that can still be taken back: with any, a failed level offers to take the last one back. */
+  undos?: number;
+  /** The question a passed level asks, in the language of the player, and the answer given so far. */
+  liked?: { question: string; answer: () => boolean | null };
 }
 
 /**
  * A level is over. Passed, it says how many moves were left, or how many it took where there
- * was no limit; failed, why, in the language of the player, and how far every line of its
- * goal had come. The next level is offered after a pass.
+ * was no limit and the fewest the player has done it in, and asks whether they liked it;
+ * failed, why, in the language of the player, and how far every line of its goal had come. A
+ * failed level whose moves can still be taken back offers that first: the level goes on from
+ * before its last move. The next level is offered after a pass.
  */
 export function levelResultPanel(
-  data: { passed: boolean; left: number | null; moves: number; goal: readonly GoalLine[]; hasNext: boolean; reason?: string },
-  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void },
+  data: LevelResult,
+  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void; onLiked?: (liked: boolean) => void },
 ): PanelSpec {
   const rows: PanelRow[] = [];
   if (data.reason) rows.push({ kind: 'say', text: data.reason });
   if (!data.passed) rows.push(...data.goal.map((line): PanelRow => ({ kind: 'field', label: { native: goalLabel(line), name: '' }, value: goalProgress(line) })));
-  else if (data.left === null) rows.push({ kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) });
-  else rows.push({ kind: 'field', label: RESULT.left, value: digits(data.left, 2) });
+  else if (data.left === null) {
+    rows.push({ kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) });
+    if (data.best !== undefined && data.best !== null) rows.push({ kind: 'field', label: RESULT.best, value: digits(data.best, 2) });
+  } else rows.push({ kind: 'field', label: RESULT.left, value: digits(data.left, 2) });
+  const { liked } = data;
+  const { onLiked, onUndo } = actions;
+  if (data.passed && liked && onLiked) {
+    rows.push(
+      { kind: 'say', text: liked.question },
+      {
+        kind: 'tabs',
+        id: 'liked',
+        labels: () => [ANSWERS.yes, ANSWERS.no],
+        selected: () => {
+          const answer = liked.answer();
+          return answer === null ? -1 : answer ? 0 : 1;
+        },
+        pick: (index) => onLiked(index === 0),
+      },
+    );
+  }
   rows.push({ kind: 'gap' });
   const next = data.passed && data.hasNext;
+  const undo = !data.passed && onUndo !== undefined && (data.undos ?? 0) > 0;
   if (next) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: actions.onNext });
+  if (undo) rows.push({ kind: 'command', id: 'undo', label: { native: COMMANDS.undo.native, name: `${COMMANDS.undo.name} ${data.undos}` }, action: onUndo });
   rows.push(
     { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
     { kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels },
   );
-  return { title: data.passed ? PANELS.cleared : PANELS.failed, home: next ? 'next' : 'again', rows };
+  return { title: data.passed ? PANELS.cleared : PANELS.failed, home: next ? 'next' : undo ? 'undo' : 'again', rows };
 }

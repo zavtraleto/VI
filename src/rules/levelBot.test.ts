@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { PROBE_LEVELS } from '../levels/levels';
-import { SKILLS, botCommand, createBot } from './bot';
+import { SKILLS, SKILL_NAMES, botCommand, createBot } from './bot';
 import { defaultConfig } from './config';
-import { goalBot, levelTable, limitFor, percentile, pickSeed, playLevel, trySeed, type SeedTrial } from './levelBot';
+import {
+  GREEDY, goalBot, levelTable, limitFor, measure, neededBy, percentile, pickSeed, playLevel, randomMoves, randomPlay, randomRate, skillRates, trapRate,
+  trySeed, witnessWay, type SeedTrial,
+} from './levelBot';
+import { moveText, replay } from './levelSolver';
 import { createRun, step } from './sim';
-import type { LevelSpec } from './types';
+import type { LevelSpec, PuzzleDie } from './types';
 
-const byId = (id: string): LevelSpec => PROBE_LEVELS.find((level) => level.id === id)!;
+/** Two levels of the second probe, laid from a seed: a board to clear, and an order with a limit taken from the players. */
+const SEEDED: readonly LevelSpec[] = [
+  { id: 'c1', seed: 1, size: 5, values: [2, 3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0 },
+  { id: 'k1', seed: 15, size: 5, values: [2, 3], norm: 8, arrival: 'refill', goal: { kind: 'order', items: [{ value: 2, count: 4 }] }, moves: 6 },
+];
+const byId = (id: string): LevelSpec => SEEDED.find((level) => level.id === id)!;
 const SEND: LevelSpec = { id: 'send', seed: 3, size: 5, values: [2, 3], norm: 8, arrival: 'refill', goal: { kind: 'send', count: 6 }, moves: 0 };
 
 describe('a player of the rules on a level', () => {
@@ -146,7 +154,7 @@ describe('the seed and the limit of a level', () => {
 
 describe('table of the levels', () => {
   it('has a row for every level and player', () => {
-    const table = levelTable({ levels: PROBE_LEVELS.slice(0, 2), skills: ['novice', 'pro'], runs: 3 });
+    const table = levelTable({ levels: SEEDED, skills: ['novice', 'pro'], runs: 3 });
     const rows = table.split('\n');
     expect(rows).toHaveLength(5);
     expect(rows[0]).toMatch(/^level\s+board\s+faces\s+dice\s+come\s+goal\s+seed\s+limit\s+player\s+reached\s+p5\s+p50\s+p75\s+p90\s+in limit\s+left p50$/);
@@ -161,5 +169,93 @@ describe('table of the levels', () => {
     expect(rows[0]).toMatch(/^level\s+goal\s+s1\s+s2\s+s3\s+pick\s+limit$/);
     expect(rows[1]).toMatch(/^k1\s+order 4 of 2\s+\S+\s+\S+\s+\S+\s+seed [123] \(\S+\)\s+\d+ \(reach \d+%\)$/);
     expect(rows[2]).toMatch(/^c1\s+clear the board\s+\d+%!?\s+\d+%!?\s+\d+%!?\s+seed [123] \(\d+%\)\s+none$/);
+  });
+});
+
+describe('the yardsticks of a board to be cleared', () => {
+  /** A board of three cells a side given die by die; the player starts on the first die named. */
+  const board = (dice: readonly PuzzleDie[]): LevelSpec => ({
+    id: 'test', seed: 1, size: 3, values: [2, 3], norm: dice.length, arrival: 'none', goal: { kind: 'clear' }, moves: 0,
+    layout: { dice, start: { x: dice[0].x, z: dice[0].z } },
+  });
+  /** One roll west makes the pair. */
+  const PAIR = board([{ x: 2, z: 0, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1 }]);
+  /** The pair, and a die beside it that comes to it over the die that is going. */
+  const GLASS = board([{ x: 2, z: 0, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1 }, { x: 1, z: 1, top: 6, north: 5 }]);
+
+  it('have a greedy player with the eye of a pro and no failings', () => {
+    expect(GREEDY).toMatchObject({ depth: SKILLS.pro.depth, rolls: SKILLS.pro.rolls, budget: SKILLS.pro.budget, miss: 0, missPerRoll: 0, lapse: 0, slip: 0, greed: 0 });
+    expect(GREEDY.think).toEqual([0, 0]);
+    expect(GREEDY.pause).toEqual([0, 0]);
+  });
+
+  it('count the greedy runs that end at a dead end', () => {
+    expect(trapRate(PAIR, 5)).toBe(0);
+    // One die cannot be cleared: the first move of every run ends it.
+    expect(trapRate(board([{ x: 1, z: 1, top: 6, north: 3 }]), 5)).toBe(1);
+    expect(trapRate(GLASS, 6)).toBe(trapRate(GLASS, 6));
+  });
+
+  it('have a random player that makes any move it can get to, the same ones for one seed', () => {
+    const end = randomPlay(PAIR, 3, 12);
+    expect(JSON.stringify(randomPlay(PAIR, 3, 12))).toBe(JSON.stringify(end));
+    expect(end.levelRun!.moves).toBeLessThanOrEqual(12);
+    expect(end.over || end.levelRun!.moves === 12).toBe(true);
+  });
+
+  it('give the random player thirty moves, or four times the fewest', () => {
+    expect(randomMoves(1)).toBe(30);
+    expect(randomMoves(7)).toBe(30);
+    expect(randomMoves(12)).toBe(48);
+  });
+
+  it('count the random runs that clear the board', () => {
+    const rate = randomRate(PAIR, 40, 1);
+    expect(rate).toBeGreaterThan(0.5);
+    expect(rate).toBeLessThanOrEqual(1);
+    expect(randomRate(PAIR, 40, 1)).toBe(rate);
+    expect(randomRate(board([{ x: 1, z: 1, top: 6, north: 3 }]), 10, 1)).toBe(0);
+  });
+
+  it('count the clears of every player by skill', () => {
+    const rates = skillRates(PAIR, 3);
+    expect(Object.keys(rates)).toEqual(SKILL_NAMES);
+    expect(rates.pro).toBe(1);
+    for (const skill of SKILL_NAMES) expect(rates[skill]).toBeGreaterThanOrEqual(0);
+  });
+
+  it('take the shortest way a strong player clears the board by, as a way the solver can play', () => {
+    const way = witnessWay(GLASS, 3)!;
+    expect(way.length).toBeGreaterThanOrEqual(2);
+    const end = replay(GLASS, way);
+    expect(end.endReason).toBe('passed');
+    expect(end.levelRun!.moves).toBe(way.length);
+    expect(witnessWay(board([{ x: 1, z: 1, top: 6, north: 3 }]), 2)).toBeNull();
+  });
+
+  it('name what a board cannot be cleared without', () => {
+    // The third die of three is a link whatever is done; over the die that is going is only the short way.
+    expect(neededBy(GLASS, 2, ['link', 'glass'])).toEqual(['link']);
+  });
+
+  it('measure a board: the solver for the moves, the players for the rest', () => {
+    const measured = measure(GLASS, { skillRuns: 2 });
+    expect(measured).toMatchObject({ par: 2, exact: true, depth: 1, uses: ['link', 'glass'], needs: ['link'] });
+    expect(measured.way!.map(moveText)).toEqual(['2,0,W', '1,1,N']);
+    expect(measured.traps).toBeGreaterThanOrEqual(0);
+    expect(measured.random).toBeGreaterThanOrEqual(0);
+    expect(Object.keys(measured.skills)).toEqual(SKILL_NAMES);
+  });
+
+  it('take a level that keeps its way at its word, and play the way again', () => {
+    // A longer way than the fewest: round the die that is going.
+    const kept: LevelSpec = { ...GLASS, par: 3, exact: false, solution: ['2,0,W', '1,1,E', '2,1,N'] };
+    expect(measure(kept, { skillRuns: 1 })).toMatchObject({ par: 3, exact: false, uses: ['link'] });
+    expect(() => measure({ ...kept, solution: ['0,0,E'] }, { skillRuns: 1 })).toThrow(/cannot be made/);
+  });
+
+  it('say that a board with no way has none', () => {
+    const measured = measure(board([{ x: 1, z: 1, top: 6, north: 3 }]), { skillRuns: 1 });
+    expect(measured).toMatchObject({ par: null, way: null, exact: false, traps: 1, random: 0 });
   });
 });

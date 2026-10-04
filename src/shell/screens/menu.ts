@@ -12,7 +12,7 @@ import type { Palette } from '../theme';
 /** What the files of the main menu do. */
 export interface MenuActions {
   onEndless: () => void;
-  onTimed: () => void;
+  onLevels: () => void;
   onPuzzle: () => void;
   onTutorial: () => void;
   onRecords: () => void;
@@ -21,10 +21,12 @@ export interface MenuActions {
 
 /** What the program has on record about the one who sits at it. */
 export interface MenuData {
-  /** Best score of a session without a limit, and of one with it. */
+  /** Best score of a session without a limit. */
   bestEndless: number;
-  bestTimed: number;
-  /** Seconds a session with a limit lasts, as the rules have it. */
+  /** Levels of the game passed, out of how many there are. */
+  levelsDone: number;
+  levelsTotal: number;
+  /** Seconds a session with a limit lasts, as the rules have it: for a line that names the time. */
   limitSec: number;
   tutorialDone: boolean;
   /** Puzzles cleared, out of how many there are. */
@@ -67,7 +69,7 @@ export class MenuScreen implements ShellScreen {
   ) {
     this.actions = {
       protocol: actions.onEndless,
-      limited: actions.onTimed,
+      levels: actions.onLevels,
       exercise: actions.onTutorial,
       tasks: actions.onPuzzle,
       records: actions.onRecords,
@@ -297,8 +299,8 @@ export class MenuScreen implements ShellScreen {
     switch (kind) {
       case 'bestEndless':
         return digits(data.bestEndless, 6);
-      case 'bestTimed':
-        return digits(data.bestTimed, 6);
+      case 'levels':
+        return `${digits(data.levelsDone, 2)}/${digits(data.levelsTotal, 2)}`;
       case 'exercise':
         return data.tutorialDone ? 'DONE' : 'PENDING';
       case 'tasks':

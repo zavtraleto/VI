@@ -62,7 +62,7 @@ export const STATUS = {
 export const LEGEND = '←↑↓→ 移動   ENTER 実行';
 
 /** What a file of the menu shows under its name. */
-export type FileField = 'bestEndless' | 'bestTimed' | 'exercise' | 'tasks' | 'sessions' | 'revision';
+export type FileField = 'bestEndless' | 'levels' | 'exercise' | 'tasks' | 'sessions' | 'revision';
 
 export interface MenuFile {
   id: string;
@@ -79,14 +79,15 @@ export interface MenuFile {
 
 /**
  * The six files of the main menu, one on each face of the die. Opposite faces add up to
- * seven: the session without a limit faces the settings of the program, the session with a
- * limit faces its log, the two exercises stand side by side.
+ * seven: the session without a limit faces the settings of the program, the levels face the
+ * log, the two exercises stand side by side. The levels stand where the session of the day
+ * stood: that session is still in the program and in its log, and has no file of its own.
  */
 export const MENU_FILES: readonly MenuFile[] = [
   /** "Protocol"; "best record". */
   { id: 'protocol', face: 1, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', field: ['最高記録', 'bestEndless'] },
-  /** "Time limit"; "today's record": the session with a limit is the session of the day. */
-  { id: 'limited', face: 2, name: 'LIMITED', native: '時限', line: 'shellLimited', field: ['本日記録', 'bestTimed'] },
+  /** "Stages": the levels of the game; "completed". */
+  { id: 'levels', face: 2, name: 'LEVELS', native: '段階', line: 'shellLevels', field: ['完了', 'levels'] },
   /** "Exercise"; "state". */
   { id: 'exercise', face: 3, name: 'EXERCISE', native: '演習', line: 'shellExercise', field: ['状態', 'exercise'] },
   /** "Tasks"; "completed". */
@@ -199,7 +200,7 @@ export const PANELS = {
   cleared: { native: '完了', name: 'CLEARED' },
   /** "Stages": the levels of the game. */
   levels: { native: '段階', name: 'LEVELS' },
-  /** "Failure": the moves of a level are spent and its goal is not met. */
+  /** "Failure": a level has come to a dead end, or its moves are spent with its goal not met. */
   failed: { native: '失敗', name: 'FAILED' },
   /** "New record": what a result is named once the session has taken its place above the best there was. */
   record: { native: '新記録', name: 'NEW RECORD' },
@@ -224,6 +225,8 @@ export const COMMANDS = {
   next: { native: '次へ', name: 'NEXT' },
   /** "Start". */
   start: { native: '開始', name: 'START' },
+  /** "Take back": the last move of a level, from its result. */
+  undo: { native: '取消', name: 'UNDO' },
   rules: { native: '規則', name: 'RULES' },
   /** "Registration": the platform gives the player a name. */
   register: { native: '登録', name: 'REGISTER' },
@@ -252,6 +255,9 @@ export const RESULT = {
   /** "Rank": the place the session took in the log. */
   rank: { native: '順位', name: 'RANK' },
 } as const satisfies Record<string, PanelName>;
+
+/** The answers to the question a passed level asks: "yes" and "no". */
+export const ANSWERS = { yes: 'はい YES', no: 'いいえ NO' } as const;
 
 /** The log of sessions: which sessions, and the heads of its columns. */
 export const RECORDS = {

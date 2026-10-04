@@ -174,9 +174,7 @@ export class CubeMeshes {
     if (cube.state === 'idle' || cube.state === 'moving') return 'idle';
     const height = cubeHeight(cube, state.config);
     if (cube.state === 'rising') return height <= state.config.mountHeight ? 'risingLow' : 'rising';
-    // On a level a die that sinks is glass at once, all but the one under the player: that one holds while they stand on it.
-    const { player } = state;
-    if (state.levelRun && player.level === 'top' && player.x === cube.x && player.z === cube.z) return 'sinking';
+    // On a level a die that sinks is glass at once, the one under the player like any other.
     return height <= state.config.sinkLowHeight ? 'sinkingLow' : 'sinking';
   }
 

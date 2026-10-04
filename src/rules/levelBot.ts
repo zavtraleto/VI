@@ -1,8 +1,11 @@
-import { SKILLS, SKILL_NAMES, botCommand, createBot, type Bot, type SkillName } from './bot';
+import { SKILLS, SKILL_NAMES, botCommand, createBot, type Bot, type Skill, type SkillName } from './bot';
 import { defaultConfig } from './config';
 import { goalLines, worldRuns } from './level';
+import { SOLVER_MAX_STATES, moveOf, movesAt, playMove, solveLevel, tryWay, type SolverMove } from './levelSolver';
+import { canAcceptCommand, resolveMove } from './movement';
+import { randomInt } from './rng';
 import { createRun, step } from './sim';
-import type { LevelGoal, LevelSpec, RunState } from './types';
+import type { LevelGoal, LevelSpec, RunState, Technique } from './types';
 
 /**
  * What a level asks of a player, without a person playing it: the player of `bot.ts` plays the
@@ -14,7 +17,9 @@ import type { LevelGoal, LevelSpec, RunState } from './types';
  * the faces still asked for, for a chain it goes on with the group that is open. It does not
  * plan towards the goal over several clears, so its count is on the generous side.
  *
- * Run it with `node scripts/levels.mjs`.
+ * These counts set the seeds and limits of the levels with goals other than a clear board, which
+ * are put off for now; the boards to clear of the ladder are measured further down, by the
+ * solver and three yardstick players. Run those with `node scripts/ladder.mjs`.
  */
 export interface LevelPlay {
   skill: SkillName;
@@ -52,17 +57,175 @@ export function goalBot(spec: LevelSpec, skill: SkillName, botSeed: number): Bot
   return bot;
 }
 
-export function playLevel(spec: LevelSpec, skill: SkillName, botSeed: number, maxMoves = MAX_MOVES): LevelPlay {
+/**
+ * Plays a level with a player of the rules, with no limit of moves, and keeps the rolls and
+ * pushes it made: the way it went, as a solver would write it.
+ */
+function playWith(spec: LevelSpec, bot: Bot, maxMoves: number): { state: RunState; way: SolverMove[] } {
   const state = createRun({ seed: spec.seed, config: defaultConfig(), level: { ...spec, moves: 0 } });
-  const bot = goalBot(spec, skill, botSeed);
   const run = state.levelRun!;
+  const way: SolverMove[] = [];
   for (let calls = 0; calls < MAX_CALLS && !state.over; calls++) {
-    step(state, botCommand(bot, state));
+    const cmd = botCommand(bot, state);
+    if (cmd !== null && canAcceptCommand(state)) {
+      const intent = resolveMove(state, cmd);
+      if ((intent.kind === 'roll' || intent.kind === 'push') && intent.cube) way.push({ x: intent.cube.x, z: intent.cube.z, dir: cmd, push: intent.kind === 'push' });
+    }
+    step(state, cmd);
     // The last move is let land: it may be the one that meets the goal.
     if (run.moves >= maxMoves && !worldRuns(state)) break;
   }
+  return { state, way };
+}
+
+export function playLevel(spec: LevelSpec, skill: SkillName, botSeed: number, maxMoves = MAX_MOVES): LevelPlay {
+  const { state } = playWith(spec, goalBot(spec, skill, botSeed), maxMoves);
   const left = state.cubes.filter((cube) => cube.state !== 'sinking').length;
-  return { skill, botSeed, reached: state.endReason === 'passed', moves: run.moves, steps: state.stats.steps, left };
+  return { skill, botSeed, reached: state.endReason === 'passed', moves: state.levelRun!.moves, steps: state.stats.steps, left };
+}
+
+/**
+ * The yardsticks of a board to be cleared: three players that are not people, each showing one
+ * thing. The greedy one always takes the nearest clear, and the share of its runs that end at a
+ * dead end says how hard the board punishes play without a plan. The random one makes any move
+ * it can get to: a lesson it should pass, a peak it should not. The five players by skill show
+ * the gap between a weak hand and a strong one.
+ */
+
+/**
+ * The greedy player: the eye of a pro and no failings, no pauses, and no weighing of what a
+ * clear gives. It takes the nearest clear it sees.
+ */
+export const GREEDY: Skill = {
+  ...SKILLS.pro,
+  think: [0, 0], thinkPerMove: 0, thinkPerCube: 0, pause: [0, 0], idle: [0, 0],
+  miss: 0, missPerRoll: 0, lapse: 0, lapseTicks: [0, 0], slip: 0, greed: 0,
+};
+
+/** Moves after which a greedy run is called neither lost nor won. */
+const GREEDY_MOVES = 60;
+
+/** Share of greedy runs, with the player's own seeds from 1 on, that end at a dead end. */
+export function trapRate(spec: LevelSpec, runs = 40): number {
+  let lost = 0;
+  for (let botSeed = 1; botSeed <= runs; botSeed++) {
+    if (playWith(spec, createBot(GREEDY, botSeed), GREEDY_MOVES).state.endReason === 'failed') lost++;
+  }
+  return lost / runs;
+}
+
+/** A run of the random player: every move is any of those it can get to. */
+export function randomPlay(spec: LevelSpec, seed: number, maxMoves: number): RunState {
+  let state = createRun({ seed: spec.seed, config: defaultConfig(), level: { ...spec, moves: 0 } });
+  const rng = { rng: (seed ^ 0x2545f491) | 0 };
+  for (let made = 0; made < maxMoves && !state.over; made++) {
+    const moves = movesAt(state);
+    if (moves.length === 0) break;
+    state = playMove(state, moves[randomInt(rng, moves.length)]);
+  }
+  return state;
+}
+
+/** Moves a random run gets: thirty, or four times the fewest the board is cleared in. */
+export function randomMoves(par: number): number {
+  return Math.max(30, 4 * par);
+}
+
+/** Share of random runs that clear the board in the moves they get. `par` is the level's own unless given. */
+export function randomRate(spec: LevelSpec, runs = 100, par = spec.par ?? 0): number {
+  let cleared = 0;
+  for (let seed = 1; seed <= runs; seed++) {
+    if (randomPlay(spec, seed, randomMoves(par)).endReason === 'passed') cleared++;
+  }
+  return cleared / runs;
+}
+
+/** Share of the runs of each player by skill, the weakest first, that clear the board. */
+export function skillRates(spec: LevelSpec, runs = 20): Record<SkillName, number> {
+  const rates = {} as Record<SkillName, number>;
+  for (const skill of SKILL_NAMES) {
+    let cleared = 0;
+    for (let botSeed = 1; botSeed <= runs; botSeed++) {
+      if (playLevel(spec, skill, botSeed).reached) cleared++;
+    }
+    rates[skill] = cleared / runs;
+  }
+  return rates;
+}
+
+/**
+ * The shortest way a strong player clears the board by: the word a level is taken on when the
+ * solver cannot count it through. Null when none of the runs clears it.
+ */
+export function witnessWay(spec: LevelSpec, runs = 20): SolverMove[] | null {
+  let best: SolverMove[] | null = null;
+  for (const skill of WITNESSES) {
+    for (let botSeed = 1; botSeed <= runs; botSeed++) {
+      const { state, way } = playWith(spec, goalBot(spec, skill, botSeed), MAX_MOVES);
+      if (state.endReason === 'passed' && (!best || way.length < best.length)) best = way;
+    }
+  }
+  return best;
+}
+
+/** What a board comes to: what the solver says of it and how the yardsticks play it. */
+export interface Measures {
+  /** Fewest moves known, whether proved the fewest, and the way; null when no way is known. */
+  par: number | null;
+  exact: boolean;
+  way: SolverMove[] | null;
+  depth: number;
+  uses: Technique[];
+  /** Techniques no way within three moves of the fewest does without. */
+  needs: Technique[];
+  traps: number;
+  random: number;
+  skills: Record<SkillName, number>;
+}
+
+/** Boards a search for a way without a technique may see: enough for a small board, and a big one is left unsaid. */
+const NEEDS_MAX_STATES = 400_000;
+
+/**
+ * Techniques a level cannot be cleared without: those of its way for which no way without them
+ * is found within three moves of the fewest. One the search could not settle is not named.
+ */
+export function neededBy(spec: LevelSpec, par: number, uses: readonly Technique[], maxStates = NEEDS_MAX_STATES): Technique[] {
+  return uses.filter((technique) => {
+    const { solution, exhausted } = solveLevel(spec, { ban: [technique], maxMoves: par + 3, maxStates });
+    return solution === null && exhausted;
+  });
+}
+
+/**
+ * Measures a board. A level that keeps its way is taken at its word, and the way is played
+ * again; any other is solved, and where the solver gives up, a strong player is asked.
+ */
+export function measure(spec: LevelSpec, opts: { maxStates?: number; skillRuns?: number } = {}): Measures {
+  const { maxStates = SOLVER_MAX_STATES, skillRuns = 20 } = opts;
+  let way: SolverMove[] | null = null;
+  let exact = false;
+  if (spec.solution) {
+    way = spec.solution.map(moveOf);
+    exact = spec.exact ?? false;
+  } else {
+    const solved = solveLevel(spec, { maxStates });
+    way = solved.solution?.moves ?? (solved.exhausted ? null : witnessWay(spec));
+    exact = solved.solution !== null;
+  }
+  const report = way ? tryWay(spec, way) : null;
+  const par = way && report?.state.endReason === 'passed' ? way.length : null;
+  return {
+    par,
+    exact,
+    way: par === null ? null : way,
+    depth: report?.depth ?? 0,
+    uses: report?.uses ?? [],
+    needs: par === null || !report ? [] : neededBy(spec, par, report.uses),
+    traps: trapRate(spec),
+    random: randomRate(spec, 100, par ?? 0),
+    skills: skillRates(spec, skillRuns),
+  };
 }
 
 /** Moves to the goal in every run, the fewest first; a run that did not get there counts as endless. */

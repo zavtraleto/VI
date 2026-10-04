@@ -201,10 +201,19 @@ const LEVEL_LAYOUT_TRIES = 400;
 /**
  * The board of a level: its number of dice with the player on the one in the middle, nothing
  * ready to clear, and a group that lacks one die a roll away. A level has no board to fall
- * back on: one that cannot be laid is a mistake in the level, and it says so.
+ * back on: one that cannot be laid is a mistake in the level, and it says so. A level that
+ * gives its board die by die gets exactly that board, and the generator is not asked for anything.
  */
 export function placeLevelLayout(state: RunState): void {
   const spec = state.levelRun!.spec;
+  if (spec.layout) {
+    for (const { x, z, top, north } of spec.layout.dice) {
+      const ori = ALL_ORIENTATIONS.find((o) => o.top === top && o.north === north);
+      if (!ori) throw new Error(`level ${spec.id}: no die shows ${top} on top and ${north} to the north`);
+      addCube(state, x, z, ori);
+    }
+    return;
+  }
   let layout: Placement[] | null = null;
   // A board to be cleared is crowded, and a crowded board is laid less often.
   for (let attempt = 0; attempt < LEVEL_LAYOUT_TRIES && !layout; attempt++) layout = tryStartLayout(state, true, spec.values);

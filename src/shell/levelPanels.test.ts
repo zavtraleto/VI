@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import { textWidth } from './layout';
-import { levelGoalPanel, levelResultPanel, levelsPanel, pausePanel } from './panels';
+import { levelResultPanel, levelsPanel, pausePanel } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
-import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { ANSWERS, COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 const nothing = (): void => undefined;
 
@@ -109,23 +109,6 @@ describe('the list of levels', () => {
   });
 });
 
-describe('the card a level opens with', () => {
-  it('says what the level asks for, a thought to a line, and starts it', () => {
-    const run: string[] = [];
-    const spec = levelGoalPanel({ number: 7, lines: ['Clear every die off the board', 'Moves are not limited'] }, { onStart: () => run.push('start'), onBack: () => run.push('back') });
-    expect(spec.title).toEqual({ native: PANELS.levels.native, name: 'LEVEL 07' });
-    expect(spec.rows.filter((candidate) => candidate.kind === 'say').map((candidate) => (candidate.kind === 'say' ? candidate.text : ''))).toEqual([
-      'Clear every die off the board',
-      'Moves are not limited',
-    ]);
-    expect(commands(spec)).toEqual(['start', 'back']);
-    expect(spec.home).toBe('start');
-    for (const candidate of spec.rows) if (candidate.kind === 'command') candidate.action();
-    spec.back?.();
-    expect(run).toEqual(['start', 'back', 'back']);
-  });
-});
-
 describe('the result of a level', () => {
   const actions = { onNext: nothing, onAgain: nothing, onLevels: nothing };
 
@@ -139,9 +122,62 @@ describe('the result of a level', () => {
     expect(spec.home).toBe('next');
   });
 
-  it('says how many moves a level with no limit took', () => {
-    const spec = levelResultPanel({ passed: true, left: null, moves: 17, goal: CLEAR, hasNext: true }, actions);
-    expect(row(spec, 'field')).toMatchObject({ label: RESULT.moves, value: '17' });
+  it('says how many moves a level with no limit took, and the fewest the player has done it in', () => {
+    const spec = levelResultPanel({ passed: true, left: null, moves: 17, best: 12, goal: CLEAR, hasNext: true }, actions);
+    expect(row(spec, 'field', 0)).toMatchObject({ label: RESULT.moves, value: '17' });
+    expect(row(spec, 'field', 1)).toMatchObject({ label: RESULT.best, value: '12' });
+    // Before the first pass there is no best to show.
+    const first = levelResultPanel({ passed: true, left: null, moves: 17, best: null, goal: CLEAR, hasNext: true }, actions);
+    expect(first.rows.filter((candidate) => candidate.kind === 'field')).toHaveLength(1);
+  });
+
+  it('asks a passed level whether it was liked, and takes yes or no', () => {
+    let liked: boolean | null = null;
+    const spec = levelResultPanel(
+      { passed: true, left: null, moves: 5, best: 5, goal: CLEAR, hasNext: true, liked: { question: 'Did you like it?', answer: () => liked } },
+      { ...actions, onLiked: (answer) => (liked = answer) },
+    );
+    expect(spec.rows.find((candidate) => candidate.kind === 'say')).toEqual({ kind: 'say', text: 'Did you like it?' });
+    const answers = row(spec, 'tabs');
+    expect(answers.labels()).toEqual([ANSWERS.yes, ANSWERS.no]);
+    // Nothing is picked until the player answers.
+    expect(answers.selected()).toBe(-1);
+    answers.pick(1);
+    expect(liked).toBe(false);
+    expect(answers.selected()).toBe(1);
+    answers.pick(0);
+    expect(liked).toBe(true);
+    expect(answers.selected()).toBe(0);
+    // The question does not stand in the way: the next level is still the first thing to press.
+    expect(spec.home).toBe('next');
+    expect(commands(spec)).toEqual(['next', 'again', 'levels']);
+  });
+
+  it('does not ask after a level that failed', () => {
+    const spec = levelResultPanel(
+      { passed: false, left: null, moves: 5, goal: CLEAR, hasNext: true, reason: 'Dead end', liked: { question: 'Did you like it?', answer: () => null } },
+      { ...actions, onLiked: nothing },
+    );
+    expect(spec.rows.some((candidate) => candidate.kind === 'tabs')).toBe(false);
+  });
+
+  it('offers to take the last move back at a dead end, while there are moves to take back', () => {
+    const run: string[] = [];
+    const stuck = { passed: false, left: null, moves: 6, goal: CLEAR, hasNext: true, reason: 'Dead end: one die is left' };
+    const spec = levelResultPanel({ ...stuck, undos: 2 }, { ...actions, onUndo: () => run.push('undo') });
+    expect(spec.title).toBe(PANELS.failed);
+    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Dead end: one die is left' });
+    expect(row(spec, 'field')).toMatchObject({ label: { native: 'LEFT' }, value: '05' });
+    expect(commands(spec)).toEqual(['undo', 'again', 'levels']);
+    expect(spec.home).toBe('undo');
+    const undo = spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'undo');
+    expect(undo).toMatchObject({ label: { native: COMMANDS.undo.native, name: 'UNDO 2' } });
+    if (undo?.kind === 'command') undo.action();
+    expect(run).toEqual(['undo']);
+    // With none left the level is lost.
+    const lost = levelResultPanel({ ...stuck, undos: 0 }, { ...actions, onUndo: () => run.push('undo') });
+    expect(commands(lost)).toEqual(['again', 'levels']);
+    expect(lost.home).toBe('again');
   });
 
   it('has no next level after the last one', () => {
