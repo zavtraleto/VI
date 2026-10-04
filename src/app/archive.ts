@@ -1,32 +1,68 @@
-import { RECORDS, eraDate } from '../shell/text';
 import { ARCHIVE_ENDLESS, ARCHIVE_TIMED } from './archiveData';
 import type { Day } from './daily';
 
 /**
- * What stands in the log of sessions before anyone has played: the program's own archive. The
- * program was used before the player, and its log is not empty. The scores are real ones - the
- * player made of the rules has played every session (`node scripts/archive.mjs`) - and the
- * lines are written as the program writes its records, not as players of the platform: the six
- * best are the records of the six subjects, the rest are earlier sessions by their dates. The
- * best of all is the record of the sixth, far over the others.
+ * The players a log has while few people play: made-up ones, so that the table of a new game
+ * does not stand empty and a session has someone to go past. Their scores are real - the
+ * player made of the rules has played every session (`node scripts/archive.mjs`) - and they
+ * are written the way players of the platform are: most under the kind of name the platform
+ * gives a guest, a colour and an animal, the rest under names of their own.
+ *
+ * There are a few hundred of them, each with a strength, and they behave as a crowd does. The
+ * log of the sessions without a limit starts with some of them and takes the others in one by
+ * one as the days go by. The session of a day is played by some of them, different ones every
+ * day, and their lines come into its table through the day.
+ *
+ * They are lines of the game's own table only: nothing of them is sent to the platform.
  */
 export interface ArchiveLine {
   name: string;
   score: number;
-  /** A record of one of the six. */
-  subject: boolean;
 }
 
-/** Lines of the archive in a log, and how many of them are the records of the six. */
-export const ARCHIVE_LINES = 50;
-const SUBJECTS = 6;
-
 const DAY_MS = 86_400_000;
-/** The days the sessions of the archive are of: none is later than the last start the program remembers, H13.03.21. */
-const FIRST_DAY = Date.UTC(1998, 3, 1) / DAY_MS;
-const LAST_DAY = Date.UTC(2001, 2, 21) / DAY_MS;
+/** The players: as many as there are sessions played for them, the weakest first. */
+const PLAYERS = ARCHIVE_ENDLESS.length;
+/** Players in the log of the sessions without a limit when it starts, and how often one more comes into it. */
+const FIRST = 50;
+const FIRST_DAY_MS = Date.UTC(2026, 9, 4);
+const JOIN_MS = DAY_MS / 2;
+/** Players who play the session of a day. */
+const DAILY = 56;
+/** The first of them have played within the first half hour of the day: one every so much of a day. */
+const EARLY = 6;
+const EARLY_STEP = 0.0035;
+/** How much earlier in the day than evenly the rest come: the table fills fast, then slowly. */
+const ARRIVAL_POWER = 1.6;
+/** How far the session of a day may be from what the player usually makes, in places of the players. */
+const DAY_SWING = 18;
+/** Share of the players that go under a name of the kind the platform gives a guest. */
+const GUEST_SHARE = 0.74;
+/** Widest a name gets in the table, in signs: a longer one would be cut there. */
+const NAME_ROOM = 16;
 
-/** Numbers between 0 and 1 from a seed: the same seed gives the same log. */
+const COLOURS = [
+  'Red', 'Blue', 'Green', 'Yellow', 'Pink', 'Purple', 'Orange', 'White', 'Black', 'Gray', 'Brown', 'Teal', 'Gold', 'Silver', 'Coral',
+  'Amber', 'Violet', 'Indigo', 'Lime', 'Olive', 'Crimson', 'Azure', 'Ivory', 'Jade', 'Peach', 'Plum', 'Rose', 'Tan', 'Aqua', 'Bronze',
+];
+const ANIMALS = [
+  'Chicken', 'Mackerel', 'Angelfish', 'Otter', 'Falcon', 'Badger', 'Heron', 'Lynx', 'Moose', 'Panda', 'Koala', 'Gecko', 'Rabbit', 'Salmon',
+  'Tiger', 'Walrus', 'Zebra', 'Beaver', 'Bison', 'Camel', 'Cobra', 'Crane', 'Dingo', 'Eagle', 'Ferret', 'Gopher', 'Hornet', 'Iguana', 'Jackal',
+  'Lemur', 'Marmot', 'Newt', 'Ocelot', 'Parrot', 'Quail', 'Raccoon', 'Seal', 'Tapir', 'Urchin', 'Viper', 'Wombat', 'Yak', 'Antelope', 'Bobcat',
+  'Cheetah', 'Dolphin', 'Finch', 'Giraffe', 'Hamster', 'Ibis', 'Jaguar', 'Kiwi', 'Llama', 'Mole', 'Narwhal', 'Octopus', 'Penguin', 'Robin',
+  'Shark', 'Toucan', 'Vulture', 'Weasel', 'Swan', 'Stork', 'Sloth', 'Puffin', 'Owl', 'Mantis', 'Lobster', 'Hedgehog', 'Goose', 'Frog', 'Fox',
+  'Duck', 'Deer', 'Crab', 'Catfish', 'Bat', 'Bear', 'Wolf',
+];
+/** Names players give themselves: first names and handles, of no one in particular. */
+const OWN_NAMES = [
+  'kuro_neko', 'Tomás', 'alex2009', 'nika', 'mr.fox', 'Lena', 'Sasha', 'dice_goblin', 'Mika', 'Ren', 'oleg_k', 'yuki', 'Zhenya', 'pixelcat',
+  'Marta', 'leo', 'Sofia', 'Timur', 'nord', 'qwerty', 'Anya', 'Bruno', 'hana', 'Kai', 'Dasha', 'max', 'luna', 'Pavel', 'noob_master', 'Emre',
+  'João', 'Aiko', 'tofu', 'Vika', 'Arjun', 'rei', 'Stas', 'olive', 'Nico', 'milk_tea', 'Gosha', 'zero', 'Ilya', 'bee', 'Katya', 'sam', 'Mateo',
+  'ghost', 'Lera', 'Мария', 'Даня', 'ольга', 'Кирилл', 'Настя', 'N0body', 'six_sides', 'Theo', 'ami', 'Lukas', 'pip', 'Zoe', 'rollin', 'Ines',
+  'dmitry', 'Chen', 'momo', 'Felix', 'tanya_s', 'Omar', 'kite', 'Julia', 'vlad99', 'Noor', 'echo',
+];
+
+/** Numbers between 0 and 1 from a seed: the same seed gives the same crowd. */
 function chance(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -37,61 +73,105 @@ function chance(seed: number): () => number {
   };
 }
 
-/** A working day of the archive's years, as the program writes a date. */
-function sessionDate(rand: () => number): string {
-  let day = FIRST_DAY + Math.floor(rand() * (LAST_DAY - FIRST_DAY + 1));
-  // The institute did not sit at the table on a Saturday or a Sunday: 1 January 1970 was a Thursday.
-  const weekday = (((day + 4) % 7) + 7) % 7;
-  if (weekday === 6) day -= 1;
-  else if (weekday === 0) day -= 2;
-  return eraDate(new Date(day * DAY_MS).toISOString().slice(0, 10));
-}
-
-/**
- * The lines of a log from its scores, best first: the best is the record of the sixth, the
- * five after it are those of the others, in no order; the rest get dates.
- */
-function lines(scores: readonly number[], seed: number): ArchiveLine[] {
-  const rand = chance(seed);
-  const others = [1, 2, 3, 4, 5];
-  for (let i = others.length - 1; i > 0; i--) {
+/** The same things in an order taken from `rand`. */
+function shuffled<T>(items: readonly T[], rand: () => number): T[] {
+  const list = [...items];
+  for (let i = list.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
+    [list[i], list[j]] = [list[j], list[i]];
   }
-  const numbers = [SUBJECTS, ...others];
-  return [...scores]
-    .sort((a, b) => b - a)
-    .map((score, i) =>
-      i < SUBJECTS ? { name: `${RECORDS.subject} 0${numbers[i]}`, score, subject: true } : { name: sessionDate(rand), score, subject: false },
-    );
+  return list;
 }
 
-let endless: ArchiveLine[] | null = null;
-/** The archive of the day last asked for: it is asked for on every frame the log is drawn. */
-let daily: { seed: number; lines: ArchiveLine[] } | null = null;
+/** A name for each player, no two alike, none too long for the table. Whose name is whose has nothing to do with how strong they are. */
+function makeNames(count: number): string[] {
+  const rand = chance(7);
+  const own = shuffled(OWN_NAMES, rand);
+  const made = new Set<string>();
+  while (made.size < count) {
+    if (own.length > 0 && rand() >= GUEST_SHARE) {
+      made.add(own.pop()!);
+      continue;
+    }
+    const name = `${COLOURS[Math.floor(rand() * COLOURS.length)]} ${ANIMALS[Math.floor(rand() * ANIMALS.length)]}`;
+    if (name.length <= NAME_ROOM) made.add(name);
+  }
+  return [...made];
+}
 
-/** The archive of the sessions without a limit: the same lines always. */
-export function endlessArchive(): readonly ArchiveLine[] {
-  endless ??= lines(ARCHIVE_ENDLESS.slice(0, ARCHIVE_LINES), 6);
-  return endless;
+let names: string[] | null = null;
+let joining: number[] | null = null;
+/** The log last made of each kind: it is asked for on every frame it is drawn. */
+let endless: { count: number; lines: ArchiveLine[] } | null = null;
+let daily: { seed: number; players: { line: ArchiveLine; arrives: number }[] } | null = null;
+
+function nameOf(player: number): string {
+  names ??= makeNames(PLAYERS);
+  return names[player];
 }
 
 /**
- * The archive of the session of a day. The table of the day starts anew every day, and so does
- * what the program has in it: the lines of a day are taken from a pool of sessions by the seed
- * of that day, one from every stretch of the pool, so each day has its weak and its strong ones.
+ * The order the players come into the log of the sessions without a limit: first the ones it
+ * starts with, spread evenly from the weakest to the strongest, then the others in no order.
  */
-export function dailyArchive(day: Pick<Day, 'seed'>): readonly ArchiveLine[] {
-  if (daily?.seed === day.seed) return daily.lines;
-  const pool = ARCHIVE_TIMED.filter((score) => score > 0).sort((a, b) => b - a);
-  const rand = chance(day.seed);
-  const count = Math.min(ARCHIVE_LINES, pool.length);
-  const picked: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const from = Math.floor((i * pool.length) / count);
-    const to = Math.floor(((i + 1) * pool.length) / count);
-    picked.push(pool[from + Math.floor(rand() * (to - from))]);
+function joiningOrder(): number[] {
+  if (joining) return joining;
+  const first = new Set<number>();
+  for (let i = 0; i < FIRST; i++) first.add(Math.round((i * (PLAYERS - 1)) / (FIRST - 1)));
+  const later = ARCHIVE_ENDLESS.map((_, player) => player).filter((player) => !first.has(player));
+  joining = [...first, ...shuffled(later, chance(11))];
+  return joining;
+}
+
+const byScore = (a: ArchiveLine, b: ArchiveLine): number => b.score - a.score;
+
+/** The made-up players in the log of the sessions without a limit at a moment, best first: one more every half a day. */
+export function endlessArchive(nowMs: number): readonly ArchiveLine[] {
+  const since = Math.floor((nowMs - FIRST_DAY_MS) / JOIN_MS);
+  const count = Math.min(PLAYERS, FIRST + Math.max(0, Number.isFinite(since) ? since : 0));
+  if (endless?.count === count) return endless.lines;
+  const lines = joiningOrder()
+    .slice(0, count)
+    .map((player) => ({ name: nameOf(player), score: ARCHIVE_ENDLESS[player] }))
+    .filter((line) => line.score > 0)
+    .sort(byScore);
+  endless = { count, lines };
+  return lines;
+}
+
+/**
+ * The made-up players in the table of the session of a day at a moment, best first. Who plays
+ * that day, when in the day, and how well against their usual is taken from the seed of the
+ * day: the same for everyone, and different the day after. A line is in the table from the
+ * moment its player has played.
+ */
+export function dailyArchive(day: Pick<Day, 'seed' | 'index'>, nowMs: number): readonly ArchiveLine[] {
+  if (daily?.seed !== day.seed) {
+    const rand = chance(day.seed);
+    const today = shuffled(ARCHIVE_ENDLESS.map((_, player) => player), rand).slice(0, DAILY);
+    const last = ARCHIVE_TIMED.length - 1;
+    const taken = new Set<number>();
+    const players = today.map((player, i) => {
+      const arrives = i < EARLY ? (i + 1) * EARLY_STEP : rand() ** ARRIVAL_POWER;
+      // A good day or a bad one: the session of a player some places away. Past either end of
+      // the players it comes back in, and no session is made twice in a day: two players with
+      // the very same score would give the table away.
+      let other = Math.round(player + (rand() * 2 - 1) * DAY_SWING);
+      if (other < 0) other = -other;
+      if (other > last) other = 2 * last - other;
+      for (let step = 1; taken.has(other) && step <= last; step++) {
+        const near = [other + step, other - step].find((at) => at >= 0 && at <= last && !taken.has(at));
+        if (near !== undefined) other = near;
+      }
+      taken.add(other);
+      return { line: { name: nameOf(player), score: ARCHIVE_TIMED[other] ?? 0 }, arrives };
+    });
+    daily = { seed: day.seed, players };
   }
-  daily = { seed: day.seed, lines: lines(picked, day.seed ^ 0x51ed270b) };
-  return daily.lines;
+  // How much of the day has gone by; a day that is over has all its lines.
+  const gone = (nowMs - day.index * DAY_MS) / DAY_MS;
+  return daily.players
+    .filter((player) => player.arrives <= gone && player.line.score > 0)
+    .map((player) => player.line)
+    .sort(byScore);
 }

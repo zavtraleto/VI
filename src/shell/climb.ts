@@ -14,8 +14,8 @@ export interface ClimbLine {
   score: number;
   /** The best the player had before this session. */
   own: boolean;
-  /** A record of one of the six. */
-  subject: boolean;
+  /** A line that is not as the others: going past it is heard in the voice of the other side. No log has such lines now. */
+  subject?: boolean;
 }
 
 /** A line of the log as the way up shows it at a moment. */

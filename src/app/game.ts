@@ -1001,7 +1001,7 @@ export class Game {
 
   /**
    * The name the player's line of the log goes under: the one they have in the table of the
-   * platform, where it keeps one; anywhere else the number the program has for them.
+   * platform, where it keeps one; anywhere else the line says whose it is.
    */
   private ownName(): string {
     // A table that already has a line of the player knows best what they are called there.
@@ -1010,15 +1010,16 @@ export class Game {
       const mine = board === undefined || typeof board === 'string' ? undefined : board.find((entry) => entry.own && entry.name !== '');
       if (mine) return mine.name;
     }
-    return (hasBoard() ? playerName() : null) ?? `${RECORDS.subject} ${RECORDS.seventh}`;
+    return (hasBoard() ? playerName() : null) ?? RECORDS.you;
   }
 
   /**
-   * The log of a kind of session as it stands: what the program had in it before the player,
-   * the players of the platform, and the one who plays, best first.
+   * The log of a kind of session as it stands now: the made-up players it is filled with, the
+   * players of the platform, and the one who plays, best first.
    */
   private log(mode: Scored, day: Day = dayAt(platformNow())): Standing[] {
-    const archive = mode === 'timed' ? dailyArchive(day) : endlessArchive();
+    const now = platformNow();
+    const archive = mode === 'timed' ? dailyArchive(day, now) : endlessArchive(now);
     return standings(archive, this.players(mode, day), { name: this.ownName(), score: this.bestScore(mode, day.date) });
   }
 

@@ -230,13 +230,8 @@ export const RECORDS = {
   failed: '接続なし',
   /** A player the platform has no name for. */
   nameless: 'NO NAME',
-  /**
-   * "Subject": a record of one of the six in the program's own archive is written with its
-   * number, and so is the line of the one who plays where no platform has a name for them.
-   */
-  subject: '被験者',
-  /** The number of the one who plays: the seventh. */
-  seventh: '07',
+  /** The line of the one who plays, where no platform has a name for them. */
+  you: 'YOU',
 } as const;
 
 /** What the program lets the player set, and the values it shows. */

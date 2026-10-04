@@ -1,7 +1,8 @@
-// Fills the log of sessions with what stood in it before anyone played: sessions of the player
-// made of the rules (src/rules/bot.ts), at strengths between its named ones, from one who has
-// just been shown the rules up to one who plays for chains. Their scores are written to
-// src/app/archiveData.ts; the names and dates of the lines are made in src/app/archive.ts.
+// Plays the sessions the log of sessions is filled with while few people play: sessions of the
+// player made of the rules (src/rules/bot.ts), at strengths between its named ones, from one who
+// has just been shown the rules up to one who plays for chains. Their scores are written to
+// src/app/archiveData.ts, weakest player first; who the lines belong to and when they come into
+// the log is made in src/app/archive.ts.
 //
 //   node scripts/archive.mjs          plays the sessions and writes the file
 //   node scripts/archive.mjs probe    prints strength, seed and score of every session, writes nothing
@@ -20,15 +21,11 @@ const { createRun, step, defaultConfig, RULES_VERSION } = await load('/src/rules
 
 /** The strongest player of the log stands this far along the named ones: 3 is the one who plays for chains. */
 const STRONGEST = 3.2;
-/** Sessions without a limit: each one is a line of the log; the weakest gives its line to the one below. */
-const ENDLESS_RUNS = 50;
 /**
- * One session of a player stronger than all of those: the record of the sixth, who was not
- * like the others (docs/art/VI_Claims.md, 2.5). It stands about three times over the next line.
+ * Players of the log. Each has a strength, plays one session without a limit, and one session
+ * of the day that the days take their lines from.
  */
-const SIXTH = { strength: 3.42, seed: 606 };
-/** Sessions of the day: a pool a day takes its lines from. */
-const TIMED_RUNS = 250;
+const PLAYERS = 250;
 /** A session that lasts longer than this is given up. */
 const LIMIT_MINUTES = 40;
 
@@ -85,10 +82,8 @@ function sessions(count, timed) {
 
 const probe = process.argv.includes('probe');
 const started = Date.now();
-// The sixth takes the line of the weakest of the others: the log keeps its fifty lines.
-const others = sessions(ENDLESS_RUNS, false).sort((a, b) => b.score - a.score).slice(0, -1);
-const endless = [...others, { ...SIXTH, score: play(SIXTH.strength, SIXTH.seed, false) }];
-const timed = sessions(TIMED_RUNS, true);
+const endless = sessions(PLAYERS, false);
+const timed = sessions(PLAYERS, true);
 
 if (probe) {
   for (const [name, runs] of [['endless', endless], ['timed', timed]]) {
@@ -96,17 +91,18 @@ if (probe) {
     for (const run of runs) console.log(`  ${run.strength.toFixed(2)}  seed ${run.seed}  ${run.score}`);
   }
 } else {
-  const list = (runs) => runs.map((run) => run.score).sort((a, b) => b - a).join(', ');
+  const list = (runs) => runs.map((run) => run.score).join(', ');
   const text = `/**
  * Written by \`node scripts/archive.mjs\`, under the rules of ${RULES_VERSION}: not to be changed by hand.
- * Scores of sessions played by the player made of the rules, at strengths from one who has just
- * been shown them to one who plays for chains. Best first.
+ * Scores of sessions played by the player made of the rules, at ${PLAYERS} strengths from one who has
+ * just been shown the rules to one who plays for chains. In the order of the players, the
+ * weakest first: the same place in both lists is the same player.
  */
 
-/** Sessions without a limit: every one is a line of the log. */
+/** A session without a limit of each player. */
 export const ARCHIVE_ENDLESS: readonly number[] = [${list(endless)}];
 
-/** Sessions of the day: the pool a day takes its lines from. */
+/** A session of the day of each player: what the days take their lines from. */
 export const ARCHIVE_TIMED: readonly number[] = [${list(timed)}];
 `;
   writeFileSync(resolve(root, 'src/app/archiveData.ts'), text);
