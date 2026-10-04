@@ -13,7 +13,9 @@ import {
   onPlatformAudio,
   onPlatformPause,
   platformNow,
+  playerName,
   register,
+  shareOut,
   showInterstitial,
   submitScore,
   takeFocus,
@@ -21,6 +23,7 @@ import {
   track,
   trackPerformance,
   type BoardEntry,
+  type Shared,
 } from '../platform/bridge';
 import { SETTINGS_KEY, addRun, bestOf, bestOn, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
@@ -55,14 +58,16 @@ import {
   type RunState,
 } from '../rules';
 import { GameHud, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
-import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type NetworkLine, type SystemValues } from '../shell/panels';
+import { Climb } from '../shell/climb';
+import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { eraDate } from '../shell/text';
+import { COMMANDS, LOGO_TEXT, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
 import { t, type TextKey } from '../ui/i18n';
+import { dailyArchive, endlessArchive } from './archive';
 import { clockLeft, secondsLeft } from './clock';
 import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
 import { Hints } from './hints';
@@ -70,6 +75,7 @@ import { puzzleReport, starsFor } from './puzzleStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
+import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
@@ -91,6 +97,14 @@ const TASKS_TO_AD = [5, 7] as const;
 const tasksToAd = (): number => TASKS_TO_AD[0] + Math.floor(Math.random() * (TASKS_TO_AD[1] - TASKS_TO_AD[0] + 1));
 
 const PUZZLE_RULES: readonly TextKey[] = ['puzzleRule1', 'puzzleRule2', 'puzzleRule3', 'puzzleRule4', 'puzzleRule5'];
+
+/**
+ * A finished session waits this long before it sets off up the log: the end of a session is a
+ * cut, a silence and one low note, and they are heard out first.
+ */
+const CLIMB_LEAD_MS = 1100;
+/** How long the command of sharing reads what came of it. */
+const SHARED_MS = 2200;
 
 /** How long the direction of a swipe stays shown after the finger has let go. */
 const STEER_LINGER_MS = 280;
@@ -190,6 +204,9 @@ export class Game {
   private readonly away = new Set<'page' | 'platform'>();
   /** The tables of players the platform keeps, by kind of session: their lines, or how the asking for them stands. */
   private readonly boards = new Map<string, readonly BoardEntry[] | 'waiting' | 'failed'>();
+  /** What came of the last sharing, for as long as its command reads it. */
+  private shared: Shared | null = null;
+  private sharedTimer = 0;
   /** The day the run on the board was started on: the session with a limit is the session of that day. */
   private day: Day = dayAt(platformNow());
   /** What the events of the run add up to, for the analytics. */
@@ -533,12 +550,15 @@ export class Game {
   }
 
   /**
-   * Records are kept per mode and rule key. The exercise keeps rules of its own and is not
-   * scored: while it is on the board, the key is the one of the session it leads to.
+   * Records are kept per kind of session. The rules everyone has keep one log through all
+   * their versions: a new version does not start it from nothing. Rules with something switched
+   * keep a log of their own. The exercise keeps rules of its own and is not scored: while it is
+   * on the board, the key is the one of the session it leads to.
    */
   private recordKey(mode: 'endless' | 'timed'): string {
     const config = this.state.tutorial ? defaultConfig(this.settings.experiments) : this.state.config;
-    return `${mode}:${ruleKey(config)}`;
+    const rules = ruleKey(config);
+    return rules === ruleKey(defaultConfig()) ? mode : `${mode}/${rules}`;
   }
 
   /** The table the current run counts towards; the tutorial shows Endless. */
@@ -583,6 +603,8 @@ export class Game {
     this.begin(createRun({ seed, config, tutorial, timed: kind === 'timed' }), start !== undefined);
     this.resumed = false;
     if (this.opened && (kind === 'endless' || kind === 'timed')) {
+      // The table of the platform is asked for now, so that it is here when the session ends and goes up it.
+      if (hasBoard()) this.loadBoards();
       this.runIndex++;
       this.sinceLastRun = this.lastRunEnd > 0 ? Math.round((Date.now() - this.lastRunEnd) / 1000) : -1;
     }
@@ -963,45 +985,90 @@ export class Game {
     }
   }
 
-  /** The lines of a table of the platform as the log shows them. The table of the session of the day is that of today alone. */
-  private boardLines(mode: Scored): readonly NetworkLine[] | 'waiting' | 'failed' {
-    const board = this.boards.get(mode) ?? 'waiting';
-    if (typeof board === 'string' || mode === 'endless') return board;
-    const today = dayAt(platformNow()).index;
+  /**
+   * The players the platform has in its table of a kind of session, as far as the table has
+   * come. The table of the session of the day is that of `day` alone.
+   */
+  private players(mode: Scored, day: Day): readonly PlayerLine[] {
+    const board = this.boards.get(mode);
+    if (board === undefined || typeof board === 'string') return [];
+    if (mode === 'endless') return board;
     return board
       .map((entry) => ({ entry, kept: readDailyValue(entry.score) }))
-      .filter(({ kept }) => kept.day === today)
-      .map(({ entry, kept }, i) => ({ ...entry, score: kept.score, rank: i + 1 }));
+      .filter(({ kept }) => kept.day === day.index)
+      .map(({ entry, kept }) => ({ ...entry, score: kept.score }));
+  }
+
+  /**
+   * The name the player's line of the log goes under: the one they have in the table of the
+   * platform, where it keeps one; anywhere else the number the program has for them.
+   */
+  private ownName(): string {
+    return (hasBoard() ? playerName() : null) ?? `${RECORDS.subject} ${RECORDS.seventh}`;
+  }
+
+  /**
+   * The log of a kind of session as it stands: what the program had in it before the player,
+   * the players of the platform, and the one who plays, best first.
+   */
+  private log(mode: Scored, day: Day = dayAt(platformNow())): Standing[] {
+    const archive = mode === 'timed' ? dailyArchive(day) : endlessArchive();
+    return standings(archive, this.players(mode, day), { name: this.ownName(), score: this.bestScore(mode, day.date) });
   }
 
   private showRecords(back: () => void): void {
-    const state = this.state;
     const shared = hasBoard();
     if (shared) this.loadBoards();
     track('records_opened', { network: shared });
     this.shell.showPanel(
       recordsPanel(
-        SCORED.map((mode) => ({ runs: this.settings.runs[this.recordKey(mode)] ?? [], survival: mode === 'endless' })),
-        state.mode === 'timed' ? 1 : 0,
-        state.config.tickMs,
-        back,
-        shared
-          ? {
-              lines: (section) => this.boardLines(SCORED[section]),
-              day: (section) => (SCORED[section] === 'timed' ? eraDate(dayAt(platformNow()).date) : null),
-              // A guest is given a name by the platform's own sign-in; the log opens again with what it says.
-              onRegister: canRegister()
-                ? () =>
-                    void register().then((known) => {
-                      track('player_registered', { known });
-                      this.showRecords(back);
-                    })
-                : undefined,
-            }
-          : undefined,
+        (section) => {
+          const mode = SCORED[section];
+          const day = dayAt(platformNow());
+          const board = this.boards.get(mode);
+          return {
+            lines: this.log(mode, day),
+            link: shared && typeof board === 'string' ? board : null,
+            day: mode === 'timed' ? eraDate(day.date) : null,
+          };
+        },
+        this.state.mode === 'timed' ? 1 : 0,
+        {
+          onBack: back,
+          // A guest is given a name by the platform's own sign-in; the log opens again with what it says.
+          onRegister: canRegister()
+            ? () =>
+                void register().then((known) => {
+                  track('player_registered', { known });
+                  this.showRecords(back);
+                })
+            : undefined,
+          share: { label: () => this.shareLabel(), action: (section) => this.share(SCORED[section]) },
+        },
       ),
       this.inMenu,
     );
+  }
+
+  /** What the command of sharing reads: its name, or for a moment what came of the last sending. */
+  private shareLabel(): PanelName {
+    return this.shared === null ? COMMANDS.share : COMMANDS[this.shared];
+  }
+
+  /** Sends out the best the player has in a kind of session, with the address of the game. */
+  private share(mode: Scored): void {
+    const score = this.bestScore(mode);
+    const text = score > 0 ? t('shareScore').replace('{score}', String(score)) : LOGO_TEXT;
+    void shareOut(text).then((how) => {
+      track('result_shared', { mode, how, score });
+      this.shared = how;
+      this.shell.touch();
+      window.clearTimeout(this.sharedTimer);
+      this.sharedTimer = window.setTimeout(() => {
+        this.shared = null;
+        this.shell.touch();
+      }, SHARED_MS);
+    });
   }
 
   /** What the player can set: sound, motion, shake, swipes or buttons, the camera. In development the tools of the playtest open from here. */
@@ -1076,10 +1143,20 @@ export class Game {
     // The session of the day is measured against the day it was started on.
     const { day } = this;
     const date = mode === 'timed' ? day.date : dayAt(platformNow()).date;
-    const previous = this.bestScore(mode, day.date);
     let note: string | null = null;
     const scored = state.mode !== 'practice' && !state.config.custom;
+    // The log as it stood before this session, and the best the player had in it: on this
+    // device or, where the platform knows more, there.
+    const before = scored ? this.log(mode, day) : [];
+    const previous = scored ? (before.find((line) => line.own)?.score ?? 0) : this.bestScore(mode, day.date);
     const best = scored && state.score > previous;
+    // The session goes up that log under the eyes of the player.
+    const climb = scored
+      ? new Climb(
+          { lines: before, score: state.score, name: this.ownName(), record: best, reduced: prefersReducedMotion(this.settings), leadMs: CLIMB_LEAD_MS },
+          (event) => this.audio.ui(event),
+        )
+      : undefined;
     if (state.mode === 'practice') {
       note = t('practiceNote');
     } else if (state.config.custom) {
@@ -1100,7 +1177,10 @@ export class Game {
       // The table of the platform takes a new best of a session played by the rules everyone has.
       if (best && ruleKey(state.config) === ruleKey(defaultConfig())) {
         // In a table the game draws itself, a score of the session of the day goes with its day.
-        void submitScore(mode, mode === 'timed' && hasBoard() ? dailyValue(day.index, state.score) : state.score);
+        // The table is read again once it has the score: the log then shows it as the platform has it.
+        void submitScore(mode, mode === 'timed' && hasBoard() ? dailyValue(day.index, state.score) : state.score).then((taken) => {
+          if (taken && hasBoard()) this.loadBoards();
+        });
         tell('player_got_achievement');
       }
     }
@@ -1121,7 +1201,8 @@ export class Game {
           {
             timeUp: state.endReason === 'time',
             score: state.score,
-            best: this.bestScore(mode, day.date),
+            best: scored ? Math.max(previous, state.score) : previous,
+            before: previous,
             day: mode === 'timed' ? eraDate(day.date) : null,
             maxChain: state.maxChain,
             ticks: state.tick,
@@ -1133,6 +1214,7 @@ export class Game {
             onRecords: () => this.showRecords(result),
             onMenu: () => answered(() => this.showMenu()),
           },
+          climb,
         ),
         false,
       );

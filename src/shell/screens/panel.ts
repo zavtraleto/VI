@@ -1,3 +1,4 @@
+import type { ClimbRow } from '../climb';
 import type { Kit } from '../kit';
 import { CELL_H, CELL_W, MIN_ZONE, type Box } from '../layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
@@ -8,41 +9,60 @@ export interface PanelCommand {
   id: string;
   label: PanelName;
   action: () => void;
+  /** It acts inside the press itself: see `ShellItem.instant`. */
+  instant?: boolean;
 }
 
 /** A line of a panel, from top to bottom. */
 export type PanelRow =
   /** A name and its value, with dots between. */
-  | { kind: 'field'; label: PanelName; value: string }
+  | { kind: 'field'; label: PanelName; value: string | (() => string) }
   /** A name, and under it a number at twice the size: the reading the panel is about. */
   | { kind: 'number'; label: PanelName; value: number; places: number }
+  /**
+   * The reading a result is about and, beside it, the place it took in the log, both at twice
+   * the size; `of` is how many lines the log has. `lit` shows the place filled: it has just been taken.
+   */
+  | { kind: 'standing'; label: PanelName; value: () => number; places: number; rank: PanelName; place: () => number; of: () => number; lit: () => boolean }
   | ({ kind: 'command' } & PanelCommand)
-  /** Several commands side by side. */
-  | { kind: 'commands'; commands: readonly PanelCommand[] }
+  /** Several commands side by side; `stacked` puts them one under another where the picture is tall. */
+  | { kind: 'commands'; commands: readonly PanelCommand[]; stacked?: boolean }
   /** A setting: pressing it takes its next value. */
   | { kind: 'switch'; id: string; label: PanelName; value: () => string; action: () => void }
   /** One of several, side by side: the one picked is filled. */
   | { kind: 'tabs'; id: string; labels: () => readonly string[]; selected: () => number; pick: (index: number) => void }
-  /** A log: its place, a date or a name and a value on every line. `lines` is the most it shows. */
-  | { kind: 'table'; head: () => string; rows: () => readonly TableLine[]; empty: () => string; lines: number }
+  /**
+   * A log: its place, a name and a value on every line. `lines` is the most it shows; `status`
+   * is said at the end of its head, where there is something to say about the log as a whole.
+   */
+  | { kind: 'table'; head: () => string; rows: () => readonly TableLine[]; empty: () => string; lines: number; status?: () => string }
+  /**
+   * A part of a log around one line of it, which stands in the middle row: a session on its way
+   * up the log. `rows` gives what is in sight in so many rows; `lines` is the most it shows.
+   */
+  | { kind: 'climb'; rows: (count: number) => readonly (ClimbRow | null)[]; lines: number }
   /** The tasks, as numbered cells with what each has earned; `note` is said under them for the cell in focus. */
   | { kind: 'levels'; id: string; levels: readonly { stars: number }[]; current: number; pick: (index: number) => void; note: (index: number) => string }
   /** What a task has earned, out of three. */
   | { kind: 'stars'; count: number }
-  /** Prose in the language of the player, in the voice. */
-  | { kind: 'say'; text: string; dim?: boolean }
+  /** Prose in the language of the player, in the voice. With `when`, its room is kept and it is said once that holds. */
+  | { kind: 'say'; text: string; dim?: boolean; when?: () => boolean }
   | { kind: 'gap' };
 
 /**
  * A line of a log. `own` marks the line of the one who is playing: it is written in full
- * tone and stays in sight when the log is cut short. `place` stands in for the count of lines
- * where the log has places of its own.
+ * tone and, when it lies below what the log has room for, the last rows show it with the lines
+ * next to it. `place` stands in for the count of lines where the log has places of its own.
  */
 export type TableLine = readonly [label: string, value: string, own?: boolean, place?: number];
 
 export interface PanelSpec {
-  title: PanelName;
+  title: PanelName | (() => PanelName);
   rows: readonly PanelRow[];
+  /** The bar of the name blinks: what the name says has just happened. */
+  flash?: () => boolean;
+  /** The panel moves by itself: asked every frame, answers true when it has to be drawn again. */
+  live?: (timeMs: number) => boolean;
   /** The zone in focus when the panel opens. */
   home?: string;
   /** Esc and the system's "back". */
@@ -60,6 +80,10 @@ const SAY_SIZE = 16;
 /** Cells of tasks across a tall picture and across a wide one. */
 const LEVELS_TALL = 6;
 const LEVELS_WIDE = 10;
+/** Half a blink of the bar of the name, in milliseconds. */
+const BLINK_MS = 110;
+/** Rows a log keeps for the line of the one who plays and the lines next to it. */
+const NEAR_ROWS = 5;
 
 interface Placed {
   row: PanelRow;
@@ -76,6 +100,8 @@ const ceilTo = (value: number, step: number): number => Math.ceil(value / step) 
  */
 export class PanelScreen implements ShellScreen {
   readonly home?: string;
+  /** Which half of a blink the bar of the name is in; -1 while it does not blink. */
+  private blink = -1;
 
   constructor(
     private readonly context: ShellContext,
@@ -90,8 +116,14 @@ export class PanelScreen implements ShellScreen {
     return this.zones();
   }
 
-  update(): boolean {
-    return false;
+  update(timeMs: number): boolean {
+    let changed = this.spec.live?.(timeMs) ?? false;
+    const blink = this.spec.flash?.() ? Math.floor(timeMs / BLINK_MS) % 2 : -1;
+    if (blink !== this.blink) {
+      this.blink = blink;
+      changed = true;
+    }
+    return changed;
   }
 
   back(): void {
@@ -105,16 +137,20 @@ export class PanelScreen implements ShellScreen {
     else kit.veil();
     kit.box(plate, bg);
     kit.frame(plate, ink, true);
-    kit.rect(plate.x + 1, plate.y + 1, plate.w - 2, CELL_H + 1, ink);
-    kit.text(this.spec.title.native, plate.x + 6, plate.y + 1, bg, { bold: true });
-    kit.text(this.spec.title.name, plate.x + plate.w - 6, plate.y + 1, bg, { align: 'right', bold: true });
+    const title = typeof this.spec.title === 'function' ? this.spec.title() : this.spec.title;
+    // In the dark half of a blink the bar is only its line.
+    const hollow = this.blink === 1;
+    if (hollow) kit.rect(plate.x + 1, plate.y + CELL_H + 1, plate.w - 2, 1, ink);
+    else kit.rect(plate.x + 1, plate.y + 1, plate.w - 2, CELL_H + 1, ink);
+    kit.text(title.native, plate.x + 6, plate.y + 1, hollow ? ink : bg, { bold: true });
+    kit.text(title.name, plate.x + plate.w - 6, plate.y + 1, hollow ? ink : bg, { align: 'right', bold: true });
 
     const left = plate.x + PAD;
     const right = plate.x + plate.w - PAD;
     for (const { row, box } of placed) {
       switch (row.kind) {
         case 'field':
-          kit.field(`${row.label.native} ${row.label.name}`, row.value, left, right, box.y, dim, ink);
+          kit.field(`${row.label.native} ${row.label.name}`, typeof row.value === 'function' ? row.value() : row.value, left, right, box.y, dim, ink);
           break;
         case 'number': {
           kit.text(`${row.label.native} ${row.label.name}`, left, box.y, dim);
@@ -122,6 +158,24 @@ export class PanelScreen implements ShellScreen {
           const zeros = Math.min(text.length - 1, text.length - String(Math.max(0, Math.round(row.value))).length);
           const after = kit.text(text.slice(0, zeros), left, box.y + CELL_H, faint, { scale: 2 });
           kit.text(text.slice(zeros), after, box.y + CELL_H, ink, { scale: 2, bold: true });
+          break;
+        }
+        case 'standing': {
+          kit.text(`${row.label.native} ${row.label.name}`, left, box.y, dim);
+          const text = digits(row.value(), row.places);
+          const zeros = Math.min(text.length - 1, text.length - String(Math.max(0, Math.round(row.value()))).length);
+          const after = kit.text(text.slice(0, zeros), left, box.y + CELL_H, faint, { scale: 2 });
+          kit.text(text.slice(zeros), after, box.y + CELL_H, ink, { scale: 2, bold: true });
+          // The place at the right edge, and after it how many lines the log has, at the size of a label.
+          kit.text(`${row.rank.native} ${row.rank.name}`, right, box.y, dim, { align: 'right' });
+          const of = `/${digits(row.of(), 2)}`;
+          const ofStart = right - kit.measure(of);
+          kit.text(of, ofStart, box.y + CELL_H * 2, dim);
+          const place = digits(row.place(), 2);
+          const placeStart = ofStart - 3 - kit.measure(place, 2);
+          const lit = row.lit();
+          if (lit) kit.rect(placeStart - 2, box.y + CELL_H, kit.measure(place, 2) + 4, CELL_H * 2, ink);
+          kit.text(place, placeStart, box.y + CELL_H, lit ? bg : ink, { scale: 2, bold: true });
           break;
         }
         case 'command':
@@ -157,14 +211,20 @@ export class PanelScreen implements ShellScreen {
         }
         case 'table': {
           const all = row.rows();
-          const count = this.tableLines(row, box);
+          const count = this.tableLines(row.lines, box.h - CELL_H);
           const own = all.findIndex((line) => line[2]);
-          // The line of the one who is playing takes the last place in sight when it lies below it.
-          const rows = own >= count ? [...all.slice(0, count - 1), all[own]] : all.slice(0, count);
+          // The line of the one who is playing lies below what is in sight: the last rows show
+          // it with the lines next to it, under a line that says the log is cut there.
+          const near = own >= count ? Math.min(NEAR_ROWS, count - (count > NEAR_ROWS ? 3 : 1)) : 0;
+          const from = Math.min(Math.max(own - Math.floor(near / 2), count - near), all.length - near);
+          const rows = near > 0 ? [...all.slice(0, count - near), ...all.slice(from, from + near)] : all.slice(0, count);
           kit.text('No.', left, box.y, dim);
           kit.text(row.head(), left + CELL_W * 4, box.y, dim);
+          const status = row.status?.() ?? '';
+          if (status) kit.text(status, right, box.y, dim, { align: 'right' });
           kit.rect(left, box.y + CELL_H - 1, right - left, 1, faint);
           if (rows.length === 0) kit.text(row.empty(), plate.x + plate.w / 2, box.y + CELL_H + 4, dim, { align: 'center' });
+          if (near > 0 && count > near) kit.dither(left, box.y + CELL_H + 1 + (count - near) * CELL_H, right - left, 1, dim, 4);
           rows.forEach(([label, value, mine, place], i) => {
             const y = box.y + CELL_H + 2 + i * CELL_H;
             kit.text(digits(place ?? i + 1, 2), left, y, mine ? ink : dim);
@@ -172,6 +232,28 @@ export class PanelScreen implements ShellScreen {
             const valueStart = right - kit.measure(value);
             kit.text(value, valueStart, y, ink, { bold: i === 0 || mine === true });
             kit.leader(labelEnd + CELL_W, valueStart - CELL_W, y, faint);
+          });
+          break;
+        }
+        case 'climb': {
+          const lines = row.rows(this.tableLines(row.lines, box.h));
+          lines.forEach((line, i) => {
+            if (!line) return;
+            const y = box.y + 2 + i * CELL_H;
+            const run = line.tone === 'run';
+            const full = run || line.tone === 'own';
+            // The session itself is a filled bar across the panel, with the red mark of the seventh on it.
+            if (run) {
+              kit.rect(plate.x + 2, y, plate.w - 4, CELL_H, ink);
+              this.mark(kit, { x: plate.x - 3, y, w: 0, h: CELL_H });
+            }
+            const tone = run ? bg : full || line.tone === 'lit' ? ink : dim;
+            kit.text(digits(line.place, 2), left, y, tone, { bold: run });
+            const nameEnd = kit.text(line.name, left + CELL_W * 4, y, tone, { bold: full });
+            const value = digits(line.score, 6);
+            const valueStart = right - kit.measure(value);
+            kit.text(value, valueStart, y, run ? bg : ink, { bold: full });
+            if (!run) kit.leader(nameEnd + CELL_W, valueStart - CELL_W, y, faint);
           });
           break;
         }
@@ -196,7 +278,7 @@ export class PanelScreen implements ShellScreen {
           this.stars(kit, row.count, plate.x + plate.w / 2, box.y + 3, 10, ink, faint);
           break;
         case 'say':
-          this.context.voice.say({ text: row.text, box: kit.toWindow(box), size: SAY_SIZE, align: 'left', dim: row.dim });
+          if (row.when?.() ?? true) this.context.voice.say({ text: row.text, box: kit.toWindow(box), size: SAY_SIZE, align: 'left', dim: row.dim });
           break;
         case 'gap':
           break;
@@ -268,8 +350,16 @@ export class PanelScreen implements ShellScreen {
     return Math.max(CELL_H + 8, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
   }
 
-  private tableLines(row: Extract<PanelRow, { kind: 'table' }>, box: Box): number {
-    return Math.max(1, Math.min(row.lines, Math.floor((box.h - CELL_H - 4) / CELL_H)));
+  /** Rows of a log that fit in `room` pixels, and no more than `most`. */
+  private tableLines(most: number, room: number): number {
+    return Math.max(1, Math.min(most, Math.floor((room - 4) / CELL_H)));
+  }
+
+  /** The lines of the panel as they stand on this picture: commands that stack on a tall one are lines of their own there. */
+  private rows(): readonly PanelRow[] {
+    const picture = this.context.picture();
+    if (picture.width > picture.height) return this.spec.rows;
+    return this.spec.rows.flatMap((row): PanelRow[] => (row.kind === 'commands' && row.stacked ? row.commands.map((command) => ({ kind: 'command', ...command })) : [row]));
   }
 
   /** Where the panel stands and where each of its lines is, in pixels of the picture. */
@@ -287,6 +377,7 @@ export class PanelScreen implements ShellScreen {
         case 'field':
           return CELL_H + 2;
         case 'number':
+        case 'standing':
           return CELL_H * 3 + 4;
         case 'command':
         case 'commands':
@@ -294,7 +385,9 @@ export class PanelScreen implements ShellScreen {
         case 'tabs':
           return zone + GAP;
         case 'table':
-          return CELL_H + 4 + lines * CELL_H;
+          return CELL_H + 4 + Math.min(lines, row.lines) * CELL_H;
+        case 'climb':
+          return 4 + Math.min(lines, row.lines) * CELL_H;
         case 'levels':
           return Math.ceil(row.levels.length / this.levelColumns()) * (zone + GAP) + CELL_H + 4;
         case 'stars':
@@ -306,8 +399,9 @@ export class PanelScreen implements ShellScreen {
       }
     };
     // A log gives up lines before the panel grows past the screen.
-    let lines = Math.max(0, ...this.spec.rows.map((row) => (row.kind === 'table' ? row.lines : 0)));
-    const total = (): number => CELL_H + 2 + PAD + this.spec.rows.reduce((sum, row) => sum + height(row, lines), 0) + PAD - GAP;
+    const rows = this.rows();
+    let lines = Math.max(0, ...rows.map((row) => (row.kind === 'table' || row.kind === 'climb' ? row.lines : 0)));
+    const total = (): number => CELL_H + 2 + PAD + rows.reduce((sum, row) => sum + height(row, lines), 0) + PAD - GAP;
     while (lines > 3 && total() > room) lines--;
 
     const tall = total();
@@ -319,7 +413,7 @@ export class PanelScreen implements ShellScreen {
     };
     const placed: Placed[] = [];
     let y = plate.y + CELL_H + 2 + PAD;
-    for (const row of this.spec.rows) {
+    for (const row of rows) {
       const h = height(row, lines);
       const pressed = row.kind === 'command' || row.kind === 'commands' || row.kind === 'switch' || row.kind === 'tabs';
       placed.push({ row, box: { x: plate.x + PAD, y, w: inner, h: pressed ? h - GAP : h } });
@@ -338,10 +432,12 @@ export class PanelScreen implements ShellScreen {
       return { x: box.x * sx, y: box.y * sy, width: box.w * sx, height: box.h * sy };
     };
     for (const { row, box } of this.plan().placed) {
-      if (row.kind === 'command') items.push({ id: row.id, rect: toWindow(box), action: row.action });
+      if (row.kind === 'command') items.push({ id: row.id, rect: toWindow(box), action: row.action, instant: row.instant });
       else if (row.kind === 'switch') items.push({ id: row.id, rect: toWindow(box), action: row.action });
       else if (row.kind === 'commands') {
-        row.commands.forEach((command, i) => items.push({ id: command.id, rect: toWindow(this.part(box, i, row.commands.length)), action: command.action }));
+        row.commands.forEach((command, i) =>
+          items.push({ id: command.id, rect: toWindow(this.part(box, i, row.commands.length)), action: command.action, instant: command.instant }),
+        );
       } else if (row.kind === 'tabs') {
         const count = row.labels().length;
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });

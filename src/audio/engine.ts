@@ -423,6 +423,15 @@ export class AudioEngine {
       case 'logo':
         this.play({ kind: 'logo' });
         break;
+      case 'climb':
+        this.play({ kind: 'rank', along: event.along });
+        break;
+      case 'past':
+        this.play({ kind: 'rankPast', own: event.who === 'own', along: event.along });
+        break;
+      case 'placed':
+        this.play({ kind: 'rankSet', along: event.along, record: event.record, moved: event.moved });
+        break;
     }
   }
 

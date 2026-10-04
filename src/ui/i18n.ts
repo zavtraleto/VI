@@ -50,6 +50,8 @@ const RU = {
   shellTasks: 'ОЧИСТКА КАНАЛА',
   shellRecords: 'ЖУРНАЛ СЕАНСОВ',
   shellSystem: 'ПАРАМЕТРЫ',
+  // What a player sends out with a link to the game: the score is what was sent to the other side.
+  shareScore: 'VI — передано на ту сторону: {score}',
 };
 
 const EN: typeof RU = {
@@ -97,6 +99,7 @@ const EN: typeof RU = {
   shellTasks: 'CLEAR THE CHANNEL',
   shellRecords: 'SESSION LOG',
   shellSystem: 'PARAMETERS',
+  shareScore: 'VI — sent to the other side: {score}',
 };
 
 export type TextKey = keyof typeof RU;

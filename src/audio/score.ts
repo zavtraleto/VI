@@ -85,6 +85,12 @@ export type Cue =
   | { kind: 'bootCheck' }
   | { kind: 'bootAnswer'; found: boolean }
   | { kind: 'logo' }
+  // The result of a session goes up the log of sessions: a line is gone past, `along` the log
+  // from its last line (0) to its top (1); a record of one of the six, or the player's own best,
+  // is gone past; the place is taken.
+  | { kind: 'rank'; along: number }
+  | { kind: 'rankPast'; own: boolean; along: number }
+  | { kind: 'rankSet'; along: number; record: boolean; moved: boolean }
   // A sign of the words of the other side, by its number among all signs.
   | { kind: 'sign'; code: number }
   // The window of a transmission: the picture is filed under `figure` and stays for `seconds`.
@@ -135,6 +141,7 @@ export const SPACING: Partial<Record<Cue['kind'], number>> = {
   step: 0.03,
   contact: 0.25,
   uiStep: 0.045,
+  rank: 0.03,
   sign: 0.07,
   reply: 1.4,
 };
@@ -143,7 +150,26 @@ export const SPACING: Partial<Record<Cue['kind'], number>> = {
 export const CUTS: readonly Cue['kind'][] = ['end'];
 
 /** The sounds of the program and of what it shows: they are heard while a session waits, too. */
-export const INTERFACE: readonly Cue['kind'][] = ['uiStep', 'uiStuck', 'uiRun', 'uiBack', 'uiOpen', 'uiClose', 'bootCheck', 'bootAnswer', 'logo', 'sign', 'window', 'windowShut'];
+export const INTERFACE: readonly Cue['kind'][] = [
+  'uiStep',
+  'uiStuck',
+  'uiRun',
+  'uiBack',
+  'uiOpen',
+  'uiClose',
+  'bootCheck',
+  'bootAnswer',
+  'logo',
+  'rank',
+  'rankPast',
+  'rankSet',
+  'sign',
+  'window',
+  'windowShut',
+];
+
+/** The clicks of the way up the log rise by this many octaves from its last line to its top. */
+const RANK_OCTAVES = 2;
 
 /** The board is looked at from a corner: this is how far it is turned, in degrees. */
 const BOARD_TURN = 30;
@@ -306,6 +332,12 @@ function gather(kit: Kit, face: number, count: number, chain: number, tier: numb
     }
   }
   return notes;
+}
+
+/** The click of a place of the log: from two octaves under the highest click of the program at the last line, up to it at the top. */
+function rankHz(kit: Kit, along: number): number {
+  const { tune, octave, num } = kit;
+  return degreeHz(tune, Math.round(clamp(along, 0, 1) * RANK_OCTAVES * octave), num('clickOctave') - RANK_OCTAVES);
 }
 
 /** How loud a die comes down: the more dice stand around it, the harder. */
@@ -590,6 +622,64 @@ function play(cue: Cue, kit: Kit): Note[] {
         }),
       );
       notes.push(low('low', degreeHz(tune, 0, -1), { gain: num('lowGain') * 0.3 * bells, decay: num('lowLen') * 1.4, drop: num('lowDrop'), fall: 0.06 }));
+      return notes;
+    }
+    case 'rank':
+      // A line of the log is gone past: the program counts it with its click, and the higher
+      // the session stands in the log, the higher the click.
+      return [
+        click('rank', rankHz(kit, cue.along), {
+          gain: 0.1 * program,
+          pan: (variety.pick('rank', 2, rand) === 0 ? -1 : 1) * 0.2,
+          decay: 0.02,
+          bright: 0.9,
+        }),
+      ];
+    case 'rankPast':
+      // The player's own best is gone past: the one and the six over it, the same note, as when
+      // a session begins. A record of one of the six: the click, and with it one note in the
+      // voice of the other side, a comma under.
+      if (cue.own) {
+        return [
+          click('rank', rankHz(kit, cue.along), { gain: 0.1 * program, decay: 0.02, bright: 0.9 }),
+          bell('own', kit.bell(0), { gain: 0.14 * bells, pan: -0.25, decay: num('bellTail') * 0.8, bright: 0.9 }),
+          bell('own', kit.bell(octave), { at: 0.09, gain: 0.14 * bells, pan: 0.25, decay: num('bellTail') * 0.8, bright: 0.9 }),
+        ];
+      }
+      return [
+        click('rank', rankHz(kit, cue.along), { gain: 0.1 * program, decay: 0.02, bright: 0.9 }),
+        other('six', (degreeHz(tune, 0, 0) / COMMA) * kit.drift(), { gain: 0.13 * far, pan: spread(0.4, rand), attack: 0.015, decay: 1.6, bright: 1.2, echo: 1.4 }),
+      ];
+    case 'rankSet': {
+      // The place is taken. Where no line was gone past, the dull click of a step that leads
+      // nowhere. Else a low under the last click, and a bell on the root; above the best there
+      // was, the bell is a hand over the open notes of the mode, upwards, with a glint over it.
+      if (!cue.moved) return [click('set', degreeHz(tune, 0, 0), { gain: 0.16 * program, decay: 0.07, dull: true })];
+      const tail = num('bellTail');
+      const notes: Note[] = [
+        low('set', degreeHz(tune, 0, -1), { gain: num('lowGain') * 0.6 * program, decay: num('lowLen') * 1.4, drop: num('lowDrop'), fall: 0.05 }),
+        click('set', rankHz(kit, cue.along), { gain: 0.17 * program, decay: 0.09 }),
+      ];
+      if (!cue.record) {
+        notes.push(bell('set', kit.bell(0), { gain: 0.1 * bells, decay: tail * 0.7, bright: 0.6, echo: 1.2 }));
+        return notes;
+      }
+      const hand = [0, 2, 3, octave, octave + 2];
+      hand.forEach((degree, i) => {
+        const last = i === hand.length - 1;
+        notes.push(
+          bell('record', kit.bell(degree), {
+            at: i * 0.055,
+            gain: (last ? 0.15 : 0.11) * bells,
+            pan: (i % 2 === 0 ? -1 : 1) * (0.2 + 0.1 * i),
+            decay: tail * (last ? 1.6 : 1),
+            bright: 1,
+            echo: 1.5,
+            wide: 0.5,
+          }),
+        );
+      });
+      notes.push(bell('glint', kit.bell(2 * octave, GLINT_CEILING), { at: hand.length * 0.055 + 0.12, gain: 0.06 * bells, decay: tail * 0.5, bright: 1.6, echo: 1.8, wide: 0.6 }));
       return notes;
     }
     case 'sign': {

@@ -110,9 +110,10 @@ export class Shell {
       items: () => this.screen?.items() ?? [],
       changed: () => this.invalidate(),
       activate: (item) => {
-        this.firing = { item, start: null };
         this.sound({ kind: item.id === 'back' ? 'back' : 'run' });
         this.invalidate();
+        if (item.instant) this.act(item.action);
+        else this.firing = { item, start: null };
       },
       move: (focus, dir) => this.screen?.move?.(focus, dir),
       stuck: () => this.sound({ kind: 'stuck' }),

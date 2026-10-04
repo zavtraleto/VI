@@ -168,6 +168,8 @@ export const PANELS = {
   tasks: { native: '課題', name: 'TASKS' },
   /** "Completed". */
   cleared: { native: '完了', name: 'CLEARED' },
+  /** "New record": what a result is named once the session has taken its place above the best there was. */
+  record: { native: '新記録', name: 'NEW RECORD' },
 } as const satisfies Record<string, PanelName>;
 
 /** What a panel can be told to do. */
@@ -191,6 +193,11 @@ export const COMMANDS = {
   rules: { native: '規則', name: 'RULES' },
   /** "Registration": the platform gives the player a name. */
   register: { native: '登録', name: 'REGISTER' },
+  /** "Sharing": the player's result goes out with a link to the game. What it answers: "copied", "sent", "failure". */
+  share: { native: '共有', name: 'SHARE' },
+  copied: { native: '複写済', name: 'COPIED' },
+  sent: { native: '送信済', name: 'SENT' },
+  failed: { native: '失敗', name: 'FAILED' },
 } as const satisfies Record<string, PanelName>;
 
 /** The readings of a result. */
@@ -206,26 +213,30 @@ export const RESULT = {
   least: { native: '最少', name: 'FEWEST' },
   /** "Today": the day a session of the day belongs to. */
   day: { native: '本日', name: 'TODAY' },
+  /** "Rank": the place the session took in the log. */
+  rank: { native: '順位', name: 'RANK' },
 } as const satisfies Record<string, PanelName>;
 
-/** The log of sessions: which sessions, which reading, and the heads of its columns. */
+/** The log of sessions: which sessions, and the heads of its columns. */
 export const RECORDS = {
   modes: ['PROTOCOL', 'LIMITED'],
-  metrics: ['SCORE', 'CHAIN', 'TIME'],
-  /** "Date". */
-  date: '日付',
   /** "No entries". */
   empty: '記録なし NO ENTRY',
-  /** Whose sessions: those of this device, or those of everyone on the platform. */
-  sources: ['LOCAL', 'NETWORK'],
-  /** "Name": the head of the column of players. */
+  /** "Name": the head of the column of whose session a line is. */
   name: '名前',
-  /** "Connecting": the table of the platform is on its way. */
-  waiting: '接続中 CONNECTING',
-  /** "No connection": the table did not come. */
-  failed: '接続なし NO LINK',
+  /** "Connecting": the players of the platform are on their way. */
+  waiting: '接続中',
+  /** "No connection": they did not come. */
+  failed: '接続なし',
   /** A player the platform has no name for. */
   nameless: 'NO NAME',
+  /**
+   * "Subject": a record of one of the six in the program's own archive is written with its
+   * number, and so is the line of the one who plays where no platform has a name for them.
+   */
+  subject: '被験者',
+  /** The number of the one who plays: the seventh. */
+  seventh: '07',
 } as const;
 
 /** What the program lets the player set, and the values it shows. */

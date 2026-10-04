@@ -208,6 +208,73 @@ export async function boardEntries(board: string): Promise<BoardEntry[]> {
     .sort((a, b) => a.rank - b.rank);
 }
 
+/** The name the platform has for the one who plays; null where it has none, or there is no platform. */
+export function playerName(): string | null {
+  const name = sdk?.player.name?.trim();
+  return name ? name : null;
+}
+
+/** Where the game is played: the address a player sends along with a result. */
+export const GAME_URL = 'https://playgama.ai/play/hbhtrqdwvr';
+
+/** What came of sending something out: it went to the sheet of the device, it lies on the clipboard, or neither. */
+export type Shared = 'sent' | 'copied' | 'failed';
+
+/** Puts text on the clipboard the way pages did before they were given one to write to. */
+function copyByHand(text: string): boolean {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+  document.body.append(area);
+  area.select();
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  }
+  area.remove();
+  return copied;
+}
+
+/**
+ * Sends a line of text out, with the address of the game under it. A phone has a sheet of its
+ * own for this; anywhere else, and where the sheet is not allowed to a frame, the text goes to
+ * the clipboard: through the platform where it has a way, else through the browser. Called
+ * from a press of the player, as browsers ask.
+ */
+export async function shareOut(text: string): Promise<Shared> {
+  const whole = `${text}\n${GAME_URL}`;
+  const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  if (touch && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ text: whole });
+      return 'sent';
+    } catch (error) {
+      // The player shut the sheet: nothing was asked for after all.
+      if ((error as { name?: string } | null)?.name === 'AbortError') return 'failed';
+    }
+  }
+  try {
+    if (sdk?.clipboard.isSupported) {
+      await sdk.clipboard.write(whole);
+      return 'copied';
+    }
+  } catch {
+    // The platform could not: the browser is asked.
+  }
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(whole);
+      return 'copied';
+    }
+  } catch {
+    // No permission in this frame: the old way below needs none.
+  }
+  return copyByHand(whole) ? 'copied' : 'failed';
+}
+
 /** The player is a guest of a platform that can give them a name. */
 export function canRegister(): boolean {
   return sdk !== null && sdk.player.isAuthorizationSupported && sdk.player.isGuest;

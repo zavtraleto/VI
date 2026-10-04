@@ -113,6 +113,9 @@ export class ShellPanel {
         shown();
       });
     gui.add(head, 'replay').name('boot: повторить');
+    // The way up the log: the score of the session that goes up it, and the way once more.
+    gui.add(lab, 'climbScore', 0, 250000, 10).name('подъём: счёт сессии');
+    gui.add({ climb: () => (lab.show('climb'), shown()) }, 'climb').name('подъём: показать');
     // The lab has changed the screen itself: the list follows without asking for it again.
     const shown = (): void => {
       head.screen = lab.screen;

@@ -64,7 +64,10 @@ export interface Settings {
   camera: { yaw: number; pitch: number; swipeTilt: number };
   /** Shows the button that opens the debug panel. */
   debugPanel: boolean;
-  /** Finished runs per rule key, newest last. */
+  /**
+   * Finished runs, newest last: under `endless` and `timed` those played by the rules everyone
+   * has, whatever their version; under a key of its own what was played by changed rules.
+   */
   runs: Record<string, RunRecord[]>;
   puzzle: PuzzleProgress;
 }
@@ -102,12 +105,33 @@ export function loadSettings(): Settings {
   // time has it switched off. It is a rule now: such a save takes the default.
   if (loaded.rulesVersion === undefined) loaded.experiments.floorClimb = defaultExperiments().floorClimb;
   loaded.rulesVersion = RULES_VERSION;
+  loaded.runs = joinRuns(loaded.runs);
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
   }
   return loaded;
+}
+
+/**
+ * Runs used to be kept under the version of the rules they were played by (`endless:0.8-…`),
+ * so the log and the best score started from nothing with every new version. They are kept by
+ * kind of session now, and what was saved the old way is taken into the two logs.
+ */
+export function joinRuns(runs: Record<string, RunRecord[]>): Record<string, RunRecord[]> {
+  const joined: Record<string, RunRecord[]> = {};
+  let moved = false;
+  for (const [key, list] of Object.entries(runs ?? {})) {
+    if (!Array.isArray(list)) continue;
+    const cut = key.indexOf(':');
+    const mode = cut < 0 ? key : key.slice(0, cut);
+    moved ||= cut >= 0;
+    joined[mode] = [...(joined[mode] ?? []), ...list];
+  }
+  // Newest last, as a log is kept: the dates are written so that they sort as text.
+  if (moved) for (const list of Object.values(joined)) list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return joined;
 }
 
 export function saveSettings(settings: Settings): boolean {

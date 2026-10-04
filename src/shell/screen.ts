@@ -16,6 +16,11 @@ export interface ShellItem {
   confirm?: boolean;
   /** The zone acts but never takes the focus: a bar that runs whatever is in focus. */
   passive?: boolean;
+  /**
+   * The zone acts inside the press itself, without the moment a pressed zone answers first:
+   * for what a browser allows only from a press, as writing to the clipboard.
+   */
+  instant?: boolean;
 }
 
 /** Which zones the player is at: what a screen needs to draw them. */
@@ -43,7 +48,15 @@ export type ShellSound =
   /** The boot: a line of the check, the answer of a line (`found` is false for the device that is not there), the logo. */
   | { kind: 'check' }
   | { kind: 'answer'; found: boolean }
-  | { kind: 'logo' };
+  | { kind: 'logo' }
+  /**
+   * The result of a session goes up the log: a line is gone past (`along` is how high in the
+   * log the session stands, 0 to 1), a record of one of the six or the player's own best is gone
+   * past, the place is taken (`moved` is false where no line was gone past).
+   */
+  | { kind: 'climb'; along: number }
+  | { kind: 'past'; who: 'subject' | 'own'; along: number }
+  | { kind: 'placed'; along: number; record: boolean; moved: boolean };
 
 /** What a screen is given to lay itself out. */
 export interface ShellContext {

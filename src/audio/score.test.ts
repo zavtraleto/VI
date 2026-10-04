@@ -65,6 +65,12 @@ const EVERY: Cue[] = [
   { kind: 'bootAnswer', found: true },
   { kind: 'bootAnswer', found: false },
   { kind: 'logo' },
+  { kind: 'rank', along: 0.4 },
+  { kind: 'rankPast', own: true, along: 0.5 },
+  { kind: 'rankPast', own: false, along: 0.9 },
+  { kind: 'rankSet', along: 0.7, record: true, moved: true },
+  { kind: 'rankSet', along: 0.7, record: false, moved: true },
+  { kind: 'rankSet', along: 0, record: false, moved: false },
   { kind: 'sign', code: 1103 },
   { kind: 'window', figure: 1, seconds: 5, glimpse: false },
   { kind: 'window', figure: 4, seconds: 3, glimpse: true },
@@ -551,8 +557,54 @@ describe('the program', () => {
     expect(held.at + held.attack + held.decay).toBeGreaterThan(3);
   });
 
+  it('counts the lines a session goes past on its way up the log with clicks that rise two octaves from its last line to its top', () => {
+    const at = (along: number): Note => notesFor({ kind: 'rank', along }, setup())[0];
+    expect(at(0).voice).toBe('click');
+    const steps = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map((along) => at(along).hz);
+    for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeGreaterThan(steps[i - 1]);
+    expect(at(1).hz / at(0).hz).toBeCloseTo(4, 6);
+    // The top of the log is the highest click the program has.
+    expect(at(1).hz).toBeCloseTo(degreeHz(TUNE, 0, Number(DEFAULTS.clickOctave)), 6);
+    // Two in a row do not come from the same side.
+    const variety = new Variety();
+    const rand = soundRandom(3);
+    const sides = [0, 1, 2, 3].map(() => notesFor({ kind: 'rank', along: 0.5 }, { values: DEFAULTS, contact: 0, rand, variety })[0].pan);
+    for (let i = 1; i < sides.length; i++) expect(Math.sign(sides[i])).toBe(-Math.sign(sides[i - 1]));
+  });
+
+  it('rings the one and the six for the best the player had, and answers a record of the six in the voice of the other side', () => {
+    const own = notesFor({ kind: 'rankPast', own: true, along: 0.5 }, setup());
+    const bells = part(own, 'own');
+    expect(bells.map((note) => note.voice)).toEqual(['bell', 'bell']);
+    expect(bells[1].hz / bells[0].hz).toBeCloseTo(2, 9);
+    const six = notesFor({ kind: 'rankPast', own: false, along: 0.5 }, setup());
+    const [far] = part(six, 'six');
+    expect(far.voice).toBe('other');
+    // A comma under the program's note: the other side is never quite in tune with it.
+    expect(far.hz).toBeCloseTo(ROOT / COMMA, 6);
+    // Both keep the click of the line itself, so the count does not miss a beat.
+    for (const notes of [own, six]) expect(part(notes, 'rank')).toHaveLength(1);
+  });
+
+  it('lands on a low and a bell; over the best there was the bell is a run upwards; with nothing gone past it is one dull click', () => {
+    const plain = notesFor({ kind: 'rankSet', along: 0.5, record: false, moved: true }, setup());
+    expect(plain.map((note) => note.voice).sort()).toEqual(['bell', 'click', 'low']);
+    const record = notesFor({ kind: 'rankSet', along: 0.5, record: true, moved: true }, setup());
+    const run = part(record, 'record');
+    expect(run.length).toBeGreaterThanOrEqual(4);
+    for (let i = 1; i < run.length; i++) {
+      expect(run[i].at).toBeGreaterThan(run[i - 1].at);
+      expect(run[i].hz).toBeGreaterThan(run[i - 1].hz);
+    }
+    expect(run[0].hz).toBeCloseTo(faceHz(1), 6);
+    expect(part(record, 'set').some((note) => note.voice === 'low')).toBe(true);
+    const still = notesFor({ kind: 'rankSet', along: 0, record: false, moved: false }, setup());
+    expect(still).toHaveLength(1);
+    expect(still[0]).toMatchObject({ voice: 'click', dull: true });
+  });
+
   it('is heard while a session waits; the session is not', () => {
-    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'logo', 'sign', 'window', 'windowShut'] as const) expect(INTERFACE).toContain(kind);
+    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'logo', 'rank', 'rankPast', 'rankSet', 'sign', 'window', 'windowShut'] as const) expect(INTERFACE).toContain(kind);
     for (const kind of ['roll', 'group', 'chain', 'danger', 'points', 'reply'] as const) expect(INTERFACE).not.toContain(kind);
   });
 });
