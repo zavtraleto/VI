@@ -1,4 +1,4 @@
-import { endlessArchive } from '../app/archive';
+import { dailyArchive, endlessArchive } from '../app/archive';
 import { standings } from '../app/standings';
 import { AudioEngine } from '../audio/engine';
 import { Display } from '../display/display';
@@ -10,6 +10,7 @@ import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, system
 import type { PanelSpec } from '../shell/screens/panel';
 import { Shell, type MenuActions } from '../shell/shell';
 import { COMMANDS, RECORDS } from '../shell/text';
+import { dayAt } from '../app/daily';
 import { SHELL_PARAMS, parseShellValue, shellChanged, shellDefaults } from '../shell/theme';
 import { FpsCounter } from '../ui/fps';
 import { t } from '../ui/i18n';
@@ -20,16 +21,17 @@ export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
 const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 20, limitSec: DEFAULT_TUNING.timedSec, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
-/** Players for the sample of the table a platform keeps. */
-const SAMPLE_PLAYERS = ['Guest 4f1c09', 'Мария', 'kuro_neko', '', 'A name far too long for the table', 'Tomás', 'Guest 77ab31', 'ольга', 'N0body'].map((name, i) => ({
+/** Players for the sample of the table a platform keeps: one with no name, one with a name too long for the table. */
+const SAMPLE_PLAYERS = ['Green Chicken', '', 'A name far too long for the table', 'Yellow Mackerel'].map((name, i) => ({
   name,
-  score: 48200 - i * 4170,
+  score: 27770 - i * 6900,
   own: false,
 }));
 /** The best the one who plays has in the sample of the log: far below its top. */
 const SAMPLE_BEST = 870;
-/** The log of the sample: the archive of the program, the sample players and the one who plays. */
-const sampleLog = () => standings(endlessArchive(), SAMPLE_PLAYERS, { name: `${RECORDS.subject} ${RECORDS.seventh}`, score: SAMPLE_BEST });
+/** The logs of the sample: the made-up players as they stand now, the sample players and the one who plays. */
+const sampleLog = () => standings(endlessArchive(Date.now()), SAMPLE_PLAYERS, { name: RECORDS.you, score: SAMPLE_BEST });
+const sampleDay = () => standings(dailyArchive(dayAt(Date.now()), Date.now()), [], { name: RECORDS.you, score: 0 });
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -187,7 +189,7 @@ export class ShellLab {
         // A session goes up the sample of the log: its score is `climbScore`, or `&score=` in the address.
         const record = this.climbScore > SAMPLE_BEST;
         const climb = new Climb(
-          { lines: sampleLog(), score: this.climbScore, name: `${RECORDS.subject} ${RECORDS.seventh}`, record, reduced: this.settings.reducedMotion === true, leadMs: 400 },
+          { lines: sampleLog(), score: this.climbScore, name: RECORDS.you, record, reduced: this.settings.reducedMotion === true, leadMs: 400 },
           (event) => this.audio.ui(event),
         );
         return resultPanel(
@@ -207,7 +209,7 @@ export class ShellLab {
       }
       case 'records': {
         let shared = false;
-        return recordsPanel((section) => (section === 0 ? { lines: sampleLog() } : { lines: sampleLog().slice(20), link: 'waiting', day: 'H38.10.04' }), 0, {
+        return recordsPanel((section) => (section === 0 ? { lines: sampleLog() } : { lines: sampleDay(), link: 'waiting', day: 'H38.10.04' }), 0, {
           onBack: nothing,
           onRegister: nothing,
           share: {
