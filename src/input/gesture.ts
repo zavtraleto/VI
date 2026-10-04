@@ -66,7 +66,12 @@ export function nearestDir(dx: number, dy: number, dirs: ScreenDirs): Dir {
   return best;
 }
 
-/** Swipe-and-hold tracking for one pointer. */
+/**
+ * Swipe-and-hold tracking for one pointer. A swipe steps as soon as its direction is read, and
+ * goes on stepping while the finger is held. With `onRelease` it steps when the finger is
+ * lifted instead: until then the direction is only read, so it can be seen and put right, and
+ * a finger brought back to where it started steps nowhere. A swipe is then one step.
+ */
 export class GestureTracker {
   private originX = 0;
   private originY = 0;
@@ -77,6 +82,7 @@ export class GestureTracker {
     private readonly controller: InputController,
     private readonly now: () => number,
     private readonly dirs: () => ScreenDirs = () => DIAMOND_DIRS,
+    private readonly onRelease: () => boolean = () => false,
   ) {}
 
   get direction(): Dir | null {
@@ -96,21 +102,23 @@ export class GestureTracker {
     const dy = y - this.originY;
     const dist = Math.hypot(dx, dy);
     const dirs = this.dirs();
+    // Read only: the step is made when the finger is lifted.
+    const held = this.onRelease();
     if (this.active === null) {
       if (dist >= TRIGGER_PX) {
         this.active = nearestDir(dx, dy, dirs);
-        this.controller.press(this.active, this.now());
+        if (!held) this.controller.press(this.active, this.now());
       }
     } else if (dist <= DEAD_ZONE_PX) {
       this.active = null;
-      this.controller.release();
+      if (!held) this.controller.release();
     } else {
       const dir = nearestDir(dx, dy, dirs);
       // The finger must be clearly past the line between the two directions before the turn.
       const past = (degreesTo(dx, dy, this.active, dirs) - degreesTo(dx, dy, dir, dirs)) / 2;
       if (dir !== this.active && past >= HYSTERESIS_DEG) {
         this.active = dir;
-        this.controller.redirect(dir);
+        if (!held) this.controller.redirect(dir);
       }
     }
     // The origin trails the finger on a short leash: turning or going back is a short move
@@ -123,8 +131,10 @@ export class GestureTracker {
   }
 
   up(): void {
+    const dir = this.tracking && this.onRelease() ? this.active : null;
     this.tracking = false;
     this.active = null;
+    if (dir !== null) this.controller.press(dir, this.now());
     this.controller.release();
   }
 

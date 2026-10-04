@@ -1,3 +1,4 @@
+import type { GoalLine } from '../rules';
 import type { TextKey } from '../ui/i18n';
 
 /**
@@ -145,6 +146,34 @@ export const HUD = {
   skip: '省略 SKIP',
 } as const;
 
+/** What a line of the goal of a level goes under, where it is written and not drawn. */
+export const GOAL = { dice: 'SEND', face: 'FACE', links: 'CHAIN', cleared: 'LEFT', clear: 'CLEAR' } as const;
+
+/** Links of a chain are few: their count takes one place while it fits; a count of dice takes two. */
+const goalPlaces = (line: GoalLine): number => (line.what === 'links' && line.need < 10 ? 1 : 2);
+
+/** The name of a line of a goal: what it counts. A face is named with its number. */
+export function goalLabel(line: GoalLine): string {
+  return line.what === 'face' ? `${GOAL.face} ${line.value}` : GOAL[line.what];
+}
+
+/** How far a line of a goal has come: `03/04`; of a board to clear, the dice that still stand. */
+export function goalProgress(line: GoalLine): string {
+  if (line.what === 'cleared') return digits(line.need - line.have, 2);
+  return `${digits(line.have, goalPlaces(line))}/${digits(line.need, goalPlaces(line))}`;
+}
+
+/** A goal as it is asked for, with nothing counted yet: `FACE 2 ×04 · FACE 3 ×06`. */
+export function goalText(lines: readonly GoalLine[]): string {
+  return lines
+    .map((line) => {
+      if (line.what === 'cleared') return `${GOAL.clear} ${digits(line.need, 2)}`;
+      if (line.what === 'face') return `${GOAL.face} ${line.value} ×${digits(line.need, 2)}`;
+      return `${GOAL[line.what]} ${digits(line.need, goalPlaces(line))}`;
+    })
+    .join(' · ');
+}
+
 /** A panel of the program: its name in its own language and in English. */
 export interface PanelName {
   native: string;
@@ -168,6 +197,10 @@ export const PANELS = {
   tasks: { native: '課題', name: 'TASKS' },
   /** "Completed". */
   cleared: { native: '完了', name: 'CLEARED' },
+  /** "Stages": the levels of the game. */
+  levels: { native: '段階', name: 'LEVELS' },
+  /** "Failure": the moves of a level are spent and its goal is not met. */
+  failed: { native: '失敗', name: 'FAILED' },
   /** "New record": what a result is named once the session has taken its place above the best there was. */
   record: { native: '新記録', name: 'NEW RECORD' },
 } as const satisfies Record<string, PanelName>;
@@ -184,6 +217,7 @@ export const COMMANDS = {
   /** "End". */
   menu: { native: '終了', name: 'MENU' },
   tasks: { native: '課題', name: 'TASKS' },
+  levels: { native: '段階', name: 'LEVELS' },
   /** "Back". */
   back: { native: '戻る', name: 'BACK' },
   /** "To the next". */
@@ -211,6 +245,8 @@ export const RESULT = {
   moves: { native: '手数', name: 'MOVES' },
   /** "Fewest". */
   least: { native: '最少', name: 'FEWEST' },
+  /** "Remaining": the moves a passed level had left. */
+  left: { native: '残り', name: 'MOVES LEFT' },
   /** "Today": the day a session of the day belongs to. */
   day: { native: '本日', name: 'TODAY' },
   /** "Rank": the place the session took in the log. */

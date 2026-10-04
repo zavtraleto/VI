@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { cubeAt, cubeHeight, isHeld, type Level, type MoveKind, type RunState } from '../rules';
+import { cubeAt, cubeHeight, isHeld, worldRuns, type Level, type MoveKind, type RunState } from '../rules';
 import { figureGeometry } from './figure';
 
 /** Extra lift at the middle of a step, per move kind. */
@@ -64,7 +64,8 @@ export class PlayerFigure {
     const supportHeight = (x: number, z: number, level: Level): number => {
       if (level === 'ground') return frame(x, z);
       const cube = cubeAt(state, x, z);
-      return cube ? cubeHeight(cube, config, isHeld(state, cube) ? 0 : alpha) + dip(cube.id) : 0;
+      // The die stays put between ticks while the tutorial holds it or the world of a level stands.
+      return cube ? cubeHeight(cube, config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha) + dip(cube.id) : 0;
     };
 
     const toY = supportHeight(player.x, player.z, player.level);

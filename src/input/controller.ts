@@ -12,6 +12,15 @@ export class InputController {
   private held: Dir | null = null;
   private heldSince = 0;
   private lastEmit = Number.NEGATIVE_INFINITY;
+  private repeats = true;
+
+  /**
+   * Whether a held direction goes on stepping. Where every step is a move that counts, it does
+   * not: a press is one step, however long it is held.
+   */
+  setRepeat(on: boolean): void {
+    this.repeats = on;
+  }
 
   /** A fresh press: one guaranteed step, then repeats while held. */
   press(dir: Dir, now: number): void {
@@ -50,7 +59,7 @@ export class InputController {
       this.lastEmit = now;
       return dir;
     }
-    if (this.held !== null && now - this.heldSince >= FIRST_REPEAT_MS && now - this.lastEmit >= REPEAT_MS) {
+    if (this.repeats && this.held !== null && now - this.heldSince >= FIRST_REPEAT_MS && now - this.lastEmit >= REPEAT_MS) {
       this.lastEmit = now;
       return this.held;
     }

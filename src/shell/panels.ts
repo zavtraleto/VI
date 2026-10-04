@@ -1,8 +1,9 @@
 import type { ControlMode, ViewSetting } from '../platform/settings';
+import type { GoalLine } from '../rules';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
-import { COMMANDS, PANELS, RECORDS, RESULT, SYSTEM, digits, type PanelName } from './text';
+import { COMMANDS, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -10,9 +11,13 @@ function clock(ticks: number, tickMs: number): string {
   return `${digits(Math.floor(seconds / 60), 2)}:${digits(seconds % 60, 2)}`;
 }
 
-/** The session waits. In a task the log of sessions gives way to the list of tasks. */
+/**
+ * The session waits. In a task the log of sessions gives way to the list of tasks; `list` names
+ * that list where it is another one, the levels.
+ */
 export function pausePanel(actions: {
   task: boolean;
+  list?: PanelName;
   onResume: () => void;
   onRestart: () => void;
   onRecords: () => void;
@@ -28,7 +33,7 @@ export function pausePanel(actions: {
       { kind: 'command', id: 'resume', label: COMMANDS.resume, action: actions.onResume },
       { kind: 'command', id: 'restart', label: COMMANDS.restart, action: actions.onRestart },
       actions.task
-        ? { kind: 'command', id: 'tasks', label: COMMANDS.tasks, action: actions.onTasks }
+        ? { kind: 'command', id: 'tasks', label: actions.list ?? COMMANDS.tasks, action: actions.onTasks }
         : { kind: 'command', id: 'records', label: COMMANDS.records, action: actions.onRecords },
       { kind: 'command', id: 'system', label: COMMANDS.system, action: actions.onSystem },
       { kind: 'command', id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
@@ -240,6 +245,18 @@ export function recordsPanel(table: (section: number) => RecordsTable, initial: 
   return { title: PANELS.records, home: 'back', back: actions.onBack, rows };
 }
 
+/** What a command reads, asked for every time it is drawn: the command of sharing answers the last sending for a moment. */
+function liveLabel(label: () => PanelName): PanelName {
+  return {
+    get native() {
+      return label().native;
+    },
+    get name() {
+      return label().name;
+    },
+  };
+}
+
 /** The rules of the tasks, in the language of the player. With `onStart` this is the showing before the first task. */
 export function rulesPanel(lines: readonly string[], actions: { onStart?: () => void; onBack: () => void }): PanelSpec {
   const rows: PanelRow[] = lines.map((text, i) => ({ kind: 'say', text: `${i + 1}. ${text}` }));
@@ -291,4 +308,78 @@ export function clearedPanel(
     { kind: 'command', id: 'tasks', label: COMMANDS.tasks, action: actions.onTasks },
   );
   return { title: PANELS.cleared, home: data.hasNext ? 'next' : 'again', rows };
+}
+
+/**
+ * Every level, with a mark on the ones passed. All of them can be picked; under them the goal
+ * of the level in focus is written as the readings of a level write it, with nothing counted yet.
+ * `share` sends out what the player did on the levels, as text: the report of the playtest.
+ */
+export function levelsPanel(
+  levels: readonly { passed: boolean; goal: readonly GoalLine[] }[],
+  current: number,
+  actions: { onPick: (index: number) => void; share: { label: () => PanelName; action: () => void }; onBack: () => void },
+): PanelSpec {
+  return {
+    title: PANELS.levels,
+    home: `level-${current}`,
+    back: actions.onBack,
+    rows: [
+      {
+        kind: 'levels',
+        id: 'level',
+        levels: levels.map((level) => ({ stars: level.passed ? 1 : 0 })),
+        marks: 1,
+        current,
+        pick: actions.onPick,
+        note: (index) => (levels[index] ? goalText(levels[index].goal) : ''),
+        program: true,
+      },
+      {
+        kind: 'commands',
+        commands: [
+          { id: 'share', label: liveLabel(actions.share.label), action: actions.share.action, instant: true },
+          { id: 'back', label: COMMANDS.menu, action: actions.onBack },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * The card a level opens with: what it asks for, in the language of the player, a thought to
+ * a line. The level begins when the card is read.
+ */
+export function levelGoalPanel(data: { number: number; lines: readonly string[] }, actions: { onStart: () => void; onBack: () => void }): PanelSpec {
+  const rows: PanelRow[] = data.lines.map((text) => ({ kind: 'say', text }));
+  rows.push(
+    { kind: 'gap' },
+    { kind: 'command', id: 'start', label: COMMANDS.start, action: actions.onStart },
+    { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack },
+  );
+  return { title: { native: PANELS.levels.native, name: `LEVEL ${digits(data.number, 2)}` }, home: 'start', back: actions.onBack, rows };
+}
+
+/**
+ * A level is over. Passed, it says how many moves were left, or how many it took where there
+ * was no limit; failed, why, in the language of the player, and how far every line of its
+ * goal had come. The next level is offered after a pass.
+ */
+export function levelResultPanel(
+  data: { passed: boolean; left: number | null; moves: number; goal: readonly GoalLine[]; hasNext: boolean; reason?: string },
+  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void },
+): PanelSpec {
+  const rows: PanelRow[] = [];
+  if (data.reason) rows.push({ kind: 'say', text: data.reason });
+  if (!data.passed) rows.push(...data.goal.map((line): PanelRow => ({ kind: 'field', label: { native: goalLabel(line), name: '' }, value: goalProgress(line) })));
+  else if (data.left === null) rows.push({ kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) });
+  else rows.push({ kind: 'field', label: RESULT.left, value: digits(data.left, 2) });
+  rows.push({ kind: 'gap' });
+  const next = data.passed && data.hasNext;
+  if (next) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: actions.onNext });
+  rows.push(
+    { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
+    { kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels },
+  );
+  return { title: data.passed ? PANELS.cleared : PANELS.failed, home: next ? 'next' : 'again', rows };
 }

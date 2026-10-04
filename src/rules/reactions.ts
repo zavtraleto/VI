@@ -85,7 +85,10 @@ export function runPhase(state: RunState): void {
   if (level > state.level) enterLevel(state, level);
 }
 
-/** Takes a cube off the board and, in Endless, counts it towards the level. */
+/**
+ * Takes a cube off the board and, in Endless, counts it towards the level. On a level of the
+ * game the level of the pace stays where it is: nothing there speeds up.
+ */
 export function removeCube(state: RunState, cube: Cube): void {
   const { config, player } = state;
   state.grid[cellIndex(config.size, cube.x, cube.z)] = 0;
@@ -98,7 +101,7 @@ export function removeCube(state: RunState, cube: Cube): void {
     state.stats.falls++;
     state.events.push({ type: 'fell' });
   }
-  if (state.mode === 'timed') return;
+  if (state.mode === 'timed' || state.mode === 'level') return;
   const level = 1 + Math.floor(state.removed / config.cubesPerLevel);
   if (level > state.level) enterLevel(state, level);
 }

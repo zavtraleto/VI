@@ -41,8 +41,21 @@ export type PanelRow =
    * up the log. `rows` gives what is in sight in so many rows; `lines` is the most it shows.
    */
   | { kind: 'climb'; rows: (count: number) => readonly (ClimbRow | null)[]; lines: number }
-  /** The tasks, as numbered cells with what each has earned; `note` is said under them for the cell in focus. */
-  | { kind: 'levels'; id: string; levels: readonly { stars: number }[]; current: number; pick: (index: number) => void; note: (index: number) => string }
+  /**
+   * The tasks, as numbered cells with what each has earned; `note` is said under them for the cell
+   * in focus. `marks` is how many a cell can earn, three when left out. With `program` the note
+   * is the program's own text and is written in its font, not said in the voice.
+   */
+  | {
+      kind: 'levels';
+      id: string;
+      levels: readonly { stars: number }[];
+      current: number;
+      pick: (index: number) => void;
+      note: (index: number) => string;
+      marks?: number;
+      program?: boolean;
+    }
   /** What a task has earned, out of three. */
   | { kind: 'stars'; count: number }
   /** Prose in the language of the player, in the voice. With `when`, its room is kept and it is said once that holds. */
@@ -267,11 +280,12 @@ export class PanelScreen implements ShellScreen {
             if (filled) kit.box(cell, ink);
             else kit.frame(cell, on || i === row.current ? ink : faint);
             kit.text(digits(i + 1, 2), cell.x + cell.w / 2, cell.y + 2, filled ? bg : ink, { align: 'center' });
-            this.stars(kit, row.levels[i].stars, cell.x + cell.w / 2, cell.y + cell.h - 7, 4, filled ? bg : ink, filled ? bg : faint);
+            this.stars(kit, row.levels[i].stars, cell.x + cell.w / 2, cell.y + cell.h - 7, 4, filled ? bg : ink, filled ? bg : faint, row.marks);
           });
           const note = row.note(noted);
-          const at = kit.toWindow({ x: left, y: box.y + box.h - CELL_H - 2, w: right - left, h: CELL_H + 2 });
-          this.context.voice.say({ text: note, box: at, size: SAY_SIZE - 2, dim: true, anchor: 'middle' });
+          const line: Box = { x: left, y: box.y + box.h - CELL_H - 2, w: right - left, h: CELL_H + 2 };
+          if (row.program) kit.text(note, Math.round(line.x + line.w / 2), line.y + 1, dim, { align: 'center' });
+          else this.context.voice.say({ text: note, box: kit.toWindow(line), size: SAY_SIZE - 2, dim: true, anchor: 'middle' });
           break;
         }
         case 'stars':
@@ -291,11 +305,11 @@ export class PanelScreen implements ShellScreen {
     kit.rect(box.x + 5, box.y + Math.round(box.h / 2) - 2, 5, 5, kit.palette.signal);
   }
 
-  /** Three squares in a row around `centre`: as many filled as there are stars. */
-  private stars(kit: Kit, count: number, centre: number, y: number, side: number, on: string, off: string): void {
+  /** Squares in a row around `centre`, three unless `of` says otherwise: as many filled as there are stars. */
+  private stars(kit: Kit, count: number, centre: number, y: number, side: number, on: string, off: string, of = 3): void {
     const step = side + Math.max(2, Math.round(side / 2));
-    const start = Math.round(centre - (step * 3 - (step - side)) / 2);
-    for (let i = 0; i < 3; i++) {
+    const start = Math.round(centre - (step * of - (step - side)) / 2);
+    for (let i = 0; i < of; i++) {
       const cell: Box = { x: start + i * step, y, w: side, h: side };
       if (i < count) kit.box(cell, on);
       else kit.frame(cell, off);

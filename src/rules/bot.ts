@@ -108,6 +108,8 @@ export interface Plan {
   points: number;
   /** The link of the chain the clear is: 1 for a group of its own. */
   chain: number;
+  /** The face the clear is of: what the die that makes it shows. */
+  value?: number;
 }
 
 /** Rolls that turn up a face the camera does not show: the north one going south, the west one going east. */
@@ -170,14 +172,14 @@ function make(board: RunState, intent: MoveIntent): void {
   board.player = { x: intent.tx, z: intent.tz, level: UP.includes(intent.kind as MoveKind) ? 'top' : 'ground' };
 }
 
-/** What the clear a cube has just made gives, by the rules of the score: its points and its link of the chain. */
-function worth(board: RunState, cube: Cube, over: Cube | undefined): { points: number; chain: number } {
+/** What the clear a cube has just made gives, by the rules of the score: its points, its link of the chain and its face. */
+function worth(board: RunState, cube: Cube, over: Cube | undefined): { points: number; chain: number; value: number } {
   const value = cube.ori.top;
   if (value === 1) {
-    if (board.config.experiments.soloOne) return { points: 1, chain: 1 };
+    if (board.config.experiments.soloOne) return { points: 1, chain: 1, value };
     const { player } = board;
     const own = player.level === 'top' ? cubeAt(board, player.x, player.z) : undefined;
-    return { points: board.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1 && c !== own).length, chain: 1 };
+    return { points: board.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1 && c !== own).length, chain: 1, value };
   }
   const group = [cube];
   const seen = new Set<number>([cube.id]);
@@ -194,10 +196,10 @@ function worth(board: RunState, cube: Cube, over: Cube | undefined): { points: n
     }
   }
   const joined = board.reactions.filter((r) => touched.has(r.id));
-  if (joined.length === 0) return { points: value * group.length, chain: 1 };
+  if (joined.length === 0) return { points: value * group.length, chain: 1, value };
   const chain = Math.max(...joined.map((r) => r.chain)) + 1;
   const total = joined.reduce((sum, r) => sum + r.total, 0) + group.length;
-  return { points: value * total * chain, chain };
+  return { points: value * total * chain, chain, value };
 }
 
 /** A position reached while looking, and how it differs from the one the look began at. */
@@ -315,6 +317,18 @@ export interface Bot {
   clears: boolean;
   /** Ticks it waits before its next move. */
   wait: number;
+  /**
+   * What the player is after, when it is after something: how much a way to a clear is worth to
+   * it, 1 as any other, less for one beside the point, 0 for one it will not take. Without it
+   * every clear is as good as its points. It is asked once the ways have been noticed, so the
+   * player notices the same ways with it and without.
+   */
+  prefer?: (plan: Plan, state: RunState) => boolean | number;
+  /**
+   * A face the player is after: with nothing to clear in sight, it would rather roll a die to
+   * where that face comes up than anywhere.
+   */
+  wants?: (top: number, state: RunState) => boolean;
 }
 
 export function createBot(skill: Skill, seed: number): Bot {
@@ -341,6 +355,8 @@ const WANTED = 8;
 const WAY_UP_DEPTH = 12;
 /** How much likelier a tidy player rolls a die to where it lies beside one that shows the same. */
 const PAIRS_UP = 4;
+/** How much likelier a player who is after a face rolls a die to where that face comes up. */
+const TURNS_UP = 4;
 
 /** A move with nothing to clear in sight: a roll or a step to somewhere else. */
 function wander(bot: Bot, state: RunState): Dir | null {
@@ -359,6 +375,7 @@ function wander(bot: Bot, state: RunState): Dir | null {
       const pairs = neighbours(state, intent.cubeX, intent.cubeZ).some((n) => n !== own && n.state === 'idle' && n.ori.top === top);
       if (pairs && top >= 2) weight = PAIRS_UP;
     }
+    if (bot.wants && intent.kind === 'roll' && intent.newOri && bot.wants(intent.newOri.top, state)) weight *= TURNS_UP;
     options.push(dir);
     weights.push(weight);
   }
@@ -375,10 +392,13 @@ function decide(bot: Bot, state: RunState): void {
     bot.wait = between(bot, skill.lapseTicks);
     return;
   }
-  const plans = findPlans(state, skill.depth, skill.budget, WANTED, skill.rolls).filter((plan) => nextRandom(bot) < sight(skill, plan));
+  const noticed = findPlans(state, skill.depth, skill.budget, WANTED, skill.rolls).filter((plan) => nextRandom(bot) < sight(skill, plan));
+  const { prefer } = bot;
+  const liking = new Map(noticed.map((plan) => [plan, prefer ? Number(prefer(plan, state)) : 1]));
+  const plans = noticed.filter((plan) => liking.get(plan)! > 0);
   if (plans.length > 0) {
     // The nearest clear, or the one that gives the most for its moves.
-    const value = (plan: Plan) => Math.pow(plan.points, skill.greed) / (plan.moves.length + 1);
+    const value = (plan: Plan) => (liking.get(plan)! * Math.pow(plan.points, skill.greed)) / (plan.moves.length + 1);
     const best = plans.reduce((a, b) => (value(b) > value(a) ? b : a));
     bot.moves = [...best.moves];
     bot.kinds = [...best.kinds];

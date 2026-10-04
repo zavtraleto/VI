@@ -313,6 +313,8 @@ export type GameEvent =
   | { type: 'tutorialDone' }
   | { type: 'deadEnd'; reason: DeadEnd } // puzzle: the group just made cannot be followed by a win
   | { type: 'cleared' } // puzzle: the last dice are gone
+  | { type: 'levelPassed' } // level: its goal is met
+  | { type: 'levelFailed' } // level: its moves are spent with the goal not met
   | { type: 'gameOver' };
 
 /** What happened on one level of a run. */
@@ -360,7 +362,60 @@ export interface RunStats {
   longestChainQuiet: number;
 }
 
-export type RunMode = 'endless' | 'timed' | 'practice' | 'puzzle';
+export type RunMode = 'endless' | 'timed' | 'practice' | 'puzzle' | 'level';
+
+/**
+ * What a level asks for: dice sent, of any face or of faces ordered; a chain of so many links;
+ * or a board with no die left standing.
+ */
+export type LevelGoal =
+  | { kind: 'send'; count: number }
+  | { kind: 'order'; items: readonly { value: number; count: number }[] }
+  | { kind: 'chain'; links: number }
+  | { kind: 'clear' };
+
+/** A level as it is given: a board, its dice, whether more of them come, a goal and the moves to meet it in. */
+export interface LevelSpec {
+  id: string;
+  seed: number;
+  size: number;
+  goal: LevelGoal;
+  /** Limit of moves; 0 for none. */
+  moves: number;
+  /** Top faces the dice start and arrive with. */
+  values: readonly number[];
+  /** Dice the board starts with; with `refill`, the number it is kept at. */
+  norm: number;
+  /** Whether dice come: `none`, or `refill` back to `norm`, one a beat. */
+  arrival: 'none' | 'refill';
+  /** Share of the dice that come for a running chain; the rules' own when left out. */
+  feedRate?: number;
+  helpRate?: number;
+  sinkMoves?: number;
+  liftMoves?: number;
+}
+
+/** What a line of a goal counts: dice of any face, dice of one face, links of a chain, dice cleared off the board. */
+export type GoalWhat = 'dice' | 'face' | 'links' | 'cleared';
+
+/** A line of the goal of a level: how much of it there is and how much is asked for. `value` is the face of a `face` line. */
+export interface GoalLine {
+  what: GoalWhat;
+  value: number;
+  have: number;
+  need: number;
+}
+
+export interface LevelRun {
+  spec: LevelSpec;
+  /** Rolls and pushes made. */
+  moves: number;
+  /** Dice sent, by top value: index 0 is the 1. */
+  sent: number[];
+  bestChain: number;
+  /** World ticks left of a beat the world plays by itself. */
+  beat: number;
+}
 
 /** A die of a puzzle: its cell and the two faces that fix how it lies. */
 export interface PuzzleDie {
@@ -445,9 +500,14 @@ export interface RunState {
   tutorial: TutorialState | null;
   /** Set for a puzzle run only. */
   puzzle: PuzzleState | null;
+  /** Set for a level only. */
+  levelRun: LevelRun | null;
   over: boolean;
-  /** Why the run ended: the board stayed full, the Time Limited clock ran out, or a puzzle was cleared. */
-  endReason: null | 'full' | 'time' | 'cleared';
+  /**
+   * Why the run ended: the board stayed full, the Time Limited clock ran out, a puzzle was
+   * cleared, or a level was passed or failed.
+   */
+  endReason: null | 'full' | 'time' | 'cleared' | 'passed' | 'failed';
   stats: RunStats;
   /** Events produced by the most recent step. */
   events: GameEvent[];

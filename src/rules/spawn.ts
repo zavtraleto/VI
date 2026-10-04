@@ -82,7 +82,7 @@ interface Opening {
  * step away. What stays the same is that it is found fast: one roll, and one that turns up a
  * face the camera shows. Null when the start cell leaves no room for the opening drawn.
  */
-function openingOf(state: RunState): Opening | null {
+function openingOf(state: RunState, values: readonly number[] = OPENING_VALUES): Opening | null {
   const { size, startX, startZ } = state.config;
   const start = cellIndex(size, startX, startZ);
   const around = (cell: number): number[] => {
@@ -90,7 +90,8 @@ function openingOf(state: RunState): Opening | null {
     const z = Math.floor(cell / size);
     return DIRS.filter((d) => inBounds(size, x + DELTA[d].dx, z + DELTA[d].dz)).map((d) => cellIndex(size, x + DELTA[d].dx, z + DELTA[d].dz));
   };
-  const value = OPENING_VALUES[randomInt(state, OPENING_VALUES.length)];
+  if (values.length === 0) return null;
+  const value = values[randomInt(state, values.length)];
   const beside = randomInt(state, 5) < OPENING_BESIDE;
   // Every die and roll the opening could be made with: the roll needs a cell to end in that is not the player's.
   const ways: { lead: number; dir: Dir; to: number }[] = [];
@@ -116,10 +117,20 @@ function openingOf(state: RunState): Opening | null {
   return { ...way, partners, value };
 }
 
-function tryStartLayout(state: RunState, opening: boolean): Placement[] | null {
+/**
+ * One try at the board a run starts on. `faces` are the top faces of a level: its dice show
+ * nothing else, the die of its opening included, and it has no board without an opening while
+ * its faces leave one to be made.
+ */
+function tryStartLayout(state: RunState, opening: boolean, faces?: readonly number[]): Placement[] | null {
   const { size, startCubes, startX, startZ } = state.config;
   const start = cellIndex(size, startX, startZ);
-  const lead = opening ? openingOf(state) : null;
+  const offered = faces ? OPENING_VALUES.filter((value) => faces.includes(value)) : OPENING_VALUES;
+  const lead = opening ? openingOf(state, offered) : null;
+  if (faces && !lead && offered.length > 0) return null;
+  // The die that finishes the group: one roll turns the value up.
+  const leadFits = lead ? ALL_ORIENTATIONS.filter((o) => roll(o, lead.dir).top === lead.value && (!faces || faces.includes(o.top))) : [];
+  if (lead && leadFits.length === 0) return null;
   // The dice of the opening stand where it puts them; the rest are scattered.
   const placed = lead ? [...(lead.lead !== start ? [lead.lead] : []), ...lead.partners] : [];
   const kept = new Set<number>([start, ...placed, ...(lead ? [lead.to] : [])]);
@@ -136,10 +147,9 @@ function tryStartLayout(state: RunState, opening: boolean): Placement[] | null {
   const picked = [start, ...placed, ...cells.slice(0, others)];
   const tops = new Array<number>(size * size).fill(0);
   const layout: Placement[] = picked.map((i) => {
-    let ori = randomOrientation(state);
+    let ori = faces ? orientationWithTop(state, faces[randomInt(state, faces.length)]) : randomOrientation(state);
     if (lead && i === lead.lead) {
-      const fits = ALL_ORIENTATIONS.filter((o) => roll(o, lead.dir).top === lead.value);
-      ori = fits[randomInt(state, fits.length)];
+      ori = leadFits[randomInt(state, leadFits.length)];
     } else if (lead && lead.partners.includes(i)) {
       ori = orientationWithTop(state, lead.value);
     }
@@ -183,6 +193,22 @@ export function placeStartLayout(state: RunState, forceFallback = false): void {
     // The fallback is drawn for the usual start cell; any other start takes its first cube.
     if (!layout.some((p) => p.x === startX && p.z === startZ)) layout[0] = { ...layout[0], x: startX, z: startZ };
   }
+  for (const p of layout) addCube(state, p.x, p.z, p.ori);
+}
+
+const LEVEL_LAYOUT_TRIES = 400;
+
+/**
+ * The board of a level: its number of dice with the player on the one in the middle, nothing
+ * ready to clear, and a group that lacks one die a roll away. A level has no board to fall
+ * back on: one that cannot be laid is a mistake in the level, and it says so.
+ */
+export function placeLevelLayout(state: RunState): void {
+  const spec = state.levelRun!.spec;
+  let layout: Placement[] | null = null;
+  // A board to be cleared is crowded, and a crowded board is laid less often.
+  for (let attempt = 0; attempt < LEVEL_LAYOUT_TRIES && !layout; attempt++) layout = tryStartLayout(state, true, spec.values);
+  if (!layout) throw new Error(`level ${spec.id}: no board to start on in ${LEVEL_LAYOUT_TRIES} tries`);
   for (const p of layout) addCube(state, p.x, p.z, p.ori);
 }
 
@@ -269,16 +295,21 @@ function staysQuiet(state: RunState, tops: number[], x: number, z: number, top: 
   return !readyGroup && !besideMatchingSinking(state, x, z, top);
 }
 
+/** Every face a die has, the 1 first. */
+const FACES: readonly number[] = [1, 2, 3, 4, 5, 6];
+
 /**
  * Picks an orientation for a new cube. The top value follows the level's weights; a
  * helpful spawn instead tries to show a value that a neighbour already shows, so the
  * player is one move away from a group. Either way the cube must not complete a group by
- * itself.
+ * itself. On a level of the game a cube shows one of the level's faces and no other.
  */
 function chooseOrientation(state: RunState, x: number, z: number, helpful = false): Orientation {
   const tops = topsGrid(state);
-  const weights = topWeights(state.config, state.level);
-  const wanted = helpful ? neighbourTops(state, x, z) : [];
+  const faces = state.levelRun?.spec.values;
+  const weights = faces ? FACES.map((face) => (faces.includes(face) ? 1 : 0)) : topWeights(state.config, state.level);
+  const near = helpful ? neighbourTops(state, x, z) : [];
+  const wanted = faces ? near.filter((top) => faces.includes(top)) : near;
   let top = 1;
   for (let attempt = 0; attempt < 12; attempt++) {
     top =
@@ -561,7 +592,7 @@ function announce(state: RunState, x: number, z: number, ori: Orientation): void
   state.events.push({ type: 'warned', x, z });
 }
 
-function advancePending(state: RunState): void {
+export function advancePending(state: RunState): void {
   if (state.pending.length === 0) return;
   const due: typeof state.pending = [];
   state.pending = state.pending.filter((p) => {
@@ -711,4 +742,44 @@ export function runSpawn(state: RunState): void {
   const helpful = deal(state, state.helpDeck, HELP_DECK, helpChance(config, state.level, resting(state)));
   const cell = chooseCell(state, free, helpful);
   announce(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z, helpful));
+}
+
+/**
+ * A die of a level comes with no warning mark: it stands on its cell at once, as glass, as high
+ * as the level's rise leaves it a beat short of whole. The player reads what it is and where
+ * for as long as they think, and it comes up whole with their next move.
+ */
+function arrive(state: RunState, x: number, z: number, ori: Orientation): void {
+  const cube = spawnCube(state, x, z, ori);
+  cube.t = Math.max(0, state.config.risingTicks - state.config.actionTicks);
+}
+
+/**
+ * A level is kept at its number of dice: at the end of a beat, while the board is short of it,
+ * up to `most` dice come. A player left on the floor with no way up gets the die under their
+ * feet; a running chain gets one a move away from it, with its value, as often as the feed rate
+ * says; any other die comes as a helpful one or as any, by the level's help rate. Nothing comes
+ * over the number, so the board of a level cannot fill.
+ */
+export function refillLevel(state: RunState, most: number): void {
+  const run = state.levelRun;
+  if (!run) return;
+  const { config, player } = state;
+  for (let i = 0; i < most && population(state) < run.spec.norm; i++) {
+    const free = freeCells(state).filter((c) => !hasPendingAt(state, c.x, c.z));
+    if (free.length === 0) return;
+    const underfoot = player.level === 'ground' && free.some((c) => c.x === player.x && c.z === player.z);
+    if (underfoot && !hasWayUp(state)) {
+      arrive(state, player.x, player.z, chooseOrientation(state, player.x, player.z));
+      continue;
+    }
+    const feeder = chainFeeder(state, free);
+    if (feeder) {
+      arrive(state, feeder.x, feeder.z, feeder.ori);
+      continue;
+    }
+    const helpful = deal(state, state.helpDeck, HELP_DECK, config.helpRate);
+    const cell = chooseCell(state, free, helpful);
+    arrive(state, cell.x, cell.z, chooseOrientation(state, cell.x, cell.z, helpful));
+  }
 }

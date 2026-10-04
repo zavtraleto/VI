@@ -3,13 +3,13 @@ import type { CanvasLayer } from '../display/layer';
 import type { Rect } from '../display/sizing';
 import type { BoardLook } from '../render/params';
 import { faceColour } from '../render/textures';
-import type { Dir } from '../rules';
+import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
 import { hudLayout, netBounds, netCellAt, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
-import { HUD, digits } from './text';
+import { HUD, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, type Palette } from './theme';
 import { Voice } from './voice';
 
@@ -38,6 +38,18 @@ export interface HudTask {
   target: number;
   /** Fewest moves the task has been cleared in. */
   best: number | null;
+}
+
+/** The readings of a level: the moves it has left, or has taken where there is no limit, and how far its goal has come. */
+export interface HudLevel {
+  kind: 'level';
+  number: number;
+  /** Moves left; null on a level with no limit. */
+  left: number | null;
+  /** Moves made: what a level with no limit counts. */
+  made: number;
+  /** One line per thing the goal counts. */
+  goal: readonly GoalLine[];
 }
 
 /** A face of the net: its value and how many quarter turns its picture lies at. */
@@ -102,14 +114,14 @@ export interface HudLesson {
 
 /** Everything the session shows over the board at one moment. */
 export interface HudView {
-  header: HudSession | HudTask;
+  header: HudSession | HudTask | HudLevel;
   seal: HudSeal | null;
   labels: readonly HudLabel[];
   lesson: HudLesson | null;
   /** One line at the bottom: a hint, or what a task says about the group just made. */
   note: { text: string; alarm: boolean } | null;
-  /** The two buttons of a task. */
-  tools: { canUndo: boolean; urgent: boolean } | null;
+  /** The two buttons of a task. A level has no move to take back: `retryOnly` leaves the one that starts over. */
+  tools: { canUndo: boolean; urgent: boolean; retryOnly?: boolean } | null;
   /** The four buttons of those who would rather press than swipe; `box` is theirs in the window. */
   pad: { pulse: Dir | null; box: Rect } | null;
   /** The part of the window the board has, in CSS pixels. */
@@ -430,6 +442,9 @@ export class GameHud {
     if (view.header.kind === 'session') {
       if (layout.wide) this.drawSessionWide(view.header, layout, timeMs, blink, program, decay);
       else this.drawSession(view.header, layout, timeMs, blink, program, decay);
+    } else if (view.header.kind === 'level') {
+      if (layout.wide) this.drawLevelWide(view.header, layout);
+      else this.drawLevel(view.header, layout);
     } else if (layout.wide) {
       this.drawTaskWide(view.header, layout);
     } else {
@@ -789,6 +804,59 @@ export class GameHud {
     kit.rect(left, layout.rule, layout.right - left, 1, faint);
   }
 
+  /** The moves a level has left, as large as the moves of a task; with no limit, the moves made, counted up as a task counts them. */
+  private levelMoves(level: HudLevel, x: number, y: number): void {
+    this.counter(level.left ?? level.made, 3, x, y, 2, 'left', true);
+  }
+
+  /**
+   * A line of the goal of a level, its count ending at `right`: the face it asks for as a
+   * picture of that face, anything else by its name. `left` puts the name at the left edge
+   * of a column; without it the name stands close before the count.
+   */
+  private goalLine(line: GoalLine, right: number, y: number, left?: number): void {
+    const { kit } = this;
+    const { ink, dim, signal } = kit.palette;
+    const values = this.look.board;
+    const count = goalProgress(line);
+    const countStart = right - kit.measure(count);
+    kit.text(count, countStart, y, ink);
+    if (line.what === 'face') {
+      const side = 12;
+      kit.face(line.value, left ?? countStart - 4 - side, y + 2, side, faceColour(line.value, kit.palette, values), line.value === 1 ? signal : String(values.pipLight));
+    } else {
+      const name = goalLabel(line);
+      kit.text(name, left ?? countStart - 4 - kit.measure(name), y, dim);
+    }
+  }
+
+  /** The readings of a level as a column: the moves left, its number, and a line for each thing its goal counts. */
+  private drawLevelWide(level: HudLevel, layout: HudLayout): void {
+    const { kit } = this;
+    const { ink, dim, faint } = kit.palette;
+    const { left, right, lines } = layout;
+    kit.text(HUD.moves, left, lines.label, dim);
+    this.levelMoves(level, left, lines.big);
+    kit.text(`${HUD.level} ${digits(level.number, 2)}`, left, lines.tag, ink);
+    const rows = [lines.best, lines.link, lines.cells];
+    level.goal.slice(0, rows.length).forEach((line, i) => this.goalLine(line, right, rows[i], left));
+    kit.rect(left, layout.rule, right - left, 1, faint);
+  }
+
+  private drawLevel(level: HudLevel, layout: HudLayout): void {
+    const { kit } = this;
+    const { ink, dim, faint } = kit.palette;
+    const { left, end, mid, rowA, rowB, rowC, big } = layout;
+    kit.text(HUD.moves, left, rowA, dim);
+    this.levelMoves(level, left, big);
+    kit.text(`${HUD.level} ${digits(level.number, 2)}`, mid, rowA, ink);
+    // The goal stands on the right, its last line on the last row.
+    const rows = [rowA, rowB, rowC];
+    const shown = level.goal.slice(0, rows.length);
+    shown.forEach((line, i) => this.goalLine(line, end, rows[rows.length - shown.length + i]));
+    kit.rect(left, layout.rule, layout.right - left, 1, faint);
+  }
+
   private drawPause(layout: HudLayout): void {
     const { kit } = this;
     const { ink, faint } = kit.palette;
@@ -992,8 +1060,8 @@ export class GameHud {
     if (lesson.waits) this.zones.push({ id: 'continue', rect: { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }, action: () => this.proceed() });
   }
 
-  /** The two buttons every task needs, in the corner of the board and out of the way of swipes. */
-  private drawTools(tools: { canUndo: boolean; urgent: boolean }, stage: Box, blink: number): void {
+  /** The two buttons every task needs, in the corner of the board and out of the way of swipes. A level has the one that starts over. */
+  private drawTools(tools: { canUndo: boolean; urgent: boolean; retryOnly?: boolean }, stage: Box, blink: number): void {
     const { kit } = this;
     const { bg, ink, dim, faint } = kit.palette;
     const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / kit.zoom));
@@ -1011,6 +1079,7 @@ export class GameHud {
     };
     const right = Math.round(stage.x + stage.w - 6);
     button('retry', HUD.retry, right - wide, true, false, () => this.actions.onRestart());
+    if (tools.retryOnly) return;
     // A dead end is left by taking the move back: that button becomes the one to press.
     button('undo', HUD.undo, right - wide * 2 - 6, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
   }

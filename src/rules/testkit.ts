@@ -3,7 +3,7 @@ import { ALL_ORIENTATIONS } from './orientation';
 import { resolveLanded } from './reactions';
 import { createRun, step } from './sim';
 import { addCube } from './spawn';
-import type { Cube, CubeState, Dir, ExperimentConfig, Level, Orientation, RunState, Tuning } from './types';
+import type { Cube, CubeState, Dir, ExperimentConfig, Level, LevelSpec, Orientation, RunState, Tuning } from './types';
 
 /**
  * Empty board, timed spawning off, the pace even with no waves, no salvos and no gifts, no
@@ -16,6 +16,15 @@ export function emptyRun(experiments: Partial<ExperimentConfig> = {}, seed = 1, 
   // A test board is a few cubes: clearing them all would be a clean board every time.
   if (tuning.wipeBonus === undefined) state.config.wipeBonus = 0;
   return state;
+}
+
+/**
+ * The empty board of a level, five cells a side, with the player on the floor in the middle.
+ * Nothing comes to it and it has no goal to meet or moves to run out of, unless `spec` says so.
+ */
+export function levelRun(spec: Partial<LevelSpec> = {}): RunState {
+  const level: LevelSpec = { id: 'test', seed: 1, size: 5, goal: { kind: 'send', count: 999 }, moves: 0, values: [2, 3], norm: 0, arrival: 'refill', ...spec };
+  return createRun({ seed: level.seed, config: defaultConfig(), level, empty: true });
 }
 
 /** First orientation matching every given face. */

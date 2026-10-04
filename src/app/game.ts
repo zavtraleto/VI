@@ -25,18 +25,23 @@ import {
   type BoardEntry,
   type Shared,
 } from '../platform/bridge';
-import { SETTINGS_KEY, addRun, bestOf, bestOn, loadSettings, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
+import { SETTINGS_KEY, addRun, bestOf, bestOn, levelStat, loadSettings, noteShort, prefersReducedMotion, puzzleStat, saveSettings, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
+import { PROBE_LEVELS } from '../levels/levels';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
+  chainWindows,
   createRun,
   cubeAt,
   defaultConfig,
+  goalLines,
+  goalOf,
+  levelStuck,
   previewAll,
   previewMove,
   resolveMove,
@@ -53,13 +58,16 @@ import {
   TUTORIAL_LINES,
   type Dir,
   type GameEvent,
+  type GoalLine,
+  type LevelSpec,
   type MarkFace,
+  type MoveKind,
   type Orientation,
   type RunState,
 } from '../rules';
 import { GameHud, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, levelGoalPanel, levelResultPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -71,6 +79,7 @@ import { dailyArchive, endlessArchive } from './archive';
 import { clockLeft, secondsLeft } from './clock';
 import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
 import { Hints } from './hints';
+import { levelReport, shortOf } from './levelStats';
 import { puzzleReport, starsFor } from './puzzleStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
@@ -85,8 +94,16 @@ const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 /** Space between the words of the exercise and the far corner of the board. */
 const GUIDE_GAP_PX = 8;
 
-/** What the player picked in the menu. */
-type RunKind = 'endless' | 'timed' | 'tutorial' | 'puzzle';
+/** What the player picked in the menu, or in the list of levels. */
+type RunKind = 'endless' | 'timed' | 'tutorial' | 'puzzle' | 'level';
+
+/**
+ * The probe of levels is asked for in the address, `?levels`, in any build: the program then
+ * opens on the list of levels and not on its menu.
+ */
+const LEVELS_PROBE = new URLSearchParams(window.location.search).has('levels');
+/** What the report of the levels says before any level has been played. */
+const LEVELS_UNPLAYED = 'VI levels playtest: no level played yet';
 
 /** The kinds of session that are scored, in the order the log shows them. Each has a table of players on the platform, under its own name. */
 const SCORED = ['endless', 'timed'] as const;
@@ -108,6 +125,10 @@ const SHARED_MS = 2200;
 
 /** How long the direction of a swipe stays shown after the finger has let go. */
 const STEER_LINGER_MS = 280;
+/** How long the die the player has stepped onto on a level stays framed: from here on it is rolled, not left. */
+const ENTERED_MS = 520;
+/** Levels of the probe whose card says how dice leave: the first ones. */
+const LEVELS_WITH_RULE = 3;
 
 /** Side of the die that looks towards each board direction. */
 const SIDE: Record<Dir, keyof Orientation> = { N: 'north', E: 'east', S: 'south', W: 'west' };
@@ -194,6 +215,12 @@ export class Game {
   private beforeCommand: RunState | null = null;
   /** This start of the level has had a move, so it counts as a try. */
   private tryCounted = false;
+  /** Level of the game being played, or last played, in the list of levels. */
+  private levelIndex = 0;
+  /** Ticks of the level in hand that have been played: its own tick stands still between moves and is no clock. */
+  private levelTicks = 0;
+  /** The die that stands which the player has just stepped onto on a level, and until when it is framed. */
+  private entered: { x: number; z: number; until: number } | null = null;
   /** The program is up: what starts from here on is started by the player. */
   private opened = false;
   /** The platform has been told that the game can be played. */
@@ -238,8 +265,8 @@ export class Game {
   private readonly hud = new GameHud(this.display, this.look, {
     live: () => !this.inMenu && !this.shell.visible && !this.toolsOpen && !this.signal.busy,
     onPause: () => this.togglePause(),
-    onUndo: () => this.undoPuzzle(),
-    onRestart: () => this.restartPuzzle(),
+    onUndo: () => this.undoTask(),
+    onRestart: () => this.restartTask(),
     onSkip: () => this.skipTutorial(),
     onContinue: () => this.outside((state) => tutorialAck(state)),
     onPoints: (points, tier) => this.audio.points(points, tier),
@@ -300,7 +327,8 @@ export class Game {
     this.applyCamera();
 
     // Swipes lean half-way from plain up, right, down and left towards the board's own directions.
-    this.tracker = new GestureTracker(this.controller, now, () => this.swipeDirs);
+    // On a level a swipe steps when the finger is lifted: every step there may be a move that counts.
+    this.tracker = new GestureTracker(this.controller, now, () => this.swipeDirs, () => Boolean(this.state.levelRun));
     // While the words of the exercise wait to be read, a key or a swipe reads them and moves nothing.
     const moving = () => enabled() && !tutorialWaits(this.state);
     bindGestures(play, this.tracker, () => moving() && this.settings.controlMode === 'gesture');
@@ -326,9 +354,10 @@ export class Game {
       this.hud.proceed();
     });
     window.addEventListener('keydown', (e) => {
-      if (!this.state.puzzle || !enabled()) return;
-      if (e.code === 'KeyZ' || e.code === 'Backspace') this.undoPuzzle();
-      else if (e.code === 'KeyR') this.restartPuzzle();
+      const { puzzle, levelRun } = this.state;
+      if (!(puzzle || levelRun) || !enabled()) return;
+      if (e.code === 'KeyZ' || e.code === 'Backspace') this.undoTask();
+      else if (e.code === 'KeyR') this.restartTask();
     });
 
     // The words of the exercise wrap differently once the screen turns or the font arrives.
@@ -369,6 +398,12 @@ export class Game {
     this.audio.setPaused(true);
     this.layoutGuide();
     this.shell.boot(() => {
+      if (LEVELS_PROBE) {
+        // The probe opens on its list. A run kept from before is left in storage, for a start without the probe.
+        this.saveWithoutRun();
+        this.showLevels();
+        return;
+      }
       // A run the player was taken away from waits for them on its pause; otherwise, the menu.
       const kept = this.keptRun();
       // The long boot is shown once per device. What was kept of the run has been read and goes
@@ -493,18 +528,34 @@ export class Game {
     return data;
   }
 
-  /** How long the run has been played, in seconds. */
-  private seconds(): number {
-    return Math.round((this.state.tick * this.state.config.tickMs) / 1000);
+  /**
+   * Ticks the run has been played. A level counts its own: its tick moves only with the world,
+   * which stands between moves.
+   */
+  private played(): number {
+    return this.state.levelRun ? this.levelTicks : this.state.tick;
   }
 
-  /** What the platform calls the thing being played: a kind of session, or a task. */
+  /** How long the run has been played, in seconds. */
+  private seconds(): number {
+    return Math.round((this.played() * this.state.config.tickMs) / 1000);
+  }
+
+  /** What the platform calls the thing being played: a kind of session, a task, or a level. */
   private levelName(): string {
+    if (this.kind === 'level') return `level_${PROBE_LEVELS[this.levelIndex].id}`;
     return this.kind === 'puzzle' ? `task_${PUZZLE_LEVELS[this.puzzleIndex].id}` : this.kind;
   }
 
-  /** What is being played, as the analytics name it: a kind of session, the exercise, or a task with its number. */
+  /** How a try at a level stands, for the analytics: the moves made, the moves left, which try it is. */
+  private levelTry(): EventData {
+    const run = this.state.levelRun!;
+    return { moves: run.moves, left: Math.max(0, run.spec.moves - run.moves), try: levelStat(this.settings, run.spec.id).tries };
+  }
+
+  /** What is being played, as the analytics name it: a kind of session, the exercise, a task with its number, or a level. */
   private step(): EventData {
+    if (this.kind === 'level') return { step_id: `level_${PROBE_LEVELS[this.levelIndex].id}`, step_index: this.levelIndex + 1 };
     if (this.kind !== 'puzzle') return { step_id: this.kind };
     return { step_id: 'task', step_index: this.puzzleIndex + 1, level_id: PUZZLE_LEVELS[this.puzzleIndex].id };
   }
@@ -515,9 +566,11 @@ export class Game {
     const { state } = this;
     const reached: EventData = state.puzzle
       ? { moves: state.puzzle.moves }
-      : state.tutorial
-        ? { lesson: state.tutorial.step }
-        : { ...runSummary(state, this.tally), ...this.visit() };
+      : state.levelRun
+        ? this.levelTry()
+        : state.tutorial
+          ? { lesson: state.tutorial.step }
+          : { ...runSummary(state, this.tally), ...this.visit() };
     track('progression_failed', { ...this.step(), reason: how === 'menu' ? 'left' : 'restart', duration_sec: this.seconds(), ...reached });
     // A run given up is not one to come back to.
     this.dropRun();
@@ -542,7 +595,7 @@ export class Game {
   }
 
   private now(): number {
-    return this.state.tick * this.state.config.tickMs;
+    return this.played() * this.state.config.tickMs;
   }
 
   private inputEnabled(): boolean {
@@ -589,6 +642,10 @@ export class Game {
       this.startPuzzle(this.puzzleIndex);
       return;
     }
+    if (kind === 'level') {
+      this.startLevel(this.levelIndex);
+      return;
+    }
     this.kind = kind;
     const { experiments } = this.settings;
     const tutorial = kind === 'tutorial';
@@ -631,6 +688,10 @@ export class Game {
     this.applyCamera();
     this.history = [];
     this.beforeCommand = null;
+    this.levelTicks = 0;
+    this.entered = null;
+    // Where every step may be a move that counts, a held direction is one step.
+    this.controller.setRepeat(!state.levelRun);
     this.handoff = null;
     this.inMenu = false;
     this.lastClock = -1;
@@ -682,11 +743,36 @@ export class Game {
     this.view.reset();
   }
 
-  /** The next command, with the puzzle as it stands remembered in case the command is a roll. */
+  /** A level that no dice come to: a move made on it can be taken back, for nothing is learnt by taking it back. */
+  private get undoable(): boolean {
+    return this.state.levelRun?.spec.arrival === 'none';
+  }
+
+  /** The next command, with the board as it stands remembered in case the command is a move that can be taken back. */
   private takeCommand(): Dir | null {
     const cmd = this.controller.take(this.now());
-    if (cmd && this.state.puzzle) this.beforeCommand = structuredClone(this.state);
+    if (cmd && (this.state.puzzle || this.undoable)) this.beforeCommand = structuredClone(this.state);
     return cmd;
+  }
+
+  /** Takes the last move of a level back, with every step made since. */
+  private undoLevel(): void {
+    const { levelRun } = this.state;
+    if (!levelRun || !this.undoable || this.state.over || this.inMenu || this.paused) return;
+    const previous = this.history.pop();
+    if (!previous) return;
+    levelStat(this.settings, levelRun.spec.id).undos++;
+    this.runner = new Runner(previous);
+    this.beforeCommand = null;
+    this.entered = null;
+    this.controller.cancel();
+    this.view.reset();
+  }
+
+  /** Takes back the last move of what is on the board: a task or a level, each its own way. */
+  private undoTask(): void {
+    if (this.state.levelRun) this.undoLevel();
+    else this.undoPuzzle();
   }
 
   /** First level that has no stars yet; the first one when all have. */
@@ -784,6 +870,142 @@ export class Game {
           onNext: then(() => this.startPuzzle(this.puzzleIndex + 1)),
           onAgain: then(() => this.startPuzzle(this.puzzleIndex)),
           onTasks: then(() => this.showPuzzleLevels()),
+        },
+      ),
+      false,
+    );
+  }
+
+  /** `card` opens the level with what it asks for; starting it over does not say it again. */
+  private startLevel(index: number, card = false): void {
+    const spec = PROBE_LEVELS[index];
+    this.kind = 'level';
+    this.levelIndex = index;
+    this.tryCounted = false;
+    // A level is the same for everyone: it is played by the rules as they are, whatever the player has set.
+    this.begin(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }), false);
+    track('progression_started', { ...this.step(), try: levelStat(this.settings, spec.id).tries + 1 });
+    tell('level_started', this.levelName());
+    this.layoutGuide();
+    if (card) this.showLevelGoal(spec);
+  }
+
+  /** What a goal asks for, in the language of the player. */
+  private goalWords(spec: LevelSpec): string {
+    const { goal } = spec;
+    const fill = (key: TextKey, values: Record<string, string | number>): string =>
+      Object.entries(values).reduce((text, [name, value]) => text.replace(`{${name}}`, String(value)), t(key));
+    if (goal.kind === 'send') return fill('levelGoalSend', { count: goal.count });
+    if (goal.kind === 'chain') return fill('levelGoalChain', { links: goal.links });
+    if (goal.kind === 'clear') return t('levelGoalClear');
+    const items = goal.items.map((item) => fill('levelGoalItem', { face: item.value, count: item.count })).join(', ');
+    return fill('levelGoalOrder', { items });
+  }
+
+  /** The card a level opens with. The level waits under it, and begins when the card is read. */
+  private showLevelGoal(spec: LevelSpec): void {
+    const lines = [this.goalWords(spec)];
+    if (this.levelIndex < LEVELS_WITH_RULE) lines.push(t('levelGroups'));
+    lines.push(spec.moves > 0 ? t('levelMoves').replace('{moves}', String(spec.moves)) : t('levelNoLimit'));
+    this.paused = true;
+    this.audio.setPaused(true);
+    this.shell.showPanel(
+      levelGoalPanel(
+        { number: this.levelIndex + 1, lines },
+        {
+          onStart: () => {
+            this.paused = false;
+            this.shell.hide();
+            this.audio.setPaused(false);
+            this.lastFrame = 0;
+          },
+          onBack: () => this.showLevels(),
+        },
+      ),
+      false,
+    );
+  }
+
+  private restartLevel(): void {
+    if (!this.state.levelRun || this.inMenu) return;
+    saveSettings(this.settings);
+    this.startLevel(this.levelIndex);
+  }
+
+  /** Starts over what is on the board: a task or a level, each its own way. */
+  private restartTask(): void {
+    if (this.state.levelRun) this.restartLevel();
+    else this.restartPuzzle();
+  }
+
+  /** First level that has not been passed; the first one when all have. */
+  private nextLevel(): number {
+    const open = PROBE_LEVELS.findIndex((level) => !this.settings.levels.passed[level.id]);
+    return open === -1 ? 0 : open;
+  }
+
+  private showLevels(): void {
+    this.leaveRun('menu');
+    this.inMenu = true;
+    this.paused = false;
+    this.controller.cancel();
+    this.audio.setPaused(true);
+    this.hints.reset();
+    this.tools?.hide();
+    saveSettings(this.settings);
+    const levels = PROBE_LEVELS.map((level) => ({ passed: this.settings.levels.passed[level.id] === true, goal: goalOf(level) }));
+    this.shell.showPanel(
+      levelsPanel(levels, this.kind === 'level' ? this.levelIndex : this.nextLevel(), {
+        onPick: (index) => this.startLevel(index, true),
+        // What was played, as text to pass on: the report of the playtest.
+        share: { label: () => this.shareLabel(), action: () => this.shareLevels() },
+        onBack: () => this.showMenu(),
+      }),
+      true,
+    );
+  }
+
+  /** A level is over: passed with moves to spare, or failed short of its goal. No advertisement comes between levels. */
+  private showLevelResult(): void {
+    const { state } = this;
+    const run = state.levelRun!;
+    const { spec } = run;
+    const passed = state.endReason === 'passed';
+    const left = Math.max(0, spec.moves - run.moves);
+    const short = shortOf(state);
+    const lines: GoalLine[] = goalLines(state);
+    const stat = levelStat(this.settings, spec.id);
+    if (passed) {
+      stat.passes++;
+      stat.firstPassTry ??= stat.tries;
+      stat.bestLeft = Math.max(stat.bestLeft ?? 0, left);
+      stat.bestMoves = Math.min(stat.bestMoves ?? run.moves, run.moves);
+      this.settings.levels.passed[spec.id] = true;
+    } else {
+      stat.fails++;
+      noteShort(stat, short);
+    }
+    saveSettings(this.settings);
+    const summary: EventData = { ...this.step(), ...this.levelTry(), duration_sec: this.seconds() };
+    if (passed) track('progression_completed', summary);
+    else track('progression_failed', { ...summary, reason: 'moves', short });
+    tell(passed ? 'level_completed' : 'level_failed', this.levelName());
+    this.frames.flush(this.lastFrame);
+    this.shell.showPanel(
+      levelResultPanel(
+        {
+          passed,
+          left: spec.moves > 0 ? left : null,
+          moves: run.moves,
+          goal: lines,
+          hasNext: this.levelIndex + 1 < PROBE_LEVELS.length,
+          // A level that is failed says what it lacked.
+          reason: passed ? undefined : t('levelShort').replace('{short}', String(short)),
+        },
+        {
+          onNext: () => this.startLevel(this.levelIndex + 1, true),
+          onAgain: () => this.startLevel(this.levelIndex),
+          onLevels: () => this.showLevels(),
         },
       ),
       false,
@@ -958,13 +1180,16 @@ export class Game {
   }
 
   private showPause(): void {
+    // A task and a level have no log of sessions: from their pause the way leads back to their list.
+    const level = Boolean(this.state.levelRun);
     this.shell.showPanel(
       pausePanel({
-        task: this.state.puzzle !== null,
+        task: this.state.puzzle !== null || level,
+        list: level ? COMMANDS.levels : undefined,
         onResume: () => this.resume(),
         onRestart: () => this.startRun(),
         onRecords: () => this.showRecords(() => this.showPause()),
-        onTasks: () => this.showPuzzleLevels(),
+        onTasks: () => (level ? this.showLevels() : this.showPuzzleLevels()),
         onSystem: () => this.showSystem(() => this.showPause()),
         onMenu: () => this.showMenu(),
       }),
@@ -1067,14 +1292,28 @@ export class Game {
     const text = score > 0 ? t('shareScore').replace('{score}', String(score)) : LOGO_TEXT;
     void shareOut(text).then((how) => {
       track('result_shared', { mode, how, score });
-      this.shared = how;
-      this.shell.touch();
-      window.clearTimeout(this.sharedTimer);
-      this.sharedTimer = window.setTimeout(() => {
-        this.shared = null;
-        this.shell.touch();
-      }, SHARED_MS);
+      this.noteShared(how);
     });
+  }
+
+  /** Sends out what the player did on the levels: the report of the playtest, as text. */
+  private shareLevels(): void {
+    const report = levelReport(PROBE_LEVELS, this.settings.levels.stats);
+    void shareOut(report || LEVELS_UNPLAYED).then((how) => {
+      track('result_shared', { mode: 'levels', how });
+      this.noteShared(how);
+    });
+  }
+
+  /** The command of sharing reads what came of the sending, for a moment. */
+  private noteShared(how: Shared): void {
+    this.shared = how;
+    this.shell.touch();
+    window.clearTimeout(this.sharedTimer);
+    this.sharedTimer = window.setTimeout(() => {
+      this.shared = null;
+      this.shell.touch();
+    }, SHARED_MS);
   }
 
   /** What the player can set: sound, motion, shake, swipes or buttons, the camera. In development the tools of the playtest open from here. */
@@ -1287,6 +1526,7 @@ export class Game {
   }
 
   private onTick(state: RunState): void {
+    if (state.levelRun) this.levelTicks++;
     this.view.notify(state.events);
     for (const event of state.events) {
       // Levels mean nothing in the tutorial: no fanfare for passing one.
@@ -1332,8 +1572,8 @@ export class Game {
       const p = this.view.project(cx, 1.1, cz);
       at = { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) };
     }
-    // A puzzle is not scored: nothing leaves for the score.
-    this.hud.beat({ kind: beat.kind, value: beat.value, chain: beat.chain, points: state.puzzle ? 0 : beat.points, tier: beat.tier, at });
+    // A puzzle and a level are not scored: nothing leaves for the score.
+    this.hud.beat({ kind: beat.kind, value: beat.value, chain: beat.chain, points: state.puzzle || state.levelRun ? 0 : beat.points, tier: beat.tier, at });
   }
 
   private onEvent(state: RunState, event: GameEvent): void {
@@ -1346,20 +1586,21 @@ export class Game {
             puzzleStat(this.settings, PUZZLE_LEVELS[this.puzzleIndex].id).tries++;
           }
         }
+        if (state.levelRun) this.onLevelStep(state, event.kind);
         this.beforeCommand = null;
         break;
       case 'deadEnd':
         puzzleStat(this.settings, PUZZLE_LEVELS[this.puzzleIndex].id).dead++;
         break;
       case 'match':
-        // A puzzle is not scored and its board stays as it is.
-        if (!state.puzzle) this.ritual.send(event.value, 1);
+        // A puzzle and a level are not scored and their board stays as it is.
+        if (!state.puzzle && !state.levelRun) this.ritual.send(event.value, 1);
         if (state.stats.clears >= 2) this.hintOnce('hintChain');
         break;
       case 'chain':
-        if (!state.puzzle) this.ritual.send(event.value, event.chain);
+        if (!state.puzzle && !state.levelRun) this.ritual.send(event.value, event.chain);
         // The program may note the pattern in its log, behind the board.
-        if (!state.puzzle && !state.tutorial) this.signal.chain(event.chain);
+        if (!state.puzzle && !state.tutorial && !state.levelRun) this.signal.chain(event.chain);
         break;
       case 'levelUp':
         // A level of a scored session is passed: how long it took and what it did to the board.
@@ -1387,6 +1628,43 @@ export class Game {
       default:
         break;
     }
+  }
+
+  /**
+   * A step made on a level. A roll or a push is a move: it can be taken back where the level
+   * lets it, and the first one makes the start a try. A step onto a die that stands is a
+   * commitment: from that die the player does not step down, it is rolled; and the group they
+   * have left is glass, so the way back onto it is a roll too. The die is framed for a moment,
+   * and the first time it is said in words.
+   */
+  private onLevelStep(state: RunState, kind: MoveKind): void {
+    const run = state.levelRun!;
+    const { player } = state;
+    if (kind === 'roll' || kind === 'push') {
+      if (this.undoable && this.beforeCommand) this.history.push(this.beforeCommand);
+      if (!this.tryCounted) {
+        this.tryCounted = true;
+        levelStat(this.settings, run.spec.id).tries++;
+      }
+      return;
+    }
+    if (kind !== 'hop' && kind !== 'climb') return;
+    if (cubeAt(state, player.x, player.z)?.state !== 'idle') return;
+    this.entered = { x: player.x, z: player.z, until: this.lastFrame + ENTERED_MS };
+    const from = player.action;
+    const left = from && from.fromLevel === 'top' ? cubeAt(state, from.fromX, from.fromZ) : undefined;
+    if (left?.state === 'sinking') this.hintOnce('hintCommit');
+  }
+
+  /** What a level draws on its board: the direction of a swipe, and the frame of the die just stepped onto. */
+  private levelGuide(steer: BoardGuide | null, time: number): BoardGuide | null {
+    const { entered } = this;
+    const { player } = this.state;
+    // The frame goes with the die: once the player has rolled it or left it, it is gone.
+    if (entered && (time > entered.until || player.x !== entered.x || player.z !== entered.z || player.level !== 'top')) this.entered = null;
+    if (!this.entered) return steer;
+    const frame: GuideFrame = { x: this.entered.x, z: this.entered.z, face: 'top', height: 1, strong: true };
+    return { arrows: steer?.arrows ?? [], frames: [frame] };
   }
 
   /** The die under the player, unfolded: what the corner of the screen shows of it. */
@@ -1429,33 +1707,60 @@ export class Game {
     }
 
     const { puzzle } = state;
+    const levelRun = state.levelRun ?? null;
     const level = PUZZLE_LEVELS[this.puzzleIndex];
+    // A level says of every group on its way out what it shows and in how many moves a die still joins it.
+    const leaving = levelRun
+      ? chainWindows(state)
+          .map(({ value, moves }) => t('levelChain').replace('{value}', String(value)).replace('{moves}', String(moves)))
+          .join(' · ')
+      : '';
+    // A board to be cleared that cannot be: the move is to be taken back.
+    const stuck = levelStuck(state);
     let note: HudView['note'] = null;
     if (puzzle?.dead === 'noExit') note = { text: t('deadNoExit'), alarm: true };
     else if (puzzle?.dead === 'single') note = { text: t('deadSingle'), alarm: true };
     else if (puzzle && puzzle.held !== 0) note = { text: t('puzzleHeld'), alarm: false };
+    else if (stuck) note = { text: t('levelStuck'), alarm: true };
+    // A hint is said once and for a few seconds: on a level it is not kept waiting behind the line about a group.
+    else if (levelRun && this.hints.text) note = { text: this.hints.text, alarm: false };
+    else if (leaving) note = { text: leaving, alarm: false };
     else if (this.hints.text) note = { text: this.hints.text, alarm: false };
 
     const padBox = this.pad.getBoundingClientRect();
     return {
       header: puzzle
         ? { kind: 'task', number: this.puzzleIndex + 1, moves: puzzle.moves, target: level.par, best: this.settings.puzzle.stats[level.id]?.best ?? null }
-        : {
-            kind: 'session',
-            score: state.score,
-            best: this.bestScore(state.mode === 'timed' ? 'timed' : 'endless', this.day.date),
-            level: state.mode === 'practice' ? null : state.level,
-            clock: clockLeft(state),
-            danger: secondsLeft(state),
-            stage: this.ritual.stage,
-            steps: CONTACT_STEPS.length,
-            next: nextThreshold(state.removed),
-          },
+        : levelRun
+          ? {
+              kind: 'level',
+              number: this.levelIndex + 1,
+              left: levelRun.spec.moves > 0 ? Math.max(0, levelRun.spec.moves - levelRun.moves) : null,
+              made: levelRun.moves,
+              goal: goalLines(state),
+            }
+          : {
+              kind: 'session',
+              score: state.score,
+              best: this.bestScore(state.mode === 'timed' ? 'timed' : 'endless', this.day.date),
+              level: state.mode === 'practice' ? null : state.level,
+              clock: clockLeft(state),
+              danger: secondsLeft(state),
+              stage: this.ritual.stage,
+              steps: CONTACT_STEPS.length,
+              next: nextThreshold(state.removed),
+            },
       seal: this.sealView(state, mark, steer, lesson?.dir ?? null),
       labels,
       lesson,
       note,
-      tools: puzzle ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null } : null,
+      tools: puzzle
+        ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null }
+        : levelRun
+          ? this.undoable
+            ? { canUndo: this.history.length > 0, urgent: stuck }
+            : { canUndo: false, urgent: false, retryOnly: true }
+          : null,
       pad:
         this.settings.controlMode === 'dpad' && padBox.width > 0
           ? { pulse: lesson?.dir ?? null, box: { x: padBox.left, y: padBox.top, width: padBox.width, height: padBox.height } }
@@ -1487,6 +1792,8 @@ export class Game {
         const stat = puzzleStat(this.settings, PUZZLE_LEVELS[this.puzzleIndex].id);
         if (stat.firstMoves === null) stat.playMs += Math.min(dt, 250);
       }
+      // A level keeps the time played on it, try after try: its own tick is no clock.
+      if (this.state.levelRun) levelStat(this.settings, this.state.levelRun.spec.id).playMs += Math.min(dt, 250);
     }
     if (this.handoff) {
       // The tutorial is over: Endless starts on the spot, around the player.
@@ -1498,12 +1805,13 @@ export class Game {
     if (state.over && !this.resultShown) {
       this.resultShown = true;
       if (state.puzzle) this.showPuzzleResult();
+      else if (state.levelRun) this.showLevelResult();
       else this.showResult();
     }
 
     // The ritual follows the dice sent in this run only and never feeds back into the rules.
-    // A puzzle has no contact: the board stays as it is at the start.
-    const reached = this.ritual.update(state.puzzle ? 0 : state.removed, running ? Math.min(dt, 250) : 0);
+    // A puzzle and a level have no contact: the board stays as it is at the start.
+    const reached = this.ritual.update(state.puzzle || state.levelRun ? 0 : state.removed, running ? Math.min(dt, 250) : 0);
     if (reached.length > 0) this.audio.setContact(this.ritual.stage / CONTACT_STEPS.length);
     // A step of the contact is a beat of its own, and so is the moment it goes past the last.
     for (let i = 0; i < reached.length; i++) this.beat(stepBeat());
@@ -1533,7 +1841,11 @@ export class Game {
     const guide = this.updateGuide(state, stage);
     if (!covered) {
       this.view.draw(state, alpha, time, {
-        overlay: { boardPreview: experiments.boardPreview, matchHint: experiments.matchHint, guide: guide.board ?? steer.guide },
+        overlay: {
+          boardPreview: experiments.boardPreview,
+          matchHint: experiments.matchHint,
+          guide: guide.board ?? (state.levelRun ? this.levelGuide(steer.guide, time) : steer.guide),
+        },
         contact: this.ritual.look,
         warn: state.cubes.length >= state.config.warnOccupied && !state.over,
         danger: danger !== null,
@@ -1560,7 +1872,7 @@ export class Game {
     this.shell.frame(time);
     // Something comes through behind the board only while a scored session is being played.
     const session =
-      running && !state.puzzle && !state.tutorial
+      running && !state.puzzle && !state.tutorial && !state.levelRun
         ? {
             contact: this.ritual.stage / CONTACT_STEPS.length,
             noise: state.cubes.length / state.config.size ** 2,

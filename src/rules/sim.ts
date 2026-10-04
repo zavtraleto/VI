@@ -1,10 +1,12 @@
+import { cubeAt } from './board';
+import { endBeat, levelConfig } from './level';
 import { applyMove, canAcceptCommand } from './movement';
 import { levelStats, pruneReactions, removeCube, resolveLanded, runPhase } from './reactions';
 import { isPuzzleHeld, placePuzzleLayout, puzzleConfig, runPuzzle } from './puzzle';
-import { chainQuiet, placeStartLayout, runSpawn } from './spawn';
+import { advancePending, chainQuiet, placeLevelLayout, placeStartLayout, runSpawn } from './spawn';
 import { isHeld, placeTutorialLayout, runTutorial, tutorialConfig, tutorialMove } from './tutorial';
 import { runWave, waveAt } from './wave';
-import type { Dir, PuzzleLayout, RulesConfig, RunState } from './types';
+import type { Dir, LevelRun, LevelSpec, PuzzleLayout, RulesConfig, RunState } from './types';
 
 export interface RunOptions {
   seed: number;
@@ -14,6 +16,8 @@ export interface RunOptions {
   tutorial?: boolean;
   /** A puzzle to solve: its dice and nothing else, on a board of its own size. */
   puzzle?: PuzzleLayout;
+  /** A level of the game: its board, its dice, its goal and its moves. */
+  level?: LevelSpec;
   /** Start with no cubes and the player on the ground. Used by tests. */
   empty?: boolean;
   forceFallback?: boolean;
@@ -21,11 +25,19 @@ export interface RunOptions {
 
 export function createRun(opts: RunOptions): RunState {
   const { puzzle } = opts;
+  const level = puzzle ? undefined : opts.level;
+  const scripted = opts.tutorial && !puzzle && !level;
   // The run keeps a config of its own: its chain window changes with the level.
-  const config = puzzle ? puzzleConfig(opts.config, puzzle) : opts.tutorial ? tutorialConfig(opts.config) : { ...opts.config };
+  const config = puzzle
+    ? puzzleConfig(opts.config, puzzle)
+    : level
+      ? levelConfig(opts.config, level)
+      : opts.tutorial
+        ? tutorialConfig(opts.config)
+        : { ...opts.config };
   const state: RunState = {
     config,
-    mode: puzzle ? 'puzzle' : opts.tutorial ? 'practice' : opts.timed ? 'timed' : 'endless',
+    mode: puzzle ? 'puzzle' : level ? 'level' : opts.tutorial ? 'practice' : opts.timed ? 'timed' : 'endless',
     seed: opts.seed,
     tick: 0,
     rng: opts.seed | 0,
@@ -47,11 +59,12 @@ export function createRun(opts: RunOptions): RunState {
     sinceClear: 0,
     liftTimer: 0,
     fullTicks: 0,
-    spawnEnabled: !opts.tutorial && !puzzle,
+    spawnEnabled: !opts.tutorial && !puzzle && !level,
     feedDeck: [],
     helpDeck: [],
-    tutorial: opts.tutorial && !puzzle ? { step: 0, timer: 0, done: false } : null,
+    tutorial: scripted ? { step: 0, timer: 0, done: false } : null,
     puzzle: puzzle ? { moves: 0, held: 0, dead: null } : null,
+    levelRun: level ? { spec: level, moves: 0, sent: [0, 0, 0, 0, 0, 0], bestChain: 0, beat: 0 } : null,
     over: false,
     endReason: null,
     stats: {
@@ -78,6 +91,7 @@ export function createRun(opts: RunOptions): RunState {
   };
   if (opts.empty) return state;
   if (puzzle) placePuzzleLayout(state, puzzle);
+  else if (level) placeLevelLayout(state);
   else if (opts.tutorial) placeTutorialLayout(state);
   else placeStartLayout(state, opts.forceFallback);
   return state;
@@ -169,12 +183,51 @@ function countChainQuiet(state: RunState): void {
 }
 
 /**
+ * A tick of a level. Its world moves only with a move, a roll or a push, and for as long as
+ * the moved die is on its way: a beat. On every other tick nothing sinks, rises or comes, and
+ * the tick of the run stands; the player's own step is all that goes on. Where there is no move
+ * to make the world plays a beat by itself: with no die standing, and with the player up on a
+ * die that is still coming, which can be neither rolled nor left and so comes up under them.
+ * A beat ends on the tick the die lands, or on the last tick of a beat played alone.
+ */
+function stepLevel(state: RunState, run: LevelRun, cmd: Dir | null): boolean {
+  const flying = () => state.cubes.some((c) => c.state === 'moving');
+  const accepts = cmd !== null && canAcceptCommand(state);
+  const moved = flying();
+  const alone = run.beat > 0;
+
+  finishMovements(state);
+  if (moved || alone) {
+    finishRemovals(state);
+    finishRisings(state);
+    advancePending(state);
+    if (alone) run.beat--;
+    countStats(state);
+    state.tick++;
+    if ((moved && !flying()) || (alone && run.beat === 0)) endBeat(state);
+  }
+  if (accepts && !state.over && applyMove(state, cmd)) {
+    const kind = state.player.action?.kind;
+    if (kind === 'roll' || kind === 'push') run.moves++;
+  }
+  const waits = state.over || state.player.action !== undefined || run.beat > 0;
+  if (!waits) {
+    const { player } = state;
+    const own = player.level === 'top' ? cubeAt(state, player.x, player.z) : undefined;
+    const noneStands = !state.cubes.some((c) => c.state === 'idle' || c.state === 'moving');
+    if (noneStands || own?.state === 'rising') run.beat = state.config.actionTicks;
+  }
+  return accepts;
+}
+
+/**
  * Advances the run by one tick. `cmd` is applied only when the player is free;
  * the return value says whether it was consumed (blocked steps are consumed too).
  */
 export function step(state: RunState, cmd: Dir | null): boolean {
   state.events = [];
   if (state.over) return false;
+  if (state.levelRun) return stepLevel(state, state.levelRun, cmd);
   const accepts = cmd !== null && canAcceptCommand(state);
 
   finishMovements(state);

@@ -41,6 +41,32 @@ export interface PuzzleProgress {
   rulesSeen: boolean;
 }
 
+/** What a player did on one level, for the playtest report. */
+export interface LevelStat {
+  /** Starts of the level that got at least one move. */
+  tries: number;
+  passes: number;
+  fails: number;
+  /** The try the level was first passed on; null until then. */
+  firstPassTry: number | null;
+  /** Most moves the level has been passed with to spare. */
+  bestLeft: number | null;
+  /** Fewest moves the level has been passed in. */
+  bestMoves: number | null;
+  /** Moves taken back. */
+  undos: number;
+  /** How far short of the goal each failed try ended, the last 20 of them. */
+  short: number[];
+  /** Time spent playing the level, in milliseconds. */
+  playMs: number;
+}
+
+export interface LevelProgress {
+  /** Levels passed, by their code. */
+  passed: Record<string, boolean>;
+  stats: Record<string, LevelStat>;
+}
+
 export interface Settings {
   experiments: ExperimentConfig;
   /** The version of the rules the experiments were saved under; absent in what was saved before 0.8. */
@@ -70,6 +96,7 @@ export interface Settings {
    */
   runs: Record<string, RunRecord[]>;
   puzzle: PuzzleProgress;
+  levels: LevelProgress;
 }
 
 /** The one key everything the game keeps is under. */
@@ -98,6 +125,7 @@ export function loadSettings(): Settings {
     debugPanel: false,
     runs: {},
     puzzle: { stars: {}, stats: {}, rulesSeen: false },
+    levels: { passed: {}, stats: {} },
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
@@ -108,6 +136,7 @@ export function loadSettings(): Settings {
   loaded.runs = joinRuns(loaded.runs);
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
+  loaded.levels = { ...fallback.levels, ...loaded.levels };
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
   }
@@ -157,6 +186,24 @@ export function puzzleStat(settings: Settings, id: string): PuzzleStat {
   const stats = settings.puzzle.stats;
   stats[id] ??= { tries: 0, undos: 0, dead: 0, playMs: 0, firstMoves: null, firstSec: null, best: null };
   return stats[id];
+}
+
+/** Failed tries of a level whose shortfall is kept. */
+const MAX_SHORT = 20;
+
+export function levelStat(settings: Settings, id: string): LevelStat {
+  const stats = settings.levels.stats;
+  stats[id] ??= { tries: 0, passes: 0, fails: 0, firstPassTry: null, bestLeft: null, bestMoves: null, undos: 0, short: [], playMs: 0 };
+  const stat = stats[id];
+  // What was saved before these were counted has none of them.
+  stat.undos ??= 0;
+  stat.bestMoves ??= null;
+  return stat;
+}
+
+/** Notes a failed try: how far short of the goal it ended. */
+export function noteShort(stat: LevelStat, short: number): void {
+  stat.short = [...stat.short, short].slice(-MAX_SHORT);
 }
 
 export type RecordMetric = 'score' | 'chain' | 'ticks';

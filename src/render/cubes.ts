@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { cubeHeight, isHeld, type Cube, type RunState } from '../rules';
+import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import { mixHex, type Palette } from '../shell/theme';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
@@ -174,6 +174,9 @@ export class CubeMeshes {
     if (cube.state === 'idle' || cube.state === 'moving') return 'idle';
     const height = cubeHeight(cube, state.config);
     if (cube.state === 'rising') return height <= state.config.mountHeight ? 'risingLow' : 'rising';
+    // On a level a die that sinks is glass at once, all but the one under the player: that one holds while they stand on it.
+    const { player } = state;
+    if (state.levelRun && player.level === 'top' && player.x === cube.x && player.z === cube.z) return 'sinking';
     return height <= state.config.sinkLowHeight ? 'sinkingLow' : 'sinking';
   }
 
@@ -210,8 +213,8 @@ export class CubeMeshes {
       }
       const glass = die.material;
       const faint = look === 'risingLow' || look === 'sinkingLow';
-      // A die held by the tutorial stays put between ticks.
-      const height = cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha);
+      // A die held by the tutorial stays put between ticks, and so does one on a level whose world stands.
+      const height = cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
       // The nearer its full height, the more of the die is here: it comes up into being solid,
       // and stops being solid as it starts to go down.
       const here = body + (1 - body) * smoothstep(solid, 1, height);

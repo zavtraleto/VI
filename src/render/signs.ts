@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DELTA, DIRS, cubeAt, cubeHeight, inChain, isDock, isHeld, isStep, type Cube, type RunState } from '../rules';
+import { DELTA, DIRS, cubeAt, cubeHeight, inChain, isDock, isHeld, isStep, worldRuns, type Cube, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
 import { CUBE_SIZE } from './cubes';
@@ -19,9 +19,12 @@ const MAX_DOCKS = 9 * 9;
  */
 const RAISED_FADE = 0.5;
 
-/** How much of a die is above the floor. A die held by the tutorial stays put between ticks. */
+/**
+ * How much of a die is above the floor. A die held by the tutorial stays put between ticks,
+ * and so does one on a level whose world stands.
+ */
 const heightOf = (state: RunState, cube: Cube, alpha: number): number =>
-  cubeHeight(cube, state.config, isHeld(state, cube) ? 0 : alpha);
+  cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
 
 /** Where the top face of a die that high is, apart from the dip a step makes in it. */
 const faceAt = (height: number): number => height - 0.5 + CUBE_SIZE / 2;
