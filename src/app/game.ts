@@ -1004,6 +1004,12 @@ export class Game {
    * platform, where it keeps one; anywhere else the number the program has for them.
    */
   private ownName(): string {
+    // A table that already has a line of the player knows best what they are called there.
+    for (const mode of SCORED) {
+      const board = this.boards.get(mode);
+      const mine = board === undefined || typeof board === 'string' ? undefined : board.find((entry) => entry.own && entry.name !== '');
+      if (mine) return mine.name;
+    }
     return (hasBoard() ? playerName() : null) ?? `${RECORDS.subject} ${RECORDS.seventh}`;
   }
 

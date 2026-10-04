@@ -208,9 +208,14 @@ export async function boardEntries(board: string): Promise<BoardEntry[]> {
     .sort((a, b) => a.rank - b.rank);
 }
 
-/** The name the platform has for the one who plays; null where it has none, or there is no platform. */
+/**
+ * The name the one who plays has on the platform; null where they have none, or there is no
+ * platform. A guest has none here: what the SDK calls them is their number (`Guest sA7p…`), and
+ * the name the platform shows for them stands only in its tables.
+ */
 export function playerName(): string | null {
-  const name = sdk?.player.name?.trim();
+  if (!sdk || sdk.player.isGuest) return null;
+  const name = sdk.player.name?.trim();
   return name ? name : null;
 }
 
