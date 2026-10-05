@@ -6,6 +6,15 @@ export const DEAD_ZONE_PX = 10;
 export const HYSTERESIS_DEG = 12;
 /** The point a swipe is measured from follows the finger no further behind than this. */
 export const LEASH_PX = 30;
+/**
+ * A swipe that steps when the finger is lifted is read further out and called off nearer: the
+ * finger has a place to come back to that is easy to find, and a swipe that reaches it steps
+ * nowhere. Every step of a level may be a move that counts, so not stepping has to be as easy
+ * as stepping.
+ */
+export const RELEASE_TRIGGER_PX = 34;
+export const RELEASE_DEAD_ZONE_PX = 24;
+export const RELEASE_LEASH_PX = 50;
 
 /** Where each board direction points on screen: unit vectors, y growing downwards. */
 export type ScreenDirs = Record<Dir, { x: number; y: number }>;
@@ -104,12 +113,15 @@ export class GestureTracker {
     const dirs = this.dirs();
     // Read only: the step is made when the finger is lifted.
     const held = this.onRelease();
+    const trigger = held ? RELEASE_TRIGGER_PX : TRIGGER_PX;
+    const dead = held ? RELEASE_DEAD_ZONE_PX : DEAD_ZONE_PX;
+    const leash = held ? RELEASE_LEASH_PX : LEASH_PX;
     if (this.active === null) {
-      if (dist >= TRIGGER_PX) {
+      if (dist >= trigger) {
         this.active = nearestDir(dx, dy, dirs);
         if (!held) this.controller.press(this.active, this.now());
       }
-    } else if (dist <= DEAD_ZONE_PX) {
+    } else if (dist <= dead) {
       this.active = null;
       if (!held) this.controller.release();
     } else {
@@ -123,8 +135,8 @@ export class GestureTracker {
     }
     // The origin trails the finger on a short leash: turning or going back is a short move
     // from where the finger is, not a trip back past where it first touched.
-    if (dist > LEASH_PX) {
-      const slack = (dist - LEASH_PX) / dist;
+    if (dist > leash) {
+      const slack = (dist - leash) / dist;
       this.originX += dx * slack;
       this.originY += dy * slack;
     }

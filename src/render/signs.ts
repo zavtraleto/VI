@@ -110,7 +110,15 @@ export class ChainSigns {
   }
 
   /** `reach` makes the light taller than its parameter says: the contact can lift it. */
-  sync(state: RunState, alpha: number, timeMs: number, reducedMotion: boolean, dip: (cubeId: number) => number, reach = 1): void {
+  sync(
+    state: RunState,
+    alpha: number,
+    timeMs: number,
+    reducedMotion: boolean,
+    dip: (cubeId: number) => number,
+    reach = 1,
+    ghosts: readonly { x: number; z: number; value: number }[] = [],
+  ): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     const { size } = state.config;
     this.cells.clear();
@@ -154,6 +162,9 @@ export class ChainSigns {
           pillars++;
         }
       }
+      // A cell a die of the chain stood on until it was rolled over keeps the frame of the chain: the die is
+      // gone at once, and its place in the group is not.
+      for (const ghost of ghosts) this.cells.set(ghost.x + ghost.z * size, ghost.value);
       // A cell a die of the chain stands on has its mark already.
       for (const cube of state.cubes) if (inChain(cube)) this.cells.delete(cube.x + cube.z * size);
     }

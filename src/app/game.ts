@@ -135,6 +135,20 @@ const LEVEL_OF_ONES = Infinity;
 const LEVEL_OF_COMMIT = 3;
 /** A group made short for this time in one try is told its reason in words. */
 const SHORT_SAID_AT = 2;
+/**
+ * The end of a level that is passed, before its result is shown: the dice go under the floor,
+ * the board answers them when they are nearly gone, and the answer is let run out. A second
+ * and a little: long enough to be felt, short enough not to be waited for; a press cuts it short.
+ * With motion reduced the dice are gone at once and the result comes after a breath.
+ */
+const FINALE_BEAT_MS = 400;
+const FINALE_MS = 1150;
+const FINALE_STILL_MS = 350;
+/** How strong the answer of the board is, as a beat: a tier under the strongest, and the sound of a chain's fourth link. */
+const FINALE_TIER = 3;
+const FINALE_CHAIN = 4;
+/** Moves a cell keeps the frame of a die rolled over on it, at the most: its group is long gone by then. */
+const GHOST_MOVES = 8;
 
 /** Side of the die that looks towards each board direction. */
 const SIDE: Record<Dir, keyof Orientation> = { N: 'north', E: 'east', S: 'south', W: 'west' };
@@ -231,6 +245,10 @@ export class Game {
   private lastMove: { x: number; z: number; moves: number } | null = null;
   /** Times a move of this try has left its die in a group that is short. */
   private shortCases = 0;
+  /** The end of a level that is passed: when it began, whether the board has answered, whether a press has cut it short. */
+  private finale: { start: number; beaten: boolean; skipped: boolean } | null = null;
+  /** Cells of a level on which a die that was going has been rolled over: where, of what face and group, on which move. */
+  private ghosts: { x: number; z: number; value: number; reactionId: number; moves: number }[] = [];
   /** The program is up: what starts from here on is started by the player. */
   private opened = false;
   /** The platform has been told that the game can be played. */
@@ -363,6 +381,13 @@ export class Game {
       e.preventDefault();
       this.hud.proceed();
     });
+    // A press while a level ends brings its result at once.
+    const hurry = (e: Event): void => {
+      if (e instanceof KeyboardEvent && e.repeat) return;
+      if (this.finale && !this.resultShown) this.finale.skipped = true;
+    };
+    window.addEventListener('pointerdown', hurry);
+    window.addEventListener('keydown', hurry);
     window.addEventListener('keydown', (e) => {
       const { puzzle, levelRun } = this.state;
       if (!(puzzle || levelRun) || !enabled()) return;
@@ -708,6 +733,8 @@ export class Game {
     this.levelTicks = 0;
     this.lastMove = null;
     this.shortCases = 0;
+    this.finale = null;
+    this.ghosts = [];
     // Where every step may be a move that counts, a held direction is one step.
     this.controller.setRepeat(!state.levelRun);
     this.handoff = null;
@@ -797,6 +824,9 @@ export class Game {
     this.runner = new Runner(previous);
     this.beforeCommand = null;
     this.lastMove = null;
+    // What was rolled over after the board that is back is not rolled over on it.
+    const made = previous.levelRun?.moves ?? 0;
+    this.ghosts = this.ghosts.filter((ghost) => ghost.moves <= made);
     this.controller.cancel();
     this.view.reset();
   }
@@ -1663,14 +1693,23 @@ export class Game {
     const run = state.levelRun!;
     const { player } = state;
     if (kind !== 'roll' && kind !== 'push') return;
+    // A rolled die carries the player to its cell; a pushed one goes a cell further than they step.
+    const { dx, dz } = DELTA[player.action!.dir];
+    const landed = kind === 'roll' ? { x: player.x, z: player.z } : { x: player.x + dx, z: player.z + dz };
+    if (this.beforeCommand) {
+      // A die that was going and is rolled over is gone at once: its cell keeps the frame of its group.
+      const over = resolveMove(this.beforeCommand, player.action!.dir).over;
+      if (over && over.reactionId !== 0 && over.x === landed.x && over.z === landed.z) {
+        this.ghosts = this.ghosts.filter((ghost) => run.moves - ghost.moves < GHOST_MOVES);
+        this.ghosts.push({ x: over.x, z: over.z, value: over.ori.top, reactionId: over.reactionId, moves: run.moves });
+      }
+    }
     if (this.undoable && this.beforeCommand) this.history.push(this.beforeCommand);
     if (!this.tryCounted) {
       this.tryCounted = true;
       levelStat(this.settings, run.spec.id).tries++;
     }
-    // A rolled die carries the player to its cell; a pushed one goes a cell further than they step.
-    const { dx, dz } = DELTA[player.action!.dir];
-    this.lastMove = kind === 'roll' ? { x: player.x, z: player.z, moves: run.moves } : { x: player.x + dx, z: player.z + dz, moves: run.moves };
+    this.lastMove = { ...landed, moves: run.moves };
   }
 
   /** The group that is short which the die of the last move stands in, until the next move is made. */
@@ -1695,6 +1734,31 @@ export class Game {
     const own = player.level === 'top' ? cubeAt(state, player.x, player.z) : undefined;
     if (!state.levelRun || own?.state !== 'sinking' || player.action || state.over) return [];
     return DIRS.filter((dir) => resolveMove(state, dir).kind === 'hop' && cubeAt(state, player.x + DELTA[dir].dx, player.z + DELTA[dir].dz)?.state === 'idle');
+  }
+
+  /**
+   * The end of a level that is passed, played before its result: the dice go under the floor,
+   * and when they are nearly gone the board answers, with the beat of a chain, from where they
+   * stood. True once it has run out or a press has cut it short.
+   */
+  private finaleOver(time: number): boolean {
+    const { state } = this;
+    const still = prefersReducedMotion(this.settings);
+    if (!this.finale) {
+      this.finale = { start: time, beaten: false, skipped: false };
+      this.view.leaveBoard();
+    }
+    const { finale } = this;
+    const elapsed = time - finale.start;
+    if (!finale.beaten && (still || finale.skipped || elapsed >= FINALE_BEAT_MS)) {
+      finale.beaten = true;
+      // The face sent last: that of the die that joined its group latest.
+      const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
+      const value = last?.ori.top ?? 0;
+      this.view.answer(value);
+      this.beat({ kind: 'chain', value, tier: FINALE_TIER, cells: state.cubes.map(({ x, z }) => ({ x, z })), points: 0, chain: FINALE_CHAIN });
+    }
+    return finale.skipped || elapsed >= (still ? FINALE_STILL_MS : FINALE_MS);
   }
 
   /**
@@ -1756,7 +1820,7 @@ export class Game {
     const levelRun = state.levelRun ?? null;
     const level = PUZZLE_LEVELS[this.puzzleIndex];
     // A level says of every group on its way out what it shows and in how many moves a die still joins it.
-    const leaving = levelRun
+    const leaving = levelRun && !state.over
       ? chainWindows(state)
           .map(({ value, moves }) => t('levelChain').replace('{value}', String(value)).replace('{moves}', String(moves)))
           .join(' · ')
@@ -1781,7 +1845,7 @@ export class Game {
     // a group that is going says in how many moves a die still joins it;
     else if (leaving) note = { text: leaving, alarm: false };
     // and with nothing going, the lesson of the level is there from its start.
-    else if (teaches) note = { text: t(teaches as TextKey), alarm: false };
+    else if (teaches && !state.over) note = { text: t(teaches as TextKey), alarm: false };
     else if (this.hints.text) note = { text: this.hints.text, alarm: false };
 
     const padBox = this.pad.getBoundingClientRect();
@@ -1860,7 +1924,9 @@ export class Game {
       this.audio.begin();
     }
     const state = this.state;
-    if (state.over && !this.resultShown) {
+    // A level that is passed plays its end before its result is shown.
+    const ending = state.over && !this.resultShown && state.levelRun !== null && state.endReason === 'passed' && !this.finaleOver(time);
+    if (state.over && !this.resultShown && !ending) {
       this.resultShown = true;
       if (state.puzzle) this.showPuzzleResult();
       else if (state.levelRun) this.showLevelResult();
@@ -1910,6 +1976,8 @@ export class Game {
         reducedMotion,
         shake: this.settings.shake,
         whole: this.settings.view === 'full',
+        // The frame stays for as long as the group the die was of is going.
+        ghosts: state.levelRun ? this.ghosts.filter((ghost) => state.reactions.some((reaction) => reaction.id === ghost.reactionId)) : [],
       });
       this.backdrop.draw(this.view.background, this.view.inverted);
     } else {

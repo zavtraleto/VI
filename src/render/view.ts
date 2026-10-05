@@ -27,6 +27,14 @@ const FRAME_MARGIN = 0.25;
 const SIDE_MARGIN = 0.08;
 const CAMERA_DISTANCE = 40;
 const RISE_IN_MS = 600;
+/**
+ * How long the dice of a level that is cleared take to go down under the floor, and how far
+ * down they go: the way they came up, turned round, a little quicker.
+ */
+const LEAVE_MS = 520;
+const LEAVE_DEPTH = 1.25;
+/** How far gone the dice are when their marks are put out: the top of a whole die is at the floor by then. */
+const MARKS_GONE_AT = 0.85;
 /** How far the dark behind the board goes towards the channel sent most, and towards a group just sent. */
 const BACK_TINT = 0.04;
 const BACK_ANSWER = 0.06;
@@ -102,6 +110,11 @@ export interface SceneParams {
   shake: boolean;
   /** The player keeps the whole board in view, however small it is on this screen. */
   whole?: boolean;
+  /**
+   * Cells a die that was going stood on until another die was rolled over it: its group is still
+   * going, and the cell keeps the frame of the group.
+   */
+  ghosts?: readonly { x: number; z: number; value: number }[];
 }
 
 type FlatMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -205,6 +218,9 @@ export class BoardView {
   private readonly red = new THREE.Color();
   /** 1 when a board starts by coming up out of the floor, falling to 0. */
   private rise = 0;
+  /** How far the dice of a cleared level have gone under the floor, 0 to 1, and whether they are going. */
+  private leave = 0;
+  private leaving = false;
   /** Size of a cell with the whole board in view, in CSS pixels: what the view is picked by. */
   private wholeCell = 0;
   /** The point of the board the followed view is about, on the camera's right and up axes, and how fast it is moving. */
@@ -465,9 +481,26 @@ export class BoardView {
     }
   }
 
+  /**
+   * A level is cleared: its dice go down under the floor, all of them, the way dice come up at
+   * the start of a session. The figure goes down with the die it stands on and stays on the floor.
+   */
+  leaveBoard(): void {
+    this.leaving = true;
+  }
+
+  /** The board answers the dice that have gone: light runs over its lines in the colour of the face sent last. */
+  answer(value: number): void {
+    this.flash = 1;
+    this.burst = 1;
+    if (value >= 1) this.sent = value;
+  }
+
   /** `riseIn` brings the dice and the figure up out of the floor instead of showing them at once. */
   reset(riseIn = false): void {
     this.rise = riseIn ? 1 : 0;
+    this.leave = 0;
+    this.leaving = false;
     this.flash = 0;
     this.burst = 0;
     this.tremor = 0;
@@ -519,6 +552,9 @@ export class BoardView {
     this.rise = reducedMotion ? 0 : Math.max(0, this.rise - dt / RISE_IN_MS);
     // Fast at first, settling at the end.
     const sunk = this.rise * this.rise;
+    if (this.leaving) this.leave = reducedMotion ? 1 : Math.min(1, this.leave + dt / LEAVE_MS);
+    // Slow at first, then falling away.
+    const gone = this.leave * this.leave * LEAVE_DEPTH;
     const wave = (periodMs: number) => (reducedMotion ? 0 : Math.sin((timeMs / periodMs) * Math.PI * 2));
 
     // The dice, first step: pips answer a clear together. Second: the dice breathe.
@@ -566,19 +602,25 @@ export class BoardView {
     // The figure is a grey mannequin that grows into the red of the seventh.
     this.player.setColor(mixHex(String(values.mannequin), this.palette.signal, n('figureRed')), n('figureGhost'));
     this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha));
-    this.cubes.group.position.y = -sunk;
+    this.cubes.group.position.y = -sunk - gone;
     this.player.group.position.y -= sunk;
+    // The dice of a cleared level go under; the figure comes down with its die and is left standing on the floor.
+    if (gone > 0) this.player.group.position.y = Math.max(0, this.player.group.position.y - gone);
+    this.marks.group.position.y = -gone;
+    this.signs.group.position.y = -gone;
+    // The marks of the dice are seen through the floor: they go out as the dice go under it.
+    this.marks.group.visible = this.leave < MARKS_GONE_AT;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
     // The dice, fourth step: the light of a group going down stands taller.
-    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, 1 + 0.7 * step(contact.dice, 4));
+    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, (1 + 0.7 * step(contact.dice, 4)) * (1 - this.leave), params.ghosts);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
 
     // A group going down lights what stands around it with the colour of its channel.
     const sent = this.sent > 0 ? this.lit[this.sent - 1] : this.tone;
     const reaction = this.cubes.sinkingCentre(state);
     this.reactionLight.color.copy(sent);
-    this.reactionLight.intensity = reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0;
+    this.reactionLight.intensity = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * (1 - this.leave);
     this.reactionLight.position.set(reaction.x, 1.5, reaction.z);
 
     // The surface: a group sent runs over the lines, then the lines pulse by themselves, then
