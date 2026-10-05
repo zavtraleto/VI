@@ -155,7 +155,7 @@ export function levelStuck(state: RunState): boolean {
 }
 
 /** Dice the smallest group of a level takes: two where every face works, else the least of its faces that makes groups. */
-export function smallestGroup(spec: LevelSpec): number {
+export function smallestGroup(spec: Pick<LevelSpec, 'faces'>): number {
   const groups = (spec.faces ?? [2]).filter((face) => face >= 2);
   return groups.length > 0 ? Math.min(...groups) : Infinity;
 }

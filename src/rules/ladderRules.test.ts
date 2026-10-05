@@ -76,9 +76,9 @@ describe('the faces that work on a level', () => {
   });
 
   it('set how few dice are a dead end: fewer than the smallest group that works', () => {
-    expect(smallestGroup({ ...THREES } as LevelSpec)).toBe(3);
-    expect(smallestGroup({ faces: [2, 3] } as LevelSpec)).toBe(2);
-    expect(smallestGroup({} as LevelSpec)).toBe(2);
+    expect(smallestGroup(THREES)).toBe(3);
+    expect(smallestGroup({ faces: [2, 3] })).toBe(2);
+    expect(smallestGroup({})).toBe(2);
     const s = board();
     act(s, 'W');
     place(s, 2, 3, 'top');
