@@ -256,9 +256,6 @@ export const RESULT = {
   rank: { native: '順位', name: 'RANK' },
 } as const satisfies Record<string, PanelName>;
 
-/** The answers to the question a passed level asks: "yes" and "no". */
-export const ANSWERS = { yes: 'はい YES', no: 'いいえ NO' } as const;
-
 /** The log of sessions: which sessions, and the heads of its columns. */
 export const RECORDS = {
   modes: ['PROTOCOL', 'LIMITED'],

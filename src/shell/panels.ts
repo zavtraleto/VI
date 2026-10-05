@@ -3,7 +3,7 @@ import type { GoalLine } from '../rules';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
-import { ANSWERS, COMMANDS, GOAL, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { COMMANDS, GOAL, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -351,7 +351,46 @@ export function levelsPanel(
   };
 }
 
-/** What a level that is over shows and asks. */
+/** Signs of the window a level opens with come one in so many milliseconds: typed, at the pace of quick typing. */
+const INTRO_SIGN_MS = 24;
+
+/**
+ * The window a level that brings a rule opens with: the rule, in the language of the player, a
+ * thought to a line, typed out sign by sign, one line after another; with `still`, all of it
+ * is there at once. The level begins when the window is left: `START` does not wait for the
+ * typing to end.
+ */
+export function levelIntroPanel(
+  data: { number: number; lines: readonly string[]; still?: boolean },
+  actions: { onStart: () => void; onBack: () => void },
+): PanelSpec {
+  let total = 0;
+  const rows: PanelRow[] = data.lines.map((text) => {
+    const after = total;
+    total += text.length;
+    return { kind: 'say', text, after };
+  });
+  let began = -1;
+  rows.push(
+    { kind: 'gap' },
+    { kind: 'command', id: 'start', label: COMMANDS.start, action: actions.onStart },
+    { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack },
+  );
+  return {
+    title: { native: PANELS.levels.native, name: `LEVEL ${digits(data.number, 2)}` },
+    home: 'start',
+    back: actions.onBack,
+    rows,
+    // The count starts on the frame the window is first there.
+    typed: (timeMs) => {
+      if (data.still) return total;
+      if (began < 0) began = timeMs;
+      return Math.min(total, Math.floor((timeMs - began) / INTRO_SIGN_MS));
+    },
+  };
+}
+
+/** What a level that is over shows. */
 export interface LevelResult {
   passed: boolean;
   /** Moves left of a limit; null on a level with none. */
@@ -365,20 +404,18 @@ export interface LevelResult {
   reason?: string;
   /** Moves that can still be taken back: with any, a failed level offers to take the last one back. */
   undos?: number;
-  /** The question a passed level asks, in the language of the player, and the answer given so far. */
-  liked?: { question: string; answer: () => boolean | null };
 }
 
 /**
  * A level is over. Passed, it says how many moves were left, or how many it took where there
- * was no limit and the fewest the player has done it in, and asks whether they liked it;
+ * was no limit and the fewest the player has done it in;
  * failed, why, in the language of the player, and how far every line of its goal had come. A
  * failed level whose moves can still be taken back offers that first: the level goes on from
  * before its last move. The next level is offered after a pass.
  */
 export function levelResultPanel(
   data: LevelResult,
-  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void; onLiked?: (liked: boolean) => void },
+  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void },
 ): PanelSpec {
   const rows: PanelRow[] = [];
   if (data.reason) rows.push({ kind: 'say', text: data.reason });
@@ -387,23 +424,7 @@ export function levelResultPanel(
     rows.push({ kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) });
     if (data.best !== undefined && data.best !== null) rows.push({ kind: 'field', label: RESULT.best, value: digits(data.best, 2) });
   } else rows.push({ kind: 'field', label: RESULT.left, value: digits(data.left, 2) });
-  const { liked } = data;
-  const { onLiked, onUndo } = actions;
-  if (data.passed && liked && onLiked) {
-    rows.push(
-      { kind: 'say', text: liked.question },
-      {
-        kind: 'tabs',
-        id: 'liked',
-        labels: () => [ANSWERS.yes, ANSWERS.no],
-        selected: () => {
-          const answer = liked.answer();
-          return answer === null ? -1 : answer ? 0 : 1;
-        },
-        pick: (index) => onLiked(index === 0),
-      },
-    );
-  }
+  const { onUndo } = actions;
   rows.push({ kind: 'gap' });
   const next = data.passed && data.hasNext;
   const undo = !data.passed && onUndo !== undefined && (data.undos ?? 0) > 0;

@@ -58,8 +58,12 @@ export type PanelRow =
     }
   /** What a task has earned, out of three. */
   | { kind: 'stars'; count: number }
-  /** Prose in the language of the player, in the voice. With `when`, its room is kept and it is said once that holds. */
-  | { kind: 'say'; text: string; dim?: boolean; when?: () => boolean }
+  /**
+   * Prose in the language of the player, in the voice. With `when`, its room is kept and it is
+   * said once that holds. With `after`, its words are typed out, once so many signs of the
+   * panel have come: see `typed` of the panel.
+   */
+  | { kind: 'say'; text: string; dim?: boolean; when?: () => boolean; after?: number }
   | { kind: 'gap' };
 
 /**
@@ -76,6 +80,11 @@ export interface PanelSpec {
   flash?: () => boolean;
   /** The panel moves by itself: asked every frame, answers true when it has to be drawn again. */
   live?: (timeMs: number) => boolean;
+  /**
+   * How many signs of the words that are typed out are there at this time. More of them
+   * change nothing but themselves: they are written again, and the panel stands as it is.
+   */
+  typed?: (timeMs: number) => number;
   /** The zone in focus when the panel opens. */
   home?: string;
   /** Esc and the system's "back". */
@@ -115,6 +124,8 @@ export class PanelScreen implements ShellScreen {
   readonly home?: string;
   /** Which half of a blink the bar of the name is in; -1 while it does not blink. */
   private blink = -1;
+  /** Signs of the words that are typed out that are there. */
+  private typed = 0;
 
   constructor(
     private readonly context: ShellContext,
@@ -131,6 +142,11 @@ export class PanelScreen implements ShellScreen {
 
   update(timeMs: number): boolean {
     let changed = this.spec.live?.(timeMs) ?? false;
+    const typed = this.spec.typed?.(timeMs) ?? 0;
+    if (typed !== this.typed) {
+      this.typed = typed;
+      this.context.voice.reveal(typed);
+    }
     const blink = this.spec.flash?.() ? Math.floor(timeMs / BLINK_MS) % 2 : -1;
     if (blink !== this.blink) {
       this.blink = blink;
@@ -292,7 +308,10 @@ export class PanelScreen implements ShellScreen {
           this.stars(kit, row.count, plate.x + plate.w / 2, box.y + 3, 10, ink, faint);
           break;
         case 'say':
-          if (row.when?.() ?? true) this.context.voice.say({ text: row.text, box: kit.toWindow(box), size: SAY_SIZE, align: 'left', dim: row.dim });
+          if (row.when?.() ?? true) {
+            const reveal = row.after === undefined ? undefined : Math.max(0, this.typed - row.after);
+            this.context.voice.say({ text: row.text, box: kit.toWindow(box), size: SAY_SIZE, align: 'left', dim: row.dim, reveal, after: row.after });
+          }
           break;
         case 'gap':
           break;

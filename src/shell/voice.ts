@@ -19,6 +19,8 @@ export interface VoiceLine {
   dim?: boolean;
   /** How many signs of the text are there yet, for words that come little by little; all of them when left out. */
   reveal?: number;
+  /** Signs that come before this text, where several are typed one after another: it starts when they are there. */
+  after?: number;
 }
 
 const LEADING = 1.3;
@@ -186,8 +188,10 @@ export class Voice {
   reveal(signs: number): void {
     let more = false;
     for (const line of this.queue) {
-      if (line.reveal === undefined || line.reveal === signs) continue;
-      line.reveal = signs;
+      if (line.reveal === undefined) continue;
+      const now = Math.max(0, signs - (line.after ?? 0));
+      if (line.reveal === now) continue;
+      line.reveal = now;
       more = true;
     }
     if (more) this.end();

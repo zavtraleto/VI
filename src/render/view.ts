@@ -613,7 +613,8 @@ export class BoardView {
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
     // The dice, fourth step: the light of a group going down stands taller.
-    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, (1 + 0.7 * step(contact.dice, 4)) * (1 - this.leave), params.ghosts);
+    // On a level the light does not stand on the pips of the dice that are going: how far gone a die is, is read off the die.
+    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, state.levelRun ? 0 : (1 + 0.7 * step(contact.dice, 4)) * (1 - this.leave), params.ghosts);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
 
     // A group going down lights what stands around it with the colour of its channel.

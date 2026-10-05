@@ -19,7 +19,7 @@ function goalWords(goal: LevelGoal): string {
  * Playtest report: one line per level that was played. Plain ASCII in English, so it survives
  * any messenger and reads the same whoever plays. A line says how many tries the level took,
  * whether it was passed, in how many moves against the fewest it is known to take, the moves
- * taken back, the dead ends, the time, and what the player said when asked if they liked it.
+ * taken back, the dead ends and the time.
  */
 export function levelReport(
   levels: readonly { id: string; goal: LevelGoal; moves: number; par?: number }[],
@@ -35,9 +35,8 @@ export function levelReport(
     const result = s.firstPassTry === null ? `not passed${par}` : `passed on try ${s.firstPassTry}, ${best}`;
     const short = limited && s.short.length > 0 ? `, short by ${s.short.join(' ')}` : '';
     const limit = limited ? `, in ${level.moves} moves` : '';
-    const liked = s.liked === null || s.liked === undefined ? '-' : s.liked ? 'yes' : 'no';
     lines.push(
-      `${i + 1}. ${goalWords(level.goal)}${limit}: ${result}, tries ${s.tries}, passes ${s.passes}, fails ${s.fails}${short}, undos ${s.undos}, dead ends ${s.stuck ?? 0}, ${Math.round(s.playMs / 1000)}s, liked ${liked}`,
+      `${i + 1}. ${goalWords(level.goal)}${limit}: ${result}, tries ${s.tries}, passes ${s.passes}, fails ${s.fails}${short}, undos ${s.undos}, dead ends ${s.stuck ?? 0}, ${Math.round(s.playMs / 1000)}s`,
     );
   });
   if (lines.length === 0) return '';

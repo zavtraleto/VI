@@ -35,7 +35,6 @@ import { BoardView } from '../render/view';
 import { LEVELS } from '../levels/levels';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
-  chainWindows,
   createRun,
   cubeAt,
   defaultConfig,
@@ -69,7 +68,7 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, levelResultPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, levelIntroPanel, levelResultPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -129,12 +128,8 @@ const SHARED_MS = 2200;
 const STEER_LINGER_MS = 280;
 /** Levels on which every group that is short is counted from the start: the first five. After them only the one the last move made is. */
 const LEVELS_COUNTED = 5;
-/** The level that teaches the 1s: the ladder has none yet, so a 1 that turns up gets a line of its own, once, on any level. */
-const LEVEL_OF_ONES = Infinity;
 /** The level from which the step with no way back is marked: from the one where a group that is going begins to matter. */
 const LEVEL_OF_COMMIT = 3;
-/** A group made short for this time in one try is told its reason in words. */
-const SHORT_SAID_AT = 2;
 /**
  * The end of a level that is passed, before its result is shown: the dice go under the floor,
  * the board answers them when they are nearly gone, and the answer is let run out. A second
@@ -144,6 +139,11 @@ const SHORT_SAID_AT = 2;
 const FINALE_BEAT_MS = 400;
 const FINALE_MS = 1150;
 const FINALE_STILL_MS = 350;
+/**
+ * How long a level that is lost stands as it is before its result is shown: the board says it
+ * first, the window after.
+ */
+const FAIL_HOLD_MS = 900;
 /** How strong the answer of the board is, as a beat: a tier under the strongest, and the sound of a chain's fourth link. */
 const FINALE_TIER = 3;
 const FINALE_CHAIN = 4;
@@ -243,10 +243,10 @@ export class Game {
   private undosLeft = 0;
   /** The cell the die of the last move of a level went to, and which move it was. */
   private lastMove: { x: number; z: number; moves: number } | null = null;
-  /** Times a move of this try has left its die in a group that is short. */
-  private shortCases = 0;
-  /** The end of a level that is passed: when it began, whether the board has answered, whether a press has cut it short. */
+  /** The end of a level: when it began and, for a level that is passed, whether the board has answered and whether a press has cut it short. */
   private finale: { start: number; beaten: boolean; skipped: boolean } | null = null;
+  /** What the level on the board came to has been written down: it is, once, the moment the level ends. */
+  private levelCounted = false;
   /** Cells of a level on which a die that was going has been rolled over: where, of what face and group, on which move. */
   private ghosts: { x: number; z: number; value: number; reactionId: number; moves: number }[] = [];
   /** The program is up: what starts from here on is started by the player. */
@@ -381,10 +381,11 @@ export class Game {
       e.preventDefault();
       this.hud.proceed();
     });
-    // A press while a level ends brings its result at once.
+    // A press while a level that is passed plays its end brings its result at once. The moment a
+    // lost level stands for is not cut: the hand that was turning the dice is still pressing.
     const hurry = (e: Event): void => {
       if (e instanceof KeyboardEvent && e.repeat) return;
-      if (this.finale && !this.resultShown) this.finale.skipped = true;
+      if (this.finale && !this.resultShown && this.state.endReason === 'passed') this.finale.skipped = true;
     };
     window.addEventListener('pointerdown', hurry);
     window.addEventListener('keydown', hurry);
@@ -732,8 +733,8 @@ export class Game {
     this.beforeCommand = null;
     this.levelTicks = 0;
     this.lastMove = null;
-    this.shortCases = 0;
     this.finale = null;
+    this.levelCounted = false;
     this.ghosts = [];
     // Where every step may be a move that counts, a held direction is one step.
     this.controller.setRepeat(!state.levelRun);
@@ -802,21 +803,25 @@ export class Game {
 
   /**
    * Takes the last move of a level back, with every step made since, while the try has moves to
-   * take back. A level that has ended at a dead end is taken back from its result: it goes on
-   * from before the move that ended it.
+   * take back. A level that has ended at a dead end is taken back from its result, or from the
+   * board while it still stands before its result: it goes on from before the move that ended it.
    */
   private undoLevel(fromResult = false): void {
-    const { levelRun } = this.state;
+    const { levelRun, over } = this.state;
     if (!levelRun || !this.undoable || this.inMenu || this.paused || this.undosLeft <= 0) return;
-    if (this.state.over !== fromResult) return;
+    const standing = over && !this.resultShown && levelStuck(this.state);
+    if (over !== fromResult && !standing) return;
     const previous = this.history.pop();
     if (!previous) return;
     this.undosLeft--;
     const stat = levelStat(this.settings, levelRun.spec.id);
     stat.undos++;
-    if (fromResult) {
+    if (over) {
       // The try is not over after all: it is counted as failed only if it ends failed.
       stat.fails = Math.max(0, stat.fails - 1);
+      this.levelCounted = false;
+    }
+    if (fromResult) {
       this.resultShown = false;
       this.shell.hide();
       this.lastFrame = 0;
@@ -824,6 +829,8 @@ export class Game {
     this.runner = new Runner(previous);
     this.beforeCommand = null;
     this.lastMove = null;
+    // The level goes on: its end is played anew when it comes.
+    this.finale = null;
     // What was rolled over after the board that is back is not rolled over on it.
     const made = previous.levelRun?.moves ?? 0;
     this.ghosts = this.ghosts.filter((ghost) => ghost.moves <= made);
@@ -938,8 +945,11 @@ export class Game {
     );
   }
 
-  /** A level begins at once, on its board: what it has to say it says in one line under the board. */
-  private startLevel(index: number): void {
+  /**
+   * A level begins on its board. One that brings a rule opens with a window that says it, when
+   * the level is come to from the list or from the level before; started over, it is not said again.
+   */
+  private startLevel(index: number, intro = false): void {
     const spec = LEVELS[index];
     this.kind = 'level';
     this.levelIndex = index;
@@ -950,6 +960,31 @@ export class Game {
     track('progression_started', { ...this.step(), try: levelStat(this.settings, spec.id).tries + 1 });
     tell('level_started', this.levelName());
     this.layoutGuide();
+    if (intro && spec.lesson) this.showLevelIntro(spec.lesson);
+  }
+
+  /**
+   * The window a level with a rule opens with: the rule in the language of the player, a thought
+   * to a line, typed out. The level waits under it and begins when the window is left.
+   */
+  private showLevelIntro(lesson: string): void {
+    this.paused = true;
+    this.audio.setPaused(true);
+    this.shell.showPanel(
+      levelIntroPanel(
+        { number: this.levelIndex + 1, lines: t(lesson as TextKey).split('\n'), still: prefersReducedMotion(this.settings) },
+        {
+          onStart: () => {
+            this.paused = false;
+            this.shell.hide();
+            this.audio.setPaused(false);
+            this.lastFrame = 0;
+          },
+          onBack: () => this.showLevels(),
+        },
+      ),
+      false,
+    );
   }
 
   private restartLevel(): void {
@@ -982,7 +1017,7 @@ export class Game {
     const levels = LEVELS.map((level) => ({ passed: this.settings.levels.passed[level.id] === true, goal: goalOf(level), faces: level.faces }));
     this.shell.showPanel(
       levelsPanel(levels, this.kind === 'level' ? this.levelIndex : this.nextLevel(), {
-        onPick: (index) => this.startLevel(index),
+        onPick: (index) => this.startLevel(index, true),
         // What was played, as text to pass on: the report of the playtest.
         share: { label: () => this.shareLabel(), action: () => this.shareLevels() },
         onBack: () => this.showMenu(),
@@ -993,10 +1028,11 @@ export class Game {
 
   /**
    * A level is over: its board is cleared, or it has come to a dead end, or, with moves that are
-   * limited, they are spent. A dead end can be taken back from here while the try has moves to
-   * take back. No advertisement comes between levels.
+   * limited, they are spent. What it came to is written down at once: its window comes a moment
+   * later, and the level may be started over or left before it does.
    */
-  private showLevelResult(): void {
+  private countLevel(): void {
+    this.levelCounted = true;
     const { state } = this;
     const run = state.levelRun!;
     const { spec } = run;
@@ -1004,7 +1040,6 @@ export class Game {
     const stuck = !passed && levelStuck(state);
     const left = Math.max(0, spec.moves - run.moves);
     const short = shortOf(state);
-    const lines: GoalLine[] = goalLines(state);
     const stat = levelStat(this.settings, spec.id);
     if (passed) {
       stat.passes++;
@@ -1022,6 +1057,22 @@ export class Game {
     if (passed) track('progression_completed', summary);
     else track('progression_failed', { ...summary, reason: stuck ? 'stuck' : 'moves', short });
     tell(passed ? 'level_completed' : 'level_failed', this.levelName());
+  }
+
+  /**
+   * The window of a level that is over. A dead end can be taken back from here while the try has
+   * moves to take back. No advertisement comes between levels.
+   */
+  private showLevelResult(): void {
+    const { state } = this;
+    const run = state.levelRun!;
+    const { spec } = run;
+    const passed = state.endReason === 'passed';
+    const stuck = !passed && levelStuck(state);
+    const left = Math.max(0, spec.moves - run.moves);
+    const short = shortOf(state);
+    const lines: GoalLine[] = goalLines(state);
+    const stat = levelStat(this.settings, spec.id);
     this.frames.flush(this.lastFrame);
     const canUndo = stuck && this.undoable && this.undosLeft > 0 && this.history.length > 0;
     this.shell.showPanel(
@@ -1036,18 +1087,12 @@ export class Game {
           // A level that is failed says why.
           reason: passed ? undefined : stuck ? t('levelStuck') : t('levelShort').replace('{short}', String(short)),
           undos: canUndo ? this.undosLeft : 0,
-          liked: { question: t('levelLiked'), answer: () => stat.liked },
         },
         {
-          onNext: () => this.startLevel(this.levelIndex + 1),
+          onNext: () => this.startLevel(this.levelIndex + 1, true),
           onAgain: () => this.startLevel(this.levelIndex),
           onLevels: () => this.showLevels(),
           onUndo: () => this.undoLevel(true),
-          onLiked: (liked) => {
-            stat.liked = liked;
-            saveSettings(this.settings);
-            track('level_liked', { ...this.step(), liked });
-          },
         },
       ),
       false,
@@ -1587,11 +1632,8 @@ export class Game {
     }
     for (const beat of beatsOf(state, state.events)) this.beat(beat);
     const { player } = state;
-    if (state.levelRun) {
-      // On a level the lessons speak for the rules; what is left to say once is the step with no way back.
-      if (!player.action && this.levelIndex + 1 >= LEVEL_OF_COMMIT && this.commitSides(state).length > 0) this.hintOnce('hintCommit');
-      return;
-    }
+    // A level says its rules in the window it opens with, and nothing while it is played.
+    if (state.levelRun) return;
     if (state.puzzle || player.action || state.tick % 10 !== 0) return;
     if (player.level === 'ground') {
       if (DIRS.some((dir) => previewMove(state, dir).kind === 'mount')) this.hintOnce('hintMount');
@@ -1672,11 +1714,7 @@ export class Game {
         break;
       case 'landed': {
         const own = state.player.level === 'top' ? cubeAt(state, state.player.x, state.player.z) : undefined;
-        if (state.levelRun) {
-          this.onLevelLanded(state);
-          // Before the level of the 1s a 1 that turns up is told what it is not; from that level on the lesson says the rest.
-          if (own && own.ori.top === 1 && this.levelIndex + 1 < LEVEL_OF_ONES) this.hintOnce('hintOneAlone');
-        } else if (own && own.ori.top === 1) this.hintOnce('hintOne');
+        if (own && own.ori.top === 1 && !state.levelRun) this.hintOnce('hintOne');
         break;
       }
       default:
@@ -1719,11 +1757,6 @@ export class Game {
     return shortGroups(state).find((group) => group.cells.some((cell) => cell.x === lastMove.x && cell.z === lastMove.z)) ?? null;
   }
 
-  /** The die of a move has landed on a level: a group left short by it is counted, and the second one in a try is told why. */
-  private onLevelLanded(state: RunState): void {
-    if (this.shortMade(state)) this.shortCases++;
-  }
-
   /**
    * Sides of the die under the player a step to which is a commitment: the player is on a die
    * that is going, and the step leads onto one that stands. From there the way back onto the
@@ -1737,12 +1770,19 @@ export class Game {
   }
 
   /**
-   * The end of a level that is passed, played before its result: the dice go under the floor,
-   * and when they are nearly gone the board answers, with the beat of a chain, from where they
-   * stood. True once it has run out or a press has cut it short.
+   * The end of a level, played before its result. Passed: the dice go under the floor, and when
+   * they are nearly gone the board answers, with the beat of a chain, from where they stood.
+   * Lost: the board stands as it is for a moment, so that what is left on it is seen before it
+   * is read; no press cuts that moment, and the last move can be taken back in it. True once the
+   * end has run out or, for a level that is passed, a press has cut it short.
    */
   private finaleOver(time: number): boolean {
     const { state } = this;
+    if (state.endReason !== 'passed') {
+      // A level that is lost stands as it is for a moment: nothing is added to it.
+      this.finale ??= { start: time, beaten: true, skipped: false };
+      return time - this.finale.start >= FAIL_HOLD_MS;
+    }
     const still = prefersReducedMotion(this.settings);
     if (!this.finale) {
       this.finale = { start: time, beaten: false, skipped: false };
@@ -1819,12 +1859,6 @@ export class Game {
     const { puzzle } = state;
     const levelRun = state.levelRun ?? null;
     const level = PUZZLE_LEVELS[this.puzzleIndex];
-    // A level says of every group on its way out what it shows and in how many moves a die still joins it.
-    const leaving = levelRun && !state.over
-      ? chainWindows(state)
-          .map(({ value, moves }) => t('levelChain').replace('{value}', String(value)).replace('{moves}', String(moves)))
-          .join(' · ')
-      : '';
     // A level counts the groups that are short: all of them on its first levels, later the one the last move made.
     const made = levelRun ? this.shortMade(state) : null;
     const short = !levelRun || state.over ? [] : this.levelIndex < LEVELS_COUNTED ? shortGroups(state) : made ? [made] : [];
@@ -1833,20 +1867,12 @@ export class Game {
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;
       return { value: group.value, have: group.have, need: group.need, at: over(cx, 1.5, cz) };
     });
-    const teaches = levelRun?.spec.lesson;
+    // A level has no line under its board: its rules are said in the window it opens with.
     let note: HudView['note'] = null;
     if (puzzle?.dead === 'noExit') note = { text: t('deadNoExit'), alarm: true };
     else if (puzzle?.dead === 'single') note = { text: t('deadSingle'), alarm: true };
     else if (puzzle && puzzle.held !== 0) note = { text: t('puzzleHeld'), alarm: false };
-    // One line under the board of a level. A group made short for the second time is told why;
-    else if (made && this.shortCases >= SHORT_SAID_AT) note = { text: t('levelNeed').replace('{need}', String(made.need)).replace('{have}', String(made.have)), alarm: false };
-    // a hint is said once and for a few seconds, so it is not kept waiting behind the lines that stay;
-    else if (levelRun && this.hints.text) note = { text: this.hints.text, alarm: false };
-    // a group that is going says in how many moves a die still joins it;
-    else if (leaving) note = { text: leaving, alarm: false };
-    // and with nothing going, the lesson of the level is there from its start.
-    else if (teaches && !state.over) note = { text: t(teaches as TextKey), alarm: false };
-    else if (this.hints.text) note = { text: this.hints.text, alarm: false };
+    else if (!levelRun && this.hints.text) note = { text: this.hints.text, alarm: false };
 
     const padBox = this.pad.getBoundingClientRect();
     return {
@@ -1924,8 +1950,10 @@ export class Game {
       this.audio.begin();
     }
     const state = this.state;
-    // A level that is passed plays its end before its result is shown.
-    const ending = state.over && !this.resultShown && state.levelRun !== null && state.endReason === 'passed' && !this.finaleOver(time);
+    // What a level came to is written down on the frame it ends: its end may yet be cut by starting it over.
+    if (state.over && state.levelRun && !this.levelCounted) this.countLevel();
+    // A level plays its end before its result is shown: the dice leave a board that is cleared, and one that is lost stands for a moment.
+    const ending = state.over && !this.resultShown && state.levelRun !== null && !this.finaleOver(time);
     if (state.over && !this.resultShown && !ending) {
       this.resultShown = true;
       if (state.puzzle) this.showPuzzleResult();
