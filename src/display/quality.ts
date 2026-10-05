@@ -3,7 +3,7 @@ import { MAX_PIXEL_RATIO } from './sizing';
 /**
  * How heavy the picture is allowed to be. The defaults are what the game is drawn with. The
  * address can set each of them, in any build, to see on a device what it costs:
- * `?msaa=2&ratio=1.25&video=off&leak=off&cap=60&patch=off&auto=off`.
+ * `?msaa=2&ratio=1.25&video=off&halo=off&leak=off&cap=60&patch=off&auto=off`.
  */
 export interface Quality {
   /**
@@ -17,6 +17,8 @@ export interface Quality {
   maxRatio: number;
   /** Layers are worked as a worn video signal: blur, parted colours, glow, grain. */
   video: boolean;
+  /** The tube spreads light around what gives light off on the board: a small picture of it, blurred and added. */
+  halo: boolean;
   /** Things come through behind the board during a session. */
   leak: boolean;
   /** Most frames drawn in a second; 0 follows the screen. */
@@ -28,7 +30,7 @@ export interface Quality {
   patches: boolean;
 }
 
-export const DEFAULT_QUALITY: Quality = { samples: 4, auto: true, maxRatio: MAX_PIXEL_RATIO, video: true, leak: true, fpsCap: 0, patches: true };
+export const DEFAULT_QUALITY: Quality = { samples: 4, auto: true, maxRatio: MAX_PIXEL_RATIO, video: true, halo: true, leak: true, fpsCap: 0, patches: true };
 
 const SAMPLES = [0, 2, 4];
 const OFF = ['off', '0', 'false'];
@@ -53,6 +55,7 @@ export function readQuality(search: string): Quality {
   const cap = number('cap');
   if (cap !== null && cap >= 0 && cap <= 240) quality.fpsCap = Math.round(cap);
   if (OFF.includes(query.get('video') ?? '')) quality.video = false;
+  if (OFF.includes(query.get('halo') ?? '')) quality.halo = false;
   if (OFF.includes(query.get('leak') ?? '')) quality.leak = false;
   if (OFF.includes(query.get('patch') ?? '')) quality.patches = false;
   return quality;

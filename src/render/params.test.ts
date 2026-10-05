@@ -20,10 +20,10 @@ describe('board params', () => {
   it('writes down only what differs from the defaults', () => {
     const values = boardDefaults();
     expect(boardChanged(values)).toEqual({});
-    values.pillarHeight = 2;
+    values.dockStep = 2;
     // A colour picker gives the same colour back in the other case.
     values.pipDark = String(BOARD_PARAMS.pipDark.value).toUpperCase();
-    expect(boardChanged(values)).toEqual({ pillarHeight: 2 });
+    expect(boardChanged(values)).toEqual({ dockStep: 2 });
   });
 
   it('reads a value from text as the kind of its parameter', () => {

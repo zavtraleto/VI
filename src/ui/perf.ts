@@ -104,7 +104,7 @@ export function startPerf(set: Quality): void {
   const write = (): void => {
     const r = read();
     // Written anew every time: the game may have given samples up since.
-    const settings = `msaa ${set.samples}${set.auto ? ' auto' : ''}  ratio ${set.maxRatio}  video ${set.video ? 'on' : 'off'}  leak ${set.leak ? 'on' : 'off'}  cap ${set.fpsCap || '-'}${set.patches ? '' : '  patch off'}`;
+    const settings = `msaa ${set.samples}${set.auto ? ' auto' : ''}  ratio ${set.maxRatio}  video ${set.video ? 'on' : 'off'}  halo ${set.halo ? 'on' : 'off'}  leak ${set.leak ? 'on' : 'off'}  cap ${set.fpsCap || '-'}${set.patches ? '' : '  patch off'}`;
     el.textContent =
       `${r.fps.toFixed(0)} fps  p95 ${r.p95.toFixed(1)}  max ${r.max.toFixed(0)}  >33ms ${r.long}  js ${r.js.toFixed(1)}\n` +
       `fb ${r.binds.toFixed(1)}  draws ${r.draws.toFixed(0)}  up ${(r.uploaded / 1000).toFixed(0)}k  sh ${r.shaders}\n` +

@@ -1,3 +1,4 @@
+import { chainTier } from '../app/juice';
 import { CONTACT_STEPS, PHASE_SHIFT_MS, lineLevel } from '../app/ritual';
 import { Display } from '../display/display';
 import { quality } from '../display/quality';
@@ -235,6 +236,8 @@ export class BoardLab {
         ? { type: 'match', reactionId: 1, value, count: value, points: 0 }
         : { type: 'chain', reactionId: 1, value, chain, count: value, points: 0 },
     ]);
+    // A chain is answered as a session answers it: sparks, a ring, and on a long one the colours of the picture part.
+    if (chain >= 2) this.view?.beat({ kind: 'chain', value, tier: chainTier(chain), cells: CHAIN.map(([x, z]) => ({ x, z })) }, this.state, false);
   }
 
   /** The contact goes past its last step. */

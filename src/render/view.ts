@@ -5,7 +5,8 @@ import { DELTA, cubeAt, cubeHeight, type Dir, type GameEvent, type MoveKind, typ
 import { pictureSize } from '../shell/layout';
 import { mixHex, type Palette } from '../shell/theme';
 import { BoardBursts, type BoardBeat } from './burst';
-import { CubeMeshes } from './cubes';
+import { quality } from '../display/quality';
+import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
@@ -49,9 +50,11 @@ const BEAT_PUNCH = [0.006, 0.012, 0.02, 0.03, 0.045];
 const BEAT_THROW = [1.1, 1.5, 2, 2.6, 3.2];
 /** How long the answer of the dice takes to run out from a group, per cell. */
 const WAVE_MS_PER_CELL = 45;
-/** How far the colours part at the first step of the screen, in pixels of the program's picture. */
-const CHROMA_TUBE_PX = 1.2;
+/** How far the picture jolts at the second step of the screen, in pixels of the program's picture. */
 const JOLT_TUBE_PX = 4;
+/** How much of their parting the colours have on a chain of three links; a longer one has more, up to all of it. */
+const PART_FROM = 0.5;
+const PART_PER_TIER = 0.25;
 /**
  * The height the followed view is taken at: the top of a die, where the figure is most of the
  * time. It is the cell that is followed, so a hop or a climb does not move the view.
@@ -177,8 +180,8 @@ export class BoardView {
   /** Height of every sinking cube on the previous frame, to notice a chain lifting it. */
   private sinking = new Map<number, number>();
   private sinkingBefore = new Map<number, number>();
-  private readonly ambient: THREE.AmbientLight;
-  private readonly reactionLight: THREE.PointLight;
+  /** The light a group going down throws on the dice around it. */
+  private readonly lamp: CubeGlow['lamp'] = { x: 0, y: 1.5, z: 0, colour: new THREE.Color(), power: 0 };
   private readonly floor: THREE.Mesh;
   private readonly fill: FlatMesh;
   private readonly grid: FlatMesh;
@@ -196,6 +199,8 @@ export class BoardView {
   private readonly lit: THREE.Color[] = [];
   /** The value of the group sent last. */
   private sent = 0;
+  /** The run on the board is a session without end: what is rare in it is answered by the picture itself. */
+  private endless = false;
   private readonly tmp = new THREE.Vector3();
   private readonly slabHalf: number;
   /** Extents of the scene on the camera's right and up axes, relative to the target. */
@@ -256,19 +261,14 @@ export class BoardView {
     this.target = new THREE.Vector3(centre, 0, centre);
     this.slabHalf = size / 2 + RIM;
 
-    this.ambient = new THREE.AmbientLight(0xdfe3ff, n('lightAmbient'));
-    const key = new THREE.DirectionalLight(0xfff1dd, n('lightKey'));
-    // Mostly from above, so the top face - the one that matters - is the brightest.
-    key.position.set(2, 10, 4.5);
-    this.reactionLight = new THREE.PointLight(0xffffff, 0, 7, 1.6);
-    this.scene.add(this.ambient, key, this.reactionLight);
-
     // Writes depth and no colour: what goes under the surface is gone, and what lies behind
     // the board still shows through it. Drawn first, whatever stands where.
     const floorSize = size + FLOOR_MARGIN * 2;
     this.floor = new THREE.Mesh(new THREE.PlaneGeometry(floorSize, floorSize), new THREE.MeshBasicMaterial({ colorWrite: false }));
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.renderOrder = -10;
+    // What is under the surface gives no light to the tube either.
+    this.floor.layers.enable(GLOW_LAYER);
 
     const layout: GridLayout = { cells: size, rim: RIM };
     const gridSize = size + RIM * 2;
@@ -303,7 +303,7 @@ export class BoardView {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
     // What the board is drawn with is made ready now, while it is not on screen yet: the
-    // programs for the glass, the sparks, the ring and the light on the pips would otherwise
+    // programs for the glass, the sparks, the ring and the light of the tube would otherwise
     // be built at the first group sent, and hold up the very frame that answers it.
     this.warmed = worldLayer.warm(this.scene, this.camera).then(() => this.rehearse());
   }
@@ -330,6 +330,7 @@ export class BoardView {
     });
     // The next frame of the board draws over this one before the layer is shown.
     this.worldLayer.render(this.scene, this.camera, { rect: this.rect });
+    this.emit(this.rect);
     for (const object of unseen) object.visible = false;
     for (const mesh of empty) mesh.count = 0;
   }
@@ -451,6 +452,11 @@ export class BoardView {
       } else if (event.type === 'happyOne') {
         this.burst = 1;
         this.sent = 1;
+      } else if (event.type === 'risen') {
+        this.cubes.risen(event.cubeId);
+      } else if (event.type === 'wiped' && this.endless) {
+        // A board left clean: the colours of the picture part for a moment.
+        this.chroma = 1;
       }
     }
   }
@@ -458,13 +464,16 @@ export class BoardView {
   /**
    * The board answers a beat: light thrown up from the group, a ring over the surface, the dice
    * around thrown up in a wave from it, the camera shaken. The larger the beat, the larger the
-   * answer; past steps of the screen the picture itself answers too.
+   * answer. On what is rare in a session without end, a chain of three links or more, the
+   * colours of the picture part for a moment; past a step of the screen the picture jolts too.
    */
   beat(beat: BoardBeat, state: RunState, reducedMotion: boolean): void {
     const tier = Math.max(0, Math.min(4, Math.round(beat.tier)));
     const screen = this.contact?.screen ?? 0;
     this.tremor = Math.max(this.tremor, BEAT_SHAKE[tier]);
-    if (screen > 0 && tier >= 1) this.chroma = Math.max(this.chroma, Math.min(1, screen) * Math.min(1, 0.35 + tier * 0.17));
+    if (beat.kind === 'chain' && tier >= 2 && state.mode === 'endless') {
+      this.chroma = Math.max(this.chroma, Math.min(1, PART_FROM + (tier - 2) * PART_PER_TIER));
+    }
     if (screen > 1 && tier >= 2) this.jolt = Math.max(this.jolt, Math.min(1, screen - 1));
     if (reducedMotion) return;
     this.punch = Math.max(this.punch, BEAT_PUNCH[tier]);
@@ -511,6 +520,7 @@ export class BoardView {
     this.bursts.reset();
     this.sent = 0;
     this.warnings.reset();
+    this.cubes.reset();
     this.springs.reset();
     this.player.reset();
     this.sinking.clear();
@@ -529,6 +539,7 @@ export class BoardView {
     this.chroma = Math.max(0, this.chroma - dt / 240);
     this.jolt = Math.max(0, this.jolt - dt / 160);
     this.contact = params.contact;
+    this.endless = state.mode === 'endless';
 
     const minute = Math.floor(Date.now() / 60000);
     if (minute !== this.minute) {
@@ -593,10 +604,27 @@ export class BoardView {
     this.bursts.update(dt, this.camera);
     const dip = (cubeId: number) => this.springs.offset(cubeId);
 
+    // A group going down lights what stands around it with the colour of its channel.
+    const sent = this.sent > 0 ? this.lit[this.sent - 1] : this.tone;
+    const reaction = this.cubes.sinkingCentre(state);
+    const { lamp } = this;
+    lamp.x = reaction.x;
+    lamp.z = reaction.z;
+    lamp.colour.copy(sent);
+    lamp.power = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * (1 - this.leave);
+
+    // Past the last step of the contact every die is lit harder for a moment.
     this.cubes.sync(
       state,
       alpha,
-      { idle: this.flash * step(contact.dice, 1) * 0.9 + breathing, sinking: 1 + 0.15 * wave(700), flash: this.burst },
+      {
+        idle: this.flash * step(contact.dice, 1) * 0.9 + breathing + contact.peak * 0.85,
+        sinking: 1 + 0.15 * wave(700),
+        flash: this.burst,
+        lamp,
+        dot: this.worldLayer.height / Math.max(1, this.lines),
+        dt,
+      },
       dip,
     );
     // The figure is a grey mannequin that grows into the red of the seventh.
@@ -612,17 +640,8 @@ export class BoardView {
     this.marks.group.visible = this.leave < MARKS_GONE_AT;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
-    // The dice, fourth step: the light of a group going down stands taller.
-    // On a level the light does not stand on the pips of the dice that are going: how far gone a die is, is read off the die.
-    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, state.levelRun ? 0 : (1 + 0.7 * step(contact.dice, 4)) * (1 - this.leave), params.ghosts);
+    this.signs.sync(state, alpha, timeMs, reducedMotion, params.ghosts);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
-
-    // A group going down lights what stands around it with the colour of its channel.
-    const sent = this.sent > 0 ? this.lit[this.sent - 1] : this.tone;
-    const reaction = this.cubes.sinkingCentre(state);
-    this.reactionLight.color.copy(sent);
-    this.reactionLight.intensity = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * (1 - this.leave);
-    this.reactionLight.position.set(reaction.x, 1.5, reaction.z);
 
     // The surface: a group sent runs over the lines, then the lines pulse by themselves, then
     // the run takes the colour of the group.
@@ -646,7 +665,6 @@ export class BoardView {
     // Red seeps into the dark.
     this.background.lerp(this.red, RED_SEEP[0] * step(contact.red, 1) + RED_SEEP[1] * step(contact.red, 2));
 
-    this.ambient.intensity = n('lightAmbient') + contact.peak * 1.6;
     // Past its last step the contact turns the picture inside out for a moment.
     this.inverted = !reducedMotion && contact.peak > 0.72;
 
@@ -695,16 +713,40 @@ export class BoardView {
     layer.look.scanlines = n('scanlines');
     layer.look.scanlinePitch = this.lines;
     layer.look.vignette = n('vignette');
-    // The screen, first step: the colours part for a moment when a group goes. Second: the
-    // picture jolts sideways on a large one.
+    // What gives light off on the board has that light spread around it by the tube; its
+    // reach is counted in the lines of the tube, like everything of the screen.
+    const lit = quality().halo && n('glow') > 0;
+    layer.look.halo = n('glow');
+    layer.look.haloReach = (n('glowReach') * layer.height) / Math.max(1, this.lines);
+    layer.look.haloOver = n('glowOver');
+    layer.look.grain = reducedMotion ? 0 : n('grain');
+    // The colours part for a moment on a long chain and on a board left clean. The screen,
+    // second step: the picture jolts sideways on a large group.
     // The colours part along the lines: counted in the pixels the layer has from side to side.
     const tube = (layer.width / Math.max(1, layer.screen.width)) * (layer.screen.height / Math.max(1, this.lines));
-    layer.look.chroma = reducedMotion ? 0 : this.chroma * CHROMA_TUBE_PX * tube;
+    // At rest they stand a little apart too: the tube was never exact.
+    layer.look.chroma = Math.max(reducedMotion ? 0 : this.chroma * n('fringeBeat'), n('fringe')) * tube;
     const jolt = reducedMotion || this.jolt <= 0 ? 0 : Math.round(Math.sin(timeMs / 11) * this.jolt * JOLT_TUBE_PX) * (this.rect.height / Math.max(1, this.lines));
     // The layer stays clear around the board: what lies behind shows.
     const { region } = this;
     const place = follows ? { x: this.rect.x + region.x, y: this.rect.y + region.y, width: region.width, height: region.height } : this.rect;
-    layer.render(this.scene, this.camera, { rect: jolt === 0 ? place : { ...place, x: place.x + jolt } });
+    const drawn = jolt === 0 ? place : { ...place, x: place.x + jolt };
+    layer.render(this.scene, this.camera, { rect: drawn });
+    if (lit) this.emit(drawn);
+  }
+
+  /**
+   * Draws once more, small and alone, what gives light off on the board: the faces on top of
+   * the solid dice, their edges, the edges of the glass ones. The surface is in that picture
+   * as it is in the large one, hiding what is under it.
+   */
+  private emit(rect: Rect): void {
+    const { camera } = this;
+    this.cubes.emitting(true);
+    camera.layers.set(GLOW_LAYER);
+    this.worldLayer.emit(this.scene, camera, { rect });
+    camera.layers.set(0);
+    this.cubes.emitting(false);
   }
 
   /**

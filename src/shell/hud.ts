@@ -2,7 +2,7 @@ import type { Display } from '../display/display';
 import type { CanvasLayer } from '../display/layer';
 import type { Rect } from '../display/sizing';
 import type { BoardLook } from '../render/params';
-import { faceColour } from '../render/textures';
+import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
@@ -847,14 +847,14 @@ export class GameHud {
    */
   private goalLine(line: GoalLine, right: number, y: number, left?: number): void {
     const { kit } = this;
-    const { ink, dim, signal } = kit.palette;
+    const { ink, dim } = kit.palette;
     const values = this.look.board;
     const count = goalProgress(line);
     const countStart = right - kit.measure(count);
     kit.text(count, countStart, y, ink);
     if (line.what === 'face') {
       const side = 12;
-      kit.face(line.value, left ?? countStart - 4 - side, y + 2, side, faceColour(line.value, kit.palette, values), line.value === 1 ? signal : String(values.pipLight));
+      kit.face(line.value, left ?? countStart - 4 - side, y + 2, side, faceColour(line.value, kit.palette, values), pipColour(line.value, kit.palette, values));
     } else {
       const name = goalLabel(line);
       kit.text(name, left ?? countStart - 4 - kit.measure(name), y, dim);
@@ -958,7 +958,7 @@ export class GameHud {
           const cx = face.value === 1 ? 0.5 : 0.22 + 0.28 * column;
           const cy = face.value === 1 ? 0.5 : 0.22 + 0.28 * row;
           const pip = FACE_PIPS[face.value].includes(row * 3 + column) && Math.abs(at.u - cx) < reach && Math.abs(at.v - cy) < reach;
-          const hex = pip ? (face.value === 1 ? palette.signal : String(values.pipLight)) : faceColour(face.value, palette, values);
+          const hex = pip ? pipColour(face.value, palette, values) : faceColour(face.value, palette, values);
           // A die on its way down is not all here: every other dot of it.
           if (hit.cell === 'top' && seal.sinking && (x + y) % 2 === 0) colour = bg;
           else colour = mix(hex, fade);
@@ -1007,7 +1007,7 @@ export class GameHud {
   private plateFace(value: number, x: number, y: number): void {
     const { kit } = this;
     const values = this.look.board;
-    kit.face(value, x, y, 12, faceColour(value, kit.palette, values), value === 1 ? kit.palette.signal : String(values.pipLight));
+    kit.face(value, x, y, 12, faceColour(value, kit.palette, values), pipColour(value, kit.palette, values));
   }
 
   /** Over a group: its face, and how many dice it has of how many it takes. */

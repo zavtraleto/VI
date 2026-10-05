@@ -20,11 +20,11 @@ export const CONTACT_STEPS: readonly { sent: number; line: ContactLine }[] = [
   { sent: 4, line: 'grid' },
   // The program no longer reads its link as empty: a pattern is found.
   { sent: 8, line: 'program' },
-  // The pips of every die answer a group sent.
+  // The faces and the edges of every die answer a group sent.
   { sent: 13, line: 'dice' },
   // The dark leans to the channel sent most.
   { sent: 18, line: 'backdrop' },
-  // The colours of the picture part for a moment when a group goes.
+  // Was: the colours of the picture part for a moment when a group goes. They part now on a long chain and a clean board, whatever the contact; the step has no look of its own yet.
   { sent: 24, line: 'screen' },
   // The lines pulse by themselves.
   { sent: 30, line: 'grid' },
@@ -42,7 +42,7 @@ export const CONTACT_STEPS: readonly { sent: number; line: ContactLine }[] = [
   { sent: 115, line: 'program' },
   // Red seeps into the dark.
   { sent: 145, line: 'red' },
-  // The light of the dice going down stands longer and taller.
+  // Was: the light on the pips of the dice going down stands longer and taller. That light is gone, and the step has no look of its own yet.
   { sent: 180, line: 'dice' },
   // The readings come apart.
   { sent: 220, line: 'program' },

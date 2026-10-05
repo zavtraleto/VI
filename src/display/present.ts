@@ -175,9 +175,21 @@ uniform float uVignette;
 uniform bool uTopDown;
 /** How far red and blue part from green along the lines, in pixels of the layer; 0 where the video pass has done it. */
 uniform float uChroma;
+/** The light of the layer, spread: what gives light off in it, small and blurred. */
+uniform sampler2D uHalo;
+/** How much of that light is added, and how much of it lies over what the layer has drawn. */
+uniform float uHaloAmount;
+uniform float uHaloOver;
+uniform float uGrain;
+/** Which grain this is: it counts up as the tape runs. */
+uniform float uTick;
 
 varying vec2 vUv;
 ${LENS_PASS}
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
 void main() {
   vec2 point = uLens ? lensPoint(vUv) : vUv;
   // Through a lens the pixels of the layer no longer lie on those of the screen: it is read softly.
@@ -195,6 +207,14 @@ void main() {
   vec3 colour = texel.rgb;
   float alpha = texel.a;
 
+  if (uHaloAmount > 0.0) {
+    // The tube spreads light into the dark around what gives it off. Over what is drawn it
+    // lies faintly: pips stay dark, and no colour is washed out to white. It has colour and
+    // no alpha, and is taken as it is. The steps of so slow a slope are broken up.
+    vec3 halo = texture2D(uHalo, point).rgb + (hash(gl_FragCoord.xy) - 0.5) / 255.0;
+    colour += max(halo, 0.0) * uHaloAmount * mix(1.0, uHaloOver, alpha);
+  }
+
   if (uScanlines > 0.0) {
     // Brightest in the middle of a line, darkest between two of them.
     float line = 0.5 - 0.5 * cos(6.2831853 * vUv.y * uPitch);
@@ -208,9 +228,38 @@ void main() {
   bool inside = vUv.x >= uArea.x && vUv.y >= uArea.y && vUv.x < uArea.z && vUv.y < uArea.w;
   if (uInvert && inside) colour = alpha - colour;
 
+  if (uGrain > 0.0) {
+    // In the lines of the tube, as the grain of the program's own picture is.
+    vec2 cell = floor(vUv * vec2(uPitch * uSize.x / uSize.y, uPitch));
+    colour += (hash(cell + vec2(uTick * 0.37, uTick * 1.91)) - 0.5) * 0.3 * uGrain;
+  }
+
   gl_FragColor = vec4(colour, alpha) * uOpacity;
 }
 `;
+
+/**
+ * One way of a blur that is done in two, along the lines and across them: nine points of the
+ * picture read as five, each pair of neighbours as one point between them.
+ */
+const SPREAD_FRAGMENT = /* glsl */ `
+uniform sampler2D uMap;
+/** The way of the blur, as the distance between two points of the picture read. */
+uniform vec2 uStep;
+
+varying vec2 vUv;
+
+void main() {
+  vec3 sum = texture2D(uMap, vUv).rgb * 0.2270270270;
+  sum += (texture2D(uMap, vUv + uStep * 1.3846153846).rgb + texture2D(uMap, vUv - uStep * 1.3846153846).rgb) * 0.3162162162;
+  sum += (texture2D(uMap, vUv + uStep * 3.2307692308).rgb + texture2D(uMap, vUv - uStep * 3.2307692308).rgb) * 0.0702702703;
+  gl_FragColor = vec4(sum, 1.0);
+}
+`;
+/** How wide that blur is, in points of the picture it reads, at a step of one. */
+const SPREAD_SIGMA = 1.78;
+/** The blur is done twice, the second time this many times wider: near light and far light from few points. */
+const SPREAD_WIDER = 2.5;
 
 /**
  * The two pictures a layer with video effects is worked through, in its own size, and what
@@ -223,6 +272,13 @@ interface Stage {
   first: [revision: number, width: number, height: number, depth: number, dither: number];
   /** The second: the signal it was given, and which grain. */
   second: [blur: number, smear: number, chroma: number, glow: number, noise: number, tick: number];
+}
+
+/** The two small pictures the light of a layer is spread through, and what the second was last made from. */
+interface Halo {
+  a: THREE.WebGLRenderTarget;
+  b: THREE.WebGLRenderTarget;
+  kept: [revision: number, width: number, height: number, reach: number];
 }
 
 function stageTarget(): THREE.WebGLRenderTarget {
@@ -251,8 +307,10 @@ interface Way {
   video: boolean;
   /** Through a picture of its own size first: for the video pass, or for the colour depth alone. */
   staged: boolean;
-  /** Not by the plain pass: with scanlines, dark corners or the video signal. */
+  /** Not by the plain pass: with scanlines, dark corners, grain, light spread around or the video signal. */
   dressed: boolean;
+  /** What gives light off in the layer, to be spread around it; null where there is none or the look asks for none. */
+  lit: THREE.Texture | null;
   /** Colours parted in the screen pass itself, in pixels of the layer; 0 where the video pass parts them. */
   chroma: number;
 }
@@ -267,6 +325,11 @@ interface Way {
  * screen. The two pictures are made in `prepare`, before anything is drawn to the screen, and
  * only when the layer or its look has changed; `compose` draws to the screen alone. The
  * screen is then one unbroken run of drawing, which is what a phone's graphics card is fast at.
+ *
+ * A layer that has drawn what gives light off in it (`Layer.emit`) has that light spread
+ * around: the small picture is blurred in `prepare`, four passes over a sixteenth of the
+ * pixels, and added on the way to the screen. Bright parts made small, blurred and added
+ * back: that is how the consoles of the last years of the tube made things glow.
  */
 export class Presenter {
   private readonly uniforms = {
@@ -304,16 +367,29 @@ export class Presenter {
     uVignette: { value: 0 },
     uTopDown: { value: false },
     uChroma: { value: 0 },
+    uHalo: { value: null as THREE.Texture | null },
+    uHaloAmount: { value: 0 },
+    uHaloOver: { value: 0 },
+    uGrain: { value: 0 },
+    uTick: { value: 0 },
     ...lensUniforms(),
+  };
+  private readonly spreadUniforms = {
+    uMap: { value: null as THREE.Texture | null },
+    uStep: { value: new THREE.Vector2() },
   };
   private readonly material: THREE.ShaderMaterial;
   private readonly videoMaterial: THREE.ShaderMaterial;
   private readonly screenMaterial: THREE.ShaderMaterial;
+  private readonly spreadMaterial: THREE.ShaderMaterial;
   private readonly mesh: THREE.Mesh;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.Camera();
   private readonly stages = new Map<Layer, Stage>();
-  private readonly way: Way = { video: false, staged: false, dressed: false, chroma: 0 };
+  private readonly halos = new Map<Layer, Halo>();
+  private readonly way: Way = { video: false, staged: false, dressed: false, chroma: 0, lit: null };
+  /** Which grain the frame in hand has. */
+  private tick = 0;
 
   constructor() {
     // The colour comes out premultiplied.
@@ -336,6 +412,14 @@ export class Presenter {
       depthWrite: false,
       blending: THREE.NoBlending,
     });
+    this.spreadMaterial = new THREE.ShaderMaterial({
+      uniforms: this.spreadUniforms,
+      vertexShader: VERTEX,
+      fragmentShader: SPREAD_FRAGMENT,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.NoBlending,
+    });
     // One triangle that covers the screen: no seam down the diagonal.
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
@@ -350,7 +434,9 @@ export class Presenter {
    * that will be shown, before the first of them is drawn. `timeMs` moves the grain.
    */
   prepare(renderer: THREE.WebGLRenderer, layer: Layer, timeMs = 0): void {
+    this.tick = Math.floor((timeMs / 1000) * GRAIN_HZ);
     const way = this.wayOf(layer);
+    if (way.lit) this.spread(renderer, layer, way.lit);
     if (!way.staged) return;
     const { look } = layer;
     const stage = this.stage(layer);
@@ -409,6 +495,11 @@ export class Presenter {
     uniforms.uPitch.value = look.scanlinePitch > 0 ? look.scanlinePitch : layer.height;
     uniforms.uVignette.value = look.vignette;
     uniforms.uChroma.value = way.chroma;
+    uniforms.uHalo.value = way.lit ? (this.halos.get(layer)?.b.texture ?? null) : null;
+    uniforms.uHaloAmount.value = uniforms.uHalo.value ? look.halo : 0;
+    uniforms.uHaloOver.value = look.haloOver;
+    uniforms.uGrain.value = look.grain;
+    uniforms.uTick.value = this.tick;
     // The lens is the last thing done to a layer: on its way to the screen, whichever way it came.
     setLens(uniforms, look, true);
     this.pass(renderer, this.screenMaterial);
@@ -417,10 +508,53 @@ export class Presenter {
   /** Frees what was kept for a layer that is gone. */
   release(layer: Layer): void {
     const stage = this.stages.get(layer);
-    if (!stage) return;
-    stage.a.dispose();
-    stage.b.dispose();
-    this.stages.delete(layer);
+    if (stage) {
+      stage.a.dispose();
+      stage.b.dispose();
+      this.stages.delete(layer);
+    }
+    const halo = this.halos.get(layer);
+    if (halo) {
+      halo.a.dispose();
+      halo.b.dispose();
+      this.halos.delete(layer);
+    }
+  }
+
+  /**
+   * Spreads the light of a layer: its small picture of what gives light off, blurred along
+   * the lines and across them, and once more wider. Done again only when the picture or the
+   * reach has changed.
+   */
+  private spread(renderer: THREE.WebGLRenderer, layer: Layer, lit: THREE.Texture): void {
+    const { width, height } = lit.image as { width: number; height: number };
+    let halo = this.halos.get(layer);
+    if (!halo) {
+      halo = { a: stageTarget(), b: stageTarget(), kept: [-1, 0, 0, 0] };
+      this.halos.set(layer, halo);
+    }
+    if (halo.a.width !== width || halo.a.height !== height) {
+      halo.a.setSize(width, height);
+      halo.b.setSize(width, height);
+    }
+    const reach = Math.max(0, layer.look.haloReach);
+    if (taken(halo.kept, layer.revision, width, height, reach)) return;
+    // The reach is in pixels of the layer; the blur is counted in those of the small picture.
+    const one = (reach * width) / Math.max(1, layer.width) / SPREAD_SIGMA / Math.sqrt(1 + SPREAD_WIDER * SPREAD_WIDER);
+    const uniforms = this.spreadUniforms;
+    const pass = (from: THREE.Texture, to: THREE.WebGLRenderTarget, x: number, y: number): void => {
+      uniforms.uMap.value = from;
+      uniforms.uStep.value.set(x / width, y / height);
+      renderer.setRenderTarget(to);
+      // The pass writes every pixel; cleared first, the card does not fetch the old picture to draw over.
+      renderer.clear(true, false, false);
+      this.pass(renderer, this.spreadMaterial);
+    };
+    renderer.setClearColor(0x000000, 1);
+    pass(lit, halo.a, one, 0);
+    pass(halo.a.texture, halo.b, 0, one);
+    pass(halo.b.texture, halo.a, one * SPREAD_WIDER, 0);
+    pass(halo.a.texture, halo.b, 0, one * SPREAD_WIDER);
   }
 
   private wayOf(layer: Layer): Way {
@@ -433,7 +567,8 @@ export class Presenter {
     const alone = video && look.blur <= 0 && look.smear <= 0 && look.glow <= 0 && look.noise <= 0 && layer.encoded && look.depth >= 7.5;
     way.chroma = alone ? look.chroma : 0;
     way.video = video && !alone;
-    way.dressed = video || look.scanlines > 0 || look.vignette > 0;
+    way.lit = quality().halo && look.halo > 0 ? layer.emitted : null;
+    way.dressed = video || look.scanlines > 0 || look.vignette > 0 || look.grain > 0 || way.lit !== null;
     way.staged = way.dressed && (way.video || !layer.encoded || look.depth < 7.5);
     return way;
   }

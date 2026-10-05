@@ -39,6 +39,18 @@ export interface LayerLook {
   /** 0..1, how dark the corners are. */
   vignette: number;
   /**
+   * How much light the tube spreads around what gives light off in the layer: the picture
+   * `emit` has drawn, blurred and added. 0 leaves it out, and so does a layer nothing was
+   * emitted into.
+   */
+  halo: number;
+  /** How far that light spreads, in pixels of the layer. */
+  haloReach: number;
+  /** How much of it lies over what the layer has drawn itself; the rest goes only into the dark around. */
+  haloOver: number;
+  /** 0..1, grain of the tube over the layer as it stands on screen: counted in the lines of the scanlines, new 24 times a second. */
+  grain: number;
+  /**
    * Strength of the lens the layer is put on screen through: the middle of the part the scene
    * was drawn to is enlarged `1 + k` times and its edges are pressed together, so all of it
    * stays in view. 0 is no lens. See `lens.ts`.
@@ -100,10 +112,17 @@ const DEFAULT_LOOK: LayerLook = {
   scanlines: 0,
   scanlinePitch: 0,
   vignette: 0,
+  halo: 0,
+  haloReach: 0,
+  haloOver: 0,
+  grain: 0,
   lens: 0,
   lensCentre: { x: 0.5, y: 0.5 },
   lensFrom: null,
 };
+
+/** How many times smaller along a side the picture of what gives light off is than the layer. */
+const EMIT_SHRINK = 4;
 
 /** A picture the size of the window, at a resolution of its own, that scenes are drawn into. */
 export class Layer {
@@ -123,6 +142,10 @@ export class Layer {
   private readonly dense = { x: 1, y: 1 };
   private samples: number;
   private target: THREE.WebGLRenderTarget | null = null;
+  /** What gives light off in the layer, drawn alone and small; null until something is. */
+  private emitTarget: THREE.WebGLRenderTarget | null = null;
+  /** The frame of the layer that picture was drawn for. */
+  private emitRevision = -1;
 
   constructor(
     protected readonly host: LayerHost,
@@ -154,6 +177,11 @@ export class Layer {
   /** The rows of the picture run from the top down, as those of a canvas do, and not from the bottom up. */
   get topDown(): boolean {
     return false;
+  }
+
+  /** What gives light off in the picture as it is now, small and still sharp; null where nothing was drawn for it. */
+  get emitted(): THREE.Texture | null {
+    return this.emitTarget !== null && this.emitRevision === this.revision ? this.emitTarget.texture : null;
   }
 
   /** Draws the layer with this many samples of anti-aliasing from the next scene on. */
@@ -232,6 +260,29 @@ export class Layer {
   }
 
   /**
+   * Draws beside the picture, small, the part of a scene that gives light off: what the tube
+   * spreads light around. Called after `render`, with the same `rect`, and with the scene
+   * showing only that - black wherever it gives none. The small picture keeps its own depth,
+   * so that what stands in front still hides what is behind.
+   */
+  emit(scene: THREE.Scene, camera: THREE.Camera, options: { rect?: Rect } = {}): void {
+    const { renderer } = this.host;
+    const size = { width: Math.max(1, Math.ceil(this.size.width / EMIT_SHRINK)), height: Math.max(1, Math.ceil(this.size.height / EMIT_SHRINK)) };
+    const target = this.emitPicture(size);
+    target.scissorTest = false;
+    target.viewport.set(0, 0, size.width, size.height);
+    renderer.setRenderTarget(target);
+    renderer.setClearColor(0x000000, 1);
+    renderer.clear(true, true, false);
+    const view = options.rect ? targetViewport(options.rect, this.host, size) : { x: 0, y: 0, ...size };
+    target.viewport.set(view.x, view.y, view.width, view.height);
+    renderer.setRenderTarget(target);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+    this.emitRevision = this.revision;
+  }
+
+  /**
    * Has what a scene is drawn with into this layer made ready ahead of time: its programs
    * are built and its pictures sent to the graphics card. Left to the first drawing, they
    * hold that frame up. Everything of the scene is taken, seen or not. The promise is kept
@@ -259,10 +310,31 @@ export class Layer {
   dispose(): void {
     this.target?.dispose();
     this.target = null;
+    this.emitTarget?.dispose();
+    this.emitTarget = null;
   }
 
   protected resized(): void {
     this.target?.setSize(this.size.width, this.size.height);
+  }
+
+  private emitPicture(size: Size): THREE.WebGLRenderTarget {
+    let target = this.emitTarget;
+    if (!target) {
+      target = new THREE.WebGLRenderTarget(size.width, size.height, {
+        depthBuffer: true,
+        generateMipmaps: false,
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+      });
+      // Written as the layer itself is, sRGB in 8 bits: see `renderTarget`.
+      target.texture.colorSpace = THREE.SRGBColorSpace;
+      target.texture.internalFormat = 'RGBA8';
+      (target as THREE.WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true;
+      this.emitTarget = target;
+    }
+    if (target.width !== size.width || target.height !== size.height) target.setSize(size.width, size.height);
+    return target;
   }
 
   private renderTarget(): THREE.WebGLRenderTarget {

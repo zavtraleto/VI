@@ -16,8 +16,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # One job, and so one machine to wait for: with the build and the deploy apart, the deploy
+  # stood in a queue of its own after the build was done, and has failed there for want of a
+  # machine with the build already green.
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -31,13 +37,5 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@v5

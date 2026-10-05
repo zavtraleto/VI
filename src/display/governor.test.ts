@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Governor, SAMPLE_STEPS } from './governor';
+import { Governor, QUALITY_STEPS } from './governor';
 
 /** Runs `seconds` of frames `gap` milliseconds apart; returns how many times the step changed. */
 function run(governor: Governor, gap: number, seconds: number, playing = true): number {
@@ -23,7 +23,20 @@ describe('Governor', () => {
     expect(governor.samples).toBe(2);
     run(governor, 1000 / 30, 60);
     expect(governor.samples).toBe(0);
-    expect(governor.step).toBe(SAMPLE_STEPS.length - 1);
+    expect(governor.step).toBe(QUALITY_STEPS.length - 1);
+  });
+
+  it('gives up two samples first, then the light of the tube, then the rest of the smoothing', () => {
+    const governor = new Governor();
+    run(governor, 1000 / 60, 5, false);
+    const seen: [number, boolean][] = [[governor.samples, governor.halo]];
+    for (let t = 0; t < 60000; t += 1000 / 30) if (governor.frame(1000 / 30, true)) seen.push([governor.samples, governor.halo]);
+    expect(seen).toEqual([
+      [4, true],
+      [2, true],
+      [2, false],
+      [0, false],
+    ]);
   });
 
   it('gives up the first step only to reach the rate of a faster screen', () => {
@@ -32,6 +45,7 @@ describe('Governor', () => {
     run(governor, 1000 / 120, 5, false);
     run(governor, 1000 / 60, 60);
     expect(governor.samples).toBe(2);
+    expect(governor.halo).toBe(true);
   });
 
   it('does not judge a screen that never shows more than thirty frames', () => {
@@ -60,6 +74,8 @@ describe('Governor', () => {
 
   it('starts from the step it is given', () => {
     expect(new Governor(1).samples).toBe(2);
+    expect(new Governor(1).halo).toBe(true);
+    expect(new Governor(2).halo).toBe(false);
     expect(new Governor(9).samples).toBe(0);
     expect(new Governor(-3).samples).toBe(4);
   });

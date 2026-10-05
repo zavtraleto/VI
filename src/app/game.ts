@@ -1,6 +1,6 @@
 import { AudioEngine } from '../audio/engine';
 import { Display } from '../display/display';
-import { Governor, SAMPLE_STEPS } from '../display/governor';
+import { Governor, QUALITY_STEPS } from '../display/governor';
 import { quality } from '../display/quality';
 import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
@@ -171,7 +171,7 @@ const LESSONS = TUTORIAL_LESSONS;
 const READ_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'KeyW', 'KeyD', 'KeyS', 'KeyA']);
 
 /**
- * Where the step of anti-aliasing this device has come down to is kept between visits, and for
+ * Where the step of quality this device has come down to is kept between visits, and for
  * how long. The step only goes down while the game runs, so it is forgotten after a few days:
  * a device that was slow once, hot or busy with something else, gets its samples back.
  */
@@ -184,7 +184,7 @@ function keptSampleStep(): number {
     const step = Number(kept?.step);
     const age = Date.now() - Number(kept?.at);
     const fresh = age >= 0 && age < SAMPLE_STEP_DAYS * 24 * 60 * 60 * 1000;
-    return fresh && Number.isInteger(step) && step >= 0 && step < SAMPLE_STEPS.length ? step : 0;
+    return fresh && Number.isInteger(step) && step >= 0 && step < QUALITY_STEPS.length ? step : 0;
   } catch {
     return 0;
   }
@@ -292,7 +292,9 @@ export class Game {
   private readonly display = new Display();
   /** What lies behind the board: the dark the screen starts from. */
   private readonly backdrop = new Backdrop(this.display);
-  /** Gives samples of anti-aliasing up where the device does not keep up; null where the address has set them. */
+  /** The address has not turned the light of the tube off: the governor may keep it or give it up. */
+  private readonly haloAsked = quality().halo;
+  /** Gives samples of anti-aliasing and the light of the tube up where the device does not keep up; null where the address has set the samples. */
   private readonly governor = quality().auto ? new Governor(keptSampleStep()) : null;
   /** The board, as crisp as the screen allows and looking as it would on a canvas of its own. Clear around the dice. */
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: this.governor?.samples ?? quality().samples, encoded: true });
@@ -340,6 +342,8 @@ export class Game {
 
   constructor(root: HTMLElement) {
     this.root = root;
+    // A device that gave the light of the tube up on an earlier visit starts without it.
+    if (this.governor && !this.governor.halo) quality().halo = false;
     this.header = h('header', { class: 'hud' });
     const stage = h('div', { class: 'stage' });
     this.stage = stage;
@@ -462,11 +466,12 @@ export class Game {
     requestAnimationFrame((time) => this.frame(time));
   }
 
-  /** Draws the board with the samples the governor has come down to, and keeps the step for the next visit. */
+  /** Draws the board with what the governor has come down to, and keeps the step for the next visit. */
   private applySamples(): void {
     const { governor } = this;
     if (!governor) return;
     quality().samples = governor.samples;
+    quality().halo = this.haloAsked && governor.halo;
     this.world.setSamples(governor.samples);
     keepSampleStep(governor.step);
   }

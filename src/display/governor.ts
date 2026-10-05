@@ -1,9 +1,17 @@
 /**
- * Samples of anti-aliasing the board may be drawn with, from the finest down. Smoothing the
- * edges of the dice is the heaviest thing the graphics card does for a frame: on a large
- * canvas it is more than everything else together.
+ * What the board may be drawn with, from the finest down: samples of anti-aliasing, and the
+ * light the tube spreads around the dice. Smoothing the edges of the dice is the heaviest
+ * thing the graphics card does for a frame: on a large canvas it is more than everything else
+ * together. Two samples for four is hard to see, so they go first; then the light of the
+ * tube, which is a small picture drawn and blurred on every frame; then the rest of the
+ * smoothing, which shows.
  */
-export const SAMPLE_STEPS: readonly number[] = [4, 2, 0];
+export const QUALITY_STEPS: readonly { samples: number; halo: boolean }[] = [
+  { samples: 4, halo: true },
+  { samples: 2, halo: true },
+  { samples: 2, halo: false },
+  { samples: 0, halo: false },
+];
 
 /** Play one judgement is made from, in milliseconds, and the fewest frames it may be made from. */
 const WINDOW_MS = 3000;
@@ -25,12 +33,12 @@ function median(values: number[]): number {
 }
 
 /**
- * Watches how the frames of play come and takes samples of anti-aliasing away where the
- * device does not keep up. It only ever goes down: what a frame costs the graphics card
+ * Watches how the frames of play come and takes samples of anti-aliasing away, and the light
+ * of the tube, where the device does not keep up. It only ever goes down: what a frame costs the graphics card
  * cannot be seen from frames that are on time, so there is no telling when it is safe to go
  * back up.
  *
- * Under sixty frames a second it gives up a step at a time, down to none. On a screen that
+ * Under sixty frames a second it gives up a step at a time, down to the last. On a screen that
  * refreshes faster, where the game runs at sixty or more but not at the screen's own rate, it
  * gives up the first step only: four samples for two is hard to see, none at all is not.
  *
@@ -38,7 +46,7 @@ function median(values: number[]): number {
  * does, is not slow by this measure: the frames are judged against what the screen gives.
  */
 export class Governor {
-  /** Which of `SAMPLE_STEPS` the board is drawn with. */
+  /** Which of `QUALITY_STEPS` the board is drawn with. */
   step: number;
   /** The shortest steady time between two frames the screen has shown: its refresh. */
   private screen = Infinity;
@@ -48,12 +56,17 @@ export class Governor {
   private rest = SETTLE_MS;
 
   constructor(step = 0) {
-    this.step = Math.min(SAMPLE_STEPS.length - 1, Math.max(0, Math.round(step)));
+    this.step = Math.min(QUALITY_STEPS.length - 1, Math.max(0, Math.round(step)));
   }
 
   /** Samples the board is drawn with now. */
   get samples(): number {
-    return SAMPLE_STEPS[this.step];
+    return QUALITY_STEPS[this.step].samples;
+  }
+
+  /** The tube still spreads light around the dice. */
+  get halo(): boolean {
+    return QUALITY_STEPS[this.step].halo;
   }
 
   /**
@@ -84,7 +97,7 @@ export class Governor {
     const pace = median(this.gaps);
     this.gaps.length = 0;
     this.span = 0;
-    if (this.step >= SAMPLE_STEPS.length - 1) return false;
+    if (this.step >= QUALITY_STEPS.length - 1) return false;
     const slow = pace > SLOW_MS && pace > this.screen * 1.3;
     const behind = this.step === 0 && this.screen < FAST_SCREEN_MS && pace > this.screen * 1.6;
     if (!slow && !behind) return false;

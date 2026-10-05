@@ -14,24 +14,51 @@ export const BOARD_GROUPS = {
   die: {
     /** How round the edges of a die are, in dice. */
     dieRound: number(0.07, 0, 0.2, 0.005),
-    /** Radius of a pip as a share of the face; the single pip of the one is this many times larger. */
+    /**
+     * A face is a screen: it gives its own light, the colour of its channel as it is, and no
+     * lamp changes it. How far all six are taken down from their channels together; no face
+     * is taken further than another.
+     */
+    faceMute: number(0, 0, 0.8, 0.01),
+    /** How much a face darkens from its middle towards its edges, as a screen does. */
+    faceShade: number(0.14, 0, 0.6, 0.01),
+    /**
+     * The face on top is the one that counts, and is lit in full. What the faces on the sides
+     * keep of that light; how far apart the two sides in view are, which gives the die its
+     * shape; how much a side darkens towards the foot of the die.
+     */
+    faceSide: number(0.78, 0.2, 1, 0.01),
+    sideTilt: number(0.24, 0, 0.6, 0.01),
+    sideFall: number(0.47, 0, 0.9, 0.01),
+    /** What a face that does not work on the level in hand keeps of its light. */
+    faceOff: number(0.5, 0.1, 1, 0.01),
+    /**
+     * The pips are the places of a face that are not lit; the pip of the one is lit, and red.
+     * Radius of a pip as a share of the face; the single pip of the one is this many times larger.
+     */
     pipSize: number(0.098, 0.05, 0.16, 0.002),
     pipOne: number(1.5, 1, 2.4, 0.05),
-    /**
-     * Matter is duller than light: how far the faces 2 to 6 are darkened from the colour of
-     * their channel, and how much further the 6 is than the 2. The one stays white.
-     */
-    faceMute: number(0.3, 0, 0.8, 0.01),
-    faceFall: number(0.25, 0, 0.6, 0.01),
-    /** The first face whose pips are light; the faces before it have dark ones. 2 is all of them, 7 none. */
-    pipLightFrom: number(2, 2, 7, 1),
-    pipDark: color('#12141c'),
-    pipLight: color('#f2eee2'),
-    /** How dark the edges of a die are, and how much a face darkens towards them. */
-    faceEdge: number(0.35, 0, 1, 0.01),
-    faceShade: number(0.12, 0, 0.6, 0.01),
+    pipDark: color('#171616'),
+    /** The screen is a little less lit around a pip: how far that reaches, in radii of the pip, and how dark it is. */
+    pipDusk: number(0.5, 0, 2, 0.05),
+    pipDuskDark: number(0.14, 0, 1, 0.01),
     /** How far the die the figure stands on is pressed into the surface, in dice. */
-    pressDepth: number(0.07, 0, 0.2, 0.005),
+    pressDepth: number(0.08, 0, 0.2, 0.005),
+  },
+  edge: {
+    /**
+     * A line of light runs along the middle of every rounded edge, and the faces run up to it:
+     * no dark stands between a face and its edge. Its width, as a share of the face; how bright
+     * it is around the face on top, and what the other edges keep of that; how far it is from
+     * the tone of the program towards white.
+     */
+    edgeWidth: number(0.042, 0, 0.1, 0.002),
+    edgeBright: number(0.92, 0, 1, 0.01),
+    edgeSide: number(0.15, 0, 1, 0.01),
+    edgePale: number(0.44, 0, 1, 0.01),
+    /** The light of the line spread over the face beside it: how far, as a share of the face, and how bright. */
+    edgeSpread: number(0.03, 0.005, 0.15, 0.005),
+    edgeGlow: number(0.42, 0, 1, 0.01),
   },
   glass: {
     /**
@@ -41,22 +68,34 @@ export const BOARD_GROUPS = {
     glassBody: number(0.86, 0.1, 1, 0.01),
     glassFrost: number(0.3, 0, 1, 0.01),
     /** The height from which such a die is whole again, as a share of its own. */
-    glassSolid: number(0.8, 0.3, 1, 0.01),
+    glassSolid: number(0.98, 0.3, 1, 0.01),
     /** How bright the lit edges of such a die are. */
-    glassEdge: number(0.9, 0, 2, 0.05),
+    glassEdge: number(1.7, 0, 2, 0.05),
     /**
-     * How much of all that a low die keeps: one that can be rolled over or stepped onto. The
-     * step between the two is what says a die can be climbed.
+     * What a low die keeps of its dots and of the light of its edges: one that can be rolled
+     * over or stepped onto. The step between the two is what says a die can be climbed.
      */
-    glassLow: number(0.42, 0, 1, 0.01),
-  },
-  light: {
-    lightKey: number(2.6, 0, 5, 0.05),
-    lightAmbient: number(0.95, 0, 2, 0.05),
+    glassLow: number(0.69, 0, 1, 0.01),
+    /**
+     * A die that is not all here is drawn through a mesh of the dots of the tube: as much of
+     * it as is here, so many dots it has. One that is going down thins out and is gone at the
+     * very end, as a message that leaves for the other side: how much of it is gone by then, 0
+     * leaves it whole. One that is coming up gathers its dots and has them all when it stands:
+     * how much of it is missing at the start. The size of a dot, in dots of the tube.
+     */
+    sinkMelt: number(1, 0, 1, 0.01),
+    riseMelt: number(1, 0, 1, 0.01),
+    meshDot: number(1, 0.5, 4, 0.25),
+    /**
+     * A die that has come up keeps the colour of its channel on its edges for a moment and
+     * lets it go to the pale of the program, and its light comes to the tube: how long that
+     * takes, in milliseconds. 0 changes it at once.
+     */
+    settleMs: number(180, 0, 600, 10),
   },
   surface: {
     /** Width of the lines between the cells and of the line around them, in cells. */
-    gridLine: number(0.03, 0.005, 0.1, 0.005),
+    gridLine: number(0.055, 0.005, 0.1, 0.005),
     gridEdge: number(0.05, 0.005, 0.15, 0.005),
     /** How much of the tone the lines take, and the floor of the cells under them. */
     gridBright: number(0.5, 0, 1, 0.01),
@@ -72,7 +111,7 @@ export const BOARD_GROUPS = {
   },
   signs: {
     /** Frames on the cells next to an open chain. */
-    dockBright: number(0.75, 0, 1, 0.01),
+    dockBright: number(0.84, 0, 1, 0.01),
     /**
      * How many times brighter the frame of a dock is when the player's next step can use it:
      * one to come down to from the sinking cube they stand on, or the one under their feet
@@ -85,21 +124,32 @@ export const BOARD_GROUPS = {
      * the floor. How strong it is against the frame on the floor; 0 leaves the floor alone.
      */
     dockTop: number(0.7, 0, 1, 0.01),
-    /**
-     * Light that stands on the pips of a die going down: how high, in dice, how bright, and how
-     * wide against the pip it stands on. Faint and thin: with many dice going down at once the
-     * board behind them has to stay readable.
-     */
-    pillarHeight: number(0.7, 0, 4, 0.05),
-    pillarBright: number(0.2, 0, 2, 0.01),
-    pillarWidth: number(0.6, 0.1, 1.5, 0.05),
     /** The mark of a cell a die is about to come up on. */
-    warnBright: number(0.9, 0, 1, 0.01),
+    warnBright: number(0.59, 0, 1, 0.01),
   },
   screen: {
-    /** The tube the board is shown on: its lines and its dark corners. The picture itself stays sharp. */
-    scanlines: number(0.12, 0, 1, 0.01),
-    vignette: number(0.3, 0, 1, 0.01),
+    /** The tube the board is shown on: its lines and its dark corners. The sign itself stays sharp. */
+    scanlines: number(0.42, 0, 1, 0.01),
+    vignette: number(0.39, 0, 1, 0.01),
+    /**
+     * The light the tube spreads around what gives light off: the faces on top, the edges, the
+     * red of the one. How much of it there is; how far it reaches, in lines of the tube; how
+     * much of it lies over the dice themselves, the rest going into the dark around them; and
+     * what the edges give to it against the faces.
+     */
+    glow: number(0.74, 0, 1.5, 0.01),
+    glowReach: number(7.5, 1, 16, 0.5),
+    glowOver: number(0.14, 0, 1, 0.01),
+    glowEdge: number(0.8, 0, 2, 0.05),
+    /** How far red and blue stand apart along the lines while nothing happens, in lines of the tube. */
+    fringe: number(0.1, 0, 1, 0.01),
+    /**
+     * How far they part for a moment on what is rare in a session without end: a chain of
+     * three links or more - further the longer it is - and a board left clean.
+     */
+    fringeBeat: number(1.2, 0, 4, 0.05),
+    /** Grain of the tube over the board, new 24 times a second. */
+    grain: number(0.08, 0, 0.6, 0.01),
   },
   view: {
     /**
