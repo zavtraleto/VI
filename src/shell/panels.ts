@@ -3,7 +3,7 @@ import type { GoalLine } from '../rules';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
-import { COMMANDS, GOAL, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { COMMANDS, GOAL, LADDER, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -311,12 +311,15 @@ export function clearedPanel(
 }
 
 /**
- * Every level, with a mark on the ones passed. All of them can be picked; under them the goal
- * of the level in focus is written as the readings of a level write it, with nothing counted yet.
+ * Every level, with the stars of the ones passed, out of three: those of its best pass, and
+ * one where `stars` is not said. Under them the goal of the level in focus is written as
+ * the readings of a level write it, with nothing counted yet. A level of a chapter that is not
+ * open is `locked`: it cannot be picked, and what is written under it is the stars the player
+ * holds against the stars its chapter asks for.
  * `share` sends out what the player did on the levels, as text: the report of the playtest.
  */
 export function levelsPanel(
-  levels: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[] }[],
+  levels: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number; locked?: { have: number; need: number } }[],
   current: number,
   actions: { onPick: (index: number) => void; share: { label: () => PanelName; action: () => void }; onBack: () => void },
 ): PanelSpec {
@@ -328,14 +331,17 @@ export function levelsPanel(
       {
         kind: 'levels',
         id: 'level',
-        levels: levels.map((level) => ({ stars: level.passed ? 1 : 0 })),
-        marks: 1,
+        levels: levels.map((level) => ({ stars: level.locked ? 0 : (level.stars ?? (level.passed ? 1 : 0)), locked: level.locked !== undefined })),
+        marks: 3,
         current,
-        pick: actions.onPick,
+        pick: (index) => {
+          if (!levels[index]?.locked) actions.onPick(index);
+        },
         // The faces that work on the level come first: they are what its chapter is about.
         note: (index) => {
           const level = levels[index];
           if (!level) return '';
+          if (level.locked) return `${LADDER.locked} · ${LADDER.stars} ${digits(level.locked.have, 2)}/${digits(level.locked.need, 2)}`;
           return level.faces ? `${GOAL.face} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
         },
         program: true,
@@ -404,11 +410,15 @@ export interface LevelResult {
   reason?: string;
   /** Moves that can still be taken back: with any, a failed level offers to take the last one back. */
   undos?: number;
+  /** Stars of the pass, where a level is rated by its moves. */
+  stars?: number;
 }
 
 /**
  * A level is over. Passed, it says how many moves were left, or how many it took where there
- * was no limit and the fewest the player has done it in;
+ * was no limit and the fewest the player has done it in; a level rated by its moves shows the
+ * stars of the pass, its moves and the fewest of the player, and not the fewest there are: what
+ * the top mark takes is the player's to find;
  * failed, why, in the language of the player, and how far every line of its goal had come. A
  * failed level whose moves can still be taken back offers that first: the level goes on from
  * before its last move. The next level is offered after a pass.
@@ -420,7 +430,10 @@ export function levelResultPanel(
   const rows: PanelRow[] = [];
   if (data.reason) rows.push({ kind: 'say', text: data.reason });
   if (!data.passed) rows.push(...data.goal.map((line): PanelRow => ({ kind: 'field', label: { native: goalLabel(line), name: '' }, value: goalProgress(line) })));
-  else if (data.left === null) {
+  else if (data.stars !== undefined) {
+    rows.push({ kind: 'stars', count: data.stars }, { kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) });
+    if (data.best !== undefined && data.best !== null) rows.push({ kind: 'field', label: RESULT.best, value: digits(data.best, 2) });
+  } else if (data.left === null) {
     rows.push({ kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) });
     if (data.best !== undefined && data.best !== null) rows.push({ kind: 'field', label: RESULT.best, value: digits(data.best, 2) });
   } else rows.push({ kind: 'field', label: RESULT.left, value: digits(data.left, 2) });

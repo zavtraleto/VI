@@ -62,14 +62,45 @@ describe('the list of levels', () => {
     { passed: false, goal: CHAIN },
   ];
 
-  it('has a cell for every level, with one mark on the ones passed', () => {
+  it('has a cell for every level, with the stars of the ones passed, out of three', () => {
     const spec = levelsPanel(levels, 1, { onPick: nothing, share, onBack: nothing });
     const cells = row(spec, 'levels');
     expect(spec.title).toBe(PANELS.levels);
-    expect(cells.levels).toEqual([{ stars: 1 }, { stars: 0 }, { stars: 0 }]);
-    expect(cells.marks).toBe(1);
+    expect(cells.levels).toEqual([
+      { stars: 1, locked: false },
+      { stars: 0, locked: false },
+      { stars: 0, locked: false },
+    ]);
+    expect(cells.marks).toBe(3);
     expect(cells.current).toBe(1);
     expect(spec.home).toBe('level-1');
+    const starred = levelsPanel(
+      [
+        { passed: true, goal: SEND, stars: 3 },
+        { passed: true, goal: ORDER, stars: 2 },
+      ],
+      0,
+      { onPick: nothing, share, onBack: nothing },
+    );
+    expect(row(starred, 'levels').levels.map((level) => level.stars)).toEqual([3, 2]);
+  });
+
+  it('keeps a level of a chapter that is not open shut: it says the stars its chapter asks for, and is not started', () => {
+    const picked: number[] = [];
+    const gated = [
+      { passed: true, goal: SEND, stars: 2 },
+      { passed: false, goal: CLEAR, locked: { have: 7, need: 10 } },
+    ];
+    const cells = row(levelsPanel(gated, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels');
+    expect(cells.levels).toEqual([
+      { stars: 2, locked: false },
+      { stars: 0, locked: true },
+    ]);
+    expect(cells.note(0)).toBe('SEND 12');
+    expect(cells.note(1)).toBe('LOCKED · STARS 07/10');
+    cells.pick(1);
+    cells.pick(0);
+    expect(picked).toEqual([0]);
   });
 
   it('writes the goal of the level in focus in the font of the program', () => {
@@ -168,6 +199,23 @@ describe('the result of a level', () => {
     // Before the first pass there is no best to show.
     const first = levelResultPanel({ passed: true, left: null, moves: 17, best: null, goal: CLEAR, hasNext: true }, actions);
     expect(first.rows.filter((candidate) => candidate.kind === 'field')).toHaveLength(1);
+  });
+
+  it('rates a pass with its stars, and says its moves and the fewest of the player', () => {
+    const spec = levelResultPanel({ passed: true, left: 21, moves: 9, best: 7, stars: 1, goal: CLEAR, hasNext: true }, actions);
+    expect(row(spec, 'stars')).toEqual({ kind: 'stars', count: 1 });
+    expect(row(spec, 'field', 0)).toMatchObject({ label: RESULT.moves, value: '09' });
+    expect(row(spec, 'field', 1)).toMatchObject({ label: RESULT.best, value: '07' });
+    // Neither the moves a limit had left nor the fewest the level takes are readings of their own: the stars say how the pass went.
+    expect(spec.rows.filter((candidate) => candidate.kind === 'field')).toHaveLength(2);
+    expect(spec.rows.some((candidate) => candidate.kind === 'field' && candidate.label === RESULT.least)).toBe(false);
+    expect(commands(spec)).toEqual(['next', 'again', 'levels']);
+  });
+
+  it('shows no stars on a level that is not passed', () => {
+    const spec = levelResultPanel({ passed: false, left: 0, moves: 30, stars: 0, goal: CLEAR, hasNext: true, reason: 'Out of moves. Short by: 2' }, actions);
+    expect(spec.rows.some((candidate) => candidate.kind === 'stars')).toBe(false);
+    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Out of moves. Short by: 2' });
   });
 
   it('asks nothing of the player: a level that is passed shows its numbers and its commands', () => {

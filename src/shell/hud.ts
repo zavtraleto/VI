@@ -40,13 +40,13 @@ export interface HudTask {
   best: number | null;
 }
 
-/** The readings of a level: the moves it has left, or has taken where there is no limit, and how far its goal has come. */
+/** The readings of a level: the moves it has taken, the most it may take where it has a limit, and how far its goal has come. */
 export interface HudLevel {
   kind: 'level';
   number: number;
-  /** Moves left; null on a level with no limit. */
-  left: number | null;
-  /** Moves made: what a level with no limit counts. */
+  /** The most moves the level may take; null on a level with no limit. */
+  limit: number | null;
+  /** Moves made. */
   made: number;
   /** One line per thing the goal counts. */
   goal: readonly GoalLine[];
@@ -830,9 +830,14 @@ export class GameHud {
     kit.rect(left, layout.rule, layout.right - left, 1, faint);
   }
 
-  /** The moves a level has left, as large as the moves of a task; with no limit, the moves made, counted up as a task counts them. */
+  /**
+   * The moves a level has taken, counted up as large as the moves of a task; where the level
+   * has a limit, the most it may take stands after them, small: `007 /30`.
+   */
   private levelMoves(level: HudLevel, x: number, y: number): void {
-    this.counter(level.left ?? level.made, 3, x, y, 2, 'left', true);
+    const { kit } = this;
+    this.counter(level.made, 3, x, y, 2, 'left', true);
+    if (level.limit !== null) kit.text(`/${digits(level.limit, 2)}`, x + kit.measure(digits(level.made, 3), 2) + 3, y + CELL_H, kit.palette.dim);
   }
 
   /**
@@ -856,7 +861,7 @@ export class GameHud {
     }
   }
 
-  /** The readings of a level as a column: the moves left, its number, and a line for each thing its goal counts. */
+  /** The readings of a level as a column: its moves, its number, and a line for each thing its goal counts. */
   private drawLevelWide(level: HudLevel, layout: HudLayout): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;

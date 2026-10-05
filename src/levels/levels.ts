@@ -2,8 +2,10 @@ import type { LevelSpec } from '../rules/types';
 
 /**
  * The levels of the game: a ladder in chapters, and the game's lessons at once. In a chapter only its faces work, and a die that has joined a group goes in two moves. Every level is a board to
- * clear, given die by die: nothing comes to it, its moves are not limited, and it is lost at a
- * dead end, one die standing with nothing going. Four blocks of five, each ending on a peak;
+ * clear, given die by die: nothing comes to it, and it is lost at a dead end, one die standing
+ * with nothing going. As it is kept here a level has no limit of moves; played, it has the
+ * generous one of its chapter, laid on it by `progress.ts`, which also rates a pass with stars
+ * and opens the chapters. Four blocks of five, each ending on a peak;
  * a level that brings a rule says it in one line (`lesson`), and the first one shows its roll.
  *
  * The boards are not drawn by hand. They are picked by `node scripts/ladder.mjs slot=N` among

@@ -150,6 +150,9 @@ export const HUD = {
 /** What a line of the goal of a level goes under, where it is written and not drawn. */
 export const GOAL = { dice: 'SEND', face: 'FACE', links: 'CHAIN', cleared: 'LEFT', clear: 'CLEAR' } as const;
 
+/** What the list of levels says of a level of a chapter that is not open: that it is shut, and the stars held against the stars asked for. */
+export const LADDER = { locked: 'LOCKED', stars: 'STARS' } as const;
+
 /** Links of a chain are few: their count takes one place while it fits; a count of dice takes two. */
 const goalPlaces = (line: GoalLine): number => (line.what === 'links' && line.need < 10 ? 1 : 2);
 

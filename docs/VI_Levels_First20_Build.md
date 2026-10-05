@@ -166,5 +166,6 @@
 ## 8. Инструменты
 
 - `node scripts/ladder.mjs` — таблица мерил; `slot=N` — подбор досок места; флаги `solution`, `both`, `near`, `loose`; `limit` — предел решателя.
+- `node scripts/stars.mjs` — сколько ходов сверх наименьшего тратят персоны, что с ними делают лимит ходов, звёзды и ворота игры (`src/levels/progress.ts`); числа и выводы — [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md).
 - Решатель — `src/rules/levelSolver.ts`; мерила и персоны — `src/rules/levelBot.ts`; рецепты — `src/levels/recipes.ts`; раскладка случайно и «от решения» — `src/levels/generate.ts`; отбор — `src/levels/select.ts`.
 - Предел решателя (замер 4 октября, окно шесть ходов): 4×4 с семью костями — всегда, до 300 тысяч состояний; 4×4 с десятью — три раскладки из четырёх; 5×5 с десятью — не досчитывает.

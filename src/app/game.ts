@@ -33,6 +33,7 @@ import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
 import { LEVELS } from '../levels/levels';
+import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
   createRun,
@@ -103,6 +104,11 @@ type RunKind = 'endless' | 'timed' | 'tutorial' | 'puzzle' | 'level';
  * their list and not on its menu.
  */
 const LEVELS_PROBE = new URLSearchParams(window.location.search).has('levels');
+/**
+ * A chapter of the levels opens for the stars of the levels before it. The gates are a probe:
+ * `?gates=off` in the address leaves every chapter open, to play the ladder both ways.
+ */
+const LEVEL_GATES = new URLSearchParams(window.location.search).get('gates') !== 'off';
 /** What the report of the levels says before any level has been played. */
 const LEVELS_UNPLAYED = 'VI levels playtest: no level played yet';
 
@@ -590,6 +596,7 @@ export class Game {
     return {
       moves: run.moves,
       left: Math.max(0, spec.moves - run.moves),
+      limit: spec.moves,
       par: spec.par ?? 0,
       undos: (spec.undos ?? LEVEL_UNDOS) - this.undosLeft,
       try: levelStat(this.settings, spec.id).tries,
@@ -950,7 +957,13 @@ export class Game {
    * the level is come to from the list or from the level before; started over, it is not said again.
    */
   private startLevel(index: number, intro = false): void {
-    const spec = LEVELS[index];
+    // A level of a chapter that is not open is not started: the list says what its chapter asks for.
+    if (this.ladder().locked[index]) {
+      this.showLevels();
+      return;
+    }
+    // The level is played with the limit of moves of its chapter; as it is kept, it has none.
+    const spec = limitedLevel(LEVELS, index);
     this.kind = 'level';
     this.levelIndex = index;
     this.tryCounted = false;
@@ -999,9 +1012,15 @@ export class Game {
     else this.restartPuzzle();
   }
 
-  /** First level that has not been passed; the first one when all have. */
+  /** How the player stands on the ladder: the stars of every level, by the fewest moves it was passed in, and the chapters they open. */
+  private ladder(): LadderProgress {
+    return ladderProgress(LEVELS, (id) => this.settings.levels.stats[id]?.bestMoves, LEVEL_GATES);
+  }
+
+  /** First level that has not been passed and can be played; the first one when there is none. */
   private nextLevel(): number {
-    const open = LEVELS.findIndex((level) => !this.settings.levels.passed[level.id]);
+    const { locked } = this.ladder();
+    const open = LEVELS.findIndex((level, index) => !this.settings.levels.passed[level.id] && !locked[index]);
     return open === -1 ? 0 : open;
   }
 
@@ -1014,7 +1033,14 @@ export class Game {
     this.hints.reset();
     this.tools?.hide();
     saveSettings(this.settings);
-    const levels = LEVELS.map((level) => ({ passed: this.settings.levels.passed[level.id] === true, goal: goalOf(level), faces: level.faces }));
+    const ladder = this.ladder();
+    const levels = LEVELS.map((level, index) => ({
+      passed: this.settings.levels.passed[level.id] === true,
+      goal: goalOf(level),
+      faces: level.faces,
+      stars: ladder.stars[index],
+      locked: ladder.locked[index] ? { have: ladder.total, need: ladder.chapters[ladder.chapterOf(index)].gate } : undefined,
+    }));
     this.shell.showPanel(
       levelsPanel(levels, this.kind === 'level' ? this.levelIndex : this.nextLevel(), {
         onPick: (index) => this.startLevel(index, true),
@@ -1054,7 +1080,7 @@ export class Game {
     }
     saveSettings(this.settings);
     const summary: EventData = { ...this.step(), ...this.levelTry(), duration_sec: this.seconds() };
-    if (passed) track('progression_completed', summary);
+    if (passed) track('progression_completed', { ...summary, stars: levelStars(run.moves, spec.par) });
     else track('progression_failed', { ...summary, reason: stuck ? 'stuck' : 'moves', short });
     tell(passed ? 'level_completed' : 'level_failed', this.levelName());
   }
@@ -1082,8 +1108,11 @@ export class Game {
           left: spec.moves > 0 ? left : null,
           moves: run.moves,
           best: stat.bestMoves,
+          // A level whose fewest moves are known is rated by its moves.
+          stars: passed && spec.par !== undefined ? levelStars(run.moves, spec.par) : undefined,
           goal: lines,
-          hasNext: this.levelIndex + 1 < LEVELS.length,
+          // The level after the last of a chapter is offered once its chapter is open.
+          hasNext: this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
           // A level that is failed says why.
           reason: passed ? undefined : stuck ? t('levelStuck') : t('levelShort').replace('{short}', String(short)),
           undos: canUndo ? this.undosLeft : 0,
@@ -1388,7 +1417,10 @@ export class Game {
 
   /** Sends out what the player did on the levels: the report of the playtest, as text. */
   private shareLevels(): void {
-    const report = levelReport(LEVELS, this.settings.levels.stats);
+    const report = levelReport(
+      LEVELS.map((level, index) => ({ ...level, limit: limitedLevel(LEVELS, index).moves })),
+      this.settings.levels.stats,
+    );
     void shareOut(report || LEVELS_UNPLAYED).then((how) => {
       track('result_shared', { mode: 'levels', how });
       this.noteShared(how);
@@ -1882,7 +1914,7 @@ export class Game {
           ? {
               kind: 'level',
               number: this.levelIndex + 1,
-              left: levelRun.spec.moves > 0 ? Math.max(0, levelRun.spec.moves - levelRun.moves) : null,
+              limit: levelRun.spec.moves > 0 ? levelRun.spec.moves : null,
               made: levelRun.moves,
               goal: goalLines(state),
             }

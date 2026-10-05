@@ -49,6 +49,15 @@ describe('level report', () => {
     expect(lost.split('\n')[1]).toBe('4. clear: not passed (par 12), tries 3, passes 0, fails 3, undos 9, dead ends 3, 61s');
   });
 
+  it('says of a board to clear with a limit what the limit is and how often the moves ran out', () => {
+    const limited = [{ ...levels[3], limit: 58 }];
+    const text = levelReport(limited, { d: stat({ tries: 4, passes: 1, fails: 3, firstPassTry: 4, bestLeft: 41, bestMoves: 17, stuck: 1, short: [3, 2], playMs: 300000 }) });
+    expect(text.split('\n')[1]).toBe('1. clear, limit 58: passed on try 4, best in 17 moves (par 12), tries 4, passes 1, fails 3, out of moves 2, undos 0, dead ends 1, 300s');
+    // A level whose moves never ran out says nothing of it.
+    const clean = levelReport(limited, { d: stat({ passes: 1, firstPassTry: 1, bestLeft: 46, bestMoves: 12 }) });
+    expect(clean.split('\n')[1]).toBe('1. clear, limit 58: passed on try 1, best in 12 moves (par 12), tries 1, passes 1, fails 0, undos 0, dead ends 0, 0s');
+  });
+
   it('reads what was saved before dead ends were kept', () => {
     const old = stat({ tries: 1, passes: 1, firstPassTry: 1, bestMoves: 9 }) as Partial<LevelStat>;
     delete old.stuck;
