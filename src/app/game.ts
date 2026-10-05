@@ -34,6 +34,7 @@ import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
+import { lessonsAt } from '../levels/rules';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
   createRun,
@@ -43,6 +44,7 @@ import {
   goalOf,
   levelStuck,
   shortGroups,
+  smallestGroup,
   previewAll,
   previewMove,
   resolveMove,
@@ -69,7 +71,7 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, levelIntroPanel, levelResultPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -134,8 +136,11 @@ const SHARED_MS = 2200;
 const STEER_LINGER_MS = 280;
 /** Levels on which every group that is short is counted from the start: the first five. After them only the one the last move made is. */
 const LEVELS_COUNTED = 5;
-/** The level from which the step with no way back is marked: from the one where a group that is going begins to matter. */
-const LEVEL_OF_COMMIT = 3;
+/**
+ * The level from which the step with no way back is marked: the one that says a combo on its way
+ * out can be walked over and stepped off, or the third while no level of the ladder says so.
+ */
+const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lessonWalk') + 1 || 3;
 /**
  * The end of a level that is passed, before its result is shown: the dice go under the floor,
  * the board answers them when they are nearly gone, and the answer is let run out. A second
@@ -1000,6 +1005,16 @@ export class Game {
     );
   }
 
+  /**
+   * The rules of the level that waits, to read again from its pause: what the windows of the
+   * levels up to it have said, in the same words, a rule to a line and a few to a window. Back
+   * leads to the pause.
+   */
+  private showLevelRules(page = 0): void {
+    const lines = lessonsAt(LEVELS, this.levelIndex).map((lesson) => t(lesson as TextKey).replace(/\n/g, ' '));
+    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showLevelRules(next), onBack: () => this.showPause() }), false);
+  }
+
   private restartLevel(): void {
     if (!this.state.levelRun || this.inMenu) return;
     saveSettings(this.settings);
@@ -1113,8 +1128,12 @@ export class Game {
           goal: lines,
           // The level after the last of a chapter is offered once its chapter is open.
           hasNext: this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
-          // A level that is failed says why.
-          reason: passed ? undefined : stuck ? t('levelStuck') : t('levelShort').replace('{short}', String(short)),
+          // A level that is failed says why: at a dead end, the dice that stand against the dice a combo takes.
+          reason: passed
+            ? undefined
+            : stuck
+              ? t('levelStuck').replace('{left}', String(short)).replace('{need}', String(smallestGroup(spec)))
+              : t('levelShort').replace('{short}', String(short)),
           undos: canUndo ? this.undosLeft : 0,
         },
         {
@@ -1306,6 +1325,7 @@ export class Game {
         list: level ? COMMANDS.levels : undefined,
         onResume: () => this.resume(),
         onRestart: () => this.startRun(),
+        onRules: level ? () => this.showLevelRules() : undefined,
         onRecords: () => this.showRecords(() => this.showPause()),
         onTasks: () => (level ? this.showLevels() : this.showPuzzleLevels()),
         onSystem: () => this.showSystem(() => this.showPause()),

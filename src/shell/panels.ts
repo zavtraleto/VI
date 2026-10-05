@@ -13,18 +13,21 @@ function clock(ticks: number, tickMs: number): string {
 
 /**
  * The session waits. In a task the log of sessions gives way to the list of tasks; `list` names
- * that list where it is another one, the levels.
+ * that list where it is another one, the levels. A level has its rules to read again as well.
  */
 export function pausePanel(actions: {
   task: boolean;
   list?: PanelName;
   onResume: () => void;
   onRestart: () => void;
+  /** The rules of what is paused, to read again: a level has them, the rest do not. */
+  onRules?: () => void;
   onRecords: () => void;
   onTasks: () => void;
   onSystem: () => void;
   onMenu: () => void;
 }): PanelSpec {
+  const { onRules } = actions;
   return {
     title: PANELS.pause,
     home: 'resume',
@@ -32,6 +35,7 @@ export function pausePanel(actions: {
     rows: [
       { kind: 'command', id: 'resume', label: COMMANDS.resume, action: actions.onResume },
       { kind: 'command', id: 'restart', label: COMMANDS.restart, action: actions.onRestart },
+      ...(onRules ? [{ kind: 'command' as const, id: 'rules', label: COMMANDS.rules, action: onRules }] : []),
       actions.task
         ? { kind: 'command', id: 'tasks', label: actions.list ?? COMMANDS.tasks, action: actions.onTasks }
         : { kind: 'command', id: 'records', label: COMMANDS.records, action: actions.onRecords },
@@ -393,6 +397,34 @@ export function levelIntroPanel(
       if (began < 0) began = timeMs;
       return Math.min(total, Math.floor((timeMs - began) / INTRO_SIGN_MS));
     },
+  };
+}
+
+/** Rules of the levels shown in one window: the window of a phone holds no more of them and its commands. */
+export const LEVEL_RULES_PAGE = 3;
+
+/**
+ * The rules of the levels up to the one that waits, to read again: numbered through, a few to a
+ * window, the window saying which one of how many it is. `NEXT` leads to the rules that follow
+ * and, past the last of them, back to the first. Rules that fit one window have no way on.
+ */
+export function levelRulesPanel(
+  lines: readonly string[],
+  page: number,
+  actions: { onPage: (page: number) => void; onBack: () => void },
+): PanelSpec {
+  const pages = Math.max(1, Math.ceil(lines.length / LEVEL_RULES_PAGE));
+  const at = Math.min(Math.max(0, page), pages - 1);
+  const first = at * LEVEL_RULES_PAGE;
+  const rows: PanelRow[] = lines.slice(first, first + LEVEL_RULES_PAGE).map((text, i) => ({ kind: 'say', text: `${first + i + 1}. ${text}` }));
+  rows.push({ kind: 'gap' });
+  if (pages > 1) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: () => actions.onPage((at + 1) % pages) });
+  rows.push({ kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
+  return {
+    title: pages > 1 ? { native: PANELS.rules.native, name: `${PANELS.rules.name} ${at + 1}/${pages}` } : PANELS.rules,
+    home: pages > 1 ? 'next' : 'back',
+    back: actions.onBack,
+    rows,
   };
 }
 

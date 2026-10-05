@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import { textWidth } from './layout';
-import { levelIntroPanel, levelResultPanel, levelsPanel, pausePanel } from './panels';
+import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
 import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
@@ -278,6 +278,53 @@ describe('the result of a level', () => {
   });
 });
 
+describe('the rules of the levels, read again', () => {
+  const RULES = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+  const said = (spec: PanelSpec): string[] => spec.rows.flatMap((candidate) => (candidate.kind === 'say' ? [candidate.text] : []));
+  const pick = (spec: PanelSpec, id: string) => spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === id);
+
+  it('are shown a few to a window, numbered through', () => {
+    const first = levelRulesPanel(RULES, 0, { onPage: nothing, onBack: nothing });
+    expect(said(first)).toEqual(RULES.slice(0, LEVEL_RULES_PAGE).map((text, i) => `${i + 1}. ${text}`));
+    const last = levelRulesPanel(RULES, 2, { onPage: nothing, onBack: nothing });
+    expect(said(last)).toEqual(['7. seven']);
+    expect(LEVEL_RULES_PAGE).toBeLessThanOrEqual(3);
+  });
+
+  it('say in their title which window of how many this is', () => {
+    expect(levelRulesPanel(RULES, 1, { onPage: nothing, onBack: nothing }).title).toEqual({ native: PANELS.rules.native, name: 'RULES 2/3' });
+  });
+
+  it('lead on to the rules that follow and, past the last, back to the first', () => {
+    const turned: number[] = [];
+    const turn = (page: number): void => {
+      const next = pick(levelRulesPanel(RULES, page, { onPage: (to) => turned.push(to), onBack: nothing }), 'next');
+      expect(next).toMatchObject({ label: COMMANDS.next });
+      if (next?.kind === 'command') next.action();
+    };
+    turn(0);
+    turn(1);
+    turn(2);
+    expect(turned).toEqual([1, 2, 0]);
+  });
+
+  it('are one window with no way on when they are few', () => {
+    const spec = levelRulesPanel(RULES.slice(0, LEVEL_RULES_PAGE), 0, { onPage: nothing, onBack: nothing });
+    expect(commands(spec)).toEqual(['back']);
+    expect(spec.title).toEqual(PANELS.rules);
+    expect(spec.home).toBe('back');
+  });
+
+  it('lead back where they were asked for', () => {
+    let back = 0;
+    const spec = levelRulesPanel(RULES, 0, { onPage: nothing, onBack: () => back++ });
+    expect(commands(spec)).toEqual(['next', 'back']);
+    expect(spec.home).toBe('next');
+    spec.back?.();
+    expect(back).toBe(1);
+  });
+});
+
 describe('the pause of a level', () => {
   const PAUSE = { onResume: nothing, onRestart: nothing, onRecords: nothing, onTasks: nothing, onSystem: nothing, onMenu: nothing };
 
@@ -291,5 +338,16 @@ describe('the pause of a level', () => {
   it('leaves the pause of a task as it was', () => {
     const spec = pausePanel({ task: true, ...PAUSE });
     expect(spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'tasks')).toMatchObject({ label: COMMANDS.tasks });
+    expect(commands(spec)).toEqual(['resume', 'restart', 'tasks', 'system', 'menu']);
+  });
+
+  it('has the rules to read again, between starting over and the list', () => {
+    let read = 0;
+    const spec = pausePanel({ task: true, list: COMMANDS.levels, onRules: () => read++, ...PAUSE });
+    expect(commands(spec)).toEqual(['resume', 'restart', 'rules', 'tasks', 'system', 'menu']);
+    const rules = spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'rules');
+    expect(rules).toMatchObject({ label: COMMANDS.rules });
+    if (rules?.kind === 'command') rules.action();
+    expect(read).toBe(1);
   });
 });
