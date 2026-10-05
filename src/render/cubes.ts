@@ -107,10 +107,15 @@ export class CubeMeshes {
   private readonly colour = new THREE.Color();
   private readonly tmpVec = new THREE.Vector3();
 
+  /** The faces crossed out on the dice as they are drawn now: those that do not work on the level in hand. */
+  private crossed = '';
+  private palette: Palette;
+
   constructor(
     palette: Palette,
     private readonly values: ParamValues,
   ) {
+    this.palette = palette;
     const round = Number(values.dieRound);
     this.geometry = dieGeometry(round);
     const { map, glow } = dieTextures(palette, values);
@@ -148,7 +153,30 @@ export class CubeMeshes {
   }
 
   /** The colours have changed with the hour. The faces of the dice keep theirs. */
+  /**
+   * Crosses out the faces that do not work in the run: on a level that names its faces, every
+   * other one. The pictures of the faces are drawn again only when that changes.
+   */
+  private markFaces(state: RunState): void {
+    const faces = state.levelRun?.spec.faces;
+    const crossed = faces ? [1, 2, 3, 4, 5, 6].filter((face) => !faces.includes(face)) : [];
+    const key = crossed.join('');
+    if (key === this.crossed) return;
+    this.crossed = key;
+    const { map, glow } = dieTextures(this.palette, this.values, crossed);
+    const old = [this.material.map, this.material.emissiveMap];
+    this.material.map = map;
+    this.material.emissiveMap = glow;
+    this.material.needsUpdate = true;
+    for (const die of [...this.worn.values(), ...this.spare]) {
+      die.material.map = map;
+      die.material.needsUpdate = true;
+    }
+    for (const texture of old) texture?.dispose();
+  }
+
   setPalette(palette: Palette): void {
+    this.palette = palette;
     // Light is paler than the channel it belongs to, so that the darkest of them still shows
     // in the dark. The one is not a channel: its light is the red of its pip.
     for (let value = 1; value <= 6; value++) {
@@ -180,6 +208,7 @@ export class CubeMeshes {
 
   sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
+    this.markFaces(state);
     this.material.emissiveIntensity = glow.idle;
     const body = n('glassBody');
     const low = n('glassLow');

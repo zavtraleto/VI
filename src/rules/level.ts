@@ -1,4 +1,5 @@
 import { DELTA, DIRS, cubeAt, inBounds } from './board';
+import { faceWorks } from './reactions';
 import { refillLevel } from './spawn';
 import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from './types';
 
@@ -140,14 +141,23 @@ export function goalReached(state: RunState): boolean {
 }
 
 /**
- * A board to be cleared has come to a dead end: one die stands and no group is open for it to
- * join. Alone it makes no group, so it will never go. The level ends there, and this goes on
- * saying why.
+ * A board to be cleared has come to a dead end: nothing is going, and the dice that stand are
+ * too few for any group the level lets them make. One die is always too few; where only 3s
+ * work, so are two. The level ends there, and this goes on saying why.
  */
 export function levelStuck(state: RunState): boolean {
   const run = state.levelRun;
   if (!run || run.spec.goal.kind !== 'clear') return false;
-  return standing(state) === 1 && state.reactions.length === 0 && !state.cubes.some((cube) => cube.state === 'moving');
+  if (state.reactions.length > 0 || state.cubes.some((cube) => cube.state === 'moving')) return false;
+  const left = standing(state);
+  // With nothing going, the dice that stand have to make a group of their own: fewer than the smallest working group cannot.
+  return left > 0 && left < smallestGroup(run.spec);
+}
+
+/** Dice the smallest group of a level takes: two where every face works, else the least of its faces that makes groups. */
+export function smallestGroup(spec: LevelSpec): number {
+  const groups = (spec.faces ?? [2]).filter((face) => face >= 2);
+  return groups.length > 0 ? Math.min(...groups) : Infinity;
 }
 
 /** Dice that stand together showing one face, and are too few to go: what they have and what the face asks for. */
@@ -168,7 +178,7 @@ export function shortGroups(state: RunState): ShortGroup[] {
   const standing = state.cubes.filter((cube) => cube.state === 'idle').sort((a, b) => a.z - b.z || a.x - b.x);
   for (const first of standing) {
     const value = first.ori.top;
-    if (value < 2 || seen.has(first.id)) continue;
+    if (value < 2 || seen.has(first.id) || !faceWorks(state, value)) continue;
     const members: Cube[] = [first];
     seen.add(first.id);
     for (let i = 0; i < members.length; i++) {
@@ -189,7 +199,8 @@ export function chainWindows(state: RunState): { value: number; moves: number }[
   const { actionTicks, sinkingTicks } = state.config;
   const windows: { value: number; moves: number }[] = [];
   for (const reaction of state.reactions) {
-    const ticks = state.cubes.filter((c) => c.state === 'sinking' && c.reactionId === reaction.id).map((c) => c.t);
+    // What a die has left is its way down and the ticks it is held for; the die that has the most keeps the group open.
+    const ticks = state.cubes.filter((c) => c.state === 'sinking' && c.reactionId === reaction.id).map((c) => c.t - (c.hold ?? 0));
     if (ticks.length === 0) continue;
     windows.push({ value: reaction.value, moves: Math.floor((sinkingTicks - Math.min(...ticks)) / actionTicks) });
   }

@@ -16,6 +16,7 @@ export {
   levelConfig,
   levelStuck,
   shortGroups,
+  smallestGroup,
   worldRuns,
   type ShortGroup,
 } from './level';

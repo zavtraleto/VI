@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SKILLS, SKILL_NAMES, botCommand, createBot } from './bot';
 import { defaultConfig } from './config';
 import {
-  GREEDY, goalBot, levelTable, limitFor, measure, neededBy, percentile, pickSeed, playLevel, randomMoves, randomPlay, randomRate, skillRates, trapRate,
+  GREEDY, PERSONAS, PERSONA_NAMES, goalBot, personaPlay, personaRates, levelTable, limitFor, measure, neededBy, percentile, pickSeed, playLevel, randomMoves, randomPlay, randomRate, skillRates, trapRate,
   trySeed, witnessWay, type SeedTrial,
 } from './levelBot';
 import { moveText, replay } from './levelSolver';
@@ -224,6 +224,17 @@ describe('the yardsticks of a board to be cleared', () => {
     for (const skill of SKILL_NAMES) expect(rates[skill]).toBeGreaterThanOrEqual(0);
   });
 
+  it('have players that plan in moves, each as far as its bounds let it', () => {
+    expect(PERSONA_NAMES).toEqual(['hasty', 'casual', 'careful', 'planner']);
+    expect(PERSONAS.planner.depth).toBeGreaterThan(PERSONAS.hasty.depth);
+    expect(PERSONAS.planner.slip).toBeLessThan(PERSONAS.hasty.slip);
+    const rates = personaRates(PAIR, 6);
+    expect(Object.keys(rates)).toEqual(PERSONA_NAMES);
+    expect(rates.planner).toBeGreaterThan(0.8);
+    expect(JSON.stringify(personaPlay(GLASS, 'careful', 2))).toBe(JSON.stringify(personaPlay(GLASS, 'careful', 2)));
+    expect(personaPlay(GLASS, 'planner', 1).endReason).toBe('passed');
+  });
+
   it('take the shortest way a strong player clears the board by, as a way the solver can play', () => {
     const way = witnessWay(GLASS, 3)!;
     expect(way.length).toBeGreaterThanOrEqual(2);
@@ -244,7 +255,7 @@ describe('the yardsticks of a board to be cleared', () => {
     expect(measured.way!.map(moveText)).toEqual(['2,0,W', '1,1,N']);
     expect(measured.traps).toBeGreaterThanOrEqual(0);
     expect(measured.random).toBeGreaterThanOrEqual(0);
-    expect(Object.keys(measured.skills)).toEqual(SKILL_NAMES);
+    expect(Object.keys(measured.personas)).toEqual(PERSONA_NAMES);
   });
 
   it('take a level that keeps its way at its word, and play the way again', () => {

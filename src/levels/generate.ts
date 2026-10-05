@@ -3,7 +3,7 @@ import { ALL_ORIENTATIONS, roll } from '../rules/orientation';
 import { randomInt } from '../rules/rng';
 import { hasReadyGroup } from '../rules/spawn';
 import type { Dir, LevelLayout, LevelSpec, Orientation, PuzzleDie } from '../rules/types';
-import type { Recipe } from './recipes';
+import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, type Recipe } from './recipes';
 
 /**
  * Boards for the places of the ladder. A candidate is laid from a seed by the rules of its
@@ -25,7 +25,7 @@ export const FROM_SOLUTION = 10_000;
 
 /** The name a level of the ladder goes by. */
 export function levelId(slot: number): string {
-  return `L${String(slot).padStart(2, '0')}`;
+  return `B${String(slot).padStart(2, '0')}`;
 }
 
 /** Faces a die may show to the north with `top` up: any but the top and the one under it. */
@@ -103,7 +103,9 @@ export function layOut(recipe: Recipe, seed: number): LevelLayout | null {
 /** The level a board of a place makes: a board to clear, with nothing coming and no limit of moves. */
 export function levelOf(recipe: Recipe, seed: number, layout: LevelLayout): LevelSpec {
   const values = [...(recipe.ones ? [1] : []), ...recipe.faces].sort((a, b) => a - b);
-  return { id: levelId(recipe.slot), seed, size: recipe.size, values, norm: layout.dice.length, arrival: 'none', goal: { kind: 'clear' }, moves: 0, layout };
+  // On the ladder only the faces of the chapter work, and a die that has joined a group goes in two moves.
+  const ladder = recipe.chapter !== undefined ? { faces: values, sinkMoves: LADDER_SINK_MOVES, liftMoves: LADDER_LIFT_MOVES } : {};
+  return { id: levelId(recipe.slot), seed, size: recipe.size, values, norm: layout.dice.length, arrival: 'none', goal: { kind: 'clear' }, moves: 0, ...ladder, layout };
 }
 
 /** A die of a board being laid: where it stands, how it lies, whether it is left where it was put, and whether it has been rolled yet. */

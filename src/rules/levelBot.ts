@@ -1,9 +1,9 @@
 import { SKILLS, SKILL_NAMES, botCommand, createBot, type Bot, type Skill, type SkillName } from './bot';
 import { defaultConfig } from './config';
-import { goalLines, worldRuns } from './level';
+import { goalLines, smallestGroup, worldRuns } from './level';
 import { SOLVER_MAX_STATES, moveOf, movesAt, playMove, solveLevel, tryWay, type SolverMove } from './levelSolver';
 import { canAcceptCommand, resolveMove } from './movement';
-import { randomInt } from './rng';
+import { nextRandom, randomInt } from './rng';
 import { createRun, step } from './sim';
 import type { LevelGoal, LevelSpec, RunState, Technique } from './types';
 
@@ -154,6 +154,108 @@ export function skillRates(spec: LevelSpec, runs = 20): Record<SkillName, number
 }
 
 /**
+ * Players that plan as people do. The players by skill above walk the board step by step and
+ * were made for a game that runs on a clock; a level waits, and what tells its players apart is
+ * how far ahead they think. So these think in moves: from where the board stands they try the
+ * moves they can get to, so many moves deep and no more than so many boards in all, and take
+ * the move that leads to the best board they saw. What a board is worth to them is plain: the
+ * fewer dice standing the better, a cleared board best, a dead end worst. Now and then they
+ * make a move without thinking, and the better of them count: they see that the dice left are
+ * too few for a group of their own and have to make the group that is going.
+ *
+ * The idea is that of procedural personas (Holmgard, Green, Liapis, Togelius: a player is a
+ * utility and a bounded search), with the bounds as what differs. With no data of real players
+ * to learn from, as the playtesting agents of King have, a persona is the next best stand-in
+ * for a kind of player.
+ */
+export interface Persona {
+  /** Moves ahead it thinks, and the boards it can hold in its head while it does. */
+  depth: number;
+  budget: number;
+  /** Share of its moves made without thinking. */
+  slip: number;
+  /** It counts the dice left against the groups that can still be made. */
+  counts: boolean;
+}
+
+export const PERSONAS = {
+  /** Sees the move in front of it. */
+  hasty: { depth: 1, budget: 40, slip: 0.12, counts: false },
+  /** Thinks a move ahead of the one it makes. */
+  casual: { depth: 2, budget: 200, slip: 0.08, counts: false },
+  /** Thinks three moves through and counts the dice. */
+  careful: { depth: 3, budget: 1200, slip: 0.04, counts: true },
+  /** Plans five moves deep and seldom slips. */
+  planner: { depth: 5, budget: 6000, slip: 0.02, counts: true },
+} as const satisfies Record<string, Persona>;
+
+export type PersonaName = keyof typeof PERSONAS;
+export const PERSONA_NAMES = Object.keys(PERSONAS) as PersonaName[];
+
+/** What a board is worth to a persona. */
+function worthOf(state: RunState, persona: Persona, depth: number): number {
+  if (state.endReason === 'passed') return 1000 - depth;
+  if (state.over) return -1000;
+  const standing = state.cubes.filter((cube) => cube.state !== 'sinking').length;
+  let worth = -10 * standing - depth * 0.01;
+  // The dice left cannot make a group of their own: they are lost unless they join the one that is going.
+  if (persona.counts && standing < smallestGroup(state.levelRun!.spec)) worth -= 40;
+  return worth;
+}
+
+/** The move a persona makes: the first of the way to the best board it finds within its bounds. */
+function personaMove(state: RunState, persona: Persona, rng: { rng: number }): SolverMove | null {
+  const first = movesAt(state);
+  if (first.length === 0) return null;
+  if (nextRandom(rng) < persona.slip) return first[randomInt(rng, first.length)];
+  const best = first.map(() => -Infinity);
+  let front = first.map((move, index) => ({ state: playMove(state, move), index }));
+  let tried = front.length;
+  for (let depth = 1; front.length > 0; depth++) {
+    const next: typeof front = [];
+    for (const node of front) {
+      best[node.index] = Math.max(best[node.index], worthOf(node.state, persona, depth));
+      if (node.state.over || depth >= persona.depth || tried >= persona.budget) continue;
+      for (const move of movesAt(node.state)) {
+        if (tried >= persona.budget) break;
+        tried++;
+        next.push({ state: playMove(node.state, move), index: node.index });
+      }
+    }
+    front = next;
+  }
+  const top = Math.max(...best);
+  const picks = first.filter((_, index) => best[index] >= top - 1e-9);
+  return picks[randomInt(rng, picks.length)];
+}
+
+/** Moves after which a run of a persona is called off. */
+const PERSONA_MOVES = 60;
+
+/** A run of a persona on a level. */
+export function personaPlay(spec: LevelSpec, name: PersonaName, seed: number, maxMoves = PERSONA_MOVES): RunState {
+  let state = createRun({ seed: spec.seed, config: defaultConfig(), level: { ...spec, moves: 0 } });
+  const rng = { rng: (seed ^ 0x3c6ef372) | 0 };
+  for (let made = 0; made < maxMoves && !state.over; made++) {
+    const move = personaMove(state, PERSONAS[name], rng);
+    if (!move) break;
+    state = playMove(state, move);
+  }
+  return state;
+}
+
+/** Share of the runs of each persona, the hastiest first, that clear the board. */
+export function personaRates(spec: LevelSpec, runs = 12): Record<PersonaName, number> {
+  const rates = {} as Record<PersonaName, number>;
+  for (const name of PERSONA_NAMES) {
+    let cleared = 0;
+    for (let seed = 1; seed <= runs; seed++) if (personaPlay(spec, name, seed).endReason === 'passed') cleared++;
+    rates[name] = cleared / runs;
+  }
+  return rates;
+}
+
+/**
  * The shortest way a strong player clears the board by: the word a level is taken on when the
  * solver cannot count it through. Null when none of the runs clears it.
  */
@@ -180,7 +282,8 @@ export interface Measures {
   needs: Technique[];
   traps: number;
   random: number;
-  skills: Record<SkillName, number>;
+  /** Share of clears of each persona, the hastiest first. */
+  personas: Record<PersonaName, number>;
 }
 
 /** Boards a search for a way without a technique may see: enough for a small board, and a big one is left unsaid. */
@@ -202,7 +305,7 @@ export function neededBy(spec: LevelSpec, par: number, uses: readonly Technique[
  * again; any other is solved, and where the solver gives up, a strong player is asked.
  */
 export function measure(spec: LevelSpec, opts: { maxStates?: number; skillRuns?: number } = {}): Measures {
-  const { maxStates = SOLVER_MAX_STATES, skillRuns = 20 } = opts;
+  const { maxStates = SOLVER_MAX_STATES, skillRuns = 12 } = opts;
   let way: SolverMove[] | null = null;
   let exact = false;
   if (spec.solution) {
@@ -224,7 +327,7 @@ export function measure(spec: LevelSpec, opts: { maxStates?: number; skillRuns?:
     needs: par === null || !report ? [] : neededBy(spec, par, report.uses),
     traps: trapRate(spec),
     random: randomRate(spec, 100, par ?? 0),
-    skills: skillRates(spec, skillRuns),
+    personas: personaRates(spec, skillRuns),
   };
 }
 

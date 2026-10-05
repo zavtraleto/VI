@@ -14,7 +14,7 @@ export function measureBoard(place: string, spec: LevelSpec, skillRuns = 20): st
   return measureRow(
     place,
     { seed: spec.seed, spec, par, exact: measured.exact, short: par, depth: measured.depth, uses: measured.uses, needs: measured.needs, traps: measured.traps, random: measured.random, distance: 0, misses: [] },
-    measured.skills,
+    measured.personas,
   );
 }
 

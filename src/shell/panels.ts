@@ -3,7 +3,7 @@ import type { GoalLine } from '../rules';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
-import { ANSWERS, COMMANDS, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { ANSWERS, COMMANDS, GOAL, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -316,7 +316,7 @@ export function clearedPanel(
  * `share` sends out what the player did on the levels, as text: the report of the playtest.
  */
 export function levelsPanel(
-  levels: readonly { passed: boolean; goal: readonly GoalLine[] }[],
+  levels: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[] }[],
   current: number,
   actions: { onPick: (index: number) => void; share: { label: () => PanelName; action: () => void }; onBack: () => void },
 ): PanelSpec {
@@ -332,7 +332,12 @@ export function levelsPanel(
         marks: 1,
         current,
         pick: actions.onPick,
-        note: (index) => (levels[index] ? goalText(levels[index].goal) : ''),
+        // The faces that work on the level come first: they are what its chapter is about.
+        note: (index) => {
+          const level = levels[index];
+          if (!level) return '';
+          return level.faces ? `${GOAL.face} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
+        },
         program: true,
       },
       {

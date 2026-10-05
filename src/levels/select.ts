@@ -1,5 +1,4 @@
-import { SKILL_NAMES, type SkillName } from '../rules/bot';
-import { neededBy, randomRate, skillRates, trapRate, witnessWay } from '../rules/levelBot';
+import { PERSONA_NAMES, neededBy, personaRates, randomRate, trapRate, witnessWay, type PersonaName } from '../rules/levelBot';
 import { moveOf, moveText, movesAt, playMove, solveLevel, tryWay, type SolverMove } from '../rules/levelSolver';
 import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
@@ -169,7 +168,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     if (solveLevel(board, { maxStates, ban: avoid, first: 'own', maxMoves: par }).solution) return no('the own die does as well');
   }
   if (recipe.commit && report.commits === 0) return no('no choice of a die to step to');
-  for (const technique of recipe.needs ?? []) {
+  for (const technique of [...(recipe.needs ?? []), ...(recipe.shows ?? [])]) {
     if (!report.uses.includes(technique)) return no(`the way does without ${technique}`);
   }
   const needs = neededBy(board, par, recipe.needs ?? [], maxStates);
@@ -245,10 +244,10 @@ export function layOutRows(rows: readonly string[][]): string {
   return rows.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join('  ').trimEnd()).join('\n');
 }
 
-export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'uses', 'needs', 'traps', 'random', ...SKILL_NAMES];
+export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
 
 /** A board that fits, as a row of the table: what the solver says and how the yardsticks play it. */
-export function measureRow(place: string, fit: Fit, skills?: Record<SkillName, number>): string[] {
+export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName, number>): string[] {
   const { spec } = fit;
   return [
     place,
@@ -262,7 +261,7 @@ export function measureRow(place: string, fit: Fit, skills?: Record<SkillName, n
     fit.needs.join(' ') || '-',
     percent(fit.traps),
     percent(fit.random),
-    ...SKILL_NAMES.map((skill) => (skills ? percent(skills[skill]) : '')),
+    ...PERSONA_NAMES.map((name) => (skills ? percent(skills[name]) : '')),
   ];
 }
 
@@ -273,7 +272,7 @@ export function measureRow(place: string, fit: Fit, skills?: Record<SkillName, n
 export function placeReport(filled: Filled, keep = 3, skillRuns = 20): string {
   const { recipe, fits, tried, reasons } = filled;
   const kept = fits.slice(0, keep);
-  const rows = [[...MEASURE_HEAD], ...kept.map((fit, index) => measureRow(index === 0 ? `${recipe.slot}` : `${recipe.slot} spare`, fit, skillRuns > 0 ? skillRates(fit.spec, skillRuns) : undefined))];
+  const rows = [[...MEASURE_HEAD], ...kept.map((fit, index) => measureRow(index === 0 ? `${recipe.slot}` : `${recipe.slot} spare`, fit, skillRuns > 0 ? personaRates(fit.spec, skillRuns) : undefined))];
   const turned = Object.entries(reasons)
     .sort((a, b) => b[1] - a[1])
     .map(([why, count]) => `${count} ${why}`)
@@ -297,6 +296,7 @@ export function levelSource(spec: LevelSpec): string {
     `arrival: 'none'`,
     `goal: { kind: 'clear' }`,
     `moves: 0`,
+    ...(spec.faces ? [`faces: [${spec.faces.join(', ')}]`, `sinkMoves: ${spec.sinkMoves}`, `liftMoves: ${spec.liftMoves}`] : []),
     ...(spec.lesson ? [`lesson: '${spec.lesson}'`] : []),
     ...(spec.arrow ? [`arrow: '${spec.arrow}'`] : []),
     `par: ${spec.par}`,

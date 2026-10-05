@@ -50,6 +50,11 @@ export interface Cube {
   move?: CubeMove;
   /** 0 when the cube is not part of a chain reaction. */
   reactionId: number;
+  /**
+   * World ticks a sinking die of a level is held where it is: a die that joins its group gives
+   * the dice already going a move in which they do not go further. Absent anywhere else.
+   */
+  hold?: number;
 }
 
 export interface PlayerAction {
@@ -405,6 +410,11 @@ export interface LevelSpec {
   helpRate?: number;
   sinkMoves?: number;
   liftMoves?: number;
+  /**
+   * The faces that work on the level: only dice showing one of them make a group or join one,
+   * and the 1s go together only where 1 is among them. Every face works when left out.
+   */
+  faces?: readonly number[];
   /** The board as given; when present, nothing is laid from the seed. */
   layout?: LevelLayout;
   /** Moves that may be taken back in one try. */

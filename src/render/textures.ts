@@ -82,7 +82,7 @@ export interface DieTextures {
  * The faces of a die in the colours of the six channels: bars of a test card, each darker than
  * the one before. The one is a large red pip on white.
  */
-export function dieTextures(palette: Palette, values: ParamValues): DieTextures {
+export function dieTextures(palette: Palette, values: ParamValues, crossed: readonly number[] = []): DieTextures {
   const tiles = (draw: (ctx: CanvasRenderingContext2D, value: number) => void): THREE.CanvasTexture =>
     canvasTexture(TILE * ATLAS_COLUMNS, TILE * ATLAS_ROWS, (ctx) => {
       for (let value = 1; value <= 6; value++) {
@@ -125,11 +125,27 @@ export function dieTextures(palette: Palette, values: ParamValues): DieTextures 
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     });
+    // A face that does not work on the level in hand is crossed out: it makes no group there.
+    if (crossed.includes(value)) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, 0, size, size);
+      ctx.strokeStyle = palette.ink;
+      ctx.lineWidth = size * 0.07;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(size * 0.16, size * 0.16);
+      ctx.lineTo(size * 0.84, size * 0.84);
+      ctx.moveTo(size * 0.84, size * 0.16);
+      ctx.lineTo(size * 0.16, size * 0.84);
+      ctx.stroke();
+    }
   });
 
   const glow = tiles((ctx, value) => {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, TILE, TILE);
+    // A face that is crossed out does not light up.
+    if (crossed.includes(value)) return;
     ctx.fillStyle = pipGlow(value, palette);
     eachPip(value, TILE, values, (x, y, r) => {
       ctx.beginPath();

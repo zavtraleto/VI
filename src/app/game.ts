@@ -129,10 +129,10 @@ const SHARED_MS = 2200;
 const STEER_LINGER_MS = 280;
 /** Levels on which every group that is short is counted from the start: the first five. After them only the one the last move made is. */
 const LEVELS_COUNTED = 5;
-/** The level that teaches the 1s. Before it a 1 that turns up gets a line of its own, once. */
-const LEVEL_OF_ONES = 7;
+/** The level that teaches the 1s: the ladder has none yet, so a 1 that turns up gets a line of its own, once, on any level. */
+const LEVEL_OF_ONES = Infinity;
 /** The level from which the step with no way back is marked: from the one where a group that is going begins to matter. */
-const LEVEL_OF_COMMIT = 6;
+const LEVEL_OF_COMMIT = 3;
 /** A group made short for this time in one try is told its reason in words. */
 const SHORT_SAID_AT = 2;
 
@@ -949,7 +949,7 @@ export class Game {
     this.hints.reset();
     this.tools?.hide();
     saveSettings(this.settings);
-    const levels = LEVELS.map((level) => ({ passed: this.settings.levels.passed[level.id] === true, goal: goalOf(level) }));
+    const levels = LEVELS.map((level) => ({ passed: this.settings.levels.passed[level.id] === true, goal: goalOf(level), faces: level.faces }));
     this.shell.showPanel(
       levelsPanel(levels, this.kind === 'level' ? this.levelIndex : this.nextLevel(), {
         onPick: (index) => this.startLevel(index),

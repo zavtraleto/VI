@@ -228,6 +228,8 @@ ALL_ORIENTATIONS.forEach((o, index) => (ORIENTATION_INDEX[o.top * 8 + o.north] =
 
 const indexOfOrientation = (o: Orientation): number => ORIENTATION_INDEX[o.top * 8 + o.north];
 
+/** A die's ticks of sinking and the ticks it is held for go into one sign of a name: so many to a tick held. */
+const HOLD_STEP = 128;
 /** Characters a die takes in the name of a board. */
 const DIE_CHARS = 4;
 
@@ -249,7 +251,7 @@ function nameOf(state: RunState, places: Uint8Array): string {
       label = labels.get(die.reactionId) ?? labels.size + 1;
       labels.set(die.reactionId, label);
     }
-    codes.push(cellIndex(size, die.x, die.z), indexOfOrientation(die.ori), sinking ? 1 + die.t : 0, label);
+    codes.push(cellIndex(size, die.x, die.z), indexOfOrientation(die.ori), sinking ? 1 + die.t + HOLD_STEP * (die.hold ?? 0) : 0, label);
   }
   for (let i = 0; i < places.length; i += 8) {
     let bits = 0;
@@ -276,7 +278,9 @@ function runOf(base: RunState, name: string, dice: number, place: number): RunSt
     const sunk = name.charCodeAt(at + 2);
     const label = name.charCodeAt(at + 3);
     const ori = ALL_ORIENTATIONS[name.charCodeAt(at + 1)];
-    cubes.push({ id: i + 1, x: cell % size, z: Math.floor(cell / size), ori, state: sunk > 0 ? 'sinking' : 'idle', t: sunk > 0 ? sunk - 1 : 0, reactionId: label });
+    const die: Cube = { id: i + 1, x: cell % size, z: Math.floor(cell / size), ori, state: sunk > 0 ? 'sinking' : 'idle', t: sunk > 0 ? ((sunk - 1) % HOLD_STEP) : 0, reactionId: label };
+    if (sunk > HOLD_STEP) die.hold = Math.floor((sunk - 1) / HOLD_STEP);
+    cubes.push(die);
     grid[cell] = i + 1;
     if (label === 0) continue;
     const reaction = reactions.find((r) => r.id === label);

@@ -165,7 +165,10 @@ function joinReactions(state: RunState, component: Cube[], touched: number[]): v
   for (const cube of state.cubes) {
     if (touched.includes(cube.reactionId)) {
       cube.reactionId = targetId;
-      if (cube.state === 'sinking' && cube.t > seeThrough) cube.t = Math.max(seeThrough, cube.t - lift);
+      // On a level the dice do not come back up: they stay where they are for as long as the link gives them.
+      if (state.levelRun) {
+        if (cube.state === 'sinking' && lift > 0) cube.hold = Math.max(cube.hold ?? 0, lift);
+      } else if (cube.state === 'sinking' && cube.t > seeThrough) cube.t = Math.max(seeThrough, cube.t - lift);
     }
     if (cube.move?.over && touched.includes(cube.move.over.reactionId)) cube.move.over.reactionId = targetId;
   }
@@ -237,6 +240,12 @@ function resolvePuzzle(state: RunState, cube: Cube): void {
   if (puzzle.dead) state.events.push({ type: 'deadEnd', reason: puzzle.dead });
 }
 
+/** Whether dice showing `value` make groups in this run: on a level that names its faces, only those do. */
+export function faceWorks(state: RunState, value: number): boolean {
+  const faces = state.levelRun?.spec.faces;
+  return !faces || faces.includes(value);
+}
+
 /**
  * Resolves what a cube causes when the player has just rolled or pushed it into place.
  * Nothing clears on its own: cubes that merely rose next to each other wait until the
@@ -248,6 +257,8 @@ export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void
     resolvePuzzle(state, cube);
     return;
   }
+  // A level may let only some faces work: a die showing any other makes nothing and joins nothing.
+  if (!faceWorks(state, cube.ori.top)) return;
   if (cube.ori.top === 1) {
     // Only a chain counts: 1s that are themselves sinking do not set off another Happy One.
     const touching = (over !== undefined && over.reactionId !== 0) || neighbours(state, cube.x, cube.z).some(inChain);

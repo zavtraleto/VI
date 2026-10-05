@@ -1,5 +1,6 @@
 import { DELTA, DIRS, cubeAt } from './board';
 import { resolveMove } from './movement';
+import { faceWorks } from './reactions';
 import type { Cube, Dir, MoveKind, RunState } from './types';
 
 export interface MovePreview {
@@ -28,6 +29,7 @@ function wouldClear(
       (c): c is Cube => c !== undefined && c.id !== movingId && c !== over,
     );
 
+  if (!faceWorks(state, value)) return false;
   if (value === 1) {
     const chained = (c: Cube) => c.state === 'sinking' && c.reactionId !== 0;
     if (!(over && over.reactionId !== 0) && !others(x, z).some(chained)) return false;

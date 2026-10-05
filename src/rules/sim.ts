@@ -121,6 +121,10 @@ function finishMovements(state: RunState): void {
 function finishRemovals(state: RunState): void {
   for (const cube of [...state.cubes]) {
     if (cube.state !== 'sinking' || isHeld(state, cube) || isPuzzleHeld(state, cube)) continue;
+    if (cube.hold) {
+      cube.hold--;
+      continue;
+    }
     cube.t++;
     // Read each time: a removal can raise the level, and the level sets the window.
     if (cube.t >= state.config.sinkingTicks) removeCube(state, cube);
