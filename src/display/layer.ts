@@ -217,6 +217,11 @@ export class Layer {
     return canvasSize(this.host, this.host.pixelRatio);
   }
 
+  /** Size of the window the layer covers, in CSS pixels. */
+  get window(): Size {
+    return { width: this.host.width, height: this.host.height };
+  }
+
   /** Takes the size the window gives it. The display calls this when the window changes. */
   fit(): void {
     const plain = targetSize(this.host, this.lines, this.host.pixelRatio);
@@ -256,6 +261,24 @@ export class Layer {
     renderer.render(scene, camera);
     renderer.setRenderTarget(null);
     this.area.set(view.x / width, view.y / height, (view.x + view.width) / width, (view.y + view.height) / height);
+    this.revision++;
+  }
+
+  /**
+   * Draws a scene over what the layer holds, without clearing it, into `rect` or the whole
+   * window: for what is not kept inside the part of the window the rest of the scene goes to.
+   * The depth the drawing before left is still there, so what stood in front still hides it.
+   */
+  renderOver(scene: THREE.Scene, camera: THREE.Camera, options: { rect?: Rect } = {}): void {
+    const { renderer } = this.host;
+    const target = this.renderTarget();
+    const { width, height } = this.size;
+    const view = options.rect ? targetViewport(options.rect, this.host, this.size) : { x: 0, y: 0, width, height };
+    target.scissorTest = false;
+    target.viewport.set(view.x, view.y, view.width, view.height);
+    renderer.setRenderTarget(target);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
     this.revision++;
   }
 

@@ -223,6 +223,96 @@ const NET_PIP_ONE = 0.19;
 /** How long a reading that has just changed keeps flashing, and a multiplier stays large, in milliseconds. */
 const FLASH_MS = 1200;
 const BUMP_MS = 220;
+/**
+ * The multiplier of a chain does not hang over it: it stands for this long after the chain
+ * last grew, and goes out over the last of that, there and not there, as the tube puts
+ * things out. One whose chain is over goes out at once, the same way.
+ */
+const LABEL_MS = 2600;
+const LABEL_OUT_MS = 330;
+/**
+ * When the chain grows the multiplier is pushed, and swings about its middle: this far for
+ * every link of the chain, in degrees. A chain of thirty all but turns it over.
+ */
+const SWING_DEG = 12.5;
+const SWING_MOST_DEG = 400;
+/**
+ * No two answers are alike. A push finds the multiplier wherever the swing before has left
+ * it, goes one way or the other, and is one of three kinds, never the kind before: a pendulum
+ * that swings long, a turn that goes far once and comes back, a rattle that is small and
+ * quick. For each: how long one swing there and back takes, from and to, in milliseconds; how
+ * soon it dies down, as a share of not swinging at all; how hard the push is against a plain one.
+ */
+const SWINGS: readonly { ms: [number, number]; damp: [number, number]; push: number }[] = [
+  { ms: [470, 700], damp: [0.1, 0.17], push: 1 },
+  { ms: [520, 760], damp: [0.3, 0.42], push: 1.9 },
+  { ms: [210, 300], damp: [0.1, 0.16], push: 0.5 },
+];
+/** With a push the multiplier hops as well: this many dots of the picture and as many again for every few links, and how long a hop and the hops together take. */
+const HOP_DOTS = 1.5;
+const HOP_PER_LINK = 0.45;
+const HOP_MS: [number, number] = [240, 380];
+const HOPS_DIE_MS = 260;
+
+/** A swing that dies down: when it was last pushed, where it stood and how fast it turned then, how quick it is and how soon it dies. */
+interface Swing {
+  from: number;
+  angle: number;
+  speed: number;
+  /** Turns of the swing in a second, as an angle. */
+  rate: number;
+  damp: number;
+  kind: number;
+  /** Which way the last push went. */
+  way: number;
+}
+
+/** A multiplier over the board. */
+interface Multiplier {
+  chain: number;
+  value: number;
+  at: Point;
+  /** When the chain last grew, and until when the multiplier is shown. */
+  joined: number;
+  until: number;
+  swing: Swing;
+  /** The hop of the last push: how high, in dots of the picture, and how long one hop takes. */
+  hop: { high: number; beat: number };
+}
+
+const between = ([from, to]: readonly [number, number]): number => from + Math.random() * (to - from);
+
+/** The angle of a swing at a moment, in radians, and how fast it is turning then. */
+function swingAt(swing: Swing, timeMs: number): { angle: number; speed: number } {
+  const t = Math.max(0, timeMs - swing.from) / 1000;
+  const { rate, damp, angle: a } = swing;
+  const live = rate * Math.sqrt(1 - damp * damp);
+  const b = (swing.speed + damp * rate * a) / live;
+  const fall = Math.exp(-damp * rate * t);
+  const cos = Math.cos(live * t);
+  const sin = Math.sin(live * t);
+  return { angle: fall * (a * cos + b * sin), speed: fall * ((b * live - damp * rate * a) * cos - (a * live + damp * rate * b) * sin) };
+}
+
+/** A multiplier pushed by a link its chain has taken: the swing it was in goes on from where it is, with the push added. */
+function pushed(kept: Multiplier | undefined, label: HudLabel, timeMs: number): Multiplier {
+  const before = kept ? swingAt(kept.swing, timeMs) : { angle: 0, speed: 0 };
+  // Never the kind before, and more often than not the other way.
+  const kind = kept ? (kept.swing.kind + 1 + Math.floor(Math.random() * (SWINGS.length - 1))) % SWINGS.length : Math.floor(Math.random() * SWINGS.length);
+  const way = kept ? (Math.random() < 0.65 ? -kept.swing.way : kept.swing.way) : Math.random() < 0.5 ? -1 : 1;
+  const { ms, damp, push } = SWINGS[kind];
+  const rate = (Math.PI * 2 * 1000) / between(ms);
+  const most = (Math.min(SWING_MOST_DEG, label.chain * SWING_DEG) * Math.PI) / 180;
+  return {
+    chain: label.chain,
+    value: label.value,
+    at: label.at,
+    joined: timeMs,
+    until: timeMs + LABEL_MS,
+    swing: { from: timeMs, angle: before.angle, speed: before.speed + way * most * rate * push * (0.85 + Math.random() * 0.3), rate, damp: between(damp), kind, way },
+    hop: { high: (HOP_DOTS + Math.min(label.chain, 16) * HOP_PER_LINK) * (0.6 + Math.random() * 0.8), beat: between(HOP_MS) },
+  };
+}
 /** Half a period of everything that blinks. */
 const BLINK_MS = 250;
 /** How long the dot of a swipe takes along its line. */
@@ -301,7 +391,8 @@ export class GameHud {
   private lastStage = 0;
   private levelFlash = 0;
   private stageFlash = 0;
-  private readonly chains = new Map<number, { chain: number; bump: number }>();
+  /** The multipliers now over the board, by chain: the number, its channel, where it stands, when the chain last grew and until when it is shown. */
+  private readonly chains = new Map<number, Multiplier>();
   private nudged = 0;
   /** The words of the exercise now on screen, and the frame they began to come at. */
   private line = '';
@@ -450,11 +541,13 @@ export class GameHud {
     const blink = still ? 1 : Math.floor(timeMs / BLINK_MS) % 2;
     const swipe = view.lesson?.glyph === 'swipe' && !still ? Math.floor(timeMs / 33) : 0;
     const flashing = timeMs < this.levelFlash || timeMs < this.stageFlash || timeMs < this.nudged + NUDGE_MS;
-    const bumps = [...this.chains.values()].some((chain) => timeMs < chain.bump);
+    const bumps = [...this.chains.values()].some((chain) => timeMs < chain.joined + BUMP_MS);
+    // A multiplier that is shown swings, and goes out: the picture is drawn anew for it, thirty times a second.
+    const swings = this.chains.size === 0 ? 0 : still ? this.chains.size : Math.floor(timeMs / 33);
     const decay = this.decayAt(view.header.kind === 'session' ? program : 0, timeMs, still, layout.rule + 2);
     // Points in the air and the score they have just reached are drawn anew every frame.
     const moving = this.flyers.length > 0 || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
-    const state = [JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       // Words that are still coming change nothing but themselves: the readings stay as they are.
       this.voice.reveal(signs);
@@ -482,7 +575,7 @@ export class GameHud {
     const stage = this.toPicture(view.stage);
     // On a tall screen the words of the exercise take the place of the net.
     if (view.seal && !(view.lesson && !layout.wide)) this.drawSeal(view.seal, layout, blink);
-    for (const label of view.labels) this.drawLabel(label, timeMs);
+    this.drawLabels(timeMs, still);
     this.drawFlyers(timeMs);
     // A step of the contact: the program says so over the board, for as long as its cell blinks.
     if (view.header.kind === 'session' && !view.lesson && timeMs < this.stageFlash) {
@@ -540,9 +633,15 @@ export class GameHud {
     for (const label of view.labels) {
       seen.add(label.id);
       const kept = this.chains.get(label.id);
-      if (!kept || kept.chain !== label.chain) this.chains.set(label.id, { chain: label.chain, bump: timeMs + BUMP_MS });
+      // A chain that has grown: its multiplier is shown anew, and swings.
+      if (!kept || kept.chain !== label.chain) this.chains.set(label.id, pushed(kept, label, timeMs));
+      else kept.at = label.at;
     }
-    for (const id of this.chains.keys()) if (!seen.has(id)) this.chains.delete(id);
+    for (const [id, kept] of this.chains) {
+      // A chain that is over: its multiplier goes out where it stood, and is not switched off.
+      if (!seen.has(id)) kept.until = Math.min(kept.until, timeMs + LABEL_OUT_MS);
+      if (timeMs >= kept.until) this.chains.delete(id);
+    }
   }
 
   private toPicture(rect: Rect): Box {
@@ -975,15 +1074,26 @@ export class GameHud {
     ctx.putImageData(image, 0, 0);
   }
 
-  private drawLabel(label: HudLabel, timeMs: number): void {
+  /**
+   * The multipliers of the chains: each is pushed when its chain grows, the harder the longer
+   * the chain is, swings about its middle and hops, comes to rest, and goes out a few seconds later.
+   */
+  private drawLabels(timeMs: number, still: boolean): void {
     const { kit } = this;
     const zoom = kit.zoom;
-    const kept = this.chains.get(label.id);
-    // A long chain is written larger; every join makes it jump.
-    const base = label.chain >= 4 ? 3 : 2;
-    const scale = kept && timeMs < kept.bump ? base + 1 : base;
-    const colour = this.beatColour(label.value);
-    kit.edged(`×${label.chain}`, label.at.x / zoom, label.at.y / zoom - CELL_H * scale, colour, { scale, align: 'center', bold: true });
+    for (const label of this.chains.values()) {
+      const left = label.until - timeMs;
+      if (left <= 0) continue;
+      // Going out: there and not there a few times.
+      if (!still && left < LABEL_OUT_MS && Math.floor(left / 55) % 2 === 1) continue;
+      const since = timeMs - label.joined;
+      // A long chain is written larger; every join makes it jump.
+      const base = label.chain >= 4 ? 3 : 2;
+      const scale = since < BUMP_MS ? base + 1 : base;
+      const angle = still ? 0 : swingAt(label.swing, timeMs).angle;
+      const hop = still ? 0 : label.hop.high * Math.exp(-since / HOPS_DIE_MS) * Math.abs(Math.sin((since / label.hop.beat) * Math.PI));
+      kit.turned(`×${label.chain}`, label.at.x / zoom, label.at.y / zoom - (CELL_H * scale) / 2 - hop, angle, this.beatColour(label.value), { scale, bold: true });
+    }
   }
 
   /** Where the words of the exercise go, in CSS pixels, and how large their letters are. */

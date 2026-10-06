@@ -65,7 +65,7 @@ export const BOARD_GROUPS = {
      * A die that is coming up or going down is frosted glass: not all here, and milky with
      * the colour of the channel on top. How much of it there is, and how milky it is.
      */
-    glassBody: number(0.86, 0.1, 1, 0.01),
+    glassBody: number(0.7, 0.1, 1, 0.01),
     glassFrost: number(0.3, 0, 1, 0.01),
     /** The height from which such a die is whole again, as a share of its own. */
     glassSolid: number(0.98, 0.3, 1, 0.01),

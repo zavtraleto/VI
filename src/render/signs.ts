@@ -13,6 +13,20 @@ const MAX_DOCKS = 9 * 9;
  * are about to meet there, and two frames that nearly lie on each other are one frame too bright.
  */
 const RAISED_FADE = 0.5;
+/** How long the frame of a cell takes to come, and to go out: nothing on the board is switched off. */
+const DOCK_IN_MS = 120;
+const DOCK_OUT_MS = 280;
+
+/** The frame of a cell beside a chain: what it is, and how much of it is here, 0 to 1. */
+interface Dock {
+  value: number;
+  /** How many times it is laid: more than once where the player's next step can use the cell. */
+  times: number;
+  /** How high its second frame lies; 0 where it has none. */
+  lift: number;
+  here: number;
+  wanted: boolean;
+}
 
 /**
  * How much of a die is above the floor. A die held by the tutorial stays put between ticks,
@@ -21,7 +35,7 @@ const RAISED_FADE = 0.5;
 const heightOf = (state: RunState, cube: Cube, alpha: number): number =>
   cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
 
-/** Where the top face of a die that high is, apart from the dip a step makes in it. */
+/** Where the top face of a die that high is, before the dip a step or a weight makes in it. */
 const faceAt = (height: number): number => height - 0.5 + CUBE_SIZE / 2;
 
 /**
@@ -29,8 +43,9 @@ const faceAt = (height: number): number => height - 0.5 + CUBE_SIZE / 2;
  * cells. A frame of its colour lies on every cell beside it: that is where a die can be
  * brought, and it is brighter where the player's next step can use the cell. Where the cell is
  * free and the docks are steps, the frame lies a second time at the height of the top of the
- * chain's dice and comes down with them: the cell is walked on from up there as well. How
- * long there is, is read off the dice themselves.
+ * chain's dice and comes down with them, level with their top face as it is drawn: the cell is
+ * walked on from up there as well. How long there is, is read off the dice themselves. A frame
+ * comes and goes out over a moment: nothing here is switched on or off.
  */
 export class ChainSigns {
   readonly group = new THREE.Group();
@@ -42,6 +57,9 @@ export class ChainSigns {
   private readonly tops = new Map<number, number>();
   private readonly dockColours: THREE.Color[] = [];
   private readonly cells = new Map<number, number>();
+  /** The frames now on the board, those going out among them, by cell. */
+  private readonly held = new Map<number, Dock>();
+  private lastTime = 0;
   private readonly matrix = new THREE.Matrix4();
   private readonly at = new THREE.Vector3();
   private readonly whole = new THREE.Vector3(1, 1, 1);
@@ -74,9 +92,23 @@ export class ChainSigns {
     for (let i = 0; i < 6; i++) this.dockColours[i] = new THREE.Color(i === 0 ? palette.signal : palette.channels[i]);
   }
 
-  sync(state: RunState, alpha: number, timeMs: number, reducedMotion: boolean, ghosts: readonly { x: number; z: number; value: number }[] = []): void {
+  /** A new board: no frame of the one before is left going out on it. */
+  reset(): void {
+    this.held.clear();
+  }
+
+  sync(
+    state: RunState,
+    alpha: number,
+    timeMs: number,
+    reducedMotion: boolean,
+    dip: (cubeId: number) => number,
+    ghosts: readonly { x: number; z: number; value: number }[] = [],
+  ): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     const { size } = state.config;
+    const dt = this.lastTime === 0 ? 0 : Math.min(100, Math.max(0, timeMs - this.lastTime));
+    this.lastTime = timeMs;
     this.cells.clear();
     this.tops.clear();
 
@@ -85,7 +117,8 @@ export class ChainSigns {
       for (const cube of state.cubes) {
         if (!inChain(cube)) continue;
         const value = cube.ori.top;
-        const face = faceAt(heightOf(state, cube, alpha));
+        // The top face where it is drawn: a die the player weighs on stands lower.
+        const face = faceAt(heightOf(state, cube, alpha)) + dip(cube.id);
         for (const dir of DIRS) {
           const x = cube.x + DELTA[dir].dx;
           const z = cube.z + DELTA[dir].dz;
@@ -102,25 +135,44 @@ export class ChainSigns {
       for (const cube of state.cubes) if (inChain(cube)) this.cells.delete(cube.x + cube.z * size);
     }
 
+    // A dock the player's next step can use, down to it or up from it, is brighter than one
+    // that only takes a die. A colour cannot be brighter than itself, and light adds up: the
+    // frame is laid as many times as it is brighter, the last time at a part of its strength.
+    const step = Math.max(1, n('dockStep'));
+    // With the steps of the docks a free cell beside a chain is walked on from the top of its
+    // dice as well as from the floor: its frame lies up there too, and comes down with them.
+    const upper = state.config.experiments.dockSteps ? n('dockTop') : 0;
+    for (const dock of this.held.values()) dock.wanted = false;
+    for (const [cell, value] of this.cells) {
+      const x = cell % size;
+      const z = Math.floor(cell / size);
+      let dock = this.held.get(cell);
+      if (!dock) {
+        dock = { value, times: 1, lift: 0, here: 0, wanted: true };
+        this.held.set(cell, dock);
+      }
+      dock.value = value;
+      dock.times = step > 1 && isStep(state, x, z) ? step : 1;
+      dock.lift = upper > 0 && isDock(state, x, z) ? (this.tops.get(cell) ?? 0) : 0;
+      dock.wanted = true;
+    }
+    for (const [cell, dock] of this.held) {
+      // A frame that goes out stays where it lay, as it was, while it does.
+      if (reducedMotion) dock.here = dock.wanted ? 1 : 0;
+      else dock.here = Math.min(1, Math.max(0, dock.here + (dock.wanted ? dt / DOCK_IN_MS : -dt / DOCK_OUT_MS)));
+      if (!dock.wanted && dock.here <= 0) this.held.delete(cell);
+    }
+
     const opacity = n('dockBright') * (reducedMotion ? 1 : 0.75 + 0.25 * Math.sin((timeMs / 700) * Math.PI * 2));
     this.docks.material.opacity = opacity;
     let docks = 0;
     let raised = 0;
     if (opacity > 0) {
-      // A dock the player's next step can use, down to it or up from it, is brighter than one
-      // that only takes a die. A colour cannot be brighter than itself, and light adds up: the
-      // frame is laid as many times as it is brighter, the last time at a part of its strength.
-      const step = Math.max(1, n('dockStep'));
-      // With the steps of the docks a free cell beside a chain is walked on from the top of its
-      // dice as well as from the floor: its frame lies up there too, and comes down with them.
-      const upper = state.config.experiments.dockSteps ? n('dockTop') : 0;
-      for (const [cell, value] of this.cells) {
+      for (const [cell, dock] of this.held) {
         const x = cell % size;
         const z = Math.floor(cell / size);
-        const times = step > 1 && isStep(state, x, z) ? step : 1;
-        docks = this.lay(this.docks, docks, x, 0.012, z, value, times, 1);
-        const lift = upper > 0 && isDock(state, x, z) ? (this.tops.get(cell) ?? 0) : 0;
-        if (lift > 0) raised = this.lay(this.raised, raised, x, lift, z, value, times, upper * Math.min(1, lift / RAISED_FADE));
+        docks = this.lay(this.docks, docks, x, 0.012, z, dock.value, dock.times, dock.here);
+        if (dock.lift > 0) raised = this.lay(this.raised, raised, x, dock.lift, z, dock.value, dock.times, dock.here * upper * Math.min(1, dock.lift / RAISED_FADE));
       }
     }
     this.show(this.docks, docks);
@@ -129,17 +181,17 @@ export class ChainSigns {
 
   /**
    * How high the upper frame of a cell lies: at the top face of the highest die of the chain
-   * beside it. Nought where there is none. The one who plays stands on it, not on the floor
+   * beside it, where that face is drawn. Nought where there is none. The one who plays stands on it, not on the floor
    * under it: from the frame the next die is one step away, as it is from a die.
    */
-  lift(state: RunState, x: number, z: number, alpha: number): number {
+  lift(state: RunState, x: number, z: number, alpha: number, dip: (cubeId: number) => number): number {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     if (!state.config.experiments.dockSteps || n('dockTop') <= 0 || n('dockBright') <= 0) return 0;
     if (!isDock(state, x, z)) return 0;
     let lift = 0;
     for (const dir of DIRS) {
       const cube = cubeAt(state, x + DELTA[dir].dx, z + DELTA[dir].dz);
-      if (cube && inChain(cube)) lift = Math.max(lift, faceAt(heightOf(state, cube, alpha)));
+      if (cube && inChain(cube)) lift = Math.max(lift, faceAt(heightOf(state, cube, alpha)) + dip(cube.id));
     }
     return lift;
   }

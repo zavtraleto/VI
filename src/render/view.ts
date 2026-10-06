@@ -4,7 +4,7 @@ import { lensTo, type Lens, type LensSides } from '../display/lens';
 import { DELTA, cubeAt, cubeHeight, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { pictureSize } from '../shell/layout';
 import { mixHex, type Palette } from '../shell/theme';
-import { BoardBursts, type BoardBeat } from './burst';
+import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
 import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
@@ -201,6 +201,10 @@ export class BoardView {
   private sent = 0;
   /** The run on the board is a session without end: what is rare in it is answered by the picture itself. */
   private endless = false;
+  /** The player keeps motion low: nothing is thrown about. */
+  private still = false;
+  /** A dot of the tube, in cells of the board: what a die that comes apart is made of. */
+  private dotWorld = 0.04;
   private readonly tmp = new THREE.Vector3();
   private readonly slabHalf: number;
   /** Extents of the scene on the camera's right and up axes, relative to the target. */
@@ -276,6 +280,11 @@ export class BoardView {
       new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0, depthWrite: false });
     this.fill = flat(size, 0.002, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
     this.grid = flat(gridSize, 0.004, lines(gridTexture(layout, n('gridLine'), n('gridEdge'))));
+    // The surface is drawn before whatever lies on it: the marks of a chain, the frames of the
+    // cells beside it, the ring of a group. Left to their distance from the camera, its lines
+    // came out over them.
+    this.fill.renderOrder = -5;
+    this.grid.renderOrder = -4;
     this.frame = flat(gridSize, 0.01, lines(frameTexture(layout)));
     for (const mesh of [this.floor, this.fill, this.grid, this.frame]) {
       mesh.position.x = centre;
@@ -330,6 +339,7 @@ export class BoardView {
     });
     // The next frame of the board draws over this one before the layer is shown.
     this.worldLayer.render(this.scene, this.camera, { rect: this.rect });
+    this.loose(this.rect);
     this.emit(this.rect);
     for (const object of unseen) object.visible = false;
     for (const mesh of empty) mesh.count = 0;
@@ -454,6 +464,11 @@ export class BoardView {
         this.sent = 1;
       } else if (event.type === 'risen') {
         this.cubes.risen(event.cubeId);
+      } else if (event.type === 'removed') {
+        // A die taken away while it was going - rolled over - is not switched off: what was
+        // left of it comes apart into the dots it was drawn through.
+        const left = this.still ? null : this.cubes.left(event.cubeId);
+        if (left) this.bursts.crumble(left.x, left.z, left.top, left.share, this.dotWorld, left.colour);
       } else if (event.type === 'wiped' && this.endless) {
         // A board left clean: the colours of the picture part for a moment.
         this.chroma = 1;
@@ -521,6 +536,8 @@ export class BoardView {
     this.sent = 0;
     this.warnings.reset();
     this.cubes.reset();
+    this.marks.reset();
+    this.signs.reset();
     this.springs.reset();
     this.player.reset();
     this.sinking.clear();
@@ -540,6 +557,7 @@ export class BoardView {
     this.jolt = Math.max(0, this.jolt - dt / 160);
     this.contact = params.contact;
     this.endless = state.mode === 'endless';
+    this.still = params.reducedMotion;
 
     const minute = Math.floor(Date.now() / 60000);
     if (minute !== this.minute) {
@@ -629,7 +647,7 @@ export class BoardView {
     );
     // The figure is a grey mannequin that grows into the red of the seventh.
     this.player.setColor(mixHex(String(values.mannequin), this.palette.signal, n('figureRed')), n('figureGhost'));
-    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha));
+    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip));
     this.cubes.group.position.y = -sunk - gone;
     this.player.group.position.y -= sunk;
     // The dice of a cleared level go under; the figure comes down with its die and is left standing on the floor.
@@ -640,7 +658,7 @@ export class BoardView {
     this.marks.group.visible = this.leave < MARKS_GONE_AT;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
-    this.signs.sync(state, alpha, timeMs, reducedMotion, params.ghosts);
+    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, params.ghosts);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
 
     // The surface: a group sent runs over the lines, then the lines pulse by themselves, then
@@ -731,8 +749,43 @@ export class BoardView {
     const { region } = this;
     const place = follows ? { x: this.rect.x + region.x, y: this.rect.y + region.y, width: region.width, height: region.height } : this.rect;
     const drawn = jolt === 0 ? place : { ...place, x: place.x + jolt };
+    // A dot of the tube in cells of the board, for a die that comes apart into them.
+    this.dotWorld = (((this.camera.top - this.camera.bottom) / this.camera.zoom / Math.max(1, place.height)) * layer.window.height) / Math.max(1, this.lines);
     layer.render(this.scene, this.camera, { rect: drawn });
+    if (this.bursts.flying) this.loose(drawn);
     if (lit) this.emit(drawn);
+  }
+
+  /**
+   * Draws what is thrown up from the board over the whole window: the board is kept inside its
+   * part of it, under the readings of the program, and a spark that flew past the edge of that
+   * part was cut off there as if the readings were a wall. The camera sees as much more as the
+   * window is larger than the board's part, so every point stays where it was.
+   */
+  private loose(place: Rect): void {
+    const { camera } = this;
+    const layer = this.worldLayer;
+    const { left, right, top, bottom, zoom } = camera;
+    const middle = { x: (left + right) / 2, y: (top + bottom) / 2 };
+    const half = { x: (right - left) / 2 / zoom, y: (top - bottom) / 2 / zoom };
+    // Cells of the board to a CSS pixel, side to side and top to bottom.
+    const per = { x: (half.x * 2) / Math.max(1, place.width), y: (half.y * 2) / Math.max(1, place.height) };
+    const { width, height } = layer.window;
+    camera.left = middle.x - half.x - place.x * per.x;
+    camera.right = middle.x + half.x + (width - place.x - place.width) * per.x;
+    camera.top = middle.y + half.y + place.y * per.y;
+    camera.bottom = middle.y - half.y - (height - place.y - place.height) * per.y;
+    camera.zoom = 1;
+    camera.updateProjectionMatrix();
+    camera.layers.set(FX_LAYER);
+    layer.renderOver(this.scene, camera);
+    camera.layers.set(0);
+    camera.left = left;
+    camera.right = right;
+    camera.top = top;
+    camera.bottom = bottom;
+    camera.zoom = zoom;
+    camera.updateProjectionMatrix();
   }
 
   /**

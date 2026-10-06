@@ -12,11 +12,20 @@ export interface BoardBeat {
   cells: readonly { x: number; z: number }[];
 }
 
+/**
+ * The sparks are drawn a second time over, on a layer of the scene of their own: the board is
+ * kept inside its part of the window, and what is thrown up from it is not.
+ */
+export const FX_LAYER = 2;
 /** Most sparks there can be at once; the oldest give way to new ones. */
 const MAX_SPARKS = 480;
 const MAX_RINGS = 6;
 /** Pull on a spark, in cells per second squared. */
 const GRAVITY = 6.5;
+/** How little of that pull the lines of a die that comes apart feel: they hang, and go out. */
+const DASH_PULL = 0.05;
+/** Most short lines a whole die comes apart into. */
+const DASHES_PER_DIE = 54;
 /** Sparks from every die of a group, by tier. */
 const SPARKS_PER_DIE = [5, 7, 10, 13, 16];
 /** How far the ring runs over the surface, in cells, and how long it takes, by tier. */
@@ -26,7 +35,9 @@ const RING_MS = [420, 480, 560, 640, 720];
 /**
  * Light thrown up by a group going down: square sparks in the colour of its channel, and a ring
  * that runs out over the surface from it. Both are light: they are added to what is behind them
- * and leave the clear parts of the layer clear. One draw for all the sparks.
+ * and leave the clear parts of the layer clear. One draw for all the sparks. A die that is
+ * taken away while it is going comes apart the way it was drawn, line by line: into short
+ * lines a dot of the tube high, which slide apart along the lines of the screen and go out.
  */
 export class BoardBursts {
   readonly group = new THREE.Group();
@@ -37,6 +48,12 @@ export class BoardBursts {
   private readonly age = new Float32Array(MAX_SPARKS);
   private readonly life = new Float32Array(MAX_SPARKS);
   private readonly size = new Float32Array(MAX_SPARKS);
+  /** How much of the pull a spark feels. */
+  private readonly pull = new Float32Array(MAX_SPARKS).fill(1);
+  /** How many times wider than high a spark is: 1 is a square, more a short line. */
+  private readonly wide = new Float32Array(MAX_SPARKS).fill(1);
+  /** Which way the lines of the screen run, on the board. */
+  private readonly along = new THREE.Vector3(1, 0, 0);
   private readonly hue: THREE.Color[] = [];
   private count = 0;
   private readonly rings: { mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>; age: number; life: number; reach: number; strength: number }[] = [];
@@ -56,6 +73,7 @@ export class BoardBursts {
     this.sparks.count = 0;
     this.sparks.frustumCulled = false;
     this.sparks.renderOrder = 4;
+    this.sparks.layers.set(FX_LAYER);
     this.sparks.setColorAt(0, this.colour.set(0, 0, 0));
     for (let i = 0; i < MAX_SPARKS; i++) this.hue.push(new THREE.Color());
     this.group.add(this.sparks);
@@ -72,6 +90,35 @@ export class BoardBursts {
   /** The colours the light of each channel takes, the one first. */
   setColours(lit: readonly THREE.Color[]): void {
     this.lit = lit;
+  }
+
+  /** There are sparks in the air. */
+  get flying(): boolean {
+    return this.count > 0;
+  }
+
+  /**
+   * A die comes apart line by line: into `share` of the short lines a whole die has, each a
+   * dot of the tube high - `dot`, in cells - from the box of what was left of it, standing on
+   * `x, z` up to `top`. They slide apart along the lines of the screen, one way and the other,
+   * hardly rise or fall, and go out.
+   */
+  crumble(x: number, z: number, top: number, share: number, dot: number, tint: THREE.Color): void {
+    const dashes = Math.round(DASHES_PER_DIE * Math.min(1, Math.max(0, share)));
+    const { along } = this;
+    for (let i = 0; i < dashes; i++) {
+      const slot = this.count < MAX_SPARKS ? this.count++ : Math.floor(Math.random() * MAX_SPARKS);
+      // Every other line goes the other way, as the lines of a picture that has lost its hold do.
+      const way = (i % 2 === 0 ? 1 : -1) * (0.35 + Math.random() * 1.1);
+      this.pos.set([x + (Math.random() - 0.5) * 0.94, Math.random() * Math.max(0.05, top), z + (Math.random() - 0.5) * 0.94], slot * 3);
+      this.vel.set([along.x * way, along.y * way + 0.05 + Math.random() * 0.3, along.z * way], slot * 3);
+      this.age[slot] = 0;
+      this.life[slot] = 0.26 + Math.random() * 0.36;
+      this.size[slot] = dot;
+      this.wide[slot] = 2 + Math.floor(Math.random() * 5);
+      this.pull[slot] = DASH_PULL;
+      this.hue[slot].copy(tint).multiplyScalar(0.6 + Math.random() * 0.4);
+    }
   }
 
   /** Throws the light of a group: sparks from every die, a ring from its middle. */
@@ -94,6 +141,8 @@ export class BoardBursts {
         this.age[slot] = 0;
         this.life[slot] = 0.45 + Math.random() * (0.35 + tier * 0.1);
         this.size[slot] = 0.07 + Math.random() * (0.06 + tier * 0.015);
+        this.pull[slot] = 1;
+        this.wide[slot] = 1;
         this.hue[slot].copy(tint);
       }
     }
@@ -111,6 +160,7 @@ export class BoardBursts {
   update(dtMs: number, camera: THREE.Camera): void {
     const dt = Math.min(dtMs, 100) / 1000;
     this.facing.copy(camera.quaternion);
+    this.along.setFromMatrixColumn(camera.matrixWorld, 0);
     let n = this.count;
     for (let i = 0; i < n; ) {
       this.age[i] += dt;
@@ -122,18 +172,22 @@ export class BoardBursts {
         this.age[i] = this.age[n];
         this.life[i] = this.life[n];
         this.size[i] = this.size[n];
+        this.pull[i] = this.pull[n];
+        this.wide[i] = this.wide[n];
         this.hue[i].copy(this.hue[n]);
         continue;
       }
       const k = i * 3;
-      this.vel[k + 1] -= GRAVITY * dt;
+      this.vel[k + 1] -= GRAVITY * this.pull[i] * dt;
       this.pos[k] += this.vel[k] * dt;
       this.pos[k + 1] += this.vel[k + 1] * dt;
       this.pos[k + 2] += this.vel[k + 2] * dt;
       const left = 1 - this.age[i] / this.life[i];
-      const size = this.size[i] * (0.4 + 0.6 * left);
+      // A spark grows small as it goes out; a line keeps its height, the height of a line of the tube, and grows short.
+      const line = this.wide[i] > 1;
+      const size = this.size[i] * (line ? 1 : 0.4 + 0.6 * left);
       this.at.set(this.pos[k], this.pos[k + 1], this.pos[k + 2]);
-      this.sparks.setMatrixAt(i, this.matrix.compose(this.at, this.facing, this.scale.set(size, size, size)));
+      this.sparks.setMatrixAt(i, this.matrix.compose(this.at, this.facing, this.scale.set(line ? size * this.wide[i] * (0.35 + 0.65 * left) : size, size, size)));
       this.sparks.setColorAt(i, this.colour.copy(this.hue[i]).multiplyScalar(Math.min(1, left * 1.6)));
       i++;
     }

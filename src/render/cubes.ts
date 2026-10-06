@@ -324,6 +324,8 @@ export class CubeMeshes {
   private readonly arrivals: THREE.InstancedBufferAttribute;
   /** The dice that have just come up, by cube: how far each has settled, 0 to 1. */
   private readonly settling = new Map<number, number>();
+  /** The glass dice as the last frame drew them, by cube: how high, how many of their dots, which face on top. */
+  private readonly shown = new Map<number, { height: number; cover: number; value: number }>();
   /** The twelve edges of a die, as the ends of their lines around its middle. */
   private readonly outline: Float32Array;
   /** The lit edges of every glass die, in the colour each of them has. */
@@ -435,6 +437,25 @@ export class CubeMeshes {
   /** A new board: no die of it has just come up. */
   reset(): void {
     this.settling.clear();
+    this.shown.clear();
+  }
+
+  /**
+   * A die has been taken away. If it was glass and there was still something of it to see,
+   * says what: where it stood, up to what height, what share of its dots it had and the light
+   * of its channel. Null for a die that had gone out by itself, or was never glass.
+   */
+  left(cubeId: number): { x: number; z: number; top: number; share: number; colour: THREE.Color } | null {
+    const die = this.worn.get(cubeId);
+    const seen = this.shown.get(cubeId);
+    if (!die || !seen || seen.height < 0.03 || seen.cover <= 0) return null;
+    return {
+      x: die.position.x,
+      z: die.position.z,
+      top: die.position.y + CUBE_SIZE / 2 + this.group.position.y,
+      share: seen.cover * Math.min(1, seen.height + 0.15),
+      colour: this.channels[seen.value - 1],
+    };
   }
 
   /**
@@ -539,6 +560,7 @@ export class CubeMeshes {
       glass.uCover.value = sinking
         ? (1 - melt * (1 - share)) * (faint ? low : 1)
         : (1 - gather * (1 - share)) * (faint && mounts ? low : 1);
+      this.shown.set(cube.id, { height, cover: glass.uCover.value as number, value: cube.ori.top });
       // The frost is the light of the channel spread evenly over the die: its faces and pips
       // show through it, and none of them shines by itself.
       const channel = this.channels[cube.ori.top - 1];
@@ -584,6 +606,7 @@ export class CubeMeshes {
       die.visible = false;
       this.spare.push(die);
       this.worn.delete(id);
+      this.shown.delete(id);
     }
   }
 

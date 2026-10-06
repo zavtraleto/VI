@@ -271,6 +271,23 @@ export class Kit {
     return left + width;
   }
 
+  /**
+   * A line of text that stays readable over a picture, turned about its own middle, which
+   * stands at `x, y`: for what swings. The dots of a turned line no longer lie on the dots of
+   * the picture, and the tube runs them together.
+   */
+  turned(text: string, x: number, y: number, angle: number, color: string, options: TextOptions = {}): void {
+    if (text === '') return;
+    const scale = Math.max(1, Math.round(options.scale ?? 1));
+    const sprite = this.sprite(text, scale, options.bold ?? false, color, this.palette.bg);
+    const { ctx } = this.layer;
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(angle);
+    ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
+    ctx.restore();
+  }
+
   /** The face of a die, flat: a square of its colour with its pips as dots. The one has a single large pip. */
   face(value: number, x: number, y: number, size: number, color: string, pip: string): void {
     this.rect(x, y, size, size, color);
