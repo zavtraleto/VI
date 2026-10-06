@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Climb } from './climb';
 import { textWidth } from './layout';
-import { LANGUAGES } from '../ui/i18n';
+import { LANGUAGES, setLanguage } from '../ui/i18n';
 import { clearedPanel, languagePanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type RecordsTable } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
 
 const nothing = (): void => undefined;
+
+// The words of the program are looked at in English here: what they are in the other languages is measured with its texts.
+setLanguage('en');
 
 function row<K extends PanelRow['kind']>(spec: PanelSpec, kind: K, nth = 0): Extract<PanelRow, { kind: K }> {
   return spec.rows.filter((candidate) => candidate.kind === kind)[nth] as Extract<PanelRow, { kind: K }>;

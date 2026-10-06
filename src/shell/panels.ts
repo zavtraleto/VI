@@ -1,6 +1,6 @@
 import type { ControlMode, ViewSetting } from '../platform/settings';
 import type { GoalLine } from '../rules';
-import type { LanguageCode } from '../ui/i18n';
+import { word, type LanguageCode } from '../ui/i18n';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
@@ -73,23 +73,23 @@ export function systemPanel(actions: {
     home: actions.home ?? 'sound',
     back: actions.onBack,
     rows: [
-      { kind: 'switch', id: 'sound', label: SYSTEM.sound, value: () => (values().muted ? SYSTEM.off : SYSTEM.on), action: () => actions.onToggle('muted') },
+      { kind: 'switch', id: 'sound', label: SYSTEM.sound, value: () => word(values().muted ? SYSTEM.off : SYSTEM.on), action: () => actions.onToggle('muted') },
       {
         kind: 'switch',
         id: 'motion',
         label: SYSTEM.motion,
-        value: () => (values().reducedMotion ? SYSTEM.reduced : SYSTEM.full),
+        value: () => word(values().reducedMotion ? SYSTEM.reduced : SYSTEM.full),
         action: () => actions.onToggle('reducedMotion'),
       },
-      { kind: 'switch', id: 'shake', label: SYSTEM.shake, value: () => (values().shake ? SYSTEM.on : SYSTEM.off), action: () => actions.onToggle('shake') },
+      { kind: 'switch', id: 'shake', label: SYSTEM.shake, value: () => word(values().shake ? SYSTEM.on : SYSTEM.off), action: () => actions.onToggle('shake') },
       {
         kind: 'switch',
         id: 'control',
         label: SYSTEM.control,
-        value: () => (values().control === 'gesture' ? SYSTEM.swipe : SYSTEM.buttons),
+        value: () => word(values().control === 'gesture' ? SYSTEM.swipe : SYSTEM.buttons),
         action: () => actions.onToggle('control'),
       },
-      { kind: 'switch', id: 'view', label: SYSTEM.view, value: () => (values().view === 'auto' ? SYSTEM.auto : SYSTEM.fixed), action: () => actions.onToggle('view') },
+      { kind: 'switch', id: 'view', label: SYSTEM.view, value: () => word(values().view === 'auto' ? SYSTEM.auto : SYSTEM.fixed), action: () => actions.onToggle('view') },
       { kind: 'switch', id: 'language', label: SYSTEM.language, value: () => LANGUAGE_NAMES[values().language].name, action: actions.onLanguage },
       { kind: 'gap' },
       { kind: 'commands', commands: [...(actions.tools ?? []), { id: 'back', label: COMMANDS.back, action: actions.onBack }] },
@@ -225,7 +225,7 @@ function fitName(name: string): string {
     if (textWidth(fitted + sign) > textWidth('0') * NAME_PLACES) break;
     fitted += sign;
   }
-  return fitted.trim() || RECORDS.nameless;
+  return fitted.trim() || word(RECORDS.nameless);
 }
 
 /**
@@ -235,7 +235,7 @@ function fitName(name: string): string {
 export function recordsPanel(table: (section: number) => RecordsTable, initial: number, actions: RecordsActions): PanelSpec {
   let section = Math.min(Math.max(initial, 0), RECORDS.modes.length - 1);
   const rows: PanelRow[] = [
-    { kind: 'tabs', id: 'mode', labels: () => RECORDS.modes, selected: () => section, pick: (index) => (section = index) },
+    { kind: 'tabs', id: 'mode', labels: () => RECORDS.modes.map(word), selected: () => section, pick: (index) => (section = index) },
     {
       kind: 'table',
       head: () => {
@@ -246,7 +246,7 @@ export function recordsPanel(table: (section: number) => RecordsTable, initial: 
         const link = table(section).link;
         return link === 'waiting' ? RECORDS.waiting : link === 'failed' ? RECORDS.failed : '';
       },
-      empty: () => RECORDS.empty,
+      empty: () => `${RECORDS.empty.native} ${word(RECORDS.empty.name)}`,
       lines: 12,
       rows: (): readonly TableLine[] => table(section).lines.map((line) => [fitName(line.name), digits(line.score, 6), line.own, line.rank] as const),
     },
@@ -366,7 +366,7 @@ export function levelsPanel(
         note: (index) => {
           const level = levels[index];
           if (!level) return '';
-          if (level.locked) return `${LADDER.locked} · ${LADDER.stars} ${digits(level.locked.have, 2)}/${digits(level.locked.need, 2)}`;
+          if (level.locked) return `${word(LADDER.locked)} · ${word(LADDER.stars)} ${digits(level.locked.have, 2)}/${digits(level.locked.need, 2)}`;
           return level.faces ? `${GOAL.face} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
         },
         program: true,
@@ -445,7 +445,7 @@ export function levelRulesPanel(
   if (pages > 1) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: () => actions.onPage((at + 1) % pages) });
   rows.push({ kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
   return {
-    title: pages > 1 ? { native: name.native, name: `${name.name} ${at + 1}/${pages}` } : name,
+    title: pages > 1 ? { native: name.native, name: `${word(name.name)} ${at + 1}/${pages}` } : name,
     home: pages > 1 ? 'next' : 'back',
     back: actions.onBack,
     rows,
@@ -522,7 +522,7 @@ export function levelResultPanel(
   const next = data.passed && data.hasNext;
   const undo = !data.passed && onUndo !== undefined && (data.undos ?? 0) > 0;
   if (next) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: actions.onNext });
-  if (undo) rows.push({ kind: 'command', id: 'undo', label: { native: COMMANDS.undo.native, name: `${COMMANDS.undo.name} ${data.undos}` }, action: onUndo });
+  if (undo) rows.push({ kind: 'command', id: 'undo', label: { native: COMMANDS.undo.native, name: `${word(COMMANDS.undo.name)} ${data.undos}` }, action: onUndo });
   rows.push(
     { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
     { kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels },

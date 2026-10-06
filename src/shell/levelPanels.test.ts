@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import { textWidth } from './layout';
+import { setLanguage } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
 import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
 import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 const nothing = (): void => undefined;
+
+// The words of the program are looked at in English here.
+setLanguage('en');
 
 function row<K extends PanelRow['kind']>(spec: PanelSpec, kind: K, nth = 0): Extract<PanelRow, { kind: K }> {
   return spec.rows.filter((candidate) => candidate.kind === kind)[nth] as Extract<PanelRow, { kind: K }>;

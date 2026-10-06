@@ -1,0 +1,9 @@
+/* The Cyrillic of the shell's font: narrow letters on the dots of its Latin capitals, made by `npm run fonts`. */
+@font-face {
+  font-family: 'DotGothic16';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./dotgothic16-cyr.woff2) format('woff2');
+  unicode-range: U+0400-045F;
+}

@@ -152,7 +152,7 @@ export const HUD = {
   /** "Take back", "again", "skip": what can be pressed over the board. */
   undo: '取消',
   retry: '再試',
-  skip: '省略 SKIP',
+  skip: { native: '省略', name: 'SKIP' },
 } as const;
 
 /** What a line of the goal of a level goes under, where it is written and not drawn. */
@@ -277,7 +277,7 @@ export const RESULT = {
 export const RECORDS = {
   modes: ['PROTOCOL', 'LIMITED'],
   /** "No entries". */
-  empty: '記録なし NO ENTRY',
+  empty: { native: '記録なし', name: 'NO ENTRY' },
   /** "Name": the head of the column of whose session a line is. */
   name: '名前',
   /** "Connecting": the players of the platform are on their way. */

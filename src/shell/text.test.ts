@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { LANGUAGES, languageOf, setLanguage, t } from '../ui/i18n';
+import { LANGUAGES, languageOf, setLanguage, t, word } from '../ui/i18n';
+import { WORDS } from '../ui/lang/words';
 import kanji from './fonts/kanji.txt?raw';
 import { textWidth } from './layout';
-import { MENU_FILES, eraDate, fileLine } from './text';
+import { COMMANDS, EXEC_NAME, HUD, LADDER, MENU_FILES, PANELS, RECORDS, RESULT, SYSTEM, eraDate, fileLine } from './text';
 import source from './text.ts?raw';
 import { dayAmount, mixHex, paletteAt, shellDefaults } from './theme';
 
@@ -77,6 +78,54 @@ describe('the language of the player', () => {
     expect(t('levelShort')).toContain('\u00a0:');
     expect(t('levelShort')).not.toContain(' :');
     setLanguage('en');
+  });
+});
+
+describe('the words of the program a player presses', () => {
+  const names = (group: Record<string, unknown>): string[] =>
+    Object.values(group).flatMap((value) => (typeof value === 'string' ? [value] : value && typeof value === 'object' && 'name' in value ? [String(value.name)] : []));
+  const said = [...MENU_FILES.map((file) => file.name), EXEC_NAME, HUD.skip.name, ...names(PANELS), ...names(COMMANDS), ...names(RESULT), ...names(SYSTEM), ...names(LADDER), ...RECORDS.modes, RECORDS.empty.name, RECORDS.nameless, RECORDS.you];
+  const inEvery = (check: (code: string) => void): void => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      check(code);
+    }
+    setLanguage('en');
+  };
+
+  it('are each in the table of words, in every language, and in capitals', () => {
+    for (const name of said) expect(Object.keys(WORDS), name).toContain(name);
+    inEvery((code) => {
+      for (const name of said) {
+        expect(word(name).length, `${name} ${code}`).toBeGreaterThan(0);
+        expect(word(name), `${name} ${code}`).toBe(word(name).toLocaleUpperCase(code));
+      }
+    });
+  });
+
+  it('are the words of the program in English, and a word the table does not have is itself', () => {
+    expect(word('EXECUTE')).toBe('EXECUTE');
+    setLanguage('ru');
+    expect(word('EXECUTE')).toBe('ВЫПОЛНИТЬ');
+    expect(word('DEUTSCH')).toBe('DEUTSCH');
+    setLanguage('en');
+  });
+
+  it('fit where the English ones stand: the name of a file, a command, a setting with its value, a reading', () => {
+    inEvery((code) => {
+      for (const file of MENU_FILES) expect(textWidth(word(file.name), 2) + 8 + textWidth(file.native), `${file.name} ${code}`).toBeLessThanOrEqual(240);
+      for (const command of Object.values(COMMANDS)) expect(textWidth(`${command.native} ${word(command.name)}`), `${command.name} ${code}`).toBeLessThanOrEqual(228);
+      for (const title of Object.values(PANELS)) expect(textWidth(`${title.native}  ${word(title.name)} 0/0`), `${title.name} ${code}`).toBeLessThanOrEqual(252);
+      const values = [SYSTEM.on, SYSTEM.off, SYSTEM.full, SYSTEM.reduced, SYSTEM.swipe, SYSTEM.buttons, SYSTEM.auto, SYSTEM.fixed];
+      const widest = Math.max(...values.map((value) => textWidth(word(value))));
+      for (const label of [SYSTEM.sound, SYSTEM.motion, SYSTEM.shake, SYSTEM.control, SYSTEM.view, SYSTEM.language]) {
+        expect(textWidth(`${label.native} ${word(label.name)}`) + 16 + widest, `${label.name} ${code}`).toBeLessThanOrEqual(226);
+      }
+      for (const reading of Object.values(RESULT)) expect(textWidth(`${reading.native} ${word(reading.name)}`), `${reading.name} ${code}`).toBeLessThanOrEqual(160);
+      // Two readings share a line of a result: the score and the place it took.
+      expect(textWidth(`${RESULT.score.native} ${word(RESULT.score.name)}`) + 16 + textWidth(`${RESULT.rank.native} ${word(RESULT.rank.name)}`), code).toBeLessThanOrEqual(248);
+      for (const mode of RECORDS.modes) expect(textWidth(word(mode)), `${mode} ${code}`).toBeLessThanOrEqual(112);
+    });
   });
 });
 

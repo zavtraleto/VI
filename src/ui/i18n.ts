@@ -3,6 +3,7 @@ import { ES } from './lang/es';
 import { FR } from './lang/fr';
 import { PT } from './lang/pt';
 import { TR } from './lang/tr';
+import { WORDS } from './lang/words';
 
 /**
  * What the game says in the language of the player. The program's own words are in
@@ -208,4 +209,14 @@ export function language(): LanguageCode {
 
 export function t(key: TextKey): string {
   return TEXTS[current][key];
+}
+
+/**
+ * A word of the program - a command, the name of a panel or of a setting - in the language of
+ * the player. It is asked for by the English word the program has for it and is that word in
+ * English; so is a word the table of words does not have.
+ */
+export function word(name: string): string {
+  if (current === 'en') return name;
+  return (WORDS as Record<string, Record<string, string> | undefined>)[name]?.[current] ?? name;
 }

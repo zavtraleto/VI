@@ -2,6 +2,7 @@ import type { ClimbRow } from '../climb';
 import type { Kit } from '../kit';
 import { CELL_H, CELL_W, MIN_ZONE, type Box } from '../layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
+import { word } from '../../ui/i18n';
 import { digits, type PanelName } from '../text';
 
 /** Something a panel can be told to do: a line that is pressed. */
@@ -116,6 +117,9 @@ interface Placed {
 
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
 
+/** A name as a line reads it: the program's own word, then the word in the language of the player. */
+const named = (label: PanelName): string => `${label.native} ${word(label.name)}`;
+
 /**
  * A panel of the program over whatever is on screen: a framed record with a filled bar for
  * its name, as the records of the menu are, and under the bar its lines - readings, settings,
@@ -174,17 +178,17 @@ export class PanelScreen implements ShellScreen {
     if (hollow) kit.rect(plate.x + 1, plate.y + CELL_H + 1, plate.w - 2, 1, ink);
     else kit.rect(plate.x + 1, plate.y + 1, plate.w - 2, CELL_H + 1, ink);
     kit.text(title.native, plate.x + 6, plate.y + 1, hollow ? ink : bg, { bold: true });
-    kit.text(title.name, plate.x + plate.w - 6, plate.y + 1, hollow ? ink : bg, { align: 'right', bold: true });
+    kit.text(word(title.name), plate.x + plate.w - 6, plate.y + 1, hollow ? ink : bg, { align: 'right', bold: true });
 
     const left = plate.x + PAD;
     const right = plate.x + plate.w - PAD;
     for (const { row, box } of placed) {
       switch (row.kind) {
         case 'field':
-          kit.field(`${row.label.native} ${row.label.name}`, typeof row.value === 'function' ? row.value() : row.value, left, right, box.y, dim, ink);
+          kit.field(named(row.label), typeof row.value === 'function' ? row.value() : row.value, left, right, box.y, dim, ink);
           break;
         case 'number': {
-          kit.text(`${row.label.native} ${row.label.name}`, left, box.y, dim);
+          kit.text(named(row.label), left, box.y, dim);
           const text = digits(row.value, row.places);
           const zeros = Math.min(text.length - 1, text.length - String(Math.max(0, Math.round(row.value))).length);
           const after = kit.text(text.slice(0, zeros), left, box.y + CELL_H, faint, { scale: 2 });
@@ -192,13 +196,13 @@ export class PanelScreen implements ShellScreen {
           break;
         }
         case 'standing': {
-          kit.text(`${row.label.native} ${row.label.name}`, left, box.y, dim);
+          kit.text(named(row.label), left, box.y, dim);
           const text = digits(row.value(), row.places);
           const zeros = Math.min(text.length - 1, text.length - String(Math.max(0, Math.round(row.value()))).length);
           const after = kit.text(text.slice(0, zeros), left, box.y + CELL_H, faint, { scale: 2 });
           kit.text(text.slice(zeros), after, box.y + CELL_H, ink, { scale: 2, bold: true });
           // The place at the right edge, and after it how many lines the log has, at the size of a label.
-          kit.text(`${row.rank.native} ${row.rank.name}`, right, box.y, dim, { align: 'right' });
+          kit.text(named(row.rank), right, box.y, dim, { align: 'right' });
           const of = `/${digits(row.of(), 2)}`;
           const ofStart = right - kit.measure(of);
           kit.text(of, ofStart, box.y + CELL_H * 2, dim);
@@ -221,7 +225,7 @@ export class PanelScreen implements ShellScreen {
           kit.frame(box, on ? ink : faint);
           if (on) this.mark(kit, box);
           const y = box.y + Math.round((box.h - CELL_H) / 2);
-          kit.field(`${row.label.native} ${row.label.name}`, row.value(), box.x + 14, box.x + box.w - 8, y, pressed ? ink : dim, ink);
+          kit.field(named(row.label), row.value(), box.x + 14, box.x + box.w - 8, y, pressed ? ink : dim, ink);
           break;
         }
         case 'tabs': {
@@ -348,9 +352,9 @@ export class PanelScreen implements ShellScreen {
     const on = focus.focus === command.id;
     const pressed = focus.pressed === command.id;
     const y = box.y + Math.round((box.h - CELL_H) / 2);
-    const text = `${command.label.native} ${command.label.name}`;
+    const text = named(command.label);
     // A narrow part has room for the name alone.
-    const label = kit.measure(text) > box.w - 20 ? command.label.name : text;
+    const label = kit.measure(text) > box.w - 20 ? word(command.label.name) : text;
     if (on && !pressed) {
       kit.box(box, ink);
       kit.text(label, box.x + box.w / 2, y, bg, { align: 'center', bold: true });

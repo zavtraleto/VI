@@ -79,7 +79,7 @@ import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
 import { readmePages } from '../ui/readme';
-import { LANGUAGES, language, setLanguage, t, type TextKey } from '../ui/i18n';
+import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { dailyArchive, endlessArchive } from './archive';
 import { clockLeft, secondsLeft } from './clock';
 import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
@@ -1412,7 +1412,7 @@ export class Game {
       const mine = board === undefined || typeof board === 'string' ? undefined : board.find((entry) => entry.own && entry.name !== '');
       if (mine) return mine.name;
     }
-    return (hasBoard() ? playerName() : null) ?? RECORDS.you;
+    return (hasBoard() ? playerName() : null) ?? word(RECORDS.you);
   }
 
   /**

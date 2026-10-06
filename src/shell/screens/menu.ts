@@ -1,6 +1,6 @@
 import type { Layer } from '../../display/layer';
 import type { Rect } from '../../display/sizing';
-import { t } from '../../ui/i18n';
+import { t, word } from '../../ui/i18n';
 import type { Kit } from '../kit';
 import { CELL_H, CELL_W, MIN_ZONE, menuLayout, netProjection, netStep, type Box, type Dir4, type MenuLayout, type NetProjection } from '../layout';
 import { drawLogo } from '../logo';
@@ -309,13 +309,13 @@ export class MenuScreen implements ShellScreen {
     kit.text(`FILE ${digits(file.face, 2)}/${digits(MENU_FILES.length, 2)}`, box.x + PAGER_WIDTH + 7, box.y + 1, bg, { bold: true });
     kit.text(`${STATUS.channels}${file.face}`, box.x + box.w - PAGER_WIDTH - 7, box.y + 1, bg, { align: 'right', bold: true });
 
-    const nameEnd = kit.text(file.name, left, box.y + 22, ink, { scale: 2, bold: true });
+    const nameEnd = kit.text(word(file.name), left, box.y + 22, ink, { scale: 2, bold: true });
     kit.text(file.native, nameEnd + CELL_W, box.y + 22 + CELL_H, dim);
     kit.text(fileLine(t(file.line), this.data.limitSec), left, box.y + 60, ink);
     kit.field(file.field[0], this.value(file.field[1]), left, right, box.y + 82, dim, ink);
 
     const exec = layout.exec;
-    const label = `${EXEC_LABEL} ${EXEC_NAME}`;
+    const label = `${EXEC_LABEL} ${word(EXEC_NAME)}`;
     const textY = exec.y + Math.round((exec.h - CELL_H) / 2);
     if (pressed !== null && pressed !== PREV_ID && pressed !== NEXT_ID) {
       kit.frame(exec, ink);

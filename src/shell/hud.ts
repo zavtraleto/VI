@@ -9,6 +9,7 @@ import { loadShellFonts } from './fonts';
 import { hudLayout, netBounds, netCellAt, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
+import { word } from '../ui/i18n';
 import { HUD, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, type Palette } from './theme';
 import { Voice } from './voice';
@@ -1094,9 +1095,10 @@ export class GameHud {
 
     // In the corner: leaves the exercise for a session.
     const tall = Math.max(CELL_H + 4, Math.ceil(MIN_ZONE / zoom));
-    const wide = kit.measure(HUD.skip) + 12;
+    const skipText = `${HUD.skip.native} ${word(HUD.skip.name)}`;
+    const wide = kit.measure(skipText) + 12;
     const skip: Box = { x: box.x + box.w - wide - 4, y: box.y + box.h - tall - 4, w: wide, h: tall };
-    kit.text(HUD.skip, skip.x + 6, skip.y + Math.round((tall - CELL_H) / 2), this.held?.zone.id === 'skip' ? ink : dim);
+    kit.text(skipText, skip.x + 6, skip.y + Math.round((tall - CELL_H) / 2), this.held?.zone.id === 'skip' ? ink : dim);
     this.zones.push({ id: 'skip', rect: kit.toWindow(skip), action: () => this.actions.onSkip() });
     // While the words wait, a press or a swipe anywhere reads them. It comes after the pause
     // and the skip, so a press on one of those is theirs.

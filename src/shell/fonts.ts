@@ -1,7 +1,7 @@
 import '@fontsource/dotgothic16/latin-400.css';
 import '@fontsource/dotgothic16/latin-ext-400.css';
-import '@fontsource/dotgothic16/cyrillic-400.css';
 import './fonts/jp.css';
+import './fonts/cyr.css';
 import { PROGRAM_FONT } from './theme';
 
 /** A sign of every script the program writes in: each script is a file of its own, fetched only when asked for. */
