@@ -451,6 +451,12 @@ export class AudioEngine {
     this.play({ kind: 'sign', code: sign.codePointAt(0) ?? 0 });
   }
 
+  /** One more sign of the words the program prints for the laboratory has come. */
+  typed(sign: string): void {
+    if (silentSign(sign)) return;
+    this.play({ kind: 'typed', code: sign.codePointAt(0) ?? 0 });
+  }
+
   /** What the lab reads: whether the sound is open, and how many voices and nodes are alive. */
   probe(): { open: boolean; voices: number; leaving: number; nodes: number } {
     this.chain?.tidy();

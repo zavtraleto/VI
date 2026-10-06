@@ -4,7 +4,8 @@ import { levelStuck, smallestGroup } from '../rules/level';
 import { moveOf, replay } from '../rules/levelSolver';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
 import { LEVELS } from './levels';
-import { LESSONS, lessonsAt } from './rules';
+import { LESSONS, lessonsAt, ruleOf } from './rules';
+import { messagesOf } from './voices';
 
 /** A ladder of two chapters, as far as its rules go: the faces of a level and the rule it brings. */
 const LADDER = [
@@ -53,7 +54,7 @@ describe('the rules a level can be asked for again', () => {
   });
 });
 
-describe('the rules the windows of the levels say', () => {
+describe('what is said in the windows of the levels', () => {
   const inBoth = (check: (language: string) => void): void => {
     for (const language of LANGUAGES) {
       setLanguage(language);
@@ -61,25 +62,75 @@ describe('the rules the windows of the levels say', () => {
     }
     setLanguage('en');
   };
+  /** Every lesson the game has words for: those of the ladder of lessons, and the one the old ladder still says. */
+  const SAID = [...LESSONS, 'lessonStep'] as const;
+  const sung = (lesson: (typeof SAID)[number]): string[] => messagesOf(t(lesson)).map((said) => [...said.text].filter((_, i) => said.other[i]).join(''));
 
-  it('are each a few thoughts, a thought to a line, in every language', () => {
+  it('is a few messages to a lesson, each short enough for the window of a phone, in every language', () => {
     inBoth((language) => {
-      for (const lesson of LESSONS) {
-        const lines = t(lesson).split('\n');
-        expect(lines.length, `${lesson} ${language}`).toBeGreaterThan(0);
-        expect(lines.length, `${lesson} ${language}`).toBeLessThanOrEqual(3);
-        for (const line of lines) expect(line.length, `${lesson} ${language}`).toBeLessThanOrEqual(110);
+      for (const lesson of SAID) {
+        const messages = messagesOf(t(lesson));
+        expect(messages.length, `${lesson} ${language}`).toBeGreaterThan(0);
+        expect(messages.length, `${lesson} ${language}`).toBeLessThanOrEqual(4);
+        for (const said of messages) expect(said.text.length, `${lesson} ${language}: ${said.text}`).toBeLessThanOrEqual(230);
       }
     });
   });
 
-  it('are every rule a level of the game brings, but for the one the old ladder still says', () => {
+  it('covers every rule a level of the game brings', () => {
     for (const level of LEVELS) {
-      if (level.lesson && level.lesson !== 'lessonStep') expect(LESSONS, level.id).toContain(level.lesson);
+      if (level.lesson) expect(SAID, level.id).toContain(level.lesson);
     }
   });
 
-  it('say how many moves a link gives where they say what a link gives', () => {
+  it('begins with a greeting, the name of the program and the dice of Rhine', () => {
+    setLanguage('ru');
+    const [hello, rhine] = messagesOf(t('lessonThrees'));
+    expect(hello.text).toMatch(/^Привет!/);
+    expect(hello.text).toContain('Visual Interconnection');
+    expect(rhine.text).toContain('Райн');
+    setLanguage('en');
+    expect(messagesOf(t('lessonThrees'))[1].text).toContain('Rhine');
+    // Whatever the language, the program is named as it is and the man is named by his name.
+    inBoth((language) => {
+      const [first, second] = messagesOf(t('lessonThrees'));
+      expect(first.text, language).toContain('Visual Interconnection');
+      expect(second.text, language).toMatch(/Rhine|Райн/);
+    });
+  });
+
+  it('is the laboratory’s alone through the first chapter, and has a word or two of the other side after it', () => {
+    inBoth((language) => {
+      for (const lesson of ['lessonThrees', 'lessonStep', 'lessonWalk', 'lessonLink', 'lessonHold', 'lessonSeven', 'lessonClimb'] as const) {
+        expect(sung(lesson).join(''), `${lesson} ${language}`).toBe('');
+      }
+      for (const lesson of ['lessonTwos', 'lessonGlass', 'lessonFloor', 'lessonFives'] as const) {
+        const words = sung(lesson).join('');
+        expect(words.length, `${lesson} ${language}`).toBeGreaterThan(0);
+        expect(words.length, `${lesson} ${language}`).toBeLessThanOrEqual(34);
+      }
+    });
+    setLanguage('ru');
+    expect(sung('lessonTwos').join('')).toBe('принимаются');
+    expect(sung('lessonGlass').join('')).toBe('уже наполовину здесь');
+    expect(sung('lessonFloor').join('')).toBe('мы подождём');
+    expect(sung('lessonFives').join('')).toBe('к нам');
+    setLanguage('en');
+  });
+
+  it('says of a combo at the last what it said at the first, and to whom it leaves', () => {
+    setLanguage('ru');
+    const first = messagesOf(t('lessonThrees')).at(-1)!.text;
+    const last = messagesOf(t('lessonFives')).at(-1)!.text;
+    expect(first).toContain('это комбо, и оно уйдёт.');
+    expect(last).toContain('это комбо, и оно уйдёт к нам.');
+    // What is under a die is "there" for the laboratory and "here" for those who take it.
+    expect(t('lessonSeven')).toContain('она там');
+    expect(t('lessonGlass')).toContain('наполовину здесь');
+    setLanguage('en');
+  });
+
+  it('says how many moves a die that joins a chain gives, where it says what a chain is', () => {
     const said: Record<string, RegExp> = {
       ru: /ещё один ход/,
       en: /one more move/,
@@ -89,33 +140,33 @@ describe('the rules the windows of the levels say', () => {
       de: /einen Zug mehr/,
       fr: /un coup de plus/,
     };
-    inBoth((language) => expect(t('lessonHold'), language).toMatch(said[language]));
+    inBoth((language) => {
+      for (const lesson of ['lessonLink', 'lessonHold'] as const) expect(t(lesson), `${lesson} ${language}`).toMatch(said[language]);
+    });
   });
 
-  it('begin as an instruction and end as the words of whoever receives the dice, a word or two at a time', () => {
-    setLanguage('ru');
-    const given = /к нам|здесь|принимаются|у нас|мы /;
-    // The laboratory names no one and stands nowhere.
-    for (const lesson of ['lessonThrees', 'lessonWalk', 'lessonLink', 'lessonHold', 'lessonFloor', 'lessonClimb'] as const) expect(t(lesson), lesson).not.toMatch(given);
-    // What is under a die is "there" for the one who speaks first, and "here" for the one who speaks later.
-    expect(t('lessonSeven')).toContain('она там');
-    expect(t('lessonSeven')).not.toMatch(given);
-    expect(t('lessonTwos')).toContain('принимаются');
-    expect(t('lessonGlass')).toContain('уже наполовину здесь');
-    // The last window says of a combo what the first one said, and to whom it leaves.
-    expect(t('lessonThrees')).toContain('это комбо, и оно уходит.');
-    expect(t('lessonFives')).toContain('это комбо, и оно уходит к нам.');
-    setLanguage('en');
+  it('leaves every lesson a rule to read again: one line, with no one speaking and nothing marked', () => {
+    inBoth((language) => {
+      for (const lesson of SAID) {
+        const rule = ruleOf(lesson);
+        expect(rule, lesson).not.toBeNull();
+        const line = t(rule!);
+        expect(line.length, `${lesson} ${language}`).toBeGreaterThan(0);
+        expect(line.length, `${lesson} ${language}`).toBeLessThanOrEqual(230);
+        expect(line, `${lesson} ${language}`).not.toMatch(/[\[\]\n]/);
+      }
+    });
+    expect(ruleOf('lessonOfNothing')).toBeNull();
   });
 
-  it('leave a dead end its two numbers to fill in: the dice that stand and the dice a combo takes', () => {
+  it('leaves a dead end its two numbers to fill in: the dice that stand and the dice a combo takes', () => {
     inBoth((language) => {
       expect(t('levelStuck'), language).toContain('{left}');
       expect(t('levelStuck'), language).toContain('{need}');
     });
   });
 
-  it('have those numbers at a dead end: on the level of the chain, one die left where a combo takes three', () => {
+  it('has those numbers at a dead end: on the level of the chain, one die left where a combo takes three', () => {
     const chain = LEVELS.find((level) => level.lesson === 'lessonLink')!;
     // The combo is made and no die is brought to it: two moves on it is gone, and the fourth die stands alone.
     const state = replay(chain, ['0,0,S', '2,0,S', '1,0,E', '2,0,S'].map(moveOf));
@@ -125,4 +176,3 @@ describe('the rules the windows of the levels say', () => {
     expect(smallestGroup(chain)).toBe(3);
   });
 });
-

@@ -20,6 +20,30 @@ export const LESSONS = [
   'lessonFives',
 ] as const satisfies readonly TextKey[];
 
+/**
+ * The rule of every lesson as it is read again from the pause of a level: the rule alone, in a
+ * line, with no one speaking. What a level opens with is said by a person and at length; what a
+ * player looks up in the middle of a level has to be found at a glance.
+ */
+const RULE_OF: Readonly<Record<string, TextKey>> = {
+  lessonThrees: 'ruleThrees',
+  lessonStep: 'ruleStep',
+  lessonWalk: 'ruleWalk',
+  lessonLink: 'ruleLink',
+  lessonHold: 'ruleHold',
+  lessonFloor: 'ruleFloor',
+  lessonClimb: 'ruleClimb',
+  lessonSeven: 'ruleSeven',
+  lessonTwos: 'ruleTwos',
+  lessonGlass: 'ruleGlass',
+  lessonFives: 'ruleFives',
+};
+
+/** The key of the rule a lesson leaves behind; null for a lesson that has none. */
+export function ruleOf(lesson: string): TextKey | null {
+  return RULE_OF[lesson] ?? null;
+}
+
 /** What of a level its rules are told by: the faces that work on it, and the rule it brings. */
 type Taught = Pick<LevelSpec, 'faces' | 'lesson'>;
 

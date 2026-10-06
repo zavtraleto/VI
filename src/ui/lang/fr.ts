@@ -45,20 +45,59 @@ export const FR: Texts = {
   puzzleRule5: "Retire tous les dés. Moins il y a de coups, plus il y a d'étoiles",
   levelStuck: 'Impasse : il reste {left} sur le plateau, et un combo en demande {need}',
   levelShort: 'Plus de coups. Il en manquait : {short}',
-  lessonThrees: "Ne réunis que des 3 : trois 3 côte à côte forment un combo, et il s'en va.\nLes autres combinaisons ne marchent pas : leurs faces sont barrées.",
-  lessonStep: "Marche librement sur les dés : un pas ne compte pas comme un coup.\nUn coup, c'est rouler un dé.",
+  lessonThrees:
+    "Bonjour ! Bienvenue dans Visual Interconnection. Je suis le laborantin d'ici, et aujourd'hui je t'apprends à travailler avec la table.\n\n" +
+    'Dans les années trente, le docteur Rhine demandait aux gens de lancer des dés en souhaitant de toutes leurs forces la face voulue. Nous, nous ne lançons pas les dés. Nous les guidons.\n\n' +
+    'Tu es debout sur un dé. Guide-le en suivant la flèche : il roulera, et une autre face passera au-dessus.\n\n' +
+    "Aujourd'hui, le troisième canal est ouvert : nous travaillons avec les 3. Mets trois 3 côte à côte : c'est un combo, et il s'en ira. Les autres combinaisons ne marchent pas : leurs faces sont barrées.",
+  lessonStep:
+    "Réussi ! Les dés de Rhine ne faisaient que tomber. Les tiens t'obéissent déjà.\n\n" +
+    "Maintenant, les pas. Tu peux marcher sur les dés, de l'un au voisin. Un pas ne compte pas comme un coup : marche autant que tu veux.\n\n" +
+    "Un coup, c'est rouler. Seul le dé sur lequel tu te tiens roule, et seulement vers une place libre. Va jusqu'au dé qu'il te faut et réunis les 3.",
   lessonWalk:
-    "Marche librement sur les dés : un pas ne compte pas comme un coup. Un coup, c'est rouler un dé.\nUn combo ne part pas tout de suite : tu peux le traverser et en descendre sur un autre dé.",
-  lessonLink: "Un combo s'en va en deux coups.\nEntre-temps, on peut lui amener un 3 de plus : il part avec le combo. Cela s'appelle une chaîne.",
-  lessonHold: "Chaque dé d'une chaîne donne au combo qui s'en va un coup de plus.\nAmené au premier coup : le combo a de nouveau deux coups. Au second : un.",
+    "Maintenant, les pas. Tu peux marcher sur les dés, de l'un au voisin. Un pas ne compte pas comme un coup : marche autant que tu veux.\n\n" +
+    "Un coup, c'est rouler. Seul le dé sur lequel tu te tiens roule, et seulement vers une place libre.\n\n" +
+    "Un combo ne part pas tout de suite, et tu peux aussi marcher sur les dés qui s'en vont. Passe par eux jusqu'aux autres et réunis le second combo.",
+  lessonLink:
+    "Un combo ne part pas tout de suite. Il a deux coups : au premier, les dés s'enfoncent à moitié ; au second, tout à fait.\n\n" +
+    "Il y a quatre dés ici, et un 3 en demande trois. Celui qui reste serait seul, et c'est une impasse. Il faut donc l'amener à temps à ceux qui s'en vont.\n\n" +
+    "On marche sur les dés qui s'en vont comme sur les autres. Va par eux jusqu'au quatrième et amène-le au combo, le 3 en haut. Cela s'appelle une chaîne.\n\n" +
+    "Et un cadeau de la table : chaque dé qui entre dans la chaîne donne à ceux qui s'en vont un coup de plus.",
+  lessonHold:
+    "Un combo qui s'en va a deux coups. Mais chaque dé qui entre dans la chaîne lui donne un coup de plus.\n\n" +
+    'Amené au premier coup : le combo a de nouveau deux coups. Au second : un. Amène un dé à chaque coup, et il attendra.',
   lessonFloor:
-    "Le dé sous toi est parti : tu es au sol. Tu peux aussi descendre toi-même d'un dé qui s'en va.\nDepuis le sol, on pousse un dé : il glisse sans tourner. Pousser est un coup.",
+    "Si le dé sous toi s'en va, tu te retrouveras au sol. Ce n'est pas grave : [nous attendrons]. Tu peux aussi descendre toi-même d'un dé qui s'en va.\n\n" +
+    "Depuis le sol, on pousse les dés. Un dé poussé glisse d'une case sans tourner. Pousser est un coup.\n\n" +
+    "Pour remonter : par un dé qui s'en va, tant qu'il est encore là. Ou par un dé qu'on ne peut pas pousser : derrière lui, le bord de la table ou un autre dé.",
   lessonClimb:
-    "Du sol vers le haut : monte sur un dé qui s'en va.\nDepuis une case voisine d'un combo qui s'en va, tu montes aussi sur un dé immobile à côté.\nEt sur un dé qu'on ne peut pas pousser : derrière lui, le bord du plateau ou un autre dé.",
-  lessonSeven: 'Les faces opposées font sept : sous un 4 se trouve un 3.\nTu ne le vois pas, mais il est là.\nDeux roulements dans le même sens, et la face du bas est en haut.',
-  lessonTwos: "Maintenant, les 2 et les 3 sont acceptés.\nUn combo de 2, c'est deux dés ; un combo de 3, trois.",
-  lessonGlass: "Un dé qui s'en va est déjà à moitié ici : tu peux rouler dessus.\nSi la face correspond, ton dé rejoint la chaîne.",
-  lessonFives: "Ne réunis que des 5 : cinq 5 côte à côte forment un combo, et il s'en va chez nous.\nLes autres combinaisons ne marchent pas.",
+    "Du sol, on peut remonter. Monte sur un dé qui s'en va, tant qu'il est encore là.\n\n" +
+    "Ou sur un dé qu'on ne peut pas pousser : derrière lui, le bord de la table ou un autre dé. Et depuis une case voisine d'un combo qui s'en va, tu montes sur n'importe quel dé d'à côté.",
+  lessonSeven:
+    'Un secret que tout joueur de dés connaît : les faces opposées font sept. En face du 1 il y a le 6, en face du 2 le 5, en face du 3 le 4.\n\n' +
+    'Tu vois un 4 en haut : le 3 est donc en bas. Tu ne le vois pas, mais il est là.\n\n' +
+    'Deux roulements dans le même sens, et la face du bas est en haut.',
+  lessonTwos:
+    "Le cours d'introduction est terminé. Félicitations : la table t'obéit.\n\n" +
+    "À partir d'ici, un canal de plus est ouvert. Maintenant les 2 et les 3 [sont acceptés] : un 2 demande deux dés, un 3 en demande trois.\n\n" +
+    "Compte les dés à l'avance : pour quels combos y en a-t-il assez ?",
+  lessonGlass:
+    "Un dé qui s'en va est [déjà à moitié ici]. C'est pourquoi tu peux rouler dessus : ton dé prend sa place.\n\n" +
+    'Si la face correspond, ton dé rejoint la chaîne. Sinon, il prend simplement la place.',
+  lessonFives:
+    "Le cinquième canal est ouvert. Nous ne travaillons qu'avec les 5.\n\n" +
+    "Mets cinq 5 côte à côte : c'est un combo, et il s'en ira [chez nous].",
+  ruleThrees: "Un combo, c'est trois 3 côte à côte : il s'en va. Seuls les 3 marchent, les autres faces sont barrées.",
+  ruleStep: "Un pas sur les dés n'est pas un coup. Un coup, c'est rouler le dé sur lequel tu te tiens vers une place libre.",
+  ruleWalk: "Un pas n'est pas un coup ; un coup, c'est rouler. Tu peux marcher sur un combo qui s'en va et en descendre sur un autre dé.",
+  ruleLink: "Un combo s'en va en deux coups. Amène-lui un dé avec la même face : c'est une chaîne. Chaque dé ainsi amené donne à ceux qui s'en vont un coup de plus.",
+  ruleHold: "Chaque dé d'une chaîne donne au combo qui s'en va un coup de plus.",
+  ruleFloor: "Le dé sous toi est parti : tu es au sol. Depuis le sol, on pousse un dé : il glisse sans tourner, et c'est un coup. Pour remonter : par un dé qui s'en va ou par un dé qu'on ne peut pas pousser.",
+  ruleClimb: "Du sol vers le haut : sur un dé qui s'en va, ou sur un dé qu'on ne peut pas pousser.",
+  ruleSeven: 'Les faces opposées font sept : 1 et 6, 2 et 5, 3 et 4. Deux roulements dans le même sens, et la face du bas est en haut.',
+  ruleTwos: 'Les 2 et les 3 marchent. Un 2 demande deux dés ; un 3, trois.',
+  ruleGlass: "Tu peux rouler sur un dé qui s'en va. Si la face correspond, le dé rejoint la chaîne.",
+  ruleFives: "Seuls les 5 marchent. Un combo, c'est cinq 5 côte à côte.",
   shellProtocol: 'SESSION SANS LIMITE',
   shellLimited: 'SESSION DU JOUR {time}',
   shellLevels: 'NETTOYAGE DU CHAMP',

@@ -93,6 +93,8 @@ export type Cue =
   | { kind: 'rankSet'; along: number; record: boolean; moved: boolean }
   // A sign of the words of the other side, by its number among all signs.
   | { kind: 'sign'; code: number }
+  // A sign of the words the program prints for the laboratory: the instruction a level opens with.
+  | { kind: 'typed'; code: number }
   // The window of a transmission: the picture is filed under `figure` and stays for `seconds`.
   | { kind: 'window'; figure: number; seconds: number; glimpse: boolean }
   | { kind: 'windowShut' };
@@ -164,6 +166,7 @@ export const INTERFACE: readonly Cue['kind'][] = [
   'rankPast',
   'rankSet',
   'sign',
+  'typed',
   'window',
   'windowShut',
 ];
@@ -696,6 +699,13 @@ function play(cue: Cue, kit: Kit): Note[] {
           echo: 0.9,
         }),
       ];
+    }
+    case 'typed': {
+      // The laboratory's instruction is a record the program prints: its own click, a sign at a
+      // time, dry and with no tail. The click is on one of three notes of the mode, by the sign,
+      // so that the same words click the same way and no line of them is one note.
+      const degree = [0, 2, 3][((Math.round(cue.code) % 3) + 3) % 3];
+      return [click('typed', degreeHz(tune, degree, clickOctave - 1), { gain: 0.045 * program, decay: 0.012, bright: 0.6, echo: 0 })];
     }
     case 'window': {
       // The program opens what it has received, with its own click. While the window stands

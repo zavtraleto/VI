@@ -42,20 +42,59 @@ export const PT: Texts = {
   puzzleRule5: 'Retire todos os dados. Quanto menos jogadas, mais estrelas',
   levelStuck: 'Beco sem saída: restam {left} no tabuleiro, e um combo pede {need}',
   levelShort: 'As jogadas acabaram. Faltaram: {short}',
-  lessonThrees: 'Junte só os 3: três 3 lado a lado são um combo, e ele sai.\nOutras combinações não funcionam: suas faces estão riscadas.',
-  lessonStep: 'Ande pelos dados à vontade: um passo não conta como jogada.\nUma jogada é rolar um dado.',
+  lessonThrees:
+    'Olá! Boas-vindas ao Visual Interconnection. Sou o assistente do laboratório, e hoje vou ensinar você a trabalhar com a mesa.\n\n' +
+    'Nos anos trinta, o doutor Rhine pedia às pessoas que jogassem dados e desejassem com toda a força a face que queriam. Nós não jogamos os dados. Nós os conduzimos.\n\n' +
+    'Você está em cima de um dado. Conduza-o pela seta: ele vai rolar, e outra face ficará em cima.\n\n' +
+    'Hoje está aberto o terceiro canal: trabalhamos com os 3. Ponha três 3 lado a lado: isso é um combo, e ele vai sair. Outras combinações não funcionam: suas faces estão riscadas.',
+  lessonStep:
+    'Conseguiu! Os dados de Rhine só caíam. Os seus já obedecem a você.\n\n' +
+    'Agora, os passos. Dá para andar pelos dados, de um para o vizinho. Um passo não conta como jogada: ande quanto quiser.\n\n' +
+    'Uma jogada é rolar. Só rola o dado em que você está, e só para um lugar livre. Vá até o dado de que precisa e junte os 3.',
   lessonWalk:
-    'Ande pelos dados à vontade: um passo não conta como jogada. Uma jogada é rolar um dado.\nUm combo não sai na hora: dá para atravessá-lo e descer dele para outro dado.',
-  lessonLink: 'Um combo sai em duas jogadas.\nNesse tempo dá para rolar mais um 3 até ele: ele sai junto com o combo. Isso se chama corrente.',
-  lessonHold: 'Cada dado de uma corrente dá ao combo que está saindo mais uma jogada.\nChegou na primeira jogada: o combo volta a ter duas. Na segunda: uma.',
+    'Agora, os passos. Dá para andar pelos dados, de um para o vizinho. Um passo não conta como jogada: ande quanto quiser.\n\n' +
+    'Uma jogada é rolar. Só rola o dado em que você está, e só para um lugar livre.\n\n' +
+    'Um combo não sai na hora, e também dá para andar pelos dados que estão saindo. Passe por eles até os outros e junte o segundo combo.',
+  lessonLink:
+    'Um combo não sai na hora. Ele tem duas jogadas: na primeira os dados afundam pela metade; na segunda, de vez.\n\n' +
+    'Aqui há quatro dados, e um 3 pede três. O que sobra ficará sozinho, e isso é um beco sem saída. Então é preciso rolar esse dado a tempo até os que estão saindo.\n\n' +
+    'Pelos dados que estão saindo se anda como pelos outros. Vá por eles até o quarto e role-o até o combo com o 3 em cima. Isso se chama corrente.\n\n' +
+    'E um presente da mesa: cada dado que entra na corrente dá aos que estão saindo mais uma jogada.',
+  lessonHold:
+    'Um combo que está saindo tem duas jogadas. Mas cada dado que entra na corrente dá a ele mais uma jogada.\n\n' +
+    'Chegou na primeira jogada: o combo volta a ter duas. Na segunda: uma. Leve um dado a cada jogada, e ele vai esperar.',
   lessonFloor:
-    'O dado sob você se foi: você está no chão. Você também pode descer sozinho de um dado que está saindo.\nDo chão o dado é empurrado: ele desliza sem girar. Um empurrão é uma jogada.',
+    'Se o dado sob você sair, você ficará no chão. Não tem problema: [nós esperamos]. Também dá para descer por conta própria de um dado que está saindo.\n\n' +
+    'Do chão, os dados são empurrados. Um dado empurrado desliza uma casa e não gira. Empurrar é uma jogada.\n\n' +
+    'De volta para cima: por um dado que está saindo, enquanto ele ainda está lá. Ou por um que não dá para empurrar: atrás dele está a borda da mesa ou outro dado.',
   lessonClimb:
-    'Do chão para cima: suba em um dado que está saindo.\nDe uma casa ao lado de um combo que está saindo você também sobe em um dado firme ao lado dele.\nE em um dado que não dá para empurrar: atrás dele há a borda do tabuleiro ou outro dado.',
-  lessonSeven: 'Faces opostas somam sete: sob um 4 há um 3.\nVocê não o vê, mas ele está lá.\nDuas roladas para o mesmo lado, e a face de baixo fica em cima.',
-  lessonTwos: 'Agora são aceitos os 2 e os 3.\nUm combo de 2 são dois dados; um combo de 3, três.',
-  lessonGlass: 'Um dado que está saindo já está meio aqui: dá para rolar por cima dele.\nSe a face coincidir, seu dado entra na corrente.',
-  lessonFives: 'Junte só os 5: cinco 5 lado a lado são um combo, e ele sai para nós.\nOutras combinações não funcionam.',
+    'Do chão dá para voltar para cima. Suba em um dado que está saindo, enquanto ele ainda está lá.\n\n' +
+    'Ou em um dado que não dá para empurrar: atrás dele está a borda da mesa ou outro dado. E de uma casa ao lado de um combo que está saindo você sobe em qualquer dado vizinho.',
+  lessonSeven:
+    'Um segredo que todo jogador de dados conhece: faces opostas somam sete. Em frente ao 1 fica o 6, em frente ao 2 o 5, em frente ao 3 o 4.\n\n' +
+    'Você vê um 4 em cima: então o 3 está embaixo. Você não o vê, mas ele está lá.\n\n' +
+    'Duas roladas para o mesmo lado, e a face de baixo fica em cima.',
+  lessonTwos:
+    'O curso de introdução acabou. Parabéns: a mesa obedece a você.\n\n' +
+    'Daqui em diante há mais um canal aberto. Agora [são aceitos] os 2 e os 3: um 2 pede dois dados, um 3 pede três.\n\n' +
+    'Conte os dados antes: para quais combos eles dão?',
+  lessonGlass:
+    'Um dado que está saindo [já está meio aqui]. Por isso dá para rolar por cima dele: seu dado fica no lugar dele.\n\n' +
+    'Se a face coincidir, seu dado entra na corrente. Se não, ele só ocupa o lugar.',
+  lessonFives:
+    'Está aberto o quinto canal. Trabalhamos só com os 5.\n\n' +
+    'Ponha cinco 5 lado a lado: isso é um combo, e ele vai sair [para nós].',
+  ruleThrees: 'Um combo são três 3 lado a lado: ele sai. Só os 3 funcionam; as outras faces estão riscadas.',
+  ruleStep: 'Um passo pelos dados não é uma jogada. Uma jogada é rolar o dado em que você está para um lugar livre.',
+  ruleWalk: 'Um passo não é uma jogada; uma jogada é rolar. Por um combo que está saindo dá para andar e descer dele para outro dado.',
+  ruleLink: 'Um combo sai em duas jogadas. Role até ele um dado com a mesma face: isso é uma corrente. Cada dado assim dá aos que estão saindo mais uma jogada.',
+  ruleHold: 'Cada dado de uma corrente dá ao combo que está saindo mais uma jogada.',
+  ruleFloor: 'O dado sob você saiu: você está no chão. Do chão um dado é empurrado: desliza sem girar, e isso é uma jogada. Para cima: por um dado que está saindo ou por um que não dá para empurrar.',
+  ruleClimb: 'Do chão para cima: em um dado que está saindo, ou em um que não dá para empurrar.',
+  ruleSeven: 'Faces opostas somam sete: 1 e 6, 2 e 5, 3 e 4. Duas roladas para o mesmo lado, e a face de baixo fica em cima.',
+  ruleTwos: 'Funcionam os 2 e os 3. Um 2 pede dois dados; um 3, três.',
+  ruleGlass: 'Dá para rolar por cima de um dado que está saindo. Se a face coincidir, o dado entra na corrente.',
+  ruleFives: 'Só os 5 funcionam. Um combo são cinco 5 lado a lado.',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLimited: 'SESSÃO DO DIA {time}',
   shellLevels: 'LIMPEZA DO CAMPO',

@@ -56,28 +56,72 @@ const RU = {
   // A level ends at a dead end; with moves that are limited, when they are spent.
   levelStuck: 'Тупик: костей осталось {left}, а на комбо нужно {need}',
   levelShort: 'Ходы кончились. Не хватило: {short}',
-  // The rules of the levels, said in the window a level opens with: a thought to a line. A combo
-  // is as many dice side by side as their face has pips; a chain is a combo with dice rolled up to
-  // it while it leaves.
+  // What is said in the window a level opens with, a message at a time; a blank line parts two
+  // messages. A combo is as many dice side by side as their face has pips; a chain is a combo
+  // with dice rolled up to it while it leaves.
   //
-  // Who says them changes, and is never named. The first are the instruction of the laboratory:
-  // terms, counts, what is counted as what. Then the one who speaks begins to watch the player
-  // ("the die under you", "you do not see it, but it is there"). Then the words are those of
-  // whoever receives the dice: they "are accepted", a leaving die is "already half here", and the
-  // last combo "leaves to us". A word or two a window and no more: the rule stays plain in each.
+  // The one who speaks is the assistant of the laboratory: a person, never named, who greets the
+  // player and teaches the table as it was taught there, with Rhine's dice for a start. The whole
+  // of the first chapter is his. From the second chapter on a word or two in a message are not
+  // his: they stand between square brackets, which are not shown, and are heard as the other
+  // side is heard. What is under the surface is "there" for him and "here" for them; the last
+  // window says of a combo what the first one said, and to whom it leaves.
   // Every line is in the log of approvals, with what it gives away.
-  lessonThrees: 'Собирай только тройки: три тройки рядом — это комбо, и оно уходит.\nДругие комбинации не работают: их грани перечёркнуты.',
-  // The level this was said on has given its place to `lessonWalk`: it stays until the boards of the old ladder are gone.
-  lessonStep: 'По костям ходи свободно: шаг ходом не считается.\nХод — это перекат кости.',
-  lessonWalk: 'По костям ходи свободно: шаг ходом не считается. Ход — это перекат кости.\nКомбо уходит не сразу: по нему можно пройти и сойти с него на другую кость.',
-  lessonLink: 'Комбо уходит два хода.\nЗа это время к нему можно докатить ещё тройку: она уйдёт вместе с ним. Это называется цепочкой.',
-  lessonHold: 'Каждая кость в цепочке даёт уходящему комбо ещё один ход.\nДокатил на первом ходу — у комбо снова два хода. На втором — один.',
-  lessonFloor: 'Кость под тобой ушла — ты на полу. Сойти на пол с уходящей кости можно и самому.\nС пола кость толкают: она едет, не поворачиваясь. Толчок — это ход.',
-  lessonClimb: 'С пола наверх: шагни на уходящую кость.\nС клетки рядом с уходящим комбо поднимешься и на стоящую кость по соседству.\nНа кость, которую некуда толкнуть, тоже: за ней край доски или другая кость.',
-  lessonSeven: 'Напротив всегда семь: под четвёркой лежит тройка.\nТы её не видишь, но она там.\nДва переката в одну сторону — и нижняя грань наверху.',
-  lessonTwos: 'Теперь принимаются двойки и тройки.\nКомбо двоек — две кости, комбо троек — три.',
-  lessonGlass: 'Уходящая кость уже наполовину здесь: по ней можно прокатиться.\nСовпала грань — твоя кость встала в цепочку.',
-  lessonFives: 'Собирай только пятёрки: пять пятёрок рядом — это комбо, и оно уходит к нам.\nДругие комбинации не работают.',
+  lessonThrees:
+    'Привет! Добро пожаловать в Visual Interconnection. Я здешний лаборант, и сегодня я учу тебя работать со столом.\n\n' +
+    'В тридцатые годы доктор Райн просил людей бросать кости и изо всех сил хотеть нужную грань. Мы кости не бросаем. Мы их ведём.\n\n' +
+    'Ты стоишь на кости. Веди её по стрелке: она перекатится, и наверх ляжет другая грань.\n\n' +
+    'Сегодня открыт третий канал: работаем с тройками. Поставь три тройки рядом — это комбо, и оно уйдёт. Другие комбинации не работают: их грани перечёркнуты.',
+  // The level this was said on gives its place to `lessonWalk` on the ladder of lessons: it stays while the boards of the old ladder do.
+  lessonStep:
+    'Получилось! У Райна кости только падали. Тебя они уже слушаются.\n\n' +
+    'Теперь про шаги. По костям можно ходить, с одной на соседнюю. Шаг ходом не считается: ходи сколько хочешь.\n\n' +
+    'Ход — это перекат. Катится только та кость, на которой стоишь, и только на свободное место. Дойди до нужной кости и собери тройки.',
+  lessonWalk:
+    'Теперь про шаги. По костям можно ходить, с одной на соседнюю. Шаг ходом не считается: ходи сколько хочешь.\n\n' +
+    'Ход — это перекат. Катится только та кость, на которой стоишь, и только на свободное место.\n\n' +
+    'Комбо уходит не сразу, и по уходящим костям тоже можно ходить. Пройди по ним к остальным и собери второе комбо.',
+  lessonLink:
+    'Комбо уходит не сразу. У него есть два хода: за первый кости тонут наполовину, за второй — совсем.\n\n' +
+    'Костей здесь четыре, а тройке нужны три. Лишняя останется одна, и это тупик. Значит, её надо успеть докатить к уходящим.\n\n' +
+    'По уходящим костям можно ходить, как по обычным. Дойди по ним до четвёртой и подкати её к комбо тройкой вверх. Это называется цепочкой.\n\n' +
+    'И подарок от стола: каждая кость, вставшая в цепочку, даёт уходящим ещё один ход.',
+  lessonHold:
+    'У уходящего комбо два хода. Но каждая кость, вставшая в цепочку, даёт ему ещё один ход.\n\n' +
+    'Докатил на первом ходу — у комбо снова два хода. На втором — один. Докатывай по кости за ход, и оно будет ждать.',
+  lessonFloor:
+    'Если кость под тобой уйдёт, ты окажешься на полу. Это не страшно: [мы подождём]. Сойти на пол с уходящей кости можно и самому.\n\n' +
+    'С пола кости толкают. Толкнул — кость проехала на клетку, не поворачиваясь. Толчок — это ход.\n\n' +
+    'Обратно наверх — по уходящей кости, пока она не ушла. Или по той, которую некуда толкнуть: за ней край стола или другая кость.',
+  lessonClimb:
+    'С пола можно вернуться наверх. Шагни на уходящую кость, пока она не ушла.\n\n' +
+    'Или на кость, которую некуда толкнуть: за ней край стола или другая кость. А с клетки рядом с уходящим комбо поднимешься на любую соседнюю.',
+  lessonSeven:
+    'Секрет, который знает каждый игрок в кости: напротив всегда семь. Напротив единицы шестёрка, напротив двойки пятёрка, напротив тройки четвёрка.\n\n' +
+    'Видишь сверху четвёрку — значит, тройка внизу. Ты её не видишь, но она там.\n\n' +
+    'Два переката в одну сторону — и нижняя грань наверху.',
+  lessonTwos:
+    'Вводный курс окончен. Поздравляю: стол тебя слушается.\n\n' +
+    'Дальше открыт ещё один канал. Теперь [принимаются] двойки и тройки: двойке нужны две кости, тройке — три.\n\n' +
+    'Считай кости заранее: на какие комбо их хватит?',
+  lessonGlass:
+    'Уходящая кость [уже наполовину здесь]. Поэтому по ней можно прокатиться: твоя кость встанет на её место.\n\n' +
+    'Совпала грань — твоя кость войдёт в цепочку. Не совпала — просто займёт место.',
+  lessonFives:
+    'Открыт пятый канал. Работаем только с пятёрками.\n\n' +
+    'Поставь пять пятёрок рядом — это комбо, и оно уйдёт [к нам].',
+  // The rules as they are read again from the pause of a level: the rule alone, in a line, with no one speaking.
+  ruleThrees: 'Комбо — три тройки рядом: оно уходит. Работают только тройки, остальные грани перечёркнуты.',
+  ruleStep: 'Шаг по костям — не ход. Ход — перекат кости, на которой стоишь, на свободное место.',
+  ruleWalk: 'Шаг по костям — не ход, ход — перекат. По уходящему комбо можно ходить и сходить с него на другую кость.',
+  ruleLink: 'Комбо уходит два хода. Докати к нему кость с той же гранью — это цепочка. Каждая такая кость даёт уходящим ещё один ход.',
+  ruleHold: 'Каждая кость в цепочке даёт уходящему комбо ещё один ход.',
+  ruleFloor: 'Кость под тобой ушла — ты на полу. С пола кость толкают: она едет, не поворачиваясь, и это ход. Наверх — по уходящей кости или по той, которую некуда толкнуть.',
+  ruleClimb: 'С пола наверх: на уходящую кость или на кость, которую некуда толкнуть.',
+  ruleSeven: 'Напротив всегда семь: 1 и 6, 2 и 5, 3 и 4. Два переката в одну сторону — и нижняя грань наверху.',
+  ruleTwos: 'Работают двойки и тройки. Двойке нужны две кости, тройке — три.',
+  ruleGlass: 'По уходящей кости можно прокатиться. Совпала грань — кость вошла в цепочку.',
+  ruleFives: 'Работают только пятёрки. Комбо — пять пятёрок рядом.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLimited: 'СЕАНС ДНЯ {time}',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
@@ -140,17 +184,59 @@ const EN: typeof RU = {
   puzzleRule5: 'Clear every die. The fewer moves, the more stars',
   levelStuck: 'Dead end: {left} left on the board, and a combo takes {need}',
   levelShort: 'Out of moves. Short by: {short}',
-  lessonThrees: 'Make only 3s: three 3s side by side are a combo, and it leaves.\nOther combinations do not work: their faces are crossed out.',
-  lessonStep: 'Walk over the dice freely: a step is not counted as a move.\nA move is a roll of a die.',
-  lessonWalk: 'Walk over the dice freely: a step is not counted as a move. A move is a roll of a die.\nA combo does not leave at once: you can walk over it and step off it onto another die.',
-  lessonLink: 'A combo leaves in two moves.\nIn that time one more 3 can be rolled up to it: it leaves with the combo. This is called a chain.',
-  lessonHold: 'Every die in a chain gives the leaving combo one more move.\nRolled up on the first move: the combo has two moves again. On the second: one.',
-  lessonFloor: 'The die under you is gone: you are on the floor. You can step down from a leaving die yourself, too.\nFrom the floor a die is pushed: it slides and does not turn. A push is a move.',
-  lessonClimb: 'From the floor, up: step onto a leaving die.\nFrom a cell next to a leaving combo you can also step up onto a standing die beside it.\nAnd onto a die that cannot be pushed: the edge of the board or another die is behind it.',
-  lessonSeven: 'Opposite faces make seven: under a 4 lies a 3.\nYou do not see it, but it is there.\nTwo rolls the same way, and the bottom face is on top.',
-  lessonTwos: 'Now 2s and 3s are accepted.\nA combo of 2s is two dice, a combo of 3s is three.',
-  lessonGlass: 'A leaving die is already half here: you can roll over it.\nIf the face matches, your die joins the chain.',
-  lessonFives: 'Make only 5s: five 5s side by side are a combo, and it leaves to us.\nOther combinations do not work.',
+  lessonThrees:
+    'Hello! Welcome to Visual Interconnection. I am the lab assistant here, and today I am teaching you to work the table.\n\n' +
+    'In the thirties Dr. Rhine asked people to throw dice and to wish with all their might for the face they wanted. We do not throw the dice. We lead them.\n\n' +
+    'You are standing on a die. Lead it along the arrow: it rolls, and another face comes up on top.\n\n' +
+    'Today the third channel is open: we work with 3s. Put three 3s side by side: that is a combo, and it will leave. Other combinations do not work: their faces are crossed out.',
+  lessonStep:
+    'You did it! Rhine’s dice only fell. Yours already listen to you.\n\n' +
+    'Now, steps. You can walk over the dice, from one to the next. A step is not counted as a move: walk as much as you like.\n\n' +
+    'A move is a roll. Only the die you stand on rolls, and only into an empty place. Walk to the die you need and gather the 3s.',
+  lessonWalk:
+    'Now, steps. You can walk over the dice, from one to the next. A step is not counted as a move: walk as much as you like.\n\n' +
+    'A move is a roll. Only the die you stand on rolls, and only into an empty place.\n\n' +
+    'A combo does not leave at once, and you can walk over leaving dice too. Walk over them to the others and gather the second combo.',
+  lessonLink:
+    'A combo does not leave at once. It has two moves: on the first the dice sink halfway, on the second all the way.\n\n' +
+    'There are four dice here, and a 3 takes three. The odd one will be left alone, and that is a dead end. So it has to be rolled up to the leaving ones in time.\n\n' +
+    'You can walk over leaving dice as over any others. Walk over them to the fourth and roll it up to the combo with a 3 on top. This is called a chain.\n\n' +
+    'And a gift from the table: every die that joins the chain gives the leaving ones one more move.',
+  lessonHold:
+    'A leaving combo has two moves. But every die that joins the chain gives it one more move.\n\n' +
+    'Rolled up on the first move: the combo has two moves again. On the second: one. Roll a die up every move, and it will wait.',
+  lessonFloor:
+    'If the die under you leaves, you will find yourself on the floor. Nothing to fear: [we will wait]. You can step down from a leaving die yourself, too.\n\n' +
+    'From the floor, dice are pushed. A pushed die slides one cell and does not turn. A push is a move.\n\n' +
+    'Back up: over a leaving die, while it is still there. Or over one that cannot be pushed: the edge of the table or another die is behind it.',
+  lessonClimb:
+    'From the floor you can come back up. Step onto a leaving die while it is still there.\n\n' +
+    'Or onto a die that cannot be pushed: the edge of the table or another die is behind it. And from a cell next to a leaving combo you can step up onto any die beside it.',
+  lessonSeven:
+    'A secret every dice player knows: opposite faces make seven. Opposite the 1 is the 6, opposite the 2 the 5, opposite the 3 the 4.\n\n' +
+    'You see a 4 on top, so the 3 is underneath. You do not see it, but it is there.\n\n' +
+    'Two rolls the same way, and the bottom face is on top.',
+  lessonTwos:
+    'The introductory course is over. Congratulations: the table listens to you.\n\n' +
+    'From here one more channel is open. Now 2s and 3s [are accepted]: a 2 takes two dice, a 3 takes three.\n\n' +
+    'Count the dice beforehand: what combos are there enough of them for?',
+  lessonGlass:
+    'A leaving die is [already half here]. That is why you can roll over it: your die takes its place.\n\n' +
+    'If the face matches, your die joins the chain. If not, it simply takes the place.',
+  lessonFives:
+    'The fifth channel is open. We work with 5s only.\n\n' +
+    'Put five 5s side by side: that is a combo, and it will leave [to us].',
+  ruleThrees: 'A combo is three 3s side by side: it leaves. Only 3s work, the other faces are crossed out.',
+  ruleStep: 'A step over the dice is not a move. A move is a roll of the die you stand on into an empty place.',
+  ruleWalk: 'A step over the dice is not a move, a move is a roll. You can walk over a leaving combo and step off it onto another die.',
+  ruleLink: 'A combo leaves in two moves. Roll a die of the same face up to it: that is a chain. Every such die gives the leaving ones one more move.',
+  ruleHold: 'Every die in a chain gives the leaving combo one more move.',
+  ruleFloor: 'The die under you is gone: you are on the floor. From the floor a die is pushed: it slides, does not turn, and that is a move. Back up: over a leaving die, or one that cannot be pushed.',
+  ruleClimb: 'From the floor, up: onto a leaving die, or onto a die that cannot be pushed.',
+  ruleSeven: 'Opposite faces make seven: 1 and 6, 2 and 5, 3 and 4. Two rolls the same way, and the bottom face is on top.',
+  ruleTwos: '2s and 3s work. A 2 takes two dice, a 3 takes three.',
+  ruleGlass: 'You can roll over a leaving die. If the face matches, the die joins the chain.',
+  ruleFives: 'Only 5s work. A combo is five 5s side by side.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',
   shellLevels: 'CLEAR THE BOARD',

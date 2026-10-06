@@ -146,41 +146,96 @@ describe('the list of levels', () => {
 });
 
 describe('the window a level opens with', () => {
-  const lines = ['Make only 3s.', 'The other faces do not work.'];
-  /** After how many signs of the window each line starts. */
-  const starts = (spec: PanelSpec): number[] => spec.rows.flatMap((candidate) => (candidate.kind === 'say' ? [candidate.after ?? -1] : []));
+  const pages = ['Make only 3s.\nThree of them side by side leave.', 'The other faces do not work.'];
+  const said = (spec: PanelSpec) => spec.rows.filter((candidate) => candidate.kind === 'say');
+  const press = (spec: PanelSpec, id: string): void => {
+    const command = spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === id);
+    if (command?.kind === 'command') command.action();
+  };
 
-  it('says the rule a line to a row, under the number of the level, and starts on START', () => {
-    const run: string[] = [];
-    const spec = levelIntroPanel({ number: 3, lines }, { onStart: () => run.push('start'), onBack: () => run.push('back') });
+  it('says one message at a time, in large letters, under the number of the level', () => {
+    const spec = levelIntroPanel({ number: 3, pages, page: 0 }, { onPage: nothing, onStart: nothing, onBack: nothing });
     expect(spec.title).toEqual({ native: PANELS.levels.native, name: 'LEVEL 03' });
-    expect(spec.rows.filter((candidate) => candidate.kind === 'say').map((candidate) => (candidate.kind === 'say' ? candidate.text : ''))).toEqual(lines);
-    expect(commands(spec)).toEqual(['start', 'back']);
-    expect(spec.home).toBe('start');
-    for (const candidate of spec.rows) if (candidate.kind === 'command') candidate.action();
-    spec.back?.();
-    expect(run).toEqual(['start', 'back', 'back']);
+    // The window keeps the room of its longest message, so that it does not jump from one to the next.
+    expect(said(spec)).toEqual([{ kind: 'say', text: pages[0], after: 0, large: true, room: pages }]);
+    expect(said(levelIntroPanel({ number: 3, pages, page: 1 }, { onPage: nothing, onStart: nothing, onBack: nothing }))[0]).toMatchObject({ text: pages[1] });
   });
 
-  it('types its words out: sign by sign, a line after the line above it', () => {
-    const spec = levelIntroPanel({ number: 1, lines }, { onStart: nothing, onBack: nothing });
-    // The second line waits for the first to end.
-    expect(starts(spec)).toEqual([0, lines[0].length]);
+  it('leads on to the next message, and starts the level after the last one', () => {
+    const run: string[] = [];
+    const actions = { onPage: (page: number) => run.push(`page ${page}`), onStart: () => run.push('start'), onBack: () => run.push('back') };
+    const first = levelIntroPanel({ number: 1, pages, page: 0, still: true }, actions);
+    expect(commands(first)).toEqual(['next', 'back']);
+    expect(first.home).toBe('next');
+    expect(first.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'next')).toMatchObject({ label: COMMANDS.next });
+    first.typed?.(0);
+    press(first, 'next');
+    const last = levelIntroPanel({ number: 1, pages, page: 1, still: true }, actions);
+    expect(commands(last)).toEqual(['start', 'back']);
+    expect(last.home).toBe('start');
+    last.typed?.(0);
+    press(last, 'start');
+    last.back?.();
+    expect(run).toEqual(['page 1', 'start', 'back']);
+  });
+
+  it('types its words out sign by sign, each message from its own start', () => {
+    const spec = levelIntroPanel({ number: 1, pages, page: 0 }, { onPage: nothing, onStart: nothing, onBack: nothing });
     // The first frame starts the count, and signs come at one pace from it.
     expect(spec.typed?.(5000)).toBe(0);
-    expect(spec.typed?.(5000 + 24 * 5)).toBe(5);
-    expect(spec.typed?.(5000 + 24 * (lines[0].length + 4))).toBe(lines[0].length + 4);
+    expect(spec.typed?.(5000 + 30 * 5)).toBe(5);
     // Once all is said the count stands.
-    const all = lines[0].length + lines[1].length;
-    expect(spec.typed?.(5000 + 60000)).toBe(all);
-    expect(spec.typed?.(5000 + 61000)).toBe(all);
+    expect(spec.typed?.(5000 + 60000)).toBe(pages[0].length);
+    expect(spec.typed?.(5000 + 61000)).toBe(pages[0].length);
     // The panel is not drawn again for the words: they are written by themselves.
     expect(spec.live).toBeUndefined();
   });
 
+  it('brings all the words on a press made while they are coming, and goes on with the next press', () => {
+    const run: string[] = [];
+    const spec = levelIntroPanel({ number: 1, pages, page: 0 }, { onPage: (page) => run.push(`page ${page}`), onStart: nothing, onBack: nothing });
+    expect(spec.typed?.(1000)).toBe(0);
+    press(spec, 'next');
+    expect(run).toEqual([]);
+    expect(spec.typed?.(1010)).toBe(pages[0].length);
+    press(spec, 'next');
+    expect(run).toEqual(['page 1']);
+  });
+
+  it('tells of every sign that comes by itself, by its place in the message, and of none that a press brings', () => {
+    const heard: number[] = [];
+    const spec = levelIntroPanel({ number: 1, pages, page: 0 }, { onPage: nothing, onStart: nothing, onBack: nothing, onSign: (index) => heard.push(index) });
+    spec.typed?.(1000);
+    spec.typed?.(1000 + 30);
+    spec.typed?.(1000 + 30 * 2);
+    // Nothing new has come: nothing is told.
+    spec.typed?.(1000 + 30 * 2 + 5);
+    expect(heard).toEqual([0, 1]);
+    // Several signs in one frame are one sound: the last of them.
+    spec.typed?.(1000 + 30 * 5);
+    expect(heard).toEqual([0, 1, 4]);
+    press(spec, 'next');
+    spec.typed?.(1000 + 30 * 6);
+    expect(heard).toEqual([0, 1, 4]);
+  });
+
+  it('is silent for a player who has asked for less motion: the words are all there at once', () => {
+    const heard: number[] = [];
+    const spec = levelIntroPanel({ number: 1, pages, page: 0, still: true }, { onPage: nothing, onStart: nothing, onBack: nothing, onSign: (index) => heard.push(index) });
+    spec.typed?.(0);
+    spec.typed?.(5000);
+    expect(heard).toEqual([]);
+  });
+
   it('has all its words at once for a player who has asked for less motion', () => {
-    const spec = levelIntroPanel({ number: 1, lines, still: true }, { onStart: nothing, onBack: nothing });
-    expect(spec.typed?.(0)).toBe(lines[0].length + lines[1].length);
+    const spec = levelIntroPanel({ number: 1, pages, page: 0, still: true }, { onPage: nothing, onStart: nothing, onBack: nothing });
+    expect(spec.typed?.(0)).toBe(pages[0].length);
+  });
+
+  it('keeps to its messages: a page past the last is the last, one before the first is the first', () => {
+    const at = (page: number) => said(levelIntroPanel({ number: 1, pages, page }, { onPage: nothing, onStart: nothing, onBack: nothing }))[0];
+    expect(at(7)).toMatchObject({ text: pages[1] });
+    expect(at(-1)).toMatchObject({ text: pages[0] });
   });
 });
 
@@ -220,7 +275,7 @@ describe('the result of a level', () => {
   it('shows no stars on a level that is not passed', () => {
     const spec = levelResultPanel({ passed: false, left: 0, moves: 30, stars: 0, goal: CLEAR, hasNext: true, reason: 'Out of moves. Short by: 2' }, actions);
     expect(spec.rows.some((candidate) => candidate.kind === 'stars')).toBe(false);
-    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Out of moves. Short by: 2' });
+    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Out of moves. Short by: 2', large: true });
   });
 
   it('asks nothing of the player: a level that is passed shows its numbers and its commands', () => {
@@ -234,7 +289,7 @@ describe('the result of a level', () => {
     const stuck = { passed: false, left: null, moves: 6, goal: CLEAR, hasNext: true, reason: 'Dead end: one die is left' };
     const spec = levelResultPanel({ ...stuck, undos: 2 }, { ...actions, onUndo: () => run.push('undo') });
     expect(spec.title).toBe(PANELS.failed);
-    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Dead end: one die is left' });
+    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Dead end: one die is left', large: true });
     expect(row(spec, 'field')).toMatchObject({ label: { native: 'LEFT' }, value: '05' });
     expect(commands(spec)).toEqual(['undo', 'again', 'levels']);
     expect(spec.home).toBe('undo');
@@ -258,7 +313,7 @@ describe('the result of a level', () => {
   it('says why a level failed and how far every line of its goal had come, and does not lead on', () => {
     const spec = levelResultPanel({ passed: false, left: 0, moves: 20, goal: ORDER, hasNext: true, reason: 'Out of moves. Short by: 7' }, actions);
     expect(spec.title).toBe(PANELS.failed);
-    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Out of moves. Short by: 7' });
+    expect(spec.rows[0]).toEqual({ kind: 'say', text: 'Out of moves. Short by: 7', large: true });
     expect(row(spec, 'field', 0)).toMatchObject({ label: { native: 'FACE 2' }, value: '03/04' });
     expect(row(spec, 'field', 1)).toMatchObject({ label: { native: 'FACE 3' }, value: '00/06' });
     expect(commands(spec)).toEqual(['again', 'levels']);
@@ -288,29 +343,31 @@ describe('the rules of the levels, read again', () => {
   const said = (spec: PanelSpec): string[] => spec.rows.flatMap((candidate) => (candidate.kind === 'say' ? [candidate.text] : []));
   const pick = (spec: PanelSpec, id: string) => spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === id);
 
-  it('are shown a few to a window, numbered through', () => {
+  /** Windows the seven rules take. */
+  const WINDOWS = Math.ceil(RULES.length / LEVEL_RULES_PAGE);
+
+  it('are shown a few to a window, numbered through, in large letters', () => {
     const first = levelRulesPanel(RULES, 0, { onPage: nothing, onBack: nothing });
     expect(said(first)).toEqual(RULES.slice(0, LEVEL_RULES_PAGE).map((text, i) => `${i + 1}. ${text}`));
-    const last = levelRulesPanel(RULES, 2, { onPage: nothing, onBack: nothing });
-    expect(said(last)).toEqual(['7. seven']);
+    const start = (WINDOWS - 1) * LEVEL_RULES_PAGE;
+    const last = levelRulesPanel(RULES, WINDOWS - 1, { onPage: nothing, onBack: nothing });
+    expect(said(last)).toEqual(RULES.slice(start).map((text, i) => `${start + i + 1}. ${text}`));
+    for (const candidate of first.rows) if (candidate.kind === 'say') expect(candidate.large).toBe(true);
     expect(LEVEL_RULES_PAGE).toBeLessThanOrEqual(3);
   });
 
   it('say in their title which window of how many this is', () => {
-    expect(levelRulesPanel(RULES, 1, { onPage: nothing, onBack: nothing }).title).toEqual({ native: PANELS.rules.native, name: 'RULES 2/3' });
+    expect(levelRulesPanel(RULES, 1, { onPage: nothing, onBack: nothing }).title).toEqual({ native: PANELS.rules.native, name: `RULES 2/${WINDOWS}` });
   });
 
   it('lead on to the rules that follow and, past the last, back to the first', () => {
     const turned: number[] = [];
-    const turn = (page: number): void => {
+    for (let page = 0; page < WINDOWS; page++) {
       const next = pick(levelRulesPanel(RULES, page, { onPage: (to) => turned.push(to), onBack: nothing }), 'next');
       expect(next).toMatchObject({ label: COMMANDS.next });
       if (next?.kind === 'command') next.action();
-    };
-    turn(0);
-    turn(1);
-    turn(2);
-    expect(turned).toEqual([1, 2, 0]);
+    }
+    expect(turned).toEqual([...Array.from({ length: WINDOWS - 1 }, (_, i) => i + 1), 0]);
   });
 
   it('are one window with no way on when they are few', () => {

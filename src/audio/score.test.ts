@@ -72,6 +72,7 @@ const EVERY: Cue[] = [
   { kind: 'rankSet', along: 0.7, record: false, moved: true },
   { kind: 'rankSet', along: 0, record: false, moved: false },
   { kind: 'sign', code: 1103 },
+  { kind: 'typed', code: 1103 },
   { kind: 'window', figure: 1, seconds: 5, glimpse: false },
   { kind: 'window', figure: 4, seconds: 3, glimpse: true },
   { kind: 'windowShut' },
@@ -483,6 +484,22 @@ describe('the other side', () => {
     expect(new Set(TUNE.steps.map((step) => step % 12)).has(((Math.round(semis) % 12) + 12) % 12)).toBe(true);
   });
 
+  it('prints the words of the instruction with the click of the program: dry, short, in tune, the same sign the same click', () => {
+    const at = (sign: string, seed = 1): Note => notesFor({ kind: 'typed', code: sign.codePointAt(0)! }, setup(0, seed))[0];
+    const note = at('a');
+    expect(note.voice).toBe('click');
+    expect(note.echo).toBe(0);
+    expect(note.decay).toBeLessThanOrEqual(0.02);
+    // Quieter than a line of the check at the start: there is a click to a sign, not to a line.
+    expect(note.gain).toBeLessThan(notesFor({ kind: 'bootCheck' }, setup())[0].gain);
+    // On a note of the mode, not a comma under it: it is the program that prints, not the other side that sings.
+    const semis = 12 * Math.log2(note.hz / ROOT);
+    expect(Math.abs(semis - Math.round(semis))).toBeLessThan(0.001);
+    expect(at('m', 1).hz).toBe(at('m', 2).hz);
+    expect(new Set(['a', 'b', 'c', 'd', 'e', 'f'].map((sign) => at(sign).hz)).size).toBeGreaterThan(1);
+    expect(notesFor({ kind: 'typed', code: 'a'.codePointAt(0)! }, setup()).length).toBe(1);
+  });
+
   it('says nothing for a space or a mark between words', () => {
     for (const sign of [' ', '.', ',', '-', '!', '?']) expect(silentSign(sign)).toBe(true);
     for (const sign of ['a', 'Z', '7', String.fromCodePoint(0x44f), String.fromCodePoint(0x63a5)]) expect(silentSign(sign)).toBe(false);
@@ -604,7 +621,7 @@ describe('the program', () => {
   });
 
   it('is heard while a session waits; the session is not', () => {
-    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'logo', 'rank', 'rankPast', 'rankSet', 'sign', 'window', 'windowShut'] as const) expect(INTERFACE).toContain(kind);
+    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'logo', 'rank', 'rankPast', 'rankSet', 'sign', 'typed', 'window', 'windowShut'] as const) expect(INTERFACE).toContain(kind);
     for (const kind of ['roll', 'group', 'chain', 'danger', 'points', 'reply'] as const) expect(INTERFACE).not.toContain(kind);
   });
 });

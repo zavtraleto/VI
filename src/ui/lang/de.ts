@@ -42,21 +42,59 @@ export const DE: Texts = {
   puzzleRule5: 'Räume alle Würfel ab. Je weniger Züge, desto mehr Sterne',
   levelStuck: 'Sackgasse: Auf dem Feld stehen noch {left}, ein Combo braucht {need}',
   levelShort: 'Keine Züge mehr. Es fehlten: {short}',
-  lessonThrees: 'Sammle nur 3er: Drei 3er nebeneinander sind ein Combo, und es geht.\nAndere Kombinationen wirken nicht: Ihre Seiten sind durchgestrichen.',
-  lessonStep: 'Geh frei über die Würfel: Ein Schritt zählt nicht als Zug.\nEin Zug ist das Rollen eines Würfels.',
+  lessonThrees:
+    'Hallo! Willkommen bei Visual Interconnection. Ich bin der Laborassistent hier, und heute bringe ich dir bei, mit dem Tisch zu arbeiten.\n\n' +
+    'In den Dreißigern bat Doktor Rhine Menschen, Würfel zu werfen und sich mit aller Kraft die gewünschte Seite zu wünschen. Wir werfen die Würfel nicht. Wir führen sie.\n\n' +
+    'Du stehst auf einem Würfel. Führe ihn dem Pfeil nach: Er rollt, und eine andere Seite kommt nach oben.\n\n' +
+    'Heute ist der dritte Kanal offen: Wir arbeiten mit 3ern. Lege drei 3er nebeneinander: Das ist ein Combo, und es wird gehen. Andere Kombinationen wirken nicht: Ihre Seiten sind durchgestrichen.',
+  lessonStep:
+    'Geschafft! Rhines Würfel sind nur gefallen. Deine hören schon auf dich.\n\n' +
+    'Jetzt zu den Schritten. Du kannst über die Würfel gehen, von einem zum nächsten. Ein Schritt zählt nicht als Zug: Geh, so viel du willst.\n\n' +
+    'Ein Zug ist ein Rollen. Es rollt nur der Würfel, auf dem du stehst, und nur auf einen freien Platz. Geh zum richtigen Würfel und sammle die 3er.',
   lessonWalk:
-    'Geh frei über die Würfel: Ein Schritt zählt nicht als Zug. Ein Zug ist das Rollen eines Würfels.\nEin Combo geht nicht sofort: Du kannst darübergehen und von ihm auf einen anderen Würfel steigen.',
-  lessonLink: 'Ein Combo geht in zwei Zügen.\nIn dieser Zeit kann noch eine 3 herangerollt werden: Sie geht mit dem Combo. Das heißt Kette.',
-  lessonHold: 'Jeder Würfel einer Kette gibt dem gehenden Combo einen Zug mehr.\nIm ersten Zug herangerollt: Das Combo hat wieder zwei Züge. Im zweiten: einen.',
+    'Jetzt zu den Schritten. Du kannst über die Würfel gehen, von einem zum nächsten. Ein Schritt zählt nicht als Zug: Geh, so viel du willst.\n\n' +
+    'Ein Zug ist ein Rollen. Es rollt nur der Würfel, auf dem du stehst, und nur auf einen freien Platz.\n\n' +
+    'Ein Combo geht nicht sofort, und auch über gehende Würfel kannst du gehen. Geh über sie zu den anderen und sammle das zweite Combo.',
+  lessonLink:
+    'Ein Combo geht nicht sofort. Es hat zwei Züge: Im ersten sinken die Würfel zur Hälfte, im zweiten ganz.\n\n' +
+    'Hier stehen vier Würfel, und eine 3 braucht drei. Der übrige bliebe allein, und das ist eine Sackgasse. Also muss er rechtzeitig zu den gehenden gerollt werden.\n\n' +
+    'Über gehende Würfel geht man wie über alle anderen. Geh über sie zum vierten und rolle ihn mit der 3 nach oben an das Combo. Das heißt Kette.\n\n' +
+    'Und ein Geschenk des Tisches: Jeder Würfel, der in die Kette kommt, gibt den gehenden einen Zug mehr.',
+  lessonHold:
+    'Ein gehendes Combo hat zwei Züge. Aber jeder Würfel, der in die Kette kommt, gibt ihm einen Zug mehr.\n\n' +
+    'Im ersten Zug herangerollt: Das Combo hat wieder zwei Züge. Im zweiten: einen. Rolle in jedem Zug einen Würfel heran, und es wartet.',
   lessonFloor:
-    'Der Würfel unter dir ist weg: Du bist am Boden. Von einem gehenden Würfel kannst du auch selbst absteigen.\nVom Boden wird ein Würfel geschoben: Er gleitet und dreht sich nicht. Ein Schieben ist ein Zug.',
+    'Wenn der Würfel unter dir geht, stehst du auf dem Boden. Das macht nichts: [Wir warten]. Von einem gehenden Würfel kannst du auch selbst absteigen.\n\n' +
+    'Vom Boden aus werden Würfel geschoben. Ein geschobener Würfel gleitet ein Feld weit und dreht sich nicht. Schieben ist ein Zug.\n\n' +
+    'Wieder nach oben: über einen gehenden Würfel, solange er noch da ist. Oder über einen, der sich nicht schieben lässt: Hinter ihm ist der Rand des Tisches oder ein anderer Würfel.',
   lessonClimb:
-    'Vom Boden nach oben: Steig auf einen gehenden Würfel.\nVom Feld neben einem gehenden Combo kommst du auch auf einen stehenden Würfel daneben.\nUnd auf einen Würfel, der sich nicht schieben lässt: Hinter ihm ist der Rand oder ein anderer Würfel.',
+    'Vom Boden kommst du wieder nach oben. Steig auf einen gehenden Würfel, solange er noch da ist.\n\n' +
+    'Oder auf einen Würfel, der sich nicht schieben lässt: Hinter ihm ist der Rand des Tisches oder ein anderer Würfel. Und vom Feld neben einem gehenden Combo steigst du auf jeden Würfel daneben.',
   lessonSeven:
-    'Gegenüber ergibt immer sieben: Unter einer 4 liegt eine 3.\nDu siehst sie nicht, aber sie ist da.\nZweimal in dieselbe Richtung rollen, und die untere Seite ist oben.',
-  lessonTwos: 'Jetzt werden 2er und 3er angenommen.\nEin Combo aus 2ern sind zwei Würfel, ein Combo aus 3ern drei.',
-  lessonGlass: 'Ein gehender Würfel ist schon halb hier: Du kannst über ihn rollen.\nPasst die Seite, reiht sich dein Würfel in die Kette ein.',
-  lessonFives: 'Sammle nur 5er: Fünf 5er nebeneinander sind ein Combo, und es geht zu uns.\nAndere Kombinationen wirken nicht.',
+    'Ein Geheimnis, das jeder Würfelspieler kennt: Gegenüber ergibt immer sieben. Gegenüber der 1 liegt die 6, gegenüber der 2 die 5, gegenüber der 3 die 4.\n\n' +
+    'Siehst du oben eine 4, liegt die 3 unten. Du siehst sie nicht, aber sie ist da.\n\n' +
+    'Zweimal in dieselbe Richtung rollen, und die untere Seite ist oben.',
+  lessonTwos:
+    'Der Einführungskurs ist vorbei. Glückwunsch: Der Tisch hört auf dich.\n\n' +
+    'Ab hier ist ein weiterer Kanal offen. Jetzt [werden] 2er und 3er [angenommen]: Eine 2 braucht zwei Würfel, eine 3 drei.\n\n' +
+    'Zähle die Würfel vorher: Für welche Combos reichen sie?',
+  lessonGlass:
+    'Ein gehender Würfel ist [schon halb hier]. Deshalb kannst du über ihn rollen: Dein Würfel nimmt seinen Platz ein.\n\n' +
+    'Passt die Seite, reiht sich dein Würfel in die Kette ein. Wenn nicht, nimmt er einfach den Platz ein.',
+  lessonFives:
+    'Der fünfte Kanal ist offen. Wir arbeiten nur mit 5ern.\n\n' +
+    'Lege fünf 5er nebeneinander: Das ist ein Combo, und es wird gehen, [zu uns].',
+  ruleThrees: 'Ein Combo sind drei 3er nebeneinander: Es geht. Nur 3er wirken, die anderen Seiten sind durchgestrichen.',
+  ruleStep: 'Ein Schritt über die Würfel ist kein Zug. Ein Zug ist, den Würfel, auf dem du stehst, auf einen freien Platz zu rollen.',
+  ruleWalk: 'Ein Schritt ist kein Zug, ein Zug ist ein Rollen. Über ein gehendes Combo kannst du gehen und von ihm auf einen anderen Würfel steigen.',
+  ruleLink: 'Ein Combo geht in zwei Zügen. Rolle einen Würfel mit derselben Seite heran: Das ist eine Kette. Jeder solche Würfel gibt den gehenden einen Zug mehr.',
+  ruleHold: 'Jeder Würfel einer Kette gibt dem gehenden Combo einen Zug mehr.',
+  ruleFloor: 'Der Würfel unter dir ist weg: Du bist am Boden. Vom Boden wird ein Würfel geschoben: Er gleitet, dreht sich nicht, und das ist ein Zug. Nach oben: über einen gehenden Würfel oder einen, der sich nicht schieben lässt.',
+  ruleClimb: 'Vom Boden nach oben: auf einen gehenden Würfel oder auf einen, der sich nicht schieben lässt.',
+  ruleSeven: 'Gegenüber ergibt immer sieben: 1 und 6, 2 und 5, 3 und 4. Zweimal in dieselbe Richtung rollen, und die untere Seite ist oben.',
+  ruleTwos: '2er und 3er wirken. Eine 2 braucht zwei Würfel, eine 3 drei.',
+  ruleGlass: 'Über einen gehenden Würfel kannst du rollen. Passt die Seite, reiht sich der Würfel in die Kette ein.',
+  ruleFives: 'Nur 5er wirken. Ein Combo sind fünf 5er nebeneinander.',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLimited: 'SITZUNG DES TAGES {time}',
   shellLevels: 'FELDRÄUMUNG',

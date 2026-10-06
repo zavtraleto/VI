@@ -34,7 +34,8 @@ import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
-import { lessonsAt } from '../levels/rules';
+import { lessonsAt, ruleOf } from '../levels/rules';
+import { messagesOf } from '../levels/voices';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
   createRun,
@@ -157,6 +158,8 @@ const LEVELS_COUNTED = 5;
  * out can be walked over and stepped off, or the third while no level of the ladder says so.
  */
 const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lessonWalk') + 1 || 3;
+/** Of the signs the laboratory's assistant prints, one in so many is heard: a click to every sign is a rattle. */
+const TYPED_EVERY = 2;
 /**
  * The end of a level that is passed, before its result is shown: the dice go under the floor,
  * the board answers them when they are nearly gone, and the answer is let run out. A second
@@ -1009,16 +1012,21 @@ export class Game {
   }
 
   /**
-   * The window a level with a rule opens with: the rule in the language of the player, a thought
-   * to a line, typed out. The level waits under it and begins when the window is left.
+   * The window a level with a rule opens with: what the assistant of the laboratory says of it,
+   * in the language of the player, a message at a time, printed out. The printing is heard: the
+   * program clicks what it prints, and the words that are not the laboratory's are sung as the
+   * other side sings. The level waits under the window and begins when the last message is left.
    */
-  private showLevelIntro(lesson: string): void {
+  private showLevelIntro(lesson: string, page = 0): void {
     this.paused = true;
     this.audio.setPaused(true);
+    const messages = messagesOf(t(lesson as TextKey));
+    const said = messages[Math.min(Math.max(0, page), messages.length - 1)];
     this.shell.showPanel(
       levelIntroPanel(
-        { number: this.levelIndex + 1, lines: t(lesson as TextKey).split('\n'), still: prefersReducedMotion(this.settings) },
+        { number: this.levelIndex + 1, pages: messages.map((message) => message.text), page, still: prefersReducedMotion(this.settings) },
         {
+          onPage: (next) => this.showLevelIntro(lesson, next),
           onStart: () => {
             this.paused = false;
             this.shell.hide();
@@ -1026,6 +1034,12 @@ export class Game {
             this.lastFrame = 0;
           },
           onBack: () => this.showLevels(),
+          onSign: (index) => {
+            const sign = said?.text[index];
+            if (sign === undefined) return;
+            if (said.other[index]) this.audio.sign(sign);
+            else if (index % TYPED_EVERY === 0) this.audio.typed(sign);
+          },
         },
       ),
       false,
@@ -1033,12 +1047,15 @@ export class Game {
   }
 
   /**
-   * The rules of the level that waits, to read again from its pause: what the windows of the
-   * levels up to it have said, in the same words, a rule to a line and a few to a window. Back
+   * The rules of the level that waits, to read again from its pause: the rule every window of
+   * the levels up to it has left behind, each in a line of its own, a few to a window. Back
    * leads to the pause.
    */
   private showLevelRules(page = 0): void {
-    const lines = lessonsAt(LEVELS, this.levelIndex).map((lesson) => t(lesson as TextKey).replace(/\n/g, ' '));
+    const lines = lessonsAt(LEVELS, this.levelIndex).flatMap((lesson) => {
+      const rule = ruleOf(lesson);
+      return rule ? [t(rule)] : [];
+    });
     this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showLevelRules(next), onBack: () => this.showPause() }), false);
   }
 

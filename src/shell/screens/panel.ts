@@ -64,9 +64,11 @@ export type PanelRow =
   /**
    * Prose in the language of the player, in the voice. With `when`, its room is kept and it is
    * said once that holds. With `after`, its words are typed out, once so many signs of the
-   * panel have come: see `typed` of the panel.
+   * panel have come: see `typed` of the panel. With `large`, its letters are as tall as a line
+   * of the program's own font and grow with the window: what a player has to read to play.
+   * With `room`, the line is as tall as the tallest of those texts takes, whichever it says.
    */
-  | { kind: 'say'; text: string; dim?: boolean; when?: () => boolean; after?: number }
+  | { kind: 'say'; text: string; dim?: boolean; when?: () => boolean; after?: number; large?: boolean; room?: readonly string[] }
   | { kind: 'gap' };
 
 /**
@@ -102,6 +104,16 @@ const PAD = 8;
 const GAP = 4;
 /** Letters of the voice inside a panel, in CSS pixels. */
 const SAY_SIZE = 16;
+/**
+ * Large letters of the voice, in pixels of the picture, on a tall picture and on a wide one.
+ * They are measured in the picture and not in the window, so that they are the same part of a
+ * panel on a phone and on a desk, where a panel is three times the size. On a phone 360 wide
+ * they come to 20 CSS pixels and some thirty signs to a line; on a screen 1080 tall to 36 and
+ * some forty: lines short enough to be read at a glance, and letters a little under the
+ * program's own on a desk, where they are read from further off.
+ */
+const SAY_LARGE_TALL = 15;
+const SAY_LARGE_WIDE = 12;
 /** Cells of tasks across a tall picture and across a wide one. */
 const LEVELS_TALL = 6;
 const LEVELS_WIDE = 10;
@@ -119,6 +131,12 @@ const ceilTo = (value: number, step: number): number => Math.ceil(value / step) 
 
 /** A name as a line reads it: the program's own word, then the word in the language of the player. */
 const named = (label: PanelName): string => `${label.native} ${word(label.name)}`;
+
+/** Height of the letters of a line of prose, in CSS pixels, where a pixel of the picture is `zoom` of them and the picture is `wide` or tall. */
+function saySize(row: Extract<PanelRow, { kind: 'say' }>, zoom: number, wide: boolean): number {
+  if (!row.large) return SAY_SIZE;
+  return Math.max(SAY_SIZE, Math.round((wide ? SAY_LARGE_WIDE : SAY_LARGE_TALL) * zoom));
+}
 
 /**
  * A panel of the program over whatever is on screen: a framed record with a filled bar for
@@ -322,7 +340,7 @@ export class PanelScreen implements ShellScreen {
         case 'say':
           if (row.when?.() ?? true) {
             const reveal = row.after === undefined ? undefined : Math.max(0, this.typed - row.after);
-            this.context.voice.say({ text: row.text, box: kit.toWindow(box), size: SAY_SIZE, align: 'left', dim: row.dim, reveal, after: row.after });
+            this.context.voice.say({ text: row.text, box: kit.toWindow(box), size: saySize(row, kit.zoom, kit.width > kit.height), align: 'left', dim: row.dim, reveal, after: row.after });
           }
           break;
         case 'gap':
@@ -437,8 +455,11 @@ export class PanelScreen implements ShellScreen {
           return Math.ceil(row.levels.length / this.levelColumns()) * (zone + GAP) + CELL_H + 4;
         case 'stars':
           return CELL_H + 4;
-        case 'say':
-          return Math.ceil(this.context.voice.height(row.text, inner * zoom, SAY_SIZE) / zoom) + 6;
+        case 'say': {
+          const size = saySize(row, zoom, picture.width > picture.height);
+          const tallest = Math.max(...[row.text, ...(row.room ?? [])].map((text) => this.context.voice.height(text, inner * zoom, size)));
+          return Math.ceil(tallest / zoom) + 6;
+        }
         case 'gap':
           return 6;
       }

@@ -382,46 +382,62 @@ export function levelsPanel(
   };
 }
 
-/** Signs of the window a level opens with come one in so many milliseconds: typed, at the pace of quick typing. */
-const INTRO_SIGN_MS = 24;
+/** Signs of the window a level opens with come one in so many milliseconds: printed, at a pace a click to a sign can be heard at. */
+const INTRO_SIGN_MS = 30;
 
 /**
- * The window a level that brings a rule opens with: the rule, in the language of the player, a
- * thought to a line, typed out sign by sign, one line after another; with `still`, all of it
- * is there at once. The level begins when the window is left: `START` does not wait for the
- * typing to end.
+ * The window a level that brings a rule opens with: what is said of the rule, in the language of
+ * the player and in large letters, a message at a time, as a game speaks. A message is typed out
+ * sign by sign; with `still`, all of it is there at once. A press while the words are coming
+ * brings the rest of them; the next press clears the window for the message that follows, and
+ * after the last one starts the level. The window keeps the room of its longest message.
+ * `onSign` is told of every sign that comes by itself, by its place in the message: it is what
+ * the printing is heard by. Signs brought at once by a press, or all there from the start, are
+ * not told of.
  */
 export function levelIntroPanel(
-  data: { number: number; lines: readonly string[]; still?: boolean },
-  actions: { onStart: () => void; onBack: () => void },
+  data: { number: number; pages: readonly string[]; page: number; still?: boolean },
+  actions: { onPage: (page: number) => void; onStart: () => void; onBack: () => void; onSign?: (index: number) => void },
 ): PanelSpec {
-  let total = 0;
-  const rows: PanelRow[] = data.lines.map((text) => {
-    const after = total;
-    total += text.length;
-    return { kind: 'say', text, after };
-  });
+  const last = Math.max(0, data.pages.length - 1);
+  const at = Math.min(Math.max(0, data.page), last);
+  const text = data.pages[at] ?? '';
+  const total = text.length;
   let began = -1;
-  rows.push(
-    { kind: 'gap' },
-    { kind: 'command', id: 'start', label: COMMANDS.start, action: actions.onStart },
-    { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack },
-  );
+  /** Signs that are there, as the window was last asked; and whether a press has called for the rest. */
+  let there = 0;
+  let hurried = false;
+  const onward = (then: () => void) => (): void => {
+    if (there < total) hurried = true;
+    else then();
+  };
+  const go = at < last ? { id: 'next', label: COMMANDS.next, action: onward(() => actions.onPage(at + 1)) } : { id: 'start', label: COMMANDS.start, action: onward(actions.onStart) };
   return {
     title: { native: PANELS.levels.native, name: `LEVEL ${digits(data.number, 2)}` },
-    home: 'start',
+    home: go.id,
     back: actions.onBack,
-    rows,
+    rows: [
+      { kind: 'say', text, after: 0, large: true, room: data.pages },
+      { kind: 'gap' },
+      { kind: 'command', ...go },
+      { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack },
+    ],
     // The count starts on the frame the window is first there.
     typed: (timeMs) => {
-      if (data.still) return total;
       if (began < 0) began = timeMs;
-      return Math.min(total, Math.floor((timeMs - began) / INTRO_SIGN_MS));
+      if (data.still || hurried) {
+        there = total;
+        return there;
+      }
+      const now = Math.min(total, Math.floor((timeMs - began) / INTRO_SIGN_MS));
+      if (now > there) actions.onSign?.(now - 1);
+      there = now;
+      return there;
     },
   };
 }
 
-/** Rules of the levels shown in one window: the window of a phone holds no more of them and its commands. */
+/** Rules of the levels shown in one window: each is a line or two of its own, and the window of a phone holds no more of them and its commands. */
 export const LEVEL_RULES_PAGE = 3;
 
 /**
@@ -440,7 +456,7 @@ export function levelRulesPanel(
   const pages = Math.max(1, Math.ceil(lines.length / LEVEL_RULES_PAGE));
   const at = Math.min(Math.max(0, page), pages - 1);
   const first = at * LEVEL_RULES_PAGE;
-  const rows: PanelRow[] = lines.slice(first, first + LEVEL_RULES_PAGE).map((text, i) => ({ kind: 'say', text: `${first + i + 1}. ${text}` }));
+  const rows: PanelRow[] = lines.slice(first, first + LEVEL_RULES_PAGE).map((text, i) => ({ kind: 'say', text: `${first + i + 1}. ${text}`, large: true }));
   rows.push({ kind: 'gap' });
   if (pages > 1) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: () => actions.onPage((at + 1) % pages) });
   rows.push({ kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
@@ -508,7 +524,7 @@ export function levelResultPanel(
   actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void },
 ): PanelSpec {
   const rows: PanelRow[] = [];
-  if (data.reason) rows.push({ kind: 'say', text: data.reason });
+  if (data.reason) rows.push({ kind: 'say', text: data.reason, large: true });
   if (!data.passed) rows.push(...data.goal.map((line): PanelRow => ({ kind: 'field', label: { native: goalLabel(line), name: '' }, value: goalProgress(line) })));
   else if (data.stars !== undefined) {
     rows.push({ kind: 'stars', count: data.stars }, { kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) });

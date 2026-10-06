@@ -42,21 +42,59 @@ export const ES: Texts = {
   puzzleRule5: 'Retira todos los dados. Cuantos menos movimientos, más estrellas',
   levelStuck: 'Sin salida: quedan {left} en el tablero, y un combo pide {need}',
   levelShort: 'Se acabaron los movimientos. Faltaron: {short}',
-  lessonThrees: 'Junta solo treses: tres 3 juntos son un combo, y se va.\nOtras combinaciones no funcionan: sus caras están tachadas.',
-  lessonStep: 'Camina por los dados libremente: un paso no cuenta como movimiento.\nUn movimiento es rodar un dado.',
+  lessonThrees:
+    '¡Hola! Te doy la bienvenida a Visual Interconnection. Soy el ayudante del laboratorio, y hoy te enseño a trabajar con la mesa.\n\n' +
+    'En los años treinta, el doctor Rhine pedía a la gente que tirara dados y deseara con todas sus fuerzas la cara que quería. Nosotros no tiramos los dados. Los guiamos.\n\n' +
+    'Estás de pie sobre un dado. Guíalo por la flecha: rodará, y otra cara quedará arriba.\n\n' +
+    'Hoy está abierto el tercer canal: trabajamos con treses. Pon tres 3 juntos: eso es un combo, y se irá. Otras combinaciones no funcionan: sus caras están tachadas.',
+  lessonStep:
+    '¡Lo lograste! Los dados de Rhine solo caían. Los tuyos ya te hacen caso.\n\n' +
+    'Ahora, los pasos. Puedes caminar por los dados, de uno al de al lado. Un paso no cuenta como movimiento: camina cuanto quieras.\n\n' +
+    'Un movimiento es rodar. Solo rueda el dado sobre el que estás, y solo hacia un lugar libre. Llega al dado que necesitas y junta los treses.',
   lessonWalk:
-    'Camina por los dados libremente: un paso no cuenta como movimiento. Un movimiento es rodar un dado.\nUn combo no se va enseguida: puedes cruzarlo y bajar de él a otro dado.',
-  lessonLink: 'Un combo se va en dos movimientos.\nEn ese tiempo puedes acercarle un 3 más: se irá con el combo. Esto se llama cadena.',
+    'Ahora, los pasos. Puedes caminar por los dados, de uno al de al lado. Un paso no cuenta como movimiento: camina cuanto quieras.\n\n' +
+    'Un movimiento es rodar. Solo rueda el dado sobre el que estás, y solo hacia un lugar libre.\n\n' +
+    'Un combo no se va enseguida, y también puedes caminar por los dados que se van. Pasa por ellos hasta los demás y junta el segundo combo.',
+  lessonLink:
+    'Un combo no se va enseguida. Tiene dos movimientos: en el primero los dados se hunden a medias; en el segundo, del todo.\n\n' +
+    'Aquí hay cuatro dados, y un 3 pide tres. El que sobra se quedará solo, y eso es un callejón sin salida. Así que hay que acercarlo a tiempo a los que se van.\n\n' +
+    'Por los dados que se van se camina como por los demás. Llega por ellos al cuarto y acércalo al combo con el 3 arriba. Esto se llama cadena.\n\n' +
+    'Y un regalo de la mesa: cada dado que entra en la cadena les da a los que se van un movimiento más.',
   lessonHold:
-    'Cada dado de una cadena da al combo que se va un movimiento más.\nSi llega en el primer movimiento, el combo vuelve a tener dos. En el segundo, uno.',
+    'Un combo que se va tiene dos movimientos. Pero cada dado que entra en la cadena le da un movimiento más.\n\n' +
+    'Lo acercaste en el primer movimiento: el combo vuelve a tener dos. En el segundo: uno. Acerca un dado en cada movimiento, y esperará.',
   lessonFloor:
-    'El dado que pisabas se ha ido: estás en el suelo. También puedes bajar tú mismo de un dado que se va.\nDesde el suelo el dado se empuja: se desliza sin girar. Un empujón es un movimiento.',
+    'Si el dado bajo tus pies se va, quedarás en el suelo. No pasa nada: [te esperamos]. También puedes bajar tú mismo de un dado que se va.\n\n' +
+    'Desde el suelo, los dados se empujan. Un dado empujado se desliza una casilla y no gira. Empujar es un movimiento.\n\n' +
+    'Para volver arriba: por un dado que se va, mientras siga ahí. O por uno que no se puede empujar: detrás tiene el borde de la mesa u otro dado.',
   lessonClimb:
-    'Del suelo hacia arriba: súbete a un dado que se va.\nDesde una casilla junto a un combo que se va también subes a un dado firme a su lado.\nY a un dado que no se puede empujar: detrás tiene el borde del tablero u otro dado.',
-  lessonSeven: 'Las caras opuestas suman siete: bajo un 4 hay un 3.\nNo lo ves, pero está ahí.\nDos giros hacia el mismo lado, y la cara de abajo queda arriba.',
-  lessonTwos: 'Ahora se aceptan doses y treses.\nUn combo de 2 son dos dados; un combo de 3, tres.',
-  lessonGlass: 'Un dado que se va ya está medio aquí: puedes rodar por encima.\nSi la cara coincide, tu dado entra en la cadena.',
-  lessonFives: 'Junta solo cincos: cinco 5 juntos son un combo, y se va con nosotros.\nOtras combinaciones no funcionan.',
+    'Del suelo se puede volver arriba. Súbete a un dado que se va, mientras siga ahí.\n\n' +
+    'O a un dado que no se puede empujar: detrás tiene el borde de la mesa u otro dado. Y desde una casilla junto a un combo que se va subes a cualquier dado de al lado.',
+  lessonSeven:
+    'Un secreto que conoce todo jugador de dados: las caras opuestas suman siete. Frente al 1 está el 6, frente al 2 el 5, frente al 3 el 4.\n\n' +
+    'Ves un 4 arriba: entonces el 3 está abajo. No lo ves, pero está ahí.\n\n' +
+    'Dos giros hacia el mismo lado, y la cara de abajo queda arriba.',
+  lessonTwos:
+    'El curso de introducción terminó. Felicitaciones: la mesa te hace caso.\n\n' +
+    'Desde aquí hay un canal más abierto. Ahora [se aceptan] doses y treses: un 2 pide dos dados, un 3 pide tres.\n\n' +
+    'Cuenta los dados de antemano: ¿para qué combos alcanzan?',
+  lessonGlass:
+    'Un dado que se va [ya está medio aquí]. Por eso puedes rodar por encima: tu dado ocupará su lugar.\n\n' +
+    'Si la cara coincide, tu dado entra en la cadena. Si no, simplemente ocupa el lugar.',
+  lessonFives:
+    'Está abierto el quinto canal. Trabajamos solo con cincos.\n\n' +
+    'Pon cinco 5 juntos: eso es un combo, y se irá [con nosotros].',
+  ruleThrees: 'Un combo son tres 3 juntos: se va. Solo funcionan los treses; las demás caras están tachadas.',
+  ruleStep: 'Un paso por los dados no es un movimiento. Un movimiento es rodar el dado sobre el que estás hacia un lugar libre.',
+  ruleWalk: 'Un paso no es un movimiento; un movimiento es rodar. Por un combo que se va puedes caminar y bajar de él a otro dado.',
+  ruleLink: 'Un combo se va en dos movimientos. Acércale un dado con la misma cara: eso es una cadena. Cada dado así les da a los que se van un movimiento más.',
+  ruleHold: 'Cada dado de una cadena le da al combo que se va un movimiento más.',
+  ruleFloor: 'El dado bajo tus pies se fue: estás en el suelo. Desde el suelo un dado se empuja: se desliza sin girar, y eso es un movimiento. Arriba: por un dado que se va o por uno que no se puede empujar.',
+  ruleClimb: 'Del suelo hacia arriba: a un dado que se va, o a uno que no se puede empujar.',
+  ruleSeven: 'Las caras opuestas suman siete: 1 y 6, 2 y 5, 3 y 4. Dos giros hacia el mismo lado, y la cara de abajo queda arriba.',
+  ruleTwos: 'Funcionan doses y treses. Un 2 pide dos dados; un 3, tres.',
+  ruleGlass: 'Puedes rodar por encima de un dado que se va. Si la cara coincide, el dado entra en la cadena.',
+  ruleFives: 'Solo funcionan los cincos. Un combo son cinco 5 juntos.',
   shellProtocol: 'SESIÓN SIN LÍMITE',
   shellLimited: 'SESIÓN DEL DÍA {time}',
   shellLevels: 'LIMPIEZA DEL CAMPO',
