@@ -2,18 +2,20 @@ import { Game } from './app/game';
 import { quality } from './display/quality';
 import { initPlatform, platformLanguage } from './platform/bridge';
 import { RUN_KEY } from './app/savedRun';
-import { SETTINGS_KEY } from './platform/settings';
+import { SETTINGS_KEY, loadSettings } from './platform/settings';
 import { openStorage } from './platform/storage';
 import { setLanguage } from './ui/i18n';
 import '@fontsource/forum/latin-400.css';
+import '@fontsource/forum/latin-ext-400.css';
 import '@fontsource/forum/cyrillic-400.css';
 import './ui/styles.css';
 
 // The platform comes first: what it keeps for the player and the language it names are read
-// before anything of the game is built.
+// before anything of the game is built. The language the player has picked comes before the
+// platform's, and the platform's before the browser's.
 await initPlatform();
 await openStorage([SETTINGS_KEY, RUN_KEY]);
-const language = platformLanguage();
+const language = loadSettings().language ?? platformLanguage();
 if (language) setLanguage(language);
 
 // Lines of measurements over the game, in any build: `?perf` in the address. They stand

@@ -71,14 +71,14 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
-import { t, type TextKey } from '../ui/i18n';
+import { LANGUAGES, language, setLanguage, t, type TextKey } from '../ui/i18n';
 import { dailyArchive, endlessArchive } from './archive';
 import { clockLeft, secondsLeft } from './clock';
 import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
@@ -1464,7 +1464,7 @@ export class Game {
   }
 
   /** What the player can set: sound, motion, shake, swipes or buttons, the camera. In development the tools of the playtest open from here. */
-  private showSystem(back: () => void): void {
+  private showSystem(back: () => void, home?: string): void {
     const { tools } = this;
     const values = (): SystemValues => ({
       muted: this.settings.muted,
@@ -1472,10 +1472,14 @@ export class Game {
       shake: this.settings.shake,
       control: this.settings.controlMode,
       view: this.settings.view,
+      language: language(),
     });
     this.shell.showPanel(
       systemPanel({
         values,
+        home,
+        // Back from the list of languages the panel stands on the line it was left at.
+        onLanguage: () => this.showLanguages(() => this.showSystem(back, 'language')),
         onToggle: (key) => {
           if (key === 'muted') {
             this.settings.muted = !this.settings.muted;
@@ -1520,6 +1524,28 @@ export class Game {
                 },
               ]
             : [],
+        onBack: back,
+      }),
+      this.inMenu,
+    );
+  }
+
+  /** The languages the voice speaks: picking one sets it and goes back to the settings. */
+  private showLanguages(back: () => void): void {
+    this.shell.showPanel(
+      languagePanel({
+        languages: LANGUAGES,
+        current: language(),
+        onPick: (code) => {
+          setLanguage(code);
+          this.settings.language = code;
+          saveSettings(this.settings);
+          track('settings_changed', { setting: 'language', value: code });
+          // What was put into lines in the language before is put into lines again.
+          this.hud.setLessonLines(TUTORIAL_LINES.map((line) => t(`tut_${line}` as TextKey)));
+          this.layoutGuide();
+          back();
+        },
         onBack: back,
       }),
       this.inMenu,

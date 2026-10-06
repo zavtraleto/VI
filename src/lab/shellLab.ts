@@ -174,12 +174,12 @@ export class ShellLab {
   /** A panel with sample data; what it is told to do does nothing. */
   private samplePanel(screen: Exclude<ShellScreenName, 'boot' | 'menu'>): PanelSpec {
     const nothing = (): void => undefined;
-    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const };
+    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const, language: 'en' as const };
     switch (screen) {
       case 'pause':
         return pausePanel({ task: false, onResume: nothing, onRestart: nothing, onRecords: nothing, onTasks: nothing, onSystem: nothing, onMenu: nothing });
       case 'system':
-        return systemPanel({ values: () => values, onToggle: nothing, onBack: nothing });
+        return systemPanel({ values: () => values, onToggle: nothing, onLanguage: nothing, onBack: nothing });
       case 'result':
         return resultPanel(
           { timeUp: false, score: 8020, best: 12840, maxChain: 5, ticks: 24100, tickMs: 20, note: t('newBest') },

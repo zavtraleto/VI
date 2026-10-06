@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { shortOf } from '../app/levelStats';
 import { levelStuck, smallestGroup } from '../rules/level';
 import { moveOf, replay } from '../rules/levelSolver';
-import { setLanguage, t, type TextKey } from '../ui/i18n';
+import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
 import { LEVELS } from './levels';
 import { LESSONS, lessonsAt } from './rules';
 
@@ -55,14 +55,14 @@ describe('the rules a level can be asked for again', () => {
 
 describe('the rules the windows of the levels say', () => {
   const inBoth = (check: (language: string) => void): void => {
-    for (const language of ['ru', 'en']) {
+    for (const language of LANGUAGES) {
       setLanguage(language);
       check(language);
     }
     setLanguage('en');
   };
 
-  it('are each a few thoughts, a thought to a line, in either language', () => {
+  it('are each a few thoughts, a thought to a line, in every language', () => {
     inBoth((language) => {
       for (const lesson of LESSONS) {
         const lines = t(lesson).split('\n');
@@ -80,7 +80,16 @@ describe('the rules the windows of the levels say', () => {
   });
 
   it('say how many moves a link gives where they say what a link gives', () => {
-    inBoth((language) => expect(t('lessonHold'), language).toMatch(language === 'ru' ? /ещё один ход/ : /one more move/));
+    const said: Record<string, RegExp> = {
+      ru: /ещё один ход/,
+      en: /one more move/,
+      es: /un movimiento más/,
+      pt: /mais uma jogada/,
+      tr: /bir hamle daha/,
+      de: /einen Zug mehr/,
+      fr: /un coup de plus/,
+    };
+    inBoth((language) => expect(t('lessonHold'), language).toMatch(said[language]));
   });
 
   it('begin as an instruction and end as the words of whoever receives the dice, a word or two at a time', () => {

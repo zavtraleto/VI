@@ -1,9 +1,10 @@
 import type { ControlMode, ViewSetting } from '../platform/settings';
 import type { GoalLine } from '../rules';
+import type { LanguageCode } from '../ui/i18n';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
-import { COMMANDS, GOAL, LADDER, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { COMMANDS, GOAL, LADDER, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -52,19 +53,24 @@ export interface SystemValues {
   shake: boolean;
   control: ControlMode;
   view: ViewSetting;
+  language: LanguageCode;
 }
 
 export function systemPanel(actions: {
   values: () => SystemValues;
-  onToggle: (key: keyof SystemValues) => void;
+  onToggle: (key: Exclude<keyof SystemValues, 'language'>) => void;
+  /** The languages are many: the line opens their list. */
+  onLanguage: () => void;
   /** Commands of the development tools; a production build passes none. */
   tools?: readonly PanelCommand[];
+  /** The line the panel opens on; the first one when left out. */
+  home?: string;
   onBack: () => void;
 }): PanelSpec {
   const { values } = actions;
   return {
     title: PANELS.system,
-    home: 'sound',
+    home: actions.home ?? 'sound',
     back: actions.onBack,
     rows: [
       { kind: 'switch', id: 'sound', label: SYSTEM.sound, value: () => (values().muted ? SYSTEM.off : SYSTEM.on), action: () => actions.onToggle('muted') },
@@ -84,8 +90,23 @@ export function systemPanel(actions: {
         action: () => actions.onToggle('control'),
       },
       { kind: 'switch', id: 'view', label: SYSTEM.view, value: () => (values().view === 'auto' ? SYSTEM.auto : SYSTEM.fixed), action: () => actions.onToggle('view') },
+      { kind: 'switch', id: 'language', label: SYSTEM.language, value: () => LANGUAGE_NAMES[values().language].name, action: actions.onLanguage },
       { kind: 'gap' },
       { kind: 'commands', commands: [...(actions.tools ?? []), { id: 'back', label: COMMANDS.back, action: actions.onBack }] },
+    ],
+  };
+}
+
+/** The languages the voice speaks, each under its own name; the panel opens on the one that is set. */
+export function languagePanel(actions: { languages: readonly LanguageCode[]; current: LanguageCode; onPick: (language: LanguageCode) => void; onBack: () => void }): PanelSpec {
+  return {
+    title: PANELS.language,
+    home: `language-${actions.current}`,
+    back: actions.onBack,
+    rows: [
+      ...actions.languages.map((code) => ({ kind: 'command' as const, id: `language-${code}`, label: LANGUAGE_NAMES[code], action: () => actions.onPick(code) })),
+      { kind: 'gap' },
+      { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack },
     ],
   };
 }

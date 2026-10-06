@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import i18n from '../ui/i18n.ts?raw';
+import { LANGUAGES, languageOf, setLanguage, t } from '../ui/i18n';
 import kanji from './fonts/kanji.txt?raw';
 import { textWidth } from './layout';
 import { MENU_FILES, eraDate, fileLine } from './text';
@@ -21,26 +21,62 @@ describe('the files of the menu', () => {
   });
 
   it('say how long the session of the day lasts as the rules have it, not in words of their own', () => {
-    const lines = [...i18n.matchAll(/shellLimited: '([^']*)'/g)].map((match) => match[1]);
-    expect(lines).toHaveLength(2);
-    for (const line of lines) {
-      expect(line).not.toMatch(/\d/);
-      expect(fileLine(line, 300)).toContain('05:00');
-      expect(fileLine(line, 180)).toContain('03:00');
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      const line = t('shellLimited');
+      expect(line, code).not.toMatch(/\d/);
+      expect(fileLine(line, 300), code).toContain('05:00');
+      expect(fileLine(line, 180), code).toContain('03:00');
     }
+    setLanguage('en');
     expect(fileLine('SESSION WITHOUT LIMIT', 300)).toBe('SESSION WITHOUT LIMIT');
   });
 
   it('have dry lines short enough for the record of a phone, in every language', () => {
-    for (const file of MENU_FILES) {
-      const lines = [...i18n.matchAll(new RegExp(`${file.line}: '([^']*)'`, 'g'))].map((match) => match[1]);
-      expect(lines).toHaveLength(2);
-      for (const line of lines) expect(textWidth(line)).toBeLessThanOrEqual(240);
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      for (const file of MENU_FILES) {
+        const line = t(file.line);
+        expect(line.length, `${file.line} ${code}`).toBeGreaterThan(0);
+        expect(textWidth(line), `${file.line} ${code}`).toBeLessThanOrEqual(240);
+        // The font of the program has no small letters worth reading at this size.
+        expect(line, `${file.line} ${code}`).toBe(line.toLocaleUpperCase(code).replace('{TIME}', '{time}'));
+      }
     }
+    setLanguage('en');
   });
 
   it('have names that fit beside their Japanese at twice the size', () => {
     for (const file of MENU_FILES) expect(textWidth(file.name, 2) + 8 + textWidth(file.native)).toBeLessThanOrEqual(240);
+  });
+});
+
+describe('the language of the player', () => {
+  it('is found from what a browser or a platform calls it, and is English where the game does not speak it', () => {
+    expect(languageOf('ru')).toBe('ru');
+    expect(languageOf('pt-BR')).toBe('pt');
+    expect(languageOf('es_419')).toBe('es');
+    expect(languageOf('TR')).toBe('tr');
+    expect(languageOf('ja')).toBe('en');
+    expect(languageOf('')).toBe('en');
+  });
+
+  it('has every line said, with the places a number goes to, in every language', () => {
+    setLanguage('ru');
+    const keys = ['levelStuck', 'levelShort', 'shareScore', 'shellLimited'] as const;
+    const places = keys.map((key) => (t(key).match(/\{\w+\}/g) ?? []).sort());
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      keys.forEach((key, i) => expect((t(key).match(/\{\w+\}/g) ?? []).sort(), `${key} ${code}`).toEqual(places[i]));
+    }
+    setLanguage('en');
+  });
+
+  it('keeps the space French puts before a colon from ending a line', () => {
+    setLanguage('fr');
+    expect(t('levelShort')).toContain('\u00a0:');
+    expect(t('levelShort')).not.toContain(' :');
+    setLanguage('en');
   });
 });
 

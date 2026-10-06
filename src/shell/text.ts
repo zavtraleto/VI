@@ -1,5 +1,5 @@
 import type { GoalLine } from '../rules';
-import type { TextKey } from '../ui/i18n';
+import type { LanguageCode, TextKey } from '../ui/i18n';
 
 /**
  * Everything the shell says, in one place. The program speaks Japanese and English: its labels
@@ -203,6 +203,8 @@ export const PANELS = {
   cleared: { native: '完了', name: 'CLEARED' },
   /** "Stages": the levels of the game. */
   levels: { native: '段階', name: 'LEVELS' },
+  /** "Language". */
+  language: { native: '言語', name: 'LANGUAGE' },
   /** "Failure": a level has come to a dead end, or its moves are spent with its goal not met. */
   failed: { native: '失敗', name: 'FAILED' },
   /** "New record": what a result is named once the session has taken its place above the best there was. */
@@ -288,6 +290,8 @@ export const SYSTEM = {
   control: { native: '操作', name: 'CONTROL' },
   /** "Camera": follows the player where the whole board would be small, or stays on the whole board. */
   view: { native: 'カメラ', name: 'CAMERA' },
+  /** "Language": the one the voice speaks to the player in. The program keeps its own. */
+  language: { native: '言語', name: 'LANGUAGE' },
   on: 'ON',
   off: 'OFF',
   full: 'FULL',
@@ -297,3 +301,17 @@ export const SYSTEM = {
   auto: 'AUTO',
   fixed: 'FIXED',
 } as const;
+
+/**
+ * The languages the player picks from: what the program calls each, and what it calls itself,
+ * so that it is found by one who does not read the language that is set.
+ */
+export const LANGUAGE_NAMES = {
+  en: { native: '英語', name: 'ENGLISH' },
+  ru: { native: 'ロシア語', name: 'РУССКИЙ' },
+  es: { native: 'スペイン語', name: 'ESPAÑOL' },
+  pt: { native: 'ポルトガル語', name: 'PORTUGUÊS' },
+  tr: { native: 'トルコ語', name: 'TÜRKÇE' },
+  de: { native: 'ドイツ語', name: 'DEUTSCH' },
+  fr: { native: 'フランス語', name: 'FRANÇAIS' },
+} as const satisfies Record<LanguageCode, PanelName>;

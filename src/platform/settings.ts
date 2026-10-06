@@ -83,6 +83,8 @@ export interface Settings {
   reducedMotion: boolean | null;
   shake: boolean;
   view: ViewSetting;
+  /** The language the player has picked, as `src/ui/i18n.ts` names it; null follows the platform, then the browser. */
+  language: string | null;
   /** Overrides of gameplay variables set in the debug panel. */
   tuning: Partial<Tuning>;
   /**
@@ -122,6 +124,7 @@ export function loadSettings(): Settings {
     reducedMotion: null,
     shake: true,
     view: 'auto',
+    language: null,
     tuning: {},
     camera: { ...DEFAULT_CAMERA },
     debugPanel: false,
@@ -139,6 +142,7 @@ export function loadSettings(): Settings {
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
   loaded.levels = { ...fallback.levels, ...loaded.levels };
+  loaded.language ??= null;
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
   }

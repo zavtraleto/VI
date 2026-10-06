@@ -1,4 +1,5 @@
 import '@fontsource/dotgothic16/latin-400.css';
+import '@fontsource/dotgothic16/latin-ext-400.css';
 import '@fontsource/dotgothic16/cyrillic-400.css';
 import './fonts/jp.css';
 import { PROGRAM_FONT } from './theme';

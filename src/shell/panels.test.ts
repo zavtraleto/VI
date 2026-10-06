@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Climb } from './climb';
 import { textWidth } from './layout';
-import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type RecordsTable } from './panels';
+import { LANGUAGES } from '../ui/i18n';
+import { clearedPanel, languagePanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type RecordsTable } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
 
 const nothing = (): void => undefined;
@@ -27,7 +28,8 @@ describe('the panels of the program', () => {
   it('open with the focus on something that can be pressed', () => {
     const specs = [
       pausePanel({ task: false, ...PAUSE }),
-      systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture', view: 'auto' }), onToggle: nothing, onBack: nothing }),
+      systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture', view: 'auto', language: 'en' }), onToggle: nothing, onLanguage: nothing, onBack: nothing }),
+      languagePanel({ languages: LANGUAGES, current: 'pt', onPick: nothing, onBack: nothing }),
       resultPanel({ timeUp: false, score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
       recordsPanel(() => ({ lines: [] }), 0, { onBack: nothing }),
       rulesPanel(['a', 'b'], { onBack: nothing }),
@@ -50,13 +52,14 @@ describe('the panels of the program', () => {
   });
 
   it('show a setting as it stands now', () => {
-    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as 'auto' | 'full' };
+    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as 'auto' | 'full', language: 'en' as const };
     const spec = systemPanel({
       values: () => values,
       onToggle: (key) => {
         if (key === 'muted') values.muted = !values.muted;
         if (key === 'view') values.view = values.view === 'auto' ? 'full' : 'auto';
       },
+      onLanguage: nothing,
       onBack: nothing,
     });
     const sound = row(spec, 'switch');
@@ -250,13 +253,34 @@ describe('the log of sessions', () => {
   });
 });
 
+describe('the languages of the voice', () => {
+  it('are each a line of the list, under a name of its own that fits the panel of a phone', () => {
+    let picked = '';
+    const spec = languagePanel({ languages: LANGUAGES, current: 'en', onPick: (code) => (picked = code), onBack: nothing });
+    expect(pressed(spec)).toEqual([...LANGUAGES.map((code) => `language-${code}`), 'back']);
+    for (const candidate of spec.rows) {
+      if (candidate.kind === 'command') expect(textWidth(`${candidate.label.native} ${candidate.label.name}`)).toBeLessThanOrEqual(200);
+    }
+    const turkish = spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'language-tr');
+    if (turkish?.kind === 'command') turkish.action();
+    expect(picked).toBe('tr');
+  });
+
+  it('are named in the settings by the one that is set', () => {
+    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const, language: 'ru' as const });
+    const spec = systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing });
+    const line = spec.rows.find((candidate) => candidate.kind === 'switch' && candidate.id === 'language');
+    expect(line?.kind === 'switch' && line.value()).toBe('РУССКИЙ');
+  });
+});
+
 describe('the tools of development', () => {
   const tool = { id: 'playtest', label: { native: 'DEV', name: 'PLAYTEST' }, action: nothing };
 
   it('are in a panel only when they are passed to it', () => {
-    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const });
-    expect(pressed(systemPanel({ values, onToggle: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'control', 'view', 'back']);
-    expect(pressed(systemPanel({ values, onToggle: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
+    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const, language: 'en' as const });
+    expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'control', 'view', 'language', 'back']);
+    expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
     const levels = [{ stars: 0, tier: 'first' }];
     expect(pressed(tasksPanel(levels, 0, { onPick: nothing, onRules: nothing, onBack: nothing }))).toEqual(['rules', 'back']);
     expect(pressed(tasksPanel(levels, 0, { onPick: nothing, onRules: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');

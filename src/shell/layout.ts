@@ -48,9 +48,9 @@ export function pictureSize(canvas: Size, pixelsTall: number, pixelsWide: number
   return { width: Math.max(1, Math.floor(canvas.width / step)), height: Math.max(1, Math.floor(canvas.height / step)) };
 }
 
-/** Half-width signs: Latin, digits, punctuation and half-width kana. Everything else takes two places. */
+/** Half-width signs: Latin with the letters its languages add to it, digits, punctuation and half-width kana. Everything else takes two places. */
 function isHalfWidth(code: number): boolean {
-  return code < 0x100 || (code >= 0xff61 && code <= 0xff9f);
+  return code < 0x250 || (code >= 0xff61 && code <= 0xff9f);
 }
 
 /** Width of a line of the program's font in pixels of the picture. */

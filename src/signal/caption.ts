@@ -24,7 +24,8 @@ export function wrapCaption(text: string, width: number, measure: (line: string)
   const lines: string[] = [];
   for (const part of text.split(BREAK)) {
     let line = '';
-    for (const word of part.split(/\s+/).filter(Boolean)) {
+    // A space that ties two signs together (U+00A0) is not a place to break at.
+    for (const word of part.split(/[^\S\u00a0]+/).filter(Boolean)) {
       const longer = line ? `${line} ${word}` : word;
       if (line && measure(longer) > width) {
         lines.push(line);

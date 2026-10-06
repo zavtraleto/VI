@@ -1,7 +1,15 @@
+import { DE } from './lang/de';
+import { ES } from './lang/es';
+import { FR } from './lang/fr';
+import { PT } from './lang/pt';
+import { TR } from './lang/tr';
+
 /**
  * What the game says in the language of the player. The program's own words are in
  * `src/shell/text.ts`; the words of the development tools are in `devText.ts`, which a
  * production build does not carry.
+ *
+ * Russian and English are here; the other languages are a file each in `lang/`.
  */
 const RU = {
   // The exercise. It is not the program that explains: these are the words of the other side,
@@ -142,15 +150,44 @@ const EN: typeof RU = {
   shareScore: 'VI — sent to the other side: {score}',
 };
 
-export type TextKey = keyof typeof RU;
+/** Every line the game says, in one language. */
+export type Texts = typeof RU;
+export type TextKey = keyof Texts;
 
-let lang = typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('ru') ? RU : EN;
+/** French puts a space before a colon, a semicolon, a question and an exclamation mark: no line breaks at it. */
+function tied(texts: Texts): Texts {
+  const out = { ...texts };
+  for (const key of Object.keys(out) as TextKey[]) out[key] = out[key].replace(/ ([:;?!])/g, ' $1');
+  return out;
+}
 
-/** The language the platform names for the player takes the place of the browser's. Set before anything is said. */
+/** The languages the game speaks, in the order a player picks from. */
+const TEXTS = { en: EN, ru: RU, es: ES, pt: PT, tr: TR, de: DE, fr: tied(FR) } as const satisfies Record<string, Texts>;
+
+export type LanguageCode = keyof typeof TEXTS;
+export const LANGUAGES = Object.keys(TEXTS) as readonly LanguageCode[];
+
+/** The language of the game for a language as a browser or a platform names it: `pt-BR`, `ru`, `es_419`. English where the game does not speak it. */
+export function languageOf(code: string): LanguageCode {
+  const short = code.toLowerCase().split(/[-_]/)[0];
+  return (LANGUAGES as readonly string[]).includes(short) ? (short as LanguageCode) : 'en';
+}
+
+let current: LanguageCode = languageOf(typeof navigator !== 'undefined' ? navigator.language : 'en');
+
+/**
+ * The language the player has picked, or the one the platform names for the player, takes the
+ * place of the browser's. What is said after this is said in it; what was put into lines before
+ * has to be put into lines again by whoever keeps it.
+ */
 export function setLanguage(code: string): void {
-  lang = code.toLowerCase().startsWith('ru') ? RU : EN;
+  current = languageOf(code);
+}
+
+export function language(): LanguageCode {
+  return current;
 }
 
 export function t(key: TextKey): string {
-  return lang[key];
+  return TEXTS[current][key];
 }
