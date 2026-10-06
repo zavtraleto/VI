@@ -658,7 +658,7 @@ export class BoardView {
     this.marks.group.visible = this.leave < MARKS_GONE_AT;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
-    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, params.ghosts);
+    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, this.worldLayer.height / Math.max(1, this.lines), params.ghosts);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
 
     // The surface: a group sent runs over the lines, then the lines pulse by themselves, then

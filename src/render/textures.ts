@@ -127,15 +127,35 @@ export function chainMarkTexture(value: number, face: number, values: ParamValue
   });
 }
 
-/** The frame of a cell a die can be brought to: thinner than a mark, and empty. */
-export function dockTexture(): THREE.CanvasTexture {
+/**
+ * The sign of a cell a die can be brought to: four corners, a socket. Not a frame: the frame
+ * is the shelf above it, and the two are told apart by their shape.
+ */
+export function socketTexture(): THREE.CanvasTexture {
   return square(128, (ctx, size) => {
     const inset = size * 0.09;
+    const arm = size * 0.2;
+    const far = size - inset;
     ctx.strokeStyle = '#fff';
     ctx.shadowColor = '#fff';
     ctx.shadowBlur = size * 0.05;
-    ctx.lineWidth = size * 0.045;
-    for (let i = 0; i < 2; i++) ctx.strokeRect(inset, inset, size - inset * 2, size - inset * 2);
+    ctx.lineWidth = size * 0.05;
+    ctx.lineCap = 'square';
+    // Twice, so a faint glow gathers around a solid line.
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath();
+      for (const [x, y, dx, dy] of [
+        [inset, inset, 1, 1],
+        [far, inset, -1, 1],
+        [inset, far, 1, -1],
+        [far, far, -1, -1],
+      ]) {
+        ctx.moveTo(x + dx * arm, y);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x, y + dy * arm);
+      }
+      ctx.stroke();
+    }
   });
 }
 

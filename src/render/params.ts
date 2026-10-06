@@ -110,20 +110,20 @@ export const BOARD_GROUPS = {
     figureGhost: number(0.4, 0, 1, 0.01),
   },
   signs: {
-    /** Frames on the cells next to an open chain. */
+    /**
+     * The zone of a combo. On the floor of every free cell beside an open chain, four corners:
+     * a socket, the place a die is brought to. How bright they are.
+     */
     dockBright: number(0.84, 0, 1, 0.01),
     /**
-     * How many times brighter the frame of a dock is when the player's next step can use it:
-     * one to come down to from the sinking cube they stand on, or the one under their feet
-     * with a standing cube beside it to go up onto. 1 marks no difference.
+     * A shelf at the height of the top of the chain's dice, over the free cells beside it: with
+     * the steps of the docks they are walked on from up there. It is shown over all of them
+     * when the zone comes, and then only where the player's next step can use it. How strong it
+     * is - 0 leaves the cells to the floor - and what share of the dots of the tube inside its
+     * line are lit: a thing to stand on that is hardly there.
      */
-    dockStep: number(1.6, 1, 3, 0.05),
-    /**
-     * The frame once more at the height of the top of the chain's dice, over the free cells
-     * beside it: with the steps of the docks they are walked on from up there as well as from
-     * the floor. How strong it is against the frame on the floor; 0 leaves the floor alone.
-     */
-    dockTop: number(0.7, 0, 1, 0.01),
+    dockTop: number(0.6, 0, 1, 0.01),
+    shelfDots: number(0.25, 0, 1, 0.01),
     /** The mark of a cell a die is about to come up on. */
     warnBright: number(0.59, 0, 1, 0.01),
   },
