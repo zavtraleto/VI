@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DELTA, DIRS, cubeAt } from './board';
-import { chainWindows, levelStuck, shortGroups, smallestGroup } from './level';
+import { chainWindows, levelStranded, levelStuck, shortGroups, smallestGroup } from './level';
+import { resolveMove } from './movement';
 import { previewMove } from './preview';
 import { act, levelRun, place, put, putOri } from './testkit';
 import type { LevelSpec, RunState } from './types';
@@ -137,5 +138,74 @@ describe('a group that goes in two moves', () => {
     expect(first.t).toBeLessThanOrEqual(sunk + 1);
     idleMove(s);
     expect(s.cubes).not.toContain(first);
+  });
+});
+
+/** Where only 2s work: four dice, two of them a roll away from a pair. */
+const TWOS: Partial<LevelSpec> = { goal: { kind: 'clear' }, arrival: 'none', faces: [2], sinkMoves: 2, liftMoves: 1, norm: 4 };
+
+describe('the floor of a level', () => {
+  /** The die at (2,0) rolled west makes a pair with the 2 at (0,0); a die stands at (1,1), another far off. */
+  function pairBoard(spec: Partial<LevelSpec> = {}): RunState {
+    const s = levelRun({ ...TWOS, ...spec });
+    put(s, 0, 0, 2);
+    putOri(s, 2, 0, { top: 6, east: 2 });
+    put(s, 1, 1, 5);
+    put(s, 4, 4, 5);
+    place(s, 2, 0, 'top');
+    act(s, 'W');
+    return s;
+  }
+
+  it('is stepped down to from a die that is leaving, where the level leaves it open', () => {
+    const s = pairBoard();
+    expect(cubeAt(s, 1, 0)?.state).toBe('sinking');
+    expect(resolveMove(s, 'E').kind).toBe('descend');
+  });
+
+  it('is not stepped down to where the level shuts it; a step onto a die is still a step', () => {
+    const s = pairBoard({ floor: false });
+    expect(resolveMove(s, 'E').kind).toBe('blocked');
+    expect(resolveMove(s, 'S').kind).toBe('hop');
+  });
+});
+
+describe('a level with its floor shut', () => {
+  /** The pair is made at (0,0) and (1,0); the two dice left stand where no step leads. */
+  function cutOff(spec: Partial<LevelSpec> = {}): RunState {
+    const s = levelRun({ ...TWOS, ...spec });
+    put(s, 0, 0, 2);
+    putOri(s, 2, 0, { top: 6, east: 2 });
+    put(s, 4, 4, 5);
+    put(s, 4, 3, 4);
+    place(s, 2, 0, 'top');
+    act(s, 'W');
+    return s;
+  }
+
+  it('is lost when the player stands on a leaving die with no die to step to: there is no move left', () => {
+    const s = cutOff({ floor: false });
+    expect(levelStranded(s)).toBe(true);
+    expect(levelStuck(s)).toBe(false);
+    expect(s.over).toBe(true);
+    expect(s.endReason).toBe('failed');
+  });
+
+  it('goes on where the floor is open: the player steps down and walks', () => {
+    const s = cutOff();
+    expect(levelStranded(s)).toBe(false);
+    expect(s.over).toBe(false);
+  });
+
+  it('goes on while a die stands within a step', () => {
+    const s = levelRun({ ...TWOS, floor: false });
+    put(s, 0, 0, 2);
+    putOri(s, 2, 0, { top: 6, east: 2 });
+    put(s, 1, 1, 5);
+    put(s, 4, 4, 5);
+    place(s, 2, 0, 'top');
+    act(s, 'W');
+    expect(levelStranded(s)).toBe(false);
+    expect(s.over).toBe(false);
   });
 });

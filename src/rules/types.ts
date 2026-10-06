@@ -423,6 +423,18 @@ export interface LevelSpec {
   lesson?: string;
   /** The first roll, shown on the board until it is made. */
   arrow?: Dir;
+  /** The chapter of the ladder the level is in, from 0. */
+  chapter?: number;
+  /** False where the player cannot step from the dice down to the floor. Left out, the floor is open. */
+  floor?: boolean;
+  /** The level is played with a net: a hint for a player who wanders, and a dead end that takes the board back. */
+  guard?: boolean;
+  /** What the line of the level waits for: it goes out when this has happened; with `end`, it stays until the level is passed. A move, when left out. */
+  until?: 'move' | 'combo' | 'chain' | 'push' | 'climb' | 'end';
+  /** The first move of `solution` is shown on the board, with the steps that lead to its die, until a move is made. */
+  guide?: boolean;
+  /** Key of the window said before the level, once. */
+  story?: string;
   /** Fewest moves the board is known to be cleared in, whether that is proved the fewest, and one way to do it. */
   par?: number;
   exact?: boolean;

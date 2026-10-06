@@ -41,6 +41,7 @@ export const TR: Texts = {
   puzzleRule4: 'Köşedeki mühür altındaki zarın yüzlerini gösterir: yuvarlamanın üste ne getireceğini söyler',
   puzzleRule5: 'Bütün zarları temizle. Ne kadar az hamle, o kadar çok yıldız',
   levelStuck: 'Çıkmaz: tahtada {left} zar kaldı, bir kombo için {need} gerekir',
+  levelStranded: 'Çıkmaz: bu zardan gidecek yer yok',
   levelShort: 'Hamleler bitti. Eksik kalan: {short}',
   lessonThrees:
     "Merhaba! Visual Interconnection'a hoş geldin. Ben buranın laborantıyım ve bugün sana masayla çalışmayı öğreteceğim.\n\n" +
@@ -84,6 +85,15 @@ export const TR: Texts = {
   lessonFives:
     "Beşinci kanal açık. Yalnızca 5'lerle çalışıyoruz.\n\n" +
     "Beş 5'i yan yana koy: bu bir kombodur ve gidecek, [bize].",
+  lineCombo: 'Yan yana üç 3 bir kombodur ve gider. Zarı ok yönünde yönlendir.',
+  lineStep: 'Zarların üstünde yürüyebilirsin: adım hamle değildir. Üstünde durduğun zar yuvarlanır.',
+  lineWalk: 'Kombo hemen gitmez: iki hamlesi var. Üstünden yürüyerek diğerlerine geç.',
+  lineSide: 'Yandaki yüz, sen boyunca yuvarlarken yanda kalır. Götür, sonra çevir.',
+  lineSeven: "Karşılıklı yüzlerin toplamı yedidir: 4'ün altında 3 var. Aynı yöne iki yuvarlama.",
+  lineLink: 'Artan zar çıkmazdır. Onu giden kombonun yanına yuvarla: bu bir zincirdir.',
+  lineFloor: 'Giden bir zardan zemine inebilirsin. Zeminden zarlar itilir.',
+  lineGlass: 'Giden bir zarın üstünden yuvarlanabilirsin: seninki onun yerini alır.',
+  lineFaces: "İki kanal açık: 2'ler ve 3'ler. Zarları önceden say.",
   ruleThrees: "Kombo, yan yana üç 3'tür: gider. Yalnızca 3'ler çalışır; diğer yüzlerin üstü çizili.",
   ruleStep: 'Zarların üstünde adım hamle değildir. Hamle, üstünde durduğun zarı boş bir yere yuvarlamaktır.',
   ruleWalk: 'Adım hamle değildir; hamle yuvarlamaktır. Giden bir kombonun üstünde yürüyebilir, ondan başka bir zara geçebilirsin.',

@@ -41,6 +41,7 @@ export const DE: Texts = {
   puzzleRule4: 'Das Siegel in der Ecke zeigt die Seiten des Würfels unter dir: Es sagt, was ein Rollen nach oben bringt',
   puzzleRule5: 'Räume alle Würfel ab. Je weniger Züge, desto mehr Sterne',
   levelStuck: 'Sackgasse: Auf dem Feld stehen noch {left}, ein Combo braucht {need}',
+  levelStranded: 'Sackgasse: Von diesem Würfel geht es nicht weiter',
   levelShort: 'Keine Züge mehr. Es fehlten: {short}',
   lessonThrees:
     'Hallo! Willkommen bei Visual Interconnection. Ich bin der Laborassistent hier, und heute bringe ich dir bei, mit dem Tisch zu arbeiten.\n\n' +
@@ -84,6 +85,15 @@ export const DE: Texts = {
   lessonFives:
     'Der fünfte Kanal ist offen. Wir arbeiten nur mit 5ern.\n\n' +
     'Lege fünf 5er nebeneinander: Das ist ein Combo, und es wird gehen, [zu uns].',
+  lineCombo: 'Drei 3er nebeneinander sind ein Combo, und es geht. Führe den Würfel dem Pfeil nach.',
+  lineStep: 'Du kannst über die Würfel gehen: Ein Schritt ist kein Zug. Es rollt der Würfel, auf dem du stehst.',
+  lineWalk: 'Ein Combo geht nicht sofort: Es hat zwei Züge. Geh darüber zu den anderen.',
+  lineSide: 'Eine Seite an der Flanke fährt dort mit, solange du geradeaus rollst. Bring sie hin, dann dreh.',
+  lineSeven: 'Gegenüber ergibt immer sieben: Unter der 4 liegt die 3. Zweimal in dieselbe Richtung rollen.',
+  lineLink: 'Ein übriger Würfel ist eine Sackgasse. Rolle ihn an das gehende Combo: Das ist eine Kette.',
+  lineFloor: 'Von einem gehenden Würfel kannst du auf den Boden steigen. Vom Boden werden Würfel geschoben.',
+  lineGlass: 'Über einen gehenden Würfel kannst du rollen: Deiner nimmt seinen Platz.',
+  lineFaces: 'Zwei Kanäle sind offen: 2er und 3er. Zähl die Würfel vorher.',
   ruleThrees: 'Ein Combo sind drei 3er nebeneinander: Es geht. Nur 3er wirken, die anderen Seiten sind durchgestrichen.',
   ruleStep: 'Ein Schritt über die Würfel ist kein Zug. Ein Zug ist, den Würfel, auf dem du stehst, auf einen freien Platz zu rollen.',
   ruleWalk: 'Ein Schritt ist kein Zug, ein Zug ist ein Rollen. Über ein gehendes Combo kannst du gehen und von ihm auf einen anderen Würfel steigen.',

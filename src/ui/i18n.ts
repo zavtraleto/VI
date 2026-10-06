@@ -55,6 +55,7 @@ const RU = {
   puzzleRule5: 'Убери все кости. Чем меньше ходов, тем больше звёзд',
   // A level ends at a dead end; with moves that are limited, when they are spent.
   levelStuck: 'Тупик: костей осталось {left}, а на комбо нужно {need}',
+  levelStranded: 'Тупик: с этой кости некуда идти',
   levelShort: 'Ходы кончились. Не хватило: {short}',
   // What is said in the window a level opens with, a message at a time; a blank line parts two
   // messages. A combo is as many dice side by side as their face has pips; a chain is a combo
@@ -111,6 +112,16 @@ const RU = {
     'Открыт пятый канал. Работаем только с пятёрками.\n\n' +
     'Поставь пять пятёрок рядом — это комбо, и оно уйдёт [к нам].',
   // The rules as they are read again from the pause of a level: the rule alone, in a line, with no one speaking.
+  // The line a level with a lesson says beside its board: one rule, a dozen words, said while the board is seen.
+  lineCombo: 'Три тройки рядом — комбо, и оно уйдёт. Веди кость по стрелке.',
+  lineStep: 'По костям можно ходить: шаг — не ход. Катится та, на которой стоишь.',
+  lineWalk: 'Комбо уходит два хода. Пока оно здесь, пройди по нему к остальным.',
+  lineSide: 'Грань сбоку едет на боку, пока катишь вдоль. Довези — и поверни.',
+  lineSeven: 'Напротив всегда семь: под четвёркой — тройка. Два переката в одну сторону.',
+  lineLink: 'Лишняя кость — тупик. Докати её к уходящему комбо: это цепочка.',
+  lineFloor: 'С уходящей кости можно сойти на пол. С пола кости толкают.',
+  lineGlass: 'По уходящей кости можно прокатиться: твоя встанет на её место.',
+  lineFaces: 'Открыты два канала: двойки и тройки. Считай кости заранее.',
   ruleThrees: 'Комбо — три тройки рядом: оно уходит. Работают только тройки, остальные грани перечёркнуты.',
   ruleStep: 'Шаг по костям — не ход. Ход — перекат кости, на которой стоишь, на свободное место.',
   ruleWalk: 'Шаг по костям — не ход, ход — перекат. По уходящему комбо можно ходить и сходить с него на другую кость.',
@@ -183,6 +194,7 @@ const EN: typeof RU = {
   puzzleRule4: 'The seal in the corner shows the faces of the die under you: it tells what a roll will bring on top',
   puzzleRule5: 'Clear every die. The fewer moves, the more stars',
   levelStuck: 'Dead end: {left} left on the board, and a combo takes {need}',
+  levelStranded: 'Dead end: there is nowhere to go from this die',
   levelShort: 'Out of moves. Short by: {short}',
   lessonThrees:
     'Hello! Welcome to Visual Interconnection. I am the lab assistant here, and today I am teaching you to work the table.\n\n' +
@@ -226,6 +238,15 @@ const EN: typeof RU = {
   lessonFives:
     'The fifth channel is open. We work with 5s only.\n\n' +
     'Put five 5s side by side: that is a combo, and it will leave [to us].',
+  lineCombo: 'Three 3s side by side are a combo, and it leaves. Lead the die along the arrow.',
+  lineStep: 'You can walk over the dice: a step is not a move. The die you stand on is the one that rolls.',
+  lineWalk: 'A combo does not leave at once: it has two moves. Walk over it to the rest.',
+  lineSide: 'A face on the side rides there while you roll along. Bring it over, then turn.',
+  lineSeven: 'Opposite faces make seven: under the 4 is the 3. Two rolls the same way.',
+  lineLink: 'A die left over is a dead end. Roll it up to the leaving combo: that is a chain.',
+  lineFloor: 'You can step down from a leaving die to the floor. From the floor, dice are pushed.',
+  lineGlass: 'You can roll over a leaving die: yours takes its place.',
+  lineFaces: 'Two channels are open: 2s and 3s. Count the dice first.',
   ruleThrees: 'A combo is three 3s side by side: it leaves. Only 3s work, the other faces are crossed out.',
   ruleStep: 'A step over the dice is not a move. A move is a roll of the die you stand on into an empty place.',
   ruleWalk: 'A step over the dice is not a move, a move is a roll. You can walk over a leaving combo and step off it onto another die.',

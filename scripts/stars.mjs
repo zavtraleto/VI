@@ -116,10 +116,9 @@ const movesOf = (level, player) => plays[level][player].moves;
 const all = LEVELS.map((_, level) => level);
 
 /** The chapters of the ladder, each with its levels, counted from 0, and the stars its gate asks for. */
-const chapters = chaptersOf(LEVELS).map(({ from, to }) => ({ faces: LEVELS[from].faces.join(''), levels: all.slice(from, to), gate: gateOf({ from, to }) }));
-const chapterOf = (level) => chapters.findIndex(({ levels }) => levels.includes(level));
+const chapters = chaptersOf(LEVELS).map((chapter) => ({ faces: LEVELS[chapter.from].faces.join(''), levels: all.slice(chapter.from, chapter.to), gate: gateOf(chapter) }));
 /** The limit of moves a level is played with. */
-const limitOf = (level) => moveLimit(LEVELS[level].par, chapterOf(level));
+const limitOf = (level) => moveLimit(LEVELS[level].par, LEVELS[level].chapter ?? 0);
 
 console.log(`Runs of each player on each level: ${RUNS}. A persona is called off at ${PERSONA_CAP} moves, the random player at ${RANDOM_CAP}.`);
 console.log(`The game: three stars within ${TOP} of the fewest moves, two within ${TWO}, one for a pass; the limits of moves are ${all.map(limitOf).join(' ')}; the gates ask for ${chapters.map(({ gate }) => gate).join(', ')} stars.`);

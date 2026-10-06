@@ -3,8 +3,14 @@
 // The recipes are in src/levels/recipes.ts, the judging in src/levels/select.ts, the solver in
 // src/rules/levelSolver.ts, the players in src/rules/levelBot.ts, the levels in src/levels/levels.ts.
 //
-//   node scripts/ladder.mjs                  the table of the twenty levels and of the boards in reserve
+//   node scripts/ladder.mjs                  the table of the levels and of the boards in reserve
+//   node scripts/ladder.mjs levels           the table of the levels alone
 //   node scripts/ladder.mjs slot=7           looks for the boards of a place: seeds 1 to 2000, the three that fit best
+//   node scripts/ladder.mjs place=T04        the same for a place of the course or of a chapter, by the name of its level
+//   node scripts/ladder.mjs place=T04 keep=5 the five that fit best
+//   node scripts/ladder.mjs chapter=0        fills every place of a chapter (boards laid both ways, seeds 1 to 1000 of each, and
+//                                            the boards laid by hand) and puts the chapter together: for every place one board
+//                                            that is unlike the one before it, with its picture and its line for levels.ts
 //   node scripts/ladder.mjs slot=7 seeds=300 from=1   some of the seeds only
 //   node scripts/ladder.mjs slot=7 solution  lays the boards from their solutions and not at random (seeds 10001 on)
 //   node scripts/ladder.mjs slot=7 both      boards laid either way, judged together
@@ -27,7 +33,7 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 const args = process.argv.slice(2);
 const named = Object.fromEntries(args.filter((arg) => arg.includes('=')).map((arg) => arg.split('=')));
 const flag = (name) => args.includes(name);
-const known = ['slot', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills'];
+const known = ['slot', 'place', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep'];
 for (const key of Object.keys(named)) {
   if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as slot=7, seeds=300, from=1, states=3000000, boards=20 or workers=6`);
 }
@@ -60,17 +66,73 @@ if (flag('limit')) {
   const { solverLimit } = await load('/src/levels/limit.ts');
   const say = (row) => console.log(`${row.name}  seed ${row.seed}  moves ${row.par ?? '-'}  ${row.exhausted ? 'counted through' : 'gave up'}  boards ${row.states}  ${row.ms} ms`);
   solverLimit(Number(named.boards ?? 5), Number(named.states ?? 3_000_000), named.only, say);
-} else if (named.slot !== undefined) {
-  const { RECIPES } = await load('/src/levels/recipes.ts');
+} else if (named.chapter !== undefined) {
+  const { PLACES } = await load('/src/levels/recipes.ts');
+  const { judge, gather, measureRow, MEASURE_HEAD, layOutRows, levelSource, boardText } = await load('/src/levels/select.ts');
+  const { levelId, SKETCH } = await load('/src/levels/generate.ts');
+  const { arrange, ARRANGE_AMONG } = await load('/src/levels/variety.ts');
+  const { personaRates } = await load('/src/rules/levelBot.ts');
+  const places = PLACES.filter((recipe) => recipe.chapter === Number(named.chapter));
+  if (places.length === 0) throw new Error(`no places of chapter ${named.chapter}`);
+  const count = Number(named.seeds ?? 1000);
+  const span = (from) => Array.from({ length: count }, (_, index) => from + index);
+  const jobs = places.flatMap((recipe, at) => [...span(1), ...span(10_001), ...(recipe.sketch ?? []).map((_, index) => SKETCH + index + 1)].map((seed) => ({ at, seed })));
+  const opts = named.states ? { maxStates: Number(named.states) } : {};
+  if (worker) {
+    jobs.forEach((job, index) => {
+      if (mine(index)) console.log(JSON.stringify({ at: job.at, verdict: judge(places[job.at], job.seed, opts) }));
+    });
+  } else {
+    const verdicts = places.map(() => []);
+    let done = 0;
+    const began = Date.now();
+    await shareOut([], ({ at, verdict }) => {
+      verdicts[at].push(verdict);
+      if (++done % 500 === 0) console.error(`chapter ${named.chapter}: ${done} of ${jobs.length} boards judged, ${Math.round((Date.now() - began) / 1000)} s`);
+    });
+    const filled = places.map((recipe, at) => gather(recipe, verdicts[at].sort((a, b) => a.seed - b.seed)));
+    // Of the boards that fit a place, the ones the weaker players clear oftenest come first: these are levels that teach.
+    const ease = (fit) => (fit.personas ? fit.personas.hasty + fit.personas.casual : 0);
+    const fits = filled.map(({ fits: all }) => all.filter((fit) => fit.misses.length === 0).sort((a, b) => ease(b) - ease(a) || a.par - b.par || a.distance - b.distance || a.seed - b.seed));
+    const picked = arrange(fits);
+    const runs = Number(named.skills ?? 30);
+    const rows = [[...MEASURE_HEAD]];
+    picked.forEach((fit, at) => {
+      if (fit) rows.push(measureRow(levelId(places[at]), fit, runs > 0 ? personaRates(fit.spec, runs) : undefined));
+    });
+    console.log(layOutRows(rows));
+    picked.forEach((fit, at) => {
+      const recipe = places[at];
+      const { reasons, tried } = filled[at];
+      console.log('');
+      console.log(`${levelId(recipe)}: ${fits[at].length} of ${tried} boards fit. ${recipe.brief ?? ''}`);
+      if (!fit) {
+        const turned = Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([why, many]) => `${many} ${why}`).join('; ');
+        console.log(`no board. turned away: ${turned}`);
+        return;
+      }
+      console.log(boardText(fit.spec));
+      console.log(levelSource(fit.spec));
+      const spares = fits[at].slice(0, ARRANGE_AMONG).filter((other) => other !== fit);
+      if (spares.length > 0) console.log('in reserve:');
+      for (const spare of spares) console.log(levelSource(spare.spec));
+    });
+  }
+} else if (named.slot !== undefined || named.place !== undefined) {
+  const { RECIPES, PLACES } = await load('/src/levels/recipes.ts');
   const { judge, gather, placeReport, levelSource, boardText } = await load('/src/levels/select.ts');
+  const { levelId, SKETCH } = await load('/src/levels/generate.ts');
   const { neededBy } = await load('/src/rules/levelBot.ts');
-  const recipe = RECIPES.find((candidate) => candidate.slot === Number(named.slot));
-  if (!recipe) throw new Error(`no place ${named.slot} in the ladder`);
+  // A place is asked for by its number among the places of the ladder as it was, or by the name of its level.
+  const recipe = named.place !== undefined ? [...PLACES, ...RECIPES].find((candidate) => levelId(candidate) === named.place) : RECIPES.find((candidate) => candidate.slot === Number(named.slot));
+  if (!recipe) throw new Error(`no place ${named.place ?? named.slot} in the ladder`);
   // Seeds above ten thousand lay a board from its solution: see src/levels/generate.ts.
   const first = Number(named.from ?? 1);
   const count = Number(named.seeds ?? 2000);
   const span = (from) => Array.from({ length: count }, (_, index) => from + index);
-  const seeds = flag('both') ? [...span(first), ...span(first + 10_000)] : span(first + (flag('solution') ? 10_000 : 0));
+  // The boards a place has laid by hand are judged with whatever else is asked for.
+  const sketches = (recipe.sketch ?? []).map((_, index) => SKETCH + index + 1);
+  const seeds = [...(flag('both') ? [...span(first), ...span(first + 10_000)] : span(first + (flag('solution') ? 10_000 : 0))), ...sketches];
   const opts = { loose: flag('loose'), near: flag('near'), ...(named.states ? { maxStates: Number(named.states) } : {}) };
   if (worker) {
     seeds.forEach((seed, index) => {
@@ -87,8 +149,9 @@ if (flag('limit')) {
     const filled = gather(recipe, verdicts);
     // What the three kept cannot be cleared without is asked of the solver for every technique their way leans on.
     for (const fit of filled.fits.slice(0, 3)) fit.needs = neededBy(fit.spec, fit.par, fit.uses);
-    console.log(placeReport(filled, 3, Number(named.skills ?? 20)));
-    for (const fit of filled.fits.slice(0, 3)) {
+    const keep = Number(named.keep ?? 3);
+    console.log(placeReport(filled, keep, Number(named.skills ?? 20)));
+    for (const fit of filled.fits.slice(0, keep)) {
       console.log('');
       console.log(boardText(fit.spec));
       console.log(levelSource(fit.spec));
@@ -97,8 +160,13 @@ if (flag('limit')) {
 } else {
   const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
   const { measureBoard, tableOf } = await load('/src/levels/table.ts');
-  const boards = [...LEVELS.map((spec, index) => ({ place: String(index + 1), spec })), ...SPARES.map((spec) => ({ place: `${Number(spec.id.slice(1, 3))} spare`, spec }))];
-  boards.sort((a, b) => parseInt(a.place, 10) - parseInt(b.place, 10));
+  // Every level under its name, in the order of the ladder, and after it the boards in reserve for its place;
+  // the boards of places that have no level any more come last. `levels` leaves the reserve out.
+  const spares = flag('levels') ? [] : SPARES;
+  const boards = [
+    ...LEVELS.flatMap((spec) => [{ place: spec.id, spec }, ...spares.filter((spare) => spare.id === spec.id).map((spare) => ({ place: `${spare.id} spare`, spec: spare }))]),
+    ...spares.filter((spare) => !LEVELS.some((level) => level.id === spare.id)).map((spare) => ({ place: `${spare.id} gone`, spec: spare })),
+  ];
   if (worker) {
     boards.forEach((board, index) => {
       if (mine(index)) console.log(JSON.stringify({ index, row: measureBoard(board.place, board.spec, Number(named.skills ?? 20)) }));

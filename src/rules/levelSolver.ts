@@ -1,8 +1,8 @@
 import { DELTA, DIRS, cellIndex, cubeAt } from './board';
 import { defaultConfig } from './config';
 import { worldRuns } from './level';
-import { resolveMove } from './movement';
 import { ALL_ORIENTATIONS } from './orientation';
+import { scan } from './reach';
 import { createRun, step } from './sim';
 import type { Cube, Dir, LevelSpec, Orientation, Reaction, RulesConfig, RunState, Technique } from './types';
 
@@ -59,97 +59,7 @@ export interface Solved {
 /** Boards a search sees before it gives up, unless told otherwise. */
 export const SOLVER_MAX_STATES = 3_000_000;
 
-/** A move the player can get to, and what making it leans on. */
-interface Reachable extends SolverMove {
-  /** It is made from the floor, or from a die the player gets to over the floor. */
-  floor: boolean;
-  /** The die goes over one that is on its way out. */
-  glass: boolean;
-}
-
-/** Where free steps take the player, and the moves that can be made from there. */
-interface Scan {
-  /** A bit for every place: a cell up on the dice, and the same cell on the floor `cells` further on. */
-  places: Uint8Array;
-  moves: Reachable[];
-}
-
 const TECHNIQUES: readonly Technique[] = ['link', 'glass', 'floor', 'ones'];
-
-/**
- * Walks the free steps from where the player stands, trying every step with the rules on the
- * board as it is: nothing is stepped, so nothing moves. The dice are gone over first, the floor
- * after them, so that a move is known to need the floor only when there is no way to it without.
- */
-function scan(state: RunState, ban: readonly Technique[] = []): Scan {
-  const { size } = state.config;
-  const cells = size * size;
-  const places = new Uint8Array(2 * cells);
-  const moves: Reachable[] = [];
-  const noFloor = ban.includes('floor');
-  const noGlass = ban.includes('glass');
-  const { x, z, level } = state.player;
-  // The board is read and never written: only the player of this copy is moved about.
-  const board: RunState = { ...state, player: { x, z, level } };
-  const start = cellIndex(size, x, z) + (level === 'ground' ? cells : 0);
-  if (noFloor && level === 'ground') return { places, moves };
-  const queue: number[] = [];
-  const later: number[] = [];
-  (level === 'ground' ? later : queue).push(start);
-  places[start] = 1;
-  let overFloor = false;
-  for (;;) {
-    if (queue.length === 0) {
-      if (later.length === 0) break;
-      overFloor = true;
-      queue.push(...later);
-      later.length = 0;
-    }
-    const place = queue.pop()!;
-    const up = place < cells;
-    const cell = up ? place : place - cells;
-    const px = cell % size;
-    const pz = Math.floor(cell / size);
-    board.player.x = px;
-    board.player.z = pz;
-    board.player.level = up ? 'top' : 'ground';
-    for (const dir of DIRS) {
-      const intent = resolveMove(board, dir);
-      const { kind } = intent;
-      if (kind === 'blocked') continue;
-      if (kind === 'roll' || kind === 'push') {
-        const push = kind === 'push';
-        if (push && noFloor) continue;
-        const glass = intent.over !== undefined;
-        if (glass && noGlass) continue;
-        const die = intent.cube!;
-        moves.push({ x: die.x, z: die.z, dir, push, floor: push || overFloor, glass });
-        continue;
-      }
-      const down = kind === 'descend' || kind === 'walk';
-      if (down && noFloor) continue;
-      const next = cellIndex(size, intent.tx, intent.tz) + (down ? cells : 0);
-      if (places[next]) continue;
-      places[next] = 1;
-      // A step that touches the floor waits until the dice have been gone over.
-      (down || !up ? later : queue).push(next);
-    }
-  }
-  moves.sort(byPlainness);
-  return { places, moves };
-}
-
-/** Plain moves first, then by the cell and the side: the order the search tries them in. */
-function byPlainness(a: Reachable, b: Reachable): number {
-  return (
-    Number(a.floor) - Number(b.floor) ||
-    Number(a.glass) - Number(b.glass) ||
-    a.z - b.z ||
-    a.x - b.x ||
-    DIRS.indexOf(a.dir) - DIRS.indexOf(b.dir) ||
-    Number(a.push) - Number(b.push)
-  );
-}
 
 /** Every roll and push the player can get to by free steps, from where the run stands. */
 export function movesAt(state: RunState, ban?: readonly Technique[]): SolverMove[] {
@@ -331,6 +241,12 @@ export interface WayReport {
   commits: number;
   /** The first move is made with the die the player starts on. */
   ownFirst: boolean;
+  /** For every move, whether it set something off: a combo, a link, the 1s. */
+  cleared: boolean[];
+  /** For every move, whether it was made with the die the player stood on: no step led to it. */
+  inPlace: boolean[];
+  /** For every move, the die it was made with, as the run numbers its dice. */
+  dice: number[];
 }
 
 /**
@@ -379,19 +295,31 @@ export function replay(spec: LevelSpec, moves: readonly SolverMove[], config?: R
 
 /** Plays a way as `replay` does, and says what it leans on and what it comes to. */
 export function tryWay(spec: LevelSpec, moves: readonly SolverMove[], config?: RulesConfig): WayReport {
-  const state = startOf(spec, config);
+  return follow(startOf(spec, config), spec.id, moves);
+}
+
+/** Plays a way from the run given, which is played on and not kept as it was; `id` names the level in what goes wrong. */
+function follow(state: RunState, id: string, moves: readonly SolverMove[]): WayReport {
+  const spec = { id };
   const used = new Set<Technique>();
   const values: number[] = [];
   const start = { x: state.player.x, z: state.player.z };
   let depth = 0;
   let since = 0;
   let commits = 0;
+  const cleared: boolean[] = [];
+  const inPlace: boolean[] = [];
+  const dice: number[] = [];
   moves.forEach((move, index) => {
     if (state.over) throw new Error(`level ${spec.id}: move ${index + 1} is made after the level has ended`);
     const found = scan(state).moves.find((m) => m.x === move.x && m.z === move.z && m.dir === move.dir && m.push === move.push);
     if (!found) throw new Error(`level ${spec.id}: move ${index + 1} (${moveText(move)}) cannot be made`);
     if (standingChoices(state) > 1) commits++;
+    const { player } = state;
+    inPlace.push(!move.push && player.level === 'top' && player.x === move.x && player.z === move.z);
+    dice.push(cubeAt(state, move.x, move.z)!.id);
     const outcome = make(state, move);
+    cleared.push(outcome.cleared);
     if (found.floor) used.add('floor');
     if (found.glass) used.add('glass');
     if (outcome.link) used.add('link');
@@ -405,7 +333,7 @@ export function tryWay(spec: LevelSpec, moves: readonly SolverMove[], config?: R
   });
   const first = moves[0];
   const ownFirst = first !== undefined && !first.push && first.x === start.x && first.z === start.z;
-  return { state, depth: Math.max(depth, since), uses: TECHNIQUES.filter((technique) => used.has(technique)), values, commits, ownFirst };
+  return { state, depth: Math.max(depth, since), uses: TECHNIQUES.filter((technique) => used.has(technique)), values, commits, ownFirst, cleared, inPlace, dice };
 }
 
 /** A move as a level keeps it: the cell of the die, the side, and `p` for a push. */
@@ -433,10 +361,29 @@ const unpackMove = (code: number): SolverMove => ({ x: code % 8, z: (code >> 3) 
  * way has to begin with the die the player starts on, or with any other.
  */
 export function solveLevel(spec: LevelSpec, opts: SolveOptions = {}): Solved {
-  const { maxStates = SOLVER_MAX_STATES, maxMoves = Infinity, ban = [], config, first } = opts;
+  return search(startOf(spec, opts.config), spec.id, opts, (moves) => tryWay(spec, moves, opts.config));
+}
+
+/**
+ * The fewest moves the board of a run is cleared in from where it stands, and a way to do it:
+ * the search of `solveLevel`, begun at a board that is not the start of its level. The world
+ * has to stand. The run is left as it was. What the level limits its moves to is not counted:
+ * only the board is asked.
+ */
+export function solveFrom(state: RunState, opts: Pick<SolveOptions, 'maxStates' | 'maxMoves' | 'ban'> = {}): Solved {
+  const run = state.levelRun;
+  if (!run) throw new Error('solveFrom: not a level');
+  if (worldRuns(state) || state.player.action) throw new Error('solveFrom: the world has to stand');
+  const root = copyRun(state);
+  root.levelRun = { ...root.levelRun!, spec: { ...run.spec, moves: 0 }, moves: 0 };
+  return search(root, run.spec.id, opts, (moves) => follow(copyRun(root), run.spec.id, moves));
+}
+
+/** The search itself, from the run given: `check` plays the way found again and says what it comes to. */
+function search(root: RunState, id: string, opts: SolveOptions, check: (moves: SolverMove[]) => WayReport): Solved {
+  const { maxStates = SOLVER_MAX_STATES, maxMoves = Infinity, ban = [], first } = opts;
   const noLink = ban.includes('link');
   const noOnes = ban.includes('ones');
-  const root = startOf(spec, config);
   const start = { x: root.player.x, z: root.player.z };
   const own = (move: SolverMove) => !move.push && move.x === start.x && move.z === start.z;
 
@@ -467,8 +414,8 @@ export function solveLevel(spec: LevelSpec, opts: SolveOptions = {}): Solved {
         if ((noLink && outcome.link) || (noOnes && outcome.ones)) continue;
         if (after.endReason === 'passed') {
           const moves = wayTo(node.index, move);
-          const { state, depth, uses } = tryWay(spec, moves);
-          if (state.endReason !== 'passed') throw new Error(`level ${spec.id}: the way found does not clear the board when played again`);
+          const { state, depth, uses } = check(moves);
+          if (state.endReason !== 'passed') throw new Error(`level ${id}: the way found does not clear the board when played again`);
           return { solution: { par: moves.length, moves, depth, uses }, exhausted: true, states: seen.size };
         }
         if (after.over) continue;

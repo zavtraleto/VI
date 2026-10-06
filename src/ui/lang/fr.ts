@@ -44,6 +44,7 @@ export const FR: Texts = {
   puzzleRule4: "Le sceau dans le coin montre les faces du dé sous toi : il dit ce qu'un roulement amènera en haut",
   puzzleRule5: "Retire tous les dés. Moins il y a de coups, plus il y a d'étoiles",
   levelStuck: 'Impasse : il reste {left} sur le plateau, et un combo en demande {need}',
+  levelStranded: 'Impasse : depuis ce dé, on ne peut aller nulle part',
   levelShort: 'Plus de coups. Il en manquait : {short}',
   lessonThrees:
     "Bonjour ! Bienvenue dans Visual Interconnection. Je suis le laborantin d'ici, et aujourd'hui je t'apprends à travailler avec la table.\n\n" +
@@ -87,6 +88,15 @@ export const FR: Texts = {
   lessonFives:
     "Le cinquième canal est ouvert. Nous ne travaillons qu'avec les 5.\n\n" +
     "Mets cinq 5 côte à côte : c'est un combo, et il s'en ira [chez nous].",
+  lineCombo: "Trois 3 côte à côte font un combo, et il s'en va. Mène le dé le long de la flèche.",
+  lineStep: "Tu peux marcher sur les dés : un pas n'est pas un coup. C'est le dé sous toi qui roule.",
+  lineWalk: "Un combo ne s'en va pas d'un coup : il a deux coups. Marche dessus jusqu'aux autres.",
+  lineSide: 'La face de côté reste de côté tant que tu roules tout droit. Amène-la, puis tourne.',
+  lineSeven: 'Les faces opposées font sept : sous le 4, il y a le 3. Deux roulements dans le même sens.',
+  lineLink: "Un dé en trop, c'est une impasse. Amène-le au combo qui s'en va : c'est une chaîne.",
+  lineFloor: "D'un dé qui s'en va, tu peux descendre au sol. Depuis le sol, on pousse les dés.",
+  lineGlass: "Tu peux rouler sur un dé qui s'en va : le tien prend sa place.",
+  lineFaces: 'Deux canaux sont ouverts : les 2 et les 3. Compte les dés avant.',
   ruleThrees: "Un combo, c'est trois 3 côte à côte : il s'en va. Seuls les 3 marchent, les autres faces sont barrées.",
   ruleStep: "Un pas sur les dés n'est pas un coup. Un coup, c'est rouler le dé sur lequel tu te tiens vers une place libre.",
   ruleWalk: "Un pas n'est pas un coup ; un coup, c'est rouler. Tu peux marcher sur un combo qui s'en va et en descendre sur un autre dé.",

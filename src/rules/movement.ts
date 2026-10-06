@@ -65,6 +65,8 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
       return reachable ? { kind: 'hop', tx, tz } : blocked;
     }
     if (!isFree(state, tx, tz)) return blocked;
+    // A level may shut its floor: the player stays on the dice until the floor has been taught.
+    if (state.levelRun?.spec.floor === false) return blocked;
     // Only a sinking cube can be stepped off: a rising one is the way back up, so the
     // player cannot fall off it by accident.
     // In a puzzle there is no floor to stand on: the player stays on the dice.

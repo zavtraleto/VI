@@ -7,7 +7,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { LevelLayout } from '../rules/types';
 import { FROM_SOLUTION, boardText, builtWay, candidate, isBoard, layFromSolution, layOut, levelId } from './generate';
 import { LEVELS } from './levels';
-import { CHAPTERS, RECIPES, boundsOf, type Recipe } from './recipes';
+import { CHAPTERS, PLACES, RECIPES, boundsOf, type Recipe } from './recipes';
 import { gather, judge, levelSource, placeReport } from './select';
 
 const recipe = (slot: number): Recipe => RECIPES.find((candidate) => candidate.slot === slot)!;
@@ -48,12 +48,13 @@ describe('recipes of the ladder', () => {
     expect(RECIPES.map((place) => place.slot)).toEqual(RECIPES.map((_, index) => index + 1));
     const chapters = RECIPES.map((place) => place.chapter!);
     expect(chapters).toEqual([...chapters].sort((a, b) => a - b));
-    expect(new Set(chapters)).toEqual(new Set(CHAPTERS.map((_, index) => index + 1)));
+    for (const chapter of chapters) expect(CHAPTERS[chapter], `chapter ${chapter}`).toBeDefined();
   });
 
   it('ask of a place the faces of its chapter, and enough dice for a group of them', () => {
     for (const place of RECIPES) {
-      const { faces } = CHAPTERS[place.chapter! - 1];
+      // The faces of a chapter of these places are those of its first place.
+      const { faces } = RECIPES.find((other) => other.chapter === place.chapter)!;
       expect([...place.faces].sort(), `place ${place.slot}`).toEqual([...faces].sort());
       expect(place.dice, `place ${place.slot}`).toBeGreaterThanOrEqual(Math.min(...faces));
       expect(place.ones ?? 0).toBe(0);
@@ -61,10 +62,10 @@ describe('recipes of the ladder', () => {
   });
 
   it('begin every chapter with a line that says which faces work', () => {
-    CHAPTERS.forEach((_, index) => {
-      const first = RECIPES.find((place) => place.chapter === index + 1)!;
-      expect(first.lesson, `chapter ${index + 1}`).toBeDefined();
-    });
+    for (const chapter of new Set(RECIPES.map((place) => place.chapter!))) {
+      const first = RECIPES.find((place) => place.chapter === chapter)!;
+      expect(first.lesson, `chapter ${chapter}`).toBeDefined();
+    }
   });
 
   it('list what a place is measured by, from what to what', () => {
@@ -75,8 +76,8 @@ describe('recipes of the ladder', () => {
   });
 
   it('name a level by its place', () => {
-    expect(levelId(1)).toBe('B01');
-    expect(levelId(20)).toBe('B20');
+    expect(levelId({ slot: 1 })).toBe('B01');
+    expect(levelId({ slot: 20 })).toBe('B20');
   });
 });
 
@@ -189,7 +190,8 @@ describe('a candidate of a place', () => {
 
   it('gives the levels of the ladder back from their seeds: the first places, which are quick to judge', () => {
     for (const level of LEVELS.slice(0, 4)) {
-      const verdict = judge(recipe(Number(level.id.slice(1))), level.seed);
+      const place = PLACES.find((other) => levelId(other) === level.id)!;
+      const verdict = judge(place, level.seed);
       expect(verdict.fit?.spec, level.id).toEqual(level);
     }
   });

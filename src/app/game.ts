@@ -43,6 +43,7 @@ import {
   defaultConfig,
   goalLines,
   goalOf,
+  levelStranded,
   levelStuck,
   shortGroups,
   smallestGroup,
@@ -149,15 +150,18 @@ const CLIMB_LEAD_MS = 1100;
 /** How long the command of sharing reads what came of it. */
 const SHARED_MS = 2200;
 
+/** A level has ended where nothing more can be done: too few dice stand for a combo, or, with the floor shut, the player has no move left. */
+const deadEnd = (state: RunState): boolean => levelStuck(state) || levelStranded(state);
+
 /** How long the direction of a swipe stays shown after the finger has let go. */
 const STEER_LINGER_MS = 280;
-/** Levels on which every group that is short is counted from the start: the first five. After them only the one the last move made is. */
-const LEVELS_COUNTED = 5;
+/** Chapters on whose levels every group that is short is counted from the start: the course and the chapter after it. Past them only the one the last move made is. */
+const CHAPTERS_COUNTED = 2;
 /**
  * The level from which the step with no way back is marked: the one that says a combo on its way
  * out can be walked over and stepped off, or the third while no level of the ladder says so.
  */
-const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lessonWalk') + 1 || 3;
+const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lineWalk' || level.lesson === 'lessonWalk') + 1 || 3;
 /** Of the signs the laboratory's assistant prints, one in so many is heard: a click to every sign is a rattle. */
 const TYPED_EVERY = 2;
 /**
@@ -851,7 +855,7 @@ export class Game {
   private undoLevel(fromResult = false): void {
     const { levelRun, over } = this.state;
     if (!levelRun || !this.undoable || this.inMenu || this.paused || this.undosLeft <= 0) return;
-    const standing = over && !this.resultShown && levelStuck(this.state);
+    const standing = over && !this.resultShown && deadEnd(this.state);
     if (over !== fromResult && !standing) return;
     const previous = this.history.pop();
     if (!previous) return;
@@ -1122,7 +1126,7 @@ export class Game {
     const run = state.levelRun!;
     const { spec } = run;
     const passed = state.endReason === 'passed';
-    const stuck = !passed && levelStuck(state);
+    const stuck = !passed && deadEnd(state);
     const left = Math.max(0, spec.moves - run.moves);
     const short = shortOf(state);
     const stat = levelStat(this.settings, spec.id);
@@ -1153,7 +1157,7 @@ export class Game {
     const run = state.levelRun!;
     const { spec } = run;
     const passed = state.endReason === 'passed';
-    const stuck = !passed && levelStuck(state);
+    const stuck = !passed && deadEnd(state);
     const left = Math.max(0, spec.moves - run.moves);
     const short = shortOf(state);
     const lines: GoalLine[] = goalLines(state);
@@ -1176,7 +1180,9 @@ export class Game {
           reason: passed
             ? undefined
             : stuck
-              ? t('levelStuck').replace('{left}', String(short)).replace('{need}', String(smallestGroup(spec)))
+              ? levelStranded(state)
+                ? t('levelStranded')
+                : t('levelStuck').replace('{left}', String(short)).replace('{need}', String(smallestGroup(spec)))
               : t('levelShort').replace('{short}', String(short)),
           undos: canUndo ? this.undosLeft : 0,
         },
@@ -1995,7 +2001,7 @@ export class Game {
     const level = PUZZLE_LEVELS[this.puzzleIndex];
     // A level counts the groups that are short: all of them on its first levels, later the one the last move made.
     const made = levelRun ? this.shortMade(state) : null;
-    const short = !levelRun || state.over ? [] : this.levelIndex < LEVELS_COUNTED ? shortGroups(state) : made ? [made] : [];
+    const short = !levelRun || state.over ? [] : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
     const counters: HudCounter[] = short.map((group) => {
       const cx = group.cells.reduce((sum, cell) => sum + cell.x, 0) / group.cells.length;
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;

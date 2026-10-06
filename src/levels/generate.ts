@@ -22,10 +22,12 @@ import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, type Recipe } from './recipes';
 
 /** Seeds above this lay a board from its solution; the ones up to it lay it at random. */
 export const FROM_SOLUTION = 10_000;
+/** Seeds above this are the boards a place has laid by hand: the first, the second, and so on. */
+export const SKETCH = 20_000;
 
-/** The name a level of the ladder goes by. */
-export function levelId(slot: number): string {
-  return `B${String(slot).padStart(2, '0')}`;
+/** The name a level of the ladder goes by: the one its place gives it, or `B` and the number of the place. */
+export function levelId(recipe: Pick<Recipe, 'slot' | 'id'>): string {
+  return recipe.id ?? `B${String(recipe.slot).padStart(2, '0')}`;
 }
 
 /** Faces a die may show to the north with `top` up: any but the top and the one under it. */
@@ -105,7 +107,17 @@ export function levelOf(recipe: Recipe, seed: number, layout: LevelLayout): Leve
   const values = [...(recipe.ones ? [1] : []), ...recipe.faces].sort((a, b) => a - b);
   // On the ladder only the faces of the chapter work, and a die that has joined a group goes in two moves.
   const ladder = recipe.chapter !== undefined ? { faces: values, sinkMoves: LADDER_SINK_MOVES, liftMoves: LADDER_LIFT_MOVES } : {};
-  return { id: levelId(recipe.slot), seed, size: recipe.size, values, norm: layout.dice.length, arrival: 'none', goal: { kind: 'clear' }, moves: 0, ...ladder, layout };
+  // What the level is played with is its place's to say. The floor has to be on the level before it is solved: the rules read it.
+  const own: Partial<LevelSpec> = {
+    ...(recipe.chapter !== undefined ? { chapter: recipe.chapter } : {}),
+    ...(recipe.floor !== undefined ? { floor: recipe.floor } : {}),
+    ...(recipe.guard ? { guard: true } : {}),
+    ...(recipe.lesson ? { lesson: recipe.lesson } : {}),
+    ...(recipe.until ? { until: recipe.until } : {}),
+    ...(recipe.guide ? { guide: true } : {}),
+    ...(recipe.story ? { story: recipe.story } : {}),
+  };
+  return { id: levelId(recipe), seed, size: recipe.size, values, norm: layout.dice.length, arrival: 'none', goal: { kind: 'clear' }, moves: 0, ...ladder, ...own, layout };
 }
 
 /** A die of a board being laid: where it stands, how it lies, whether it is left where it was put, and whether it has been rolled yet. */
@@ -208,14 +220,21 @@ function tryFromSolution(recipe: Recipe, rng: { rng: number }): Built | null {
   // as may. The rest are the dice that are rolled away.
   for (const [value, many] of sizes) {
     const named = standing.find((group) => group.value === value)?.count ?? 0;
-    // Two times in three as many stay as can: a group that lacks one die is what a short level is made of.
-    const stay = randomInt(rng, 3) > 0 ? value - 1 : named + randomInt(rng, value - named);
-    const shape: number[] = [];
-    for (let i = 0; i < many; i++) {
-      const cell = i === 0 ? first() : pick(touching(shape));
-      if (cell === null) return null;
-      shape.push(cell);
-      put(cell, value, i < stay);
+    // A place that asks for several combos of its face lays each as a group of its own, as many
+    // dice as the face asks for: laid as one group, they would go as one combo.
+    const groups = recipe.combos !== undefined && many % value === 0 ? many / value : 1;
+    const each = many / groups;
+    for (let group = 0; group < groups; group++) {
+      // Two times in three as many stay as can: a group that lacks one die is what a short level is made of.
+      const stay = recipe.stay !== undefined ? Math.min(recipe.stay, value - 1) : randomInt(rng, 3) > 0 ? value - 1 : named + randomInt(rng, value - named);
+      const shape: number[] = [];
+      for (let i = 0; i < each; i++) {
+        // A group after the first is put down anywhere: whether the board holds together is asked of it when it is laid.
+        const cell = i > 0 ? pick(touching(shape)) : group === 0 ? first() : pick(free());
+        if (cell === null) return null;
+        shape.push(cell);
+        put(cell, value, i < stay);
+      }
     }
   }
   for (let i = 0; i < ones; i++) {
@@ -289,9 +308,18 @@ function tryFromSolution(recipe: Recipe, rng: { rng: number }): Built | null {
   return { layout: { dice, start: { x: start.cell % size, z: Math.floor(start.cell / size) } }, way };
 }
 
+/** A board laid by hand for a place, by its number from 1: null when there is none, or it is no board, or holds a group ready to go. */
+function sketched(recipe: Recipe, number: number): LevelLayout | null {
+  const layout = recipe.sketch?.[number - 1];
+  if (!layout || !isBoard(layout)) return null;
+  const tops = new Array<number>(recipe.size * recipe.size).fill(0);
+  for (const die of layout.dice) tops[cellIndex(recipe.size, die.x, die.z)] = die.top;
+  return hasReadyGroup(tops, recipe.size) ? null : layout;
+}
+
 /** The candidate of a place a seed gives, or null when the seed lays no board. */
 export function candidate(recipe: Recipe, seed: number): LevelSpec | null {
-  const layout = seed > FROM_SOLUTION ? layFromSolution(recipe, seed - FROM_SOLUTION) : layOut(recipe, seed);
+  const layout = seed > SKETCH ? sketched(recipe, seed - SKETCH) : seed > FROM_SOLUTION ? layFromSolution(recipe, seed - FROM_SOLUTION) : layOut(recipe, seed);
   return layout ? levelOf(recipe, seed, layout) : null;
 }
 

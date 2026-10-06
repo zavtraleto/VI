@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from './config';
-import { moveOf, moveText, movesAt, playMove, replay, solveLevel, tryWay, type SolverMove } from './levelSolver';
+import { moveOf, moveText, movesAt, playMove, replay, solveFrom, solveLevel, tryWay, type SolverMove } from './levelSolver';
 import { createRun } from './sim';
 import type { LevelSpec, PuzzleDie, RunState } from './types';
 
@@ -184,5 +184,64 @@ describe('a way played again', () => {
     // With one die to step to there is nothing to choose.
     const one = board(spec.layout!.dice.slice(0, 3));
     expect(tryWay(one, [moveOf('1,1,N'), moveOf('0,1,S')]).commits).toBe(0);
+  });
+});
+
+/** Four dice where only 3s work: the fewest moves are three, and the last is a link. */
+const LINK: LevelSpec = {
+  id: 'link', seed: 368, size: 3, values: [3], norm: 4, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1,
+  layout: { start: { x: 2, z: 0 }, dice: [{ x: 1, z: 0, top: 6, north: 5 }, { x: 0, z: 0, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 1 }, { x: 2, z: 0, top: 2, north: 3 }] },
+};
+const LINK_WAY = ['0,0,S', '2,0,S', '1,0,W'].map(moveOf);
+
+describe('the fewest moves from where a run stands', () => {
+  it('are those of the level at its start', () => {
+    expect(solveLevel(LINK).solution?.par).toBe(3);
+    expect(solveFrom(start(LINK)).solution?.par).toBe(3);
+  });
+
+  it('are one fewer after every move of a shortest way', () => {
+    let state = start(LINK);
+    LINK_WAY.forEach((move, made) => {
+      expect(solveFrom(state).solution?.par, `after ${made} moves`).toBe(LINK_WAY.length - made);
+      state = playMove(state, move);
+    });
+    expect(state.endReason).toBe('passed');
+  });
+
+  it('give a way that clears the board when played from there, and leave the run as it was', () => {
+    const from = playMove(start(LINK), LINK_WAY[0]);
+    const before = JSON.stringify(from.cubes);
+    let state = from;
+    for (const move of solveFrom(from).solution!.moves) state = playMove(state, move);
+    expect(state.endReason).toBe('passed');
+    expect(JSON.stringify(from.cubes)).toBe(before);
+  });
+
+  it('are none within fewer moves than the board takes, and the search says it saw everything', () => {
+    const { solution, exhausted } = solveFrom(start(LINK), { maxMoves: 2 });
+    expect(solution).toBeNull();
+    expect(exhausted).toBe(true);
+  });
+
+  it('do not count the moves the run has made against the limit of the level', () => {
+    const state = playMove(start({ ...LINK, moves: 3 }), LINK_WAY[0]);
+    expect(state.levelRun!.moves).toBe(1);
+    expect(solveFrom(state).solution?.par).toBe(2);
+  });
+
+  it('are not looked for on a run that is not a level', () => {
+    expect(() => solveFrom(createRun({ seed: 1, config: defaultConfig(), empty: true }))).toThrow('not a level');
+  });
+});
+
+describe('the moves of a way played again', () => {
+  it('are told apart: which cleared, which were made with the die the player stood on, and with which die', () => {
+    const report = tryWay(LINK, LINK_WAY);
+    expect(report.cleared).toEqual([false, true, true]);
+    expect(report.inPlace).toEqual([false, false, false]);
+    expect(new Set(report.dice).size).toBe(3);
+    // One roll of the die the player starts on is a move made in place.
+    expect(tryWay(PAIR, [{ x: 2, z: 0, dir: 'W', push: false }]).inPlace).toEqual([true]);
   });
 });

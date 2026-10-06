@@ -3,7 +3,8 @@ import { moveOf, moveText, movesAt, playMove, solveLevel, tryWay, type SolverMov
 import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec, Technique } from '../rules/types';
-import { FROM_SOLUTION, boardText, builtWay, candidate } from './generate';
+import { FROM_SOLUTION, SKETCH, boardText, builtWay, candidate } from './generate';
+import { farOf, firstsOf, rideTurn, rides, startsUnder, tailOf, underOf } from './measures';
 import { boundsOf, type Recipe } from './recipes';
 
 /**
@@ -27,6 +28,14 @@ export interface Fit {
   needs: Technique[];
   traps: number;
   random: number;
+  /** Moves of the way after the clearing move before its last. */
+  tail: number;
+  /** Clearing moves of the way: its combos and links. */
+  clears: number;
+  /** First moves that keep the board in hand; null where the place did not ask and they were not counted. */
+  firsts: number | null;
+  /** Share of the runs of every persona that clear the board; null where the place did not ask. */
+  personas: Record<PersonaName, number> | null;
   /** How far it is from the middles of the bounds, each in halves of its width. */
   distance: number;
   /**
@@ -63,6 +72,8 @@ const range = ([from, to]: readonly [number, number]): string => (from === to ? 
 const JUDGE_MAX_STATES = 1_500_000;
 /** A big board is played by the greedy player before it is solved: that is the cheaper thing to ask. */
 const BIG_BOARD = 7;
+/** Runs of every persona on a candidate whose place asks what they come to. */
+const PERSONA_RUNS = 12;
 
 /**
  * The way a board laid from its solution was built to be cleared by, as far as the rules let it
@@ -70,7 +81,7 @@ const BIG_BOARD = 7;
  * board is cleared. Null when the way breaks off before that, or the board was laid at random.
  */
 function builtFor(recipe: Recipe, seed: number, board: LevelSpec): SolverMove[] | null {
-  if (seed <= FROM_SOLUTION) return null;
+  if (seed <= FROM_SOLUTION || seed > SKETCH) return null;
   const built = builtWay(recipe, seed - FROM_SOLUTION);
   if (!built) return null;
   let state = createRun({ seed: board.seed, config: defaultConfig(), level: board });
@@ -102,6 +113,10 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
   };
   const board = candidate(recipe, seed);
   if (!board) return no('no board laid');
+  // What is read off the board as it lies is asked first: it costs nothing.
+  if (recipe.safe && !(board.faces?.length === 1 && board.norm === board.faces[0] && board.floor === false)) return no('not a board of one combo');
+  if (recipe.under === true && underOf(board) === 0) return no('no die with a working face at the bottom');
+  if (recipe.under === false && underOf(board) > 0) return no('a die with a working face at the bottom');
   const avoid = recipe.avoid ?? [];
   const big = board.norm >= BIG_BOARD;
 
@@ -124,7 +139,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     short = any.solution.par;
     if (short < recipe.par[0] && !near) return no(`fewer moves than ${recipe.par[0]}`);
     // The way kept does without what the place avoids, and begins as the place asks.
-    const first = recipe.arrow ? 'own' : recipe.walk ? 'other' : undefined;
+    const first = recipe.arrow || recipe.ownOnly || recipe.ride ? 'own' : recipe.walk ? 'other' : undefined;
     const plain = any.solution.uses.every((technique) => !avoid.includes(technique)) && first === undefined;
     if (plain) way = any.solution.moves;
     else {
@@ -175,6 +190,24 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
   for (const technique of recipe.needs ?? []) {
     if (!needs.includes(technique)) return no(`cleared without ${technique}`);
   }
+  // What the way of the board is, beside its length: the lesson of a place is in it.
+  if (recipe.ownOnly && !report.inPlace.every(Boolean)) return no('the way steps to another die');
+  if (recipe.combos !== undefined && (report.cleared.filter(Boolean).length !== recipe.combos || report.uses.includes('link'))) return no(`combos not ${recipe.combos}`);
+  if (recipe.ride && !rides(board, way)) return no('no ride on the side');
+  if (recipe.front && rideTurn(board, way) !== 'N') return no('the face that rides does not look at the player');
+  if (recipe.seven && !startsUnder(board, way)) return no('the first die does not start with a working face at the bottom');
+  if (recipe.far !== undefined && farOf(board, way) < recipe.far) return no(`the die of the first move is nearer than ${recipe.far} steps`);
+  if (recipe.movers !== undefined && new Set(report.dice).size < recipe.movers) return no(`fewer dice moved than ${recipe.movers}`);
+  const tail = tailOf(report.cleared);
+  if (recipe.tail && !within(tail, recipe.tail)) {
+    const turned = outside(near ? `tail ${tail}, not ${range(recipe.tail)}` : `tail not ${range(recipe.tail)}`);
+    if (turned) return turned;
+  }
+  const firsts = recipe.firsts ? firstsOf(board, par) : null;
+  if (recipe.firsts && !within(firsts!, recipe.firsts)) {
+    const turned = outside(near ? `first moves ${firsts}, not ${range(recipe.firsts)}` : `first moves not ${range(recipe.firsts)}`);
+    if (turned) return turned;
+  }
   const why = trapped();
   if (why) {
     const turned = outside(near ? `traps ${traps}, not ${range(recipe.traps!)}` : why);
@@ -184,6 +217,21 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
   if (recipe.random && !within(random, recipe.random)) {
     const turned = outside(near ? `random ${random}, not ${range(recipe.random)}` : `random not ${range(recipe.random)}`);
     if (turned) return turned;
+  }
+  // The players made of the rules are asked last: they are the dearest thing to ask.
+  let personas: Record<PersonaName, number> | null = null;
+  if (recipe.hasty || recipe.casual || recipe.gap) {
+    personas = personaRates(board, PERSONA_RUNS);
+    const asked: [string, number, readonly [number, number] | undefined][] = [
+      ['hasty', personas.hasty, recipe.hasty],
+      ['casual', personas.casual, recipe.casual],
+      ['gap', personas.planner - personas.hasty, recipe.gap],
+    ];
+    for (const [what, value, bound] of asked) {
+      if (!bound || within(value, bound)) continue;
+      const turned = outside(near ? `${what} ${value.toFixed(2)}, not ${range(bound)}` : `${what} not ${range(bound)}`);
+      if (turned) return turned;
+    }
   }
 
   const measured: Record<string, number> = { par, depth: report.depth, traps: traps!, random };
@@ -202,7 +250,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     ...(recipe.lesson ? { lesson: recipe.lesson } : {}),
     ...(arrow ? { arrow } : {}),
   };
-  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, distance, misses }, why: '' };
+  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, clears: report.cleared.filter(Boolean).length, firsts, personas, distance, misses }, why: '' };
 }
 
 export interface Filled {
@@ -244,7 +292,7 @@ export function layOutRows(rows: readonly string[][]): string {
   return rows.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join('  ').trimEnd()).join('\n');
 }
 
-export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
+export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'tail', 'firsts', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
 
 /** A board that fits, as a row of the table: what the solver says and how the yardsticks play it. */
 export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName, number>): string[] {
@@ -257,11 +305,13 @@ export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName,
     fit.short < fit.par ? `${fit.par} (${fit.short})` : String(fit.par),
     fit.exact ? 'yes' : 'no',
     String(fit.depth),
+    String(fit.tail),
+    fit.firsts === null ? '-' : String(fit.firsts),
     fit.uses.join(' ') || '-',
     fit.needs.join(' ') || '-',
     percent(fit.traps),
     percent(fit.random),
-    ...PERSONA_NAMES.map((name) => (skills ? percent(skills[name]) : '')),
+    ...PERSONA_NAMES.map((name) => (skills ?? fit.personas ? percent((skills ?? fit.personas)![name]) : '')),
   ];
 }
 
@@ -289,6 +339,7 @@ export function levelSource(spec: LevelSpec): string {
   const dice = layout!.dice.map((die) => `{ x: ${die.x}, z: ${die.z}, top: ${die.top}, north: ${die.north} }`).join(', ');
   const fields = [
     `id: '${spec.id}'`,
+    ...(spec.chapter !== undefined ? [`chapter: ${spec.chapter}`] : []),
     `seed: ${spec.seed}`,
     `size: ${spec.size}`,
     `values: [${spec.values.join(', ')}]`,
@@ -297,7 +348,12 @@ export function levelSource(spec: LevelSpec): string {
     `goal: { kind: 'clear' }`,
     `moves: 0`,
     ...(spec.faces ? [`faces: [${spec.faces.join(', ')}]`, `sinkMoves: ${spec.sinkMoves}`, `liftMoves: ${spec.liftMoves}`] : []),
+    ...(spec.floor !== undefined ? [`floor: ${spec.floor}`] : []),
+    ...(spec.guard ? [`guard: true`] : []),
     ...(spec.lesson ? [`lesson: '${spec.lesson}'`] : []),
+    ...(spec.until ? [`until: '${spec.until}'`] : []),
+    ...(spec.guide ? [`guide: true`] : []),
+    ...(spec.story ? [`story: '${spec.story}'`] : []),
     ...(spec.arrow ? [`arrow: '${spec.arrow}'`] : []),
     `par: ${spec.par}`,
     `exact: ${spec.exact}`,

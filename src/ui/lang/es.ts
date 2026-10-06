@@ -41,6 +41,7 @@ export const ES: Texts = {
   puzzleRule4: 'El sello de la esquina muestra las caras del dado que pisas: dice qué cara subirá al rodar',
   puzzleRule5: 'Retira todos los dados. Cuantos menos movimientos, más estrellas',
   levelStuck: 'Sin salida: quedan {left} en el tablero, y un combo pide {need}',
+  levelStranded: 'Sin salida: desde este dado no hay adónde ir',
   levelShort: 'Se acabaron los movimientos. Faltaron: {short}',
   lessonThrees:
     '¡Hola! Te doy la bienvenida a Visual Interconnection. Soy el ayudante del laboratorio, y hoy te enseño a trabajar con la mesa.\n\n' +
@@ -84,6 +85,15 @@ export const ES: Texts = {
   lessonFives:
     'Está abierto el quinto canal. Trabajamos solo con cincos.\n\n' +
     'Pon cinco 5 juntos: eso es un combo, y se irá [con nosotros].',
+  lineCombo: 'Tres 3 juntos son un combo, y se va. Lleva el dado por la flecha.',
+  lineStep: 'Puedes caminar por los dados: un paso no es un movimiento. Rueda el dado sobre el que estás.',
+  lineWalk: 'Un combo no se va de golpe: tiene dos movimientos. Camina por él hasta los demás.',
+  lineSide: 'La cara del costado viaja de lado mientras ruedas a lo largo. Llévala y gira.',
+  lineSeven: 'Las caras opuestas suman siete: bajo el 4 está el 3. Dos giros hacia el mismo lado.',
+  lineLink: 'Un dado que sobra no tiene salida. Acércalo al combo que se va: eso es una cadena.',
+  lineFloor: 'De un dado que se va puedes bajar al suelo. Desde el suelo los dados se empujan.',
+  lineGlass: 'Puedes rodar por encima de un dado que se va: el tuyo ocupa su lugar.',
+  lineFaces: 'Hay dos canales abiertos: doses y treses. Cuenta los dados antes.',
   ruleThrees: 'Un combo son tres 3 juntos: se va. Solo funcionan los treses; las demás caras están tachadas.',
   ruleStep: 'Un paso por los dados no es un movimiento. Un movimiento es rodar el dado sobre el que estás hacia un lugar libre.',
   ruleWalk: 'Un paso no es un movimiento; un movimiento es rodar. Por un combo que se va puedes caminar y bajar de él a otro dado.',

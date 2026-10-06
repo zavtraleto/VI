@@ -41,6 +41,7 @@ export const PT: Texts = {
   puzzleRule4: 'O selo no canto mostra as faces do dado sob você: ele diz o que uma rolada trará para cima',
   puzzleRule5: 'Retire todos os dados. Quanto menos jogadas, mais estrelas',
   levelStuck: 'Beco sem saída: restam {left} no tabuleiro, e um combo pede {need}',
+  levelStranded: 'Beco sem saída: deste dado não há para onde ir',
   levelShort: 'As jogadas acabaram. Faltaram: {short}',
   lessonThrees:
     'Olá! Boas-vindas ao Visual Interconnection. Sou o assistente do laboratório, e hoje vou ensinar você a trabalhar com a mesa.\n\n' +
@@ -84,6 +85,15 @@ export const PT: Texts = {
   lessonFives:
     'Está aberto o quinto canal. Trabalhamos só com os 5.\n\n' +
     'Ponha cinco 5 lado a lado: isso é um combo, e ele vai sair [para nós].',
+  lineCombo: 'Três 3 lado a lado são um combo, e ele sai. Leve o dado pela seta.',
+  lineStep: 'Você pode andar pelos dados: um passo não é uma jogada. Rola o dado em que você está.',
+  lineWalk: 'Um combo não sai de uma vez: ele tem duas jogadas. Ande por ele até os outros.',
+  lineSide: 'A face do lado viaja de lado enquanto você rola em linha. Leve-a e vire.',
+  lineSeven: 'Faces opostas somam sete: sob o 4 está o 3. Duas roladas para o mesmo lado.',
+  lineLink: 'Um dado sobrando é um beco sem saída. Role-o até o combo que está saindo: isso é uma corrente.',
+  lineFloor: 'De um dado que está saindo dá para descer ao chão. Do chão, os dados são empurrados.',
+  lineGlass: 'Dá para rolar por cima de um dado que está saindo: o seu fica no lugar dele.',
+  lineFaces: 'Dois canais estão abertos: os 2 e os 3. Conte os dados antes.',
   ruleThrees: 'Um combo são três 3 lado a lado: ele sai. Só os 3 funcionam; as outras faces estão riscadas.',
   ruleStep: 'Um passo pelos dados não é uma jogada. Uma jogada é rolar o dado em que você está para um lugar livre.',
   ruleWalk: 'Um passo não é uma jogada; uma jogada é rolar. Por um combo que está saindo dá para andar e descer dele para outro dado.',

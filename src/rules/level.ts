@@ -1,4 +1,5 @@
 import { DELTA, DIRS, cubeAt, inBounds } from './board';
+import { canMove } from './reach';
 import { faceWorks } from './reactions';
 import { refillLevel } from './spawn';
 import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from './types';
@@ -14,6 +15,9 @@ import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from 
  *
  * A level may be a board given die by die. Such a board is the same every time, nothing comes
  * to it, and a board to be cleared is lost at a dead end: one die standing and nothing going.
+ *
+ * A level may shut its floor: the player then stays on the dice, and a board to be cleared is
+ * lost as well where the player has no move left, on a leaving die with no die to step to.
  */
 
 /** Moves a group takes to go: a die that lands on any of them joins it. */
@@ -154,6 +158,18 @@ export function levelStuck(state: RunState): boolean {
   return left > 0 && left < smallestGroup(run.spec);
 }
 
+/**
+ * A level with its floor shut has come to where nothing can be done: dice stand, and the player
+ * has no move, standing on a die that is leaving with no die to step to. The world moves only
+ * with a move, so it would stand so for good; the level ends there.
+ */
+export function levelStranded(state: RunState): boolean {
+  const run = state.levelRun;
+  if (!run || run.spec.goal.kind !== 'clear' || run.spec.floor !== false) return false;
+  if (state.cubes.some((cube) => cube.state === 'moving')) return false;
+  return standing(state) > 0 && !canMove(state);
+}
+
 /** Dice the smallest group of a level takes: two where every face works, else the least of its faces that makes groups. */
 export function smallestGroup(spec: Pick<LevelSpec, 'faces'>): number {
   const groups = (spec.faces ?? [2]).filter((face) => face >= 2);
@@ -232,7 +248,8 @@ function countSent(state: RunState, run: LevelRun): void {
  * if its board is at a dead end, or if the moves are spent, and a goal met with the last move is
  * a level passed; and if the level goes on and is one that dice come to, the board gets its next
  * die. A dead end is found on the beat the last group has gone, and not before: while a group is
- * going, the last die may still be brought to it.
+ * going, the last die may still be brought to it. Where the floor is shut, a player left with
+ * no move is found on the beat that left them so.
  */
 export function endBeat(state: RunState): void {
   const run = state.levelRun;
@@ -245,7 +262,7 @@ export function endBeat(state: RunState): void {
     state.events.push({ type: 'levelPassed' });
     return;
   }
-  if (levelStuck(state) || (spec.moves > 0 && run.moves >= spec.moves)) {
+  if (levelStuck(state) || levelStranded(state) || (spec.moves > 0 && run.moves >= spec.moves)) {
     state.over = true;
     state.endReason = 'failed';
     state.events.push({ type: 'levelFailed' });

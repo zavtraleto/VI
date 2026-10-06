@@ -14,6 +14,7 @@ export {
   goalOf,
   goalReached,
   levelConfig,
+  levelStranded,
   levelStuck,
   shortGroups,
   smallestGroup,
