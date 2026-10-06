@@ -64,5 +64,13 @@ export const ES: Texts = {
   shellTasks: 'LIMPIEZA DEL CANAL',
   shellRecords: 'REGISTRO DE SESIONES',
   shellSystem: 'PARÁMETROS',
+  shellHowTo: 'PROCEDIMIENTO',
+  shellReadme: 'NOTA ADJUNTA',
+  howRoll: 'Estás sobre un dado y lo haces rodar: una cara lateral queda arriba.\nA una casilla vacía el dado rueda contigo. A un dado vecino simplemente pasas.\nLas caras opuestas suman siete: bajo un 1 hay un 6.',
+  howCombo: 'Un combo son tantos dados juntos como puntos tiene su cara de arriba: dos 2, tres 3, seis 6.\nUn combo formado se va.',
+  howChain: 'Un combo no se va enseguida.\nMientras se va, acércale otro dado con la misma cara: se irá con el combo. Esto es una cadena.',
+  howOnes: 'Los 1 no forman combo.\nLleva un 1 a un combo que se va, y se irán todos los demás 1 del tablero.',
+  howLevels: 'NIVELES: quita todos los dados del tablero.\nSolo funcionan las caras del nivel, las demás están tachadas.\nLos movimientos son limitados: cuantos menos hagas, más estrellas.',
+  howProtocol: 'PROTOCOLO: los dados llegan solos.\nUna cadena multiplica los puntos.\nSi el tablero se llena y sigue lleno, la sesión termina.',
   shareScore: 'VI — enviado al otro lado: {score}',
 };

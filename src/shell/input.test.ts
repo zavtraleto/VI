@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextFocus, zoneAt } from './input';
+import { nextFocus, swipeOf, zoneAt } from './input';
 
 /** Three rows, the middle one split in two: enough to walk in every direction. */
 const zones = [
@@ -53,5 +53,19 @@ describe('zoneAt', () => {
     ];
     expect(zoneAt(pair, 45, 45)?.id).toBe('a');
     expect(zoneAt(pair, 55, 55)?.id).toBe('b');
+  });
+});
+
+describe('swipeOf', () => {
+  it('is a press drawn far enough sideways, and level enough', () => {
+    expect(swipeOf(-60, 4)).toBe('left');
+    expect(swipeOf(60, -10)).toBe('right');
+  });
+
+  it('is not a press that stays where it is, nor one drawn up or down', () => {
+    expect(swipeOf(0, 0)).toBeNull();
+    expect(swipeOf(-12, 2)).toBeNull();
+    expect(swipeOf(40, 40)).toBeNull();
+    expect(swipeOf(10, -80)).toBeNull();
   });
 });

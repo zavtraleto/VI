@@ -50,7 +50,8 @@ export function pictureSize(canvas: Size, pixelsTall: number, pixelsWide: number
 
 /** Half-width signs: Latin with the letters its languages add to it, digits, punctuation and half-width kana. Everything else takes two places. */
 function isHalfWidth(code: number): boolean {
-  return code < 0x250 || (code >= 0xff61 && code <= 0xff9f);
+  // The Cyrillic of the program is its own (`scripts/cyrillic-font.mjs`): as narrow as its Latin.
+  return code < 0x250 || (code >= 0x400 && code <= 0x45f) || (code >= 0xff61 && code <= 0xff9f);
 }
 
 /** Width of a line of the program's font in pixels of the picture. */
@@ -73,15 +74,18 @@ export function signPlaces(text: string): number[] {
 
 /**
  * The net of a die: where each face lies when the die is unfolded into a cross. Index 0 is
- * the face 1. Opposite faces — they add up to seven — are never side by side.
+ * the face 1. The die is unfolded as it stands on the board at the start: the one on top is
+ * the middle of the cross, the two lies to the north of it, the three to the east, the four to
+ * the west, the five to the south, and the six, which was underneath, hangs from the five.
+ * Opposite faces - they add up to seven - are never side by side.
  */
 export const NET: readonly { col: number; row: number }[] = [
-  { col: 1, row: 0 }, // 1
-  { col: 1, row: 1 }, // 2
+  { col: 1, row: 1 }, // 1
+  { col: 1, row: 0 }, // 2
   { col: 2, row: 1 }, // 3
   { col: 0, row: 1 }, // 4
-  { col: 1, row: 3 }, // 5
-  { col: 1, row: 2 }, // 6
+  { col: 1, row: 2 }, // 5
+  { col: 1, row: 3 }, // 6
 ];
 
 /** The face next to a face on the net that way; the face itself where the net ends. */

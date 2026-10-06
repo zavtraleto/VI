@@ -84,6 +84,16 @@ const RU = {
   shellTasks: 'ОЧИСТКА КАНАЛА',
   shellRecords: 'ЖУРНАЛ СЕАНСОВ',
   shellSystem: 'ПАРАМЕТРЫ',
+  shellHowTo: 'ПОРЯДОК РАБОТЫ',
+  shellReadme: 'СОПРОВОДИТЕЛЬНАЯ ЗАПИСКА',
+  // How the game is played, as the file of the menu says it: the rules that hold wherever dice are
+  // rolled, in the plain words of the instruction, then what a level asks for and what a session does.
+  howRoll: 'Ты стоишь на кости и катишь её: боковая грань ложится наверх.\nВ пустую клетку кость катится вместе с тобой. На соседнюю кость ты просто переходишь.\nНапротив всегда семь: под единицей лежит шестёрка.',
+  howCombo: 'Комбо — столько костей рядом, сколько точек на их верхней грани: две двойки, три тройки, шесть шестёрок.\nСобранное комбо уходит.',
+  howChain: 'Комбо уходит не сразу.\nПока оно уходит, докати к нему ещё кость с той же гранью: она уйдёт вместе с ним. Это цепочка.',
+  howOnes: 'Единицы в комбо не собираются.\nПодведи единицу к уходящему комбо — и уйдут все остальные единицы на поле.',
+  howLevels: 'УРОВНИ: убери с поля все кости.\nРаботают только грани уровня, остальные перечёркнуты.\nХоды ограничены: чем их меньше, тем больше звёзд.',
+  howProtocol: 'ПРОТОКОЛ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — сеанс окончен.',
   // What a player sends out with a link to the game: the score is what was sent to the other side.
   shareScore: 'VI — передано на ту сторону: {score}',
 };
@@ -147,6 +157,14 @@ const EN: typeof RU = {
   shellTasks: 'CLEAR THE CHANNEL',
   shellRecords: 'SESSION LOG',
   shellSystem: 'PARAMETERS',
+  shellHowTo: 'OPERATING PROCEDURE',
+  shellReadme: 'ACCOMPANYING NOTE',
+  howRoll: 'You stand on a die and roll it: a side face comes up on top.\nInto an empty cell the die rolls with you. Onto a die next to you, you simply step.\nOpposite faces make seven: under a 1 lies a 6.',
+  howCombo: 'A combo is as many dice side by side as their top face has pips: two 2s, three 3s, six 6s.\nA finished combo leaves.',
+  howChain: 'A combo does not leave at once.\nWhile it is leaving, roll one more die with the same face up to it: it leaves with the combo. This is a chain.',
+  howOnes: 'Ones make no combo.\nBring a 1 to a leaving combo, and every other 1 on the board leaves.',
+  howLevels: 'LEVELS: clear every die off the board.\nOnly the faces of the level work, the others are crossed out.\nMoves are limited: the fewer you make, the more stars.',
+  howProtocol: 'PROTOCOL: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the session is over.',
   shareScore: 'VI — sent to the other side: {score}',
 };
 

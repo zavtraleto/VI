@@ -64,5 +64,13 @@ export const DE: Texts = {
   shellTasks: 'KANALRÄUMUNG',
   shellRecords: 'SITZUNGSPROTOKOLL',
   shellSystem: 'PARAMETER',
+  shellHowTo: 'ARBEITSANWEISUNG',
+  shellReadme: 'BEGLEITSCHREIBEN',
+  howRoll: 'Du stehst auf einem Würfel und rollst ihn: Eine Seitenfläche kommt nach oben.\nIn ein leeres Feld rollt der Würfel mit dir. Auf einen Nachbarwürfel trittst du einfach hinüber.\nGegenüber ergibt immer sieben: Unter einer 1 liegt eine 6.',
+  howCombo: 'Ein Combo sind so viele Würfel nebeneinander, wie ihre obere Seite Augen hat: zwei 2er, drei 3er, sechs 6er.\nEin fertiges Combo geht.',
+  howChain: 'Ein Combo geht nicht sofort.\nSolange es geht, rolle noch einen Würfel mit derselben Seite heran: Er geht mit dem Combo. Das ist eine Kette.',
+  howOnes: 'Einsen bilden kein Combo.\nBring eine 1 an ein gehendes Combo, und alle anderen 1er auf dem Feld gehen.',
+  howLevels: 'STUFEN: Räume alle Würfel vom Feld.\nNur die Seiten der Stufe wirken, die anderen sind durchgestrichen.\nDie Züge sind begrenzt: Je weniger Züge, desto mehr Sterne.',
+  howProtocol: 'PROTOKOLL: Die Würfel kommen von selbst.\nEine Kette vervielfacht die Punkte.\nLäuft das Feld voll und bleibt voll, ist die Sitzung vorbei.',
   shareScore: 'VI — auf die andere Seite gesendet: {score}',
 };

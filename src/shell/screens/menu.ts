@@ -6,15 +6,15 @@ import { CELL_H, CELL_W, MIN_ZONE, menuLayout, netProjection, netStep, type Box,
 import { drawLogo } from '../logo';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { ShellSpace } from '../space';
-import { EXEC_LABEL, EXEC_NAME, LEGEND, MENU_FILES, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, fileLine, type FileField, type MenuFile } from '../text';
+import { EXEC_LABEL, EXEC_NAME, LEGEND, MENU_FILES, PAGER, README_DATE, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, fileLine, type FileField, type MenuFile } from '../text';
 import type { Palette } from '../theme';
 
 /** What the files of the main menu do. */
 export interface MenuActions {
   onEndless: () => void;
   onLevels: () => void;
-  onPuzzle: () => void;
-  onTutorial: () => void;
+  onHowTo: () => void;
+  onReadme: () => void;
   onRecords: () => void;
   onSystem: () => void;
 }
@@ -28,16 +28,19 @@ export interface MenuData {
   levelsTotal: number;
   /** Seconds a session with a limit lasts, as the rules have it: for a line that names the time. */
   limitSec: number;
-  tutorialDone: boolean;
-  /** Puzzles cleared, out of how many there are. */
-  tasksDone: number;
-  tasksTotal: number;
+  /** Rules the file of how the game is played holds. */
+  rules: number;
   /** Sessions on record. */
   sessions: number;
 }
 
 /** The bar that runs the file in focus. */
 const EXEC_ID = 'exec';
+/** The arrows of the record: to the file before and to the file after. */
+const PREV_ID = 'prev';
+const NEXT_ID = 'next';
+/** Width of the part of the bar of the record an arrow stands in. */
+const PAGER_WIDTH = 3 * CELL_W;
 
 /** A number between 0 and 1 that depends on its two arguments alone. */
 function chance(a: number, b: number): number {
@@ -50,7 +53,8 @@ function chance(a: number, b: number): number {
  * the program on each, and the red figure that steps from die to die. Everything else on the
  * screen is the program's records: of the one who sits at it, and of the file the figure
  * stands on. A file runs when its die is pressed while the figure is on it, or from the bar
- * of its record.
+ * of its record. The record is also leafed through, file after file by their numbers and round
+ * again: by the arrows at the ends of its bar, or by a swipe across it.
  */
 export class MenuScreen implements ShellScreen {
   readonly home: string;
@@ -63,20 +67,21 @@ export class MenuScreen implements ShellScreen {
 
   constructor(
     private readonly context: ShellContext,
-    tutorialFirst: boolean,
     actions: MenuActions,
     private readonly data: MenuData,
+    /** The file the figure waits on: the one the player has come back from. The levels when left out. */
+    home?: string,
   ) {
     this.actions = {
-      protocol: actions.onEndless,
       levels: actions.onLevels,
-      exercise: actions.onTutorial,
-      tasks: actions.onPuzzle,
+      protocol: actions.onEndless,
+      howto: actions.onHowTo,
+      readme: actions.onReadme,
       records: actions.onRecords,
       system: actions.onSystem,
     };
-    // The figure waits where the player is most likely to go: at the exercise until it is done.
-    this.current = MENU_FILES.find((file) => file.id === (tutorialFirst ? 'exercise' : 'protocol'))!;
+    // The figure waits in the middle of the net, on the levels, or on the file the player has just left.
+    this.current = MENU_FILES.find((file) => file.id === home) ?? MENU_FILES.find((file) => file.face === 1)!;
     this.home = this.current.id;
     this.space = new ShellSpace(context.values);
     this.space.place(this.current.face);
@@ -95,7 +100,44 @@ export class MenuScreen implements ShellScreen {
       };
     });
     items.push({ id: EXEC_ID, rect: this.toWindow(layout.exec), action: () => this.actions[this.current.id](), passive: true });
+    const { prev, next } = this.pagers(layout, zoom);
+    items.push(
+      { id: PREV_ID, rect: this.toWindow(prev), action: () => this.context.focus(this.beside(-1)), passive: true, instant: true, quiet: true },
+      { id: NEXT_ID, rect: this.toWindow(next), action: () => this.context.focus(this.beside(1)), passive: true, instant: true, quiet: true },
+    );
     return items;
+  }
+
+  /** A swipe across the record turns it: to the left brings the file after, to the right the file before. */
+  swipe(dir: 'left' | 'right', x: number, y: number): string | null {
+    const rect = this.toWindow(this.plan().layout.record);
+    if (x < rect.x || x >= rect.x + rect.width || y < rect.y || y >= rect.y + rect.height) return null;
+    return this.beside(dir === 'left' ? 1 : -1);
+  }
+
+  /**
+   * The file so many numbers on from the one the figure stands on, round the six. The figure
+   * is on it from this moment, not from the next frame: two quick presses turn the record twice.
+   */
+  private beside(step: number): string {
+    const count = MENU_FILES.length;
+    const face = ((this.current.face - 1 + step + count) % count) + 1;
+    this.current = MENU_FILES.find((file) => file.face === face)!;
+    return this.current.id;
+  }
+
+  /**
+   * The zones of the two arrows: the top corners of the record, as large as a finger needs
+   * whatever the picture is. The arrows themselves stand in the bar, at its ends.
+   */
+  private pagers(layout: MenuLayout, zoom: number): { prev: Box; next: Box } {
+    const { record, exec } = layout;
+    const side = Math.max(PAGER_WIDTH, Math.ceil(MIN_ZONE / Math.max(0.1, zoom)));
+    const tall = Math.min(side, exec.y - record.y - 2);
+    return {
+      prev: { x: record.x, y: record.y, w: side, h: tall },
+      next: { x: record.x + record.w - side, y: record.y, w: side, h: tall },
+    };
   }
 
   /** The keys walk the net as the figure walks the board: to the die next to this one. */
@@ -155,7 +197,7 @@ export class MenuScreen implements ShellScreen {
 
     if (layout.subject) this.drawSubject(kit, layout.subject);
     this.drawSpace(kit, layout, projection, channel);
-    this.drawRecord(kit, layout, file, channel, focus.pressed !== null);
+    this.drawRecord(kit, layout, file, channel, focus.pressed);
     this.drawStatus(kit, layout.status);
     if (layout.legend !== null) kit.text(LEGEND, layout.header.left, layout.legend, palette.dim);
   }
@@ -244,7 +286,7 @@ export class MenuScreen implements ShellScreen {
   }
 
   /** The record of the file the figure stands on, with the bar that runs it. */
-  private drawRecord(kit: Kit, layout: MenuLayout, file: MenuFile, channel: string, pressed: boolean): void {
+  private drawRecord(kit: Kit, layout: MenuLayout, file: MenuFile, channel: string, pressed: string | null): void {
     const { bg, ink, dim } = kit.palette;
     const box = layout.record;
     const left = box.x + 8;
@@ -252,8 +294,20 @@ export class MenuScreen implements ShellScreen {
     kit.box(box, bg);
     kit.frame(box, channel, true);
     kit.rect(box.x + 1, box.y + 1, box.w - 2, CELL_H + 1, channel);
-    kit.text(`FILE ${digits(file.face, 2)}/${digits(MENU_FILES.length, 2)}`, box.x + 6, box.y + 1, bg, { bold: true });
-    kit.text(`${STATUS.channels}${file.face}`, box.x + box.w - 6, box.y + 1, bg, { align: 'right', bold: true });
+    // The ends of the bar are the arrows that turn the record; a pressed one is dark with a lit arrow.
+    const ends: readonly [id: string, sign: string, x: number][] = [
+      [PREV_ID, PAGER.prev, box.x + 1],
+      [NEXT_ID, PAGER.next, box.x + box.w - 1 - PAGER_WIDTH],
+    ];
+    for (const [id, sign, x] of ends) {
+      const held = pressed === id;
+      if (held) kit.rect(x, box.y + 1, PAGER_WIDTH, CELL_H + 1, bg);
+      kit.text(sign, x + PAGER_WIDTH / 2, box.y + 1, held ? channel : bg, { align: 'center', bold: true });
+    }
+    kit.rect(box.x + PAGER_WIDTH + 1, box.y + 1, 1, CELL_H + 1, bg);
+    kit.rect(box.x + box.w - PAGER_WIDTH - 2, box.y + 1, 1, CELL_H + 1, bg);
+    kit.text(`FILE ${digits(file.face, 2)}/${digits(MENU_FILES.length, 2)}`, box.x + PAGER_WIDTH + 7, box.y + 1, bg, { bold: true });
+    kit.text(`${STATUS.channels}${file.face}`, box.x + box.w - PAGER_WIDTH - 7, box.y + 1, bg, { align: 'right', bold: true });
 
     const nameEnd = kit.text(file.name, left, box.y + 22, ink, { scale: 2, bold: true });
     kit.text(file.native, nameEnd + CELL_W, box.y + 22 + CELL_H, dim);
@@ -263,7 +317,7 @@ export class MenuScreen implements ShellScreen {
     const exec = layout.exec;
     const label = `${EXEC_LABEL} ${EXEC_NAME}`;
     const textY = exec.y + Math.round((exec.h - CELL_H) / 2);
-    if (pressed) {
+    if (pressed !== null && pressed !== PREV_ID && pressed !== NEXT_ID) {
       kit.frame(exec, ink);
       kit.text(label, exec.x + exec.w / 2, textY, ink, { align: 'center', bold: true });
     } else {
@@ -301,10 +355,10 @@ export class MenuScreen implements ShellScreen {
         return digits(data.bestEndless, 6);
       case 'levels':
         return `${digits(data.levelsDone, 2)}/${digits(data.levelsTotal, 2)}`;
-      case 'exercise':
-        return data.tutorialDone ? 'DONE' : 'PENDING';
-      case 'tasks':
-        return `${digits(data.tasksDone, 2)}/${digits(data.tasksTotal, 2)}`;
+      case 'rules':
+        return digits(data.rules, 2);
+      case 'readme':
+        return README_DATE;
       case 'sessions':
         return digits(data.sessions, 4);
       case 'revision':

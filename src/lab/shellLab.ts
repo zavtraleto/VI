@@ -20,7 +20,7 @@ export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'clim
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
-const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 20, limitSec: DEFAULT_TUNING.timedSec, tutorialDone: true, tasksDone: 7, tasksTotal: 30, sessions: 12 };
+const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 20, limitSec: DEFAULT_TUNING.timedSec, rules: 8, sessions: 12 };
 /** Players for the sample of the table a platform keeps: one with no name, one with a name too long for the table. */
 const SAMPLE_PLAYERS = ['Green Chicken', '', 'A name far too long for the table', 'Yellow Mackerel'].map((name, i) => ({
   name,
@@ -72,7 +72,6 @@ export class ShellLab {
   /** The boot is shown as the first start of the program, with the check. */
   first: boolean;
   /** The tutorial is not done yet: EXERCISE is the main item of the menu. */
-  tutorialFirst: boolean;
   /** What the last copy put on the clipboard. */
   copied: string | null = null;
   /** What the session of the sample of the way up the log came to. */
@@ -88,7 +87,6 @@ export class ShellLab {
     const screen = query.get('screen');
     this.screen = SHELL_SCREENS.includes(screen as ShellScreenName) ? (screen as ShellScreenName) : 'menu';
     this.first = query.get('first') !== '0';
-    this.tutorialFirst = query.get('tutorial') === '1';
 
     // Under the page's own interface the pointer would scroll and zoom; here it only presses.
     document.documentElement.style.touchAction = 'none';
@@ -146,11 +144,6 @@ export class ShellLab {
   setFirst(first: boolean): void {
     this.first = first;
     this.show('boot');
-  }
-
-  setTutorialFirst(tutorialFirst: boolean): void {
-    this.tutorialFirst = tutorialFirst;
-    this.show('menu');
   }
 
   /** Back to the look as it is defined. */
@@ -239,12 +232,12 @@ export class ShellLab {
     const actions: MenuActions = {
       onEndless: nothing,
       onLevels: nothing,
-      onPuzzle: nothing,
-      onTutorial: nothing,
+      onHowTo: nothing,
+      onReadme: nothing,
       onRecords: nothing,
       onSystem: nothing,
     };
-    this.shell.showMenu(this.tutorialFirst, actions, SAMPLE_DATA);
+    this.shell.showMenu(actions, SAMPLE_DATA);
   }
 
   /** The address names the screen, so it can be reloaded or sent to a phone. */

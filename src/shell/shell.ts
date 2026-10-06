@@ -104,18 +104,23 @@ export class Shell {
       reducedMotion: () => prefersReducedMotion(this.settings),
       voice: this.voice,
       sound: (event) => this.sound(event),
+      focus: (id) => {
+        this.input.focus = id;
+        this.invalidate();
+      },
     };
     this.input = new ShellInput({
       active: () => this.screen !== null && this.fontsReady && this.firing === null && !this.options.blocked?.(),
       items: () => this.screen?.items() ?? [],
       changed: () => this.invalidate(),
       activate: (item) => {
-        this.sound({ kind: item.id === 'back' ? 'back' : 'run' });
+        if (!item.quiet) this.sound({ kind: item.id === 'back' ? 'back' : 'run' });
         this.invalidate();
         if (item.instant) this.act(item.action);
         else this.firing = { item, start: null };
       },
       move: (focus, dir) => this.screen?.move?.(focus, dir),
+      swipe: (dir, x, y) => this.screen?.swipe?.(dir, x, y),
       stuck: () => this.sound({ kind: 'stuck' }),
       back: () => {
         if (!this.screen?.back) return;
@@ -150,8 +155,9 @@ export class Shell {
     this.show(new BootScreen(this.context, first, onDone), true);
   }
 
-  showMenu(tutorialFirst: boolean, actions: MenuActions, data: MenuData): void {
-    this.show(new MenuScreen(this.context, tutorialFirst, actions, data), true);
+  /** The main menu. `home` is the file the figure waits on, where the player comes back from one. */
+  showMenu(actions: MenuActions, data: MenuData, home?: string): void {
+    this.show(new MenuScreen(this.context, actions, data, home), true);
   }
 
   /**

@@ -77,7 +77,6 @@ export class ShellPanel {
     const head = {
       screen: lab.screen,
       first: lab.first,
-      tutorialFirst: lab.tutorialFirst,
       replay: () => {
         lab.show('boot');
         shown();
@@ -98,13 +97,6 @@ export class ShellPanel {
       .add(head, 'screen', [...SHELL_SCREENS])
       .name('экран')
       .onChange((name: ShellScreenName) => lab.show(name));
-    gui
-      .add(head, 'tutorialFirst')
-      .name('меню: обучение не пройдено')
-      .onChange((value: boolean) => {
-        lab.setTutorialFirst(value);
-        shown();
-      });
     gui
       .add(head, 'first')
       .name('boot: первый запуск')

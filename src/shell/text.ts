@@ -62,7 +62,7 @@ export const STATUS = {
 export const LEGEND = '←↑↓→ 移動   ENTER 実行';
 
 /** What a file of the menu shows under its name. */
-export type FileField = 'bestEndless' | 'levels' | 'exercise' | 'tasks' | 'sessions' | 'revision';
+export type FileField = 'bestEndless' | 'levels' | 'rules' | 'readme' | 'sessions' | 'revision';
 
 export interface MenuFile {
   id: string;
@@ -78,25 +78,33 @@ export interface MenuFile {
 }
 
 /**
- * The six files of the main menu, one on each face of the die. Opposite faces add up to
- * seven: the session without a limit faces the settings of the program, the levels face the
- * log, the two exercises stand side by side. The levels stand where the session of the day
- * stood: that session is still in the program and in its log, and has no file of its own.
+ * The six files of the main menu, one on each face of the die. The levels are the one, the
+ * middle of the net, where the figure waits. Opposite faces add up to seven: the levels face
+ * the settings of the program, the session without a limit faces the log, and what is read -
+ * how the game is played, and the note that came with the program - stands on either side.
+ * The exercise and the tasks had the three and the four until 6 October 2026: both are still
+ * in the program, and neither has a file.
  */
 export const MENU_FILES: readonly MenuFile[] = [
-  /** "Protocol"; "best record". */
-  { id: 'protocol', face: 1, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', field: ['最高記録', 'bestEndless'] },
   /** "Stages": the levels of the game; "completed". */
-  { id: 'levels', face: 2, name: 'LEVELS', native: '段階', line: 'shellLevels', field: ['完了', 'levels'] },
-  /** "Exercise"; "state". */
-  { id: 'exercise', face: 3, name: 'EXERCISE', native: '演習', line: 'shellExercise', field: ['状態', 'exercise'] },
-  /** "Tasks"; "completed". */
-  { id: 'tasks', face: 4, name: 'TASKS', native: '課題', line: 'shellTasks', field: ['完了', 'tasks'] },
+  { id: 'levels', face: 1, name: 'LEVELS', native: '段階', line: 'shellLevels', field: ['完了', 'levels'] },
+  /** "Protocol"; "best record". */
+  { id: 'protocol', face: 2, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', field: ['最高記録', 'bestEndless'] },
+  /** "Procedure": how the game is played; "rules", how many of them. */
+  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: '手順', line: 'shellHowTo', field: ['規則', 'rules'] },
+  /** "To begin with": the note that came with the program; "last": the day it was last written to. */
+  { id: 'readme', face: 4, name: 'README', native: 'はじめに', line: 'shellReadme', field: ['最終', 'readme'] },
   /** "Records"; "number of entries". */
   { id: 'records', face: 5, name: 'RECORDS', native: '記録', line: 'shellRecords', field: ['件数', 'sessions'] },
   /** "Settings"; "revision". */
   { id: 'system', face: 6, name: 'SYSTEM', native: '設定', line: 'shellSystem', field: ['改訂', 'revision'] },
 ];
+
+/** The day the note that came with the program was last written to, by the era: the day before the last start. */
+export const README_DATE = 'H13.03.20';
+
+/** The arrows that turn the record of the menu to the file before and the file after. */
+export const PAGER = { prev: '←', next: '→' } as const;
 
 /** A date given as YYYY-MM-DD, as the program writes it: by the era, where Heisei 38 is 2026. */
 export function eraDate(date: string): string {
@@ -197,6 +205,10 @@ export const PANELS = {
   system: { native: '設定', name: 'SYSTEM' },
   /** "Rules". */
   rules: { native: '規則', name: 'RULES' },
+  /** "Procedure": how the game is played. */
+  howto: { native: '手順', name: 'HOW TO PLAY' },
+  /** "To begin with": the note that came with the program. */
+  readme: { native: 'はじめに', name: 'README' },
   /** "Tasks". */
   tasks: { native: '課題', name: 'TASKS' },
   /** "Completed". */

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import { textWidth } from './layout';
-import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel } from './panels';
+import { readmePages } from '../ui/readme';
+import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
 import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
@@ -349,5 +350,39 @@ describe('the pause of a level', () => {
     expect(rules).toMatchObject({ label: COMMANDS.rules });
     if (rules?.kind === 'command') rules.action();
     expect(read).toBe(1);
+  });
+});
+
+describe('the files of the menu that are read', () => {
+  it('say how the game is played in the windows of the rules, under a name of their own', () => {
+    const spec = levelRulesPanel(['a', 'b', 'c', 'd'], 1, { onPage: nothing, onBack: nothing }, PANELS.howto);
+    expect(spec.title).toEqual({ native: PANELS.howto.native, name: 'HOW TO PLAY 2/2' });
+    expect(row(spec, 'say').text).toBe('4. d');
+  });
+
+  it('show the note that came with the program a page to a window, and go round from the last to the first', () => {
+    const pages = [['one', 'two'], ['three']];
+    const turned: number[] = [];
+    const first = readmePanel(pages, 0, { onPage: (to) => turned.push(to), onBack: nothing });
+    expect(first.title).toEqual({ native: PANELS.readme.native, name: 'README 1/2' });
+    expect(first.rows.filter((candidate) => candidate.kind === 'say').map((candidate) => (candidate as { text: string }).text)).toEqual(['one', 'two']);
+    const last = readmePanel(pages, 1, { onPage: (to) => turned.push(to), onBack: nothing });
+    for (const spec of [first, last]) row(spec, 'commands').commands.find((command) => command.id === 'next')!.action();
+    expect(turned).toEqual([1, 0]);
+  });
+
+  it('cut the pages of the note into smaller windows for a low screen, with every paragraph whole and in its place', () => {
+    for (const code of ['ru', 'en', 'de'] as const) {
+      const pages = readmePages(code);
+      const windows = readmePages(code, 330);
+      expect(windows.length).toBeGreaterThan(pages.length);
+      expect(windows.flat()).toEqual(pages.flat());
+      for (const window of windows) {
+        expect(window.length).toBeGreaterThan(0);
+        if (window.length > 1) expect(window.join('').length).toBeLessThanOrEqual(330);
+      }
+    }
+    expect(readmePages('de')).toEqual(readmePages('en'));
+    expect(readmePages('ru')).toHaveLength(5);
   });
 });

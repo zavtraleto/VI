@@ -21,6 +21,8 @@ export interface ShellItem {
    * for what a browser allows only from a press, as writing to the clipboard.
    */
   instant?: boolean;
+  /** The zone is not heard as something run: what it does is heard by itself, as a step of the focus. */
+  quiet?: boolean;
 }
 
 /** Which zones the player is at: what a screen needs to draw them. */
@@ -72,6 +74,8 @@ export interface ShellContext {
   readonly voice: Voice;
   /** Something a screen has done that can be heard. */
   sound(event: ShellSound): void;
+  /** Puts the focus on a zone of the screen: for a zone that leads to another one. */
+  focus(id: string): void;
 }
 
 export interface ShellScreen {
@@ -92,6 +96,12 @@ export interface ShellScreen {
   move?(focus: string | null, dir: Dir4): string | null;
   /** The face of the die a zone stands on, on a screen that is made of dice. */
   face?(id: string): number | null;
+  /**
+   * A finger or a mouse was drawn sideways across the screen, from the point given in CSS
+   * pixels of the window. Returns the zone the focus goes to, or null where the screen makes
+   * nothing of it: the press then acts as any other.
+   */
+  swipe?(dir: 'left' | 'right', x: number, y: number): string | null;
   /** Esc and the system's "back". */
   back?(): void;
   /** Any press or key, on a screen that only waits to be passed. */

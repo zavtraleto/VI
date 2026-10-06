@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CANONICAL } from '../rules/orientation';
 import {
   CELL_W,
   MIN_ZONE,
@@ -46,10 +47,11 @@ describe('pictureSize', () => {
 });
 
 describe('textWidth', () => {
-  it('gives Latin one place and everything else two', () => {
+  it('gives Latin and the Cyrillic of the program one place and everything else two', () => {
     expect(textWidth('VI 07')).toBe(5 * CELL_W);
     expect(textWidth('記録')).toBe(4 * CELL_W);
-    expect(textWidth('ЖУРНАЛ')).toBe(12 * CELL_W);
+    expect(textWidth('ЖУРНАЛ')).toBe(6 * CELL_W);
+    expect(textWidth('TÜRKÇE İŞ')).toBe(9 * CELL_W);
     expect(textWidth('ｾﾂｿﾞｸ')).toBe(5 * CELL_W);
     expect(textWidth('VI', 2)).toBe(4 * CELL_W);
   });
@@ -79,16 +81,25 @@ describe('the net of a die', () => {
   });
 
   it('is walked from face to face, and stops at its edges', () => {
-    expect(netStep(1, 'down')).toBe(2);
-    expect(netStep(2, 'left')).toBe(4);
-    expect(netStep(2, 'right')).toBe(3);
-    expect(netStep(2, 'down')).toBe(6);
-    expect(netStep(6, 'down')).toBe(5);
-    expect(netStep(5, 'up')).toBe(6);
-    expect(netStep(1, 'up')).toBe(1);
-    expect(netStep(1, 'left')).toBe(1);
+    expect(netStep(1, 'up')).toBe(2);
+    expect(netStep(1, 'left')).toBe(4);
+    expect(netStep(1, 'right')).toBe(3);
+    expect(netStep(1, 'down')).toBe(5);
+    expect(netStep(5, 'down')).toBe(6);
+    expect(netStep(6, 'up')).toBe(5);
+    expect(netStep(2, 'up')).toBe(2);
+    expect(netStep(2, 'left')).toBe(2);
     expect(netStep(3, 'right')).toBe(3);
-    expect(netStep(5, 'down')).toBe(5);
+    expect(netStep(6, 'down')).toBe(6);
+  });
+
+  it('is the die of the board unfolded: the one in the middle, its neighbours where they face', () => {
+    const at = (face: number) => NET[face - 1];
+    const one = at(CANONICAL.top);
+    expect(at(CANONICAL.north)).toEqual({ col: one.col, row: one.row - 1 });
+    expect(at(CANONICAL.south)).toEqual({ col: one.col, row: one.row + 1 });
+    expect(at(CANONICAL.east)).toEqual({ col: one.col + 1, row: one.row });
+    expect(at(CANONICAL.west)).toEqual({ col: one.col - 1, row: one.row });
   });
 });
 
@@ -190,11 +201,11 @@ describe('netProjection', () => {
 
   it('shows rows of the net further down the nearer they are', () => {
     const y = (face: number): number => projection.centres[face - 1].y;
-    expect(y(1)).toBeLessThan(y(2));
-    expect(y(2)).toBeLessThan(y(6));
-    expect(y(6)).toBeLessThan(y(5));
-    expect(projection.centres[3].x).toBeLessThan(projection.centres[1].x);
-    expect(projection.centres[1].x).toBeLessThan(projection.centres[2].x);
+    expect(y(2)).toBeLessThan(y(1));
+    expect(y(1)).toBeLessThan(y(5));
+    expect(y(5)).toBeLessThan(y(6));
+    expect(projection.centres[3].x).toBeLessThan(projection.centres[0].x);
+    expect(projection.centres[0].x).toBeLessThan(projection.centres[2].x);
   });
 
   it('gives the dice zones that do not share a point', () => {

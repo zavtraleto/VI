@@ -428,11 +428,14 @@ export const LEVEL_RULES_PAGE = 3;
  * The rules of the levels up to the one that waits, to read again: numbered through, a few to a
  * window, the window saying which one of how many it is. `NEXT` leads to the rules that follow
  * and, past the last of them, back to the first. Rules that fit one window have no way on.
+ * `name` is what the windows go under where they are not the rules of a level: the file of
+ * the menu that says how the game is played.
  */
 export function levelRulesPanel(
   lines: readonly string[],
   page: number,
   actions: { onPage: (page: number) => void; onBack: () => void },
+  name: PanelName = PANELS.rules,
 ): PanelSpec {
   const pages = Math.max(1, Math.ceil(lines.length / LEVEL_RULES_PAGE));
   const at = Math.min(Math.max(0, page), pages - 1);
@@ -442,8 +445,32 @@ export function levelRulesPanel(
   if (pages > 1) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: () => actions.onPage((at + 1) % pages) });
   rows.push({ kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
   return {
-    title: pages > 1 ? { native: PANELS.rules.native, name: `${PANELS.rules.name} ${at + 1}/${pages}` } : PANELS.rules,
+    title: pages > 1 ? { native: name.native, name: `${name.name} ${at + 1}/${pages}` } : name,
     home: pages > 1 ? 'next' : 'back',
+    back: actions.onBack,
+    rows,
+  };
+}
+
+/**
+ * The note that came with the program, in the language of the player: a page to a window, a
+ * paragraph to a line of the panel, the window saying which page of how many it is. `NEXT`
+ * leads to the page that follows and, past the last, back to the first.
+ */
+export function readmePanel(
+  pages: readonly (readonly string[])[],
+  page: number,
+  actions: { onPage: (page: number) => void; onBack: () => void },
+): PanelSpec {
+  const at = Math.min(Math.max(0, page), pages.length - 1);
+  const rows: PanelRow[] = (pages[at] ?? []).map((text) => ({ kind: 'say', text }));
+  const back: PanelCommand = { id: 'back', label: COMMANDS.back, action: actions.onBack };
+  const next: PanelCommand = { id: 'next', label: COMMANDS.next, action: () => actions.onPage((at + 1) % pages.length) };
+  // Side by side where the picture is wide: a low screen has no room for one under the other.
+  rows.push({ kind: 'gap' }, { kind: 'commands', stacked: true, commands: pages.length > 1 ? [next, back] : [back] });
+  return {
+    title: { native: PANELS.readme.native, name: `${PANELS.readme.name} ${at + 1}/${pages.length}` },
+    home: pages.length > 1 ? 'next' : 'back',
     back: actions.onBack,
     rows,
   };

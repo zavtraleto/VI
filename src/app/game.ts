@@ -71,13 +71,14 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { COMMANDS, LOGO_TEXT, RECORDS, eraDate, type PanelName } from '../shell/text';
+import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
+import { readmePages } from '../ui/readme';
 import { LANGUAGES, language, setLanguage, t, type TextKey } from '../ui/i18n';
 import { dailyArchive, endlessArchive } from './archive';
 import { clockLeft, secondsLeft } from './clock';
@@ -106,6 +107,21 @@ type RunKind = 'endless' | 'timed' | 'tutorial' | 'puzzle' | 'level';
  * their list and not on its menu.
  */
 const LEVELS_PROBE = new URLSearchParams(window.location.search).has('levels');
+/**
+ * The exercise and the tasks have no file in the menu since 6 October 2026: the levels teach
+ * and the levels are the puzzles. Both are still in the program, and `?tutorial` and `?tasks`
+ * open on them, until it is decided whether they come back or go: see docs/ROADMAP.md.
+ */
+const SHELVED = ((query) => (query.has('tutorial') ? 'tutorial' : query.has('tasks') ? 'tasks' : null))(new URLSearchParams(window.location.search));
+/**
+ * How the game is played, as the file of the menu says it: the rules that hold wherever dice
+ * are rolled, then what a level asks for and what a session does. Where a window of the levels
+ * already says a rule in words that hold everywhere, the words are the same ones.
+ */
+const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'lessonGlass', 'lessonFloor', 'howOnes', 'howLevels', 'howProtocol'];
+/** A window lower than this, in CSS pixels, and lying on its side shows the note that came with the program so many signs at a time. */
+const README_LOW = 520;
+const README_SIGNS = 330;
 /**
  * A chapter of the levels opens for the stars of the levels before it. The gates are a probe:
  * `?gates=off` in the address leaves every chapter open, to play the ladder both ways.
@@ -453,6 +469,12 @@ export class Game {
         // The probe opens on its list. A run kept from before is left in storage, for a start without the probe.
         this.saveWithoutRun();
         this.showLevels();
+        return;
+      }
+      if (SHELVED) {
+        this.saveWithoutRun();
+        if (SHELVED === 'tutorial') this.startRun('tutorial');
+        else this.openPuzzle();
         return;
       }
       // A run the player was taken away from waits for them on its pause; otherwise, the menu.
@@ -1261,7 +1283,21 @@ export class Game {
     this.handoff = { x: this.state.player.x, z: this.state.player.z };
   }
 
-  private showMenu(): void {
+  /** How the game is played, from the menu: the rules that hold everywhere, a few to a window. Back leads to the menu. */
+  private showHowTo(page = 0): void {
+    const lines = HOW_TO_PLAY.map((key) => t(key).replace(/\n/g, ' '));
+    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showHowTo(next), onBack: () => this.showMenu('howto') }, PANELS.howto), true);
+  }
+
+  /** The note that came with the program, from the menu: a page to a window. Back leads to the menu. */
+  private showReadme(page = 0): void {
+    // A screen that lies on its side and is low holds a paragraph or two, not a page.
+    const low = this.display.width > this.display.height && this.display.height < README_LOW;
+    this.shell.showPanel(readmePanel(readmePages(language(), low ? README_SIGNS : undefined), page, { onPage: (next) => this.showReadme(next), onBack: () => this.showMenu('readme') }), true);
+  }
+
+  /** The main menu. `home` is the file of it the player has come back from: the figure waits there. */
+  private showMenu(home?: string): void {
     this.leaveRun('menu');
     this.inMenu = true;
     this.paused = false;
@@ -1274,13 +1310,12 @@ export class Game {
     // The session with a limit lasts as long as the rules say: the menu reads it from them.
     const rules = defaultConfig(this.settings.experiments, this.settings.tuning);
     this.shell.showMenu(
-      !this.settings.tutorialDone,
       {
         onEndless: () => this.startRun('endless'),
         // The levels stand in the menu where the session of the day stood.
         onLevels: () => this.showLevels(),
-        onPuzzle: () => this.openPuzzle(),
-        onTutorial: () => this.startRun('tutorial'),
+        onHowTo: () => this.showHowTo(),
+        onReadme: () => this.showReadme(),
         onRecords: () => this.showRecords(() => this.showMenu()),
         onSystem: () => this.showSystem(() => this.showMenu()),
       },
@@ -1289,11 +1324,10 @@ export class Game {
         levelsDone: LEVELS.filter((level) => this.settings.levels.passed[level.id] === true).length,
         levelsTotal: LEVELS.length,
         limitSec: (rules.timedTicks * rules.tickMs) / 1000,
-        tutorialDone: this.settings.tutorialDone,
-        tasksDone: PUZZLE_LEVELS.filter((level) => (this.settings.puzzle.stars[level.id] ?? 0) > 0).length,
-        tasksTotal: PUZZLE_LEVELS.length,
+        rules: HOW_TO_PLAY.length,
         sessions: Object.values(this.settings.runs).reduce((sum, runs) => sum + runs.length, 0),
       },
+      home,
     );
   }
 

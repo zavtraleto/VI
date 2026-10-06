@@ -4,6 +4,16 @@ import type { ShellItem } from './screen';
 
 export type FocusDir = Dir4;
 
+/** A press drawn this far sideways, in CSS pixels, is a swipe; it has to go this many times further sideways than up or down. */
+const SWIPE_MIN = 28;
+const SWIPE_LEAN = 1.5;
+
+/** The side a press was drawn to, where it was drawn far enough and level enough to be a swipe. */
+export function swipeOf(dx: number, dy: number): 'left' | 'right' | null {
+  if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * SWIPE_LEAN) return null;
+  return dx < 0 ? 'left' : 'right';
+}
+
 const KEY_DIR: Record<string, FocusDir> = {
   ArrowUp: 'up',
   KeyW: 'up',
@@ -85,6 +95,8 @@ export interface InputHost {
   activate(item: ShellItem): void;
   /** Where a key takes the focus, on a screen that says so itself; undefined leaves it to the places of the zones. */
   move(focus: string | null, dir: FocusDir): string | null | undefined;
+  /** Where a swipe that began at a point of the window takes the focus; null or undefined where the screen makes nothing of it. */
+  swipe(dir: 'left' | 'right', x: number, y: number): string | null | undefined;
   /** A key asked for a step, and there is nowhere to go that way. */
   stuck(): void;
   back(): void;
@@ -96,12 +108,15 @@ export interface InputHost {
  * Pointer and keyboard of the shell. The listeners are on the window: the page lies over the
  * canvas and takes the events first. A mouse moves the focus as it goes; a zone acts when it
  * is let go inside the zone it was pressed in. A zone that asks for it acts only when it was
- * in focus before the press: the first press steps onto it, the second runs it.
+ * in focus before the press: the first press steps onto it, the second runs it. A press drawn
+ * sideways is offered to the screen as a swipe first, and runs nothing where the screen takes it.
  */
 export class ShellInput {
   focus: string | null = null;
   /** The zone the pointer went down in and has not left the screen since. */
   down: string | null = null;
+  /** Where the press that is held began. */
+  private from: { x: number; y: number } | null = null;
 
   constructor(private readonly host: InputHost) {
     window.addEventListener('pointermove', (e) => this.onMove(e));
@@ -115,6 +130,7 @@ export class ShellInput {
   reset(focus: string | null): void {
     this.focus = focus;
     this.down = null;
+    this.from = null;
     this.setCursor(false);
   }
 
@@ -140,6 +156,7 @@ export class ShellInput {
   private onDown(e: PointerEvent): void {
     if (this.taken(e) || (e.pointerType === 'mouse' && e.button !== 0)) return;
     if (this.host.skip()) return;
+    this.from = { x: e.clientX, y: e.clientY };
     const item = zoneAt(this.host.items(), e.clientX, e.clientY);
     if (!item) return;
     // A mouse has already brought the focus here on its way; a finger arrives with the press.
@@ -152,6 +169,17 @@ export class ShellInput {
 
   private onUp(e: PointerEvent): void {
     const held = this.down;
+    const from = this.from;
+    this.from = null;
+    const dir = from && !this.taken(e) ? swipeOf(e.clientX - from.x, e.clientY - from.y) : null;
+    const swiped = dir && from ? this.host.swipe(dir, from.x, from.y) : null;
+    if (swiped != null) {
+      // The screen has taken the swipe: whatever was under the finger is not run.
+      this.down = null;
+      this.focus = swiped;
+      this.host.changed();
+      return;
+    }
     if (held === null) return;
     this.down = null;
     this.host.changed();
@@ -161,6 +189,7 @@ export class ShellInput {
   }
 
   private release(): void {
+    this.from = null;
     if (this.down === null) return;
     this.down = null;
     this.host.changed();

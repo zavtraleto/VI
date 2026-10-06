@@ -63,5 +63,13 @@ export const TR: Texts = {
   shellTasks: 'KANAL TEMİZLİĞİ',
   shellRecords: 'OTURUM KAYDI',
   shellSystem: 'PARAMETRELER',
+  shellHowTo: 'KULLANIM TALİMATI',
+  shellReadme: 'EK NOT',
+  howRoll: "Bir zarın üstünde duruyorsun ve onu yuvarlıyorsun: yan yüzü üste gelir.\nBoş bir kareye zar seninle birlikte yuvarlanır. Komşu zara ise yalnızca geçersin.\nKarşılıklı yüzlerin toplamı yedidir: 1'in altında 6 vardır.",
+  howCombo: 'Kombo, üst yüzündeki nokta sayısı kadar zarın yan yana gelmesidir: iki 2, üç 3, altı 6.\nTamamlanan kombo gider.',
+  howChain: 'Kombo hemen gitmez.\nO giderken yanına aynı yüzlü bir zar daha yuvarla: komboyla birlikte gider. Buna zincir denir.',
+  howOnes: "1'ler kombo oluşturmaz.\nBir 1'i giden bir komboya getir: tahtadaki diğer bütün 1'ler gider.",
+  howLevels: 'SEVİYELER: tahtadaki bütün zarları temizle.\nYalnızca seviyenin yüzleri çalışır, diğerlerinin üstü çizilidir.\nHamle sayısı sınırlıdır: ne kadar az hamle, o kadar çok yıldız.',
+  howProtocol: 'PROTOKOL: zarlar kendiliğinden gelir.\nZincir puanı katlar.\nAlan dolar ve dolu kalırsa oturum biter.',
   shareScore: 'VI — karşı tarafa gönderildi: {score}',
 };
