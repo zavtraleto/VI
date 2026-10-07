@@ -142,6 +142,14 @@ function touchedReactions(state: RunState, component: Cube[], over: Overrun | un
 const CHAIN_LIFT_FADE_JOINS = 5;
 
 /**
+ * The height a link lifts the cubes of a chain to and no further: a link buys a chain time,
+ * it does not start it over. A cube above it is not lifted at all. It was the height a cube
+ * could be rolled over from; since a cube is rolled over at any height, it is a number of its
+ * own, and the chains of a session are as long as they were.
+ */
+export const CHAIN_LIFT_CEILING = 0.8;
+
+/**
  * How far the cubes of a chain come back up when it is added to, as a share of a cube's
  * height. The first join gives the most; a long chain is harder to keep whole.
  */
@@ -158,10 +166,10 @@ function joinReactions(state: RunState, component: Cube[], touched: number[]): v
   const chain = Math.max(...involved.map((r) => r.chain)) + 1;
   const total = involved.reduce((sum, r) => sum + r.total, 0) + component.length;
 
-  // The cubes already going down come back up a little, but not past the height at which
-  // they turn solid again: what could be rolled over stays that way.
+  // The cubes already going down come back up a little, but not past the ceiling of the
+  // lift, and never to where they could not be rolled over.
   const lift = Math.round(config.sinkingTicks * chainLiftAt(config, chain));
-  const seeThrough = Math.round(config.sinkingTicks * (1 - config.sinkLowHeight));
+  const seeThrough = Math.round(config.sinkingTicks * (1 - Math.min(config.sinkLowHeight, CHAIN_LIFT_CEILING)));
   for (const cube of state.cubes) {
     if (touched.includes(cube.reactionId)) {
       cube.reactionId = targetId;

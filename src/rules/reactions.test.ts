@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { cubeHeight } from './board';
 import { previewMove } from './preview';
-import { chainLiftAt } from './reactions';
+import { CHAIN_LIFT_CEILING, chainLiftAt } from './reactions';
 import { step } from './sim';
 import { act, emptyRun, land, place, put, putOri, run } from './testkit';
-import type { Tuning } from './types';
 
 function states(s: ReturnType<typeof emptyRun>): string[] {
   return s.cubes.map((c) => c.state);
@@ -79,8 +78,8 @@ describe('groups', () => {
 });
 
 describe('chains', () => {
-  function threeThrees(tuning: Partial<Tuning> = {}) {
-    const s = emptyRun({}, 1, tuning);
+  function threeThrees() {
+    const s = emptyRun();
     put(s, 0, 0, 3);
     put(s, 1, 0, 3);
     land(s, put(s, 1, 1, 3));
@@ -99,19 +98,17 @@ describe('chains', () => {
     expect(s.maxChain).toBe(2);
   });
 
-  it('gives the joining cube its own timer: the old ones keep theirs, less what the link lifts them by', () => {
+  it('gives the joining cube its own timer without restarting the old ones', () => {
     const s = threeThrees();
-    run(s, 200);
+    run(s, 50);
     const fourth = put(s, 2, 0, 3);
     land(s, fourth);
     expect(fourth.t).toBe(0);
-    const left = 200 - Math.round(s.config.sinkingTicks * chainLiftAt(s.config, 2));
-    expect(left).toBeGreaterThan(0);
-    expect(s.cubes[0].t).toBe(left);
-    run(s, s.config.sinkingTicks - left);
+    expect(s.cubes[0].t).toBe(50);
+    run(s, s.config.sinkingTicks - 50);
     expect(s.cubes.map((c) => c.id)).toEqual([fourth.id]);
     expect(s.reactions.length).toBe(1);
-    run(s, left);
+    run(s, 50);
     expect(s.cubes.length).toBe(0);
     expect(s.reactions.length).toBe(0);
   });
@@ -125,30 +122,29 @@ describe('chains', () => {
     expect(s.cubes[1].t).toBe(s.cubes[0].t);
   });
 
-  it('lifts a cube to its full height and no further, one that has only just begun to go as well: no cube of a chain is solid', () => {
+  it('never lifts a cube past the ceiling of the lift, and leaves one above it alone', () => {
     const s = threeThrees();
+    const { sinkingTicks } = s.config;
+    // A cube is rolled over at any height; the ceiling of the lift is a number of its own.
     expect(s.config.sinkLowHeight).toBe(1);
-    run(s, 50);
-    const fourth = put(s, 2, 0, 3);
-    land(s, fourth);
-    expect(s.cubes[0].t).toBe(0);
-    expect(cubeHeight(s.cubes[0], s.config)).toBe(1);
-    run(s, 10);
-    land(s, put(s, 3, 0, 3));
-    expect(fourth.t).toBe(0);
-    expect(s.cubes[0].t).toBe(0);
-  });
-
-  it('with the height to roll over tuned lower, never lifts a cube back to where it is solid, and leaves a solid one alone', () => {
-    const s = threeThrees({ sinkLowHeight: 0.8 });
-    const { sinkingTicks, sinkLowHeight } = s.config;
+    expect(CHAIN_LIFT_CEILING).toBe(0.8);
     run(s, sinkingTicks * 0.3);
     const fourth = put(s, 2, 0, 3);
     land(s, fourth);
-    expect(cubeHeight(s.cubes[0], s.config)).toBeCloseTo(sinkLowHeight);
+    expect(cubeHeight(s.cubes[0], s.config)).toBeCloseTo(CHAIN_LIFT_CEILING);
     run(s, 10);
     land(s, put(s, 3, 0, 3));
     expect(fourth.t).toBe(10);
+  });
+
+  it('keeps the ceiling of the lift no higher than the height a cube is rolled over at, when that is tuned lower', () => {
+    const s = emptyRun({}, 1, { sinkLowHeight: 0.6 });
+    put(s, 0, 0, 3);
+    put(s, 1, 0, 3);
+    land(s, put(s, 1, 1, 3));
+    run(s, s.config.sinkingTicks * 0.5);
+    land(s, put(s, 2, 0, 3));
+    expect(cubeHeight(s.cubes[0], s.config)).toBeCloseTo(0.6);
   });
 
   it('lifts less with every join', () => {

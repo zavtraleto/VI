@@ -178,7 +178,7 @@ describe('a player made of rules', () => {
     const keep = (run: ReturnType<typeof play>) => ({ score: run.score, removed: run.removed, steps: run.steps, clears: run.clears, chains: run.chains, maxChain: run.maxChain, seconds: run.seconds });
     // The numbers are those of the rules the session is played by: they were taken anew on
     // 7 October, when a cube that comes or goes stopped holding the player.
-    expect(keep(play('average', 3, 2))).toEqual({ score: 1413, removed: 32, steps: 132, clears: 25, chains: 16, maxChain: 9, seconds: 120 });
+    expect(keep(play('average', 3, 2))).toEqual({ score: 1494, removed: 34, steps: 140, clears: 26, chains: 18, maxChain: 9, seconds: 120 });
     expect(keep(play('newbie', 5, 2))).toEqual({ score: 43, removed: 8, steps: 59, clears: 5, chains: 1, maxChain: 2, seconds: 120 });
   });
 
