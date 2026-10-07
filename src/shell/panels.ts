@@ -4,6 +4,7 @@ import { word, type LanguageCode } from '../ui/i18n';
 import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
+import { README_SAY_SIZE } from './theme';
 import { COMMANDS, GOAL, LADDER, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
@@ -470,8 +471,9 @@ export function levelRulesPanel(
 
 /**
  * The note that came with the program, in the language of the player: a page to a window, a
- * paragraph to a line of the panel, the window saying which page of how many it is. `NEXT`
- * leads to the page that follows and, past the last, back to the first.
+ * paragraph to a line of the panel, the window saying which page of how many it is. `BACK`
+ * returns to the preceding page (or the menu from the first); the last page has `EXIT` in place
+ * of `NEXT`.
  */
 export function readmePanel(
   pages: readonly (readonly string[])[],
@@ -479,15 +481,18 @@ export function readmePanel(
   actions: { onPage: (page: number) => void; onBack: () => void },
 ): PanelSpec {
   const at = Math.min(Math.max(0, page), pages.length - 1);
-  const rows: PanelRow[] = (pages[at] ?? []).map((text) => ({ kind: 'say', text }));
-  const back: PanelCommand = { id: 'back', label: COMMANDS.back, action: actions.onBack };
-  const next: PanelCommand = { id: 'next', label: COMMANDS.next, action: () => actions.onPage((at + 1) % pages.length) };
+  const rows: PanelRow[] = (pages[at] ?? []).map((text) => ({ kind: 'say', text, size: README_SAY_SIZE }));
+  const goBack = at > 0 ? () => actions.onPage(at - 1) : actions.onBack;
+  const back: PanelCommand = { id: 'back', label: COMMANDS.back, action: goBack };
+  const forward: PanelCommand = at === pages.length - 1
+    ? { id: 'exit', label: COMMANDS.exit, action: actions.onBack }
+    : { id: 'next', label: COMMANDS.next, action: () => actions.onPage(at + 1) };
   // Side by side where the picture is wide: a low screen has no room for one under the other.
-  rows.push({ kind: 'gap' }, { kind: 'commands', stacked: true, commands: pages.length > 1 ? [next, back] : [back] });
+  rows.push({ kind: 'gap' }, { kind: 'commands', stacked: true, commands: [back, forward] });
   return {
-    title: { native: PANELS.readme.native, name: `${PANELS.readme.name} ${at + 1}/${pages.length}` },
-    home: pages.length > 1 ? 'next' : 'back',
-    back: actions.onBack,
+    title: { native: PANELS.readme.native, name: `${word(PANELS.readme.name)} ${at + 1}/${pages.length}` },
+    home: forward.id,
+    back: goBack,
     rows,
   };
 }

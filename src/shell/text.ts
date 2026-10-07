@@ -240,6 +240,8 @@ export const COMMANDS = {
   back: { native: '戻る', name: 'BACK' },
   /** "To the next". */
   next: { native: '次へ', name: 'NEXT' },
+  /** "Exit". */
+  exit: { native: '終了', name: 'EXIT' },
   /** "Start". */
   start: { native: '開始', name: 'START' },
   /** "Take back": the last move of a level, from its result. */

@@ -3,6 +3,7 @@ import type { Kit } from '../kit';
 import { CELL_H, CELL_W, MIN_ZONE, type Box } from '../layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { word } from '../../ui/i18n';
+import { PANEL_SAY_SIZE } from '../theme';
 import { digits, type PanelName } from '../text';
 
 /** Something a panel can be told to do: a line that is pressed. */
@@ -68,7 +69,7 @@ export type PanelRow =
    * of the program's own font and grow with the window: what a player has to read to play.
    * With `room`, the line is as tall as the tallest of those texts takes, whichever it says.
    */
-  | { kind: 'say'; text: string; dim?: boolean; when?: () => boolean; after?: number; large?: boolean; room?: readonly string[] }
+  | { kind: 'say'; text: string; size?: number; dim?: boolean; when?: () => boolean; after?: number; large?: boolean; room?: readonly string[] }
   | { kind: 'gap' };
 
 /**
@@ -102,8 +103,6 @@ const MARGIN = 8;
 const PAD = 8;
 /** Space between two lines that are pressed. */
 const GAP = 4;
-/** Letters of the voice inside a panel, in CSS pixels. */
-const SAY_SIZE = 16;
 /**
  * Large letters of the voice, in pixels of the picture, on a tall picture and on a wide one.
  * They are measured in the picture and not in the window, so that they are the same part of a
@@ -134,8 +133,9 @@ const named = (label: PanelName): string => `${label.native} ${word(label.name)}
 
 /** Height of the letters of a line of prose, in CSS pixels, where a pixel of the picture is `zoom` of them and the picture is `wide` or tall. */
 function saySize(row: Extract<PanelRow, { kind: 'say' }>, zoom: number, wide: boolean): number {
-  if (!row.large) return SAY_SIZE;
-  return Math.max(SAY_SIZE, Math.round((wide ? SAY_LARGE_WIDE : SAY_LARGE_TALL) * zoom));
+  if (row.size !== undefined) return row.size;
+  if (!row.large) return PANEL_SAY_SIZE;
+  return Math.max(PANEL_SAY_SIZE, Math.round((wide ? SAY_LARGE_WIDE : SAY_LARGE_TALL) * zoom));
 }
 
 /**
@@ -331,7 +331,7 @@ export class PanelScreen implements ShellScreen {
           const note = row.note(noted);
           const line: Box = { x: left, y: box.y + box.h - CELL_H - 2, w: right - left, h: CELL_H + 2 };
           if (row.program) kit.text(note, Math.round(line.x + line.w / 2), line.y + 1, dim, { align: 'center' });
-          else this.context.voice.say({ text: note, box: kit.toWindow(line), size: SAY_SIZE - 2, dim: true, anchor: 'middle' });
+          else this.context.voice.say({ text: note, box: kit.toWindow(line), size: PANEL_SAY_SIZE - 2, dim: true, anchor: 'middle' });
           break;
         }
         case 'stars':

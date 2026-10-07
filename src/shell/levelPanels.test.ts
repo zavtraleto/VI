@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import { textWidth } from './layout';
-import { setLanguage } from '../ui/i18n';
+import { LANGUAGES, setLanguage } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
 import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
@@ -421,21 +421,37 @@ describe('the files of the menu that are read', () => {
     expect(row(spec, 'say').text).toBe('4. d');
   });
 
-  it('show the note that came with the program a page to a window, and go round from the last to the first', () => {
-    const pages = [['one', 'two'], ['three']];
+  it('moves through the note without wrapping, with back on the left and exit on the last page', () => {
+    const pages = [['one', 'two'], ['three'], ['four']];
     const turned: number[] = [];
-    const first = readmePanel(pages, 0, { onPage: (to) => turned.push(to), onBack: nothing });
-    expect(first.title).toEqual({ native: PANELS.readme.native, name: 'README 1/2' });
+    let exited = 0;
+    const actions = { onPage: (to: number) => turned.push(to), onBack: () => exited++ };
+    const first = readmePanel(pages, 0, actions);
+    const middle = readmePanel(pages, 1, actions);
+    const last = readmePanel(pages, 2, actions);
+    expect(first.title).toEqual({ native: PANELS.readme.native, name: 'README 1/3' });
     expect(first.rows.filter((candidate) => candidate.kind === 'say').map((candidate) => (candidate as { text: string }).text)).toEqual(['one', 'two']);
-    const last = readmePanel(pages, 1, { onPage: (to) => turned.push(to), onBack: nothing });
-    for (const spec of [first, last]) row(spec, 'commands').commands.find((command) => command.id === 'next')!.action();
-    expect(turned).toEqual([1, 0]);
+    expect(commands(first)).toEqual(['back', 'next']);
+    expect(commands(middle)).toEqual(['back', 'next']);
+    expect(commands(last)).toEqual(['back', 'exit']);
+    expect(row(last, 'commands').commands[1].label).toEqual(COMMANDS.exit);
+    row(first, 'commands').commands[1].action();
+    row(middle, 'commands').commands[0].action();
+    row(middle, 'commands').commands[1].action();
+    row(last, 'commands').commands[0].action();
+    expect(turned).toEqual([1, 0, 2, 1]);
+    row(last, 'commands').commands[1].action();
+    first.back?.();
+    expect(exited).toBe(2);
+    expect(last.home).toBe('exit');
   });
 
   it('cut the pages of the note into smaller windows for a low screen, with every paragraph whole and in its place', () => {
-    for (const code of ['ru', 'en', 'de'] as const) {
+    for (const code of LANGUAGES) {
       const pages = readmePages(code);
       const windows = readmePages(code, 330);
+      expect(pages).toHaveLength(5);
+      for (const paragraph of pages.flat()) expect.soft(paragraph.length, `${code}: ${paragraph.slice(0, 48)}`).toBeLessThanOrEqual(330);
       expect(windows.length).toBeGreaterThan(pages.length);
       expect(windows.flat()).toEqual(pages.flat());
       for (const window of windows) {
@@ -443,7 +459,6 @@ describe('the files of the menu that are read', () => {
         if (window.length > 1) expect(window.join('').length).toBeLessThanOrEqual(330);
       }
     }
-    expect(readmePages('de')).toEqual(readmePages('en'));
-    expect(readmePages('ru')).toHaveLength(5);
+    expect(new Set(LANGUAGES.map((code) => readmePages(code).flat().join('\n'))).size).toBe(LANGUAGES.length);
   });
 });

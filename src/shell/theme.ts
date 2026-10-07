@@ -9,6 +9,8 @@ const choice = (value: string, options: readonly string[]): ParamSpec => ({ kind
 
 /** The one font of the program's voice: a 16-dot gothic, drawn at its own size and never smoothed. */
 export const PROGRAM_FONT = '"DotGothic16", monospace';
+export const PANEL_SAY_SIZE = 16;
+export const README_SAY_SIZE = 20;
 
 /**
  * Every parameter of the look of the interface, by the folder it stands in on the lab's panel.
