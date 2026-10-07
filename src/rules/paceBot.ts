@@ -1,4 +1,4 @@
-import { SKILLS, SKILL_NAMES, botCommand, createBot, type SkillName } from './bot';
+import { RUSH, SKILL_NAMES, STYLE_NAMES, botCommand, createBot, skillOf, styled, type HandsName, type SkillName, type StyleName } from './bot';
 import { defaultConfig } from './config';
 import { createRun, step } from './sim';
 import { chainQuiet } from './spawn';
@@ -15,6 +15,11 @@ import type { ExperimentConfig, RunState, Tuning } from './types';
  */
 export interface PaceRun {
   skill: SkillName;
+  /** The head and the hands of the player, its style, and whether anybody played at all. */
+  head: SkillName;
+  hands: HandsName;
+  style: StyleName;
+  nobody: boolean;
   timed: boolean;
   seed: number;
   seconds: number;
@@ -77,6 +82,15 @@ const ESCAPE_MARGIN = 5;
 
 export interface PaceOptions {
   skill: SkillName;
+  /** The head and the hands of the player, when they are not those of `skill`. */
+  head?: SkillName;
+  hands?: HandsName;
+  /** What the player is after. */
+  style?: StyleName;
+  /** The player slips and overlooks more as the board fills: the rush of its hands. */
+  rush?: boolean;
+  /** Nobody plays: what the pace does to a board left alone. */
+  nobody?: boolean;
   timed?: boolean;
   seed?: number;
   /** The trial gives up on a run that lasts this long. */
@@ -89,7 +103,12 @@ export function playPace(opts: PaceOptions): PaceRun {
   const { skill, timed = false, seed = 1, limitMinutes = 30 } = opts;
   const config = defaultConfig(opts.experiments, opts.tuning);
   const state = createRun({ seed, config, timed });
-  const bot = createBot(SKILLS[skill], seed);
+  const head = opts.head ?? skill;
+  const hands = opts.hands ?? skill;
+  const style = opts.style ?? 'plain';
+  const nobody = opts.nobody ?? false;
+  const base = skillOf(head, hands);
+  const bot = styled(createBot(opts.rush && hands !== 'instant' ? { ...base, rush: RUSH[hands] } : base, seed), style);
   const limit = Math.round((limitMinutes * 60000) / config.tickMs);
   const seconds = (ticks: number) => (ticks * config.tickMs) / 1000;
   let peakCubes = state.cubes.length;
@@ -108,7 +127,7 @@ export function playPace(opts: PaceOptions): PaceRun {
   let clears = 0;
   let dangerAt: PaceRun['dangerAt'] = null;
   while (!state.over && state.tick < limit) {
-    step(state, botCommand(bot, state));
+    step(state, nobody ? null : botCommand(bot, state));
     for (const event of state.events) {
       if (event.type === 'chain') chains++;
       if ((event.type === 'chain' && event.chain >= 3) || event.type === 'happyOne' || event.type === 'wiped') highlights++;
@@ -149,6 +168,10 @@ export function playPace(opts: PaceOptions): PaceRun {
   const { stats } = state;
   return {
     skill,
+    head,
+    hands,
+    style,
+    nobody,
     timed,
     seed,
     seconds: seconds(state.tick),
@@ -238,6 +261,89 @@ export function paceTable(
       ]);
     }
   }
-  const widths = head.map((_, column) => Math.max(...rows.map((row) => row[column].length)));
+  return layOut(rows);
+}
+
+/** Rows of text laid out in columns. */
+function layOut(rows: readonly string[][]): string {
+  const widths = rows[0].map((_, column) => Math.max(...rows.map((row) => row[column].length)));
   return rows.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join('  ').trimEnd()).join('\n');
+}
+
+type TableOptions = Omit<PaceOptions, 'skill' | 'seed' | 'head' | 'hands' | 'style' | 'nobody'> & { seeds?: number[] };
+const SEEDS = [1, 2, 3, 4, 5];
+
+/**
+ * Who is still playing: for every minute, the share of the runs that outlast it, and of those
+ * that came into it the share lost in it. A run the trial gave up on counts as playing on.
+ */
+export function survival(runs: readonly PaceRun[], minutes: number): { minute: number; alive: number; died: number }[] {
+  const lastsTo = (run: PaceRun) => (run.endReason === null ? Infinity : run.seconds);
+  return Array.from({ length: minutes }, (_, index) => {
+    const came = runs.filter((run) => lastsTo(run) >= index * 60).length;
+    const stayed = runs.filter((run) => lastsTo(run) >= (index + 1) * 60).length;
+    return { minute: index + 1, alive: runs.length > 0 ? stayed / runs.length : 0, died: came > 0 ? (came - stayed) / came : 0 };
+  });
+}
+
+/** Heads against hands: for every pair, how long the middle run lasts and what it scores. */
+export function paceGrid(opts: TableOptions & { heads?: SkillName[]; hands?: HandsName[] } = {}): string {
+  const { heads = SKILL_NAMES, hands = [...SKILL_NAMES, 'instant'], seeds = SEEDS, ...rest } = opts;
+  const rows: string[][] = [['head \\ hands', ...hands]];
+  for (const head of heads) {
+    rows.push([
+      head,
+      ...hands.map((pair) => {
+        const runs = seeds.map((seed) => playPace({ ...rest, skill: head, hands: pair, seed }));
+        return `${clock(middle(runs.map((run) => run.seconds)))} ${middle(runs.map((run) => run.score))}`;
+      }),
+    ]);
+  }
+  return layOut(rows);
+}
+
+/** The styles side by side: what each makes of a run, and what a builder scores to a survivor. */
+export function paceStyles(opts: TableOptions & { skills?: SkillName[]; styles?: StyleName[] } = {}): string {
+  const { skills = SKILL_NAMES, styles = STYLE_NAMES, seeds = SEEDS, ...rest } = opts;
+  const rows: string[][] = [['player', 'style', 'time', 'score', 'links', 'best chain', 'most cubes', 'builder to survivor']];
+  for (const skill of skills) {
+    const played = new Map(styles.map((style) => [style, seeds.map((seed) => playPace({ ...rest, skill, style, seed }))]));
+    const score = (style: StyleName) => middle((played.get(style) ?? []).map((run) => run.score));
+    const ratio = played.has('builder') && played.has('survivor') && score('survivor') > 0 ? (score('builder') / score('survivor')).toFixed(2) : '-';
+    for (const style of styles) {
+      const runs = played.get(style)!;
+      const of = (read: (run: PaceRun) => number) => middle(runs.map(read));
+      rows.push([skill, style, clock(of((run) => run.seconds)), String(of((run) => run.score)), String(of((run) => run.chains)), `x${of((run) => run.maxChain)}`, String(of((run) => run.peakCubes)), style === 'builder' ? ratio : '']);
+    }
+  }
+  return layOut(rows);
+}
+
+/** The share of the runs of every player that are still going at each minute. */
+export function survivalTable(opts: TableOptions & { skills?: SkillName[]; minutes?: number } = {}): string {
+  const { skills = SKILL_NAMES, seeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], minutes = 10, ...rest } = opts;
+  const limitMinutes = rest.limitMinutes ?? minutes;
+  const rows: string[][] = [['player', ...Array.from({ length: minutes }, (_, index) => `${index + 1} min`)]];
+  for (const skill of skills) {
+    const runs = seeds.map((seed) => playPace({ ...rest, limitMinutes, skill, seed }));
+    rows.push([skill, ...survival(runs, minutes).map((minute) => `${Math.round(minute.alive * 100)}%`)]);
+  }
+  return layOut(rows);
+}
+
+/** The edges: a board nobody plays, and a player with the best head and hands that take no time. */
+export function paceEdges(opts: TableOptions = {}): string {
+  const { seeds = SEEDS, ...rest } = opts;
+  const rows: string[][] = [['player', 'time', 'shortest-longest', 'cubes/min', 'score', 'best chain', 'most cubes']];
+  const edges: [string, Partial<PaceOptions>][] = [
+    ['nobody', { nobody: true }],
+    ['ceiling', { hands: 'instant' }],
+  ];
+  for (const [name, edge] of edges) {
+    const runs = seeds.map((seed) => playPace({ ...rest, ...edge, skill: 'esports', seed }));
+    const of = (read: (run: PaceRun) => number) => middle(runs.map(read));
+    const times = runs.map((run) => run.seconds);
+    rows.push([name, clock(middle(times)), `${clock(Math.min(...times))}-${clock(Math.max(...times))}`, of((run) => run.perMinute).toFixed(1), String(of((run) => run.score)), `x${of((run) => run.maxChain)}`, String(of((run) => run.peakCubes))]);
+  }
+  return layOut(rows);
 }

@@ -9,6 +9,11 @@
 //   node scripts/pace.mjs endless                  Endless alone; `timed` for the session of the day
 //   node scripts/pace.mjs seeds=9 minutes=45       more runs to a row, a longer trial
 //   node scripts/pace.mjs players=newbie,esports   some of the players only
+//   node scripts/pace.mjs grid                     heads against hands: time and score of every pair
+//   node scripts/pace.mjs styles                   a survivor and a builder of chains beside the player as it is
+//   node scripts/pace.mjs survival minutes=12      the share of the runs still going at every minute
+//   node scripts/pace.mjs edges                    a board nobody plays, and the most a player can do
+//   node scripts/pace.mjs rush                     the players slip and overlook more as the board fills
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runnerImport } from 'vite';
@@ -19,10 +24,15 @@ const { module } = await runnerImport('/src/rules/paceBot.ts', { root, configFil
 const tuning = {};
 const experiments = {};
 const table = {};
+let which = 'table';
 for (const arg of process.argv.slice(2)) {
   const [key, value] = arg.split('=');
-  if (arg === 'endless' || arg === 'timed') table.modes = [arg === 'timed'];
-  else if (key === 'seeds') table.seeds = Array.from({ length: Number(value) }, (_, i) => i + 1);
+  if (['grid', 'styles', 'survival', 'edges'].includes(arg)) which = arg;
+  else if (arg === 'rush') table.rush = true;
+  else if (arg === 'endless' || arg === 'timed') {
+    table.modes = [arg === 'timed'];
+    table.timed = arg === 'timed';
+  } else if (key === 'seeds') table.seeds = Array.from({ length: Number(value) }, (_, i) => i + 1);
   else if (key === 'players') table.skills = value.split(',');
   else if (key === 'minutes') table.limitMinutes = Number(value);
   else if (value === 'true' || value === 'false') experiments[key] = value === 'true';
@@ -30,4 +40,13 @@ for (const arg of process.argv.slice(2)) {
   else throw new Error(`cannot read "${arg}": write it as name=number or name=true`);
 }
 
-console.log(module.paceTable({ tuning, experiments, ...table }));
+// The table of the pace plays both modes by `modes`; the others play the one that was named, Endless if none.
+const { modes, skills, timed, limitMinutes, ...shared } = table;
+const print = {
+  table: () => module.paceTable({ tuning, experiments, ...table, timed: undefined }),
+  grid: () => module.paceGrid({ tuning, experiments, ...shared, timed, limitMinutes }),
+  styles: () => module.paceStyles({ tuning, experiments, ...shared, skills, timed, limitMinutes }),
+  survival: () => module.survivalTable({ tuning, experiments, ...shared, skills, timed, minutes: limitMinutes }),
+  edges: () => module.paceEdges({ tuning, experiments, ...shared, timed, limitMinutes }),
+};
+console.log(print[which]());

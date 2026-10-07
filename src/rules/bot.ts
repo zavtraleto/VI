@@ -21,7 +21,9 @@ import type { Cube, Dir, MoveKind, RunState } from './types';
  * there it finds out on the way, as a person does, and then it looks again. It never reads
  * the run's generator, so it cannot know what comes next.
  */
-export interface Skill {
+
+/** What a player sees and wants. */
+export interface Head {
   /**
    * Moves ahead the player sees a clear from, how many of them may be rolls or pushes, and the
    * positions they can go through looking for one. Walking over the dice to another one is
@@ -30,6 +32,20 @@ export interface Skill {
   depth: number;
   rolls: number;
   budget: number;
+  /**
+   * Share of the ways to a clear the player overlooks, and the share lost again with every
+   * roll that has to be worked out: one after the first, or one that turns up a hidden face.
+   */
+  miss: number;
+  missPerRoll: number;
+  /** 0 takes the nearest clear whatever it gives; 1 weighs the points of a clear against its moves. */
+  greed: number;
+  /** With nothing to clear in sight, rolls a die to where it pairs up rather than anywhere. */
+  tidy: boolean;
+}
+
+/** How fast and how surely a player moves. */
+export interface Hands {
   /**
    * Ticks the player looks at the board before walking a way they have found: from, to; more
    * for every move of the way, and for every cube on the board over the number it is kept at.
@@ -41,65 +57,101 @@ export interface Skill {
   pause: readonly [number, number];
   /** Ticks before a move made with nothing to clear in sight: from, to. */
   idle: readonly [number, number];
-  /**
-   * Share of the ways to a clear the player overlooks, and the share lost again with every
-   * roll that has to be worked out: one after the first, or one that turns up a hidden face.
-   */
-  miss: number;
-  missPerRoll: number;
   /** How often a look at the board is lost to a drift of attention, and the ticks it takes: from, to. */
   lapse: number;
   lapseTicks: readonly [number, number];
   /** Share of moves that go astray: a wrong key. */
   slip: number;
-  /** 0 takes the nearest clear whatever it gives; 1 weighs the points of a clear against its moves. */
-  greed: number;
-  /** With nothing to clear in sight, rolls a die to where it pairs up rather than anywhere. */
-  tidy: boolean;
+  /**
+   * How many times likelier a slip and an oversight are with the board at the danger mark than
+   * with it calm. 0 keeps them what they are whatever the board holds.
+   */
+  rush: number;
 }
 
-export const SKILLS = {
+/** A player: a head and hands. */
+export type Skill = Head & Hands;
+
+export const HEADS = {
   /**
    * Has just been shown the rules and hardly sees them on the board: a clear one roll away, a
    * face in plain sight, and even that half the time. Looks long, moves once in 0.5 to 0.8 s,
    * rolls about at random in between and drifts off often.
    */
-  newbie: {
-    depth: 3, rolls: 1, budget: 80, think: [75, 175], thinkPerMove: 30, thinkPerCube: 3, pause: [14, 30], idle: [25, 70],
-    miss: 0.45, missPerRoll: 0.8, lapse: 0.16, lapseTicks: [60, 180], slip: 0.12, greed: 0, tidy: false,
-  },
+  newbie: { depth: 3, rolls: 1, budget: 80, miss: 0.45, missPerRoll: 0.8, greed: 0, tidy: false },
   /**
    * Walks a few dice to a clear that is one roll away, and sees that roll best when the face
    * is in plain sight. Looks for a second or two, moves once in 0.4 to 0.65 s.
    */
-  novice: {
-    depth: 4, rolls: 2, budget: 160, think: [50, 120], thinkPerMove: 20, thinkPerCube: 2, pause: [10, 22], idle: [15, 45],
-    miss: 0.3, missPerRoll: 0.6, lapse: 0.1, lapseTicks: [50, 150], slip: 0.07, greed: 0, tidy: true,
-  },
+  novice: { depth: 4, rolls: 2, budget: 160, miss: 0.3, missPerRoll: 0.6, greed: 0, tidy: true },
   /** Sees a clear two rolls away and takes a chain when one is at hand: a move in 0.3 to 0.45 s. */
-  average: {
-    depth: 6, rolls: 2, budget: 320, think: [28, 65], thinkPerMove: 10, thinkPerCube: 1.5, pause: [4, 10], idle: [8, 25],
-    miss: 0.2, missPerRoll: 0.4, lapse: 0.06, lapseTicks: [40, 100], slip: 0.04, greed: 0.5, tidy: true,
-  },
+  average: { depth: 6, rolls: 2, budget: 320, miss: 0.2, missPerRoll: 0.4, greed: 0.5, tidy: true },
   /** Reads three rolls deep, stops little, plays for chains: a move in 0.25 to 0.3 s. */
-  pro: {
-    depth: 7, rolls: 3, budget: 700, think: [15, 40], thinkPerMove: 6, thinkPerCube: 1, pause: [2, 5], idle: [4, 12],
-    miss: 0.08, missPerRoll: 0.2, lapse: 0.02, lapseTicks: [25, 60], slip: 0.02, greed: 1, tidy: true,
-  },
+  pro: { depth: 7, rolls: 3, budget: 700, miss: 0.08, missPerRoll: 0.2, greed: 1, tidy: true },
   /**
    * Plays for a living: reads four rolls deep, misses next to nothing, never stops, and moves
    * as fast as the game takes moves. The ceiling of what a person can do with these rules.
    */
-  esports: {
-    depth: 8, rolls: 4, budget: 1200, think: [6, 16], thinkPerMove: 3, thinkPerCube: 0.5, pause: [0, 2], idle: [2, 6],
-    miss: 0.03, missPerRoll: 0.08, lapse: 0.005, lapseTicks: [15, 40], slip: 0.005, greed: 1, tidy: true,
-  },
-} as const satisfies Record<string, Skill>;
+  esports: { depth: 8, rolls: 4, budget: 1200, miss: 0.03, missPerRoll: 0.08, greed: 1, tidy: true },
+} as const satisfies Record<string, Head>;
 
-export type SkillName = keyof typeof SKILLS;
+export type SkillName = keyof typeof HEADS;
+export type HandsName = SkillName | 'instant';
+
+export const HANDS: Record<HandsName, Hands> = {
+  newbie: { think: [75, 175], thinkPerMove: 30, thinkPerCube: 3, pause: [14, 30], idle: [25, 70], lapse: 0.16, lapseTicks: [60, 180], slip: 0.12, rush: 0 },
+  novice: { think: [50, 120], thinkPerMove: 20, thinkPerCube: 2, pause: [10, 22], idle: [15, 45], lapse: 0.1, lapseTicks: [50, 150], slip: 0.07, rush: 0 },
+  average: { think: [28, 65], thinkPerMove: 10, thinkPerCube: 1.5, pause: [4, 10], idle: [8, 25], lapse: 0.06, lapseTicks: [40, 100], slip: 0.04, rush: 0 },
+  pro: { think: [15, 40], thinkPerMove: 6, thinkPerCube: 1, pause: [2, 5], idle: [4, 12], lapse: 0.02, lapseTicks: [25, 60], slip: 0.02, rush: 0 },
+  esports: { think: [6, 16], thinkPerMove: 3, thinkPerCube: 0.5, pause: [0, 2], idle: [2, 6], lapse: 0.005, lapseTicks: [15, 40], slip: 0.005, rush: 0 },
+  /** Hands that take no time and make no mistake: with them a head does the most it can. */
+  instant: { think: [0, 0], thinkPerMove: 0, thinkPerCube: 0, pause: [0, 0], idle: [0, 0], lapse: 0, lapseTicks: [0, 0], slip: 0, rush: 0 },
+};
+
+/** A player of one head and other hands: one who sees far and moves slowly, or the other way about. */
+export function skillOf(head: SkillName, hands: HandsName): Skill {
+  return { ...HEADS[head], ...HANDS[hands] };
+}
+
+/** The five players, the weakest first: a head and the hands of the same name. */
+export const SKILLS: Record<SkillName, Skill> = {
+  newbie: skillOf('newbie', 'newbie'),
+  novice: skillOf('novice', 'novice'),
+  average: skillOf('average', 'average'),
+  pro: skillOf('pro', 'pro'),
+  esports: skillOf('esports', 'esports'),
+};
 
 /** The players, the weakest first. */
 export const SKILL_NAMES = Object.keys(SKILLS) as SkillName[];
+
+/**
+ * The rush a pair of hands is in at the danger mark, for a run that asks for it: so many times
+ * likelier a slip and an oversight are there than on a calm board. A guess to try paces with,
+ * not a measure of people; the hands themselves carry none.
+ */
+export const RUSH: Record<SkillName, number> = { newbie: 1.5, novice: 1.2, average: 0.8, pro: 0.4, esports: 0.2 };
+
+/** How pressed the board is: 0 with no more cubes than it is kept at, 1 at the danger mark and over it. */
+export function pressure(state: RunState): number {
+  const { targetCubes, warnOccupied } = state.config;
+  const room = warnOccupied - targetCubes;
+  if (room <= 0) return 0;
+  return Math.min(1, Math.max(0, (state.cubes.length - targetCubes) / room));
+}
+
+/** Most of the ways a player may overlook, however pressed: something is always seen. */
+const MISS_AT_MOST = 0.95;
+
+/** Share of the ways to a clear a player overlooks at this pressure. */
+export function missOf(skill: Skill, pressed: number): number {
+  return Math.min(MISS_AT_MOST, skill.miss * (1 + skill.rush * pressed));
+}
+
+/** Share of the moves that go astray at this pressure. */
+export function slipOf(skill: Skill, pressed: number): number {
+  return Math.min(1, skill.slip * (1 + skill.rush * pressed));
+}
 
 /** A way to a clear: the moves, what each of them is, and what the clear at its end gives. */
 export interface Plan {
@@ -110,6 +162,11 @@ export interface Plan {
   chain: number;
   /** The face the clear is of: what the die that makes it shows. */
   value?: number;
+  /**
+   * Dice that begin to leave with the clear: those of a new group, or the ones that join a chain.
+   * Every way that is found says it; one written out by hand may not.
+   */
+  dice?: number;
 }
 
 /** Rolls that turn up a face the camera does not show: the north one going south, the west one going east. */
@@ -118,9 +175,10 @@ const HIDDEN_ROLLS: readonly Dir[] = ['S', 'E'];
 /**
  * The chance that a player notices a way to a clear. A step onto another die or a push leaves
  * the top of the die in sight; a roll has to be seen ahead, and the first one is plain only
- * when it turns up a face the camera shows.
+ * when it turns up a face the camera shows. A player in a rush notices less, the more pressed
+ * the board is.
  */
-export function sight(skill: Skill, plan: Plan): number {
+export function sight(skill: Skill, plan: Plan, pressed = 0): number {
   let rolls = 0;
   let workedOut = 0;
   plan.kinds.forEach((kind, i) => {
@@ -128,7 +186,7 @@ export function sight(skill: Skill, plan: Plan): number {
     rolls++;
     if (rolls > 1 || HIDDEN_ROLLS.includes(plan.moves[i])) workedOut++;
   });
-  return (1 - skill.miss) * Math.pow(1 - skill.missPerRoll, workedOut);
+  return (1 - missOf(skill, pressed)) * Math.pow(1 - skill.missPerRoll, workedOut);
 }
 
 /**
@@ -172,14 +230,18 @@ function make(board: RunState, intent: MoveIntent): void {
   board.player = { x: intent.tx, z: intent.tz, level: UP.includes(intent.kind as MoveKind) ? 'top' : 'ground' };
 }
 
-/** What the clear a cube has just made gives, by the rules of the score: its points, its link of the chain and its face. */
-function worth(board: RunState, cube: Cube, over: Cube | undefined): { points: number; chain: number; value: number } {
+/**
+ * What the clear a cube has just made gives, by the rules of the score: its points, its link of
+ * the chain and its face, and how many dice it starts on their way down.
+ */
+function worth(board: RunState, cube: Cube, over: Cube | undefined): { points: number; chain: number; value: number; dice: number } {
   const value = cube.ori.top;
   if (value === 1) {
-    if (board.config.experiments.soloOne) return { points: 1, chain: 1, value };
+    if (board.config.experiments.soloOne) return { points: 1, chain: 1, value, dice: 1 };
     const { player } = board;
     const own = player.level === 'top' ? cubeAt(board, player.x, player.z) : undefined;
-    return { points: board.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1 && c !== own).length, chain: 1, value };
+    const ones = board.cubes.filter((c) => c.state === 'idle' && c.ori.top === 1 && c !== own).length;
+    return { points: ones, chain: 1, value, dice: ones };
   }
   const group = [cube];
   const seen = new Set<number>([cube.id]);
@@ -196,10 +258,10 @@ function worth(board: RunState, cube: Cube, over: Cube | undefined): { points: n
     }
   }
   const joined = board.reactions.filter((r) => touched.has(r.id));
-  if (joined.length === 0) return { points: value * group.length, chain: 1, value };
+  if (joined.length === 0) return { points: value * group.length, chain: 1, value, dice: group.length };
   const chain = Math.max(...joined.map((r) => r.chain)) + 1;
   const total = joined.reduce((sum, r) => sum + r.total, 0) + group.length;
-  return { points: value * total * chain, chain, value };
+  return { points: value * total * chain, chain, value, dice: group.length };
 }
 
 /** A position reached while looking, and how it differs from the one the look began at. */
@@ -335,6 +397,55 @@ export function createBot(skill: Skill, seed: number): Bot {
   return { skill, rng: (seed ^ 0x5bd1e995) | 0, moves: [], kinds: [], clears: false, wait: 0 };
 }
 
+/** What a player is after, laid over its head. */
+export interface Style {
+  /** Takes the place of the greed of the head. */
+  greed?: number;
+  prefer?: Bot['prefer'];
+  wants?: Bot['wants'];
+}
+
+/** What a builder makes of a group of its own while a chain runs: next to nothing. */
+const BESIDE_THE_CHAIN = 0.1;
+
+/** Faces of the chains that are running. */
+function chainFaces(state: RunState): number[] {
+  return state.cubes.filter(inChain).map((cube) => cube.ori.top);
+}
+
+export const STYLES = {
+  /** As the player is: the nearest clear, or the richest for its moves, as its head says. */
+  plain: {},
+  /** Keeps the board low: the clear that takes the most dice for its moves, whatever it scores. */
+  survivor: { greed: 0, prefer: (plan) => plan.dice ?? 1 },
+  /**
+   * Plays for chains. While one runs, a link comes before anything else, the further on the
+   * better, and with no link in sight a die is turned to the face of the chain. With none
+   * running, the group to open with is the one with the most dice of its face left around it.
+   */
+  builder: {
+    greed: 1,
+    prefer: (plan, state) => {
+      if (state.reactions.length > 0) return plan.chain >= 2 ? plan.chain : BESIDE_THE_CHAIN;
+      const about = state.cubes.filter((cube) => cube.state === 'idle' && cube.ori.top === plan.value).length;
+      return 1 + Math.max(0, about - (plan.dice ?? about));
+    },
+    wants: (top, state) => chainFaces(state).includes(top),
+  },
+} as const satisfies Record<string, Style>;
+
+export type StyleName = keyof typeof STYLES;
+export const STYLE_NAMES = Object.keys(STYLES) as StyleName[];
+
+/** The bot with a style laid over it: the same bot, changed. */
+export function styled(bot: Bot, style: StyleName): Bot {
+  const { greed, prefer, wants }: Style = STYLES[style];
+  if (greed !== undefined) bot.skill = { ...bot.skill, greed };
+  if (prefer) bot.prefer = prefer;
+  if (wants) bot.wants = wants;
+  return bot;
+}
+
 function between(bot: Bot, [from, to]: readonly [number, number]): number {
   return from + Math.floor(nextRandom(bot) * (to - from + 1));
 }
@@ -392,7 +503,8 @@ function decide(bot: Bot, state: RunState): void {
     bot.wait = between(bot, skill.lapseTicks);
     return;
   }
-  const noticed = findPlans(state, skill.depth, skill.budget, WANTED, skill.rolls).filter((plan) => nextRandom(bot) < sight(skill, plan));
+  const pressed = pressure(state);
+  const noticed = findPlans(state, skill.depth, skill.budget, WANTED, skill.rolls).filter((plan) => nextRandom(bot) < sight(skill, plan, pressed));
   const { prefer } = bot;
   const liking = new Map(noticed.map((plan) => [plan, prefer ? Number(prefer(plan, state)) : 1]));
   const plans = noticed.filter((plan) => liking.get(plan)! > 0);
@@ -446,7 +558,7 @@ export function botCommand(bot: Bot, state: RunState): Dir | null {
   bot.moves.shift();
   bot.kinds.shift();
   bot.wait = between(bot, bot.skill.pause);
-  if (nextRandom(bot) < bot.skill.slip) {
+  if (nextRandom(bot) < slipOf(bot.skill, pressure(state))) {
     // A wrong key: some other step the board allows, and the way is lost.
     const others = DIRS.filter((d) => d !== dir && resolveMove(state, d).kind !== 'blocked');
     if (others.length > 0) {

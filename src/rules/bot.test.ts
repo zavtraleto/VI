@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SKILLS, SKILL_NAMES, findPlans, findWayUp, lookTicks, sight, type Plan } from './bot';
+import { HANDS, HEADS, RUSH, SKILLS, SKILL_NAMES, STYLE_NAMES, createBot, findPlans, findWayUp, lookTicks, missOf, pressure, sight, skillOf, slipOf, styled, type Plan } from './bot';
 import { playPace } from './paceBot';
 import { emptyRun, land, place, put, putOri } from './testkit';
 import type { Dir, MoveKind } from './types';
@@ -16,6 +16,7 @@ describe('ways to a clear', () => {
     expect(plan.kinds).toEqual(['roll']);
     expect(plan.points).toBe(4); // two 2s
     expect(plan.chain).toBe(1);
+    expect(plan.dice).toBe(2);
   });
 
   it('sees a clear two moves away: over to the next die, then a roll', () => {
@@ -73,6 +74,7 @@ describe('ways to a clear', () => {
     expect(plan.moves).toEqual(['W']);
     expect(plan.chain).toBe(2);
     expect(plan.points).toBe(24); // 3 x four dice x the second link
+    expect(plan.dice).toBe(1); // the link takes one die more
   });
 
   it('sees a push from the floor that clears', () => {
@@ -172,7 +174,14 @@ describe('a player made of rules', () => {
     expect(play('average', 4, 2)).not.toEqual(play('average', 3, 2));
   });
 
-  it('scores more and clears more, the better it is', () => {
+  it('plays as it did before its head and hands were set apart', () => {
+    const keep = (run: ReturnType<typeof play>) => ({ score: run.score, removed: run.removed, steps: run.steps, clears: run.clears, chains: run.chains, maxChain: run.maxChain, seconds: run.seconds });
+    expect(keep(play('average', 3, 2))).toEqual({ score: 1758, removed: 33, steps: 127, clears: 22, chains: 13, maxChain: 8, seconds: 120 });
+    expect(keep(play('newbie', 5, 2))).toEqual({ score: 37, removed: 4, steps: 55, clears: 3, chains: 1, maxChain: 2, seconds: 120 });
+  });
+
+  // Thirty runs of three minutes: with the whole suite beside them, on a slow machine, more than the usual five seconds.
+  it('scores more and clears more, the better it is', { timeout: 30_000 }, () => {
     const total = (skill: keyof typeof SKILLS, read: (run: ReturnType<typeof play>) => number) =>
       [1, 2, 3].reduce((sum, seed) => sum + read(play(skill, seed)), 0);
     const scores = SKILL_NAMES.map((skill) => total(skill, (run) => run.score));
@@ -202,5 +211,128 @@ describe('a player made of rules', () => {
       expect(result.steps).toBeGreaterThan(20);
       expect(result.blocked).toBeLessThan(result.steps * 0.05);
     }
+  });
+});
+
+describe('a head and hands', () => {
+  it('make the five players as they were: a head and the hands of the same name', () => {
+    for (const name of SKILL_NAMES) {
+      expect(SKILLS[name]).toEqual({ ...HEADS[name], ...HANDS[name] });
+      expect(skillOf(name, name)).toEqual(SKILLS[name]);
+      expect(SKILLS[name].rush).toBe(0);
+    }
+    expect(SKILLS.average).toMatchObject({ depth: 6, rolls: 2, budget: 320, think: [28, 65], thinkPerMove: 10, thinkPerCube: 1.5, pause: [4, 10], idle: [8, 25], miss: 0.2, missPerRoll: 0.4, lapse: 0.06, lapseTicks: [40, 100], slip: 0.04, greed: 0.5, tidy: true });
+  });
+
+  it('are set apart: one who sees far and moves slowly is a player too', () => {
+    const slow = skillOf('pro', 'newbie');
+    expect(slow.depth).toBe(SKILLS.pro.depth);
+    expect(slow.miss).toBe(SKILLS.pro.miss);
+    expect(slow.think).toEqual(SKILLS.newbie.think);
+    expect(slow.slip).toBe(SKILLS.newbie.slip);
+  });
+
+  it('have hands that take no time and make no mistake: the most a head can do', () => {
+    expect(HANDS.instant).toEqual({ think: [0, 0], thinkPerMove: 0, thinkPerCube: 0, pause: [0, 0], idle: [0, 0], lapse: 0, lapseTicks: [0, 0], slip: 0, rush: 0 });
+    expect(skillOf('esports', 'instant').depth).toBe(SKILLS.esports.depth);
+  });
+});
+
+describe('a player under pressure', () => {
+  const board = (cubes: number) => {
+    const s = emptyRun();
+    return { ...s, cubes: new Array(cubes).fill(s.cubes[0] ?? {}) } as typeof s;
+  };
+
+  it('is calm on a board that holds no more than it is kept at, and pressed to the full at the danger mark', () => {
+    const { targetCubes, warnOccupied } = emptyRun().config;
+    expect(pressure(board(0))).toBe(0);
+    expect(pressure(board(targetCubes))).toBe(0);
+    expect(pressure(board(warnOccupied))).toBe(1);
+    expect(pressure(board(warnOccupied + 5))).toBe(1);
+    const half = pressure(board(Math.round((targetCubes + warnOccupied) / 2)));
+    expect(half).toBeGreaterThan(0.3);
+    expect(half).toBeLessThan(0.7);
+  });
+
+  it('slips and overlooks no more than ever with no rush in its hands', () => {
+    expect(slipOf(SKILLS.newbie, 1)).toBe(SKILLS.newbie.slip);
+    expect(missOf(SKILLS.newbie, 1)).toBe(SKILLS.newbie.miss);
+  });
+
+  it('slips and overlooks more, the fuller the board, with a rush: so many times more at the danger mark', () => {
+    const rushed = { ...SKILLS.average, rush: 2 };
+    expect(slipOf(rushed, 0)).toBe(rushed.slip);
+    expect(slipOf(rushed, 0.5)).toBeCloseTo(rushed.slip * 2);
+    expect(slipOf(rushed, 1)).toBeCloseTo(rushed.slip * 3);
+    expect(missOf(rushed, 1)).toBeCloseTo(rushed.miss * 3);
+    expect(missOf({ ...SKILLS.newbie, rush: 9 }, 1)).toBe(0.95);
+    expect(slipOf({ ...SKILLS.newbie, slip: 0.5, rush: 9 }, 1)).toBe(1);
+  });
+
+  it('sees a way the worse for it', () => {
+    const one: Plan = { moves: ['E'], kinds: ['roll'], points: 4, chain: 1, dice: 2 };
+    const rushed = { ...SKILLS.average, rush: 2 };
+    expect(sight(rushed, one, 1)).toBeLessThan(sight(rushed, one, 0));
+    expect(sight(rushed, one)).toBe(sight(SKILLS.average, one));
+  });
+
+  it('has a rush for every pair of hands, less for the better', () => {
+    for (let i = 1; i < SKILL_NAMES.length; i++) expect(RUSH[SKILL_NAMES[i]]).toBeLessThan(RUSH[SKILL_NAMES[i - 1]]);
+  });
+});
+
+describe('what a player is after', () => {
+  const plan = (over: Partial<Plan>): Plan => ({ moves: ['E'], kinds: ['roll'], points: 4, chain: 1, value: 2, dice: 2, ...over });
+
+  /** A group of 2s on its way down, and the player on a die one roll away from joining it with a 2. */
+  const withChain = () => {
+    const s = emptyRun();
+    put(s, 2, 3, 2);
+    put(s, 3, 3, 2);
+    land(s, put(s, 4, 3, 2));
+    // Rolled west, the die under the player shows the face that was on its east side.
+    putOri(s, 6, 3, { east: 2 });
+    place(s, 6, 3, 'top');
+    return s;
+  };
+
+  it('has three styles, and the plain one changes nothing', () => {
+    expect(STYLE_NAMES).toEqual(['plain', 'survivor', 'builder']);
+    const bot = createBot(SKILLS.average, 1);
+    expect(styled(createBot(SKILLS.average, 1), 'plain')).toEqual(bot);
+  });
+
+  it('keeps the board low as a survivor: the clear that takes the most dice, whatever it scores', () => {
+    const bot = styled(createBot(SKILLS.pro, 1), 'survivor');
+    expect(bot.skill.greed).toBe(0);
+    const s = emptyRun();
+    expect(bot.prefer!(plan({ dice: 5, points: 5 }), s)).toBeGreaterThan(Number(bot.prefer!(plan({ dice: 2, points: 12 }), s)));
+  });
+
+  it('plays for chains as a builder: a link before anything else while one runs', () => {
+    const bot = styled(createBot(SKILLS.novice, 1), 'builder');
+    expect(bot.skill.greed).toBe(1);
+    const s = withChain();
+    expect(s.reactions).toMatchObject([{ chain: 1, total: 3 }]);
+    expect(findPlans(s, 3, 200)[0]).toMatchObject({ moves: ['W'], chain: 2, value: 2 });
+    expect(Number(bot.prefer!(plan({ chain: 2 }), s))).toBeGreaterThan(Number(bot.prefer!(plan({ chain: 1 }), s)));
+    expect(Number(bot.prefer!(plan({ chain: 3 }), s))).toBeGreaterThan(Number(bot.prefer!(plan({ chain: 2 }), s)));
+    expect(bot.wants!(2, s)).toBe(true);
+    expect(bot.wants!(5, s)).toBe(false);
+  });
+
+  it('opens, as a builder, with the group that has the most dice of its face left to feed it', () => {
+    const bot = styled(createBot(SKILLS.novice, 1), 'builder');
+    const s = emptyRun();
+    put(s, 0, 0, 3);
+    put(s, 2, 0, 3);
+    put(s, 4, 0, 3);
+    put(s, 6, 0, 3);
+    put(s, 0, 6, 2);
+    put(s, 2, 6, 2);
+    // Four 3s stand about and three make the group: one is left to feed it. Two 2s make theirs and none is left.
+    expect(Number(bot.prefer!(plan({ value: 3, dice: 3 }), s))).toBeGreaterThan(Number(bot.prefer!(plan({ value: 2, dice: 2 }), s)));
+    expect(bot.wants!(3, s)).toBe(false);
   });
 });
