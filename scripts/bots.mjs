@@ -3,14 +3,14 @@
 // The report is src/rules/levelReport.ts; the players are in src/rules/levelBot.ts, the score in
 // src/rules/levelScore.ts, the graph in src/rules/levelGraph.ts, the proofs in src/rules/levelProof.ts.
 //
-//   node scripts/bots.mjs                    the table of the levels of the ladder
-//   node scripts/bots.mjs only=B05,B13       some of the levels
+//   node scripts/bots.mjs                    the table of the levels
+//   node scripts/bots.mjs only=P05,P06       some of the levels
 //   node scripts/bots.mjs spares             the boards in reserve as well
-//   node scripts/bots.mjs level=B13          one level in full: its board, its score move by move, every player
-//   node scripts/bots.mjs climb=off          the levels with an open floor played with a strict one: no die is
-//                                            climbed from the floor, the only way up is a die that is leaving.
-//                                            Such a level is solved anew, since the way it keeps may not hold
-//   node scripts/bots.mjs edits level=B13    the boards one change away from the level, and what each change does
+//   node scripts/bots.mjs level=P06          one level in full: its board, its score move by move, every player
+//   node scripts/bots.mjs climb=on           the levels played by the rule of the floor as it was, and as a session
+//                                            still has it: a die that cannot be pushed is climbed from the floor.
+//                                            A level is then solved anew, since there may be a shorter way
+//   node scripts/bots.mjs edits level=P06    the boards one change away from the level, and what each change does
 //   node scripts/bots.mjs runs=40            runs of every player that plans: ten unless said
 //   node scripts/bots.mjs states=400000      boards the solver may see on a level solved anew
 //
@@ -32,7 +32,7 @@ const named = Object.fromEntries(args.filter((arg) => arg.includes('=')).map((ar
 const flag = (name) => args.includes(name);
 const known = ['only', 'level', 'climb', 'runs', 'states'];
 for (const key of Object.keys(named)) {
-  if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as only=B05,B13, level=B13, climb=off, runs=40 or states=400000`);
+  if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as only=P05,P06, level=P06, climb=on, runs=40 or states=400000`);
 }
 for (const arg of args) {
   if (!arg.includes('=') && !['spares', 'edits'].includes(arg)) throw new Error(`cannot read "${arg}": the words are spares and edits`);
@@ -45,20 +45,21 @@ const { moveText } = await load('/src/rules/levelSolver.ts');
 
 const runs = Number(named.runs ?? 10);
 const maxStates = named.states ? Number(named.states) : undefined;
-const strictFloor = named.climb === 'off';
+if (named.climb !== undefined && named.climb !== 'on') throw new Error('cannot read "climb=": a level is played with a strict floor unless climb=on is said');
+const climbing = named.climb === 'on';
 
-/** A level as the script plays it: with a strict floor, one with an open floor forgets its way and is solved anew. */
+/** A level as the script plays it: with the climb brought back, one with an open floor forgets its way and is solved anew. */
 const played = (spec) => {
-  if (!strictFloor || spec.floor === false) return spec;
+  if (!climbing || spec.floor === false) return spec;
   const { solution, par, exact, ...rest } = spec;
-  return { ...rest, climb: false };
+  return { ...rest, climb: true };
 };
 
 const percent = (share) => `${Math.round(share * 100)}%`;
 
 function full(spec) {
   const told = report(spec, { runs, maxStates });
-  const lines = [`${spec.id}  ${spec.size}x${spec.size}, ${spec.norm} dice, faces ${(spec.faces ?? spec.values).join('')}${spec.floor === false ? ', floor shut' : ''}${spec.climb === false ? ', no climbing' : ''}`, '', boardText(spec), ''];
+  const lines = [`${spec.id}  ${spec.size}x${spec.size}, ${spec.norm} dice, faces ${(spec.faces ?? spec.values).join('')}${spec.floor === false ? ', floor shut' : ''}${spec.climb === true ? ', a die is climbed from the floor' : ''}`, '', boardText(spec), ''];
   if (told.par === null) {
     lines.push('no way is known');
   } else {
@@ -96,7 +97,7 @@ const all = flag('spares') ? [...LEVELS, ...SPARES] : LEVELS;
 if (flag('edits')) {
   const { probeEdits } = await load('/src/levels/edits.ts');
   const spec = all.find((level) => level.id === named.level);
-  if (!spec) throw new Error('edits: name a level, as in edits level=B13');
+  if (!spec) throw new Error('edits: name a level, as in edits level=P06');
   const base = played(spec);
   const before = report(base, { runs: 1, maxStates });
   console.log(`${spec.id}: moves ${before.par ?? '-'}, route ${before.score?.route ?? '-'} (${before.score?.kind ?? '-'}), tail ${before.score?.tail ?? '-'}, round ${before.bypasses.filter((bypass) => bypass.way).map((bypass) => bypass.part).join(' ') || '-'}\n`);

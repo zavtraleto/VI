@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS } from './levels';
+import type { LevelSpec } from '../rules/types';
 import { chaptersOf, gateOf, ladderProgress, levelStars, limitedLevel, moveLimit, starsHeld } from './progress';
+
+/** A level as far as its place among the levels goes: its name, its chapter and the fewest moves it is cleared in. */
+const level = (id: string, par: number | undefined, chapter = 0): LevelSpec => ({
+  id, chapter, seed: 1, size: 3, values: [2], norm: 2, arrival: 'none', goal: { kind: 'clear' }, moves: 0, par,
+});
 
 describe('the stars of a level', () => {
   it('gives three within a move of the fewest, two within three moves more, one for any other pass', () => {
@@ -24,7 +29,7 @@ describe('the stars of a level', () => {
   });
 });
 
-describe('the chapters of the ladder', () => {
+describe('the chapters of a list of levels', () => {
   it('are the levels that follow one another and name one chapter', () => {
     const of = (chapter: number) => ({ chapter });
     expect(chaptersOf([of(0), of(0), of(1), of(4), of(4), of(4)])).toEqual([
@@ -35,96 +40,62 @@ describe('the chapters of the ladder', () => {
     expect(chaptersOf([{}, {}])).toEqual([{ chapter: 0, from: 0, to: 2 }]);
     expect(chaptersOf([])).toEqual([]);
   });
-
-  it('are five on the ladder as it stands: the course, the faces of a die, then 3s; 2s and 3s; 5s', () => {
-    expect(chaptersOf(LEVELS)).toEqual([
-      { chapter: 0, from: 0, to: 9 },
-      { chapter: 1, from: 9, to: 18 },
-      { chapter: 5, from: 18, to: 24 },
-      { chapter: 6, from: 24, to: 29 },
-      { chapter: 7, from: 29, to: 32 },
-    ]);
-  });
 });
 
 describe('the limit of moves of a level', () => {
-  it('is generous and grows with the fewest moves: five times them and ten in the course and the chapters that teach', () => {
-    for (const chapter of [0, 1, 2, 3, 4, 5]) {
-      expect(moveLimit(1, chapter)).toBe(15);
-      expect(moveLimit(4, chapter)).toBe(30);
-      expect(moveLimit(8, chapter)).toBe(50);
-    }
+  it('is generous and grows with the fewest moves: five times them and ten', () => {
+    expect(moveLimit(1, 0)).toBe(15);
+    expect(moveLimit(4, 0)).toBe(30);
+    expect(moveLimit(8, 0)).toBe(50);
   });
 
-  it('tightens in the last chapters, and no further than three times and ten', () => {
-    expect(moveLimit(4, 6)).toBe(26);
-    expect(moveLimit(4, 7)).toBe(22);
-    expect(moveLimit(4, 99)).toBe(22);
+  it('is that of the last chapter there is for a level that names a chapter past it, and of the first for one before it', () => {
+    expect(moveLimit(4, 7)).toBe(30);
+    expect(moveLimit(4, -1)).toBe(30);
   });
 
   it('is none for a level whose fewest moves are not known', () => {
     expect(moveLimit(undefined, 0)).toBe(0);
   });
 
-  it('is laid on a level of the ladder as it is started, and leaves the level as it is kept', () => {
-    const limited = limitedLevel(LEVELS, 9);
-    expect(limited.moves).toBe(moveLimit(LEVELS[9].par, LEVELS[9].chapter!));
-    expect(limited).toEqual({ ...LEVELS[9], moves: limited.moves });
-    expect(LEVELS[9].moves).toBe(0);
-  });
-
-  it('never cuts short the way a level keeps', () => {
-    LEVELS.forEach((level, index) => expect(limitedLevel(LEVELS, index).moves, level.id).toBeGreaterThanOrEqual(level.par! + 10));
+  it('is laid on a level as it is started, and leaves the level as it is kept', () => {
+    const levels = [level('A', 3), level('B', 6), level('C', undefined)];
+    const limited = limitedLevel(levels, 1);
+    expect(limited.moves).toBe(40);
+    expect(limited).toEqual({ ...levels[1], moves: 40 });
+    expect(levels[1].moves).toBe(0);
+    // A level with no fewest moves known is played with no limit.
+    expect(limitedLevel(levels, 2).moves).toBe(0);
   });
 });
 
-describe('the gates of the chapters', () => {
-  const chapters = chaptersOf(LEVELS);
+describe('the levels as a player has them', () => {
+  const levels = [level('A', 4), level('B', 3), level('C', 6), level('D', 5)];
+  /** Passed in so many moves; a level not named has not been passed. */
+  const best = (moves: Record<string, number>) => (id: string) => moves[id] ?? null;
 
-  it('ask for nothing before the course and the chapter after it, and for two fifths of the stars before any other', () => {
-    expect(chapters.map(gateOf)).toEqual([0, 0, 22, 29, 35]);
+  it('hold the stars of the fewest moves every level was passed in, and none before a pass', () => {
+    const progress = ladderProgress(levels, best({ A: 5, C: 10, D: 30 }));
+    expect(progress.stars).toEqual([3, 0, 2, 1]);
+    expect(progress.total).toBe(6);
+    expect(ladderProgress(levels, () => null)).toMatchObject({ stars: [0, 0, 0, 0], total: 0 });
   });
 
-  /** A ladder passed so far, every level in so many moves over its fewest. */
-  const passedTo = (count: number, over: number) => (id: string) => {
-    const index = LEVELS.findIndex((level) => level.id === id);
-    return index < count ? LEVELS[index].par! + over : null;
-  };
-
-  it('counts the stars held and opens a chapter once its gate is met', () => {
-    const fresh = ladderProgress(LEVELS, () => null);
-    expect(fresh.total).toBe(0);
-    expect(fresh.stars).toHaveLength(LEVELS.length);
-    expect(fresh.chapters.map((chapter) => chapter.open)).toEqual([true, true, false, false, false]);
-    expect(fresh.locked.slice(0, 18).every((locked) => !locked)).toBe(true);
-    expect(fresh.locked.slice(18).every((locked) => locked)).toBe(true);
-
-    // The course and the chapter after it passed with a star a level are four short of the next.
-    const plain = ladderProgress(LEVELS, passedTo(18, 9));
-    expect(plain.total).toBe(18);
-    expect(plain.chapters[2]).toMatchObject({ gate: 22, open: false });
-
-    // Seven levels a move over the fewest and one more passed open it.
-    const clean = ladderProgress(LEVELS, passedTo(7, 1));
-    expect(clean.total).toBe(21);
-    const more = ladderProgress(LEVELS, (id) => (id === LEVELS[7].id ? 60 : passedTo(7, 1)(id)));
-    expect(more.total).toBe(22);
-    expect(more.chapters.map((chapter) => chapter.open)).toEqual([true, true, true, false, false]);
-    expect(more.locked[18]).toBe(false);
-    expect(more.locked[24]).toBe(true);
+  it('are all open in the chapters of the game: none has a gate, and none asks for stars', () => {
+    expect(gateOf({ chapter: 0, from: 0, to: 20 })).toBe(0);
+    // A chapter past the last there is goes by the rule of the last.
+    expect(gateOf({ chapter: 3, from: 20, to: 30 })).toBe(0);
+    const fresh = ladderProgress([...levels, level('E', 4, 1), level('F', 4, 1)], () => null);
+    expect(fresh.chapters).toEqual([
+      { chapter: 0, from: 0, to: 4, gate: 0, open: true },
+      { chapter: 1, from: 4, to: 6, gate: 0, open: true },
+    ]);
+    expect(fresh.locked).toEqual([false, false, false, false, false, false]);
   });
 
-  it('opens every chapter when the gates are switched off', () => {
-    const open = ladderProgress(LEVELS, () => null, false);
-    expect(open.chapters.every((chapter) => chapter.open)).toBe(true);
-    expect(open.locked.some((locked) => locked)).toBe(false);
-  });
-
-  it('says of a level which chapter of the ladder it is in, counted from the first', () => {
-    const progress = ladderProgress(LEVELS, () => null);
-    expect(progress.chapterOf(0)).toBe(0);
-    expect(progress.chapterOf(9)).toBe(1);
-    expect(progress.chapterOf(18)).toBe(2);
-    expect(progress.chapterOf(31)).toBe(4);
+  it('say of a level which chapter of the list it is in, counted from the first', () => {
+    const progress = ladderProgress([level('A', 4), level('B', 4), level('C', 4, 2), level('D', 4, 5)], () => null);
+    expect([0, 1, 2, 3].map(progress.chapterOf)).toEqual([0, 0, 1, 2]);
+    expect(progress.chapterOf(9)).toBe(-1);
   });
 });

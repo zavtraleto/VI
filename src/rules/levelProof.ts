@@ -26,7 +26,7 @@ export function neededBy(spec: LevelSpec, par: number, uses: readonly Technique[
 }
 
 /** The parts of a route a way may lean on: what a level can be asked to do without, one at a time. */
-export const ROUTE_PARTS: readonly Ban[] = ['link', 'glass', 'ones', 'floor', 'push', 'up'];
+export const ROUTE_PARTS: readonly Ban[] = ['link', 'glass', 'ones', 'floor', 'push', 'up', 'bridge'];
 
 /** The parts of a route a way leans on, read off its score. */
 export function partsOf(score: Score): Ban[] {
@@ -38,6 +38,7 @@ export function partsOf(score: Score): Ban[] {
     floor: beats.some((beat) => beat.down !== null || beat.how === 'push' || beat.up),
     push: beats.some((beat) => beat.how === 'push'),
     up: beats.some((beat) => beat.up),
+    bridge: beats.some((beat) => beat.bridged),
   };
   return ROUTE_PARTS.filter((part) => leans[part]);
 }

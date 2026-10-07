@@ -56,6 +56,9 @@ const RU = {
   // A level ends at a dead end; with moves that are limited, when they are spent.
   levelStuck: 'Тупик: костей осталось {left}, а на комбо нужно {need}',
   levelStranded: 'Тупик: с этой кости некуда идти',
+  // On the floor a die is pushed and never turned, and the one way up is a die that is leaving.
+  levelFloorStuck: 'Тупик: с пола нечего толкнуть и не на что подняться',
+  levelFloorFaces: 'Тупик: с пола кость не повернуть, а граней на комбо не хватает',
   levelShort: 'Ходы кончились. Не хватило: {short}',
   // What is said in the window a level opens with, a message at a time; a blank line parts two
   // messages. A combo is as many dice side by side as their face has pips; a chain is a combo
@@ -151,7 +154,7 @@ const RU = {
   howCombo: 'Комбо — столько костей рядом, сколько точек на их верхней грани: две двойки, три тройки, шесть шестёрок.\nСобранное комбо уходит.',
   howChain: 'Комбо уходит не сразу.\nПока оно уходит, докати к нему ещё кость с той же гранью: она уйдёт вместе с ним. Это цепочка.',
   howOnes: 'Единицы в комбо не собираются.\nПодведи единицу к уходящему комбо — и уйдут все остальные единицы на поле.',
-  howLevels: 'УРОВНИ: убери с поля все кости.\nРаботают только грани уровня, остальные перечёркнуты.\nХоды ограничены: чем их меньше, тем больше звёзд.',
+  howLevels: 'УРОВНИ: убери с поля все кости.\nРаботают только грани уровня, остальные перечёркнуты.\nХоды ограничены: чем их меньше, тем больше звёзд.\nПравила пола здесь свои: наверх — только по уходящей кости.',
   howProtocol: 'ПРОТОКОЛ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — сеанс окончен.',
   // What a player sends out with a link to the game: the score is what was sent to the other side.
   shareScore: 'VI — передано на ту сторону: {score}',
@@ -198,6 +201,8 @@ const EN: typeof RU = {
   puzzleRule5: 'Clear every die. The fewer moves, the more stars',
   levelStuck: 'Dead end: {left} left on the board, and a combo takes {need}',
   levelStranded: 'Dead end: there is nowhere to go from this die',
+  levelFloorStuck: 'Dead end: nothing to push from the floor and nothing to go up by',
+  levelFloorFaces: 'Dead end: a push turns no die, and too few faces show for a combo',
   levelShort: 'Out of moves. Short by: {short}',
   lessonThrees:
     'Hello! Welcome to Visual Interconnection. I am the lab assistant here, and today I am teaching you to work the table.\n\n' +
@@ -274,7 +279,7 @@ const EN: typeof RU = {
   howCombo: 'A combo is as many dice side by side as their top face has pips: two 2s, three 3s, six 6s.\nA finished combo leaves.',
   howChain: 'A combo does not leave at once.\nWhile it is leaving, roll one more die with the same face up to it: it leaves with the combo. This is a chain.',
   howOnes: 'Ones make no combo.\nBring a 1 to a leaving combo, and every other 1 on the board leaves.',
-  howLevels: 'LEVELS: clear every die off the board.\nOnly the faces of the level work, the others are crossed out.\nMoves are limited: the fewer you make, the more stars.',
+  howLevels: 'LEVELS: clear every die off the board.\nOnly the faces of the level work, the others are crossed out.\nMoves are limited: the fewer you make, the more stars.\nThe floor has rules of its own here: the only way up is a leaving die.',
   howProtocol: 'PROTOCOL: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the session is over.',
   shareScore: 'VI — sent to the other side: {score}',
 };

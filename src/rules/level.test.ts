@@ -109,8 +109,10 @@ describe('config of a level', () => {
   it('keeps the steps of the floor and switches off everything that belongs to the pace', () => {
     const base = defaultConfig();
     const config = levelConfig(base, BASE);
-    // A board nothing comes to has no shelves beside a chain: its free cells are floor like any other.
-    expect(levelConfig(base, { ...BASE, arrival: 'none' }).experiments).toMatchObject({ floorClimb: true, dockSteps: false });
+    // A board nothing comes to has no shelves beside a chain, and no die is climbed from its floor, unless the level says so.
+    expect(levelConfig(base, { ...BASE, arrival: 'none' }).experiments).toMatchObject({ floorClimb: false, dockSteps: false });
+    expect(levelConfig(base, { ...BASE, arrival: 'none', climb: true }).experiments).toMatchObject({ floorClimb: true, dockSteps: false });
+    expect(levelConfig(base, { ...BASE, climb: false }).experiments).toMatchObject({ floorClimb: false, dockSteps: true });
     expect(config.experiments).toMatchObject({
       floorClimb: true, dockSteps: true, soloOne: false, gentleStart: false, floorLift: false, chainCalm: false,
       timeFloor: false, waves: false, surge: false, opening: false, lastSliver: false, gift: false,
@@ -705,7 +707,7 @@ describe('a board to be cleared', () => {
     const s = clear(3);
     put(s, 0, 0, 2);
     putOri(s, 2, 0, { top: 6, east: 2 });
-    put(s, 4, 4, 5);
+    put(s, 3, 3, 5);
     place(s, 2, 0, 'top');
     act(s, 'W');
     expect(goalLines(s)).toEqual([{ what: 'cleared', value: 0, have: 2, need: 3 }]);
@@ -716,14 +718,14 @@ describe('a board to be cleared', () => {
     const s = clear(3);
     put(s, 0, 0, 2);
     putOri(s, 2, 0, { top: 6, east: 2 });
-    put(s, 4, 4, 5);
+    put(s, 3, 3, 5);
     place(s, 2, 0, 'top');
     expect(levelStuck(s)).toBe(false);
     act(s, 'W');
     // The group is open: the last die can still be brought to it showing a 2.
     expect(levelStuck(s)).toBe(false);
     expect(s.over).toBe(false);
-    place(s, 4, 4, 'top');
+    place(s, 3, 3, 'top');
     for (let i = 0; i < LEVEL_SINK_MOVES - 1; i++) {
       idleMove(s);
       expect(s.over).toBe(false);
@@ -763,11 +765,11 @@ describe('a board to be cleared', () => {
     const s = clear(4);
     put(s, 0, 0, 2);
     putOri(s, 2, 0, { top: 6, east: 2 });
-    put(s, 4, 4, 5);
-    put(s, 0, 4, 6);
+    put(s, 3, 3, 5);
+    put(s, 1, 3, 6);
     place(s, 2, 0, 'top');
     act(s, 'W');
-    place(s, 4, 4, 'top');
+    place(s, 3, 3, 'top');
     for (let i = 0; i < LEVEL_SINK_MOVES + 3; i++) idleMove(s);
     expect(s.reactions).toHaveLength(0);
     expect(s.over).toBe(false);

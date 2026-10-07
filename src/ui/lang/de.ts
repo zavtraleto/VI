@@ -42,6 +42,8 @@ export const DE: Texts = {
   puzzleRule5: 'Räume alle Würfel ab. Je weniger Züge, desto mehr Sterne',
   levelStuck: 'Sackgasse: Auf dem Feld stehen noch {left}, ein Combo braucht {need}',
   levelStranded: 'Sackgasse: Von diesem Würfel geht es nicht weiter',
+  levelFloorStuck: 'Sackgasse: Vom Boden aus lässt sich nichts schieben, und nach oben führt nichts',
+  levelFloorFaces: 'Sackgasse: Schieben dreht keinen Würfel, und für ein Combo fehlen die Seiten',
   levelShort: 'Keine Züge mehr. Es fehlten: {short}',
   lessonThrees:
     'Hallo! Willkommen bei Visual Interconnection. Ich bin der Laborassistent hier, und heute bringe ich dir bei, mit dem Tisch zu arbeiten.\n\n' +
@@ -118,7 +120,7 @@ export const DE: Texts = {
   howCombo: 'Ein Combo sind so viele Würfel nebeneinander, wie ihre obere Seite Augen hat: zwei 2er, drei 3er, sechs 6er.\nEin fertiges Combo geht.',
   howChain: 'Ein Combo geht nicht sofort.\nSolange es geht, rolle noch einen Würfel mit derselben Seite heran: Er geht mit dem Combo. Das ist eine Kette.',
   howOnes: 'Einsen bilden kein Combo.\nBring eine 1 an ein gehendes Combo, und alle anderen 1er auf dem Feld gehen.',
-  howLevels: 'STUFEN: Räume alle Würfel vom Feld.\nNur die Seiten der Stufe wirken, die anderen sind durchgestrichen.\nDie Züge sind begrenzt: Je weniger Züge, desto mehr Sterne.',
+  howLevels: 'STUFEN: Räume alle Würfel vom Feld.\nNur die Seiten der Stufe wirken, die anderen sind durchgestrichen.\nDie Züge sind begrenzt: Je weniger Züge, desto mehr Sterne.\nAm Boden gelten hier eigene Regeln: Nach oben geht es nur über einen gehenden Würfel.',
   howProtocol: 'PROTOKOLL: Die Würfel kommen von selbst.\nEine Kette vervielfacht die Punkte.\nLäuft das Feld voll und bleibt voll, ist die Sitzung vorbei.',
   shareScore: 'VI — auf die andere Seite gesendet: {score}',
 };

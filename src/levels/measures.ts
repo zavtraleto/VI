@@ -1,9 +1,11 @@
-import { DELTA, DIRS } from '../rules/board';
+import { DELTA, DIRS, cubeAt } from '../rules/board';
 import { defaultConfig } from '../rules/config';
-import { movesAt, playMove, solveFrom, type SolverMove } from '../rules/levelSolver';
+import { shortGroups } from '../rules/level';
+import { movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
+import { scan } from '../rules/reach';
 import { ALL_ORIENTATIONS } from '../rules/orientation';
 import { createRun } from '../rules/sim';
-import type { Dir, LevelSpec, Orientation } from '../rules/types';
+import type { Dir, LevelSpec, Orientation, RunState } from '../rules/types';
 
 /**
  * What a board and its way are measured by, past the fewest moves: how a level ends, how many
@@ -122,4 +124,111 @@ export function farOf(spec: LevelSpec, way: readonly SolverMove[]): number {
     }
   }
   return -1;
+}
+
+/**
+ * Longest run of moves with no event between two events of a way: the silence under the count.
+ * The quiet moves before the first event are not counted: nothing is going yet, and the player
+ * thinks for as long as they like.
+ */
+export function silenceOf(cleared: readonly boolean[]): number {
+  const at = cleared.flatMap((did, index) => (did ? [index] : []));
+  let longest = 0;
+  for (let i = 1; i < at.length; i++) longest = Math.max(longest, at[i] - at[i - 1] - 1);
+  return longest;
+}
+
+/** Clusters the dice of a board start in: dice joined by their sides are one. */
+export function islandsOf(spec: LevelSpec): number {
+  const dice = spec.layout?.dice ?? [];
+  const key = (x: number, z: number) => `${x},${z}`;
+  const left = new Set(dice.map((die) => key(die.x, die.z)));
+  let islands = 0;
+  for (const die of dice) {
+    if (!left.delete(key(die.x, die.z))) continue;
+    islands++;
+    const queue = [{ x: die.x, z: die.z }];
+    for (let at = 0; at < queue.length; at++) {
+      for (const dir of DIRS) {
+        const x = queue[at].x + DELTA[dir].dx;
+        const z = queue[at].z + DELTA[dir].dz;
+        if (left.delete(key(x, z))) queue.push({ x, z });
+      }
+    }
+  }
+  return islands;
+}
+
+const startOf = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: { ...spec, moves: 0 } });
+
+/** Boards a search may see to say that a board with a combo made cannot be cleared. */
+const TRAP_MAX_STATES = 150_000;
+
+/**
+ * A trap of order: a combo that can be made with the first move or the second, after which the
+ * board cannot be cleared. `floor` where one such combo leaves the player on it with no die to
+ * step to, so that the floor is all there is; `any` for a trap of another kind; null with none.
+ * A board the search could not settle is not called a trap.
+ */
+export function trapOf(spec: LevelSpec, maxStates = TRAP_MAX_STATES): 'floor' | 'any' | null {
+  const start = startOf(spec);
+  let found: 'floor' | 'any' | null = null;
+  /** The board a combo has just been made on: is it lost, and is the player left with the floor alone? */
+  const look = (state: RunState): void => {
+    if (state.endReason === 'passed') return;
+    if (!state.over) {
+      const { solution, exhausted } = solveFrom(state, { maxStates });
+      if (solution || !exhausted) return;
+    }
+    // Up on the dice, with the floor left out, there is no move: no die that stands is a step away.
+    if (scan(state, ['floor']).moves.length === 0) found = 'floor';
+    else found ??= 'any';
+  };
+  for (const first of movesAt(start)) {
+    const one = tellMove(start, first);
+    if (one.outcome.cleared) {
+      look(one.state);
+      continue;
+    }
+    if (one.state.over) continue;
+    for (const second of movesAt(one.state)) {
+      const two = tellMove(one.state, second);
+      if (two.outcome.cleared) look(two.state);
+    }
+  }
+  return found;
+}
+
+/**
+ * Whether the board is cleared within so many moves with one face alone at work. A board the
+ * search could not settle is said to be: only a search that saw every board says it is not.
+ */
+export function oneFaceClears(spec: LevelSpec, face: number, maxMoves: number, maxStates?: number): boolean {
+  const alone: LevelSpec = { ...spec, faces: [face], solution: undefined, par: undefined, exact: undefined };
+  const { solution, exhausted } = solveLevel(alone, { maxMoves, maxStates });
+  return solution !== null || !exhausted;
+}
+
+/**
+ * A combo that is nearly made at the start and is not what it looks: dice of one face that
+ * works stand side by side, one short of their combo (for a 2, that is a 2 standing alone), and
+ * on the way given at least one of them goes showing another face. The count of the faces, and
+ * not the dice at hand, says what goes with what.
+ */
+export function decoyOf(spec: LevelSpec, way: readonly SolverMove[]): boolean {
+  let state = startOf(spec);
+  const faces = spec.faces ?? [];
+  const alone = state.cubes
+    .filter((cube) => cube.ori.top === 2 && faces.includes(2) && !DIRS.some((dir) => cubeAt(state, cube.x + DELTA[dir].dx, cube.z + DELTA[dir].dz)?.ori.top === 2))
+    .map((cube) => ({ value: 2, ids: [cube.id] }));
+  const nearly = shortGroups(state).filter((group) => group.have === group.need - 1);
+  const dice = [...alone, ...nearly.map((group) => ({ value: group.value, ids: group.cells.map((cell) => cubeAt(state, cell.x, cell.z)!.id) }))];
+  if (dice.length === 0) return false;
+  /** The face every die showed when it began to go. */
+  const wentAs = new Map<number, number>();
+  for (const move of way) {
+    state = tellMove(state, move).state;
+    for (const cube of state.cubes) if (cube.state === 'sinking' && !wentAs.has(cube.id)) wentAs.set(cube.id, cube.ori.top);
+  }
+  return dice.some((group) => group.ids.some((id) => wentAs.has(id) && wentAs.get(id) !== group.value));
 }

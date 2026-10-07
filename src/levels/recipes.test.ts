@@ -1,91 +1,158 @@
 import { describe, expect, it } from 'vitest';
 import { levelId } from './generate';
-import { CHAPTERS, CHAPTER_ONE, COURSE, PLACES, RECIPES } from './recipes';
+import { CHAPTERS, PLACES, boundsOf, type Recipe, type Scene } from './recipes';
 
-describe('the chapters of the ladder', () => {
-  it('are the course, the chapters that teach, and the ladder as it was', () => {
-    expect(CHAPTERS.map((chapter) => chapter.key)).toEqual(['course', 'faces', 'chain', 'floor', 'twoFaces', 'threes', 'twosThrees', 'fives']);
+/** Dice a scene puts on the board: a combo of as many as its face has pips unless it says, a link of one, the 1 that is brought and the 1s that wait for it. */
+function diceOf(scene: Scene, place: Recipe): number {
+  if (scene.event === 'combo') return scene.dice ?? scene.face ?? place.faces[0];
+  return scene.event === 'link' ? 1 : 1 + (scene.dice ?? 1);
+}
+const scenesOf = (place: Recipe): readonly Scene[] => place.scenes ?? [];
+const name = (index: number): string => `P${String(index + 1).padStart(2, '0')}`;
+
+describe('the chapters of the levels', () => {
+  it('are one: the probe', () => {
+    expect(CHAPTERS.map((chapter) => chapter.key)).toEqual(['probe']);
   });
 
-  it('open the course and the chapter after it for nothing: no stars are asked for', () => {
-    expect(CHAPTERS.map((chapter) => chapter.gate)).toEqual([false, false, true, true, true, true, true, true]);
-  });
-
-  it('keep the floor shut until the chapter that teaches it, and the net under the player while the basics are taught', () => {
-    expect(CHAPTERS.map((chapter) => chapter.floor)).toEqual([false, false, false, true, true, true, true, true]);
-    expect(CHAPTERS.map((chapter) => chapter.guard)).toEqual(['all', 'all', 'lessons', 'lessons', 'lessons', 'none', 'none', 'none']);
+  it('is open from its first level, with the floor open, no net under the player and a generous limit of moves', () => {
+    expect(CHAPTERS[0]).toEqual({ key: 'probe', times: 5, gate: false, floor: true, guard: 'none' });
   });
 });
 
-describe('the places of the course and of the first chapter', () => {
-  it('are nine and nine, named in their order', () => {
-    expect(COURSE.map(levelId)).toEqual(['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08', 'T09']);
-    expect(CHAPTER_ONE.map(levelId)).toEqual(['C101', 'C102', 'C103', 'C104', 'C105', 'C106', 'C107', 'C108', 'C109']);
-    expect(PLACES).toEqual([...COURSE, ...CHAPTER_ONE]);
-    const slots = [...PLACES, ...RECIPES].map((place) => place.slot);
-    expect(new Set(slots).size).toBe(slots.length);
+describe('the places of the probe', () => {
+  it('are twenty, named and numbered in their order, all of the one chapter', () => {
+    expect(PLACES).toHaveLength(20);
+    expect(PLACES.map(levelId)).toEqual(PLACES.map((_, index) => name(index)));
+    expect(PLACES.map((place) => place.slot)).toEqual(PLACES.map((_, index) => index + 1));
+    for (const place of PLACES) expect(place.chapter, place.id).toBe(0);
   });
 
-  it('are of their chapters, and played as their chapters say: the floor shut, a net under the player', () => {
-    for (const place of PLACES) {
-      const rule = CHAPTERS[place.chapter!];
-      expect(place.chapter, place.id).toBe(COURSE.includes(place) ? 0 : 1);
-      expect(place.floor, place.id).toBe(rule.floor);
-      expect(place.guard, place.id).toBe(rule.guard === 'all');
-    }
-  });
-
-  it('keep their dice in one cluster where the player has to walk: with the floor shut there is no other way to a die', () => {
-    for (const place of PLACES) expect(place.compact, place.id).toBe(!place.ownOnly);
-  });
-
-  it('say what the player is to notice, each in its own words', () => {
+  it('say what the player is to feel, each in its own words', () => {
     const briefs = PLACES.map((place) => place.brief);
     for (const brief of briefs) expect(brief?.length ?? 0).toBeGreaterThan(10);
     expect(new Set(briefs).size).toBe(briefs.length);
   });
 
-  it('teach with a line where a block or half a chapter begins, and show the first move there', () => {
-    expect(PLACES.filter((place) => place.lesson).map((place) => [place.id, place.lesson])).toEqual([
-      ['T01', 'lineCombo'],
-      ['T04', 'lineStep'],
-      ['T07', 'lineWalk'],
-      ['C101', 'lineSide'],
-      ['C105', 'lineSeven'],
+  it('teach nothing: no line, no arrow, no window, no net, and the floor is left as the chapter has it', () => {
+    for (const place of PLACES) {
+      for (const key of ['lesson', 'arrow', 'guide', 'until', 'story', 'guard', 'floor', 'safe'] as const) expect(place[key], `${place.id} ${key}`).toBeUndefined();
+    }
+  });
+
+  it('are about one face or two, on a board of three cells a side to five', () => {
+    for (const place of PLACES) {
+      expect(place.faces.length, place.id).toBeGreaterThanOrEqual(1);
+      expect(place.faces.length, place.id).toBeLessThanOrEqual(2);
+      expect(new Set(place.faces).size, place.id).toBe(place.faces.length);
+      // A 1 makes no combo: the 1s are counted apart.
+      for (const face of place.faces) expect([2, 3, 4, 5, 6], place.id).toContain(face);
+      expect([3, 4, 5], place.id).toContain(place.size);
+    }
+  });
+
+  it('have a route each: scenes that begin with a combo, of the faces of the place', () => {
+    for (const place of PLACES) {
+      const scenes = scenesOf(place);
+      expect(scenes.length, place.id).toBeGreaterThan(0);
+      // A link and the 1s are brought to a combo: with none before them there is nothing to lay them beside.
+      expect(scenes[0].event, place.id).toBe('combo');
+      for (const scene of scenes) {
+        if (scene.event !== 'ones') expect(place.faces, place.id).toContain(scene.face ?? place.faces[0]);
+        for (const range of [scene.moves, scene.looseMoves]) {
+          if (!range) continue;
+          expect(range[0], place.id).toBeGreaterThanOrEqual(1);
+          expect(range[1], place.id).toBeGreaterThanOrEqual(range[0]);
+        }
+      }
+    }
+  });
+
+  it('ask for as many dice as their scenes lay, and leave them room to move', () => {
+    for (const place of PLACES) {
+      const laid = scenesOf(place).reduce((sum, scene) => sum + diceOf(scene, place), 0);
+      expect(laid, place.id).toBeGreaterThanOrEqual(place.dice);
+      expect(laid, place.id).toBeLessThanOrEqual(place.dice + (place.more ?? 0));
+      expect(place.size * place.size - laid, place.id).toBeGreaterThanOrEqual(1);
+      // The free cells a place asks for are those its dice leave.
+      if (place.room) {
+        expect(place.size * place.size - laid, place.id).toBeGreaterThanOrEqual(place.room[0]);
+        expect(place.size * place.size - laid, place.id).toBeLessThanOrEqual(place.room[1]);
+      }
+    }
+  });
+
+  it('let the 1s work where a scene sweeps them, and nowhere else', () => {
+    for (const place of PLACES) {
+      const swept = scenesOf(place).some((scene) => scene.event === 'ones');
+      expect((place.ones ?? 0) > 0, place.id).toBe(swept);
+      if (place.ends?.event === 'ones' || place.parts?.includes('ones')) expect(swept, place.id).toBe(true);
+    }
+  });
+
+  it('bound every way alike: an end that is not drawn out, no long silence under the count, a board not cleared by fiddling', () => {
+    for (const place of PLACES) {
+      expect(place.tail, place.id).toEqual([0, 2]);
+      expect(place.random, place.id).toEqual([0, 0.1]);
+      expect(place.silence, place.id).toBeDefined();
+      expect(boundsOf(place).map((bound) => bound.what), place.id).toEqual(expect.arrayContaining(['par', 'random']));
+    }
+  });
+
+  it('give every bound as a range from the less to the more, and the fewest moves as one move at the least', () => {
+    for (const place of PLACES) {
+      expect(place.par[0], place.id).toBeGreaterThanOrEqual(1);
+      for (const key of ['par', 'depth', 'traps', 'random', 'tail', 'firsts', 'quiet', 'counted', 'last', 'links', 'room'] as const) {
+        const range = place[key];
+        if (range) expect(range[1], `${place.id} ${key}`).toBeGreaterThanOrEqual(range[0]);
+      }
+    }
+  });
+
+  it('say what kind of route the way is to be, and do not avoid what their routes are made of', () => {
+    for (const place of PLACES) {
+      const scenes = scenesOf(place);
+      const avoid = place.avoid ?? [];
+      expect(place.kinds?.length ?? 0, place.id).toBeGreaterThan(0);
+      if (avoid.includes('floor')) {
+        // A push is made from the floor, and a way that stays off the floor is on top all along.
+        expect(scenes.some((scene) => scene.by === 'push'), place.id).toBe(false);
+        expect(place.kinds!.some((kind) => kind === 'top' || kind === 'bridge'), place.id).toBe(true);
+      }
+      if (avoid.includes('ones')) expect(scenes.some((scene) => scene.event === 'ones'), place.id).toBe(false);
+      if (avoid.includes('link')) expect(scenes.some((scene) => scene.event === 'link'), place.id).toBe(false);
+      for (const technique of [...(place.needs ?? []), ...(place.shows ?? [])]) expect(avoid, place.id).not.toContain(technique);
+      for (const part of place.parts ?? []) expect(avoid, place.id).not.toContain(part);
+    }
+  });
+
+  it('ask only for what a board can be: clusters apart are not one cluster, and two faces are counted where there are two', () => {
+    for (const place of PLACES) {
+      if ((place.islands ?? 1) > 1) expect(place.compact, place.id).toBe(false);
+      if (place.bothFaces) expect(place.faces, place.id).toHaveLength(2);
+      // With no die showing a face that works, every die of a combo has been rolled away from it: a die that is pushed, or left, shows it still.
+      if (place.blind) {
+        for (const scene of scenesOf(place)) {
+          expect(scene.by, place.id).toBe('roll');
+          if (scene.event === 'combo') expect(scene.loose, place.id).toBe(diceOf(scene, place) - 1);
+        }
+      }
+    }
+  });
+});
+
+describe('the bounds of a place', () => {
+  const place: Recipe = { slot: 1, size: 3, dice: 3, faces: [3], compact: true, par: [1, 1], random: [0.4, 1] };
+
+  it('are listed with what is measured, from what to what', () => {
+    expect(boundsOf(place)).toEqual([
+      { what: 'par', from: 1, to: 1 },
+      { what: 'random', from: 0.4, to: 1 },
     ]);
-    for (const place of PLACES) expect(place.guide ?? false, place.id).toBe(place.lesson !== undefined);
   });
 
-  it('ask for a board of one combo only where the dice are as many as the one face has pips', () => {
-    for (const place of PLACES.filter((other) => other.safe)) {
-      expect(place.faces, place.id).toHaveLength(1);
-      expect(place.dice, place.id).toBe(place.faces[0]);
-      expect(place.more ?? 0, place.id).toBe(0);
-    }
-    // The six first levels of the course cannot be lost.
-    expect(COURSE.slice(0, 6).every((place) => place.safe)).toBe(true);
-  });
-
-  it('have enough dice for the combos they ask for, and no more: the chain has not been taught', () => {
-    for (const place of PLACES.filter((other) => other.combos !== undefined)) {
-      expect(place.faces, place.id).toHaveLength(1);
-      expect(place.dice % place.faces[0], place.id).toBe(0);
-      expect(place.dice / place.faces[0], place.id).toBeGreaterThanOrEqual(place.combos!);
-    }
-    for (const place of PLACES) expect(place.avoid, place.id).toContain('link');
-  });
-
-  it('keep the rule of seven out of the course and bring it with its lesson', () => {
-    for (const place of COURSE) expect(place.under, place.id).toBe(false);
-    const seven = CHAPTER_ONE.findIndex((place) => place.lesson === 'lineSeven');
-    for (const place of CHAPTER_ONE.slice(0, seven)) expect(place.under, place.id).toBe(false);
-    expect(CHAPTER_ONE[seven]).toMatchObject({ under: true, seven: true });
-  });
-
-  it('are unlike their neighbours in the face that works or in the board', () => {
-    PLACES.slice(1).forEach((place, index) => {
-      const before = PLACES[index];
-      expect(String(place.faces) !== String(before.faces) || place.size !== before.size, `${before.id} and ${place.id}`).toBe(true);
-    });
+  it('are those the place names, in one order: moves, depth, traps, the random share', () => {
+    expect(boundsOf({ ...place, traps: [0.2, 1], depth: [2, 4] }).map((bound) => bound.what)).toEqual(['par', 'depth', 'traps', 'random']);
+    expect(boundsOf({ ...place, random: undefined })).toEqual([{ what: 'par', from: 1, to: 1 }]);
   });
 });

@@ -1,4 +1,4 @@
-import { DIRS, cellIndex } from './board';
+import { DIRS, cellIndex, cubeAt } from './board';
 import { resolveMove } from './movement';
 import type { RunState, Technique } from './types';
 
@@ -12,10 +12,11 @@ import type { RunState, Technique } from './types';
  */
 
 /**
- * What a way can be made to do without: a technique, every push, or the way back up from the
- * floor. The last two are parts of a route and not techniques a level is said to use.
+ * What a way can be made to do without: a technique, every push, the way back up from the
+ * floor, or the walk over a combo that is leaving, from one of its dice to another. The last
+ * three are parts of a route and not techniques a level is said to use.
  */
-export type Ban = Technique | 'push' | 'up';
+export type Ban = Technique | 'push' | 'up' | 'bridge';
 
 /** A move the player can get to, and what making it leans on. */
 export interface Reachable {
@@ -43,7 +44,8 @@ export interface Scan {
  * board as it is. The dice are gone over first, the floor after them, so that a move is known
  * to need the floor only when there is no way to it without. With `ban`, steps to the floor and
  * pushes, or rolls over a die that is going, are left out; `push` leaves out the pushes alone,
- * and `up` the steps from the floor onto a die.
+ * `up` the steps from the floor onto a die, and `bridge` the steps from one die that is going
+ * onto another.
  */
 export function scan(state: RunState, ban: readonly Ban[] = []): Scan {
   const { size } = state.config;
@@ -54,6 +56,7 @@ export function scan(state: RunState, ban: readonly Ban[] = []): Scan {
   const noGlass = ban.includes('glass');
   const noPush = ban.includes('push');
   const noUp = ban.includes('up');
+  const noBridge = ban.includes('bridge');
   const { x, z, level } = state.player;
   // The board is read and never written: only the player of this copy is moved about.
   const board: RunState = { ...state, player: { x, z, level } };
@@ -96,6 +99,8 @@ export function scan(state: RunState, ban: readonly Ban[] = []): Scan {
       if (down && noFloor) continue;
       // From the floor, a step that does not go along it goes up onto a die.
       if (noUp && !up && !down) continue;
+      // Up on a die that is going, a step onto another that is going is the walk over a combo.
+      if (noBridge && up && kind === 'hop' && cubeAt(board, px, pz)?.state === 'sinking' && cubeAt(board, intent.tx, intent.tz)?.state === 'sinking') continue;
       const next = cellIndex(size, intent.tx, intent.tz) + (down ? cells : 0);
       if (places[next]) continue;
       places[next] = 1;

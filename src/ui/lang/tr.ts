@@ -42,6 +42,8 @@ export const TR: Texts = {
   puzzleRule5: 'Bütün zarları temizle. Ne kadar az hamle, o kadar çok yıldız',
   levelStuck: 'Çıkmaz: tahtada {left} zar kaldı, bir kombo için {need} gerekir',
   levelStranded: 'Çıkmaz: bu zardan gidecek yer yok',
+  levelFloorStuck: 'Çıkmaz: zeminden itilecek zar yok, yukarı çıkılacak zar da yok',
+  levelFloorFaces: 'Çıkmaz: itmek zarı çevirmez, kombo için yeterli yüz de yok',
   levelShort: 'Hamleler bitti. Eksik kalan: {short}',
   lessonThrees:
     "Merhaba! Visual Interconnection'a hoş geldin. Ben buranın laborantıyım ve bugün sana masayla çalışmayı öğreteceğim.\n\n" +
@@ -118,7 +120,7 @@ export const TR: Texts = {
   howCombo: 'Kombo, üst yüzündeki nokta sayısı kadar zarın yan yana gelmesidir: iki 2, üç 3, altı 6.\nTamamlanan kombo gider.',
   howChain: 'Kombo hemen gitmez.\nO giderken yanına aynı yüzlü bir zar daha yuvarla: komboyla birlikte gider. Buna zincir denir.',
   howOnes: "1'ler kombo oluşturmaz.\nBir 1'i giden bir komboya getir: tahtadaki diğer bütün 1'ler gider.",
-  howLevels: 'SEVİYELER: tahtadaki bütün zarları temizle.\nYalnızca seviyenin yüzleri çalışır, diğerlerinin üstü çizilidir.\nHamle sayısı sınırlıdır: ne kadar az hamle, o kadar çok yıldız.',
+  howLevels: 'SEVİYELER: tahtadaki bütün zarları temizle.\nYalnızca seviyenin yüzleri çalışır, diğerlerinin üstü çizilidir.\nHamle sayısı sınırlıdır: ne kadar az hamle, o kadar çok yıldız.\nBurada zeminin kuralları ayrıdır: yukarı yalnızca giden bir zarın üstünden çıkılır.',
   howProtocol: 'PROTOKOL: zarlar kendiliğinden gelir.\nZincir puanı katlar.\nAlan dolar ve dolu kalırsa oturum biter.',
   shareScore: 'VI — karşı tarafa gönderildi: {score}',
 };

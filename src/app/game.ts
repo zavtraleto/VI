@@ -43,8 +43,7 @@ import {
   defaultConfig,
   goalLines,
   goalOf,
-  levelStranded,
-  levelStuck,
+  levelDeadEnd,
   shortGroups,
   smallestGroup,
   previewAll,
@@ -65,6 +64,7 @@ import {
   type Dir,
   type GameEvent,
   type GoalLine,
+  type LevelDeadEnd,
   type MarkFace,
   type MoveKind,
   type Orientation,
@@ -150,20 +150,26 @@ const CLIMB_LEAD_MS = 1100;
 /** How long the command of sharing reads what came of it. */
 const SHARED_MS = 2200;
 
-/** A level has ended where nothing more can be done: too few dice stand for a combo, or, with the floor shut, the player has no move left. */
-const deadEnd = (state: RunState): boolean => levelStuck(state) || levelStranded(state);
+/** A level has ended where nothing more can be done: too few dice stand for a combo, the player has no move left, or is down on the floor among faces that make no combo. */
+const deadEnd = (state: RunState): boolean => levelDeadEnd(state) !== null;
+/** What the window of a level says of a dead end that is not one by the count of the dice. */
+const DEAD_END_LINE: Record<Exclude<LevelDeadEnd, 'count'>, TextKey> = { stranded: 'levelStranded', floor: 'levelFloorStuck', faces: 'levelFloorFaces' };
 
 /** How far from the middle of the cell of the figure the arrow of a step begins, in cells: right beside the figure. */
 const STEP_ARROW_LEAD = 0.42;
 /** How long the direction of a swipe stays shown after the finger has let go. */
 const STEER_LINGER_MS = 280;
-/** Chapters on whose levels every group that is short is counted from the start: the course and the chapter after it. Past them only the one the last move made is. */
-const CHAPTERS_COUNTED = 2;
+/**
+ * Chapters on whose levels every group that is short is counted from the start: those that teach.
+ * The probe has none: it is played by one who knows the rules, and only the group the last move
+ * made is counted, as on the levels that came after the lessons.
+ */
+const CHAPTERS_COUNTED = 0;
 /**
  * The level from which the step with no way back is marked: the one that says a combo on its way
- * out can be walked over and stepped off, or the third while no level of the ladder says so.
+ * out can be walked over and stepped off, or the first while no level says so.
  */
-const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lineWalk' || level.lesson === 'lessonWalk') + 1 || 3;
+const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lineWalk' || level.lesson === 'lessonWalk') + 1 || 1;
 /** Of the signs the laboratory's assistant prints, one in so many is heard: a click to every sign is a rattle. */
 const TYPED_EVERY = 2;
 /**
@@ -1058,11 +1064,16 @@ export class Game {
    * leads to the pause.
    */
   private showLevelRules(page = 0): void {
-    const lines = lessonsAt(LEVELS, this.levelIndex).flatMap((lesson) => {
+    const lines = this.levelRules();
+    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showLevelRules(next), onBack: () => this.showPause() }), false);
+  }
+
+  /** The rules the levels up to the one that waits have said, each in a line: none where no level says a rule. */
+  private levelRules(): string[] {
+    return lessonsAt(LEVELS, this.levelIndex).flatMap((lesson) => {
       const rule = ruleOf(lesson);
       return rule ? [t(rule)] : [];
     });
-    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showLevelRules(next), onBack: () => this.showPause() }), false);
   }
 
   private restartLevel(): void {
@@ -1159,7 +1170,8 @@ export class Game {
     const run = state.levelRun!;
     const { spec } = run;
     const passed = state.endReason === 'passed';
-    const stuck = !passed && deadEnd(state);
+    const end = passed ? null : levelDeadEnd(state);
+    const stuck = end !== null;
     const left = Math.max(0, spec.moves - run.moves);
     const short = shortOf(state);
     const lines: GoalLine[] = goalLines(state);
@@ -1181,10 +1193,10 @@ export class Game {
           // A level that is failed says why: at a dead end, the dice that stand against the dice a combo takes.
           reason: passed
             ? undefined
-            : stuck
-              ? levelStranded(state)
-                ? t('levelStranded')
-                : t('levelStuck').replace('{left}', String(short)).replace('{need}', String(smallestGroup(spec)))
+            : end !== null
+              ? end === 'count'
+                ? t('levelStuck').replace('{left}', String(short)).replace('{need}', String(smallestGroup(spec)))
+                : t(DEAD_END_LINE[end])
               : t('levelShort').replace('{short}', String(short)),
           undos: canUndo ? this.undosLeft : 0,
         },
@@ -1386,7 +1398,8 @@ export class Game {
         list: level ? COMMANDS.levels : undefined,
         onResume: () => this.resume(),
         onRestart: () => this.startRun(),
-        onRules: level ? () => this.showLevelRules() : undefined,
+        // A level has its rules to read again only where the levels up to it have said some.
+        onRules: level && this.levelRules().length > 0 ? () => this.showLevelRules() : undefined,
         onRecords: () => this.showRecords(() => this.showPause()),
         onTasks: () => (level ? this.showLevels() : this.showPuzzleLevels()),
         onSystem: () => this.showSystem(() => this.showPause()),

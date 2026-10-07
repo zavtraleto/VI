@@ -19,6 +19,13 @@ import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from 
  * A level may shut its floor: the player then stays on the dice, and a board to be cleared is
  * lost as well where the player has no move left, on a leaving die with no die to step to.
  *
+ * On a board nothing comes to, the floor is strict: a die that cannot be pushed is not climbed
+ * from it, and the one way up is a die that is leaving. Up on the dice a die is rolled and shows
+ * another face; down on the floor it is pushed and shows the same one. So the floor is a part of
+ * the way and not a place to wander: a board to be cleared is lost there as well, where the
+ * player has nothing to push and nothing to go up by, or where too few dice show a face that
+ * works for any combo, since a push turns no die.
+ *
  * A board nothing comes to has no shelves. In a session, and on a level that dice come to, the
  * free cells beside a chain are a step: the player comes down onto them and goes up from them
  * onto any die. On a board to be cleared they are floor like any other: a die with room behind
@@ -103,7 +110,8 @@ export function levelConfig(config: RulesConfig, spec: LevelSpec): RulesConfig {
     // An object of its own: the one it was given belongs to whoever made the run.
     experiments: {
       ...config.experiments,
-      floorClimb: spec.climb !== false,
+      // A board nothing comes to has a strict floor, unless the level says otherwise.
+      floorClimb: spec.climb ?? spec.arrival !== 'none',
       dockSteps: spec.arrival !== 'none',
       soloOne: false,
       gentleStart: false,
@@ -177,18 +185,22 @@ export function levelStranded(state: RunState): boolean {
   return standing(state) > 0 && !canMove(state);
 }
 
-/** Dice the smallest group of a level takes: two where every face works, else the least of its faces that makes groups. */
 /**
- * The player is on the floor with no move to make and dice still standing: nothing to push and
- * nothing to go up by. Not a rule of a level yet: it ends nothing, and is asked by those who
- * play a board to measure it.
+ * A level with an open floor has come to where nothing can be done: dice stand, and the player
+ * has nothing to roll, nothing to push and nothing to go up by. That is the player down on the
+ * floor among dice that cannot be pushed; and the player still up on a die that is leaving, with
+ * no die to step to and nothing to do on the floor below, which is the same end a step sooner.
+ * Where a die that cannot be pushed is climbed there is always a move, and the answer is no.
  */
 export function floorStuck(state: RunState): boolean {
   const run = state.levelRun;
-  if (!run || run.spec.goal.kind !== 'clear' || state.player.level !== 'ground') return false;
+  if (!run || !boardGiven(run.spec) || run.spec.floor === false) return false;
   if (state.cubes.some((cube) => cube.state === 'moving')) return false;
   return standing(state) > 0 && !canMove(state);
 }
+
+/** A board to be cleared that nothing comes to: what stands on it is all there will ever be, so a dead end of the floor is one for good. */
+const boardGiven = (spec: LevelSpec): boolean => spec.goal.kind === 'clear' && spec.arrival === 'none';
 
 /** The faces that make a combo where a level names none. */
 const EVERY_FACE: readonly number[] = [2, 3, 4, 5, 6];
@@ -197,11 +209,11 @@ const EVERY_FACE: readonly number[] = [2, 3, 4, 5, 6];
  * The player is on the floor, nothing is leaving, no step leads up onto a die, and for no
  * working face do as many dice show it as its combo takes. A push turns no die, so the board
  * cannot be cleared whatever is pushed where. Where a die that cannot be pushed is climbed the
- * way up is there, and the answer is no. Not a rule of a level yet, as `floorStuck` is not.
+ * way up is there, and the answer is no.
  */
 export function floorLost(state: RunState): boolean {
   const run = state.levelRun;
-  if (!run || run.spec.goal.kind !== 'clear' || state.player.level !== 'ground') return false;
+  if (!run || !boardGiven(run.spec) || state.player.level !== 'ground') return false;
   if (state.cubes.length === 0 || state.cubes.some((cube) => cube.state !== 'idle')) return false;
   const { size } = state.config;
   const { places } = scan(state);
@@ -210,6 +222,22 @@ export function floorLost(state: RunState): boolean {
   return !faces.some((face) => face >= 2 && state.cubes.filter((cube) => cube.ori.top === face).length >= face);
 }
 
+/**
+ * Why a board to be cleared can go no further, if it cannot: too few dice stand for a combo
+ * (`count`); with the floor shut, the player has no move left (`stranded`); on the floor, there
+ * is nothing to push and nothing to go up by (`floor`), or too few dice show a face that works
+ * (`faces`). The level ends there, and this goes on saying why.
+ */
+export type LevelDeadEnd = 'count' | 'stranded' | 'floor' | 'faces';
+
+export function levelDeadEnd(state: RunState): LevelDeadEnd | null {
+  if (levelStuck(state)) return 'count';
+  if (levelStranded(state)) return 'stranded';
+  if (floorStuck(state)) return 'floor';
+  return floorLost(state) ? 'faces' : null;
+}
+
+/** Dice the smallest group of a level takes: two where every face works, else the least of its faces that makes groups. */
 export function smallestGroup(spec: Pick<LevelSpec, 'faces'>): number {
   const groups = (spec.faces ?? [2]).filter((face) => face >= 2);
   return groups.length > 0 ? Math.min(...groups) : Infinity;
@@ -287,8 +315,8 @@ function countSent(state: RunState, run: LevelRun): void {
  * if its board is at a dead end, or if the moves are spent, and a goal met with the last move is
  * a level passed; and if the level goes on and is one that dice come to, the board gets its next
  * die. A dead end is found on the beat the last group has gone, and not before: while a group is
- * going, the last die may still be brought to it. Where the floor is shut, a player left with
- * no move is found on the beat that left them so.
+ * going, the last die may still be brought to it. A player left with no move, or down on the
+ * floor among faces that make no combo, is found on the beat that left them so.
  */
 export function endBeat(state: RunState): void {
   const run = state.levelRun;
@@ -301,7 +329,7 @@ export function endBeat(state: RunState): void {
     state.events.push({ type: 'levelPassed' });
     return;
   }
-  if (levelStuck(state) || levelStranded(state) || (spec.moves > 0 && run.moves >= spec.moves)) {
+  if (levelDeadEnd(state) !== null || (spec.moves > 0 && run.moves >= spec.moves)) {
     state.over = true;
     state.endReason = 'failed';
     state.events.push({ type: 'levelFailed' });

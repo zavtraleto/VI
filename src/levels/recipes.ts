@@ -1,9 +1,41 @@
+import type { Score } from '../rules/levelScore';
+import type { Ban } from '../rules/reach';
 import type { LevelLayout, LevelSpec, Technique } from '../rules/types';
 
 /**
- * What a place of the ladder asks of a board: what is laid on it, and what the board laid has
+ * One event of the route a board is built for: what goes, what the die that sets it off is moved
+ * by, and how far that die and the others of the scene start from their places. A board is laid
+ * from its route backwards (`route.ts`): every scene is put down as it stands at the moment of
+ * its event, and its dice are then taken away from there, rolled or slid.
+ */
+export interface Scene {
+  /** A combo; a die that joins the combo of the scene before it; or the 1s, swept by a 1 brought to that combo. */
+  event: 'combo' | 'link' | 'ones';
+  /** The face of a combo or of a link. */
+  face?: number;
+  /** Dice of a combo, as many as its face has pips unless said. For the 1s: those that stand, besides the one brought. */
+  dice?: number;
+  /** The die that sets the event off is rolled there from on top, or pushed there from the floor. */
+  by: 'roll' | 'push';
+  /** Moves that die makes to get there, from so many to so many: one unless said. Pushes go along one line. */
+  moves?: readonly [number, number];
+  /** Other dice of the scene that are rolled away from their places as well, and the rolls each makes: one or two unless said. */
+  loose?: number;
+  looseMoves?: readonly [number, number];
+  /** The die that sets the event off is rolled away along one line where it can be: two such rolls leave its face at the bottom. */
+  straight?: boolean;
+  /** Laid where it touches no die laid before it: no step leads to it from them. */
+  apart?: boolean;
+}
+
+/**
+ * What a place among the levels asks of a board: what is laid on it, and what the board laid has
  * to come to when it is solved and played by the players made of the rules. A board is looked
- * for among the ones laid at random by these rules; nothing here is a board yet.
+ * for among the ones laid by these rules; nothing here is a board yet.
+ *
+ * A place is a form: what the player is to feel there, told by the route of the way and by its
+ * score. The bounds on the score are what the form is known by, and none of them is widened
+ * when a place gets no board: it says which one turned its candidates away.
  */
 export interface Recipe {
   slot: number;
@@ -14,12 +46,12 @@ export interface Recipe {
   /** Dice the board may hold over `dice`: a place that asks for "two or three" has one. */
   more?: number;
   /**
-   * Faces the level is about: its groups are made of them, and on the ladder they are the only
-   * faces that work. Half the dice that are not named otherwise start with one of them on top,
-   * the other half with another face; 1 excluded: ones are counted apart.
+   * Faces the level is about: its groups are made of them, and they are the only faces that
+   * work. Half the dice that are not named otherwise start with one of them on top, the other
+   * half with another face; 1 excluded: ones are counted apart.
    */
   faces: readonly number[];
-  /** Dice that start showing a 1. */
+  /** Dice that start showing a 1; on a board built from its route, a mark that the 1s work. */
   ones?: number;
   /** Dice that stand assembled at the start: so many of a value, side by side, fewer than its group. */
   standing?: readonly { value: number; count: number }[];
@@ -85,17 +117,50 @@ export interface Recipe {
   guide?: boolean;
   until?: LevelSpec['until'];
   story?: string;
+
+  /** The route the board is built for, its first event first: seeds above `FROM_ROUTE` lay it scene by scene. */
+  scenes?: readonly Scene[];
+  /** The kinds of route the way kept may be of. */
+  kinds?: readonly Score['kind'][];
+  /** Moves of the way before its first event, and from it on. */
+  quiet?: readonly [number, number];
+  counted?: readonly [number, number];
+  /** Dice the last event takes, and links of the longest chain. */
+  last?: readonly [number, number];
+  links?: readonly [number, number];
+  /** Moves with no event between two events, at the most: the quiet before the first is not counted. */
+  silence?: number;
+  /** How the way ends: the event of its last move, what the move is made with, and the moves a link had to spare. */
+  ends?: { event: 'combo' | 'link' | 'ones'; how?: 'roll' | 'push'; spare?: number };
+  /** What the route of the way kept has to read as, in its signs: a pattern. */
+  route?: string;
+  /** Parts of the route the board makes its player use: none has a way round within a move over the fewest. */
+  parts?: readonly Ban[];
+  /** Free cells the board starts with. */
+  room?: readonly [number, number];
+  /** No die starts showing a face that works. */
+  blind?: boolean;
+  /** Share of the dice that start with a working face at the bottom, at the least. */
+  underShare?: number;
+  /**
+   * A combo that can be made within the first two moves leaves a board that cannot be cleared.
+   * `floor`: it does so by leaving the player on it with no die to step to.
+   */
+  trap?: 'any' | 'floor';
+  /** No one face of the level clears the board alone within two moves over the fewest. */
+  bothFaces?: boolean;
+  /** At the start a combo of one face lacks a single die, and on the way kept a die of it goes showing another face. */
+  decoy?: boolean;
+  /** Clusters the dice start in, joined by their sides, at the least. */
+  islands?: number;
 }
 
-const NO_FLOOR: readonly Technique[] = ['floor', 'ones'];
-const EASY: readonly Technique[] = ['floor', 'glass', 'ones'];
-
-/** Moves a die that has joined a group takes to go on the ladder, and the moves a new link holds the others for. */
+/** Moves a die that has joined a group takes to go on a level, and the moves a new link holds the others for. */
 export const LADDER_SINK_MOVES = 2;
 export const LADDER_LIFT_MOVES = 1;
 
 /**
- * A chapter of the ladder: how generous the limit of moves of its levels is, whether stars open
+ * A chapter of the levels: how generous the limit of moves of its levels is, whether stars open
  * it, whether its floor is open, and which of its levels are played with a net.
  */
 export interface ChapterRule {
@@ -109,111 +174,152 @@ export interface ChapterRule {
 }
 
 /**
- * The chapters of the ladder, by the number a level names its chapter with. The course teaches
- * what the game cannot be played without; every chapter after it brings a rule or two of its own
- * among easy levels; the last three are the ladder as it was, chapters of one set of faces.
+ * The chapters of the levels, by the number a level names its chapter with. There is one: the
+ * probe, a batch of levels made to find what a level of this game is. It is played by one who
+ * knows the rules, so it teaches nothing, is open from its first level to its last, and gives a
+ * generous limit of moves. The course and the chapters that taught, and the ladder as it was,
+ * are in the history: commit 534b3ea.
  */
-export const CHAPTERS: readonly ChapterRule[] = [
-  { key: 'course', times: 5, gate: false, floor: false, guard: 'all' },
-  { key: 'faces', times: 5, gate: false, floor: false, guard: 'all' },
-  { key: 'chain', times: 5, gate: true, floor: false, guard: 'lessons' },
-  { key: 'floor', times: 5, gate: true, floor: true, guard: 'lessons' },
-  { key: 'twoFaces', times: 5, gate: true, floor: true, guard: 'lessons' },
-  { key: 'threes', times: 5, gate: true, floor: true, guard: 'none' },
-  { key: 'twosThrees', times: 4, gate: true, floor: true, guard: 'none' },
-  { key: 'fives', times: 3, gate: true, floor: true, guard: 'none' },
-];
+export const CHAPTERS: readonly ChapterRule[] = [{ key: 'probe', times: 5, gate: false, floor: true, guard: 'none' }];
+
+/** What every place of the probe asks for besides its form: a way with an end that is not drawn out, no long silence under the count, and a board that is not cleared by fiddling. */
+const PROBE: Pick<Recipe, 'chapter' | 'compact' | 'tail' | 'silence' | 'random'> = { chapter: 0, compact: false, tail: [0, 2], silence: 3, random: [0, 0.1] };
+/** A way that stays up on the dice: the fewest moves do not lean on the floor, nor on the 1s. */
+const ON_TOP: Pick<Recipe, 'avoid'> = { avoid: ['floor', 'ones'] };
 
 /**
- * The places of the ladder, chapter by chapter. In a chapter only its faces work: a die showing
- * any other makes no group, so the dice left over cannot always be paired off, and a board has
- * to be counted. A die that has joined a group goes in two moves. Each chapter rises to a peak:
- * a crowded board, cleared whole.
- */
-export const RECIPES: readonly Recipe[] = [
-  // I. Threes.
-  { slot: 1, chapter: 5, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], compact: true, par: [1, 1], random: [0.4, 1], avoid: EASY, lesson: 'lessonThrees', arrow: true },
-  { slot: 2, chapter: 5, size: 3, dice: 3, faces: [3], compact: true, par: [2, 3], avoid: EASY, walk: true, lesson: 'lessonStep' },
-  { slot: 3, chapter: 5, size: 3, dice: 4, faces: [3], compact: true, par: [2, 3], needs: ['link'], avoid: EASY, lesson: 'lessonLink' },
-  { slot: 4, chapter: 5, size: 3, dice: 4, faces: [3], compact: true, par: [4, 5], depth: [2, 4], random: [0, 0.3], avoid: EASY, lesson: 'lessonSeven' },
-  { slot: 5, chapter: 5, size: 4, dice: 6, faces: [3], compact: true, par: [3, 5], random: [0, 0.25], avoid: NO_FLOOR },
-  { slot: 6, chapter: 5, size: 4, dice: 6, faces: [3], compact: true, par: [5, 7], traps: [0.2, 1], random: [0, 0.15], avoid: NO_FLOOR },
-  { slot: 7, chapter: 5, size: 3, dice: 7, faces: [3], compact: true, par: [5, 8], traps: [0.3, 1], random: [0, 0.1], avoid: NO_FLOOR },
-  { slot: 8, chapter: 5, size: 4, dice: 9, faces: [3], compact: true, par: [6, 9], traps: [0.5, 1], random: [0, 0.05], avoid: NO_FLOOR, witness: true },
-  // II. Twos and threes.
-  { slot: 9, chapter: 6, size: 3, dice: 5, faces: [2, 3], compact: true, par: [2, 3], random: [0, 0.4], avoid: EASY, lesson: 'lessonTwos' },
-  { slot: 10, chapter: 6, size: 3, dice: 5, faces: [2, 3], compact: true, par: [4, 5], random: [0, 0.2], avoid: EASY },
-  { slot: 11, chapter: 6, size: 4, dice: 6, faces: [2, 3], compact: true, par: [3, 5], shows: ['glass'], avoid: NO_FLOOR, lesson: 'lessonGlass' },
-  { slot: 12, chapter: 6, size: 4, dice: 7, faces: [2, 3], compact: true, par: [5, 7], traps: [0.2, 1], random: [0, 0.15], avoid: NO_FLOOR },
-  { slot: 13, chapter: 6, size: 4, dice: 6, faces: [2, 3], compact: false, par: [4, 6], needs: ['floor'], lesson: 'lessonFloor' },
-  { slot: 14, chapter: 6, size: 3, dice: 7, faces: [2, 3], compact: true, par: [6, 8], traps: [0.3, 1], random: [0, 0.1] },
-  { slot: 15, chapter: 6, size: 5, dice: 9, faces: [2, 3], compact: false, par: [7, 10], traps: [0.3, 1], random: [0, 0.05], witness: true },
-  { slot: 16, chapter: 6, size: 4, dice: 10, faces: [2, 3], compact: false, par: [8, 11], traps: [0.5, 1], random: [0, 0.05], witness: true },
-  // III. Fives.
-  { slot: 17, chapter: 7, size: 4, dice: 5, faces: [5], standing: [{ value: 5, count: 4 }], compact: true, par: [1, 2], avoid: EASY, lesson: 'lessonFives' },
-  { slot: 18, chapter: 7, size: 4, dice: 5, faces: [5], standing: [{ value: 5, count: 3 }], compact: true, par: [3, 4], avoid: EASY },
-  { slot: 19, chapter: 7, size: 4, dice: 6, faces: [5], compact: true, par: [3, 5], needs: ['link'], avoid: NO_FLOOR },
-  { slot: 20, chapter: 7, size: 5, dice: 6, faces: [5], compact: false, par: [5, 7], random: [0, 0.1] },
-  { slot: 21, chapter: 7, size: 4, dice: 8, faces: [5], compact: true, par: [5, 8], traps: [0.2, 1], random: [0, 0.1], witness: true },
-  { slot: 22, chapter: 7, size: 5, dice: 10, faces: [5], compact: false, par: [7, 10], traps: [0.3, 1], random: [0, 0.05], witness: true },
-  { slot: 23, chapter: 7, size: 4, dice: 11, faces: [5], compact: true, par: [8, 12], traps: [0.5, 1], random: [0, 0.05], witness: true },
-];
-
-/**
- * What every place of the course and of the first chapter asks for: its dice in one cluster, the
- * floor shut and a net under the player, a way that leans on nothing that has not been taught,
- * and no die with a working face at the bottom, which only the rule of seven finds.
+ * The places of the probe: ten forms, two boards of each that differ in the face or in the
+ * board. A form is what the player is to feel; its route is where the player is on the way: up
+ * on the dice, down on the floor, on a combo that is leaving. The forms and what tells each
+ * apart are in docs/VI_Levels_Routes_Brief.md, section 5; which place is which form is in the
+ * key, docs/VI_Levels_Probe_Key.md, and nowhere the levels themselves say it. The order was
+ * shuffled once and is kept: two boards of a form do not stand side by side, and the quiet ones
+ * take turns with those played under the count.
  *
- * A place whose way is one die rolled from where it stands asks for no cluster: the die may
- * stand apart, and the player never leaves it. The lessons of the first chapter ask nothing of
- * the players made of the rules: a way of three rolls with nothing going until the last is
- * found by the arrow and the line of the lesson, which those players do not read.
+ * `brief` names the form in a word and what the board is to make of it.
  */
-const TAUGHT: Pick<Recipe, 'compact' | 'floor' | 'guard' | 'avoid' | 'under'> = { compact: true, floor: false, guard: true, avoid: ['floor', 'glass', 'ones', 'link'], under: false };
-/** Shares of the runs of the hasty and the casual persona that clear a level with a lesson, and a level that follows one. */
-const LESSON: Pick<Recipe, 'hasty' | 'casual'> = { hasty: [0.8, 1], casual: [0.95, 1] };
-const PLAIN: Pick<Recipe, 'hasty' | 'casual'> = { hasty: [0.6, 1], casual: [0.85, 1] };
-const PLAIN_ONE: Pick<Recipe, 'hasty' | 'casual'> = { hasty: [0.5, 1], casual: [0.8, 1] };
-
-/**
- * The course: nine levels in three blocks, a combo, a step, two combos in a row. The first level
- * of a block says its rule in a line and shows its first move; the two after it are played with
- * no words. The face that works changes from level to level: a combo is as many dice as its
- * face has pips, whatever the face. `brief` is what the player is to notice.
- */
-export const COURSE: readonly Recipe[] = [
-  { slot: 101, id: 'T01', chapter: 0, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], par: [1, 1], depth: [1, 3], ...TAUGHT, compact: false, ...LESSON, safe: true, ownOnly: true, arrow: true, lesson: 'lineCombo', guide: true, brief: 'a roll lays another face on top; three 3s side by side go' },
-  { slot: 102, id: 'T02', chapter: 0, size: 3, dice: 2, faces: [2], par: [1, 2], depth: [1, 3], ...TAUGHT, compact: false, ...PLAIN, safe: true, ownOnly: true, brief: 'two 2s are enough: done alone, with no arrow' },
-  { slot: 103, id: 'T03', chapter: 0, size: 3, dice: 4, faces: [4], standing: [{ value: 4, count: 3 }], par: [1, 2], depth: [1, 3], ...TAUGHT, compact: false, ...PLAIN, safe: true, ownOnly: true, brief: 'a 4 takes four: the count goes from 3/4 to 4/4' },
-  { slot: 104, id: 'T04', chapter: 0, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], par: [1, 2], depth: [1, 3], ...TAUGHT, ...LESSON, safe: true, walk: true, lesson: 'lineStep', guide: true, brief: 'my die is where it should be; I walk to the one that has to roll' },
-  { slot: 105, id: 'T05', chapter: 0, size: 3, dice: 4, faces: [4], standing: [{ value: 4, count: 3 }], par: [1, 2], depth: [1, 3], ...TAUGHT, ...PLAIN, safe: true, walk: true, far: 2, brief: 'steps cost nothing: the die to roll is two steps away' },
-  { slot: 106, id: 'T06', chapter: 0, size: 3, dice: 3, faces: [3], par: [2, 3], depth: [1, 3], ...TAUGHT, ...PLAIN, safe: true, stay: 1, movers: 2, firsts: [1, 12], brief: 'two dice have to roll, each in its turn' },
-  { slot: 107, id: 'T07', chapter: 0, size: 3, dice: 4, faces: [2], par: [2, 2], depth: [1, 3], ...TAUGHT, ...LESSON, combos: 2, traps: [0, 0], lesson: 'lineWalk', guide: true, until: 'end', brief: 'a pair is leaving under my feet, and I walk over it to the rest' },
-  { slot: 108, id: 'T08', chapter: 0, size: 4, dice: 6, faces: [3], par: [2, 3], depth: [1, 3], ...TAUGHT, ...PLAIN, combos: 2, tail: [0, 2], brief: 'the same with 3s: the board empties in two goes' },
-  { slot: 109, id: 'T09', chapter: 0, size: 4, dice: 6, faces: [2], par: [3, 5], depth: [1, 3], ...TAUGHT, casual: [0.85, 1], combos: 3, tail: [0, 1], brief: 'three pairs in a row and the board is clean: the end of the course' },
+export const PLACES: readonly Recipe[] = [
+  {
+    slot: 1, id: 'P01', ...PROBE, ...ON_TOP, compact: true, size: 3, dice: 4, faces: [3], par: [5, 7],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['top'], quiet: [3, 6], counted: [1, 2], movers: 2,
+    brief: 'collapse: three quiet moves and more, then everything goes in the last two',
+  },
+  {
+    slot: 2, id: 'P02', ...PROBE, ...ON_TOP, size: 4, dice: 4, faces: [2], par: [2, 5],
+    scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['bridge'], parts: ['bridge'], islands: 2,
+    brief: 'bridge: the second pair is come to over the first while it is leaving',
+  },
+  {
+    slot: 3, id: 'P03', ...PROBE, ...ON_TOP, compact: true, size: 3, dice: 3, faces: [3], par: [4, 8],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [2, 2], loose: 2, looseMoves: [1, 1], straight: true }],
+    kinds: ['top'], blind: true, underShare: 0.3, firsts: [1, 2],
+    brief: 'seven, blind: no 3 is to be seen, and one of them lies under',
+  },
+  {
+    slot: 4, id: 'P04', ...PROBE, ...ON_TOP, size: 4, dice: 6, faces: [5], par: [3, 6],
+    scenes: [{ event: 'combo', face: 5, by: 'roll', moves: [1, 2] }, { event: 'link', face: 5, by: 'roll', moves: [2, 2] }],
+    kinds: ['top'], needs: ['link'], ends: { event: 'link', how: 'roll', spare: 0 },
+    brief: 'rescue: one die too many, brought to the combo on the last move it can be',
+  },
+  {
+    slot: 5, id: 'P05', ...PROBE, ...ON_TOP, compact: true, size: 3, dice: 6, faces: [3], par: [4, 8],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }],
+    kinds: ['top', 'bridge'], room: [2, 3], quiet: [2, 7],
+    brief: 'a tight room: three free cells, and no combo before the third move',
+  },
+  {
+    slot: 6, id: 'P06', ...PROBE, size: 4, dice: 5, faces: [2], par: [3, 6],
+    scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 2, by: 'push', apart: true }, { event: 'link', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['downAndUp'], route: 'P.*\\^', parts: ['push', 'up'],
+    brief: 'down and back: a push makes a pair, and the player comes up by it',
+  },
+  {
+    slot: 7, id: 'P07', ...PROBE, ...ON_TOP, compact: true, size: 3, dice: 5, faces: [2, 3], par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], bothFaces: true, decoy: true,
+    brief: 'the count of channels: five dice are a pair and a three, and the combo nearly made is the wrong one',
+  },
+  {
+    slot: 8, id: 'P08', ...PROBE, ...ON_TOP, size: 4, dice: 5, faces: [2], par: [4, 7],
+    scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'link', face: 2, by: 'roll' }, { event: 'link', face: 2, by: 'roll', moves: [1, 2] }, { event: 'link', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], links: [3, 4], silence: 1,
+    brief: 'a long chain: three links one after another, a move between them at the most',
+  },
+  {
+    slot: 9, id: 'P09', ...PROBE, ...ON_TOP, size: 4, dice: 6, faces: [3], par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], trap: 'any', traps: [0.3, 1],
+    brief: 'a trap of order: the combo at hand is made first, and the board is lost by it',
+  },
+  {
+    slot: 10, id: 'P10', ...PROBE, size: 4, dice: 6, faces: [3], ones: 3, par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'ones', by: 'push', dice: 2, loose: 1 }],
+    kinds: ['downLast'], ends: { event: 'ones', how: 'push' }, parts: ['ones'],
+    brief: 'the broom: the dice left over are 1s, and one push to the leaving combo sweeps them',
+  },
+  {
+    slot: 11, id: 'P11', ...PROBE, ...ON_TOP, size: 4, dice: 2, faces: [2], par: [4, 6],
+    scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [2, 2], loose: 1, looseMoves: [2, 2], straight: true }],
+    kinds: ['top'], blind: true, underShare: 0.5, firsts: [1, 2],
+    brief: 'seven, blind: two dice, no 2 to be seen, one of them lies under',
+  },
+  {
+    slot: 12, id: 'P12', ...PROBE, size: 4, dice: 6, faces: [2, 3], par: [3, 6],
+    scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 3, by: 'push', apart: true }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['downAndUp'], route: 'P.*\\^', parts: ['push', 'up'],
+    brief: 'down and back with two faces: a pair lets the player down, a push makes the three',
+  },
+  {
+    slot: 13, id: 'P13', ...PROBE, ...ON_TOP, compact: true, size: 4, dice: 6, faces: [6], par: [4, 7],
+    scenes: [{ event: 'combo', face: 6, by: 'roll', moves: [2, 3], loose: 1, looseMoves: [1, 2] }],
+    kinds: ['top'], quiet: [3, 6], counted: [1, 1], last: [6, 6], movers: 2,
+    brief: 'collapse on a big board: six dice go with one move',
+  },
+  {
+    slot: 14, id: 'P14', ...PROBE, size: 4, dice: 5, faces: [4], par: [3, 6],
+    scenes: [{ event: 'combo', face: 4, by: 'roll', moves: [1, 2] }, { event: 'link', face: 4, by: 'push', moves: [2, 2] }],
+    kinds: ['downLast'], needs: ['link'], ends: { event: 'link', how: 'push', spare: 0 }, parts: ['push'],
+    brief: 'rescue from below: the fifth die shows its 4 already and is pushed home on the last move',
+  },
+  {
+    slot: 15, id: 'P15', ...PROBE, ...ON_TOP, compact: true, size: 3, dice: 7, faces: [2, 3], par: [4, 8],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], room: [2, 2], quiet: [2, 7],
+    brief: 'a tight room of two faces: two free cells',
+  },
+  {
+    slot: 16, id: 'P16', ...PROBE, ...ON_TOP, size: 4, dice: 6, faces: [3], par: [2, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['bridge'], parts: ['bridge'], islands: 2,
+    brief: 'bridge of 3s: the second three is come to over the first',
+  },
+  {
+    slot: 17, id: 'P17', ...PROBE, ...ON_TOP, compact: true, size: 4, dice: 7, faces: [3, 4], par: [3, 7],
+    scenes: [{ event: 'combo', face: 4, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], bothFaces: true, decoy: true,
+    brief: 'the count of channels: seven dice are a four and a three',
+  },
+  {
+    slot: 18, id: 'P18', ...PROBE, size: 4, dice: 6, faces: [4], ones: 2, par: [3, 7],
+    scenes: [{ event: 'combo', face: 4, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'ones', by: 'push', dice: 1, loose: 1 }],
+    kinds: ['downLast'], ends: { event: 'ones', how: 'push' }, parts: ['ones'],
+    brief: 'the broom with 4s: a die has to be turned to a 1 before it can be swept',
+  },
+  {
+    slot: 19, id: 'P19', ...PROBE, size: 4, dice: 6, faces: [3], par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 3, by: 'push', apart: true }],
+    kinds: ['downLast', 'downAndUp', 'other'], trap: 'floor', traps: [0.3, 1],
+    brief: 'a trap of order by the floor: the three at hand leaves the player with nowhere to step',
+  },
+  {
+    slot: 20, id: 'P20', ...PROBE, ...ON_TOP, size: 4, dice: 7, faces: [3], par: [5, 8],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'link', face: 3, by: 'roll' }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], links: [4, 4], silence: 1,
+    brief: 'a long chain of 3s: four links',
+  },
 ];
-
-/**
- * The first chapter: nine levels that bring two ways to read a die. A face on the side rides
- * there while the die is rolled along, and a turn lays it on top; the face at the bottom is seven
- * less the one on top. A lesson, two easy levels, a small peak; a lesson, two easy levels, the
- * two together, and the peak of the chapter. Every board has as many dice as its combos take:
- * the chain has not been taught.
- */
-export const CHAPTER_ONE: readonly Recipe[] = [
-  { slot: 201, id: 'C101', chapter: 1, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], par: [2, 3], depth: [1, 4], ...TAUGHT, compact: false, safe: true, ownOnly: true, ride: true, front: true, lesson: 'lineSide', guide: true, until: 'combo', brief: 'the face on the side rides with me; the turn lays it on top' },
-  { slot: 202, id: 'C102', chapter: 1, size: 3, dice: 2, faces: [2], par: [2, 3], depth: [1, 4], ...TAUGHT, compact: false, ...PLAIN_ONE, safe: true, ownOnly: true, ride: true, brief: 'the same with a 2, and no arrow' },
-  { slot: 203, id: 'C103', chapter: 1, size: 4, dice: 4, faces: [4], standing: [{ value: 4, count: 3 }], par: [3, 4], depth: [1, 4], ...TAUGHT, compact: false, ...PLAIN_ONE, safe: true, ownOnly: true, ride: true, brief: 'a 4 carried on the side across the board' },
-  { slot: 204, id: 'C104', chapter: 1, size: 4, dice: 6, faces: [3], par: [3, 5], depth: [1, 4], ...TAUGHT, casual: [0.7, 0.9], combos: 2, firsts: [2, 20], tail: [0, 2], brief: 'a small peak: two combos, and a die to turn for each' },
-  { slot: 205, id: 'C105', chapter: 1, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], par: [2, 2], depth: [1, 4], ...TAUGHT, compact: false, under: true, safe: true, ownOnly: true, seven: true, lesson: 'lineSeven', guide: true, until: 'combo', brief: 'the 3 is under the 4; two rolls one way bring it up' },
-  { slot: 206, id: 'C106', chapter: 1, size: 3, dice: 2, faces: [2], par: [2, 2], depth: [1, 4], ...TAUGHT, compact: false, ...PLAIN_ONE, under: true, safe: true, ownOnly: true, seven: true, brief: 'the 2 is under the 5' },
-  { slot: 207, id: 'C107', chapter: 1, size: 4, dice: 5, faces: [5], standing: [{ value: 5, count: 4 }], par: [1, 2], depth: [1, 4], ...TAUGHT, under: undefined, casual: [0.8, 1], safe: true, brief: 'a gift: five 5s go at once' },
-  { slot: 208, id: 'C108', chapter: 1, size: 4, dice: 4, faces: [2], par: [3, 6], depth: [1, 4], ...TAUGHT, under: true, casual: [0.7, 0.9], combos: 2, tail: [0, 2], brief: 'the two together: one die is read by seven, another rides' },
-  { slot: 209, id: 'C109', chapter: 1, size: 4, dice: 6, faces: [3], par: [4, 7], depth: [1, 5], ...TAUGHT, under: undefined, casual: [0.5, 0.85], combos: 2, firsts: [1, 20], tail: [0, 3], traps: [0.2, 1], brief: 'the peak of the chapter: two combos clear the board, and the greedy move ends in a dead end' },
-];
-
-/** The places of the course and of the chapters that follow it, in the order of the ladder. */
-export const PLACES: readonly Recipe[] = [...COURSE, ...CHAPTER_ONE];
 
 /** The bounds of a place as a list: what is measured, and from what to what it may be. */
 export function boundsOf(recipe: Recipe): { what: 'par' | 'depth' | 'traps' | 'random'; from: number; to: number }[] {

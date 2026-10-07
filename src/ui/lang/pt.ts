@@ -42,6 +42,8 @@ export const PT: Texts = {
   puzzleRule5: 'Retire todos os dados. Quanto menos jogadas, mais estrelas',
   levelStuck: 'Beco sem saída: restam {left} no tabuleiro, e um combo pede {need}',
   levelStranded: 'Beco sem saída: deste dado não há para onde ir',
+  levelFloorStuck: 'Beco sem saída: do chão não há o que empurrar nem por onde subir',
+  levelFloorFaces: 'Beco sem saída: empurrar não gira o dado, e faltam faces para um combo',
   levelShort: 'As jogadas acabaram. Faltaram: {short}',
   lessonThrees:
     'Olá! Boas-vindas ao Visual Interconnection. Sou o assistente do laboratório, e hoje vou ensinar você a trabalhar com a mesa.\n\n' +
@@ -118,7 +120,7 @@ export const PT: Texts = {
   howCombo: 'Um combo são tantos dados lado a lado quantos pontos tem a face de cima: dois 2, três 3, seis 6.\nUm combo formado sai.',
   howChain: 'Um combo não sai na hora.\nEnquanto ele sai, role até ele mais um dado com a mesma face: ele sai junto com o combo. Isso é uma corrente.',
   howOnes: 'Os 1 não formam combo.\nLeve um 1 até um combo que está saindo, e todos os outros 1 do tabuleiro saem.',
-  howLevels: 'NÍVEIS: tire todos os dados do tabuleiro.\nSó as faces do nível funcionam, as outras estão riscadas.\nAs jogadas são limitadas: quanto menos, mais estrelas.',
+  howLevels: 'NÍVEIS: tire todos os dados do tabuleiro.\nSó as faces do nível funcionam, as outras estão riscadas.\nAs jogadas são limitadas: quanto menos, mais estrelas.\nAqui o chão tem regras próprias: só se sobe por um dado que está saindo.',
   howProtocol: 'PROTOCOLO: os dados chegam sozinhos.\nUma corrente multiplica os pontos.\nSe o tabuleiro encher e continuar cheio, a sessão acaba.',
   shareScore: 'VI — enviado para o outro lado: {score}',
 };

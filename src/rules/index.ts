@@ -16,11 +16,13 @@ export {
   goalOf,
   goalReached,
   levelConfig,
+  levelDeadEnd,
   levelStranded,
   levelStuck,
   shortGroups,
   smallestGroup,
   worldRuns,
+  type LevelDeadEnd,
   type ShortGroup,
 } from './level';
 export { canAcceptCommand, resolveMove } from './movement';

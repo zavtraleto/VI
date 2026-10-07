@@ -45,6 +45,8 @@ export const FR: Texts = {
   puzzleRule5: "Retire tous les dés. Moins il y a de coups, plus il y a d'étoiles",
   levelStuck: 'Impasse : il reste {left} sur le plateau, et un combo en demande {need}',
   levelStranded: 'Impasse : depuis ce dé, on ne peut aller nulle part',
+  levelFloorStuck: 'Impasse : depuis le sol, rien à pousser et rien par où remonter',
+  levelFloorFaces: 'Impasse : pousser ne tourne pas le dé, et il manque des faces pour un combo',
   levelShort: 'Plus de coups. Il en manquait : {short}',
   lessonThrees:
     "Bonjour ! Bienvenue dans Visual Interconnection. Je suis le laborantin d'ici, et aujourd'hui je t'apprends à travailler avec la table.\n\n" +
@@ -121,7 +123,7 @@ export const FR: Texts = {
   howCombo: "Un combo, c'est autant de dés côte à côte que leur face du dessus a de points : deux 2, trois 3, six 6.\nUn combo formé s'en va.",
   howChain: "Un combo ne s'en va pas tout de suite.\nPendant qu'il s'en va, amène-lui un dé de plus avec la même face : il part avec le combo. C'est une chaîne.",
   howOnes: "Les 1 ne forment pas de combo.\nAmène un 1 à un combo qui s'en va, et tous les autres 1 du plateau s'en vont.",
-  howLevels: "NIVEAUX : enlève tous les dés du plateau.\nSeules les faces du niveau marchent, les autres sont barrées.\nLes coups sont limités : moins tu en joues, plus tu as d'étoiles.",
+  howLevels: "NIVEAUX : enlève tous les dés du plateau.\nSeules les faces du niveau marchent, les autres sont barrées.\nLes coups sont limités : moins tu en joues, plus tu as d'étoiles.\nLe sol a ici ses propres règles : on ne remonte que par un dé qui s'en va.",
   howProtocol: 'PROTOCOLE : les dés arrivent tout seuls.\nUne chaîne multiplie le score.\nSi le plateau se remplit et reste plein, la session est finie.',
   shareScore: "VI — envoyé de l'autre côté : {score}",
 };

@@ -1,4 +1,5 @@
 import { measure } from '../rules/levelBot';
+import { scoreOf } from '../rules/levelScore';
 import { tryWay } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import { firstsOf, tailOf } from './measures';
@@ -16,9 +17,10 @@ export function measureBoard(place: string, spec: LevelSpec, skillRuns = 20): st
   const cleared = measured.way ? tryWay(spec, measured.way).cleared : [];
   const tail = tailOf(cleared);
   const firsts = measured.way ? firstsOf(spec, par) : null;
+  const score = measured.way ? scoreOf(spec, measured.way) : null;
   return measureRow(
     place,
-    { seed: spec.seed, spec, par, exact: measured.exact, short: par, depth: measured.depth, uses: measured.uses, needs: measured.needs, traps: measured.traps, random: measured.random, tail, clears: cleared.filter(Boolean).length, firsts, personas: measured.personas, distance: 0, misses: [] },
+    { seed: spec.seed, spec, par, exact: measured.exact, short: par, depth: measured.depth, uses: measured.uses, needs: measured.needs, traps: measured.traps, random: measured.random, tail, clears: cleared.filter(Boolean).length, route: score?.route ?? '', kind: score?.kind ?? 'other', firsts, personas: measured.personas, distance: 0, misses: [] },
     measured.personas,
   );
 }

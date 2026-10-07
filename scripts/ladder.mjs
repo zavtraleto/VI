@@ -1,22 +1,26 @@
-// The ladder of the first twenty levels: boards laid by the recipes of its places, solved by the
-// solver and played by the players made of the rules.
-// The recipes are in src/levels/recipes.ts, the judging in src/levels/select.ts, the solver in
-// src/rules/levelSolver.ts, the players in src/rules/levelBot.ts, the levels in src/levels/levels.ts.
+// The levels: boards laid by the recipes of their places, solved by the solver and played by the
+// players made of the rules.
+// The recipes are in src/levels/recipes.ts, the laying in src/levels/generate.ts and route.ts, the judging in
+// src/levels/select.ts, the solver in src/rules/levelSolver.ts, the players in src/rules/levelBot.ts, the levels
+// in src/levels/levels.ts.
 //
 //   node scripts/ladder.mjs                  the table of the levels and of the boards in reserve
 //   node scripts/ladder.mjs levels           the table of the levels alone
-//   node scripts/ladder.mjs slot=7           looks for the boards of a place: seeds 1 to 2000, the three that fit best
-//   node scripts/ladder.mjs place=T04        the same for a place of the course or of a chapter, by the name of its level
-//   node scripts/ladder.mjs place=T04 keep=5 the five that fit best
-//   node scripts/ladder.mjs chapter=0        fills every place of a chapter (boards laid both ways, seeds 1 to 1000 of each, and
+//   node scripts/ladder.mjs place=P06        looks for the boards of a place, by the name of its level: boards laid
+//                                            from its route where it has one (seeds 30001 on), else at random
+//                                            (seeds 1 on); 2000 seeds, the three that fit best
+//   node scripts/ladder.mjs place=P06 keep=5 the five that fit best
+//   node scripts/ladder.mjs chapter=0        fills every place of a chapter (boards laid every way, seeds 1 to 1000 of each, and
 //                                            the boards laid by hand) and puts the chapter together: for every place one board
 //                                            that is unlike the one before it, with its picture and its line for levels.ts
-//   node scripts/ladder.mjs slot=7 seeds=300 from=1   some of the seeds only
-//   node scripts/ladder.mjs slot=7 solution  lays the boards from their solutions and not at random (seeds 10001 on)
-//   node scripts/ladder.mjs slot=7 both      boards laid either way, judged together
-//   node scripts/ladder.mjs slot=7 loose     keeps boards whose fewest moves lean on what the place avoids
-//   node scripts/ladder.mjs slot=7 near      for a place nothing fits: the boards nearest its bounds, with what each misses
-//   node scripts/ladder.mjs slot=7 states=3000000     boards the solver may see on a candidate
+//   node scripts/ladder.mjs place=P06 seeds=300 from=1   some of the seeds only
+//   node scripts/ladder.mjs place=P06 random    lays the boards at random (seeds 1 on)
+//   node scripts/ladder.mjs place=P06 solution  lays the boards from their solutions (seeds 10001 on)
+//   node scripts/ladder.mjs place=P06 route     lays the boards from the route of the place (seeds 30001 on)
+//   node scripts/ladder.mjs place=P06 both      boards laid every way, judged together
+//   node scripts/ladder.mjs place=P06 loose     keeps boards whose fewest moves lean on what the place avoids
+//   node scripts/ladder.mjs place=P06 near      for a place nothing fits: the boards nearest its bounds, with what each misses
+//   node scripts/ladder.mjs place=P06 states=3000000     boards the solver may see on a candidate
 //   node scripts/ladder.mjs limit boards=20  how far the solver gets on boards laid at random
 //   workers=6                                processes the work is shared among: six unless said, or fewer on a machine
 //                                            of few cores. A process solving a big board holds up to a gigabyte.
@@ -33,9 +37,9 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 const args = process.argv.slice(2);
 const named = Object.fromEntries(args.filter((arg) => arg.includes('=')).map((arg) => arg.split('=')));
 const flag = (name) => args.includes(name);
-const known = ['slot', 'place', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep'];
+const known = ['place', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep'];
 for (const key of Object.keys(named)) {
-  if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as slot=7, seeds=300, from=1, states=3000000, boards=20 or workers=6`);
+  if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as place=P06, seeds=300, from=1, states=3000000, boards=20 or workers=6`);
 }
 
 /** Runs this script again in several processes, each taking its share of the work, and gives back what they print, line by line. */
@@ -76,7 +80,7 @@ if (flag('limit')) {
   if (places.length === 0) throw new Error(`no places of chapter ${named.chapter}`);
   const count = Number(named.seeds ?? 1000);
   const span = (from) => Array.from({ length: count }, (_, index) => from + index);
-  const jobs = places.flatMap((recipe, at) => [...span(1), ...span(10_001), ...(recipe.sketch ?? []).map((_, index) => SKETCH + index + 1)].map((seed) => ({ at, seed })));
+  const jobs = places.flatMap((recipe, at) => [...span(1), ...span(10_001), ...(recipe.scenes ? span(30_001) : []), ...(recipe.sketch ?? []).map((_, index) => SKETCH + index + 1)].map((seed) => ({ at, seed })));
   const opts = named.states ? { maxStates: Number(named.states) } : {};
   if (worker) {
     jobs.forEach((job, index) => {
@@ -118,21 +122,22 @@ if (flag('limit')) {
       for (const spare of spares) console.log(levelSource(spare.spec));
     });
   }
-} else if (named.slot !== undefined || named.place !== undefined) {
-  const { RECIPES, PLACES } = await load('/src/levels/recipes.ts');
+} else if (named.place !== undefined) {
+  const { PLACES } = await load('/src/levels/recipes.ts');
   const { judge, gather, placeReport, levelSource, boardText } = await load('/src/levels/select.ts');
   const { levelId, SKETCH } = await load('/src/levels/generate.ts');
   const { neededBy } = await load('/src/rules/levelBot.ts');
-  // A place is asked for by its number among the places of the ladder as it was, or by the name of its level.
-  const recipe = named.place !== undefined ? [...PLACES, ...RECIPES].find((candidate) => levelId(candidate) === named.place) : RECIPES.find((candidate) => candidate.slot === Number(named.slot));
-  if (!recipe) throw new Error(`no place ${named.place ?? named.slot} in the ladder`);
-  // Seeds above ten thousand lay a board from its solution: see src/levels/generate.ts.
+  // A place is asked for by the name of its level.
+  const recipe = PLACES.find((candidate) => levelId(candidate) === named.place);
+  if (!recipe) throw new Error(`no place ${named.place} among the levels`);
+  // Seeds above ten thousand lay a board from its solution, and above thirty thousand from its route: see src/levels/generate.ts.
   const first = Number(named.from ?? 1);
   const count = Number(named.seeds ?? 2000);
   const span = (from) => Array.from({ length: count }, (_, index) => from + index);
   // The boards a place has laid by hand are judged with whatever else is asked for.
   const sketches = (recipe.sketch ?? []).map((_, index) => SKETCH + index + 1);
-  const seeds = [...(flag('both') ? [...span(first), ...span(first + 10_000)] : span(first + (flag('solution') ? 10_000 : 0))), ...sketches];
+  const how = flag('random') ? 0 : flag('solution') ? 10_000 : flag('route') || recipe.scenes ? 30_000 : 0;
+  const seeds = [...(flag('both') ? [...span(first), ...span(first + 10_000), ...(recipe.scenes ? span(first + 30_000) : [])] : span(first + how)), ...sketches];
   const opts = { loose: flag('loose'), near: flag('near'), ...(named.states ? { maxStates: Number(named.states) } : {}) };
   if (worker) {
     seeds.forEach((seed, index) => {

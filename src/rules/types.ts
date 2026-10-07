@@ -428,8 +428,9 @@ export interface LevelSpec {
   /** False where the player cannot step from the dice down to the floor. Left out, the floor is open. */
   floor?: boolean;
   /**
-   * False where a die that cannot be pushed is not climbed from the floor: the only way up is a
-   * die that is leaving. Left out, it is climbed.
+   * Whether a die that cannot be pushed is climbed from the floor. Left out, it is not on a board
+   * nothing comes to, where the only way up is a die that is leaving, and is on a level that dice
+   * come to. True brings the climb back to a board, to measure it by the rule as it was.
    */
   climb?: boolean;
   /** The level is played with a net: a hint for a player who wanders, and a dead end that takes the board back. */

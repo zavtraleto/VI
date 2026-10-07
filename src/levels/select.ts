@@ -1,10 +1,11 @@
 import { PERSONA_NAMES, neededBy, personaRates, randomRate, trapRate, witnessWay, type PersonaName } from '../rules/levelBot';
+import { scoreOf, type Score } from '../rules/levelScore';
 import { moveOf, moveText, movesAt, playMove, solveLevel, tryWay, type SolverMove } from '../rules/levelSolver';
 import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec, Technique } from '../rules/types';
 import { FROM_SOLUTION, SKETCH, boardText, builtWay, candidate } from './generate';
-import { farOf, firstsOf, rideTurn, rides, startsUnder, tailOf, underOf } from './measures';
+import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, startsUnder, tailOf, trapOf, underOf } from './measures';
 import { boundsOf, type Recipe } from './recipes';
 
 /**
@@ -32,6 +33,9 @@ export interface Fit {
   tail: number;
   /** Clearing moves of the way: its combos and links. */
   clears: number;
+  /** The route of the way kept, in its signs, and the kind of route it is. */
+  route: string;
+  kind: Score['kind'];
   /** First moves that keep the board in hand; null where the place did not ask and they were not counted. */
   firsts: number | null;
   /** Share of the runs of every persona that clear the board; null where the place did not ask. */
@@ -74,6 +78,8 @@ const JUDGE_MAX_STATES = 1_500_000;
 const BIG_BOARD = 7;
 /** Runs of every persona on a candidate whose place asks what they come to. */
 const PERSONA_RUNS = 12;
+/** Boards a search for a way round a part of the route may see, and one for a way with a single face: a board it cannot settle is turned away. */
+const PROOF_MAX_STATES = 300_000;
 
 /**
  * The way a board laid from its solution was built to be cleared by, as far as the rules let it
@@ -117,6 +123,11 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
   if (recipe.safe && !(board.faces?.length === 1 && board.norm === board.faces[0] && board.floor === false)) return no('not a board of one combo');
   if (recipe.under === true && underOf(board) === 0) return no('no die with a working face at the bottom');
   if (recipe.under === false && underOf(board) > 0) return no('a die with a working face at the bottom');
+  const laid = board.layout!.dice;
+  if (recipe.room && !within(board.size * board.size - laid.length, recipe.room)) return no(`free cells not ${range(recipe.room)}`);
+  if (recipe.blind && laid.some((die) => board.faces?.includes(die.top))) return no('a die starts showing a face that works');
+  if (recipe.underShare !== undefined && underOf(board) < recipe.underShare * laid.length - 1e-9) return no('too few dice with a working face at the bottom');
+  if (recipe.islands !== undefined && islandsOf(board) < recipe.islands) return no(`fewer clusters than ${recipe.islands}`);
   const avoid = recipe.avoid ?? [];
   const big = board.norm >= BIG_BOARD;
 
@@ -203,6 +214,11 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     const turned = outside(near ? `tail ${tail}, not ${range(recipe.tail)}` : `tail not ${range(recipe.tail)}`);
     if (turned) return turned;
   }
+  // The route of the way and its score: what the form of a place is known by.
+  const score = scoreOf(board, way);
+  const off = offRoute(recipe, score, report.cleared);
+  if (off) return no(off);
+  if (recipe.decoy && !decoyOf(board, way)) return no('no combo nearly made that goes as another face');
   const firsts = recipe.firsts ? firstsOf(board, par) : null;
   if (recipe.firsts && !within(firsts!, recipe.firsts)) {
     const turned = outside(near ? `first moves ${firsts}, not ${range(recipe.firsts)}` : `first moves not ${range(recipe.firsts)}`);
@@ -218,6 +234,18 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     const turned = outside(near ? `random ${random}, not ${range(recipe.random)}` : `random not ${range(recipe.random)}`);
     if (turned) return turned;
   }
+  // What takes a search of its own for every board: the parts of the route with no way round, the trap, the count of the faces.
+  for (const part of recipe.parts ?? []) {
+    const round = solveLevel(board, { ban: [part], maxMoves: par + 1, maxStates: Math.min(maxStates, PROOF_MAX_STATES) });
+    if (round.solution) return no(`a way round ${part} within a move`);
+    if (!round.exhausted) return no(`the way round ${part} is not settled`);
+  }
+  if (recipe.trap) {
+    const trap = trapOf(board);
+    if (trap === null) return no('no combo at hand that loses the board');
+    if (recipe.trap === 'floor' && trap !== 'floor') return no('no combo at hand that leaves the player nowhere to step');
+  }
+  if (recipe.bothFaces && recipe.faces.some((face) => oneFaceClears(board, face, par + 2, Math.min(maxStates, PROOF_MAX_STATES)))) return no('one face clears the board alone');
   // The players made of the rules are asked last: they are the dearest thing to ask.
   let personas: Record<PersonaName, number> | null = null;
   if (recipe.hasty || recipe.casual || recipe.gap) {
@@ -250,7 +278,26 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     ...(recipe.lesson ? { lesson: recipe.lesson } : {}),
     ...(arrow ? { arrow } : {}),
   };
-  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, clears: report.cleared.filter(Boolean).length, firsts, personas, distance, misses }, why: '' };
+  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, clears: report.cleared.filter(Boolean).length, route: score.route, kind: score.kind, firsts, personas, distance, misses }, why: '' };
+}
+
+/** What of the route and the score of a way is not what the place asks for: the first thing found, or null. */
+function offRoute(recipe: Recipe, score: Score, cleared: readonly boolean[]): string | null {
+  if (recipe.kinds && !recipe.kinds.includes(score.kind)) return `a route that is ${score.kind}`;
+  if (recipe.route && !new RegExp(recipe.route).test(score.route)) return 'the route does not read as the place asks';
+  if (recipe.quiet && !within(score.quiet, recipe.quiet)) return `quiet moves not ${range(recipe.quiet)}`;
+  if (recipe.counted && !within(score.counted, recipe.counted)) return `moves under the count not ${range(recipe.counted)}`;
+  if (recipe.last && !within(score.last, recipe.last)) return `the last event not of ${range(recipe.last)} dice`;
+  if (recipe.links && !within(score.chain, recipe.links)) return `links not ${range(recipe.links)}`;
+  if (recipe.silence !== undefined && silenceOf(cleared) > recipe.silence) return `a silence longer than ${recipe.silence}`;
+  const { ends } = recipe;
+  if (ends) {
+    const last = score.beats[score.beats.length - 1];
+    if (last.event !== ends.event) return `the way does not end with ${ends.event}`;
+    if (ends.how && (last.how === 'push' ? 'push' : 'roll') !== ends.how) return `the way does not end with a ${ends.how}`;
+    if (ends.spare !== undefined && last.spare !== ends.spare) return `the last link does not come with ${ends.spare} to spare`;
+  }
+  return null;
 }
 
 export interface Filled {
@@ -292,7 +339,7 @@ export function layOutRows(rows: readonly string[][]): string {
   return rows.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join('  ').trimEnd()).join('\n');
 }
 
-export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'tail', 'firsts', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
+export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'tail', 'route', 'kind', 'firsts', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
 
 /** A board that fits, as a row of the table: what the solver says and how the yardsticks play it. */
 export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName, number>): string[] {
@@ -306,6 +353,8 @@ export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName,
     fit.exact ? 'yes' : 'no',
     String(fit.depth),
     String(fit.tail),
+    fit.route || '-',
+    fit.kind,
     fit.firsts === null ? '-' : String(fit.firsts),
     fit.uses.join(' ') || '-',
     fit.needs.join(' ') || '-',

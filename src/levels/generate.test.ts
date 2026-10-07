@@ -5,12 +5,35 @@ import { moveOf, tryWay } from '../rules/levelSolver';
 import { createRun } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelLayout } from '../rules/types';
-import { FROM_SOLUTION, boardText, builtWay, candidate, isBoard, layFromSolution, layOut, levelId } from './generate';
+import { FROM_ROUTE, FROM_SOLUTION, SKETCH, boardText, builtWay, candidate, isBoard, layFromSolution, layOut, levelId, levelOf } from './generate';
 import { LEVELS } from './levels';
-import { CHAPTERS, PLACES, RECIPES, boundsOf, type Recipe } from './recipes';
+import { PLACES, type Recipe } from './recipes';
 import { gather, judge, levelSource, placeReport } from './select';
 
-const recipe = (slot: number): Recipe => RECIPES.find((candidate) => candidate.slot === slot)!;
+/**
+ * Places written for these tests: none of them is a place of the game. A board is laid from the
+ * seed and the number of its place, so each keeps the number it was first tried with.
+ */
+/** Three dice where 3s work, in one cluster. */
+const THREE: Recipe = { slot: 2, chapter: 0, size: 3, dice: 3, faces: [3], compact: true, par: [2, 3] };
+/** Six dice where 3s work: two combos, or one and three links. */
+const SIX: Recipe = { slot: 5, chapter: 0, size: 4, dice: 6, faces: [3], compact: true, par: [3, 5] };
+/** Five dice of two faces on a small board. */
+const FIVE: Recipe = { slot: 10, chapter: 0, size: 3, dice: 5, faces: [2, 3], compact: true, par: [4, 5] };
+/** Seven dice of two faces. */
+const SEVEN: Recipe = { slot: 12, id: 'X12', chapter: 0, size: 4, dice: 7, faces: [2, 3], compact: true, par: [5, 7] };
+/** Nine dice on a wide board, in as many clusters as they fall into. */
+const WIDE: Recipe = { slot: 15, chapter: 0, size: 5, dice: 9, faces: [2, 3], compact: false, par: [7, 10] };
+/** Six dice, or seven, or eight. */
+const MORE: Recipe = { slot: 20, chapter: 0, size: 5, dice: 6, more: 2, faces: [5], compact: false, par: [5, 7] };
+/** Four 5s that stand assembled, and a fifth die. */
+const STANDING: Recipe = { slot: 17, chapter: 0, size: 4, dice: 5, faces: [5], standing: [{ value: 5, count: 4 }], compact: true, par: [1, 2] };
+/** Six dice where 5s work: a combo and a link. */
+const FIVES: Recipe = { slot: 19, chapter: 0, size: 4, dice: 6, faces: [5], compact: true, par: [3, 5] };
+/** Six dice, two of them 1s. */
+const WITH_ONES: Recipe = { slot: 31, chapter: 0, size: 4, dice: 6, faces: [3], ones: 2, compact: false, par: [3, 5] };
+/** Two 3s that stand and a third die one roll away: a board cleared with one move, which the place shows with an arrow. */
+const ONE_ROLL: Recipe = { slot: 1, id: 'X01', chapter: 0, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], compact: true, par: [1, 1], random: [0.4, 1], avoid: ['floor', 'glass', 'ones'], lesson: 'lineCombo', arrow: true };
 
 /** The boards the first seeds of a place lay, with the seed of each. */
 function boards(of: Recipe, lay: (recipe: Recipe, seed: number) => LevelLayout | null, seeds = 60): { seed: number; layout: LevelLayout }[] {
@@ -43,57 +66,25 @@ function oneCluster(layout: LevelLayout): boolean {
   return seen.size === dice.length;
 }
 
-describe('recipes of the ladder', () => {
-  it('number their places from one, chapter after chapter', () => {
-    expect(RECIPES.map((place) => place.slot)).toEqual(RECIPES.map((_, index) => index + 1));
-    const chapters = RECIPES.map((place) => place.chapter!);
-    expect(chapters).toEqual([...chapters].sort((a, b) => a - b));
-    for (const chapter of chapters) expect(CHAPTERS[chapter], `chapter ${chapter}`).toBeDefined();
-  });
-
-  it('ask of a place the faces of its chapter, and enough dice for a group of them', () => {
-    for (const place of RECIPES) {
-      // The faces of a chapter of these places are those of its first place.
-      const { faces } = RECIPES.find((other) => other.chapter === place.chapter)!;
-      expect([...place.faces].sort(), `place ${place.slot}`).toEqual([...faces].sort());
-      expect(place.dice, `place ${place.slot}`).toBeGreaterThanOrEqual(Math.min(...faces));
-      expect(place.ones ?? 0).toBe(0);
-    }
-  });
-
-  it('begin every chapter with a line that says which faces work', () => {
-    for (const chapter of new Set(RECIPES.map((place) => place.chapter!))) {
-      const first = RECIPES.find((place) => place.chapter === chapter)!;
-      expect(first.lesson, `chapter ${chapter}`).toBeDefined();
-    }
-  });
-
-  it('list what a place is measured by, from what to what', () => {
-    expect(boundsOf(recipe(1))).toEqual([
-      { what: 'par', from: 1, to: 1 },
-      { what: 'random', from: 0.4, to: 1 },
-    ]);
-  });
-
-  it('name a level by its place', () => {
+describe('the name of a level', () => {
+  it('is the one its place gives it, or `B` and the number of the place', () => {
     expect(levelId({ slot: 1 })).toBe('B01');
     expect(levelId({ slot: 20 })).toBe('B20');
+    expect(levelId({ slot: 3, id: 'P03' })).toBe('P03');
   });
 });
 
 describe('a board laid at random', () => {
   it('is the same for one seed and another for another', () => {
-    const place = recipe(12);
-    const [first, second] = boards(place, layOut, 30);
-    expect(layOut(place, first.seed)).toEqual(first.layout);
+    const [first, second] = boards(SEVEN, layOut, 30);
+    expect(layOut(SEVEN, first.seed)).toEqual(first.layout);
     expect(first.layout).not.toEqual(second.layout);
   });
 
   it('holds the dice of its place, every one lying as a die can, with no group ready to go and no 1 on top', () => {
-    for (const slot of [2, 5, 12, 15, 20, 23]) {
-      const place = recipe(slot);
+    for (const place of [THREE, SIX, SEVEN, WIDE, MORE, STANDING]) {
       const laid = boards(place, layOut);
-      expect(laid.length, `place ${slot}`).toBeGreaterThan(5);
+      expect(laid.length, `place ${place.slot}`).toBeGreaterThan(5);
       for (const { layout } of laid) {
         expect(layout.dice.length).toBeGreaterThanOrEqual(place.dice);
         expect(layout.dice.length).toBeLessThanOrEqual(place.dice + (place.more ?? 0));
@@ -106,22 +97,32 @@ describe('a board laid at random', () => {
     }
   });
 
+  it('holds some dice over the number of its place where the place lets it, and not on every board', () => {
+    const counts = new Set(boards(MORE, layOut).map(({ layout }) => layout.dice.length));
+    expect([...counts].sort()).toEqual([6, 7, 8]);
+  });
+
+  it('shows a 1 on as many dice as the place asks for', () => {
+    const laid = boards(WITH_ONES, layOut);
+    expect(laid.length).toBeGreaterThan(5);
+    for (const { layout } of laid) expect(layout.dice.filter((die) => die.top === 1)).toHaveLength(2);
+  });
+
   it('puts down the dice that stand assembled side by side, fewer than their group', () => {
-    for (const { layout } of boards(recipe(17), layOut)) {
+    for (const { layout } of boards(STANDING, layOut)) {
       expect(layout.dice.filter((die) => die.top === 5).length).toBeGreaterThanOrEqual(4);
-      expect(hasReadyGroup(tops(recipe(17), layout), 4)).toBe(false);
+      expect(hasReadyGroup(tops(STANDING, layout), 4)).toBe(false);
     }
   });
 
   it('starts the player on a die that can be rolled', () => {
-    const place = recipe(12);
-    for (const { layout } of boards(place, layOut)) {
+    for (const { layout } of boards(SEVEN, layOut)) {
       const { start } = layout;
       expect(layout.dice.some((die) => die.x === start.x && die.z === start.z)).toBe(true);
       const open = DIRS.some((dir) => {
         const x = start.x + DELTA[dir].dx;
         const z = start.z + DELTA[dir].dz;
-        return x >= 0 && z >= 0 && x < place.size && z < place.size && !layout.dice.some((die) => die.x === x && die.z === z);
+        return x >= 0 && z >= 0 && x < SEVEN.size && z < SEVEN.size && !layout.dice.some((die) => die.x === x && die.z === z);
       });
       expect(open).toBe(true);
     }
@@ -130,17 +131,15 @@ describe('a board laid at random', () => {
 
 describe('a board laid from its solution', () => {
   it('is the same for one seed, and is the board the seeds above ten thousand give', () => {
-    const place = recipe(5);
-    const [first] = boards(place, layFromSolution, 20);
-    expect(layFromSolution(place, first.seed)).toEqual(first.layout);
-    expect(candidate(place, FROM_SOLUTION + first.seed)?.layout).toEqual(first.layout);
+    const [first] = boards(SIX, layFromSolution, 20);
+    expect(layFromSolution(SIX, first.seed)).toEqual(first.layout);
+    expect(candidate(SIX, FROM_SOLUTION + first.seed)?.layout).toEqual(first.layout);
   });
 
   it('holds the dice of its place with no group ready to go, in one cluster where the place asks for one', () => {
-    for (const slot of [2, 5, 10, 19]) {
-      const place = recipe(slot);
+    for (const place of [THREE, SIX, FIVE, FIVES]) {
       const laid = boards(place, layFromSolution, 40);
-      expect(laid.length, `place ${slot}`).toBeGreaterThan(10);
+      expect(laid.length, `place ${place.slot}`).toBeGreaterThan(10);
       for (const { layout } of laid) {
         expect(layout.dice.length).toBeGreaterThanOrEqual(place.dice);
         expect(isBoard(layout)).toBe(true);
@@ -152,60 +151,93 @@ describe('a board laid from its solution', () => {
   });
 
   it('brings the way it was built by: as many moves as the place takes, and on some boards they clear it', () => {
-    const place = recipe(5);
     let cleared = 0;
-    const laid = boards(place, layFromSolution, 40);
+    const laid = boards(SIX, layFromSolution, 40);
     for (const { seed } of laid) {
-      const way = builtWay(place, seed)!;
-      expect(way.length).toBeGreaterThanOrEqual(place.par[0]);
-      expect(way.length).toBeLessThanOrEqual(place.par[1]);
+      const way = builtWay(SIX, seed)!;
+      expect(way.length).toBeGreaterThanOrEqual(SIX.par[0]);
+      expect(way.length).toBeLessThanOrEqual(SIX.par[1]);
       try {
-        if (tryWay(candidate(place, FROM_SOLUTION + seed)!, way.map(moveOf)).state.endReason === 'passed') cleared++;
+        if (tryWay(candidate(SIX, FROM_SOLUTION + seed)!, way.map(moveOf)).state.endReason === 'passed') cleared++;
       } catch {
         // A way made backwards may not be one forwards: a die it rolls is out of reach, or a group has gone before the next die comes.
       }
     }
     expect(cleared).toBeGreaterThan(0);
-    expect(builtWay(place, laid[0].seed)).toEqual(builtWay(place, laid[0].seed));
+    expect(builtWay(SIX, laid[0].seed)).toEqual(builtWay(SIX, laid[0].seed));
   });
 });
 
 describe('a candidate of a place', () => {
-  it('is a level to clear by the rules of the ladder, that a run can be started on', () => {
-    const place = recipe(12);
-    const [{ seed }] = boards(place, layOut, 30);
-    const level = candidate(place, seed)!;
-    expect(level).toMatchObject({ id: 'B12', seed, size: 4, faces: [2, 3], sinkMoves: 2, liftMoves: 1, arrival: 'none', goal: { kind: 'clear' }, moves: 0 });
+  it('is a level to clear by the rules of the levels, that a run can be started on', () => {
+    const [{ seed }] = boards(SEVEN, layOut, 30);
+    const level = candidate(SEVEN, seed)!;
+    expect(level).toMatchObject({ id: 'X12', chapter: 0, seed, size: 4, values: [2, 3], faces: [2, 3], sinkMoves: 2, liftMoves: 1, arrival: 'none', goal: { kind: 'clear' }, moves: 0 });
+    expect(level.norm).toBe(level.layout!.dice.length);
     const state = createRun({ seed: level.seed, config: defaultConfig(), level });
     expect(state.cubes).toHaveLength(level.norm);
+    // Nothing comes to the board, so its floor is strict: a die that cannot be pushed is not climbed.
+    expect(state.config.experiments.floorClimb).toBe(false);
     expect(boardText(level).split('\n')).toHaveLength(4);
   });
 
-  it('is judged the same every time, and a seed that lays no board says so', () => {
-    const place = recipe(1);
-    const none = Array.from({ length: 60 }, (_, i) => i + 1).find((seed) => candidate(place, seed) === null)!;
-    expect(judge(place, none)).toEqual({ seed: none, fit: null, why: 'no board laid' });
-    expect(judge(place, 7)).toEqual(judge(place, 7));
+  it('lets the 1s work with the faces of its place where the place has 1s', () => {
+    const [{ seed, layout }] = boards(WITH_ONES, layOut, 30);
+    expect(levelOf(WITH_ONES, seed, layout)).toMatchObject({ values: [1, 3], faces: [1, 3] });
+    expect(levelOf({ ...WITH_ONES, ones: undefined }, seed, layout)).toMatchObject({ values: [3], faces: [3] });
   });
 
-  it('gives the levels of the ladder back from their seeds: the first places, which are quick to judge', () => {
+  it('is played as its place says: the floor shut, a net, a line and what the line waits for, the window before it', () => {
+    const [{ seed, layout }] = boards(THREE, layOut, 30);
+    const plain = levelOf(THREE, seed, layout);
+    for (const key of ['floor', 'guard', 'lesson', 'until', 'guide', 'story'] as const) expect(plain[key], key).toBeUndefined();
+    const told = levelOf({ ...THREE, floor: false, guard: true, lesson: 'lineCombo', until: 'combo', guide: true, story: 'storyHello' }, seed, layout);
+    expect(told).toMatchObject({ floor: false, guard: true, lesson: 'lineCombo', until: 'combo', guide: true, story: 'storyHello' });
+  });
+
+  it('is laid by the way its seed says: at random, from its solution, by hand, from its route', () => {
+    const [{ seed, layout }] = boards(SIX, layOut, 30);
+    expect(candidate(SIX, seed)?.layout).toEqual(layout);
+    // A place with no board laid by hand and no route has none above those marks.
+    expect(candidate(SIX, SKETCH + 1)).toBeNull();
+    expect(candidate(SIX, FROM_ROUTE + 1)).toBeNull();
+    expect(candidate({ ...SIX, sketch: [layout] }, SKETCH + 1)).toMatchObject({ seed: SKETCH + 1, layout });
+  });
+
+  it('is judged the same every time, and a seed that lays no board says so', () => {
+    const none = Array.from({ length: 60 }, (_, i) => i + 1).find((seed) => candidate(ONE_ROLL, seed) === null)!;
+    expect(judge(ONE_ROLL, none)).toEqual({ seed: none, fit: null, why: 'no board laid' });
+    expect(judge(ONE_ROLL, 7)).toEqual(judge(ONE_ROLL, 7));
+    expect(judge(ONE_ROLL, FROM_SOLUTION + 1)).toEqual(judge(ONE_ROLL, FROM_SOLUTION + 1));
+  });
+
+  it('gives the levels of the game back from their seeds: the first places, which are quick to judge', () => {
     for (const level of LEVELS.slice(0, 4)) {
       const place = PLACES.find((other) => levelId(other) === level.id)!;
       const verdict = judge(place, level.seed);
+      expect(verdict.why, level.id).toBe('');
       expect(verdict.fit?.spec, level.id).toEqual(level);
     }
   });
 
   it('is turned away for the first bound it does not meet, and the reasons are counted', () => {
-    const place = recipe(1);
-    const verdicts = Array.from({ length: 60 }, (_, i) => judge(place, i + 1));
-    const filled = gather(place, verdicts);
+    // Boards laid at random and boards laid from their solutions, judged together.
+    const seeds = [...Array.from({ length: 30 }, (_, i) => i + 1), ...Array.from({ length: 30 }, (_, i) => FROM_SOLUTION + i + 1)];
+    const verdicts = seeds.map((seed) => judge(ONE_ROLL, seed));
+    const filled = gather(ONE_ROLL, verdicts);
     expect(filled.tried).toBe(60);
     expect(filled.fits.length + Object.values(filled.reasons).reduce((sum, count) => sum + count, 0)).toBe(60);
+    expect(filled.reasons['no board laid']).toBeGreaterThan(0);
+    expect(filled.fits.length).toBeGreaterThan(0);
     const distances = filled.fits.map((fit) => fit.distance);
     expect(distances).toEqual([...distances].sort((a, b) => a - b));
-    for (const fit of filled.fits) expect(fit).toMatchObject({ par: 1, exact: true });
+    for (const fit of filled.fits) {
+      expect(fit).toMatchObject({ par: 1, exact: true, route: 'K', kind: 'top', misses: [] });
+      // The board that fits is the one its seed lays, and the way it keeps clears it.
+      expect(fit.spec.layout).toEqual(candidate(ONE_ROLL, fit.seed)!.layout);
+      expect(tryWay(fit.spec, fit.spec.solution!.map(moveOf)).state.endReason).toBe('passed');
+    }
     expect(placeReport(filled, 3, 0).split('\n')[0]).toBe(`place 1: ${filled.fits.length} of 60 seeds fit`);
-    if (filled.fits.length > 0) expect(levelSource(filled.fits[0].spec)).toMatch(/^ {2}\{ id: 'B01', seed: \d+, size: 3, .*faces: \[3\], sinkMoves: 2, liftMoves: 1, lesson: 'lessonThrees', arrow: '[NESW]', par: 1, exact: true, solution: \['\d,\d,[NESW]'\], layout: \{ start: .* \},$/);
+    expect(levelSource(filled.fits[0].spec)).toMatch(/^ {2}\{ id: 'X01', chapter: 0, seed: \d+, size: 3, .*faces: \[3\], sinkMoves: 2, liftMoves: 1, lesson: 'lineCombo', arrow: '[NESW]', par: 1, exact: true, solution: \['\d,\d,[NESW]'\], layout: \{ start: .* \},$/);
   });
 });

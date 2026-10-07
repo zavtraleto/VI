@@ -4,26 +4,31 @@ import { randomInt } from '../rules/rng';
 import { hasReadyGroup } from '../rules/spawn';
 import type { Dir, LevelLayout, LevelSpec, Orientation, PuzzleDie } from '../rules/types';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, type Recipe } from './recipes';
+import { layFromRoute } from './route';
 
 /**
- * Boards for the places of the ladder. A candidate is laid from a seed by the rules of its
+ * Boards for the places of the levels. A candidate is laid from a seed by the rules of its
  * place; it is then solved and played by the players made of the rules, and kept if what it
  * comes to is within the bounds of the place (see `select.ts`). The seed lives here and nowhere
  * else: a level that is kept is its dice, not the number they were laid from.
  *
- * There are two ways to lay a board. At random: the dice are put down as the place says and
+ * There are three ways to lay a board. At random: the dice are put down as the place says and
  * nothing more is known of the board until it is solved. From its solution: the groups are put
  * down assembled, and dice are then rolled away from them, a roll at a time, as many rolls as
  * the place takes moves; rolled back in the opposite order, they are a way to clear the board.
- * A board laid at random is seldom a short one, so few of them fit a place of few moves; a board
- * laid from its solution is short by the way it is made. Either is judged the same way, forward,
- * on the real rules.
+ * From its route (`route.ts`): the events of the way are put down scene by scene, and the dice
+ * are taken away from them by the moves that are to bring them, rolls and pushes both. A board
+ * laid at random is seldom a short one, and seldom goes by the floor and back; a board laid
+ * from its solution is short by the way it is made, and one laid from its route goes where the
+ * route does more often than not. All are judged the same way, forward, on the real rules.
  */
 
 /** Seeds above this lay a board from its solution; the ones up to it lay it at random. */
 export const FROM_SOLUTION = 10_000;
 /** Seeds above this are the boards a place has laid by hand: the first, the second, and so on. */
 export const SKETCH = 20_000;
+/** Seeds above this lay a board from the route of its place, scene by scene. */
+export const FROM_ROUTE = 30_000;
 
 /** The name a level of the ladder goes by: the one its place gives it, or `B` and the number of the place. */
 export function levelId(recipe: Pick<Recipe, 'slot' | 'id'>): string {
@@ -319,7 +324,14 @@ function sketched(recipe: Recipe, number: number): LevelLayout | null {
 
 /** The candidate of a place a seed gives, or null when the seed lays no board. */
 export function candidate(recipe: Recipe, seed: number): LevelSpec | null {
-  const layout = seed > SKETCH ? sketched(recipe, seed - SKETCH) : seed > FROM_SOLUTION ? layFromSolution(recipe, seed - FROM_SOLUTION) : layOut(recipe, seed);
+  const layout =
+    seed > FROM_ROUTE
+      ? layFromRoute(recipe, seed - FROM_ROUTE)
+      : seed > SKETCH
+        ? sketched(recipe, seed - SKETCH)
+        : seed > FROM_SOLUTION
+          ? layFromSolution(recipe, seed - FROM_SOLUTION)
+          : layOut(recipe, seed);
   return layout ? levelOf(recipe, seed, layout) : null;
 }
 

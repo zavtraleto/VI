@@ -1,5 +1,5 @@
 import { defaultConfig } from './config';
-import { floorLost, levelStuck, smallestGroup } from './level';
+import { floorLost, floorStuck, levelStuck, smallestGroup } from './level';
 import type { LevelGraph } from './levelGraph';
 import { neededBy } from './levelProof';
 import { scoreOf } from './levelScore';
@@ -153,7 +153,11 @@ const DOWN_A_DIE = 15;
 /** What a board is worth to a persona. */
 function worthOf(state: RunState, persona: Persona, depth: number): number {
   if (state.endReason === 'passed') return CLEARED - depth;
-  if (state.over) return LOST;
+  // A level that ends with the player still up on a leaving die, and nothing to do on the floor
+  // below, is not seen for what it is from up there: the board is worth what stands on it, and
+  // only a player who counts sees that it is too little. This is the trap of a combo with
+  // nowhere to step to, and a player without a plan walks into it.
+  if (state.over && !(state.player.level === 'top' && floorStuck(state))) return LOST;
   const spec = state.levelRun!.spec;
   const standing = state.cubes.filter((cube) => cube.state !== 'sinking');
   let worth = -10 * standing.length - depth * 0.01;

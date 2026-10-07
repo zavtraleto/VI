@@ -22,8 +22,11 @@ const CORNER: PuzzleDie = { x: 0, z: 0, top: 2, north: 1 };
 const PAIR = board([MOVER, CORNER]);
 /** A third die beside where the pair is made: rolled north over the die that is going, it shows a 2. */
 const GLASS = board([MOVER, CORNER, { x: 1, z: 1, top: 6, north: 5 }]);
-/** A third die two cells off, with no die between: it comes to the pair by the floor, in two rolls. */
-const FLOOR = board([MOVER, CORNER, { x: 2, z: 2, top: 5, north: 4 }]);
+/**
+ * A third die two cells off, with no die between: it comes to the pair by the floor, in two rolls.
+ * It stands in a corner and cannot be pushed, so the board is one where such a die is climbed.
+ */
+const FLOOR = board([MOVER, CORNER, { x: 2, z: 2, top: 5, north: 4 }], { climb: true });
 
 describe('moves of a board', () => {
   it('are the rolls of every die the player can step to', () => {
@@ -267,6 +270,12 @@ function turns(x: number, z: number, side: 'east' | 'west'): PuzzleDie {
 const PUSHED = strict([turns(2, 0, 'west'), { x: 0, z: 0, top: 2, north: 1 }, { x: 3, z: 2, top: 2, north: 1 }, { x: 1, z: 2, top: 2, north: 1 }]);
 /** The same, and a fifth die beside the pair the push makes: it is rolled into it from on top, so the player has to come up again. */
 const DOWN_AND_UP = strict([...PUSHED.layout!.dice, turns(1, 3, 'east')]);
+/**
+ * The pair in the corner, and a second pair down the west side: a die beside the corner die that
+ * shows its 2 rolled south, and a 2 two cells below it. That die is come to over the first pair
+ * while it is leaving, from the die the player made it with onto the corner die and on.
+ */
+const BRIDGED = strict([turns(2, 0, 'west'), { x: 0, z: 0, top: 2, north: 1 }, { x: 0, z: 1, top: 6, north: 2 }, { x: 0, z: 3, top: 2, north: 1 }]);
 
 describe('a way with a part of its route taken away', () => {
   it('finds the push from the floor, and no way of that length without one', () => {
@@ -295,6 +304,30 @@ describe('a way with a part of its route taken away', () => {
     expect(pushed.player.level).toBe('ground');
     expect(movesAt(pushed).map(moveText)).toContain('1,3,E');
     expect(movesAt(pushed, ['up']).map(moveText)).not.toContain('1,3,E');
+  });
+
+  it('walks over a pair that is leaving to the die of the next one; with that walk banned there is no way as short', () => {
+    const { solution } = solveLevel(BRIDGED);
+    expect(solution!.moves.map(moveText)).toEqual(['2,0,W', '0,1,S']);
+    // The walk is no technique a level is said to use.
+    expect(solution!.uses).toEqual([]);
+    expect(solveLevel(BRIDGED, { ban: ['bridge'], maxMoves: 3 })).toMatchObject({ solution: null, exhausted: true });
+    // Round it: the die of the start is rolled to the other die before any pair is made, and the board ends from the floor.
+    const round = solveLevel(BRIDGED, { ban: ['bridge'] }).solution!;
+    expect(round.par).toBe(4);
+    expect(replay(BRIDGED, round.moves).endReason).toBe('passed');
+  });
+
+  it('leaves out the steps from one die that is going onto another when the walk over a combo is banned, and no other', () => {
+    const made = playMove(start(BRIDGED), moveOf('2,0,W'));
+    expect(movesAt(made).map(moveText)).toEqual(expect.arrayContaining(['0,1,S', '0,1,E', '0,3,N,p']));
+    // The die beside the corner is not come to; the floor, and the pushes made from it, are there still.
+    const without = movesAt(made, ['bridge']);
+    expect(without.map(moveText)).toContain('0,3,N,p');
+    expect(without.every((move) => move.push)).toBe(true);
+    // A step from the die that is going onto a die that stands is no walk over the combo.
+    const beside = playMove(start(GLASS), moveOf('2,0,W'));
+    expect(movesAt(beside, ['bridge']).map(moveText)).toEqual(movesAt(beside).map(moveText));
   });
 });
 
