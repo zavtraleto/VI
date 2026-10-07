@@ -55,14 +55,14 @@ describe('the line a level says beside its board', () => {
     }
   });
 
-  it('is one message of a dozen words in Russian, and short in every language', () => {
+  it('is one message of some fifteen words in Russian, and short in every language', () => {
     for (const language of LANGUAGES) {
       setLanguage(language);
       for (const lesson of LESSONS) {
         const line = t(lesson);
-        expect(line, `${lesson} ${language}`).not.toMatch(/[\[\]\n]/);
-        expect(line.length, `${lesson} ${language}: ${line}`).toBeLessThanOrEqual(110);
-        if (language === 'ru') expect(words(line), `${lesson}: ${line}`).toBeLessThanOrEqual(12);
+        expect(messagesOf(line), `${lesson} ${language}`).toHaveLength(1);
+        expect(line.length, `${lesson} ${language}: ${line}`).toBeLessThanOrEqual(160);
+        if (language === 'ru') expect(words(line), `${lesson}: ${line}`).toBeLessThanOrEqual(17);
       }
     }
     setLanguage('en');
@@ -73,6 +73,35 @@ describe('the line a level says beside its board', () => {
     expect(t('lineCombo')).toContain('комбо');
     expect(t('lineStep')).toMatch(/шаг — не ход/);
     expect(t('lineLink')).toContain('цепочка');
+    setLanguage('en');
+  });
+
+  it('is said by a person: the first one greets the player, and the second names the man who threw dice', () => {
+    setLanguage('ru');
+    expect(t('lineCombo')).toMatch(/^Привет!/);
+    expect(t('lineCombo')).toContain('лаборант');
+    expect(t('lineStep')).toContain('Райна');
+    for (const language of LANGUAGES) {
+      setLanguage(language);
+      expect(t('lineStep'), language).toMatch(/Rhine|Райн/);
+    }
+    setLanguage('en');
+  });
+
+  it('is the laboratory’s alone on the course and the chapter after it, and has words of the other side after them', () => {
+    const others = (lesson: TextKey): number => messagesOf(t(lesson))[0]!.other.filter(Boolean).length;
+    for (const language of LANGUAGES) {
+      setLanguage(language);
+      for (const lesson of ['lineCombo', 'lineStep', 'lineWalk', 'lineSide', 'lineSeven', 'lineLink'] as const) {
+        expect(others(lesson), `${lesson} ${language}`).toBe(0);
+      }
+      for (const lesson of ['lineFloor', 'lineFaces', 'lineGlass'] as const) {
+        expect(others(lesson), `${lesson} ${language}`).toBeGreaterThan(0);
+      }
+    }
+    setLanguage('ru');
+    const said = messagesOf(t('lineFloor'))[0]!;
+    expect([...said.text].filter((_, at) => said.other[at]).join('')).toBe('мы подождём');
     setLanguage('en');
   });
 });

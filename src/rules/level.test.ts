@@ -109,6 +109,8 @@ describe('config of a level', () => {
   it('keeps the steps of the floor and switches off everything that belongs to the pace', () => {
     const base = defaultConfig();
     const config = levelConfig(base, BASE);
+    // A board nothing comes to has no shelves beside a chain: its free cells are floor like any other.
+    expect(levelConfig(base, { ...BASE, arrival: 'none' }).experiments).toMatchObject({ floorClimb: true, dockSteps: false });
     expect(config.experiments).toMatchObject({
       floorClimb: true, dockSteps: true, soloOne: false, gentleStart: false, floorLift: false, chainCalm: false,
       timeFloor: false, waves: false, surge: false, opening: false, lastSliver: false, gift: false,

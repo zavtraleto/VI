@@ -153,6 +153,8 @@ const SHARED_MS = 2200;
 /** A level has ended where nothing more can be done: too few dice stand for a combo, or, with the floor shut, the player has no move left. */
 const deadEnd = (state: RunState): boolean => levelStuck(state) || levelStranded(state);
 
+/** How far from the middle of the cell of the figure the arrow of a step begins, in cells: right beside the figure. */
+const STEP_ARROW_LEAD = 0.42;
 /** How long the direction of a swipe stays shown after the finger has let go. */
 const STEER_LINGER_MS = 280;
 /** Chapters on whose levels every group that is short is counted from the start: the course and the chapter after it. Past them only the one the last move made is. */
@@ -1284,11 +1286,8 @@ export class Game {
       const x = action ? action.fromX : player.x;
       const z = action ? action.fromZ : player.z;
       const onDie = (action ? action.fromLevel : player.level) === 'top';
-      const ahead = action ? action.kind === 'hop' : cubeAt(state, x + DELTA[live].dx, z + DELTA[live].dz) !== undefined;
-      // As with the tutorial's arrows: on the floor of the cell ahead where that can be seen,
-      // at the height of the dice where a die stands there or hides it.
-      const raised = onDie && (ahead || live === 'N');
-      const arrow: GuideArrow = { x, z, dir: live, y: raised ? 1 : 0.04, lead: onDie && !raised ? 0.64 : 0.42, dim: false };
+      // The arrow lies at the feet of the figure, whatever it stands on: always at the one level.
+      const arrow: GuideArrow = { x, z, dir: live, y: 0, stand: onDie ? 'top' : 'ground', lead: STEP_ARROW_LEAD, dim: false };
       this.steer = { dir: live, until: time + STEER_LINGER_MS, arrow };
     } else if (this.steer && (time > this.steer.until || !this.inputEnabled())) {
       this.steer = null;
@@ -1951,9 +1950,7 @@ export class Game {
     const { player } = state;
     if (steer || !arrow || run.moves > 0 || player.action) return steer;
     if (layout && (player.x !== layout.start.x || player.z !== layout.start.z)) return steer;
-    const ahead = cubeAt(state, player.x + DELTA[arrow].dx, player.z + DELTA[arrow].dz) !== undefined;
-    const raised = ahead || arrow === 'N';
-    return { arrows: [{ x: player.x, z: player.z, dir: arrow, y: raised ? 1 : 0.04, lead: raised ? 0.42 : 0.64, dim: false }], frames: [] };
+    return { arrows: [{ x: player.x, z: player.z, dir: arrow, y: 0, stand: player.level, lead: STEP_ARROW_LEAD, dim: false }], frames: [] };
   }
 
   /** The die under the player, unfolded: what the corner of the screen shows of it. */

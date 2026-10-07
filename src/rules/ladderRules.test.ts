@@ -209,3 +209,30 @@ describe('a level with its floor shut', () => {
     expect(s.over).toBe(false);
   });
 });
+
+describe('the floor beside a leaving combo', () => {
+  /** A pair is made at (0,0) and (1,0); the player steps down east of it, where a die stands a cell further on. */
+  function beside(more: (s: RunState) => void = () => {}): RunState {
+    const s = levelRun({ ...TWOS, norm: 6 });
+    put(s, 0, 0, 2);
+    putOri(s, 2, 0, { top: 6, east: 2 });
+    put(s, 3, 0, 5);
+    more(s);
+    place(s, 2, 0, 'top');
+    act(s, 'W');
+    act(s, 'E');
+    return s;
+  }
+
+  it('is floor like any other on a level: a die with room behind it is pushed from there, and not stepped onto', () => {
+    const s = beside();
+    expect([s.player.x, s.player.z, s.player.level]).toEqual([2, 0, 'ground']);
+    expect(resolveMove(s, 'E').kind).toBe('push');
+  });
+
+  it('lets the player up onto a die that cannot be pushed, and back onto the combo while it is there', () => {
+    const s = beside((board) => put(board, 4, 0, 4));
+    expect(resolveMove(s, 'E').kind).toBe('climb');
+    expect(resolveMove(s, 'W').kind).toBe('mount');
+  });
+});

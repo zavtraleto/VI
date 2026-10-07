@@ -18,6 +18,13 @@ import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from 
  *
  * A level may shut its floor: the player then stays on the dice, and a board to be cleared is
  * lost as well where the player has no move left, on a leaving die with no die to step to.
+ *
+ * A board nothing comes to has no shelves. In a session, and on a level that dice come to, the
+ * free cells beside a chain are a step: the player comes down onto them and goes up from them
+ * onto any die. On a board to be cleared they are floor like any other: a die with room behind
+ * it is pushed from there, and stepped onto only where it cannot be. No board of the ladder is
+ * cleared in fewer moves with the shelves than without, and a rule that changes nothing is not
+ * taught.
  */
 
 /** Moves a group takes to go: a die that lands on any of them joins it. */
@@ -97,7 +104,7 @@ export function levelConfig(config: RulesConfig, spec: LevelSpec): RulesConfig {
     experiments: {
       ...config.experiments,
       floorClimb: true,
-      dockSteps: true,
+      dockSteps: spec.arrival !== 'none',
       soloOne: false,
       gentleStart: false,
       floorLift: false,

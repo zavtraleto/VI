@@ -2,6 +2,18 @@ import * as THREE from 'three';
 import { cubeAt, cubeHeight, isHeld, worldRuns, type Level, type MoveKind, type RunState } from '../rules';
 import { figureGeometry } from './figure';
 
+/**
+ * How high the one who plays stands in a cell: on the die there, or, off the dice, on the upper
+ * frame of a cell beside a chain (`frame`), or on the floor. What is drawn at the feet of the
+ * figure, the arrow of a step among it, lies at this height.
+ */
+export function footing(state: RunState, x: number, z: number, level: Level, alpha: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number): number {
+  if (level === 'ground') return frame(x, z);
+  const cube = cubeAt(state, x, z);
+  // The die stays put between ticks while the tutorial holds it or the world of a level stands.
+  return cube ? cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha) + dip(cube.id) : 0;
+}
+
 /** Extra lift at the middle of a step, per move kind. */
 const ARC: Record<MoveKind, number> = {
   roll: 0.21, // the cube's top rises as it turns over its edge
@@ -61,12 +73,7 @@ export class PlayerFigure {
   sync(state: RunState, alpha: number, dt: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number): void {
     const { player, config } = state;
 
-    const supportHeight = (x: number, z: number, level: Level): number => {
-      if (level === 'ground') return frame(x, z);
-      const cube = cubeAt(state, x, z);
-      // The die stays put between ticks while the tutorial holds it or the world of a level stands.
-      return cube ? cubeHeight(cube, config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha) + dip(cube.id) : 0;
-    };
+    const supportHeight = (x: number, z: number, level: Level): number => footing(state, x, z, level, alpha, dip, frame);
 
     const toY = supportHeight(player.x, player.z, player.level);
     const action = player.action;
