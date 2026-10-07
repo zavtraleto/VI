@@ -119,7 +119,7 @@ describe('config of a level', () => {
     expect(config.experiments).not.toBe(base.experiments);
     expect(base.experiments.waves).toBe(true);
     expect(base.size).toBe(7);
-    expect(base.sinkLowHeight).toBeLessThan(1);
+    expect(base.warnTicks).toBeGreaterThan(0);
   });
 });
 

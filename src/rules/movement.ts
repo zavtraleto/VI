@@ -58,21 +58,26 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
       }
     }
     if (target) {
-      // A cube that is going down or coming up cannot be rolled, so from it the player may
-      // step onto a rising neighbour as well: it must not hold them where they stand.
+      // Glass does not hold: in a session a cube that is coming up stops a step no more than
+      // one that stands or goes down. A whole cube has rolled into its cell above and sent it
+      // away; where that could not be, with no free cell to send it to, it is stepped onto.
+      // On a level a whole cube is stopped by it as before: the rules of a level are frozen.
       const standing = target.state === 'idle' || target.state === 'sinking';
-      const reachable = standing || (target.state === 'rising' && own.state !== 'idle');
+      const reachable = standing || (target.state === 'rising' && (own.state !== 'idle' || !state.levelRun));
       return reachable ? { kind: 'hop', tx, tz } : blocked;
     }
     if (!isFree(state, tx, tz)) return blocked;
     // A level may shut its floor: the player stays on the dice until the floor has been taught.
     if (state.levelRun?.spec.floor === false) return blocked;
-    // Only a sinking cube can be stepped off: a rising one is the way back up, so the
-    // player cannot fall off it by accident.
+    // Glass does not hold: in a session a cube that is coming up is stepped off like one that
+    // is going down. On a level it is not: there it comes up under the player (`stepLevel`).
+    // A whole cube is never stepped off: it rolls.
     // In a puzzle there is no floor to stand on: the player stays on the dice.
-    if (state.puzzle || own.state !== 'sinking') return blocked;
-    // A dock is a step: the player comes down onto it from any height. Any other empty cell
-    // has to wait until the cube is low.
+    const leaves = own.state === 'sinking' || (own.state === 'rising' && !state.levelRun);
+    if (state.puzzle || !leaves) return blocked;
+    // A dock is a step: the player comes down onto it from any height. So they do onto any
+    // other empty cell as the game is set; with `stepDownHeight` tuned lower it waits until
+    // the cube is that low.
     if (config.experiments.dockSteps && isDock(state, tx, tz)) return { kind: 'descend', tx, tz, dock: true };
     return cubeHeight(own, config) <= config.stepDownHeight ? { kind: 'descend', tx, tz } : blocked;
   }

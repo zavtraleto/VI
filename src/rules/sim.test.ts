@@ -125,11 +125,21 @@ describe('cube lifecycle', () => {
     spawnCube(s, 3, 4, ori({ top: 6 }));
     expect(s.player.level).toBe('top');
     expect(s.events).toContainEqual({ type: 'lifted' });
-    step(s, 'N');
-    expect(s.player.z).toBe(4); // cannot fall off a rising cube, cannot roll it yet
     run(s, s.config.risingTicks);
     step(s, 'N');
     expect(s.events).toContainEqual({ type: 'move', kind: 'roll', dir: 'N' });
+  });
+
+  it('lets a player lifted by a cube that appears walk off it at once: it cannot be rolled yet and goes on rising', () => {
+    const s = emptyRun();
+    const cube = spawnCube(s, 3, 4, ori({ top: 6 }));
+    expect(s.player.level).toBe('top');
+    step(s, 'N');
+    expect(s.events).toContainEqual({ type: 'move', kind: 'descend', dir: 'N' });
+    run(s, s.config.actionTicks);
+    expect(s.player).toEqual({ x: 3, z: 3, level: 'ground' });
+    expect([cube.x, cube.z, cube.state]).toEqual([3, 4, 'rising']);
+    expect(s.stats.blockedSteps).toBe(0);
   });
 
   it('keeps the cell a cube is leaving reserved until the move ends', () => {

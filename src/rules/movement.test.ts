@@ -5,8 +5,8 @@ import { resolveMove } from './movement';
 import { previewMove } from './preview';
 import { createRun, step } from './sim';
 import { spawnCube } from './spawn';
-import { act, emptyRun, land, ori, place, put, putOri, run, snapshot } from './testkit';
-import type { ExperimentConfig, RunState } from './types';
+import { act, emptyRun, land, levelRun, ori, place, put, putOri, run, snapshot } from './testkit';
+import type { ExperimentConfig, RunState, Tuning } from './types';
 
 describe('moving on top of cubes', () => {
   it('rolls into an empty cell, changes the top face and carries the player', () => {
@@ -34,20 +34,37 @@ describe('moving on top of cubes', () => {
     expect([a.x, a.z, b.x, b.z]).toEqual([3, 4, 4, 4]);
   });
 
-  it('is blocked by the board edge and by a tall rising neighbour, changing nothing', () => {
+  it('is blocked by the board edge, changing nothing', () => {
     const s = emptyRun();
     put(s, 0, 0, 6);
-    const rising = put(s, 1, 0, 5, 'rising');
-    rising.t = Math.ceil(s.config.risingTicks * 0.6);
     place(s, 0, 0, 'top');
     const before = snapshot(s);
     expect(step(s, 'W')).toBe(true);
     expect(s.events).toContainEqual({ type: 'blocked', dir: 'W' });
     expect(step(s, 'N')).toBe(true);
-    expect(step(s, 'E')).toBe(true);
-    expect(s.stats.blockedSteps).toBe(3);
-    rising.t -= 3; // the rising cube aged three ticks; nothing else may differ
+    expect(s.events).toContainEqual({ type: 'blocked', dir: 'N' });
+    expect(s.stats.blockedSteps).toBe(2);
     expect(snapshot(s)).toBe(before);
+  });
+
+  it('rolls into a rising neighbour however tall it is: the one that comes moves away and goes on rising', () => {
+    for (const progress of [0.6, 0.8, 0.95]) {
+      const s = emptyRun();
+      const own = put(s, 0, 0, 6);
+      const rising = put(s, 1, 0, 5, 'rising');
+      rising.t = Math.ceil(s.config.risingTicks * progress);
+      const t = rising.t;
+      place(s, 0, 0, 'top');
+      expect(previewMove(s, 'E'), `${progress}`).toMatchObject({ kind: 'roll' });
+      step(s, 'E');
+      expect(s.events, `${progress}`).toContainEqual({ type: 'displaced', cubeId: rising.id });
+      expect([rising.x, rising.z, rising.state], `${progress}`).toEqual([2, 0, 'rising']);
+      expect(rising.t, `${progress}`).toBe(t + 1); // it keeps the progress it had
+      run(s, s.config.actionTicks);
+      expect([own.x, own.z], `${progress}`).toEqual([1, 0]);
+      expect(s.player, `${progress}`).toEqual({ x: 1, z: 0, level: 'top' });
+      expect(s.stats.blockedSteps, `${progress}`).toBe(0);
+    }
   });
 
   it('does not accept a command while an action is in progress', () => {
@@ -154,21 +171,38 @@ describe('moving on the ground', () => {
     expect(s.player).toEqual({ x: 3, z: 1, level: 'top' });
   });
 
-  it('climbs onto a cube propped by another, by a tall rising one and by a tall sinking one', () => {
-    const behind: [string, (s: RunState) => void][] = [
-      ['a standing cube', (s) => put(s, 3, 2, 5)],
-      ['a tall rising cube', (s) => (put(s, 3, 2, 5, 'rising').t = Math.ceil(s.config.risingTicks * 0.8))],
-      ['a tall sinking cube', (s) => put(s, 3, 2, 5, 'sinking')],
-    ];
-    for (const [name, prop] of behind) {
-      const s = emptyRun();
-      const cube = put(s, 3, 3, 4);
-      prop(s);
-      act(s, 'N');
-      expect(s.player, name).toEqual({ x: 3, z: 3, level: 'top' });
-      expect([cube.x, cube.z], name).toEqual([3, 3]);
-      expect(s.stats.floorClimbs, name).toBe(1);
-    }
+  it('climbs onto a cube propped by another that stands', () => {
+    const s = emptyRun();
+    const cube = put(s, 3, 3, 4);
+    put(s, 3, 2, 5);
+    act(s, 'N');
+    expect(s.player).toEqual({ x: 3, z: 3, level: 'top' });
+    expect([cube.x, cube.z]).toEqual([3, 3]);
+    expect(s.stats.floorClimbs).toBe(1);
+  });
+
+  it('pushes a cube through one that is coming up or going down, however tall: glass props nothing', () => {
+    const s = emptyRun();
+    const cube = put(s, 3, 3, 4);
+    const rising = put(s, 3, 2, 5, 'rising');
+    rising.t = Math.ceil(s.config.risingTicks * 0.8);
+    expect(previewMove(s, 'N')).toMatchObject({ kind: 'push' });
+    act(s, 'N');
+    expect([cube.x, cube.z]).toEqual([3, 2]);
+    expect(s.player).toEqual({ x: 3, z: 3, level: 'ground' });
+    expect([rising.x, rising.z, rising.state]).toEqual([3, 1, 'rising']); // the nearest free cell
+    expect(cubeAt(s, 3, 1)).toBe(rising);
+    expect(s.stats.floorClimbs).toBe(0);
+
+    const t = emptyRun();
+    const pushed = put(t, 3, 3, 4);
+    put(t, 3, 2, 5, 'sinking'); // at its full height: it has only just begun to go
+    expect(previewMove(t, 'N')).toMatchObject({ kind: 'push' });
+    act(t, 'N');
+    expect([pushed.x, pushed.z]).toEqual([3, 2]);
+    expect(t.cubes).toEqual([pushed]);
+    expect(t.player).toEqual({ x: 3, z: 3, level: 'ground' });
+    expect(t.stats.floorClimbs).toBe(0);
   });
 
   it('pushes a cube that has room behind it, and does not climb it', () => {
@@ -219,19 +253,22 @@ describe('moving on the ground', () => {
 });
 
 describe('docks: the free cells beside an open chain are steps', () => {
+  /** A cube above this is tall: a height to step down from that is tuned lower holds the player on it. */
+  const TALL = 0.9;
+
   /**
    * Two 2s the player has just brought together, at (3,3) and (4,3), with nothing around them:
    * an island, the player up on its cube at (4,3), the cubes still at their full height.
    */
-  function island(experiments: Partial<ExperimentConfig> = {}): RunState {
-    const s = emptyRun(experiments);
+  function island(experiments: Partial<ExperimentConfig> = {}, tuning: Partial<Tuning> = {}): RunState {
+    const s = emptyRun(experiments, 1, tuning);
     put(s, 3, 3, 2);
     putOri(s, 5, 3, { top: 1, east: 2 });
     place(s, 5, 3, 'top');
     act(s, 'W');
     expect(s.reactions).toMatchObject([{ value: 2, chain: 1, total: 2 }]);
     expect(s.player).toEqual({ x: 4, z: 3, level: 'top' });
-    expect(cubeHeight(cubeAt(s, 4, 3)!, s.config)).toBeGreaterThan(s.config.stepDownHeight);
+    expect(cubeHeight(cubeAt(s, 4, 3)!, s.config)).toBeGreaterThan(TALL);
     return s;
   }
 
@@ -263,20 +300,33 @@ describe('docks: the free cells beside an open chain are steps', () => {
     expect(s.stats.falls).toBe(0);
   });
 
-  it('with dockSteps off, hold the player on a tall cube of the chain until it is low', () => {
+  it('with dockSteps off, take the player down from a tall cube of the chain just the same: the cell is floor', () => {
     const s = island({ dockSteps: false });
-    step(s, 'S');
-    expect(s.events).toContainEqual({ type: 'blocked', dir: 'S' });
-    expect(s.player).toEqual({ x: 4, z: 3, level: 'top' });
-    run(s, Math.ceil(s.config.sinkingTicks * 0.12));
+    expect(previewMove(s, 'S')).toEqual({ kind: 'descend', clears: false });
     act(s, 'S');
     expect(s.player).toEqual({ x: 4, z: 4, level: 'ground' });
     expect(s.stats.dockDescents).toBe(0);
+    expect(s.stats.blockedSteps).toBe(0);
   });
 
-  it('are the only cells a tall sinking cube is left for: any other empty cell waits until it is low', () => {
+  it('are not the only cells a sinking cube is left for: any other empty cell takes the player down at once', () => {
     const s = island();
-    // A cube going down outside the chain, far from it: the cells around it are no docks.
+    // A cube going down outside the chain, far from it and at its full height: the cells around it are no docks.
+    const lone = put(s, 0, 6, 4, 'sinking');
+    place(s, 0, 6, 'top');
+    expect(isDock(s, 0, 5)).toBe(false);
+    expect(previewMove(s, 'N')).toEqual({ kind: 'descend', clears: false });
+    act(s, 'N');
+    expect(s.player).toEqual({ x: 0, z: 5, level: 'ground' });
+    expect([lone.x, lone.z]).toEqual([0, 6]);
+    expect(s.stats.dockDescents).toBe(0);
+    expect(s.stats.blockedSteps).toBe(0);
+  });
+
+  it('with the height to step down from tuned lower, are the only cells a tall sinking cube is left for', () => {
+    const s = island({}, { stepDownHeight: TALL });
+    expect(previewMove(s, 'S')).toEqual({ kind: 'descend', clears: false });
+    // Any other empty cell waits until the cube is low.
     const lone = put(s, 0, 6, 4, 'sinking');
     place(s, 0, 6, 'top');
     step(s, 'N');
@@ -288,9 +338,8 @@ describe('docks: the free cells beside an open chain are steps', () => {
     expect(s.stats.dockDescents).toBe(0);
   });
 
-  it('never let the player off a cube that is still, or one that is coming up', () => {
+  it('never let the player off a cube that is still: it rolls into them; one that is coming up is left as one that is going down is', () => {
     const s = island();
-    // A standing cube beside a dock rolls into it; a rising one holds the player.
     const still = put(s, 5, 4, 6);
     place(s, 5, 4, 'top');
     act(s, 'W');
@@ -298,11 +347,15 @@ describe('docks: the free cells beside an open chain are steps', () => {
     expect(s.player).toEqual({ x: 4, z: 4, level: 'top' });
 
     const t = island();
-    put(t, 5, 2, 6, 'rising').t = 5;
+    const rising = put(t, 5, 2, 6, 'rising');
+    rising.t = 5;
     place(t, 5, 2, 'top');
     expect(isDock(t, 4, 2)).toBe(true);
-    step(t, 'W');
-    expect(t.events).toContainEqual({ type: 'blocked', dir: 'W' });
+    expect(previewMove(t, 'W')).toEqual({ kind: 'descend', clears: false });
+    act(t, 'W');
+    expect(t.player).toEqual({ x: 4, z: 2, level: 'ground' });
+    expect([rising.x, rising.z, rising.state]).toEqual([5, 2, 'rising']);
+    expect(t.stats.dockDescents).toBe(1);
   });
 
   it('take the player up onto the standing cube beside them: it is stepped onto, never pushed', () => {
@@ -440,49 +493,58 @@ describe('moving from a sinking cube', () => {
     expect(s.player).toEqual({ x: 4, z: 4, level: 'top' });
   });
 
-  it('steps onto a rising neighbour, which a resting cube cannot do', () => {
+  it('steps onto a rising neighbour, where a resting cube rolls into its cell and sends it away', () => {
     const s = emptyRun();
-    put(s, 3, 4, 4, 'sinking');
+    const sinking = put(s, 3, 4, 4, 'sinking');
     const rising = put(s, 4, 4, 5, 'rising');
     rising.t = Math.floor(s.config.risingTicks * 0.8);
     place(s, 3, 4, 'top');
+    expect(previewMove(s, 'E')).toEqual({ kind: 'hop', clears: false });
     act(s, 'E');
     expect(s.player).toEqual({ x: 4, z: 4, level: 'top' });
+    expect([sinking.x, sinking.z, rising.x, rising.z]).toEqual([3, 4, 4, 4]);
 
     const t = emptyRun();
-    put(t, 3, 4, 4);
+    const resting = put(t, 3, 4, 4);
     const tall = put(t, 4, 4, 5, 'rising');
     tall.t = Math.floor(t.config.risingTicks * 0.8);
     place(t, 3, 4, 'top');
-    step(t, 'E');
-    expect(t.events).toContainEqual({ type: 'blocked', dir: 'E' });
+    expect(previewMove(t, 'E')).toMatchObject({ kind: 'roll' });
+    act(t, 'E');
+    expect([resting.x, resting.z]).toEqual([4, 4]);
+    expect(t.player).toEqual({ x: 4, z: 4, level: 'top' });
+    expect([tall.x, tall.z, tall.state]).toEqual([4, 3, 'rising']); // the nearest free cell
   });
 
-  it('cannot roll, and steps down only when low enough', () => {
+  it('cannot roll, and steps down at once', () => {
     const s = emptyRun();
-    const cube = put(s, 3, 4, 4, 'sinking');
+    const cube = put(s, 3, 4, 4, 'sinking'); // at its full height: it has only just begun to go
     place(s, 3, 4, 'top');
-    step(s, 'N');
-    expect(s.player).toEqual({ x: 3, z: 4, level: 'top' });
-    expect([cube.x, cube.z]).toEqual([3, 4]);
-
-    cube.t = Math.ceil(s.config.sinkingTicks * 0.12); // a little way down is enough to step off
+    expect(previewMove(s, 'N')).toEqual({ kind: 'descend', clears: false });
     act(s, 'N');
     expect(s.player).toEqual({ x: 3, z: 3, level: 'ground' });
     expect([cube.x, cube.z]).toEqual([3, 4]);
+    expect(s.stats.blockedSteps).toBe(0);
   });
 
-  it('cannot be stepped off while it is rising, however low it is', () => {
-    const s = emptyRun();
-    const cube = put(s, 3, 4, 4, 'rising');
-    cube.t = 5;
-    place(s, 3, 4, 'top');
-    step(s, 'N');
-    expect(s.events).toContainEqual({ type: 'blocked', dir: 'N' });
-    expect(s.player).toEqual({ x: 3, z: 4, level: 'top' });
+  it('is stepped off while it is rising, at any height, and does not roll: it goes on rising where it is', () => {
+    for (const progress of [0.1, 0.9]) {
+      const s = emptyRun();
+      const cube = put(s, 3, 4, 4, 'rising');
+      cube.t = Math.floor(s.config.risingTicks * progress);
+      const t = cube.t;
+      place(s, 3, 4, 'top');
+      expect(previewMove(s, 'N'), `${progress}`).toEqual({ kind: 'descend', clears: false });
+      act(s, 'N');
+      expect(s.player, `${progress}`).toEqual({ x: 3, z: 3, level: 'ground' });
+      expect([cube.x, cube.z, cube.state], `${progress}`).toEqual([3, 4, 'rising']);
+      // The player on it did not hurry it.
+      expect(cube.t, `${progress}`).toBe(t + 1 + s.config.actionTicks);
+      expect(s.stats.blockedSteps, `${progress}`).toBe(0);
+    }
   });
 
-  it('can be mounted from the ground for most of a rise, but rolled over only when low', () => {
+  it('can be mounted from the ground and rolled into at any point of a rise', () => {
     const s = emptyRun();
     const rising = put(s, 3, 3, 4, 'rising');
     rising.t = Math.floor(s.config.risingTicks * 0.7);
@@ -490,16 +552,39 @@ describe('moving from a sinking cube', () => {
     expect(s.player).toEqual({ x: 3, z: 3, level: 'top' });
 
     const t = emptyRun();
-    put(t, 3, 4, 6);
+    const own = put(t, 3, 4, 6);
     const mid = put(t, 3, 3, 4, 'rising');
     mid.t = Math.floor(t.config.risingTicks * 0.7);
     place(t, 3, 4, 'top');
-    step(t, 'N');
-    expect(t.events).toContainEqual({ type: 'blocked', dir: 'N' });
+    act(t, 'N');
+    expect([own.x, own.z]).toEqual([3, 3]);
+    expect([mid.x, mid.z]).toEqual([3, 2]);
+    expect(t.stats.blockedSteps).toBe(0);
+  });
+
+  it('with the heights to roll over tuned lower, a tall neighbour that comes or goes is stepped onto', () => {
+    const s = emptyRun({}, 1, { lowHeight: 0.5, sinkLowHeight: 0.8 });
+    const own = put(s, 3, 4, 6);
+    const rising = put(s, 4, 4, 5, 'rising');
+    rising.t = Math.ceil(s.config.risingTicks * 0.6);
+    place(s, 3, 4, 'top');
+    expect(previewMove(s, 'E')).toEqual({ kind: 'hop', clears: false });
+    act(s, 'E');
+    expect(s.player).toEqual({ x: 4, z: 4, level: 'top' });
+    expect([own.x, own.z, rising.x, rising.z]).toEqual([3, 4, 4, 4]);
+
+    const t = emptyRun({}, 1, { lowHeight: 0.5, sinkLowHeight: 0.8 });
+    const still = put(t, 3, 4, 6);
+    const sinking = put(t, 4, 4, 5, 'sinking');
+    place(t, 3, 4, 'top');
+    expect(previewMove(t, 'E')).toEqual({ kind: 'hop', clears: false });
+    act(t, 'E');
+    expect(t.player).toEqual({ x: 4, z: 4, level: 'top' });
+    expect([still.x, still.z, sinking.x, sinking.z]).toEqual([3, 4, 4, 4]);
   });
 });
 
-describe('rolling over low cubes', () => {
+describe('rolling over cubes that are coming up or going down', () => {
   /** Three sinking 3s in a row at z = 3, already resolved as a reaction. */
   function sinkingThrees() {
     const s = emptyRun();
@@ -511,23 +596,28 @@ describe('rolling over low cubes', () => {
     return s;
   }
 
-  it('hops onto a sinking cube while it is still tall', () => {
+  it('rolls over a sinking cube from the moment it starts to sink: a whole cube is never stepped from onto it', () => {
+    for (const progress of [0, 0.25]) {
+      const s = sinkingThrees();
+      run(s, s.config.sinkingTicks * progress);
+      const own = putOri(s, 2, 4, { top: 6, south: 5 });
+      place(s, 2, 4, 'top');
+      expect(previewMove(s, 'N'), `${progress}`).toMatchObject({ kind: 'roll' });
+      act(s, 'N');
+      expect([own.x, own.z], `${progress}`).toEqual([2, 3]);
+      expect(s.player, `${progress}`).toEqual({ x: 2, z: 3, level: 'top' });
+      expect(s.cubes.length, `${progress}`).toBe(3); // the cube underneath is gone
+    }
+  });
+
+  it('joins the chain when rolled onto a sinking cube of the same value that has only just begun to go', () => {
     const s = sinkingThrees();
     const own = putOri(s, 2, 4, { top: 6, south: 3 });
     place(s, 2, 4, 'top');
     act(s, 'N');
-    expect(s.player).toEqual({ x: 2, z: 3, level: 'top' });
-    expect([own.x, own.z]).toEqual([2, 4]);
-  });
-
-  it('rolls over a sinking cube soon after it starts to sink', () => {
-    const s = sinkingThrees();
-    run(s, s.config.sinkingTicks / 4);
-    const own = putOri(s, 2, 4, { top: 6, south: 5 });
-    place(s, 2, 4, 'top');
-    act(s, 'N');
-    expect([own.x, own.z]).toEqual([2, 3]);
-    expect(s.cubes.length).toBe(3);
+    expect([own.x, own.z, own.state, own.reactionId]).toEqual([2, 3, 'sinking', 1]);
+    expect(s.reactions[0]).toEqual({ id: 1, value: 3, chain: 2, total: 4 });
+    expect(s.score).toBe(9 + 24);
   });
 
   it('joins the chain when rolled onto a low sinking cube of the same value', () => {
@@ -591,16 +681,35 @@ describe('rolling over low cubes', () => {
     expect(cubeAt(s, 3, 2)).toBe(rising);
   });
 
-  it('cannot roll over a low rising cube when the board has no free cell', () => {
-    const s = emptyRun();
-    for (let i = 0; i < 49; i++) {
-      const x = i % 7;
-      const z = Math.floor(i / 7);
-      put(s, x, z, (x + z) % 2 === 0 ? 6 : 5, x === 3 && z === 3 ? 'rising' : 'idle');
+  it('steps onto a rising cube when the board has no free cell to send it to', () => {
+    for (const progress of [0.1, 0.8]) {
+      const s = emptyRun();
+      for (let i = 0; i < 49; i++) {
+        const x = i % 7;
+        const z = Math.floor(i / 7);
+        put(s, x, z, (x + z) % 2 === 0 ? 6 : 5, x === 3 && z === 3 ? 'rising' : 'idle');
+      }
+      const rising = cubeAt(s, 3, 3)!;
+      rising.t = Math.floor(s.config.risingTicks * progress);
+      const own = cubeAt(s, 3, 4)!;
+      place(s, 3, 4, 'top');
+      expect(previewMove(s, 'N'), `${progress}`).toEqual({ kind: 'hop', clears: false });
+      act(s, 'N');
+      expect(s.player, `${progress}`).toEqual({ x: 3, z: 3, level: 'top' });
+      expect([own.x, own.z, rising.x, rising.z], `${progress}`).toEqual([3, 4, 3, 3]);
+      expect(s.stats.blockedSteps, `${progress}`).toBe(0);
     }
-    place(s, 3, 4, 'top');
-    step(s, 'N');
-    expect(s.events).toContainEqual({ type: 'blocked', dir: 'N' });
+  });
+
+  it('on a level, is still stopped by a rising cube with no free cell to go to: a level is played as it was', () => {
+    const s = levelRun();
+    for (let i = 0; i < 25; i++) {
+      const x = i % 5;
+      const z = Math.floor(i / 5);
+      put(s, x, z, (x + z) % 2 === 0 ? 6 : 5, x === 2 && z === 1 ? 'rising' : 'idle');
+    }
+    place(s, 2, 2, 'top');
+    expect(previewMove(s, 'N')).toEqual({ kind: 'blocked', clears: false });
   });
 
   it('pushes a cube over a low sinking cube', () => {
@@ -612,5 +721,18 @@ describe('rolling over low cubes', () => {
     expect([pushed.x, pushed.z]).toEqual([2, 3]);
     expect(pushed.state).toBe('sinking');
     expect(s.score).toBe(9 + 24);
+  });
+
+  it('pushes a cube over a sinking cube that has only just begun to go', () => {
+    const s = sinkingThrees();
+    const pushed = put(s, 2, 4, 3);
+    place(s, 2, 5, 'ground');
+    expect(previewMove(s, 'N')).toMatchObject({ kind: 'push' });
+    act(s, 'N');
+    expect([pushed.x, pushed.z]).toEqual([2, 3]);
+    expect(pushed.state).toBe('sinking');
+    expect(s.score).toBe(9 + 24);
+    expect(s.player).toEqual({ x: 2, z: 4, level: 'ground' });
+    expect(s.stats.floorClimbs).toBe(0);
   });
 });

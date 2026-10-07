@@ -176,8 +176,10 @@ describe('a player made of rules', () => {
 
   it('plays as it did before its head and hands were set apart', () => {
     const keep = (run: ReturnType<typeof play>) => ({ score: run.score, removed: run.removed, steps: run.steps, clears: run.clears, chains: run.chains, maxChain: run.maxChain, seconds: run.seconds });
-    expect(keep(play('average', 3, 2))).toEqual({ score: 1758, removed: 33, steps: 127, clears: 22, chains: 13, maxChain: 8, seconds: 120 });
-    expect(keep(play('newbie', 5, 2))).toEqual({ score: 37, removed: 4, steps: 55, clears: 3, chains: 1, maxChain: 2, seconds: 120 });
+    // The numbers are those of the rules the session is played by: they were taken anew on
+    // 7 October, when a cube that comes or goes stopped holding the player.
+    expect(keep(play('average', 3, 2))).toEqual({ score: 1413, removed: 32, steps: 132, clears: 25, chains: 16, maxChain: 9, seconds: 120 });
+    expect(keep(play('newbie', 5, 2))).toEqual({ score: 43, removed: 8, steps: 59, clears: 5, chains: 1, maxChain: 2, seconds: 120 });
   });
 
   // Thirty runs of three minutes: with the whole suite beside them, on a slow machine, more than the usual five seconds.

@@ -4,6 +4,7 @@ import { previewMove } from './preview';
 import { chainLiftAt } from './reactions';
 import { step } from './sim';
 import { act, emptyRun, land, place, put, putOri, run } from './testkit';
+import type { Tuning } from './types';
 
 function states(s: ReturnType<typeof emptyRun>): string[] {
   return s.cubes.map((c) => c.state);
@@ -78,8 +79,8 @@ describe('groups', () => {
 });
 
 describe('chains', () => {
-  function threeThrees() {
-    const s = emptyRun();
+  function threeThrees(tuning: Partial<Tuning> = {}) {
+    const s = emptyRun({}, 1, tuning);
     put(s, 0, 0, 3);
     put(s, 1, 0, 3);
     land(s, put(s, 1, 1, 3));
@@ -98,17 +99,19 @@ describe('chains', () => {
     expect(s.maxChain).toBe(2);
   });
 
-  it('gives the joining cube its own timer without restarting the old ones', () => {
+  it('gives the joining cube its own timer: the old ones keep theirs, less what the link lifts them by', () => {
     const s = threeThrees();
-    run(s, 50);
+    run(s, 200);
     const fourth = put(s, 2, 0, 3);
     land(s, fourth);
     expect(fourth.t).toBe(0);
-    expect(s.cubes[0].t).toBe(50);
-    run(s, s.config.sinkingTicks - 50);
+    const left = 200 - Math.round(s.config.sinkingTicks * chainLiftAt(s.config, 2));
+    expect(left).toBeGreaterThan(0);
+    expect(s.cubes[0].t).toBe(left);
+    run(s, s.config.sinkingTicks - left);
     expect(s.cubes.map((c) => c.id)).toEqual([fourth.id]);
     expect(s.reactions.length).toBe(1);
-    run(s, 50);
+    run(s, left);
     expect(s.cubes.length).toBe(0);
     expect(s.reactions.length).toBe(0);
   });
@@ -122,8 +125,22 @@ describe('chains', () => {
     expect(s.cubes[1].t).toBe(s.cubes[0].t);
   });
 
-  it('never lifts a cube back to where it is solid, and leaves a solid one alone', () => {
+  it('lifts a cube to its full height and no further, one that has only just begun to go as well: no cube of a chain is solid', () => {
     const s = threeThrees();
+    expect(s.config.sinkLowHeight).toBe(1);
+    run(s, 50);
+    const fourth = put(s, 2, 0, 3);
+    land(s, fourth);
+    expect(s.cubes[0].t).toBe(0);
+    expect(cubeHeight(s.cubes[0], s.config)).toBe(1);
+    run(s, 10);
+    land(s, put(s, 3, 0, 3));
+    expect(fourth.t).toBe(0);
+    expect(s.cubes[0].t).toBe(0);
+  });
+
+  it('with the height to roll over tuned lower, never lifts a cube back to where it is solid, and leaves a solid one alone', () => {
+    const s = threeThrees({ sinkLowHeight: 0.8 });
     const { sinkingTicks, sinkLowHeight } = s.config;
     run(s, sinkingTicks * 0.3);
     const fourth = put(s, 2, 0, 3);
