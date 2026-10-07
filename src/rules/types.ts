@@ -396,6 +396,14 @@ export interface LevelSpec {
   id: string;
   seed: number;
   size: number;
+  /**
+   * Cells that are cut out of the board: the board of a level is the cells of a square `size` a
+   * side, but these. A cell that is not there is an edge: nothing is rolled or pushed onto it,
+   * no step goes there, and a die with such a cell behind it cannot be pushed. Two cells are
+   * side by side as they are on any board, so not across one that is cut out. What is left has
+   * to hold together by its sides. Left out, the board is the whole square.
+   */
+  holes?: readonly { x: number; z: number }[];
   goal: LevelGoal;
   /** Limit of moves; 0 for none. */
   moves: number;
@@ -517,7 +525,7 @@ export interface RunState {
   tick: number;
   rng: number;
   cubes: Cube[];
-  /** size*size cells holding a cube id, or 0. */
+  /** size*size cells holding a cube id, 0 for a cell that stands empty, or `NO_CELL` for one that is cut out of the board. */
   grid: number[];
   reactions: Reaction[];
   pending: PendingSpawn[];

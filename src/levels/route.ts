@@ -3,6 +3,7 @@ import { ALL_ORIENTATIONS, roll } from '../rules/orientation';
 import { randomInt } from '../rules/rng';
 import { hasReadyGroup } from '../rules/spawn';
 import type { Dir, LevelLayout, Orientation, PuzzleDie } from '../rules/types';
+import { cutOut } from './generate';
 import type { Recipe, Scene } from './recipes';
 
 /**
@@ -57,13 +58,17 @@ function tryFromRoute(recipe: Recipe, scenes: readonly Scene[], rng: { rng: numb
   const { size } = recipe;
   const cells = size * size;
   const taken = new Map<number, Laid>();
+  // A cell the place cuts out of its board is no cell: nothing is laid there, and nothing rolls or slides over it.
+  const cut = cutOut(recipe);
   const at = (cell: number, dir: Dir, far = 1): number | null => {
     const x = (cell % size) + DELTA[dir].dx * far;
     const z = Math.floor(cell / size) + DELTA[dir].dz * far;
-    return inBounds(size, x, z) ? cellIndex(size, x, z) : null;
+    if (!inBounds(size, x, z)) return null;
+    const there = cellIndex(size, x, z);
+    return cut.has(there) ? null : there;
   };
   const beside = (cell: number): number[] => DIRS.map((dir) => at(cell, dir)).filter((other): other is number => other !== null);
-  const free = (): number[] => Array.from({ length: cells }, (_, cell) => cell).filter((cell) => !taken.has(cell));
+  const free = (): number[] => Array.from({ length: cells }, (_, cell) => cell).filter((cell) => !taken.has(cell) && !cut.has(cell));
   const touching = (cluster: readonly number[]): number[] => free().filter((cell) => beside(cell).some((other) => cluster.includes(other)));
   const pick = <T>(from: readonly T[]): T | null => (from.length > 0 ? from[randomInt(rng, from.length)] : null);
   const put = (cell: number, top: number, scene: number, one = false): Laid => {

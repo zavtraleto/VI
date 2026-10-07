@@ -256,6 +256,8 @@ export class BoardView {
     private readonly look: BoardLook,
     size: number,
     angles: CameraAngles,
+    /** Cells cut out of the board of a level: they are left out of its grid. */
+    holes: readonly { x: number; z: number }[] = [],
   ) {
     const values = look.board;
     const n = (name: string): number => Number(values[name] ?? 0);
@@ -274,7 +276,7 @@ export class BoardView {
     // What is under the surface gives no light to the tube either.
     this.floor.layers.enable(GLOW_LAYER);
 
-    const layout: GridLayout = { cells: size, rim: RIM };
+    const layout: GridLayout = { cells: size, rim: RIM, holes };
     const gridSize = size + RIM * 2;
     const lines = (map: THREE.Texture): THREE.MeshBasicMaterial =>
       new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0, depthWrite: false });

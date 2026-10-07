@@ -38,7 +38,8 @@ export function editsOf(spec: LevelSpec): Edit[] {
   const { layout, size } = spec;
   if (!layout) return [];
   const { dice, start } = layout;
-  const taken = new Set(dice.map((die) => `${die.x},${die.z}`));
+  // A die is moved to a cell that stands free: one that is cut out of the board is as good as taken.
+  const taken = new Set([...dice, ...(spec.holes ?? [])].map((cell) => `${cell.x},${cell.z}`));
   const edits: Edit[] = [];
   dice.forEach((die, index) => {
     const others = (now: PuzzleDie) => dice.map((other, at) => (at === index ? now : other));

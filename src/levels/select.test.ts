@@ -189,6 +189,44 @@ describe('what is read off a board of a route', () => {
   });
 });
 
+describe('a board with cells cut out, judged', () => {
+  /** The place of pairs with the two cells of its south-east corner gone: fourteen cells, four dice, ten cells free. None of them is on the way. */
+  const cut: Recipe = { ...pairs, holes: [[3, 2], [3, 3]] };
+  /** What a level written into the list reads back as: the line is an object of the list, a comma after it. */
+  const readBack = (source: string): unknown => new Function(`return (${source.trim().replace(/,$/, '')});`)();
+
+  it('counts as free the cells that are there: a cut-out cell is no room', () => {
+    expect(judge({ ...cut, room: [10, 10] }, twoPairs).fit).not.toBeNull();
+    expect(judge({ ...cut, room: [12, 12] }, twoPairs).why).toBe('free cells not 12');
+    expect(judge({ ...cut, room: [11, 16] }, twoPairs).why).toBe('free cells not 11-16');
+    // The square board of the same dice has the two cells more.
+    expect(judge({ ...pairs, room: [10, 10] }, twoPairs).why).toBe('free cells not 10');
+  });
+
+  it('is kept with its cells cut out, solved on the board as it is', () => {
+    const { fit, why } = judge(cut, twoPairs);
+    expect(why).toBe('');
+    expect(fit!.spec.holes).toEqual([{ x: 3, z: 2 }, { x: 3, z: 3 }]);
+    expect(fit).toMatchObject({ par: 2, exact: true, route: 'K ~ K', kind: 'bridge' });
+    // With the cell the second pair is made on cut out, the board laid by hand is no board: a die would have to stand there.
+    expect(() => judge({ ...pairs, holes: [[0, 3]] }, twoPairs)).toThrow(/a die on a cell that is cut out at 0,3/);
+    // With the cell the first pair is made on gone, the way of two moves is gone with it.
+    expect(judge({ ...pairs, holes: [[1, 0]] }, twoPairs).why).toBe('more moves than 2, or none');
+  });
+
+  it('is written into the list with its cells cut out, and reads back as the level it is', () => {
+    const { spec } = judge(cut, twoPairs).fit!;
+    const source = levelSource(spec);
+    expect(source).toContain('size: 4, holes: [{ x: 3, z: 2 }, { x: 3, z: 3 }], values: [2],');
+    expect(readBack(source)).toEqual(spec);
+    // A square board is written with no word of it, and reads back as itself too.
+    const square = judge(pairs, twoPairs).fit!.spec;
+    expect(levelSource(square)).not.toContain('holes');
+    expect(readBack(levelSource(square))).toEqual(square);
+    expect(readBack(levelSource(square))).not.toEqual(spec);
+  });
+});
+
 describe('the parts of a route a board makes its player use', () => {
   it('are proved with the part taken away: a board with a way round it within a move is turned away', () => {
     expect(judge({ ...three, parts: ['bridge'] }, over).why).toBe('a way round bridge within a move');

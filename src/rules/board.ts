@@ -13,12 +13,25 @@ export function cellIndex(size: number, x: number, z: number): number {
   return z * size + x;
 }
 
+/**
+ * What the grid holds for a cell that is cut out of the board of a level. No die is ever there
+ * and it is never free, so to every rule it is what the edge of the board is: nothing is moved
+ * onto it and nobody steps there.
+ */
+export const NO_CELL = -1;
+
+/** Whether (x, z) is a cell of the board: inside its square, and not cut out of it. */
+export function isCell(state: RunState, x: number, z: number): boolean {
+  const size = state.config.size;
+  return inBounds(size, x, z) && state.grid[cellIndex(size, x, z)] !== NO_CELL;
+}
+
 export function inBounds(size: number, x: number, z: number): boolean {
   return x >= 0 && z >= 0 && x < size && z < size;
 }
 
 export function getCube(state: RunState, id: number): Cube | undefined {
-  if (id === 0) return undefined;
+  if (id <= 0) return undefined;
   return state.cubes.find((c) => c.id === id);
 }
 

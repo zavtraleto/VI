@@ -35,6 +35,11 @@ export function levelId(recipe: Pick<Recipe, 'slot' | 'id'>): string {
   return recipe.id ?? `B${String(recipe.slot).padStart(2, '0')}`;
 }
 
+/** The cells a place cuts out of its board, as their numbers on the square. */
+export function cutOut(recipe: Pick<Recipe, 'size' | 'holes'>): Set<number> {
+  return new Set((recipe.holes ?? []).map(([x, z]) => cellIndex(recipe.size, x, z)));
+}
+
 /** Faces a die may show to the north with `top` up: any but the top and the one under it. */
 function norths(top: number): number[] {
   return [1, 2, 3, 4, 5, 6].filter((face) => face !== top && face !== 7 - top);
@@ -59,12 +64,15 @@ export function layOut(recipe: Recipe, seed: number): LevelLayout | null {
   const count = recipe.dice + (recipe.more ? randomInt(rng, recipe.more + 1) : 0);
   const tops = new Array<number>(cells).fill(0);
   const dice: PuzzleDie[] = [];
+  const cut = cutOut(recipe);
   const beside = (cell: number): number[] => {
     const x = cell % size;
     const z = Math.floor(cell / size);
-    return DIRS.filter((dir) => inBounds(size, x + DELTA[dir].dx, z + DELTA[dir].dz)).map((dir) => cellIndex(size, x + DELTA[dir].dx, z + DELTA[dir].dz));
+    return DIRS.filter((dir) => inBounds(size, x + DELTA[dir].dx, z + DELTA[dir].dz))
+      .map((dir) => cellIndex(size, x + DELTA[dir].dx, z + DELTA[dir].dz))
+      .filter((other) => !cut.has(other));
   };
-  const free = (): number[] => tops.map((top, cell) => (top === 0 ? cell : -1)).filter((cell) => cell >= 0);
+  const free = (): number[] => tops.map((top, cell) => (top === 0 && !cut.has(cell) ? cell : -1)).filter((cell) => cell >= 0);
   /** Free cells that touch one of `cluster` by a side. */
   const touching = (cluster: readonly number[]): number[] => free().filter((cell) => beside(cell).some((other) => cluster.includes(other)));
   const taken = (): number[] => dice.map((die) => cellIndex(size, die.x, die.z));
@@ -114,6 +122,7 @@ export function levelOf(recipe: Recipe, seed: number, layout: LevelLayout): Leve
   const ladder = recipe.chapter !== undefined ? { faces: values, sinkMoves: LADDER_SINK_MOVES, liftMoves: LADDER_LIFT_MOVES } : {};
   // What the level is played with is its place's to say. The floor has to be on the level before it is solved: the rules read it.
   const own: Partial<LevelSpec> = {
+    ...(recipe.holes && recipe.holes.length > 0 ? { holes: recipe.holes.map(([x, z]) => ({ x, z })) } : {}),
     ...(recipe.chapter !== undefined ? { chapter: recipe.chapter } : {}),
     ...(recipe.floor !== undefined ? { floor: recipe.floor } : {}),
     ...(recipe.guard ? { guard: true } : {}),
@@ -206,12 +215,15 @@ function tryFromSolution(recipe: Recipe, rng: { rng: number }): Built | null {
   const sizes = ways[randomInt(rng, ways.length)];
 
   const taken = new Map<number, Laid>();
+  const cut = cutOut(recipe);
   const beside = (cell: number): number[] => {
     const x = cell % size;
     const z = Math.floor(cell / size);
-    return DIRS.filter((dir) => inBounds(size, x + DELTA[dir].dx, z + DELTA[dir].dz)).map((dir) => cellIndex(size, x + DELTA[dir].dx, z + DELTA[dir].dz));
+    return DIRS.filter((dir) => inBounds(size, x + DELTA[dir].dx, z + DELTA[dir].dz))
+      .map((dir) => cellIndex(size, x + DELTA[dir].dx, z + DELTA[dir].dz))
+      .filter((other) => !cut.has(other));
   };
-  const free = (): number[] => Array.from({ length: cells }, (_, cell) => cell).filter((cell) => !taken.has(cell));
+  const free = (): number[] => Array.from({ length: cells }, (_, cell) => cell).filter((cell) => !taken.has(cell) && !cut.has(cell));
   const touching = (cluster: readonly number[]): number[] => free().filter((cell) => beside(cell).some((other) => cluster.includes(other)));
   const pick = (from: readonly number[]): number | null => (from.length > 0 ? from[randomInt(rng, from.length)] : null);
   const put = (cell: number, top: number, fixed: boolean): void => {
@@ -273,7 +285,7 @@ function tryFromSolution(recipe: Recipe, rng: { rng: number }): Built | null {
       for (const dir of DIRS) {
         const tx = x + DELTA[dir].dx;
         const tz = z + DELTA[dir].dz;
-        if (!inBounds(size, tx, tz) || taken.has(cellIndex(size, tx, tz))) continue;
+        if (!inBounds(size, tx, tz) || taken.has(cellIndex(size, tx, tz)) || cut.has(cellIndex(size, tx, tz))) continue;
         // A roll that only takes the last one back makes no way.
         if (last && last.die === die && OPPOSITE[last.dir] === dir) continue;
         options.push({ die, dir, to: cellIndex(size, tx, tz) });
@@ -335,7 +347,7 @@ export function candidate(recipe: Recipe, seed: number): LevelSpec | null {
   return layout ? levelOf(recipe, seed, layout) : null;
 }
 
-/** A board as a picture in text: a cell is the top face of its die and, after it, the face to the north; the start is marked. */
+/** A board as a picture in text: a cell is the top face of its die and, after it, the face to the north; the start is marked, and a cell that is cut out is left blank. */
 export function boardText(spec: LevelSpec): string {
   const { size, layout } = spec;
   if (!layout) return '';
@@ -345,9 +357,10 @@ export function boardText(spec: LevelSpec): string {
     for (let x = 0; x < size; x++) {
       const die = layout.dice.find((d) => d.x === x && d.z === z);
       const start = layout.start.x === x && layout.start.z === z;
-      row.push(die ? `${die.top}${die.north}${start ? '*' : ' '}` : ' . ');
+      const hole = (spec.holes ?? []).some((cell) => cell.x === x && cell.z === z);
+      row.push(die ? `${die.top}${die.north}${start ? '*' : ' '}` : hole ? '   ' : ' . ');
     }
-    rows.push(row.join(' '));
+    rows.push(row.join(' ').trimEnd());
   }
   return rows.join('\n');
 }

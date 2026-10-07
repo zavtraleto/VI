@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { DELTA, DIRS } from '../rules/board';
+import { DELTA, DIRS, NO_CELL } from '../rules/board';
 import { defaultConfig } from '../rules/config';
 import { moveOf, tryWay } from '../rules/levelSolver';
 import { createRun } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelLayout } from '../rules/types';
-import { FROM_ROUTE, FROM_SOLUTION, SKETCH, boardText, builtWay, candidate, isBoard, layFromSolution, layOut, levelId, levelOf } from './generate';
+import { FROM_ROUTE, FROM_SOLUTION, SKETCH, boardText, builtWay, candidate, cutOut, isBoard, layFromSolution, layOut, levelId, levelOf } from './generate';
 import { LEVELS } from './levels';
-import { PLACES, type Recipe } from './recipes';
+import { PLACES, cutFrom, type Recipe } from './recipes';
 import { gather, judge, levelSource, placeReport } from './select';
 
 /**
@@ -34,6 +34,18 @@ const FIVES: Recipe = { slot: 19, chapter: 0, size: 4, dice: 6, faces: [5], comp
 const WITH_ONES: Recipe = { slot: 31, chapter: 0, size: 4, dice: 6, faces: [3], ones: 2, compact: false, par: [3, 5] };
 /** Two 3s that stand and a third die one roll away: a board cleared with one move, which the place shows with an arrow. */
 const ONE_ROLL: Recipe = { slot: 1, id: 'X01', chapter: 0, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], compact: true, par: [1, 1], random: [0.4, 1], avoid: ['floor', 'glass', 'ones'], lesson: 'lineCombo', arrow: true };
+/**
+ * Boards with cells cut out. A corner: a square of four with its south-east quarter gone, four
+ * dice where 3s work, in one cluster, with a route of a combo and a die that joins it. The same
+ * with the dice wherever they fall. And a ring: a square of four with its middle gone, where a
+ * die laid or rolled with no heed of the cells would be in the middle one time in four.
+ */
+const CORNER: Recipe = {
+  slot: 41, chapter: 0, size: 4, holes: cutFrom(['####', '####', '##..', '##..']), dice: 4, faces: [3], compact: true, par: [2, 5],
+  scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }],
+};
+const CORNER_LOOSE: Recipe = { ...CORNER, slot: 42, compact: false };
+const RING: Recipe = { ...CORNER, slot: 43, compact: false, holes: cutFrom(['####', '#..#', '#..#', '####']) };
 
 /** The boards the first seeds of a place lay, with the seed of each. */
 function boards(of: Recipe, lay: (recipe: Recipe, seed: number) => LevelLayout | null, seeds = 60): { seed: number; layout: LevelLayout }[] {
@@ -165,6 +177,121 @@ describe('a board laid from its solution', () => {
     }
     expect(cleared).toBeGreaterThan(0);
     expect(builtWay(SIX, laid[0].seed)).toEqual(builtWay(SIX, laid[0].seed));
+  });
+});
+
+describe('a board with cells cut out, laid by a place', () => {
+  /** The cells a board of a place has, written out: those of its square that are not cut out. */
+  const cellsOf = (of: Recipe): Set<string> => {
+    const cut = cutOut(of);
+    const cells = new Set<string>();
+    for (let z = 0; z < of.size; z++) for (let x = 0; x < of.size; x++) if (!cut.has(z * of.size + x)) cells.add(`${x},${z}`);
+    return cells;
+  };
+  /** What is wrong with a board laid for a place with cells cut out: nothing, for a board that is on its cells. */
+  const offCells = (of: Recipe, layout: LevelLayout): string[] => {
+    const cells = cellsOf(of);
+    const off = layout.dice.filter((die) => !cells.has(`${die.x},${die.z}`)).map((die) => `a die at ${die.x},${die.z}`);
+    if (!cells.has(`${layout.start.x},${layout.start.z}`)) off.push('the start');
+    return off;
+  };
+
+  it('names its cut-out cells by their numbers on the square, and none where the place cuts none', () => {
+    expect([...cutOut(THREE)]).toEqual([]);
+    expect([...cutOut({ size: 4, holes: [] })]).toEqual([]);
+    // The cell x,z of a square four cells a side is the cell 4z + x.
+    expect([...cutOut({ size: 4, holes: [[2, 2], [3, 2], [0, 3]] })].sort((a, b) => a - b)).toEqual([10, 11, 12]);
+    expect([...cutOut(CORNER)].sort((a, b) => a - b)).toEqual([10, 11, 14, 15]);
+    // The numbers are those of the square of the place: the same cell of a bigger square has another.
+    expect([...cutOut({ size: 5, holes: [[2, 2]] })]).toEqual([12]);
+  });
+
+  it('has no die on a cut-out cell and does not start the player on one, laid at random', () => {
+    for (const of of [CORNER, CORNER_LOOSE, RING]) {
+      const laid = boards(of, layOut, 200);
+      expect(laid.length, `place ${of.slot}`).toBeGreaterThan(5);
+      for (const { seed, layout } of laid) {
+        expect(offCells(of, layout), `place ${of.slot}, seed ${seed}`).toEqual([]);
+        expect(layout.dice).toHaveLength(of.dice);
+        if (of.compact) expect(oneCluster(layout)).toBe(true);
+      }
+    }
+  });
+
+  it('starts the player, laid at random, on a die with a free cell beside it that is there: a cut-out cell is no room to roll into', () => {
+    for (const of of [CORNER, RING]) {
+      const cells = cellsOf(of);
+      for (const { seed, layout } of boards(of, layOut, 200)) {
+        const { start } = layout;
+        const open = DIRS.some((dir) => {
+          const x = start.x + DELTA[dir].dx;
+          const z = start.z + DELTA[dir].dz;
+          return cells.has(`${x},${z}`) && !layout.dice.some((die) => die.x === x && die.z === z);
+        });
+        expect(open, `place ${of.slot}, seed ${seed}`).toBe(true);
+      }
+    }
+  });
+
+  it('has no die on a cut-out cell, laid from its solution, and the way it was built by rolls no die onto one', () => {
+    for (const of of [CORNER, RING]) {
+      const cells = cellsOf(of);
+      const laid = boards(of, layFromSolution, 200);
+      expect(laid.length, `place ${of.slot}`).toBeGreaterThan(5);
+      for (const { seed, layout } of laid) {
+        const what = `place ${of.slot}, seed ${seed}`;
+        expect(offCells(of, layout), what).toEqual([]);
+        if (of.compact) expect(oneCluster(layout), what).toBe(true);
+        // A move of the way is a die where it stands and the side it is rolled to: both are cells of the board.
+        for (const text of builtWay(of, seed)!) {
+          const { x, z, dir } = moveOf(text);
+          expect(cells.has(`${x},${z}`), `${what}: ${text}`).toBe(true);
+          expect(cells.has(`${x + DELTA[dir].dx},${z + DELTA[dir].dz}`), `${what}: ${text}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('is a board the rules take, whichever way its seed lays it: at random, from its solution, from its route', () => {
+    const marks = [0, FROM_SOLUTION, FROM_ROUTE];
+    for (const of of [CORNER, RING]) {
+      const cut = [...cutOut(of)].sort((a, b) => a - b);
+      for (const mark of marks) {
+        let laid = 0;
+        for (let seed = 1; seed <= 120; seed++) {
+          const level = candidate(of, mark + seed);
+          if (!level) continue;
+          laid++;
+          const what = `place ${of.slot}, seed ${mark + seed}`;
+          expect(offCells(of, level.layout!), what).toEqual([]);
+          expect(level.holes!.map((cell) => cell.z * of.size + cell.x).sort((a, b) => a - b), what).toEqual(cut);
+          // The run turns away a die on a cell that is not there, and a board in two parts.
+          const state = createRun({ seed: level.seed, config: defaultConfig(), level });
+          expect(state.cubes, what).toHaveLength(level.norm);
+          for (const cell of cut) expect(state.grid[cell], what).toBe(NO_CELL);
+        }
+        expect(laid, `place ${of.slot}, seeds above ${mark}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('gives its level the cells cut out, each as its x and z, and a level of a square board none', () => {
+    const [{ seed, layout }] = boards(CORNER, layOut, 200);
+    expect(levelOf(CORNER, seed, layout).holes).toEqual([{ x: 2, z: 2 }, { x: 3, z: 2 }, { x: 2, z: 3 }, { x: 3, z: 3 }]);
+    expect(levelOf(CORNER, seed, layout)).toMatchObject({ size: 4, norm: 4, layout });
+    expect('holes' in levelOf({ ...CORNER, holes: undefined }, seed, layout)).toBe(false);
+    expect('holes' in levelOf({ ...CORNER, holes: [] }, seed, layout)).toBe(false);
+  });
+
+  it('is drawn in text with a cut-out cell left blank and a free cell as a dot, the ends of its rows trimmed', () => {
+    const level = levelOf({ ...THREE, holes: [[2, 0], [0, 2]] }, 1, { start: { x: 0, z: 0 }, dice: [{ x: 0, z: 0, top: 3, north: 1 }, { x: 1, z: 1, top: 2, north: 1 }] });
+    // Four signs to a cell: the die, a dot or nothing, and a space between two cells.
+    expect(boardText(level).split('\n')).toEqual(['31*  .', ' .  21   .', '     .   .']);
+    // With the cells there, the same board has a dot in each.
+    expect(boardText({ ...level, holes: undefined }).split('\n')).toEqual(['31*  .   .', ' .  21   .', ' .   .   .']);
+    // A free cell in the middle of a row is ` . `, a cut-out one three spaces: the cells after it stay in their columns.
+    const middle = boardText({ ...level, holes: [{ x: 1, z: 0 }, { x: 1, z: 2 }] }).split('\n');
+    expect(middle).toEqual(['31*      .', ' .  21   .', ' .       .']);
   });
 });
 

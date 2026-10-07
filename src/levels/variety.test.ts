@@ -39,6 +39,48 @@ describe('a board that is another turned', () => {
   });
 });
 
+describe('a board with cells cut out', () => {
+  /** The L in the corner with the corner across from it cut out, and the same a quarter turn round, the cell turned with the dice. */
+  const CUT = { ...CORNER, holes: [{ x: 2, z: 2 }] };
+  const CUT_TURNED = { ...TURNED, holes: [{ x: 0, z: 2 }] };
+
+  it('is another board than the one with the same dice and other cells cut out, or none', () => {
+    expect(sameBoard(CUT, CORNER)).toBe(false);
+    expect(sameBoard(CORNER, CUT)).toBe(false);
+    expect(sameBoard(CUT, { ...CORNER, holes: [{ x: 2, z: 1 }] })).toBe(false);
+    expect(sameBoard(CUT, { ...CORNER, holes: [{ x: 2, z: 2 }, { x: 2, z: 1 }] })).toBe(false);
+    // A level that says it cuts out no cell is the square board.
+    expect(sameBoard(CORNER, { ...CORNER, holes: [] })).toBe(true);
+  });
+
+  it('is the same board turned or mirrored where the cut-out cells are turned with the dice, and not where they stay', () => {
+    expect(sameBoard(CUT, CUT)).toBe(true);
+    expect(sameBoard(CUT, CUT_TURNED)).toBe(true);
+    expect(sameBoard(CUT_TURNED, CUT)).toBe(true);
+    // The dice turned and the cell left where it was: the cell is beside the L now, and not across from it.
+    expect(sameBoard(CUT, { ...TURNED, holes: [{ x: 2, z: 2 }] })).toBe(false);
+    // The order the cells are named in is nothing to the board.
+    const two = { ...CORNER, holes: [{ x: 2, z: 2 }, { x: 2, z: 1 }] };
+    expect(sameBoard(two, { ...CORNER, holes: [{ x: 2, z: 1 }, { x: 2, z: 2 }] })).toBe(true);
+    // Mirrored about the line from the corner of the L, it lies on itself: the cells mirrored with it are (2,2) and (1,2).
+    expect(sameBoard(two, { ...CORNER, holes: [{ x: 2, z: 2 }, { x: 1, z: 2 }] })).toBe(true);
+  });
+
+  it('has a shape of its own: the dice of two boards stand alike only where the boards are cut alike', () => {
+    expect(shapeOf(CUT)).not.toBe(shapeOf(CORNER));
+    expect(shapeOf(CUT)).toBe(shapeOf(CUT_TURNED));
+    expect(shapeOf(CUT)).not.toBe(shapeOf({ ...CORNER, holes: [{ x: 2, z: 1 }] }));
+    expect(unlike(traitsOf({ spec: CUT, clears: 1 }), traitsOf({ spec: CORNER, clears: 1 }))).toBe(1);
+    expect(unlike(traitsOf({ spec: CUT, clears: 1 }), traitsOf({ spec: CUT_TURNED, clears: 1 }))).toBe(0);
+  });
+
+  it('is not taken twice into a ladder, turned or not, and is taken beside the square board of the same dice', () => {
+    const fit = (spec: LevelSpec) => ({ spec, clears: 1 });
+    expect(arrange([[fit(CUT)], [fit(CUT_TURNED)]])).toEqual([fit(CUT), null]);
+    expect(arrange([[fit(CUT)], [fit(CORNER)]])).toEqual([fit(CUT), fit(CORNER)]);
+  });
+});
+
 describe('the traits of a level', () => {
   it('are what it can differ from its neighbour in', () => {
     expect(traitsOf({ spec: CORNER, clears: 1 })).toEqual({ faces: '3', size: 3, dice: 3, shape: shapeOf(CORNER), ownFirst: true, combos: 1 });

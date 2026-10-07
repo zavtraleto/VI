@@ -42,6 +42,8 @@ export interface Recipe {
   /** The chapter the place is in, from 0: the number its level names its chapter with. */
   chapter?: number;
   size: number;
+  /** Cells cut out of the square of the board, each as its x and z: the shape of the board is the place's own. */
+  holes?: readonly (readonly [number, number])[];
   dice: number;
   /** Dice the board may hold over `dice`: a place that asks for "two or three" has one. */
   more?: number;
@@ -196,9 +198,10 @@ const ON_TOP: Pick<Recipe, 'avoid'> = { avoid: ['floor', 'ones'] };
  * shuffled once and is kept: two boards of a form do not stand side by side, and the quiet ones
  * take turns with those played under the count.
  *
- * `brief` names the form in a word and what the board is to make of it.
+ * `brief` names the form in a word and what the board is to make of it. These twenty are on
+ * square boards; the ten after them are on boards of other shapes (`UNUSUAL`).
  */
-export const PLACES: readonly Recipe[] = [
+const SQUARE: readonly Recipe[] = [
   {
     slot: 1, id: 'P01', ...PROBE, ...ON_TOP, compact: true, size: 3, dice: 4, faces: [3], par: [5, 7],
     scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }],
@@ -320,6 +323,102 @@ export const PLACES: readonly Recipe[] = [
     brief: 'a long chain of 3s: four links',
   },
 ];
+
+/**
+ * The cells cut out of a board, read off its picture: a row of the picture is a row of the
+ * board from the north, `#` is a cell and `.` a cell that is not there.
+ */
+export function cutFrom(picture: readonly string[]): [number, number][] {
+  return picture.flatMap((row, z) => [...row].flatMap((sign, x): [number, number][] => (sign === '#' ? [] : [[x, z]])));
+}
+
+/*
+ * A board that is longer than it is wide lies across the middle of its square: the picture of the
+ * game is centred on the square, and a board up against one side of it would stand off to that side.
+ */
+/** A corner: a board bent like the letter L. */
+const ELL = cutFrom(['####', '####', '##..', '##..']);
+/** Two rooms and one cell between them. */
+const ISTHMUS = cutFrom(['.....', '##.##', '#####', '##.##', '.....']);
+/** A room with a corridor a cell wide: a die rolled along it shows four of its six faces and no other. */
+const CORRIDOR = cutFrom(['.....', '###..', '#####', '###..', '.....']);
+/** A board two cells wide and five long. */
+const NARROW = cutFrom(['.....', '#####', '#####', '.....', '.....']);
+/** A room with a pocket of one cell, and a smaller room with the same. */
+const POCKET = cutFrom(['.#..', '###.', '###.', '###.']);
+const NOOK = cutFrom(['.#..', '###.', '###.', '....']);
+
+/**
+ * The places of the second batch: ten boards that are not squares, every one a form that has a
+ * place on a square board already, each form once. The board is a square with cells cut out of
+ * it, and a cell that is not there is an edge. The shape and the form are not changed in one
+ * level: nothing here is a new rule, and what the shape adds is where the edge is.
+ */
+const UNUSUAL: readonly Recipe[] = [
+  {
+    slot: 21, id: 'P21', ...PROBE, ...ON_TOP, compact: true, size: 4, holes: ELL, dice: 4, faces: [4], par: [4, 7],
+    scenes: [{ event: 'combo', face: 4, by: 'roll', moves: [2, 3], loose: 1, looseMoves: [1, 2] }],
+    kinds: ['top'], quiet: [3, 6], counted: [1, 1], last: [4, 4], movers: 2,
+    brief: 'collapse on a corner: four dice go with one move',
+  },
+  {
+    slot: 22, id: 'P22', ...PROBE, ...ON_TOP, size: 5, holes: ISTHMUS, dice: 6, faces: [3], par: [2, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['bridge'], parts: ['bridge'], islands: 2,
+    brief: 'bridge over an isthmus: two rooms, and the second three is come to over the first',
+  },
+  {
+    slot: 23, id: 'P23', ...PROBE, ...ON_TOP, compact: true, size: 5, holes: CORRIDOR, dice: 3, faces: [3], par: [4, 8],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [2, 2], loose: 2, looseMoves: [1, 1], straight: true }],
+    kinds: ['top'], blind: true, underShare: 0.3, firsts: [1, 2],
+    brief: 'seven, blind, by a corridor: no 3 is to be seen',
+  },
+  {
+    slot: 24, id: 'P24', ...PROBE, ...ON_TOP, size: 5, holes: NARROW, dice: 5, faces: [2], par: [4, 7],
+    scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'link', face: 2, by: 'roll' }, { event: 'link', face: 2, by: 'roll', moves: [1, 2] }, { event: 'link', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], links: [3, 4], silence: 1,
+    brief: 'a long chain on a narrow board: three links with nowhere to turn',
+  },
+  {
+    slot: 25, id: 'P25', ...PROBE, ...ON_TOP, size: 4, holes: POCKET, dice: 4, faces: [3], par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'link', face: 3, by: 'roll', moves: [2, 2] }],
+    kinds: ['top'], needs: ['link'], ends: { event: 'link', how: 'roll', spare: 0 },
+    brief: 'rescue by a pocket: the fourth die comes to the combo on the last move it can',
+  },
+  {
+    slot: 26, id: 'P26', ...PROBE, size: 5, holes: ISTHMUS, dice: 5, faces: [2], par: [3, 6],
+    scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 2, by: 'push', apart: true }, { event: 'link', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['downAndUp'], route: 'P.*\\^', parts: ['push', 'up'],
+    brief: 'down and back over an isthmus: a push makes a pair in the other room',
+  },
+  {
+    slot: 27, id: 'P27', ...PROBE, ...ON_TOP, compact: true, size: 4, holes: ELL, dice: 5, faces: [2, 3], par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], bothFaces: true, decoy: true,
+    brief: 'the count of channels on a corner: a pair and a three',
+  },
+  {
+    slot: 28, id: 'P28', ...PROBE, ...ON_TOP, size: 5, holes: NARROW, dice: 6, faces: [3], par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 3, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], trap: 'any', traps: [0.3, 1],
+    brief: 'a trap of order on a narrow board',
+  },
+  {
+    slot: 29, id: 'P29', ...PROBE, ...ON_TOP, compact: true, size: 4, holes: NOOK, dice: 5, faces: [2, 3], par: [4, 8],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 2, by: 'roll', moves: [1, 2] }],
+    kinds: ['top', 'bridge'], room: [2, 2], quiet: [2, 7],
+    brief: 'a tight room with a nook: seven cells, five dice',
+  },
+  {
+    slot: 30, id: 'P30', ...PROBE, size: 5, holes: CORRIDOR, dice: 6, faces: [3], ones: 3, par: [3, 6],
+    scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'ones', by: 'push', dice: 2, loose: 1 }],
+    kinds: ['downLast'], ends: { event: 'ones', how: 'push' }, parts: ['ones'],
+    brief: 'the broom by a corridor: a 1 is pushed to the leaving combo',
+  },
+];
+
+/** The places of the levels, in the order of the list: the batch on square boards, then the one on boards of other shapes. */
+export const PLACES: readonly Recipe[] = [...SQUARE, ...UNUSUAL];
 
 /** The bounds of a place as a list: what is measured, and from what to what it may be. */
 export function boundsOf(recipe: Recipe): { what: 'par' | 'depth' | 'traps' | 'random'; from: number; to: number }[] {

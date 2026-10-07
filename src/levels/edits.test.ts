@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec, PuzzleDie } from '../rules/types';
 import { editsOf, probeEdits } from './edits';
+import { LEVELS } from './levels';
 
 /** A board of the ladder where 2s work: three cells a side, the player on the first die named. */
 function board(dice: readonly PuzzleDie[], more: Partial<LevelSpec> = {}): LevelSpec {
@@ -43,6 +44,37 @@ describe('the boards one change away from a level', () => {
     const turned = editsOf(TWO_DICE).find((edit) => edit.what === 'die 2,0 turned to 5')!.spec.layout!;
     expect(turned.dice[1]).toMatchObject({ x: 2, z: 0, top: 5 });
     expect(turned.start).toEqual({ x: 0, z: 0 });
+  });
+
+  it('move no die onto a cell that is cut out of the board, and leave the board its shape', () => {
+    // The cell between the two dice is gone: neither is moved towards the other.
+    const cut = { ...TWO_DICE, holes: [{ x: 1, z: 0 }] };
+    const edits = editsOf(cut);
+    expect(edits.map((edit) => edit.what).filter((what) => what.includes('moved'))).toEqual(['die 0,0 moved south', 'die 2,0 moved south']);
+    // Nothing else is taken away: the dice are turned and the player started as on the square board.
+    expect(edits.filter((edit) => !edit.what.includes('moved')).map((edit) => edit.what)).toEqual(editsOf(TWO_DICE).filter((edit) => !edit.what.includes('moved')).map((edit) => edit.what));
+    for (const { what, spec } of edits) {
+      expect(spec.holes, what).toEqual([{ x: 1, z: 0 }]);
+      for (const die of spec.layout!.dice) expect([die.x, die.z], what).not.toEqual([1, 0]);
+      expect([spec.layout!.start.x, spec.layout!.start.z], what).not.toEqual([1, 0]);
+    }
+  });
+
+  it('keep every die of a level of the game on the cells its board has', () => {
+    const levels = LEVELS.filter((level) => (level.holes?.length ?? 0) > 0);
+    expect(levels.length).toBeGreaterThan(0);
+    for (const level of levels) {
+      const cut = new Set(level.holes!.map((cell) => `${cell.x},${cell.z}`));
+      const edits = editsOf(level);
+      // A board with room on it has dice to move.
+      expect(edits.some((edit) => edit.what.includes('moved')), level.id).toBe(true);
+      for (const { what, spec } of edits) {
+        expect(spec.holes, `${level.id}: ${what}`).toEqual(level.holes);
+        for (const die of spec.layout!.dice) expect(cut.has(`${die.x},${die.z}`), `${level.id}: ${what}`).toBe(false);
+        expect(new Set(spec.layout!.dice.map((die) => `${die.x},${die.z}`)).size, `${level.id}: ${what}`).toBe(spec.layout!.dice.length);
+        expect(cut.has(`${spec.layout!.start.x},${spec.layout!.start.z}`), `${level.id}: ${what}`).toBe(false);
+      }
+    }
   });
 
   it('are none for a level with no board of its own', () => {

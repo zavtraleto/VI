@@ -1,4 +1,4 @@
-import { cubeAt } from './board';
+import { NO_CELL, cellIndex, cubeAt } from './board';
 import { endBeat, levelConfig } from './level';
 import { applyMove, canAcceptCommand } from './movement';
 import { levelStats, pruneReactions, removeCube, resolveLanded, runPhase } from './reactions';
@@ -89,6 +89,8 @@ export function createRun(opts: RunOptions): RunState {
     nextCubeId: 1,
     nextReactionId: 1,
   };
+  // The cells a level cuts out of its board are marked before anything is laid: nothing ever stands there.
+  for (const { x, z } of level?.holes ?? []) state.grid[cellIndex(config.size, x, z)] = NO_CELL;
   if (opts.empty) return state;
   if (puzzle) placePuzzleLayout(state, puzzle);
   else if (level) placeLevelLayout(state);

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { DELTA, DIRS } from '../rules/board';
-import { solveLevel } from '../rules/levelSolver';
+import { DELTA, DIRS, isCell } from '../rules/board';
+import { defaultConfig } from '../rules/config';
+import { moveText, playMove, solveLevel } from '../rules/levelSolver';
+import { createRun } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelLayout, PuzzleDie } from '../rules/types';
-import { FROM_ROUTE, candidate, isBoard, levelOf } from './generate';
+import { FROM_ROUTE, candidate, cutOut, isBoard, levelOf } from './generate';
 import { islandsOf, underOf } from './measures';
-import { PLACES, type Recipe, type Scene } from './recipes';
+import { PLACES, cutFrom, type Recipe, type Scene } from './recipes';
 import { layFromRoute } from './route';
 
 /** Dice a scene puts on the board: a combo of as many as its face has pips unless it says, a link of one, the 1 that is brought and the 1s that wait for it. */
@@ -201,6 +203,92 @@ describe('the 1s of a route', () => {
   });
 });
 
+describe('a board with cells cut out, laid from its route', () => {
+  /** A square of five with its corners and its middle gone: twenty cells, and a die slid across the middle would cross a cell that is not there. */
+  const HOLES = cutFrom(['.###.', '#####', '##.##', '#####', '.###.']);
+  /** The pair and the five 5s of `PUSHED` on that board, and a route of rolls alone: a combo, a link, and every die of the combo rolled away. */
+  const PUSHED_CUT = place(81, 5, [2, 5], [{ event: 'combo', face: 2, by: 'roll' }, { event: 'combo', face: 5, by: 'push', apart: true }], { holes: HOLES });
+  const ROLLED_CUT = place(82, 5, [3], [{ event: 'combo', face: 3, by: 'roll', moves: [2, 2], loose: 2, looseMoves: [1, 2] }, { event: 'link', face: 3, by: 'roll', moves: [1, 2] }], { holes: HOLES });
+  /** Two rooms and a cell between them, a die pushed two cells: the board of a place of the game, where a line is seldom free for long. */
+  const NARROW_CUT = place(83, 5, [2], [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'link', face: 2, by: 'push', moves: [2, 2] }], { holes: cutFrom(['.....', '##.##', '#####', '##.##', '.....']) });
+  const cut = (of: Recipe): Set<string> => new Set(of.holes!.map(([x, z]) => `${x},${z}`));
+  /** A cell of the board: on the square, and not cut out. */
+  const there = (of: Recipe, x: number, z: number): boolean => x >= 0 && z >= 0 && x < of.size && z < of.size && !cut(of).has(`${x},${z}`);
+
+  it('has no die on a cut-out cell, and does not start the player on one', () => {
+    for (const of of [PUSHED_CUT, ROLLED_CUT, NARROW_CUT]) {
+      const laid = boards(of);
+      expect(laid.length, `place ${of.slot}`).toBeGreaterThan(0);
+      for (const { seed, layout } of laid) {
+        const what = `place ${of.slot}, seed ${seed}`;
+        for (const die of layout.dice) expect(there(of, die.x, die.z), `${what}: a die at ${die.x},${die.z}`).toBe(true);
+        expect(there(of, layout.start.x, layout.start.z), what).toBe(true);
+        expect(at(layout, layout.start.x, layout.start.z), what).toBeDefined();
+        expect(layout.dice, what).toHaveLength(asked(of));
+        expect(new Set(layout.dice.map((die) => `${die.x},${die.z}`)).size, what).toBe(layout.dice.length);
+      }
+    }
+  });
+
+  it('slides a die that is pushed home to where the cell behind it is there and free: the player does not push from a cut-out cell', () => {
+    const { size } = PUSHED_CUT;
+    const free = (layout: LevelLayout, x: number, z: number): boolean => there(PUSHED_CUT, x, z) && !at(layout, x, z);
+    const laid = boards(PUSHED_CUT);
+    expect(laid.length).toBeGreaterThan(0);
+    for (const { seed, layout } of laid) {
+      const fives = showing(layout, 5);
+      expect(fives, `seed ${seed}`).toHaveLength(5);
+      // One of the 5s makes the five a combo when it is pushed a cell on: onto a cell of the board, from a cell of the board.
+      const home = fives.some((die) =>
+        DIRS.some((dir) => {
+          const { dx, dz } = DELTA[dir];
+          if (!free(layout, die.x + dx, die.z + dz) || !free(layout, die.x - dx, die.z - dz)) return false;
+          const moved = fives.map((other) => (other === die ? { ...other, x: die.x + dx, z: die.z + dz } : other));
+          return hasReadyGroup(tops(size, moved), size);
+        }),
+      );
+      expect(home, `seed ${seed}`).toBe(true);
+    }
+  });
+
+  it('is a board the rules take, and the way the solver finds on it keeps every die on the cells that are there', () => {
+    let solved = 0;
+    let pushed = 0;
+    for (const of of [PUSHED_CUT, NARROW_CUT]) {
+      for (const { seed, layout } of boards(of, 40)) {
+        const what = `place ${of.slot}, seed ${seed}`;
+        const level = levelOf(of, seed, layout);
+        // The run turns away a die on a cell that is not there, and a board in two parts.
+        let state = createRun({ seed: level.seed, config: defaultConfig(), level });
+        const { solution } = solveLevel(level, { maxMoves: 4 });
+        // A board laid from a route is not promised a way: only that what is cleared is cleared on the board.
+        if (!solution) continue;
+        solved++;
+        if (solution.moves.some((move) => move.push)) pushed++;
+        for (const move of solution.moves) {
+          // A die is pushed by a player who stands behind it: on the floor, on a cell of the board.
+          if (move.push) expect(there(of, move.x - DELTA[move.dir].dx, move.z - DELTA[move.dir].dz), `${what}: ${moveText(move)}`).toBe(true);
+          expect(there(of, move.x + DELTA[move.dir].dx, move.z + DELTA[move.dir].dz), `${what}: ${moveText(move)}`).toBe(true);
+          state = playMove(state, move);
+          for (const cube of state.cubes) expect(isCell(state, cube.x, cube.z), `${what}: ${moveText(move)}`).toBe(true);
+          expect(isCell(state, state.player.x, state.player.z), `${what}: ${moveText(move)}`).toBe(true);
+        }
+        expect(state.endReason, what).toBe('passed');
+      }
+    }
+    // Were no board cleared, nothing above would have been asked.
+    expect(solved).toBeGreaterThan(0);
+    expect(pushed).toBeGreaterThan(0);
+  }, 60_000);
+
+  it('is the board the seeds above thirty thousand give, its level with the cells cut out', () => {
+    const [{ seed, layout }] = boards(ROLLED_CUT);
+    const level = candidate(ROLLED_CUT, FROM_ROUTE + seed)!;
+    expect(level).toMatchObject({ seed: FROM_ROUTE + seed, size: 5, layout });
+    expect(level.holes).toEqual(HOLES.map(([x, z]) => ({ x, z })));
+  });
+});
+
 describe('the routes of the places of the game', () => {
   /** Seeds every place is tried with: the tightest of them, seven dice on nine cells, lays a board from one seed in fifteen or so. */
   const SEEDS = 60;
@@ -209,6 +297,7 @@ describe('the routes of the places of the game', () => {
     for (const of of PLACES) {
       const swept = of.scenes!.some((scene) => scene.event === 'ones');
       const laid = boards(of, SEEDS);
+      const cut = cutOut(of);
       // A route that cannot be laid gives its place no board at all.
       expect(laid.length, of.id).toBeGreaterThan(0);
       for (const { seed, layout } of laid) {
@@ -220,8 +309,10 @@ describe('the routes of the places of the game', () => {
         if (!swept) expect(showing(layout, 1), what).toHaveLength(0);
         if (of.compact) expect(islandsOf(levelOf(of, seed, layout)), what).toBe(1);
         expect(at(layout, layout.start.x, layout.start.z), what).toBeDefined();
+        // On a board that is not a square the dice stand on the cells that are there.
+        for (const die of layout.dice) expect(cut.has(die.z * of.size + die.x), `${what}: a die at ${die.x},${die.z}`).toBe(false);
       }
     }
-    // Twenty places, sixty seeds each, and a seed of a crowded board is tried sixty times before it gives up.
-  }, 30_000);
+    // Thirty places, sixty seeds each, and a seed of a crowded board is tried sixty times before it gives up.
+  }, 60_000);
 });

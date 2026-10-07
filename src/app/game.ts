@@ -358,7 +358,7 @@ export class Game {
   /** What comes from the other side: a transmission in a window of the program, over the board. */
   private readonly signal = new SignalPlayer(this.display, this.shell.values, this.world);
   /** A board is built for a size and kept: puzzles come in several. */
-  private readonly views = new Map<number, BoardView>();
+  private readonly views = new Map<string, BoardView>();
   /** Boxes of the page that the canvas draws into: the readings, the board, the buttons. */
   private readonly header: HTMLElement;
   private readonly stage: HTMLElement;
@@ -716,12 +716,16 @@ export class Game {
     return this.recordKey(this.state.mode === 'timed' ? 'timed' : 'endless');
   }
 
-  /** The board of the given size, built on first use. All of them share a layer; only the one in use is drawn. */
-  private useView(size: number): BoardView {
-    let view = this.views.get(size);
+  /**
+   * The board of the given size, built on first use; a level with cells cut out of its board has
+   * a board of its own shape. All of them share a layer; only the one in use is drawn.
+   */
+  private useView(size: number, holes: readonly { x: number; z: number }[] = []): BoardView {
+    const shape = `${size}:${holes.map(({ x, z }) => `${x},${z}`).join(' ')}`;
+    let view = this.views.get(shape);
     if (!view) {
-      view = new BoardView(this.stage, this.world, this.look, size, this.settings.camera);
-      this.views.set(size, view);
+      view = new BoardView(this.stage, this.world, this.look, size, this.settings.camera, holes);
+      this.views.set(shape, view);
     }
     return view;
   }
@@ -781,7 +785,7 @@ export class Game {
     this.leaveRun('restart');
     this.tally.reset();
     this.runner = new Runner(state);
-    this.view = this.useView(state.config.size);
+    this.view = this.useView(state.config.size, state.levelRun?.spec.holes);
     this.applyCamera();
     this.history = [];
     this.beforeCommand = null;

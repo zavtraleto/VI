@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { levelId } from './generate';
-import { CHAPTERS, PLACES, boundsOf, type Recipe, type Scene } from './recipes';
+import { CHAPTERS, PLACES, boundsOf, cutFrom, type Recipe, type Scene } from './recipes';
 
 /** Dice a scene puts on the board: a combo of as many as its face has pips unless it says, a link of one, the 1 that is brought and the 1s that wait for it. */
 function diceOf(scene: Scene, place: Recipe): number {
@@ -9,6 +9,14 @@ function diceOf(scene: Scene, place: Recipe): number {
 }
 const scenesOf = (place: Recipe): readonly Scene[] => place.scenes ?? [];
 const name = (index: number): string => `P${String(index + 1).padStart(2, '0')}`;
+/** The cells a place cuts out of its square, and the cells its board has: the square without them. */
+const holesOf = (place: Recipe): readonly (readonly [number, number])[] => place.holes ?? [];
+const cellsOf = (place: Recipe): number => place.size * place.size - holesOf(place).length;
+/** The places on square boards, and those on boards of other shapes: the first batch and the second. */
+const SQUARE = PLACES.filter((place) => holesOf(place).length === 0);
+const UNUSUAL = PLACES.filter((place) => holesOf(place).length > 0);
+/** The events of a route and what each is made with, in their order: `combo roll, link push`. */
+const eventsOf = (place: Recipe): string => scenesOf(place).map((scene) => `${scene.event} ${scene.by}`).join(', ');
 
 describe('the chapters of the levels', () => {
   it('are one: the probe', () => {
@@ -21,11 +29,15 @@ describe('the chapters of the levels', () => {
 });
 
 describe('the places of the probe', () => {
-  it('are twenty, named and numbered in their order, all of the one chapter', () => {
-    expect(PLACES).toHaveLength(20);
+  it('are thirty, named and numbered in their order, all of the one chapter: twenty on square boards, then ten on boards with cells cut out', () => {
+    expect(PLACES).toHaveLength(30);
     expect(PLACES.map(levelId)).toEqual(PLACES.map((_, index) => name(index)));
     expect(PLACES.map((place) => place.slot)).toEqual(PLACES.map((_, index) => index + 1));
     for (const place of PLACES) expect(place.chapter, place.id).toBe(0);
+    // The two batches do not mix: the levels that were published keep their numbers.
+    expect(PLACES.slice(0, 20)).toEqual(SQUARE);
+    expect(PLACES.slice(20)).toEqual(UNUSUAL);
+    expect(UNUSUAL).toHaveLength(10);
   });
 
   it('say what the player is to feel, each in its own words', () => {
@@ -73,11 +85,12 @@ describe('the places of the probe', () => {
       const laid = scenesOf(place).reduce((sum, scene) => sum + diceOf(scene, place), 0);
       expect(laid, place.id).toBeGreaterThanOrEqual(place.dice);
       expect(laid, place.id).toBeLessThanOrEqual(place.dice + (place.more ?? 0));
-      expect(place.size * place.size - laid, place.id).toBeGreaterThanOrEqual(1);
+      // A cell that is cut out is no room: the cells of a board are those of its square that are there.
+      expect(cellsOf(place) - laid, place.id).toBeGreaterThanOrEqual(1);
       // The free cells a place asks for are those its dice leave.
       if (place.room) {
-        expect(place.size * place.size - laid, place.id).toBeGreaterThanOrEqual(place.room[0]);
-        expect(place.size * place.size - laid, place.id).toBeLessThanOrEqual(place.room[1]);
+        expect(cellsOf(place) - laid, place.id).toBeGreaterThanOrEqual(place.room[0]);
+        expect(cellsOf(place) - laid, place.id).toBeLessThanOrEqual(place.room[1]);
       }
     }
   });
@@ -137,6 +150,78 @@ describe('the places of the probe', () => {
           if (scene.event === 'combo') expect(scene.loose, place.id).toBe(diceOf(scene, place) - 1);
         }
       }
+    }
+  });
+});
+
+describe('the cells cut out of a board, read off its picture', () => {
+  it('are the signs that are not `#`, each as its x and z, a row of the picture a row of the board from the north', () => {
+    expect(cutFrom(['###', '###', '###'])).toEqual([]);
+    expect(cutFrom(['#.#', '###', '..#'])).toEqual([[1, 0], [0, 2], [1, 2]]);
+    // The first of a pair is the place in the row, the second the row.
+    expect(cutFrom(['##', '#.'])).toEqual([[1, 1]]);
+    expect(cutFrom(['##.', '###'])).toEqual([[2, 0]]);
+  });
+});
+
+describe('the places on boards that are not squares', () => {
+  it('cut out cells of their own square, none of them twice', () => {
+    for (const place of UNUSUAL) {
+      for (const [x, z] of holesOf(place)) {
+        expect(Number.isInteger(x) && Number.isInteger(z), place.id).toBe(true);
+        expect(x >= 0 && z >= 0 && x < place.size && z < place.size, `${place.id}: ${x},${z}`).toBe(true);
+      }
+      expect(new Set(holesOf(place).map(([x, z]) => `${x},${z}`)).size, place.id).toBe(holesOf(place).length);
+    }
+  });
+
+  it('leave a board in one part: every cell is come to from every other by its sides', () => {
+    for (const place of UNUSUAL) {
+      const cut = new Set(holesOf(place).map(([x, z]) => `${x},${z}`));
+      const there = (x: number, z: number): boolean => x >= 0 && z >= 0 && x < place.size && z < place.size && !cut.has(`${x},${z}`);
+      const cells: [number, number][] = [];
+      for (let z = 0; z < place.size; z++) for (let x = 0; x < place.size; x++) if (there(x, z)) cells.push([x, z]);
+      const reached = new Set<string>([`${cells[0][0]},${cells[0][1]}`]);
+      const stack = [cells[0]];
+      while (stack.length > 0) {
+        const [x, z] = stack.pop()!;
+        for (const [dx, dz] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+          if (!there(x + dx, z + dz) || reached.has(`${x + dx},${z + dz}`)) continue;
+          reached.add(`${x + dx},${z + dz}`);
+          stack.push([x + dx, z + dz]);
+        }
+      }
+      expect(reached.size, place.id).toBe(cells.length);
+    }
+  });
+
+  it('are not squares made smaller: what is left of the square is not a whole square of fewer cells a side', () => {
+    // A board that is a whole smaller square would be a square place under another size.
+    for (const place of UNUSUAL) {
+      const cut = new Set(holesOf(place).map(([x, z]) => `${x},${z}`));
+      const xs: number[] = [];
+      const zs: number[] = [];
+      for (let z = 0; z < place.size; z++) {
+        for (let x = 0; x < place.size; x++) {
+          if (cut.has(`${x},${z}`)) continue;
+          xs.push(x);
+          zs.push(z);
+        }
+      }
+      const wide = Math.max(...xs) - Math.min(...xs) + 1;
+      const long = Math.max(...zs) - Math.min(...zs) + 1;
+      expect(wide === long && wide * long === cellsOf(place), place.id).toBe(false);
+    }
+  });
+
+  it('have room for their dice, with a free cell at the least', () => {
+    for (const place of UNUSUAL) expect(cellsOf(place), place.id).toBeGreaterThan(place.dice + (place.more ?? 0));
+  });
+
+  it('are each a form that has a place on a square board: the same events made the same way, a route of a kind that place allows', () => {
+    for (const place of UNUSUAL) {
+      const alike = SQUARE.filter((other) => eventsOf(other) === eventsOf(place) && other.kinds!.some((kind) => place.kinds!.includes(kind)));
+      expect(alike.length, `${place.id}: ${eventsOf(place)}`).toBeGreaterThan(0);
     }
   });
 });

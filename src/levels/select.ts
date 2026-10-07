@@ -124,7 +124,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
   if (recipe.under === true && underOf(board) === 0) return no('no die with a working face at the bottom');
   if (recipe.under === false && underOf(board) > 0) return no('a die with a working face at the bottom');
   const laid = board.layout!.dice;
-  if (recipe.room && !within(board.size * board.size - laid.length, recipe.room)) return no(`free cells not ${range(recipe.room)}`);
+  if (recipe.room && !within(board.size * board.size - (board.holes?.length ?? 0) - laid.length, recipe.room)) return no(`free cells not ${range(recipe.room)}`);
   if (recipe.blind && laid.some((die) => board.faces?.includes(die.top))) return no('a die starts showing a face that works');
   if (recipe.underShare !== undefined && underOf(board) < recipe.underShare * laid.length - 1e-9) return no('too few dice with a working face at the bottom');
   if (recipe.islands !== undefined && islandsOf(board) < recipe.islands) return no(`fewer clusters than ${recipe.islands}`);
@@ -391,6 +391,7 @@ export function levelSource(spec: LevelSpec): string {
     ...(spec.chapter !== undefined ? [`chapter: ${spec.chapter}`] : []),
     `seed: ${spec.seed}`,
     `size: ${spec.size}`,
+    ...(spec.holes ? [`holes: [${spec.holes.map((cell) => `{ x: ${cell.x}, z: ${cell.z} }`).join(', ')}]`] : []),
     `values: [${spec.values.join(', ')}]`,
     `norm: ${spec.norm}`,
     `arrival: 'none'`,

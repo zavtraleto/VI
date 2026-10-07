@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { packRun } from '../app/savedRun';
 import { RunTally } from '../app/telemetry';
+import { NO_CELL, cellIndex, isCell } from '../rules/board';
 import { defaultConfig } from '../rules/config';
 import { scoreOf } from '../rules/levelScore';
-import { moveOf, playMove, tryWay } from '../rules/levelSolver';
+import { moveOf, moveText, movesAt, playMove, tryWay } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
@@ -28,6 +29,11 @@ const placeOf = (spec: LevelSpec): Recipe | undefined => PLACES.find((place) => 
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 const ALL: readonly LevelSpec[] = [...LEVELS, ...SPARES];
 
+/** The cells cut out of the board of a level, written out and in order. */
+const cutOf = (spec: LevelSpec): string[] => (spec.holes ?? []).map((cell) => `${cell.x},${cell.z}`).sort();
+/** The levels and the boards in reserve whose boards are not squares. */
+const CUT: readonly LevelSpec[] = ALL.filter((level) => (level.holes?.length ?? 0) > 0);
+
 const within = (value: number, [from, to]: readonly [number, number]): boolean => value >= from - 1e-9 && value <= to + 1e-9;
 const range = ([from, to]: readonly [number, number]): string => (from === to ? String(from) : `${from}-${to}`);
 
@@ -42,7 +48,8 @@ function offPlace(level: LevelSpec, place: Recipe): string[] {
   };
   // The board as it lies.
   const dice = level.layout!.dice;
-  const free = level.size * level.size - dice.length;
+  // A cell that is cut out of the board is not a free one.
+  const free = level.size * level.size - (level.holes?.length ?? 0) - dice.length;
   if (place.room) ask(within(free, place.room), `${free} free cells, not ${range(place.room)}`);
   if (place.blind) ask(!dice.some((die) => level.faces?.includes(die.top)), 'a die starts showing a face that works');
   if (place.underShare !== undefined) ask(underOf(level) >= place.underShare * dice.length - 1e-9, `${underOf(level)} dice with a working face at the bottom`);
@@ -77,9 +84,14 @@ function offPlace(level: LevelSpec, place: Recipe): string[] {
 }
 
 describe('the levels of the game', () => {
-  it('are the probe: twenty, a level for every place, named as the places are and in their order', () => {
+  it('are the probe: thirty, a level for every place, named as the places are and in their order', () => {
     expect(LEVELS.map((level) => level.id)).toEqual(PLACES.map(levelId));
-    expect(LEVELS.map((level) => level.id)).toEqual(Array.from({ length: 20 }, (_, index) => `P${String(index + 1).padStart(2, '0')}`));
+    expect(LEVELS.map((level) => level.id)).toEqual(Array.from({ length: 30 }, (_, index) => `P${String(index + 1).padStart(2, '0')}`));
+  });
+
+  it('are twenty on square boards, and after them ten on boards with cells cut out', () => {
+    expect(LEVELS.slice(0, 20).filter((level) => level.holes !== undefined).map((level) => level.id)).toEqual([]);
+    expect(LEVELS.slice(20).filter((level) => (level.holes?.length ?? 0) === 0).map((level) => level.id)).toEqual([]);
   });
 
   it('keep in reserve boards of those places, three to a place at the most', () => {
@@ -135,8 +147,12 @@ describe('the levels of the game', () => {
       const place = placeOf(level);
       expect(place, level.id).toBeDefined();
       if (!place) continue;
+      // The size is that of the square a board is cut from: three cells a side to five.
       expect(level.size, level.id).toBe(place.size);
       expect([3, 4, 5], level.id).toContain(level.size);
+      // And the board is the board of the place: the same cells cut out, or none.
+      expect(cutOf(level), level.id).toEqual((place.holes ?? []).map(([x, z]) => `${x},${z}`).sort());
+      if (!place.holes) expect(level.holes, level.id).toBeUndefined();
       expect(level.norm, level.id).toBeGreaterThanOrEqual(place.dice);
       expect(level.norm, level.id).toBeLessThanOrEqual(place.dice + (place.more ?? 0));
       expect(within(level.par ?? 0, place.par), `${level.id}: ${level.par} moves, not ${range(place.par)}`).toBe(true);
@@ -163,6 +179,41 @@ describe('the levels of the game', () => {
       const { state } = tryWay(level, wayOf(level));
       expect(state.endReason, level.id).toBe('passed');
       expect(state.levelRun!.moves, level.id).toBe(level.par);
+    }
+  });
+
+  it('have, where cells are cut out, every die and the start on a cell that is there, and a board in one part', () => {
+    expect(CUT.length).toBeGreaterThanOrEqual(10);
+    for (const level of CUT) {
+      const cut = new Set(cutOf(level));
+      // No cell is cut out twice, and none off the square.
+      expect(cut.size, level.id).toBe(level.holes!.length);
+      for (const { x, z } of level.holes!) expect(x >= 0 && z >= 0 && x < level.size && z < level.size, `${level.id}: ${x},${z}`).toBe(true);
+      for (const die of level.layout!.dice) expect(cut.has(`${die.x},${die.z}`), `${level.id}: a die at ${die.x},${die.z}`).toBe(false);
+      const { start } = level.layout!;
+      expect(cut.has(`${start.x},${start.z}`), `${level.id}: the start`).toBe(false);
+      // The run is the judge of the rest: it takes no board in two parts, and marks the cells that are not there.
+      const state = createRun({ seed: level.seed, config: defaultConfig(), level });
+      for (let z = 0; z < level.size; z++) {
+        for (let x = 0; x < level.size; x++) expect(isCell(state, x, z), `${level.id}: ${x},${z}`).toBe(!cut.has(`${x},${z}`));
+      }
+    }
+  });
+
+  it('keep ways that never bring a die or the player to a cell that is cut out', () => {
+    for (const level of CUT) {
+      let state = createRun({ seed: level.seed, config: defaultConfig(), level });
+      for (const [index, move] of wayOf(level).entries()) {
+        const what = `${level.id}, seed ${level.seed}, move ${index + 1}`;
+        // A move of the way is one the rules offer on the board as it stands: nothing is forced through.
+        expect(movesAt(state).map(moveText), what).toContain(moveText(move));
+        state = playMove(state, move);
+        for (const cube of state.cubes) expect(isCell(state, cube.x, cube.z), `${what}: a die at ${cube.x},${cube.z}`).toBe(true);
+        expect(isCell(state, state.player.x, state.player.z), `${what}: the player`).toBe(true);
+        // The cells stay cut out all the way.
+        for (const { x, z } of level.holes!) expect(state.grid[cellIndex(level.size, x, z)], what).toBe(NO_CELL);
+      }
+      expect(state.endReason, level.id).toBe('passed');
     }
   });
 

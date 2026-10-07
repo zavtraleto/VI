@@ -1,4 +1,4 @@
-import { DELTA, DIRS, cellIndex, cubeAt } from './board';
+import { DELTA, DIRS, NO_CELL, cellIndex, cubeAt } from './board';
 import { defaultConfig } from './config';
 import { floorLost, levelStuck, worldRuns } from './level';
 import { ALL_ORIENTATIONS } from './orientation';
@@ -187,7 +187,8 @@ function runOf(base: RunState, name: string, dice: number, place: number): RunSt
   const { size } = base.config;
   const cells = size * size;
   const cubes: Cube[] = [];
-  const grid = new Array<number>(cells).fill(0);
+  // The cells cut out of the board are the level's and not the dice's: they are kept as they were.
+  const grid: number[] = base.grid.map((id) => (id === NO_CELL ? NO_CELL : 0));
   const reactions: Reaction[] = [];
   for (let i = 0; i < dice; i++) {
     const at = i * DIE_CHARS;

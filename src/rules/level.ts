@@ -52,19 +52,46 @@ export const LEVEL_UNDOS = 3;
 
 /**
  * A board given die by die has to be a board: every die on a cell of its own, as many of them
- * as the level says, and the player starting on one. Anything else is a mistake in the level,
- * and it says so.
+ * as the level says, and the player starting on one. Where cells are cut out of it, each is a
+ * cell of the square, cut out once, no die stands on one, and what is left holds together by
+ * its sides: a board in two parts is two boards. Anything else is a mistake in the level, and
+ * it says so.
  */
 function checkLayout(spec: LevelSpec): void {
-  const { layout } = spec;
-  if (!layout) return;
   const wrong = (what: string): never => {
     throw new Error(`level ${spec.id}: ${what}`);
   };
+  const { size } = spec;
+  const holes = new Set<string>();
+  for (const { x, z } of spec.holes ?? []) {
+    if (!inBounds(size, x, z)) wrong(`a cell cut out that is off the board at ${x},${z}`);
+    if (holes.has(`${x},${z}`)) wrong(`a cell cut out twice at ${x},${z}`);
+    holes.add(`${x},${z}`);
+  }
+  if (holes.size > 0) {
+    const cells: { x: number; z: number }[] = [];
+    for (let z = 0; z < size; z++) for (let x = 0; x < size; x++) if (!holes.has(`${x},${z}`)) cells.push({ x, z });
+    if (cells.length === 0) wrong('every cell is cut out');
+    const reached = new Set([`${cells[0].x},${cells[0].z}`]);
+    const queue = [cells[0]];
+    for (let at = 0; at < queue.length; at++) {
+      for (const dir of DIRS) {
+        const x = queue[at].x + DELTA[dir].dx;
+        const z = queue[at].z + DELTA[dir].dz;
+        if (!inBounds(size, x, z) || holes.has(`${x},${z}`) || reached.has(`${x},${z}`)) continue;
+        reached.add(`${x},${z}`);
+        queue.push({ x, z });
+      }
+    }
+    if (reached.size !== cells.length) wrong('the board is in two parts');
+  }
+  const { layout } = spec;
+  if (!layout) return;
   if (layout.dice.length !== spec.norm) wrong(`${layout.dice.length} dice laid, ${spec.norm} named`);
   const taken = new Set<string>();
   for (const { x, z } of layout.dice) {
-    if (!inBounds(spec.size, x, z)) wrong(`a die off the board at ${x},${z}`);
+    if (!inBounds(size, x, z)) wrong(`a die off the board at ${x},${z}`);
+    if (holes.has(`${x},${z}`)) wrong(`a die on a cell that is cut out at ${x},${z}`);
     if (taken.has(`${x},${z}`)) wrong(`two dice at ${x},${z}`);
     taken.add(`${x},${z}`);
   }

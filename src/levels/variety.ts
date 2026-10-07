@@ -50,12 +50,20 @@ function written(cells: readonly (readonly [number, number, number])[]): string 
     .join(' ');
 }
 
-/** The least of the eight writings of the dice of a board: `face` gives what is written of a die besides its cell. */
+/** What a cell that is cut out of a board is written as, among its dice: a face no die has. */
+const CUT = 99;
+
+/**
+ * The least of the eight writings of the dice of a board: `face` gives what is written of a die
+ * besides its cell. The cells cut out of the board are written with them: a board of another
+ * shape is another board, however its dice stand.
+ */
 function least(spec: LevelSpec, face: (top: number) => number): string {
   const dice = spec.layout?.dice ?? [];
   if (dice.length === 0) return '';
+  const holes = spec.holes ?? [];
   return turns(spec.size)
-    .map((turn) => written(dice.map((die) => [...turn([die.x, die.z]), face(die.top)] as const)))
+    .map((turn) => written([...dice.map((die) => [...turn([die.x, die.z]), face(die.top)] as const), ...holes.map((cell) => [...turn([cell.x, cell.z]), CUT] as const)]))
     .sort()[0];
 }
 
@@ -75,7 +83,12 @@ export function sameBoard(a: LevelSpec, b: LevelSpec): boolean {
     const { start } = spec.layout!;
     // The die of the start is written as its face and ten more, so that it is told from the others.
     return turns(spec.size)
-      .map((turn) => written(spec.layout!.dice.map((die) => [...turn([die.x, die.z]), die.top + (die.x === start.x && die.z === start.z ? 10 : 0)] as const)))
+      .map((turn) =>
+        written([
+          ...spec.layout!.dice.map((die) => [...turn([die.x, die.z]), die.top + (die.x === start.x && die.z === start.z ? 10 : 0)] as const),
+          ...(spec.holes ?? []).map((cell) => [...turn([cell.x, cell.z]), CUT] as const),
+        ]),
+      )
       .sort()[0];
   };
   return marked(a) === marked(b);

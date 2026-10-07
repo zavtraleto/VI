@@ -198,6 +198,8 @@ export interface GridLayout {
   cells: number;
   /** Width of the margin around the cells that the picture also covers, in cells. */
   rim: number;
+  /** Cells cut out of the board of a level: nothing is drawn in them, and the heavier line goes round what is left. */
+  holes?: readonly { x: number; z: number }[];
 }
 
 function gridMetrics(size: number, layout: GridLayout): { cell: number; origin: number } {
@@ -205,9 +207,59 @@ function gridMetrics(size: number, layout: GridLayout): { cell: number; origin: 
   return { cell, origin: cell * layout.rim };
 }
 
+/**
+ * The surface of a board with cells cut out of it: a line between two cells that are both there,
+ * and the heavier one along every side of a cell with no cell beyond it. This is a stand-in
+ * until the look of a cell that is not there is given: it is simply not in the grid.
+ */
+function cutGrid(ctx: CanvasRenderingContext2D, size: number, layout: GridLayout, line: number, edge: number): void {
+  const { cell, origin } = gridMetrics(size, layout);
+  const { cells } = layout;
+  const cut = new Set((layout.holes ?? []).map(({ x, z }) => z * cells + x));
+  const there = (x: number, z: number): boolean => x >= 0 && z >= 0 && x < cells && z < cells && !cut.has(z * cells + x);
+  const at = (i: number): number => origin + i * cell;
+  /** The sides of the cells that are there, towards the east and the south and, for the rim, all four: those with a cell beyond them, or those with none. */
+  const sides = (inner: boolean): void => {
+    ctx.beginPath();
+    for (let z = 0; z < cells; z++) {
+      for (let x = 0; x < cells; x++) {
+        if (!there(x, z)) continue;
+        if (there(x + 1, z) === inner) {
+          ctx.moveTo(at(x + 1), at(z));
+          ctx.lineTo(at(x + 1), at(z + 1));
+        }
+        if (there(x, z + 1) === inner) {
+          ctx.moveTo(at(x), at(z + 1));
+          ctx.lineTo(at(x + 1), at(z + 1));
+        }
+        if (inner) continue;
+        if (!there(x - 1, z)) {
+          ctx.moveTo(at(x), at(z));
+          ctx.lineTo(at(x), at(z + 1));
+        }
+        if (!there(x, z - 1)) {
+          ctx.moveTo(at(x), at(z));
+          ctx.lineTo(at(x + 1), at(z));
+        }
+      }
+    }
+    ctx.stroke();
+  };
+  ctx.strokeStyle = '#fff';
+  ctx.lineCap = 'square';
+  ctx.lineWidth = Math.max(1, line * cell);
+  sides(true);
+  ctx.lineWidth = Math.max(1, edge * cell);
+  sides(false);
+}
+
 /** The surface of the board: lines between the cells and a heavier one around them. Widths are in cells. */
 export function gridTexture(layout: GridLayout, line: number, edge: number): THREE.CanvasTexture {
   return square(1024, (ctx, size) => {
+    if (layout.holes && layout.holes.length > 0) {
+      cutGrid(ctx, size, layout, line, edge);
+      return;
+    }
     const { cell, origin } = gridMetrics(size, layout);
     const end = origin + cell * layout.cells;
     ctx.strokeStyle = '#fff';
