@@ -1,8 +1,8 @@
 import { DELTA, DIRS, cellIndex, cubeAt } from './board';
 import { defaultConfig } from './config';
-import { worldRuns } from './level';
+import { floorLost, levelStuck, worldRuns } from './level';
 import { ALL_ORIENTATIONS } from './orientation';
-import { scan } from './reach';
+import { scan, type Ban } from './reach';
 import { createRun, step } from './sim';
 import type { Cube, Dir, LevelSpec, Orientation, Reaction, RulesConfig, RunState, Technique } from './types';
 
@@ -42,7 +42,7 @@ export interface SolveOptions {
   /** Moves a way may take. */
   maxMoves?: number;
   /** What a way must do without. */
-  ban?: readonly Technique[];
+  ban?: readonly Ban[];
   /** The first move is made with the die the player starts on (`own`), or with any other (`other`). */
   first?: 'own' | 'other';
   /** The config the board is played on; the game's own when left out. */
@@ -62,7 +62,7 @@ export const SOLVER_MAX_STATES = 3_000_000;
 const TECHNIQUES: readonly Technique[] = ['link', 'glass', 'floor', 'ones'];
 
 /** Every roll and push the player can get to by free steps, from where the run stands. */
-export function movesAt(state: RunState, ban?: readonly Technique[]): SolverMove[] {
+export function movesAt(state: RunState, ban?: readonly Ban[]): SolverMove[] {
   return scan(state, ban).moves.map(({ x, z, dir, push }) => ({ x, z, dir, push }));
 }
 
@@ -86,7 +86,7 @@ function copyRun(state: RunState): RunState {
 }
 
 /** What a move set off, read from the events of its beat. */
-interface Outcome {
+export interface Outcome {
   /** A group was made, a die joined one, or the 1s went. */
   cleared: boolean;
   link: boolean;
@@ -130,6 +130,13 @@ export function playMove(state: RunState, move: SolverMove): RunState {
   const next = copyRun(state);
   make(next, move);
   return next;
+}
+
+/** Plays a move as `playMove` does, and says what it set off. */
+export function tellMove(state: RunState, move: SolverMove): { state: RunState; outcome: Outcome } {
+  const next = copyRun(state);
+  const outcome = make(next, move);
+  return { state: next, outcome };
 }
 
 /** Index of an orientation among the twenty-four, by the two faces that fix it. */
@@ -431,6 +438,100 @@ function search(root: RunState, id: string, opts: SolveOptions, check: (moves: S
     front = next;
   }
   return { solution: null, exhausted: true, states: seen.size };
+}
+
+/** How a board ends for those who play it to measure it: cleared, a dead end by the count of dice, or a dead end of the floor. */
+export type BoardEnd = 'passed' | 'count' | 'floor';
+
+/** The boards a level can come to within so many moves, and the moves between them. */
+export interface Explored {
+  /** False where the search gave up before it had seen every board within its moves. */
+  complete: boolean;
+  /** Boards seen: the start is the first, and the cleared board, where one is come to, is one more entry after them. */
+  boards: number;
+  /** For every entry, the entries its moves lead to, each named once however many moves lead there. A board on the rim leads nowhere. */
+  next: number[][];
+  /** How an entry ends, where it does: nothing leads on from it. */
+  end: (BoardEnd | null)[];
+  /** Fewest moves from the start to every board. */
+  far: number[];
+}
+
+/** Boards a walk over a level sees before it gives up, unless told otherwise. */
+export const EXPLORE_MAX_STATES = 200_000;
+
+/**
+ * Walks the boards that can be come to from the run given in no more than `maxMoves` moves, by
+ * the search of the solver, and keeps what leads where. All the boards of a level are far too
+ * many to walk: a die rolled about with nothing going is a new board at every roll. A board is
+ * a dead end of the floor when the player is down on it with no way to clear it (`floorLost`)
+ * or has no move left on it at all; the rules of a level may not end it there yet, and those who
+ * measure a board do. All cleared boards are one entry.
+ */
+export function explore(state: RunState, opts: { maxMoves?: number; maxStates?: number; ban?: readonly Ban[] } = {}): Explored {
+  const run = state.levelRun;
+  if (!run) throw new Error('explore: not a level');
+  const { maxMoves = Infinity, maxStates = EXPLORE_MAX_STATES, ban = [] } = opts;
+  const noLink = ban.includes('link');
+  const noOnes = ban.includes('ones');
+  const root = copyRun(state);
+  root.levelRun = { ...root.levelRun!, spec: { ...run.spec, moves: 0 }, moves: 0 };
+
+  const index = new Map<string, number>();
+  const names: string[] = [];
+  const places: number[] = [];
+  const next: number[][] = [];
+  const end: (BoardEnd | null)[] = [];
+  const far: number[] = [];
+  let complete = true;
+  /** The entry of a board, new or seen before; -1 for a new one over the limit. */
+  const entryOf = (board: RunState, over: BoardEnd | null, moves: number): number => {
+    const name = nameOf(board, scan(board, ban).places);
+    const seen = index.get(name);
+    if (seen !== undefined) return seen;
+    if (index.size >= maxStates) return -1;
+    index.set(name, names.length);
+    names.push(name);
+    places.push(placeOf(board));
+    next.push([]);
+    end.push(over ?? (floorLost(board) ? 'floor' : null));
+    far.push(moves);
+    return names.length - 1;
+  };
+  entryOf(root, null, 0);
+  /** Boards a move clears. */
+  const clearing: number[] = [];
+  // Boards are named in the order they are come to, so this goes through them the nearest first.
+  for (let at = 0; at < names.length; at++) {
+    if (end[at] !== null || far[at] >= maxMoves) continue;
+    const board = runOf(root, names[at], diceIn(names[at], root), places[at]);
+    const moves = scan(board, ban).moves;
+    const leads = new Set<number>();
+    let cleared = false;
+    for (const move of moves) {
+      const after = copyRun(board);
+      const outcome = make(after, move);
+      if ((noLink && outcome.link) || (noOnes && outcome.ones)) continue;
+      if (after.endReason === 'passed') {
+        cleared = true;
+        continue;
+      }
+      const to = entryOf(after, after.over ? (levelStuck(after) ? 'count' : 'floor') : null, far[at] + 1);
+      if (to < 0) complete = false;
+      else leads.add(to);
+    }
+    next[at] = [...leads];
+    if (cleared) clearing.push(at);
+    // No move to make with dice still standing: nothing to roll, nothing to push, nothing to go up by.
+    else if (moves.length === 0) end[at] = 'floor';
+  }
+  const boards = names.length;
+  if (clearing.length > 0) {
+    next.push([]);
+    end.push('passed');
+    for (const at of clearing) next[at].push(boards);
+  }
+  return { complete, boards, next, end, far };
 }
 
 /** Dice in a name: what is left of it when the places of the player are taken off. */

@@ -1,5 +1,5 @@
-import { DELTA, DIRS, cubeAt, inBounds } from './board';
-import { canMove } from './reach';
+import { DELTA, DIRS, cellIndex, cubeAt, inBounds } from './board';
+import { canMove, scan } from './reach';
 import { faceWorks } from './reactions';
 import { refillLevel } from './spawn';
 import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from './types';
@@ -103,7 +103,7 @@ export function levelConfig(config: RulesConfig, spec: LevelSpec): RulesConfig {
     // An object of its own: the one it was given belongs to whoever made the run.
     experiments: {
       ...config.experiments,
-      floorClimb: true,
+      floorClimb: spec.climb !== false,
       dockSteps: spec.arrival !== 'none',
       soloOne: false,
       gentleStart: false,
@@ -178,6 +178,38 @@ export function levelStranded(state: RunState): boolean {
 }
 
 /** Dice the smallest group of a level takes: two where every face works, else the least of its faces that makes groups. */
+/**
+ * The player is on the floor with no move to make and dice still standing: nothing to push and
+ * nothing to go up by. Not a rule of a level yet: it ends nothing, and is asked by those who
+ * play a board to measure it.
+ */
+export function floorStuck(state: RunState): boolean {
+  const run = state.levelRun;
+  if (!run || run.spec.goal.kind !== 'clear' || state.player.level !== 'ground') return false;
+  if (state.cubes.some((cube) => cube.state === 'moving')) return false;
+  return standing(state) > 0 && !canMove(state);
+}
+
+/** The faces that make a combo where a level names none. */
+const EVERY_FACE: readonly number[] = [2, 3, 4, 5, 6];
+
+/**
+ * The player is on the floor, nothing is leaving, no step leads up onto a die, and for no
+ * working face do as many dice show it as its combo takes. A push turns no die, so the board
+ * cannot be cleared whatever is pushed where. Where a die that cannot be pushed is climbed the
+ * way up is there, and the answer is no. Not a rule of a level yet, as `floorStuck` is not.
+ */
+export function floorLost(state: RunState): boolean {
+  const run = state.levelRun;
+  if (!run || run.spec.goal.kind !== 'clear' || state.player.level !== 'ground') return false;
+  if (state.cubes.length === 0 || state.cubes.some((cube) => cube.state !== 'idle')) return false;
+  const { size } = state.config;
+  const { places } = scan(state);
+  if (state.cubes.some((cube) => places[cellIndex(size, cube.x, cube.z)])) return false;
+  const faces = run.spec.faces ?? EVERY_FACE;
+  return !faces.some((face) => face >= 2 && state.cubes.filter((cube) => cube.ori.top === face).length >= face);
+}
+
 export function smallestGroup(spec: Pick<LevelSpec, 'faces'>): number {
   const groups = (spec.faces ?? [2]).filter((face) => face >= 2);
   return groups.length > 0 ? Math.min(...groups) : Infinity;

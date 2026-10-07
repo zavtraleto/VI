@@ -427,6 +427,11 @@ export interface LevelSpec {
   chapter?: number;
   /** False where the player cannot step from the dice down to the floor. Left out, the floor is open. */
   floor?: boolean;
+  /**
+   * False where a die that cannot be pushed is not climbed from the floor: the only way up is a
+   * die that is leaving. Left out, it is climbed.
+   */
+  climb?: boolean;
   /** The level is played with a net: a hint for a player who wanders, and a dead end that takes the board back. */
   guard?: boolean;
   /** What the line of the level waits for: it goes out when this has happened; with `end`, it stays until the level is passed. A move, when left out. */

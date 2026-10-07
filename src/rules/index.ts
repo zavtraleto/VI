@@ -10,6 +10,8 @@ export {
   LEVEL_SINK_MOVES,
   LEVEL_UNDOS,
   chainWindows,
+  floorLost,
+  floorStuck,
   goalLines,
   goalOf,
   goalReached,

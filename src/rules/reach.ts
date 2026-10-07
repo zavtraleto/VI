@@ -11,6 +11,12 @@ import type { RunState, Technique } from './types';
  * The solver of levels searches by it, and the rules of a level ask it whether a move is left.
  */
 
+/**
+ * What a way can be made to do without: a technique, every push, or the way back up from the
+ * floor. The last two are parts of a route and not techniques a level is said to use.
+ */
+export type Ban = Technique | 'push' | 'up';
+
 /** A move the player can get to, and what making it leans on. */
 export interface Reachable {
   /** Cell of the die before the move, and the side it goes to. */
@@ -36,15 +42,18 @@ export interface Scan {
  * Walks the free steps from where the player stands, trying every step with the rules on the
  * board as it is. The dice are gone over first, the floor after them, so that a move is known
  * to need the floor only when there is no way to it without. With `ban`, steps to the floor and
- * pushes, or rolls over a die that is going, are left out.
+ * pushes, or rolls over a die that is going, are left out; `push` leaves out the pushes alone,
+ * and `up` the steps from the floor onto a die.
  */
-export function scan(state: RunState, ban: readonly Technique[] = []): Scan {
+export function scan(state: RunState, ban: readonly Ban[] = []): Scan {
   const { size } = state.config;
   const cells = size * size;
   const places = new Uint8Array(2 * cells);
   const moves: Reachable[] = [];
   const noFloor = ban.includes('floor');
   const noGlass = ban.includes('glass');
+  const noPush = ban.includes('push');
+  const noUp = ban.includes('up');
   const { x, z, level } = state.player;
   // The board is read and never written: only the player of this copy is moved about.
   const board: RunState = { ...state, player: { x, z, level } };
@@ -76,7 +85,7 @@ export function scan(state: RunState, ban: readonly Technique[] = []): Scan {
       if (kind === 'blocked') continue;
       if (kind === 'roll' || kind === 'push') {
         const push = kind === 'push';
-        if (push && noFloor) continue;
+        if (push && (noFloor || noPush)) continue;
         const glass = intent.over !== undefined;
         if (glass && noGlass) continue;
         const die = intent.cube!;
@@ -85,6 +94,8 @@ export function scan(state: RunState, ban: readonly Technique[] = []): Scan {
       }
       const down = kind === 'descend' || kind === 'walk';
       if (down && noFloor) continue;
+      // From the floor, a step that does not go along it goes up onto a die.
+      if (noUp && !up && !down) continue;
       const next = cellIndex(size, intent.tx, intent.tz) + (down ? cells : 0);
       if (places[next]) continue;
       places[next] = 1;

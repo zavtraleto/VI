@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from './config';
-import { moveOf, moveText, movesAt, playMove, replay, solveFrom, solveLevel, tryWay, type SolverMove } from './levelSolver';
+import { moveOf, moveText, movesAt, playMove, replay, solveFrom, solveLevel, tellMove, tryWay, type SolverMove } from './levelSolver';
+import { ALL_ORIENTATIONS } from './orientation';
 import { createRun } from './sim';
 import type { LevelSpec, PuzzleDie, RunState } from './types';
 
@@ -243,5 +244,76 @@ describe('the moves of a way played again', () => {
     expect(new Set(report.dice).size).toBe(3);
     // One roll of the die the player starts on is a move made in place.
     expect(tryWay(PAIR, [{ x: 2, z: 0, dir: 'W', push: false }]).inPlace).toEqual([true]);
+  });
+});
+
+/**
+ * Boards of the ladder with a strict floor: 2s work, a combo goes in two moves, and from the
+ * floor the only way up is a die that is leaving.
+ */
+function strict(dice: readonly PuzzleDie[]): LevelSpec {
+  return board(dice, { size: 5, values: [2], faces: [2], sinkMoves: 2, liftMoves: 1, climb: false });
+}
+/** A die with a 6 on top that shows a 2 when rolled to `side`: the 2 lies on the side it rolls away from. */
+function turns(x: number, z: number, side: 'east' | 'west'): PuzzleDie {
+  const from = side === 'east' ? 'west' : 'east';
+  const lie = ALL_ORIENTATIONS.find((o) => o.top === 6 && o[from] === 2)!;
+  return { x, z, top: 6, north: lie.north };
+}
+/**
+ * The player's die makes a pair in the corner. Two more 2s stand apart with a cell between
+ * them: no step leads to them over the dice, and a push from the floor brings them together.
+ */
+const PUSHED = strict([turns(2, 0, 'west'), { x: 0, z: 0, top: 2, north: 1 }, { x: 3, z: 2, top: 2, north: 1 }, { x: 1, z: 2, top: 2, north: 1 }]);
+/** The same, and a fifth die beside the pair the push makes: it is rolled into it from on top, so the player has to come up again. */
+const DOWN_AND_UP = strict([...PUSHED.layout!.dice, turns(1, 3, 'east')]);
+
+describe('a way with a part of its route taken away', () => {
+  it('finds the push from the floor, and no way of that length without one', () => {
+    const { solution } = solveLevel(PUSHED);
+    // Either of the two dice is pushed to the other: the board is the same both ways.
+    expect(solution!.moves.map(moveText)[0]).toBe('2,0,W');
+    expect(solution!.moves.map((move) => move.push)).toEqual([false, true]);
+    const without = solveLevel(PUSHED, { ban: ['push'], maxMoves: 3 });
+    expect(without).toMatchObject({ solution: null, exhausted: true });
+  });
+
+  it('leaves out every push, but not the floor, when pushes are banned', () => {
+    const made = playMove(start(PUSHED), moveOf('2,0,W'));
+    expect(movesAt(made).map(moveText)).toContain('3,2,W,p');
+    expect(movesAt(made, ['push'])).toEqual([]);
+  });
+
+  it('goes down, pushes a combo together, comes up by it and ends on top; with no way up there is none', () => {
+    const { solution } = solveLevel(DOWN_AND_UP);
+    expect(solution!.moves.map(moveText)).toEqual(['2,0,W', '3,2,W,p', '1,3,E']);
+    expect(solveLevel(DOWN_AND_UP, { ban: ['up'], maxMoves: 4 })).toMatchObject({ solution: null, exhausted: true });
+  });
+
+  it('leaves out the steps up from the floor when the way up is banned', () => {
+    const pushed = playMove(playMove(start(DOWN_AND_UP), moveOf('2,0,W')), moveOf('3,2,W,p'));
+    expect(pushed.player.level).toBe('ground');
+    expect(movesAt(pushed).map(moveText)).toContain('1,3,E');
+    expect(movesAt(pushed, ['up']).map(moveText)).not.toContain('1,3,E');
+  });
+});
+
+describe('a move played and told', () => {
+  it('says what the move set off: a combo, a link, or nothing', () => {
+    const first = tellMove(start(DOWN_AND_UP), moveOf('2,0,W'));
+    expect(first.outcome).toEqual({ cleared: true, link: false, ones: false, values: [2] });
+    const pushed = tellMove(first.state, moveOf('3,2,W,p'));
+    expect(pushed.outcome).toMatchObject({ cleared: true, link: false });
+    const last = tellMove(pushed.state, moveOf('1,3,E'));
+    expect(last.outcome).toMatchObject({ cleared: true, link: true, values: [2] });
+    expect(last.state.endReason).toBe('passed');
+    expect(tellMove(start(DOWN_AND_UP), moveOf('2,0,S')).outcome).toEqual({ cleared: false, link: false, ones: false, values: [] });
+  });
+
+  it('leaves the run it was given alone', () => {
+    const before = start(PUSHED);
+    const same = JSON.stringify(before);
+    tellMove(before, moveOf('2,0,W'));
+    expect(JSON.stringify(before)).toBe(same);
   });
 });

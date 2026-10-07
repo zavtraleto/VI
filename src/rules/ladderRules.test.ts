@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DELTA, DIRS, cubeAt } from './board';
-import { chainWindows, levelStranded, levelStuck, shortGroups, smallestGroup } from './level';
+import { chainWindows, floorLost, floorStuck, levelStranded, levelStuck, shortGroups, smallestGroup } from './level';
 import { resolveMove } from './movement';
 import { previewMove } from './preview';
 import { act, levelRun, place, put, putOri } from './testkit';
@@ -234,5 +234,110 @@ describe('the floor beside a leaving combo', () => {
     const s = beside((board) => put(board, 4, 0, 4));
     expect(resolveMove(s, 'E').kind).toBe('climb');
     expect(resolveMove(s, 'W').kind).toBe('mount');
+  });
+});
+
+describe('a level where a die is not climbed from the floor', () => {
+  /** A board of the ladder with nothing on it and the player on its floor: 3s work, or what the spec says. */
+  function floor(spec: Partial<LevelSpec> = {}, at: [number, number] = [2, 2]): RunState {
+    const s = levelRun({ ...THREES, norm: 4, ...spec });
+    place(s, at[0], at[1], 'ground');
+    return s;
+  }
+
+  it('takes no step up onto a die that cannot be pushed: the edge behind it, or another die', () => {
+    const strict = floor({ climb: false }, [1, 0]);
+    put(strict, 0, 0, 3);
+    put(strict, 2, 0, 5);
+    put(strict, 3, 0, 4);
+    expect(resolveMove(strict, 'W').kind).toBe('blocked');
+    expect(resolveMove(strict, 'E').kind).toBe('blocked');
+    // Left as it is, a level lets the player up onto both.
+    const open = floor({}, [1, 0]);
+    put(open, 0, 0, 3);
+    put(open, 2, 0, 5);
+    put(open, 3, 0, 4);
+    expect(resolveMove(open, 'W').kind).toBe('climb');
+    expect(resolveMove(open, 'E').kind).toBe('climb');
+  });
+
+  it('still pushes a die with room behind it, and still goes up by a die that is leaving', () => {
+    const s = levelRun({ ...TWOS, norm: 6, climb: false });
+    put(s, 0, 0, 2);
+    putOri(s, 2, 0, { top: 6, east: 2 });
+    put(s, 3, 0, 5);
+    place(s, 2, 0, 'top');
+    act(s, 'W');
+    act(s, 'E');
+    expect(s.player.level).toBe('ground');
+    expect(resolveMove(s, 'E').kind).toBe('push');
+    expect(resolveMove(s, 'W').kind).toBe('mount');
+  });
+
+  it('is stuck on the floor with nothing to push and nothing to go up by', () => {
+    // Every die stands against the edge or another die on the side it would be pushed to.
+    const s = floor({ climb: false }, [1, 1]);
+    put(s, 0, 0, 3);
+    put(s, 1, 0, 3);
+    put(s, 0, 1, 5);
+    expect(floorStuck(s)).toBe(true);
+    // A die out in the open can be pushed.
+    put(s, 3, 1, 4);
+    expect(floorStuck(s)).toBe(false);
+  });
+
+  it('is not stuck where a die that cannot be pushed is climbed, nor up on the dice, nor on an empty board', () => {
+    const open = floor({}, [1, 1]);
+    put(open, 0, 0, 3);
+    put(open, 1, 0, 3);
+    put(open, 0, 1, 5);
+    expect(floorStuck(open)).toBe(false);
+    const up = floor({ climb: false }, [1, 1]);
+    put(up, 0, 0, 3);
+    put(up, 1, 0, 3);
+    place(up, 0, 0, 'top');
+    expect(floorStuck(up)).toBe(false);
+    expect(floorStuck(floor({ climb: false }))).toBe(false);
+  });
+
+  it('is lost on the floor when too few dice show a face that works: a push turns no die', () => {
+    // Two 3s and a 5 out in the open: they can be pushed about for ever, and never be three 3s.
+    const s = floor({ climb: false });
+    put(s, 1, 1, 3);
+    put(s, 3, 1, 3);
+    put(s, 3, 3, 5);
+    expect(floorStuck(s)).toBe(false);
+    expect(floorLost(s)).toBe(true);
+  });
+
+  it('is not lost while the faces are there to be pushed together', () => {
+    const s = floor({ climb: false });
+    put(s, 1, 1, 3);
+    put(s, 3, 1, 3);
+    put(s, 3, 3, 3);
+    expect(floorLost(s)).toBe(false);
+    // Of two faces that work, one is enough.
+    const two = floor({ ...TWOS, faces: [2, 3], climb: false });
+    put(two, 1, 1, 2);
+    put(two, 3, 1, 2);
+    put(two, 3, 3, 5);
+    expect(floorLost(two)).toBe(false);
+  });
+
+  it('is not lost while a die is leaving, where a die can be climbed, or up on the dice', () => {
+    const leaving = floor({ climb: false });
+    put(leaving, 1, 1, 3);
+    put(leaving, 3, 3, 5);
+    put(leaving, 0, 4, 3, 'sinking');
+    expect(floorLost(leaving)).toBe(false);
+    const open = floor({});
+    put(open, 0, 0, 3);
+    put(open, 3, 3, 5);
+    expect(floorLost(open)).toBe(false);
+    const up = floor({ climb: false });
+    put(up, 1, 1, 3);
+    put(up, 3, 3, 5);
+    place(up, 1, 1, 'top');
+    expect(floorLost(up)).toBe(false);
   });
 });
