@@ -14,7 +14,7 @@
 
 ### Вводный курс и уроки по главам
 
-Решения владельца от 6 октября 2026 и устройство — [спека](superpowers/specs/2026-10-06-vi-levels-onboarding-design.md); на чём они стоят — [исследование](VI_Levels_Onboarding_Research.md).
+Решения владельца от 6 октября 2026 и устройство — [спека](superpowers/specs/2026-10-06-vi-levels-onboarding-design.md); на чём они стоят — [исследование](VI_Levels_Onboarding_Research.md). Сводка: что решено о голосе текста и о темпе, что собрано, что слабо — [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md).
 
 | Шаг | Что | Состояние |
 |---|---|---|
