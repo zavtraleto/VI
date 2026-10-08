@@ -5,7 +5,7 @@ import { worldRuns } from '../rules/level';
 import { createRun, step } from '../rules/sim';
 import type { Dir, GameEvent, LevelSpec, RunState } from '../rules/types';
 import { wrapCaption } from '../signal/caption';
-import { hintAlpha, hintBox, HINT_FADE_MS, NOTE_SIZE } from '../shell/hudLayout';
+import { hintAlpha, hintBox, hintResumes, HINT_FADE_MS, NOTE_SIZE, toolButtons } from '../shell/hudLayout';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
 import { DeadEnds, hintOver, probeHint } from './hint';
 import { roadWait } from './signWay';
@@ -17,7 +17,9 @@ const chain: GameEvent = { type: 'chain', reactionId: 1, value: 2, chain: 2, cou
 describe('when a hint goes out', () => {
   it('is at the first combo for a combo', () => {
     expect(hintOver('combo', [match], null)).toBe(true);
-    expect(hintOver('combo', [move('roll'), chain], null)).toBe(false);
+    expect(hintOver('combo', [move('roll')], null)).toBe(false);
+    // A combo formed against a die laid as leaving joins it: the rules say chain, and it is a combo all the same.
+    expect(hintOver('combo', [move('roll'), chain], null)).toBe(true);
     expect(hintOver('combo', [], null)).toBe(false);
   });
 
@@ -230,5 +232,71 @@ describe('the dead ends of a piece', () => {
     expect(roadWait('R03', false)!.frame(state, 0, true)).toEqual({ dir: null, blink: false });
     // Standing on the board the first moment, with no wait at all.
     expect(roadWait('R03', true)!.frame(state, 0, true)).toEqual({ dir: 'W', blink: false });
+  });
+});
+
+describe('the line and the buttons of a level', () => {
+  const NONE = { top: 0, right: 0, bottom: 0, left: 0 };
+  const LINE = NOTE_SIZE * 1.3;
+  /** The buttons as the hud puts them, in CSS pixels: the picture is zoomed by `zoom`; the label is some 60 picture pixels wide. */
+  const tools = (stage: { x: number; y: number; width: number; height: number }, zoom: number) => {
+    const { box } = toolButtons({ x: stage.x / zoom, y: stage.y / zoom, w: stage.width / zoom, h: stage.height / zoom }, zoom, 60);
+    return { x: box.x * zoom, y: box.y * zoom, width: box.w * zoom, height: box.h * zoom };
+  };
+
+  it('stand in the top right corner of the stage, in a row a finger needs', () => {
+    const stage = { x: 0, y: 110, width: 360, height: 530 };
+    const buttons = tools(stage, 1.5);
+    expect(buttons.height).toBeGreaterThanOrEqual(44);
+    expect(buttons.x + buttons.width).toBeLessThanOrEqual(360);
+    expect(buttons.y).toBeGreaterThanOrEqual(stage.y);
+  });
+
+  it('keep the line below them on a phone, inside the window, with the room covering the line', () => {
+    const stage = { x: 0, y: 110, width: 360, height: 530 };
+    const buttons = tools(stage, 1.5);
+    const free = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * 2);
+    const { box, room } = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * 2, buttons);
+    expect(box.y).toBeGreaterThanOrEqual(buttons.y + buttons.height);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+    expect(stage.y + room).toBeGreaterThanOrEqual(box.y + box.height);
+    expect(room).toBeGreaterThan(free.room);
+    expect(room).toBeLessThan(stage.height / 3);
+  });
+
+  it('keep the longest line of any language below them on a phone, in at most two rows', () => {
+    const stage = { x: 0, y: 110, width: 360, height: 530 };
+    const buttons = tools(stage, 1.5);
+    const { box } = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * 2, buttons);
+    let longest = '';
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      for (const hint of Object.values(ROAD_HINTS)) if (t(hint.key as TextKey).length > longest.length) longest = t(hint.key as TextKey);
+    }
+    setLanguage('en');
+    const rows = wrapCaption(longest, box.width, (line) => line.length * NOTE_SIZE * 0.6);
+    expect(rows.length).toBeLessThanOrEqual(2);
+    const { box: placed } = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * rows.length, buttons);
+    expect(placed.y).toBeGreaterThanOrEqual(buttons.y + buttons.height);
+  });
+
+  it('are not in the way of the line on a wide screen: it stays where it was', () => {
+    const stage = { x: 240, y: 0, width: 1680, height: 1080 };
+    const buttons = tools(stage, 1);
+    const free = hintBox(stage, { width: 1920, height: 1080 }, NONE, NOTE_SIZE, LINE);
+    const placed = hintBox(stage, { width: 1920, height: 1080 }, NONE, NOTE_SIZE, LINE, buttons);
+    expect(placed).toEqual(free);
+  });
+});
+
+describe('a hint given again while it goes out', () => {
+  it('comes back from how bright it was, and not from nothing', () => {
+    expect(hintResumes(5000, 150, false)).toBe(150);
+    expect(hintResumes(5000, 0, false)).toBe(HINT_FADE_MS);
+    expect(hintAlpha(HINT_FADE_MS - 0, null, false)).toBe(1);
+    expect(hintAlpha(hintResumes(5000, 150, false) + 0, null, false)).toBe(0.5);
+    expect(hintResumes(5000, 400, false)).toBe(0);
+    expect(hintResumes(40, 30, false)).toBeLessThanOrEqual(30);
   });
 });

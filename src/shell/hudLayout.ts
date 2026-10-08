@@ -232,16 +232,21 @@ const HINT_STEPS = 10;
 /**
  * Where the one line of a hint stands, in CSS pixels of the window: at the top of the stage, under
  * the readings of a level, centred, wider than neither `HINT_EM` letters nor the stage and its
- * edges, and within what the edges of the screen keep. `height` is what the text takes in the lines
+ * edges, and within what the edges of the screen keep; `tools` is the rectangle of the buttons of a level, if it has them. `height` is what the text takes in the lines
  * it is put into at that width; `room` is how much of the top of the stage the line keeps, the
  * board being laid out below it so that no cell of it is under the words.
  */
-export function hintBox(stage: Rect, window: Size, safe: Insets, size: number, height: number): { box: Rect; room: number } {
+export function hintBox(stage: Rect, window: Size, safe: Insets, size: number, height: number, tools: Rect | null = null): { box: Rect; room: number } {
   const left = Math.max(stage.x + HINT_SIDE, safe.left);
   const right = Math.min(stage.x + stage.width - HINT_SIDE, window.width - safe.right);
   const width = Math.max(0, Math.min(right - left, size * HINT_EM));
-  const box: Rect = { x: left + (right - left - width) / 2, y: stage.y + HINT_TOP, width, height };
-  return { box, room: Math.ceil(HINT_TOP + height + HINT_BELOW) };
+  const x = left + (right - left - width) / 2;
+  // The two buttons of a level stand in the top right corner of the stage, in the row the line would take: where the line
+  // could reach them, it starts below them, and the room grows by as much.
+  const reaches = tools !== null && x + width > tools.x;
+  const top = reaches ? tools.y + tools.height + HINT_TOP - stage.y : HINT_TOP;
+  const box: Rect = { x, y: stage.y + top, width, height };
+  return { box, room: Math.ceil(top + height + HINT_BELOW) };
 }
 
 /**
@@ -254,4 +259,25 @@ export function hintAlpha(since: number, gone: number | null, reduced: boolean):
   const coming = reduced ? 1 : clamp(since / HINT_FADE_MS);
   const going = gone === null ? 1 : reduced ? 0 : 1 - clamp(gone / HINT_FADE_MS);
   return Math.round(Math.min(coming, going) * HINT_STEPS) / HINT_STEPS;
+}
+
+/**
+ * The two buttons of a level, UNDO and RESTART, in the top right corner of the stage, in pixels of the
+ * picture: a button is `wide` by `tall`, the right one ends at `right`, and `box` holds both.
+ * `undoWidth` is the width of the longest word on the left button.
+ */
+export function toolButtons(stage: Box, zoom: number, undoWidth: number): { tall: number; wide: number; right: number; y: number; box: Box } {
+  const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / zoom));
+  const wide = Math.max(tall, undoWidth + 12);
+  const right = Math.round(stage.x + stage.w - 6);
+  const y = Math.round(stage.y + 6);
+  return { tall, wide, right, y, box: { x: right - wide * 2 - 6, y, w: wide * 2 + 6, h: tall } };
+}
+
+/**
+ * How far into its coming-in a hint that is given again is put when it is still going out (`since`, `gone`
+ * as in `hintAlpha`): as far as it had got dark, so that it comes back from how bright it was and not from nothing.
+ */
+export function hintResumes(since: number, gone: number, reduced: boolean): number {
+  return hintAlpha(since, gone, reduced) * HINT_FADE_MS;
 }

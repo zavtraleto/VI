@@ -6,7 +6,7 @@ import { faceColour, figureColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hudLayout, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, toolButtons, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -552,8 +552,11 @@ export class GameHud {
   private hintPlace(stage: Rect, text: string): { box: Rect; room: number } {
     const zoom = this.kit.zoom;
     const window = { width: this.kit.width * zoom, height: this.kit.height * zoom };
-    const { box } = hintBox(stage, window, safeInsets(), NOTE_SIZE, 0);
-    return hintBox(stage, window, safeInsets(), NOTE_SIZE, this.voice.height(text, box.width, NOTE_SIZE));
+    // The buttons of a level, both with the longest label they take (UNDO and the moves left), are in the same corner of the stage.
+    const picture = toolButtons(this.toPicture(stage), zoom, this.kit.measure(`${HUD.undo} 9`)).box;
+    const tools: Rect = { x: picture.x * zoom, y: picture.y * zoom, width: picture.w * zoom, height: picture.h * zoom };
+    const { box } = hintBox(stage, window, safeInsets(), NOTE_SIZE, 0, tools);
+    return hintBox(stage, window, safeInsets(), NOTE_SIZE, this.voice.height(text, box.width, NOTE_SIZE), tools);
   }
 
   /**
@@ -689,8 +692,11 @@ export class GameHud {
   private hintFade(view: HudView, timeMs: number): { text: string; alpha: number } | null {
     const given = view.hint?.text ?? '';
     if (given && (given !== this.hintText || this.hintGone !== null)) {
+      // The same line given again while it goes out comes back from how bright it had got, not from nothing.
+      const resumed = given === this.hintText && this.hintGone !== null;
+      const into = resumed ? hintResumes(timeMs - this.hintSince, timeMs - this.hintGone!, view.reducedMotion) : 0;
       this.hintText = given;
-      this.hintSince = timeMs;
+      this.hintSince = timeMs - into;
       this.hintGone = null;
     } else if (!given && this.hintText && this.hintGone === null) {
       this.hintGone = timeMs;
@@ -1387,9 +1393,8 @@ export class GameHud {
   private drawTools(tools: HudTools, stage: Box, blink: number): void {
     const { kit } = this;
     const { bg, ink, dim, faint } = kit.palette;
-    const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / kit.zoom));
     const undo = tools.undos === undefined ? HUD.undo : `${HUD.undo} ${tools.undos}`;
-    const wide = Math.max(tall, kit.measure(undo) + 12);
+    const { tall, wide, right } = toolButtons(stage, kit.zoom, kit.measure(undo));
     const button = (id: string, text: string, x: number, on: boolean, urgent: boolean, action: () => void): void => {
       const box: Box = { x, y: Math.round(stage.y + 6), w: wide, h: tall };
       const filled = this.held?.zone.id === id || (urgent && blink === 0);
@@ -1401,7 +1406,6 @@ export class GameHud {
       kit.text(text, box.x + box.w / 2, box.y + Math.round((tall - CELL_H) / 2), filled ? bg : on ? ink : faint, { align: 'center' });
       if (on) this.zones.push({ id, rect: kit.toWindow(box), action });
     };
-    const right = Math.round(stage.x + stage.w - 6);
     button('retry', HUD.retry, right - wide, true, false, () => this.actions.onRestart());
     if (tools.retryOnly) return;
     // A dead end is left by taking the move back: that button becomes the one to press.

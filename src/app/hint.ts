@@ -18,7 +18,8 @@ export function hintOver(until: HintUntil, events: readonly GameEvent[], under: 
   return events.some((event) => {
     switch (until) {
       case 'combo':
-        return event.type === 'match';
+        // A combo formed against a die laid as leaving joins it: the rules say `chain`, not `match`.
+        return event.type === 'match' || event.type === 'chain';
       case 'chain':
         return event.type === 'chain';
       case 'push':
