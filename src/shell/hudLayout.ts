@@ -170,3 +170,18 @@ export function turned(u: number, v: number, turns: number): { u: number; v: num
   for (let i = ((turns % 4) + 4) % 4; i > 0; i--) [x, y] = [1 - y, x];
   return { u: x, v: y };
 }
+
+/**
+ * Where the swipe sign stands so that all of it is on the picture: `at`, the start of its trail,
+ * moved the least it takes for the start and the end of the trail to lie `pad` inside `bounds`.
+ * A sign asked for beyond the edge, beside a board that fills the screen, comes to the edge on
+ * that side. In bounds too small for it, it stands in their middle.
+ */
+export function signPlace(at: Point, trail: Point, bounds: Box, pad: number): Point {
+  const fit = (value: number, reach: number, from: number, length: number): number => {
+    const low = from + pad - Math.min(0, reach);
+    const high = from + length - pad - Math.max(0, reach);
+    return low > high ? (low + high) / 2 : Math.min(high, Math.max(low, value));
+  };
+  return { x: fit(at.x, trail.x, bounds.x, bounds.w), y: fit(at.y, trail.y, bounds.y, bounds.h) };
+}

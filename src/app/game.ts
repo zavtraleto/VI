@@ -71,7 +71,7 @@ import {
   type RunState,
   type ShortGroup,
 } from '../rules';
-import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudView } from '../shell/hud';
+import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
 import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
@@ -94,6 +94,7 @@ import { Runner } from './runner';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
+import { signCell, signMode, stageWait, type StageWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
@@ -283,6 +284,12 @@ export class Game {
   private undosLeft = 0;
   /** The cell the die of the last move of a level went to, and which move it was. */
   private lastMove: { x: number; z: number; moves: number } | null = null;
+  /** The wait of the stage on the board: its swipe sign and its blinking plaque. Null on a level of the list and outside the levels. */
+  private stageWait: StageWait | null = null;
+  /** What that wait shows on this frame: the way the swipe sign points, and whether the plaque over the target blinks. */
+  private waiting: Waiting = { dir: null, blink: false };
+  /** What the player last played with: the swipe sign is a key for those who press keys. */
+  private lastInput: 'keys' | 'pointer' | null = null;
   /** The end of a level: when it began and, for a level that is passed, whether the board has answered and whether a press has cut it short. */
   private finale: { start: number; beaten: boolean; skipped: boolean } | null = null;
   /** What the level on the board came to has been written down: it is, once, the moment the level ends. */
@@ -448,6 +455,8 @@ export class Game {
     const unlock = () => this.audio.unlock();
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
+    window.addEventListener('pointerdown', () => (this.lastInput = 'pointer'));
+    window.addEventListener('keydown', () => (this.lastInput = 'keys'));
     this.signal.onSound = (event) => this.audio.signal(event);
     this.applySound();
     onPlatformAudio((enabled) => {
@@ -792,6 +801,9 @@ export class Game {
     this.finale = null;
     this.levelCounted = false;
     this.ghosts = [];
+    // A stage of the first level waits with the player; every start of it waits anew.
+    this.stageWait = state.levelRun ? stageWait(state.levelRun.spec.id) : null;
+    this.waiting = { dir: null, blink: false };
     // Where every step may be a move that counts, a held direction is one step.
     this.controller.setRepeat(!state.levelRun);
     this.handoff = null;
@@ -1962,6 +1974,20 @@ export class Game {
     };
   }
 
+  /**
+   * The swipe sign of a level: beside the board on the side the swipe goes to, in the row or the
+   * column of the player, with a trail a cell of the board long the way that swipe goes on screen.
+   */
+  private signView(state: RunState, dir: Dir, over: (x: number, y: number, z: number) => { x: number; y: number }): HudSign {
+    const { spec } = state.levelRun!;
+    const cell = signCell(spec.size, spec.holes, state.player, dir);
+    const at = over(cell.x, 0, cell.z);
+    const next = over(cell.x + DELTA[dir].dx, 0, cell.z + DELTA[dir].dz);
+    const length = Math.hypot(next.x - at.x, next.y - at.y);
+    const screen = this.swipeDirs[dir];
+    return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), at, trail: { x: screen.x * length, y: screen.y * length } };
+  }
+
   /** Everything the session shows over the board at this moment. */
   private hudView(state: RunState, stage: Rect, lesson: HudLesson | null, mark: MarkFace | null, steer: Dir | null, reducedMotion: boolean): HudView {
     const over = (x: number, y: number, z: number) => {
@@ -2024,6 +2050,7 @@ export class Game {
       lesson,
       note,
       counters,
+      sign: levelRun && this.waiting.dir ? this.signView(state, this.waiting.dir, over) : null,
       tools: puzzle
         ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null }
         : levelRun
@@ -2133,6 +2160,8 @@ export class Game {
       this.backdrop.clear();
     }
     const shown = !covered && !this.inMenu && !this.signal.busy;
+    // Under a panel, and while the board takes no input, a stage shows no sign and its wait is not counted.
+    this.waiting = this.stageWait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };
     this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, lit, reducedMotion) : null, time);
     // The readings stand above the board on a tall screen and beside it on a wide one: the
     // box of the page that keeps their room follows them.

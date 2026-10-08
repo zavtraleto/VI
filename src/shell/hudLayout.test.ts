@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hudLayout, netBounds, netCellAt, turned, type FloorAxes } from './hudLayout';
+import { hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes } from './hudLayout';
 import { CELL_W, MIN_ZONE } from './layout';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -128,5 +128,32 @@ describe('the net of the die under the player', () => {
     expect(back.u).toBeCloseTo(0.2);
     expect(back.v).toBeCloseTo(0.3);
     expect(turned(0.2, 0.3, -1)).toEqual(turned(0.2, 0.3, 3));
+  });
+});
+
+describe('the place of the swipe sign', () => {
+  const picture = { x: 0, y: 0, w: 280, h: 600 };
+
+  it('is where it was asked for when the sign and its trail are on the picture', () => {
+    expect(signPlace({ x: 100, y: 300 }, { x: 20, y: -6 }, picture, 4)).toEqual({ x: 100, y: 300 });
+    expect(signPlace({ x: 100, y: 300 }, { x: 0, y: 0 }, picture, 10)).toEqual({ x: 100, y: 300 });
+  });
+
+  it('is brought to the edge of the picture on the side it left it by, trail and all', () => {
+    // East of a board that fills the screen of a phone: the trail ends at the edge, less the room asked.
+    expect(signPlace({ x: 300, y: 300 }, { x: 20, y: 0 }, picture, 4)).toEqual({ x: 256, y: 300 });
+    expect(signPlace({ x: -30, y: 300 }, { x: -20, y: 0 }, picture, 4)).toEqual({ x: 24, y: 300 });
+    expect(signPlace({ x: 100, y: -50 }, { x: 5, y: -20 }, picture, 4)).toEqual({ x: 100, y: 24 });
+    expect(signPlace({ x: 100, y: 700 }, { x: -5, y: 20 }, picture, 4)).toEqual({ x: 100, y: 576 });
+  });
+
+  it('keeps out of what the edges of the screen keep to themselves', () => {
+    const inner = { x: 30, y: 40, w: 220, h: 500 };
+    expect(signPlace({ x: 0, y: 0 }, { x: 10, y: 10 }, inner, 4)).toEqual({ x: 34, y: 44 });
+    expect(signPlace({ x: 400, y: 900 }, { x: 10, y: 10 }, inner, 4)).toEqual({ x: 236, y: 526 });
+  });
+
+  it('stands in the middle of a picture too small for it', () => {
+    expect(signPlace({ x: 0, y: 5 }, { x: 40, y: 0 }, { x: 0, y: 0, w: 30, h: 10 }, 4)).toEqual({ x: -5, y: 5 });
   });
 });

@@ -86,6 +86,8 @@ export const SHELL_GROUPS = {
     pressMs: number(140, 0, 500, 10),
     /** How many times a second the levels of the channels move. */
     idleHz: number(4, 0, 15, 1),
+    /** How wide the dot of the swipe sign is, in pixels of the picture. */
+    signDot: number(5, 2, 12, 1),
   },
   boot: {
     bootMs: number(6000, 2500, 10000, 100),

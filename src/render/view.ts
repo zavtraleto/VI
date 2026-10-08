@@ -3,7 +3,7 @@ import type { Layer, Rect } from '../display/layer';
 import { lensTo, type Lens, type LensSides } from '../display/lens';
 import { DELTA, cubeAt, cubeHeight, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { pictureSize } from '../shell/layout';
-import { mixHex, type Palette } from '../shell/theme';
+import type { Palette } from '../shell/theme';
 import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
 import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
@@ -14,7 +14,7 @@ import { boardPalette, type BoardLook } from './params';
 import { PlayerFigure } from './player';
 import { ChainSigns } from './signs';
 import { CubeSprings } from './springs';
-import { frameTexture, gridTexture, pipGlow, type GridLayout } from './textures';
+import { figureColour, frameTexture, gridTexture, pipGlow, type GridLayout } from './textures';
 import { SpawnWarnings } from './warnings';
 
 /** Margin around the cells that the lines of the surface and the danger frame lie in, in cells. */
@@ -647,8 +647,7 @@ export class BoardView {
       },
       dip,
     );
-    // The figure is a grey mannequin that grows into the red of the seventh.
-    this.player.setColor(mixHex(String(values.mannequin), this.palette.signal, n('figureRed')), n('figureGhost'));
+    this.player.setColor(figureColour(this.palette, values), n('figureGhost'));
     this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip));
     this.cubes.group.position.y = -sunk - gone;
     this.player.group.position.y -= sunk;

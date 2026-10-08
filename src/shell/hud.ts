@@ -2,11 +2,11 @@ import type { Display } from '../display/display';
 import type { CanvasLayer } from '../display/layer';
 import type { Rect } from '../display/sizing';
 import type { BoardLook } from '../render/params';
-import { faceColour, pipColour } from '../render/textures';
+import { faceColour, figureColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { hudLayout, netBounds, netCellAt, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -86,6 +86,20 @@ export interface HudCounter {
   at: Point;
 }
 
+/**
+ * The swipe sign: beside the board, the way to swipe now, with no word. For those who swipe it
+ * is a dot of the colour of the figure that slides along a short trail and goes out, again and
+ * again; for those who press keys, the arrow key, in place and blinking.
+ */
+export interface HudSign {
+  dir: Dir;
+  mode: 'dot' | 'key';
+  /** Where the trail starts, outside the board, in CSS pixels of the window. A place off the screen is brought to its edge. */
+  at: Point;
+  /** The trail from there, in CSS pixels: a cell of the board long, the way a swipe to `dir` goes on screen. */
+  trail: Point;
+}
+
 /** The multiplier of a chain, over its dice. `at` is in CSS pixels of the window. */
 export interface HudLabel {
   id: number;
@@ -136,6 +150,8 @@ export interface HudView {
   note: { text: string; alarm: boolean } | null;
   /** On a level: over every group that is short, how many dice it has of how many it takes. */
   counters?: readonly HudCounter[];
+  /** The swipe sign, while a level shows it. */
+  sign?: HudSign | null;
   /**
    * The two buttons of a task. `retryOnly` leaves the one that starts over, where no move can be
    * taken back; `undos` is how many moves can still be, written beside the button of a level.
@@ -318,6 +334,16 @@ const BLINK_MS = 250;
 /** How long the dot of a swipe takes along its line. */
 const SWIPE_MS = 900;
 const NUDGE_MS = 300;
+/**
+ * The swipe sign, a first version for the owner to adjust: how long its dot takes along the
+ * trail, how long nothing is shown before it sets off again, the last part of the way over which
+ * it goes out, half a period of the blinking of the arrow key, and the side of that key in dots.
+ */
+const SIGN_SLIDE_MS = 700;
+const SIGN_REST_MS = 300;
+const SIGN_OUT = 0.35;
+const SIGN_KEY_MS = 500;
+const SIGN_KEY = 18;
 /** The words of the exercise come one sign at a time, this many milliseconds apart. */
 const SIGN_MS = 38;
 /** Words that are all there cannot be passed sooner than this: a press meant for a move does not skip them. */
@@ -547,7 +573,10 @@ export class GameHud {
     const decay = this.decayAt(view.header.kind === 'session' ? program : 0, timeMs, still, layout.rule + 2);
     // Points in the air and the score they have just reached are drawn anew every frame.
     const moving = this.flyers.length > 0 || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
-    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    // The swipe sign slides, or blinks: the picture is drawn anew for it.
+    const sign = view.sign ?? null;
+    const signed = !sign ? '' : `${JSON.stringify(sign)}@${still ? 0 : sign.mode === 'dot' ? Math.floor(timeMs / 33) : Math.floor(timeMs / SIGN_KEY_MS) % 2}`;
+    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       // Words that are still coming change nothing but themselves: the readings stay as they are.
       this.voice.reveal(signs);
@@ -584,6 +613,12 @@ export class GameHud {
     }
     if (view.lesson) this.drawLesson(view.lesson, view.stage, stage, timeMs, still, signs, blink);
     for (const counter of view.counters ?? []) this.drawCounter(counter);
+    if (sign) {
+      // The sign keeps clear of the edges of the screen and of the readings.
+      const left = layout.wide ? layout.column : safe.left;
+      const top = layout.wide ? safe.top : layout.height;
+      this.drawSign(sign, timeMs, still, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top });
+    }
     if (view.tools) this.drawTools(view.tools, stage, blink);
     if (view.pad) this.drawPad(view.pad, blink);
     if (view.note) {
@@ -1131,6 +1166,43 @@ export class GameHud {
     const plate = this.plate(at, 12 + 6 + kit.measure(text) + 6, full);
     this.plateFace(value, plate.x + 3, plate.y + 3);
     kit.text(text, plate.x + 12 + 6, plate.y + 1, full ? bg : ink, { bold: full });
+  }
+
+  /**
+   * The swipe sign, inside the part of the picture it may stand in. The dot sets off from the
+   * start of its trail, draws the trail behind it, grows small towards the end and is gone, and
+   * after a moment of nothing sets off again; held still, it stands at the end of its trail.
+   * The key is lit and unlit by turns, once a second.
+   */
+  private drawSign(sign: HudSign, timeMs: number, still: boolean, inside: Box): void {
+    const { kit } = this;
+    const { bg, ink, dim } = kit.palette;
+    const zoom = kit.zoom;
+    const at = { x: sign.at.x / zoom, y: sign.at.y / zoom };
+    if (sign.mode === 'key') {
+      const centre = signPlace(at, { x: 0, y: 0 }, inside, SIGN_KEY / 2 + 1);
+      const cell: Box = { x: Math.round(centre.x - SIGN_KEY / 2), y: Math.round(centre.y - SIGN_KEY / 2), w: SIGN_KEY, h: SIGN_KEY };
+      const lit = still || Math.floor(timeMs / SIGN_KEY_MS) % 2 === 0;
+      if (lit) kit.box(cell, ink);
+      else {
+        kit.box(cell, bg);
+        kit.frame(cell, dim);
+      }
+      kit.text(ARROW[sign.dir], cell.x + SIGN_KEY / 2, cell.y + Math.round((SIGN_KEY - CELL_H) / 2), lit ? bg : ink, { align: 'center' });
+      return;
+    }
+    const turn = timeMs % (SIGN_SLIDE_MS + SIGN_REST_MS);
+    if (!still && turn >= SIGN_SLIDE_MS) return;
+    const radius = kit.number('signDot') / 2;
+    const trail = { x: sign.trail.x / zoom, y: sign.trail.y / zoom };
+    const from = signPlace(at, trail, inside, Math.ceil(radius) + 1);
+    const along = still ? 1 : turn / SIGN_SLIDE_MS;
+    const eased = 1 - (1 - along) * (1 - along);
+    const head = { x: from.x + trail.x * eased, y: from.y + trail.y * eased };
+    // The colour of the figure: it is the figure that the swipe moves.
+    const colour = figureColour(kit.palette, this.look.board);
+    kit.wire([from, head], colour);
+    kit.disc(head.x, head.y, still ? radius : radius * Math.min(1, (1 - along) / SIGN_OUT), colour);
   }
 
   private drawLesson(lesson: HudLesson, stage: Rect, box: Box, timeMs: number, still: boolean, signs: number, blink: number): void {

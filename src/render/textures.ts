@@ -50,6 +50,14 @@ export function faceColour(value: number, palette: Palette, values: ParamValues)
   return mixHex(palette.channels[value - 1], '#000000', Math.min(0.95, Math.max(0, Number(values.faceMute))));
 }
 
+/**
+ * The colour of the figure of the one who plays: a grey mannequin that grows into the red of the
+ * seventh. The board and whatever in the interface stands for the figure take it from here.
+ */
+export function figureColour(palette: Palette, values: ParamValues): string {
+  return mixHex(String(values.mannequin), palette.signal, Number(values.figureRed ?? 0));
+}
+
 /** The colour of the pips of a face: places of the screen that are not lit. The pip of the one is lit, and red. */
 export function pipColour(value: number, palette: Palette, values: ParamValues): string {
   return value === 1 ? palette.signal : String(values.pipDark);
