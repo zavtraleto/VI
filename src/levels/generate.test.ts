@@ -32,8 +32,8 @@ const STANDING: Recipe = { slot: 17, chapter: 0, size: 4, dice: 5, faces: [5], s
 const FIVES: Recipe = { slot: 19, chapter: 0, size: 4, dice: 6, faces: [5], compact: true, par: [3, 5] };
 /** Six dice, two of them 1s. */
 const WITH_ONES: Recipe = { slot: 31, chapter: 0, size: 4, dice: 6, faces: [3], ones: 2, compact: false, par: [3, 5] };
-/** Two 3s that stand and a third die one roll away: a board cleared with one move, which the place shows with an arrow. */
-const ONE_ROLL: Recipe = { slot: 1, id: 'X01', chapter: 0, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], compact: true, par: [1, 1], random: [0.4, 1], avoid: ['floor', 'glass', 'ones'], lesson: 'lineCombo', arrow: true };
+/** Two 3s that stand and a third die one roll away: a board cleared with one move. */
+const ONE_ROLL: Recipe = { slot: 1, id: 'X01', chapter: 0, size: 3, dice: 3, faces: [3], standing: [{ value: 3, count: 2 }], compact: true, par: [1, 1], random: [0.4, 1], avoid: ['floor', 'glass', 'ones'], lesson: 'lineCombo' };
 /**
  * Boards with cells cut out. A corner: a square of four with its south-east quarter gone, four
  * dice where 3s work, in one cluster, with a route of a combo and a die that joins it. The same
@@ -365,6 +365,6 @@ describe('a candidate of a place', () => {
       expect(tryWay(fit.spec, fit.spec.solution!.map(moveOf)).state.endReason).toBe('passed');
     }
     expect(placeReport(filled, 3, 0).split('\n')[0]).toBe(`place 1: ${filled.fits.length} of 60 seeds fit`);
-    expect(levelSource(filled.fits[0].spec)).toMatch(/^ {2}\{ id: 'X01', chapter: 0, seed: \d+, size: 3, .*faces: \[3\], sinkMoves: 2, liftMoves: 1, lesson: 'lineCombo', arrow: '[NESW]', par: 1, exact: true, solution: \['\d,\d,[NESW]'\], layout: \{ start: .* \},$/);
+    expect(levelSource(filled.fits[0].spec)).toMatch(/^ {2}\{ id: 'X01', chapter: 0, seed: \d+, size: 3, .*faces: \[3\], sinkMoves: 2, liftMoves: 1, lesson: 'lineCombo', par: 1, exact: true, solution: \['\d,\d,[NESW]'\], layout: \{ start: .* \},$/);
   });
 });

@@ -433,8 +433,6 @@ export interface LevelSpec {
   undos?: number;
   /** Key of the line the level teaches with. */
   lesson?: string;
-  /** The first roll, shown on the board until it is made. */
-  arrow?: Dir;
   /** The chapter of the ladder the level is in, from 0. */
   chapter?: number;
   /** False where the player cannot step from the dice down to the floor. Left out, the floor is open. */

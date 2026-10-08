@@ -4,10 +4,9 @@ import { figureGeometry } from './figure';
 
 /**
  * How high the one who plays stands in a cell: on the die there, or, off the dice, on the upper
- * frame of a cell beside a chain (`frame`), or on the floor. What is drawn at the feet of the
- * figure, the arrow of a step among it, lies at this height.
+ * frame of a cell beside a chain (`frame`), or on the floor.
  */
-export function footing(state: RunState, x: number, z: number, level: Level, alpha: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number): number {
+function footing(state: RunState, x: number, z: number, level: Level, alpha: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number): number {
   if (level === 'ground') return frame(x, z);
   const cube = cubeAt(state, x, z);
   // The die stays put between ticks while the tutorial holds it or the world of a level stands.

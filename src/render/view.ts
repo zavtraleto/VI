@@ -11,7 +11,7 @@ import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type 
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { boardPalette, type BoardLook } from './params';
-import { PlayerFigure, footing } from './player';
+import { PlayerFigure } from './player';
 import { ChainSigns } from './signs';
 import { CubeSprings } from './springs';
 import { frameTexture, gridTexture, pipGlow, type GridLayout } from './textures';
@@ -658,10 +658,7 @@ export class BoardView {
     this.signs.group.position.y = -gone;
     // The marks of the dice are seen through the floor: they go out as the dice go under it.
     this.marks.group.visible = this.leave < MARKS_GONE_AT;
-    // An arrow of a step lies where the figure stands; from a cell its die has just rolled out of, at the height of a die.
-    this.overlays.sync(state, timeMs, params.overlay, reducedMotion, (x, z, level) =>
-      level === 'top' && !cubeAt(state, x, z) ? 1 : footing(state, x, z, level, alpha, dip, (fx, fz) => this.signs.lift(state, fx, fz, alpha, dip)),
-    );
+    this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
     this.signs.sync(state, alpha, timeMs, reducedMotion, dip, this.worldLayer.height / Math.max(1, this.lines), params.ghosts);
     this.warnings.sync(state, dt, timeMs, reducedMotion);

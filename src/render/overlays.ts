@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DELTA, DIRS, previewMove, type Dir, type Level, type RunState } from '../rules';
+import { DELTA, DIRS, previewMove, type Dir, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
 import { chevronTexture, faceFrameTexture, ghostFaceTexture } from './textures';
@@ -11,22 +11,13 @@ export interface OverlayOptions {
   guide: BoardGuide | null;
 }
 
-/** Height an arrow that lies on the floor is drawn at. */
-const FLOOR_ARROW = 0.04;
-
 /** One step of the path the tutorial asks for, drawn as chevrons from a cell towards the next. */
 export interface GuideArrow {
   x: number;
   z: number;
   dir: Dir;
-  /** Height the chevrons lie at: the top of the dice, or the floor. Not read where `stand` is given. */
+  /** Height the chevrons lie at: the top of the dice, or the floor. */
   y: number;
-  /**
-   * Where the one who plays stands in the cell the arrow starts from. Given, the arrow lies at
-   * the feet of the figure there, whatever it stands on: a die, whole or on its way out, the
-   * frame beside a chain, the floor. The arrow of a step is always at the level of the figure.
-   */
-  stand?: Level;
   /** How far from the middle of the cell the first chevron lies, in cells. */
   lead: number;
   /** A later step of the path, shown faintly behind the current one. */
@@ -142,8 +133,7 @@ export class FloorOverlays {
     for (const mesh of this.chevrons) mesh.material.dispose();
   }
 
-  /** `footing` says how high the figure stands in a cell: the arrows that name where it stands lie there. */
-  sync(state: RunState, timeMs: number, options: OverlayOptions, reducedMotion: boolean, footing?: (x: number, z: number, level: Level) => number): void {
+  sync(state: RunState, timeMs: number, options: OverlayOptions, reducedMotion: boolean): void {
     const idle = !state.player.action && !state.over;
     for (const dir of DIRS) {
       const ghost = this.ghosts.get(dir)!;
@@ -170,10 +160,10 @@ export class FloorOverlays {
       }
     }
 
-    this.syncGuide(options.guide, timeMs, reducedMotion, footing);
+    this.syncGuide(options.guide, timeMs, reducedMotion);
   }
 
-  private syncGuide(guide: BoardGuide | null, timeMs: number, reducedMotion: boolean, footing?: (x: number, z: number, level: Level) => number): void {
+  private syncGuide(guide: BoardGuide | null, timeMs: number, reducedMotion: boolean): void {
     const arrows = guide?.arrows ?? [];
     this.chevrons.forEach((mesh, i) => {
       const arrow = arrows[Math.floor(i / CHEVRONS)];
@@ -182,9 +172,7 @@ export class FloorOverlays {
       const k = i % CHEVRONS;
       const { dx, dz } = DELTA[arrow.dir];
       const t = arrow.lead + k * 0.24;
-      // Just over what the figure stands on, so that the chevrons are not lost in the face of a die or in the floor.
-      const y = arrow.stand !== undefined && footing ? Math.max(FLOOR_ARROW, footing(arrow.x, arrow.z, arrow.stand)) : arrow.y;
-      mesh.position.set(arrow.x + dx * t, y, arrow.z + dz * t);
+      mesh.position.set(arrow.x + dx * t, arrow.y, arrow.z + dz * t);
       mesh.rotation.set(-Math.PI / 2, 0, Math.atan2(-dz, dx));
       // A wave running along the chevrons, in the direction of the move.
       const wave = reducedMotion ? 1 : 0.5 + 0.5 * Math.max(0, Math.sin(timeMs / 150 - k * 1.1));

@@ -67,8 +67,6 @@ export interface HudSeal {
   sinking: boolean;
   /** A step that way leads nowhere. */
   blocked: Record<Dir, boolean>;
-  /** The side a swipe is steering towards, the side the exercise asks for, the side to bring on top. */
-  active: Dir | null;
   pulse: Dir | null;
   marked: Dir | null;
   /**
@@ -1040,7 +1038,7 @@ export class GameHud {
         const dir = hit.cell === 'top' ? null : hit.cell;
         const edge = Math.min(hit.u, 1 - hit.u, hit.v, 1 - hit.v);
         const marked = dir !== null && (dir === seal.marked || (seal.commits?.includes(dir) ?? false));
-        const lit = dir !== null && (dir === seal.active || ((dir === seal.pulse || marked) && blink === 1));
+        const lit = dir !== null && (dir === seal.pulse || marked) && blink === 1;
         const outline = edge < (marked ? NET_EDGE * 2 : NET_EDGE);
         let colour: [number, number, number] | null = null;
         if (!seal.faces) {

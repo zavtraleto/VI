@@ -150,7 +150,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     short = any.solution.par;
     if (short < recipe.par[0] && !near) return no(`fewer moves than ${recipe.par[0]}`);
     // The way kept does without what the place avoids, and begins as the place asks.
-    const first = recipe.arrow || recipe.ownOnly || recipe.ride ? 'own' : recipe.walk ? 'other' : undefined;
+    const first = recipe.ownOnly || recipe.ride ? 'own' : recipe.walk ? 'other' : undefined;
     const plain = any.solution.uses.every((technique) => !avoid.includes(technique)) && first === undefined;
     if (plain) way = any.solution.moves;
     else {
@@ -269,14 +269,12 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     const half = to > from ? (to - from) / 2 : what === 'par' || what === 'depth' ? 1 : 0.1;
     if (to > from || measured[what] < from || measured[what] > to) distance += Math.abs(measured[what] - (from + to) / 2) / half;
   }
-  const arrow = recipe.arrow ? way[0].dir : undefined;
   const spec: LevelSpec = {
     ...board,
     par,
     exact,
     solution: way.map(moveText),
     ...(recipe.lesson ? { lesson: recipe.lesson } : {}),
-    ...(arrow ? { arrow } : {}),
   };
   return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, clears: report.cleared.filter(Boolean).length, route: score.route, kind: score.kind, firsts, personas, distance, misses }, why: '' };
 }
@@ -404,7 +402,6 @@ export function levelSource(spec: LevelSpec): string {
     ...(spec.until ? [`until: '${spec.until}'`] : []),
     ...(spec.guide ? [`guide: true`] : []),
     ...(spec.story ? [`story: '${spec.story}'`] : []),
-    ...(spec.arrow ? [`arrow: '${spec.arrow}'`] : []),
     `par: ${spec.par}`,
     `exact: ${spec.exact}`,
     `solution: [${spec.solution!.map((move) => `'${move}'`).join(', ')}]`,

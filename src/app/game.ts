@@ -155,10 +155,6 @@ const deadEnd = (state: RunState): boolean => levelDeadEnd(state) !== null;
 /** What the window of a level says of a dead end that is not one by the count of the dice. */
 const DEAD_END_LINE: Record<Exclude<LevelDeadEnd, 'count'>, TextKey> = { stranded: 'levelStranded', floor: 'levelFloorStuck', faces: 'levelFloorFaces' };
 
-/** How far from the middle of the cell of the figure the arrow of a step begins, in cells: right beside the figure. */
-const STEP_ARROW_LEAD = 0.42;
-/** How long the direction of a swipe stays shown after the finger has let go. */
-const STEER_LINGER_MS = 280;
 /**
  * Chapters on whose levels every group that is short is counted from the start: those that teach.
  * The probe has none: it is played by one who knows the rules, and only the group the last move
@@ -244,8 +240,6 @@ export class Game {
   private lastFrame = 0;
   /** Where a swipe has to point for each board direction; follows the camera. */
   private swipeDirs: ScreenDirs = CARDINAL_DIRS;
-  /** The direction the last swipe was read as, shown on the board and the seal for a moment after it. */
-  private steer: { dir: Dir; until: number; arrow: GuideArrow } | null = null;
   /** The breath the game holds on a beat. */
   private readonly hold = new Hitstop();
   /** The peak of the contact on the last frame, to notice it begin. */
@@ -1287,31 +1281,6 @@ export class Game {
     return { board: { arrows, frames }, lesson, mark: own };
   }
 
-  /**
-   * The direction a swipe is being read as, drawn on the board from where the player is: the
-   * answer to which way it went is where the eye already is. After a flick the arrow stays
-   * where it was for a moment.
-   */
-  private steerGuide(state: RunState, time: number): { dir: Dir | null; guide: BoardGuide | null } {
-    const live = this.inputEnabled() ? this.tracker.direction : null;
-    if (live) {
-      const { player } = state;
-      // A step already under way that way is the one the swipe made: the arrow runs from the
-      // cell the player is leaving. Otherwise it shows the step that comes next.
-      const action = player.action?.dir === live ? player.action : undefined;
-      const x = action ? action.fromX : player.x;
-      const z = action ? action.fromZ : player.z;
-      const onDie = (action ? action.fromLevel : player.level) === 'top';
-      // The arrow lies at the feet of the figure, whatever it stands on: always at the one level.
-      const arrow: GuideArrow = { x, z, dir: live, y: 0, stand: onDie ? 'top' : 'ground', lead: STEP_ARROW_LEAD, dim: false };
-      this.steer = { dir: live, until: time + STEER_LINGER_MS, arrow };
-    } else if (this.steer && (time > this.steer.until || !this.inputEnabled())) {
-      this.steer = null;
-    }
-    if (!this.steer) return { dir: null, guide: null };
-    return { dir: this.steer.dir, guide: { arrows: [this.steer.arrow], frames: [] } };
-  }
-
   /** Leaves the tutorial for a normal run, from where the player stands. */
   private skipTutorial(): void {
     if (!this.state.tutorial || this.inMenu) return;
@@ -1957,21 +1926,8 @@ export class Game {
     return finale.skipped || elapsed >= (still ? FINALE_STILL_MS : FINALE_MS);
   }
 
-  /**
-   * What a level draws on its board: the direction of a swipe, and on a level that shows its
-   * first roll, the arrow of that roll from the die of the player, until a move is made.
-   */
-  private levelGuide(state: RunState, steer: BoardGuide | null): BoardGuide | null {
-    const run = state.levelRun!;
-    const { arrow, layout } = run.spec;
-    const { player } = state;
-    if (steer || !arrow || run.moves > 0 || player.action) return steer;
-    if (layout && (player.x !== layout.start.x || player.z !== layout.start.z)) return steer;
-    return { arrows: [{ x: player.x, z: player.z, dir: arrow, y: 0, stand: player.level, lead: STEP_ARROW_LEAD, dim: false }], frames: [] };
-  }
-
   /** The die under the player, unfolded: what the corner of the screen shows of it. */
-  private sealView(state: RunState, mark: MarkFace | null, active: Dir | null, pulse: Dir | null): HudSeal {
+  private sealView(state: RunState, mark: MarkFace | null, pulse: Dir | null): HudSeal {
     const { player } = state;
     const own = player.level === 'top' ? cubeAt(state, player.x, player.z) : undefined;
     const busy = player.action !== undefined || state.over;
@@ -1987,7 +1943,6 @@ export class Game {
       faces: own ? { top: { value: own.ori.top, turns: quarterTurns(own.ori) }, N: side('N'), E: side('E'), S: side('S'), W: side('W') } : null,
       sinking: own?.state === 'sinking',
       blocked,
-      active,
       pulse,
       marked: own && mark ? (DIRS.find((dir) => SIDE[dir] === mark) ?? null) : null,
       commits: state.levelRun && this.levelIndex + 1 >= LEVEL_OF_COMMIT ? this.commitSides(state) : [],
@@ -1995,7 +1950,7 @@ export class Game {
   }
 
   /** Everything the session shows over the board at this moment. */
-  private hudView(state: RunState, stage: Rect, lesson: HudLesson | null, mark: MarkFace | null, steer: Dir | null, reducedMotion: boolean): HudView {
+  private hudView(state: RunState, stage: Rect, lesson: HudLesson | null, mark: MarkFace | null, reducedMotion: boolean): HudView {
     const over = (x: number, y: number, z: number) => {
       const p = this.view.project(x, y, z);
       return { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) };
@@ -2051,7 +2006,7 @@ export class Game {
               steps: CONTACT_STEPS.length,
               next: nextThreshold(state.removed),
             },
-      seal: this.sealView(state, mark, steer, lesson?.dir ?? null),
+      seal: this.sealView(state, mark, lesson?.dir ?? null),
       labels,
       lesson,
       note,
@@ -2142,15 +2097,13 @@ export class Game {
     this.root.classList.toggle('shell-open', covered || this.signal.busy);
     this.world.look.opacity = covered ? 0 : 1;
     const stage = this.stageRect();
-    const steer = this.steerGuide(state, time);
-    // The tutorial's own arrows say where to go; a swipe is echoed on the board outside it.
     const guide = this.updateGuide(state, stage);
     if (!covered) {
       this.view.draw(state, alpha, time, {
         overlay: {
           boardPreview: experiments.boardPreview,
           matchHint: experiments.matchHint,
-          guide: guide.board ?? (state.levelRun ? this.levelGuide(state, steer.guide) : steer.guide),
+          guide: guide.board,
         },
         contact: this.ritual.look,
         warn: state.cubes.length >= state.config.warnOccupied && !state.over,
@@ -2166,7 +2119,7 @@ export class Game {
       this.backdrop.clear();
     }
     const shown = !covered && !this.inMenu && !this.signal.busy;
-    this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, steer.dir, reducedMotion) : null, time);
+    this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, reducedMotion) : null, time);
     // The readings stand above the board on a tall screen and beside it on a wide one: the
     // box of the page that keeps their room follows them.
     const header = `${this.hud.headerHeight}px`;

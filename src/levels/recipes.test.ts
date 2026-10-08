@@ -46,9 +46,9 @@ describe('the places of the probe', () => {
     expect(new Set(briefs).size).toBe(briefs.length);
   });
 
-  it('teach nothing: no line, no arrow, no window, no net, and the floor is left as the chapter has it', () => {
+  it('teach nothing: no line, no window, no net, and the floor is left as the chapter has it', () => {
     for (const place of PLACES) {
-      for (const key of ['lesson', 'arrow', 'guide', 'until', 'story', 'guard', 'floor', 'safe'] as const) expect(place[key], `${place.id} ${key}`).toBeUndefined();
+      for (const key of ['lesson', 'guide', 'until', 'story', 'guard', 'floor', 'safe'] as const) expect(place[key], `${place.id} ${key}`).toBeUndefined();
     }
   });
 

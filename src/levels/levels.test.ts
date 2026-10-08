@@ -116,9 +116,9 @@ describe('the levels of the game', () => {
     }
   });
 
-  it('teach nothing and are played by the rules as they stand: no line, no arrow, no window, no net, the floor open and strict', () => {
+  it('teach nothing and are played by the rules as they stand: no line, no window, no net, the floor open and strict', () => {
     for (const level of ALL) {
-      for (const key of ['lesson', 'guide', 'arrow', 'story', 'until', 'guard', 'climb'] as const) expect(level[key], `${level.id} ${key}`).toBeUndefined();
+      for (const key of ['lesson', 'guide', 'story', 'until', 'guard', 'climb'] as const) expect(level[key], `${level.id} ${key}`).toBeUndefined();
       expect(level.floor, level.id).not.toBe(false);
       const state = createRun({ seed: level.seed, config: defaultConfig(), level });
       // A die that cannot be pushed is not climbed from the floor: the one way up is a die that is leaving.

@@ -75,7 +75,6 @@ export interface Recipe {
   /** The solution steps off a leaving die onto a standing one, and has more than one to choose from. */
   commit?: boolean;
   lesson?: string;
-  arrow?: boolean;
   /** The fewest moves may be left unproved: the board is taken on the word of a strong player. */
   witness?: boolean;
   /** The name of the level of the place; `B` and the number of the place when left out. */

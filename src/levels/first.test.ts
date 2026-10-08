@@ -43,7 +43,7 @@ describe('the four boards of the first level', () => {
       expect(spec.liftMoves, spec.id).toBe(LEVELS[0].liftMoves);
       expect(spec.chapter, spec.id).toBe(0);
       expect(spec.exact, spec.id).toBe(true);
-      for (const key of ['lesson', 'arrow', 'guide', 'story'] as const) expect(spec[key], `${spec.id} ${key}`).toBeUndefined();
+      for (const key of ['lesson', 'guide', 'story'] as const) expect(spec[key], `${spec.id} ${key}`).toBeUndefined();
       const state = start(spec);
       expect(state.cubes, spec.id).toHaveLength(spec.norm);
     }
