@@ -1,5 +1,9 @@
 # VI — исследование стиля: «найденная японская программа»
 
+> Вид: исследование. Статус: черновик. Дата: 2026-10-02. Проверено: 2026-10-08.
+> Что заменило: раздел 4.1.1 — docs/art/VI_Interface_Layer.md. Что живёт в коде: —.
+> «Принято 2 октября» (строки 9–33) в силе.
+
 Дата: 2 октября 2026. Материал для обсуждения, не спецификация. Формула пользователя: **Japanese experimental CD-ROM + institutional software + PS1/PS2 system menus + cyber-occultism + digital hauntology**.
 
 Дополняет [арт-документ v0.1](VI_Art_Direction_and_Signal_v01.md) и [логику мира](VI_World_Logic.md).

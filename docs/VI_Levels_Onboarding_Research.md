@@ -1,8 +1,11 @@
 # VI — обучающие уровни: исследование
 
+> Вид: исследование. Статус: в силе. Дата: 2026-10-06. Проверено: 2026-10-08.
+> Что заменило: —. Что живёт в коде: —.
+
 Дата: 6 октября 2026 · Статус: исследование и замер; решений здесь нет. Собрано: три помощника-поисковика, сверка ключевых источников и замер — исполнитель.
 
-Прежние страницы об обучении не повторяются: [VI_Tutorial_Research.md](VI_Tutorial_Research.md) (что известно о туториалах, наука об усвоении правил), [VI_Levels_Teaching.md](VI_Levels_Teaching.md) (словарь, лестница уроков, что доска может обязать), [VI_TurnBased_Research.md](VI_TurnBased_Research.md), раздел 17 (первые уровни Candy Crush и Royal Match), [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) (звёзды, лимит, ворота).
+Прежние страницы об обучении не повторяются: [VI_Tutorial_Research.md](VI_Tutorial_Research.md) (что известно о туториалах, наука об усвоении правил), VI_Levels_Teaching.md (в истории git, коммит `7780049`) (словарь, лестница уроков, что доска может обязать), [VI_TurnBased_Research.md](VI_TurnBased_Research.md), раздел 17 (первые уровни Candy Crush и Royal Match), [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) (звёзды, лимит, ворота).
 
 ## Вопрос
 
@@ -182,7 +185,7 @@
 
 ## 12. Производство уровней
 
-По слову владельца учтены страницы о генерации: `VI_Level_Generation_Deep_Research.md` (исследование генерации и режиссуры первых уровней), [VI_Levels_Constraints.md](VI_Levels_Constraints.md), [VI_TurnBased_Research.md](VI_TurnBased_Research.md) (разделы 11–15 и 19), [VI_Levels_Backlog.md](VI_Levels_Backlog.md) (блок A). Что из них взято в спеку:
+По слову владельца учтены страницы о генерации: `VI_Level_Generation_Deep_Research.md` (исследование генерации и режиссуры первых уровней), [VI_Levels_Constraints.md](VI_Levels_Constraints.md), [VI_TurnBased_Research.md](VI_TurnBased_Research.md) (разделы 11–15 и 19), VI_Levels_Backlog.md (в истории git, коммит `7780049`) (блок A). Что из них взято в спеку:
 
 | Вывод тех страниц | Что это значит для уроков |
 |---|---|
