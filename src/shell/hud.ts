@@ -44,7 +44,8 @@ export interface HudTask {
 /** The readings of a level: the moves it has taken, the most it may take where it has a limit, and how far its goal has come. */
 export interface HudLevel {
   kind: 'level';
-  number: number;
+  /** Its place in the list of the levels; null on a level that is not in the list and has no number. */
+  number: number | null;
   /** The most moves the level may take; null on a level with no limit. */
   limit: number | null;
   /** Moves made. */
@@ -524,8 +525,11 @@ export class GameHud {
     return Math.ceil((CELL_H + 6) * this.kit.zoom + tallest + 6);
   }
 
-  /** Draws what the session shows; `null` puts it all away. */
-  frame(view: HudView | null, timeMs: number): void {
+  /**
+   * Draws what the session shows; `null` puts it all away. With `unseen` it is laid out and keeps
+   * its room, so that the board stands where it will, and nothing of it is shown.
+   */
+  frame(view: HudView | null, timeMs: number, unseen = false): void {
     const { layer, display, kit } = this;
     if (!view) {
       layer.look.opacity = 0;
@@ -538,7 +542,7 @@ export class GameHud {
     const { shell } = this.look;
     const canvas = { width: display.width * display.pixelRatio, height: display.height * display.pixelRatio };
     layer.setLines(pictureSize(canvas, Number(shell.pixelsTall), Number(shell.pixelsWide)).height);
-    Object.assign(layer.look, signalLook(shell), { opacity: 1, depth: 8, dither: 0 });
+    Object.assign(layer.look, signalLook(shell), { opacity: unseen ? 0 : 1, depth: 8, dither: 0 });
     // The program holds its picture worse as the contact grows: the colours part, the grain
     // thickens; past the last step the readings turn inside out with the board.
     const { program, peak } = view.contact;
@@ -1009,7 +1013,7 @@ export class GameHud {
     const { left, right, lines } = layout;
     kit.text(HUD.moves, left, lines.label, dim);
     this.levelMoves(level, left, lines.big);
-    kit.text(`${HUD.level} ${digits(level.number, 2)}`, left, lines.tag, ink);
+    if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, left, lines.tag, ink);
     const rows = [lines.best, lines.link, lines.cells];
     level.goal.slice(0, rows.length).forEach((line, i) => this.goalLine(line, right, rows[i], left));
     kit.rect(left, layout.rule, right - left, 1, faint);
@@ -1021,7 +1025,7 @@ export class GameHud {
     const { left, end, mid, rowA, rowB, rowC, big } = layout;
     kit.text(HUD.moves, left, rowA, dim);
     this.levelMoves(level, left, big);
-    kit.text(`${HUD.level} ${digits(level.number, 2)}`, mid, rowA, ink);
+    if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, mid, rowA, ink);
     // The goal stands on the right, its last line on the last row.
     const rows = [rowA, rowB, rowC];
     const shown = level.goal.slice(0, rows.length);

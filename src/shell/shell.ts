@@ -10,6 +10,7 @@ import type { ShellContext, ShellFocus, ShellItem, ShellScreen, ShellSound } fro
 import { BootScreen } from './screens/boot';
 import { MenuScreen, type MenuActions, type MenuData } from './screens/menu';
 import { PanelScreen, type PanelSpec } from './screens/panel';
+import { StartScreen } from './screens/start';
 import { clockHour, paletteAt, shellDefaults, type Palette } from './theme';
 import { Voice } from './voice';
 
@@ -167,6 +168,14 @@ export class Shell {
   showPanel(spec: PanelSpec, alone: boolean): void {
     if (!this.acting) this.sound({ kind: 'open' });
     this.show(new PanelScreen(this.context, spec, alone), alone);
+  }
+
+  /**
+   * The one command the program opens on, over the board that waits: the board stays in sight
+   * and steps back, as it does under the pause.
+   */
+  showStart(onStart: () => void): void {
+    this.show(new StartScreen(this.context, onStart), false);
   }
 
   /** The font of the program has come: what is on screen is written with it. */

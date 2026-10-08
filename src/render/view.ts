@@ -522,6 +522,11 @@ export class BoardView {
     if (value >= 1) this.sent = value;
   }
 
+  /** The figure is drawn or left out, until the next board: a board that waits to be started has none on it. */
+  showFigure(shown: boolean): void {
+    this.player.group.visible = shown;
+  }
+
   /** `riseIn` brings the dice and the figure up out of the floor instead of showing them at once. */
   reset(riseIn = false): void {
     this.rise = riseIn ? 1 : 0;
@@ -542,6 +547,7 @@ export class BoardView {
     this.signs.reset();
     this.springs.reset();
     this.player.reset();
+    this.player.group.visible = true;
     this.sinking.clear();
     this.lastStep = null;
     // A new board: the followed view is put on the player where they start.

@@ -32,7 +32,7 @@ import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
-import { FIRST_ID } from '../levels/first';
+import { FIRST_ID, FIRST_LEVEL } from '../levels/first';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -66,6 +66,7 @@ import {
   type GameEvent,
   type GoalLine,
   type LevelDeadEnd,
+  type LevelSpec,
   type MarkFace,
   type MoveKind,
   type Orientation,
@@ -118,6 +119,11 @@ const LEVELS_PROBE = new URLSearchParams(window.location.search).has('levels');
  * open on them, until it is decided whether they come back or go: see docs/ROADMAP.md.
  */
 const SHELVED = ((query) => (query.has('tutorial') ? 'tutorial' : query.has('tasks') ? 'tasks' : null))(new URLSearchParams(window.location.search));
+/**
+ * The first level is not in the list of the levels and is played once. `?first` opens on its
+ * first stage, to play it again and to look at it.
+ */
+const FIRST_PROBE = new URLSearchParams(window.location.search).has('first');
 /**
  * How the game is played, as the file of the menu says it: the rules that hold wherever dice
  * are rolled, then what a level asks for and what a session does. Where a window of the levels
@@ -280,6 +286,10 @@ export class Game {
   private tryCounted = false;
   /** Level of the game being played, or last played, in the list of levels. */
   private levelIndex = 0;
+  /** The stage of the first level on the board; null on a level of the list. */
+  private firstStage: number | null = null;
+  /** The board waits under the one command the program opens on: nothing of the session is shown over it. */
+  private starting = false;
   /** Ticks of the level in hand that have been played: its own tick stands still between moves and is no clock. */
   private levelTicks = 0;
   /** Moves of the level in hand that can still be taken back. */
@@ -501,13 +511,19 @@ export class Game {
         else this.openPuzzle();
         return;
       }
-      // A run the player was taken away from waits for them on its pause; otherwise, the menu.
+      if (FIRST_PROBE) {
+        this.saveWithoutRun();
+        this.startStage(0);
+        return;
+      }
+      // A run the player was taken away from waits for them on its pause; otherwise, the board
+      // they will play, under the one command that starts it.
       const kept = this.keptRun();
       // The long boot is shown once per device. What was kept of the run has been read and goes
       // out of storage with the same save.
       this.saveWithoutRun();
       if (kept) this.continueRun(kept);
-      else this.showMenu();
+      else this.showStart();
     });
     requestAnimationFrame((time) => this.frame(time));
   }
@@ -639,9 +655,14 @@ export class Game {
     return Math.round((this.played() * this.state.config.tickMs) / 1000);
   }
 
+  /** The code of the level being played, or last played: a stage of the first level has its own. */
+  private levelId(): string {
+    return this.firstStage !== null ? FIRST_LEVEL[this.firstStage].id : LEVELS[this.levelIndex].id;
+  }
+
   /** What the platform calls the thing being played: a kind of session, a task, or a level. */
   private levelName(): string {
-    if (this.kind === 'level') return `level_${LEVELS[this.levelIndex].id}`;
+    if (this.kind === 'level') return `level_${this.levelId()}`;
     return this.kind === 'puzzle' ? `task_${PUZZLE_LEVELS[this.puzzleIndex].id}` : this.kind;
   }
 
@@ -661,7 +682,8 @@ export class Game {
 
   /** What is being played, as the analytics name it: a kind of session, the exercise, a task with its number, or a level. */
   private step(): EventData {
-    if (this.kind === 'level') return { step_id: `level_${LEVELS[this.levelIndex].id}`, step_index: this.levelIndex + 1 };
+    if (this.kind === 'level' && this.firstStage !== null) return { step_id: `level_${this.levelId()}` };
+    if (this.kind === 'level') return { step_id: `level_${this.levelId()}`, step_index: this.levelIndex + 1 };
     if (this.kind !== 'puzzle') return { step_id: this.kind };
     return { step_id: 'task', step_index: this.puzzleIndex + 1, level_id: PUZZLE_LEVELS[this.puzzleIndex].id };
   }
@@ -753,7 +775,8 @@ export class Game {
       return;
     }
     if (kind === 'level') {
-      this.startLevel(this.levelIndex);
+      if (this.firstStage !== null) this.startStage(this.firstStage);
+      else this.startLevel(this.levelIndex);
       return;
     }
     this.kind = kind;
@@ -1027,8 +1050,24 @@ export class Game {
     }
     // The level is played with the limit of moves of its chapter; as it is kept, it has none.
     const spec = limitedLevel(LEVELS, index);
-    this.kind = 'level';
     this.levelIndex = index;
+    this.firstStage = null;
+    this.runLevel(spec);
+    if (intro && spec.lesson) this.showLevelIntro(spec.lesson);
+  }
+
+  /**
+   * A stage of the first level begins on its board: a level as any is, with no window before it,
+   * no limit of moves and no number.
+   */
+  private startStage(index: number): void {
+    this.firstStage = index;
+    this.runLevel(FIRST_LEVEL[index]);
+  }
+
+  /** Puts a level on the board: one of the list or a stage of the first, whichever has just been named as the one in hand. */
+  private runLevel(spec: LevelSpec): void {
+    this.kind = 'level';
     this.tryCounted = false;
     // A level is the same for everyone: it is played by the rules as they are, whatever the player has set.
     this.begin(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }), false);
@@ -1036,7 +1075,49 @@ export class Game {
     track('progression_started', { ...this.step(), try: levelStat(this.settings, spec.id).tries + 1 });
     tell('level_started', this.levelName());
     this.layoutGuide();
-    if (intro && spec.lesson) this.showLevelIntro(spec.lesson);
+  }
+
+  /**
+   * What the program opens on: the board the player will play, stepped back, with no figure on
+   * it and nothing moving, under the one command that starts it. One who has not passed the
+   * first level gets its first stage, anyone else the first level of the list not yet passed.
+   */
+  private showStart(): void {
+    if (this.settings.levels.passed[FIRST_ID]) this.startLevel(this.nextLevel());
+    else this.startStage(0);
+    this.paused = true;
+    this.starting = true;
+    this.audio.setPaused(true);
+    this.view.showFigure(false);
+    this.shell.showStart(() => {
+      // The figure is there on the frame: the dice already stand, and nothing comes up with it.
+      this.view.showFigure(true);
+      this.starting = false;
+      this.paused = false;
+      this.shell.hide();
+      this.audio.setPaused(false);
+      this.lastFrame = 0;
+    });
+  }
+
+  /**
+   * A stage of the first level is over. Passed, the next one begins at once, and after the last
+   * the first level is passed and the list of the levels goes on from where the player stands in
+   * it. A stage cannot be lost as it is built; one that is, is shown as any level that is lost.
+   */
+  private endStage(): void {
+    if (this.firstStage === null || this.state.endReason !== 'passed') {
+      this.showLevelResult();
+      return;
+    }
+    this.frames.flush(this.lastFrame);
+    if (this.firstStage + 1 < FIRST_LEVEL.length) {
+      this.startStage(this.firstStage + 1);
+      return;
+    }
+    this.settings.levels.passed[FIRST_ID] = true;
+    saveSettings(this.settings);
+    this.startLevel(this.nextLevel());
   }
 
   /**
@@ -1095,7 +1176,7 @@ export class Game {
   private restartLevel(): void {
     if (!this.state.levelRun || this.inMenu) return;
     saveSettings(this.settings);
-    this.startLevel(this.levelIndex);
+    this.startRun('level');
   }
 
   /** Starts over what is on the board: a task or a level, each its own way. */
@@ -1205,7 +1286,7 @@ export class Game {
           stars: passed && spec.par !== undefined ? levelStars(run.moves, spec.par) : undefined,
           goal: lines,
           // The level after the last of a chapter is offered once its chapter is open.
-          hasNext: this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
+          hasNext: this.firstStage === null && this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
           // A level that is failed says why: at a dead end, the dice that stand against the dice a combo takes.
           reason: passed
             ? undefined
@@ -1218,7 +1299,7 @@ export class Game {
         },
         {
           onNext: () => this.startLevel(this.levelIndex + 1, true),
-          onAgain: () => this.startLevel(this.levelIndex),
+          onAgain: () => this.startRun('level'),
           onLevels: () => this.showLevels(),
           onUndo: () => this.undoLevel(true),
         },
@@ -2033,7 +2114,8 @@ export class Game {
         : levelRun
           ? {
               kind: 'level',
-              number: this.levelIndex + 1,
+              // A stage of the first level has no number: it is not a level of the list.
+              number: this.firstStage === null ? this.levelIndex + 1 : null,
               limit: levelRun.spec.moves > 0 ? levelRun.spec.moves : null,
               made: levelRun.moves,
               goal: goalLines(state),
@@ -2102,7 +2184,7 @@ export class Game {
       this.startRun('endless', start);
       this.audio.begin();
     }
-    const state = this.state;
+    let state = this.state;
     // What a level came to is written down on the frame it ends: its end may yet be cut by starting it over.
     if (state.over && state.levelRun && !this.levelCounted) this.countLevel();
     // A level plays its end before its result is shown: the dice leave a board that is cleared, and one that is lost stands for a moment.
@@ -2110,7 +2192,11 @@ export class Game {
     if (state.over && !this.resultShown && !ending) {
       this.resultShown = true;
       if (state.puzzle) this.showPuzzleResult();
-      else if (state.levelRun) this.showLevelResult();
+      else if (state.levelRun && this.firstStage !== null) {
+        this.endStage();
+        // Another board may be on by now: the rest of the frame is its own.
+        state = this.state;
+      } else if (state.levelRun) this.showLevelResult();
       else this.showResult();
     }
 
@@ -2166,7 +2252,8 @@ export class Game {
     const shown = !covered && !this.inMenu && !this.signal.busy;
     // Under a panel, and while the board takes no input, a stage shows no sign and its wait is not counted.
     this.waiting = this.stageWait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };
-    this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, lit, reducedMotion) : null, time);
+    // Under the command the program opens on, the readings keep their room and are not shown: nothing is on that screen but the board and the command.
+    this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, lit, reducedMotion) : null, time, this.starting);
     // The readings stand above the board on a tall screen and beside it on a wide one: the
     // box of the page that keeps their room follows them.
     const header = `${this.hud.headerHeight}px`;

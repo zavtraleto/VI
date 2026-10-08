@@ -244,6 +244,8 @@ export const COMMANDS = {
   exit: { native: '終了', name: 'EXIT' },
   /** "Start". */
   start: { native: '開始', name: 'START' },
+  /** "Leave out": the long boot of the first start, passed. */
+  skip: { native: '省略', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
   undo: { native: '取消', name: 'UNDO' },
   rules: { native: '規則', name: 'RULES' },
