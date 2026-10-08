@@ -152,11 +152,19 @@ export class RoadWait {
   /** The way from the board last asked about, and what names that board. */
   private kept: { key: string; way: SignWay } | null = null;
 
+  /**
+   * The piece has come to a dead end often enough for the sign to be shown at once, on every board
+   * of it from here. Set by whoever counts the dead ends, which outlive a try started over.
+   */
+  hurry: boolean;
+
   constructor(
     private readonly opening: Dir | undefined,
     rule: IdleRule,
+    hurry = false,
   ) {
     this.idle = new Idle(rule);
+    this.hurry = hurry;
   }
 
   /** `live` is false while a panel is open or the board takes no input: nothing is shown, and the time is not waited. */
@@ -176,7 +184,7 @@ export class RoadWait {
       this.kept = { key, way };
       this.idle.acted(timeMs, wastedMoves(run.spec.par, run.moves, way.left));
     }
-    const { blink, sign } = this.idle.at(timeMs);
+    const { blink, sign } = this.idle.at(timeMs, this.hurry);
     if (this.opening && run.moves === 0 && state.stats.steps === 0) return { dir: this.opening, blink };
     return { dir: sign ? this.kept.way.dir : null, blink };
   }
@@ -185,10 +193,11 @@ export class RoadWait {
 /**
  * The wait of the level with this id, new for every start of it: for a piece of the road, by
  * what the piece opens with and by its thresholds. The thresholds are a first guess of the one
- * who built them and the owner has not named them. Null for every other level: the levels of
+ * who built them and the owner has not named them. `hurry` is a piece that has come to a dead end
+ * twice: its sign is shown at once. Null for every other level: the levels of
  * the list show no sign for waiting.
  */
-export function roadWait(id: string): RoadWait | null {
+export function roadWait(id: string, hurry = false): RoadWait | null {
   const rule = ROAD_IDLE[id];
-  return rule ? new RoadWait(ROAD_SIGNS[id], rule) : null;
+  return rule ? new RoadWait(ROAD_SIGNS[id], rule, hurry) : null;
 }

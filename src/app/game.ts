@@ -34,7 +34,7 @@ import { shiftFor } from '../render/framing';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { goneShare, type DicePassing } from '../render/passing';
 import { BoardView, type Frame } from '../render/view';
-import { ROAD, blockOf, pieceAfter, pieceMiddle, roadPlace } from '../levels/road';
+import { ROAD, ROAD_HINTS, blockOf, pieceAfter, pieceMiddle, roadPlace, type HintUntil, type RoadHintKey } from '../levels/road';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -100,6 +100,7 @@ import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
+import { DeadEnds, hintOver, probeHint } from './hint';
 import { roadCounters } from './roadCounters';
 import { roadWait, signHeight, signMode, signStart, type RoadWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
@@ -132,6 +133,12 @@ const ROAD_PROBE = ((query) => {
   const index = query.has('road') ? ROAD.findIndex((spec) => spec.id === query.get('road')) : query.has('first') ? 0 : -1;
   return index < 0 ? null : index;
 })(new URLSearchParams(window.location.search));
+/**
+ * A line of the hints asked for in the address of a development build, `?hint=hintChain`: it is
+ * shown above the board of whatever piece runs, to look at it before the pieces that carry it are
+ * laid. A production build has none.
+ */
+const HINT_PROBE = import.meta.env.DEV ? probeHint(new URLSearchParams(window.location.search).get('hint')) : null;
 /** The code the first level of the build before the road was kept under: who passed it has passed what the first block of the road is. */
 const FIRST_ID = 'F1';
 /**
@@ -345,6 +352,10 @@ export class Game {
   private lastMove: { x: number; z: number; moves: number } | null = null;
   /** The wait of the piece of the road on the board: its swipe sign and its blinking plaque. Null on a level of the list and outside the levels. */
   private wait: RoadWait | null = null;
+  /** The dead ends of the piece in hand, which a try started over and a move taken back do not forget. */
+  private readonly deadEnds = new DeadEnds();
+  /** The line above the board of the piece in hand, while it teaches a move: from the start of the piece to the move being made. Null where the piece has none. */
+  private hint: { key: RoadHintKey; until: HintUntil; done: boolean } | null = null;
   /** What that wait shows on this frame: the way the swipe sign points, and whether the plaque over the target blinks. */
   private waiting: Waiting = { dir: null, blink: false };
   /** What the player last played with: the swipe sign is a key for those who press keys. */
@@ -872,8 +883,10 @@ export class Game {
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
+    // Only a piece of the road carries a line over its board; one that begins after it carries none.
+    if (!state.levelRun) this.hint = null;
     // A piece of the road waits with the player; every start of it waits anew.
-    this.wait = state.levelRun ? roadWait(state.levelRun.spec.id) : null;
+    this.wait = state.levelRun ? roadWait(state.levelRun.spec.id, this.deadEnds.hurries) : null;
     this.waiting = { dir: null, blink: false };
     // Where every step may be a move that counts, a held direction is one step.
     this.controller.setRepeat(!state.levelRun);
@@ -1122,6 +1135,11 @@ export class Game {
   private runLevel(spec: LevelSpec, said = true): void {
     this.kind = 'level';
     this.tryCounted = false;
+    // A piece that teaches a move carries its line from its start; its room is the board's from the first frame it is framed in.
+    const carried = this.piece !== null ? (ROAD_HINTS[spec.id] ?? HINT_PROBE) : null;
+    this.hint = carried ? { ...carried, done: false } : null;
+    this.deadEnds.begin(spec.id);
+    this.view.setClear(this.hintRoom());
     // A level is the same for everyone: it is played by the rules as they are, whatever the player has set.
     this.begin(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }), false);
     // A die laid as leaving sends nothing when it goes: the sound is told of it now.
@@ -1518,6 +1536,7 @@ export class Game {
       // A piece of the road that is passed moves the player's place on the road to the piece after it, and never back:
       // one who is further on, or past the road, and plays a piece again by its address stays where they were.
       if (this.piece !== null) {
+        this.deadEnds.forget();
         const { levels } = this.settings;
         const place = roadPlace(levels.road, levels.passed[FIRST_ID] === true);
         if (place !== null && place <= this.piece) levels.road = pieceAfter(this.piece);
@@ -1526,6 +1545,11 @@ export class Game {
       stat.fails++;
       if (stuck) stat.stuck++;
       else noteShort(stat, short);
+      // A piece of the road that comes to a dead end again shows the sign of its way at once, on the board it is taken back to or started over on.
+      if (stuck && this.piece !== null) {
+        this.deadEnds.reach();
+        if (this.wait) this.wait.hurry = this.deadEnds.hurries;
+      }
     }
     saveSettings(this.settings);
     if (passed) track('progression_completed', { ...summary, stars: levelStars(run.moves, spec.par) });
@@ -1595,7 +1619,15 @@ export class Game {
    */
   private layoutGuide(): void {
     const active = this.state.tutorial !== null && !this.inMenu;
-    this.view.setClear(active ? this.hud.reserve(this.stageRect()) + GUIDE_GAP_PX : 0);
+    this.view.setClear(active ? this.hud.reserve(this.stageRect()) + GUIDE_GAP_PX : this.inMenu ? 0 : this.hintRoom());
+  }
+
+  /**
+   * How much of the top of the stage the line of a hint keeps, in CSS pixels, whether it is still
+   * shown or has gone out: the board does not move when it goes. None where the piece has none.
+   */
+  private hintRoom(): number {
+    return this.hint ? this.hud.hintRoom(this.stageRect(), t(this.hint.key)) : 0;
   }
 
   /**
@@ -2134,6 +2166,12 @@ export class Game {
       this.onEvent(state, event);
     }
     this.tally.watch(state);
+    // The line of a hint goes out when the move it speaks of is made.
+    if (this.hint && !this.hint.done) {
+      const { player } = state;
+      const under = player.level === 'top' ? (cubeAt(state, player.x, player.z)?.state ?? null) : null;
+      if (hintOver(this.hint.until, state.events, under)) this.hint.done = true;
+    }
     // A scored session says how it stands at every whole minute.
     const minute = Math.round(60_000 / state.config.tickMs);
     if (state.tick % minute === 0 && (state.mode === 'endless' || state.mode === 'timed')) {
@@ -2408,6 +2446,8 @@ export class Game {
       note,
       counters,
       sign: levelRun && this.waiting.dir ? this.signView(state, this.waiting.dir, over) : null,
+      // The hint stands once the board is whole, and goes when the move is made or the piece is over.
+      hint: this.hint && !this.hint.done && !this.passage && !this.starting && !state.over ? { text: t(this.hint.key) } : null,
       tools: puzzle
         ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null }
         : levelRun

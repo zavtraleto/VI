@@ -152,6 +152,34 @@ export function blockOf(index: number): RoadBlock | null {
 /** The sign a piece opens with, if any: the direction the swipe sign shows from the first frame. */
 export const ROAD_SIGNS: Readonly<Record<string, Dir | undefined>> = { R01: 'N' };
 
+/** The moves a piece can teach that a line above the board speaks of, and what ends the line: the first combo, a die joined to a combo that is leaving, a step onto a leaving die, a push. */
+export type HintUntil = 'combo' | 'chain' | 'walk' | 'push';
+
+/** The lines of the texts (`src/ui/i18n.ts`) that a piece can carry above its board. */
+export type RoadHintKey = 'roadHintChain' | 'roadHintWalk' | 'roadHintPush';
+
+export interface RoadHint {
+  /** The key of the line, in the seven languages. */
+  key: RoadHintKey;
+  /** The line stands from the start of the piece and goes out when this has been done on it. */
+  until: HintUntil;
+}
+
+/**
+ * The pieces that teach a move carry a line above the board, a hint and not an instruction (the
+ * owner: «они скорее подсказка, а не наставление»). The pieces are not laid yet: `R09` is to be
+ * the chain, `R13` the walk over a die that is leaving, `R17` the push, and nothing shows until
+ * they are in `ROAD`.
+ */
+export const ROAD_HINTS: Readonly<Record<string, RoadHint>> = {
+  R09: { key: 'roadHintChain', until: 'chain' },
+  R13: { key: 'roadHintWalk', until: 'walk' },
+  R17: { key: 'roadHintPush', until: 'push' },
+};
+
+/** A piece that has come to a dead end this many times shows the sign of the way at once: the second time is a mistake that is repeated. */
+export const DEAD_ENDS_FOR_SIGN = 2;
+
 /** What a piece does when the player waits, ms: when the plaque over the target blinks, when the sign comes, how many wasted moves bring it at once. */
 type Wait = { blinkMs: number | null; signMs: number; wasted: number | null };
 

@@ -110,6 +110,10 @@ export const FR: Texts = {
   ruleTwos: 'Les 2 et les 3 marchent. Un 2 demande deux dés ; un 3, trois.',
   ruleGlass: "Tu peux rouler sur un dé qui s'en va. Si la face correspond, le dé rejoint la chaîne.",
   ruleFives: "Seuls les 5 marchent. Un combo, c'est cinq 5 côte à côte.",
+  // A proposal, like the Russian lines they follow.
+  roadHintChain: 'Quand le combo part, roule-lui un autre dé.',
+  roadHintWalk: 'Tu peux marcher sur un dé qui part.',
+  roadHintPush: 'Depuis le sol, tu peux pousser un dé.',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLimited: 'SESSION DU JOUR {time}',
   shellLevels: 'NETTOYAGE DU CHAMP',

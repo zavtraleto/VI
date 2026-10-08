@@ -139,6 +139,13 @@ const RU = {
   ruleTwos: 'Работают двойки и тройки. Двойке нужны две кости, тройке — три.',
   ruleGlass: 'По уходящей кости можно прокатиться. Совпала грань — кость вошла в цепочку.',
   ruleFives: 'Работают только пятёрки. Комбо — пять пятёрок рядом.',
+  // The three lines a piece of the road carries over its board when it teaches a move (`ROAD_HINTS`): a hint and not an
+  // instruction, eight words at most, in the voice of the lab assistant but short. THE TEXTS ARE A PROPOSAL OF THE
+  // IMPLEMENTER; the owner corrects them. The other six languages say the same in the same length and have not been
+  // read by a native speaker either.
+  roadHintChain: 'Пока комбо уходит, докати к нему ещё одну.',
+  roadHintWalk: 'По уходящей кости можно пройти.',
+  roadHintPush: 'С пола кость можно толкнуть.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLimited: 'СЕАНС ДНЯ {time}',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
@@ -266,6 +273,9 @@ const EN: typeof RU = {
   ruleTwos: '2s and 3s work. A 2 takes two dice, a 3 takes three.',
   ruleGlass: 'You can roll over a leaving die. If the face matches, the die joins the chain.',
   ruleFives: 'Only 5s work. A combo is five 5s side by side.',
+  roadHintChain: 'Roll another die to the leaving combo.',
+  roadHintWalk: 'You can walk over a leaving die.',
+  roadHintPush: 'From the floor, you can push a die.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',
   shellLevels: 'CLEAR THE BOARD',

@@ -361,4 +361,30 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     for (let time = 20_016; time <= 21_000; time += 16) wait.frame(state, time, false);
     expect(asked).toHaveBeenCalledTimes(2);
   });
+
+  it('shows the way at once to a piece that is in a hurry, on every board of it, and to no other', () => {
+    const state = start(pieceOf('R03'));
+    const hurried = roadWait('R03', true)!;
+    expect(hurried.frame(state, 0, true)).toEqual({ dir: 'W', blink: false });
+    go(state, 'N');
+    // The board after a roll is asked anew and shows its way with no wait.
+    expect(hurried.frame(state, 100, true)).toEqual({ dir: signAt(state).dir, blink: false });
+    expect(hurried.frame(state, 100, true).dir).not.toBeNull();
+    // The count of the dead ends outlives the wait: it is told to the one that is on the board.
+    const calm = roadWait('R03')!;
+    expect(calm.frame(state, 0, true)).toEqual(NOTHING);
+    calm.hurry = true;
+    go(state, 'S');
+    expect(calm.frame(state, 16, true).dir).not.toBeNull();
+    // A panel still takes it away.
+    expect(calm.frame(state, 32, false)).toEqual(NOTHING);
+  });
+
+  it('keeps the dead-end window as it is: a board that is over shows no sign, hurried or not', () => {
+    const state = start(pieceOf('R03'));
+    const hurried = roadWait('R03', true)!;
+    go(state, 'W');
+    expect(state.over).toBe(true);
+    expect(hurried.frame(state, 1000, true)).toEqual(NOTHING);
+  });
 });

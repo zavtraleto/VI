@@ -109,4 +109,12 @@ describe('the wait of a stage', () => {
       expect(idle.at(rule.signMs).sign).toBe(true);
     }
   });
+
+  it('shows the sign at once, and no plaque, when the piece is in a hurry: it has come to a dead end again', () => {
+    const idle = new Idle(RULE);
+    idle.acted(1000, 0);
+    expect(idle.at(1000, true)).toEqual({ blink: false, sign: true });
+    expect(idle.at(5000, true)).toEqual({ blink: false, sign: true });
+    expect(idle.at(5000, false)).toEqual({ blink: true, sign: false });
+  });
 });

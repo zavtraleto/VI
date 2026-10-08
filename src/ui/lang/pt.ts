@@ -107,6 +107,10 @@ export const PT: Texts = {
   ruleTwos: 'Funcionam os 2 e os 3. Um 2 pede dois dados; um 3, três.',
   ruleGlass: 'Dá para rolar por cima de um dado que está saindo. Se a face coincidir, o dado entra na corrente.',
   ruleFives: 'Só os 5 funcionam. Um combo são cinco 5 lado a lado.',
+  // A proposal, like the Russian lines they follow.
+  roadHintChain: 'Enquanto o combo sai, role outro dado.',
+  roadHintWalk: 'Dá para andar sobre um dado que sai.',
+  roadHintPush: 'Do chão, dá para empurrar um dado.',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLimited: 'SESSÃO DO DIA {time}',
   shellLevels: 'LIMPEZA DO CAMPO',

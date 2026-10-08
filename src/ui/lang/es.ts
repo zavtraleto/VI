@@ -107,6 +107,10 @@ export const ES: Texts = {
   ruleTwos: 'Funcionan doses y treses. Un 2 pide dos dados; un 3, tres.',
   ruleGlass: 'Puedes rodar por encima de un dado que se va. Si la cara coincide, el dado entra en la cadena.',
   ruleFives: 'Solo funcionan los cincos. Un combo son cinco 5 juntos.',
+  // A proposal, like the Russian lines they follow.
+  roadHintChain: 'Mientras el combo se va, acerca otro dado.',
+  roadHintWalk: 'Puedes caminar sobre un dado que se va.',
+  roadHintPush: 'Desde el suelo puedes empujar un dado.',
   shellProtocol: 'SESIÓN SIN LÍMITE',
   shellLimited: 'SESIÓN DEL DÍA {time}',
   shellLevels: 'LIMPIEZA DEL CAMPO',

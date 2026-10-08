@@ -107,6 +107,10 @@ export const DE: Texts = {
   ruleTwos: '2er und 3er wirken. Eine 2 braucht zwei Würfel, eine 3 drei.',
   ruleGlass: 'Über einen gehenden Würfel kannst du rollen. Passt die Seite, reiht sich der Würfel in die Kette ein.',
   ruleFives: 'Nur 5er wirken. Ein Combo sind fünf 5er nebeneinander.',
+  // A proposal, like the Russian lines they follow.
+  roadHintChain: 'Solange das Combo geht, rolle einen Würfel dazu.',
+  roadHintWalk: 'Über einen gehenden Würfel kannst du laufen.',
+  roadHintPush: 'Vom Boden aus kannst du Würfel schieben.',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLimited: 'SITZUNG DES TAGES {time}',
   shellLevels: 'FELDRÄUMUNG',

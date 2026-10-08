@@ -1,4 +1,4 @@
-import type { Size } from '../display/sizing';
+import type { Rect, Size } from '../display/sizing';
 import { CELL_H, CELL_W, MIN_ZONE, isWide, type Box, type Insets, type Point } from './layout';
 
 /** Space kept from the edges of the picture. */
@@ -215,4 +215,43 @@ export function signPlace(at: Point, trail: Point, bounds: Box, pad: number): Po
  */
 export function signKey(at: Point, trail: Point): Point {
   return { x: at.x + trail.x / 2, y: at.y + trail.y / 2 };
+}
+
+/** Letters of the voice for a note or a hint over the board, in CSS pixels. */
+export const NOTE_SIZE = 17;
+/** The line of a hint is no longer than this many letters wide, and is centred in what the window leaves it. */
+const HINT_EM = 40;
+/** A hint stands this far from the top of the stage, in CSS pixels, and from the edges of it; the board starts this far below it. */
+const HINT_TOP = 6;
+const HINT_SIDE = 12;
+const HINT_BELOW = 8;
+/** How long a hint takes to come and to go, and the steps its brightness is drawn in: each step is a new picture of the voice. */
+export const HINT_FADE_MS = 300;
+const HINT_STEPS = 10;
+
+/**
+ * Where the one line of a hint stands, in CSS pixels of the window: at the top of the stage, under
+ * the readings of a level, centred, wider than neither `HINT_EM` letters nor the stage and its
+ * edges, and within what the edges of the screen keep. `height` is what the text takes in the lines
+ * it is put into at that width; `room` is how much of the top of the stage the line keeps, the
+ * board being laid out below it so that no cell of it is under the words.
+ */
+export function hintBox(stage: Rect, window: Size, safe: Insets, size: number, height: number): { box: Rect; room: number } {
+  const left = Math.max(stage.x + HINT_SIDE, safe.left);
+  const right = Math.min(stage.x + stage.width - HINT_SIDE, window.width - safe.right);
+  const width = Math.max(0, Math.min(right - left, size * HINT_EM));
+  const box: Rect = { x: left + (right - left - width) / 2, y: stage.y + HINT_TOP, width, height };
+  return { box, room: Math.ceil(HINT_TOP + height + HINT_BELOW) };
+}
+
+/**
+ * How bright a hint is, 0 to 1, in steps: it comes in `HINT_FADE_MS` after it is put up (`since`)
+ * and goes out in as long from when it is taken away (`gone`, null while it stands). With reduced
+ * motion it is there or it is not.
+ */
+export function hintAlpha(since: number, gone: number | null, reduced: boolean): number {
+  const clamp = (value: number): number => Math.min(1, Math.max(0, value));
+  const coming = reduced ? 1 : clamp(since / HINT_FADE_MS);
+  const going = gone === null ? 1 : reduced ? 0 : 1 - clamp(gone / HINT_FADE_MS);
+  return Math.round(Math.min(coming, going) * HINT_STEPS) / HINT_STEPS;
 }

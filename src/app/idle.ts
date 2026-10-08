@@ -47,10 +47,11 @@ export class Idle {
     this.pausedAt = null;
   }
 
-  at(timeMs: number): IdleView {
+  /** `hurry`: the sign is shown whatever the wait, because the piece has come to a dead end again (spec of the teaching road, 7). */
+  at(timeMs: number, hurry = false): IdleView {
     const { blinkMs, signMs, wasted } = this.rule;
     const waited = this.since === null ? 0 : (this.pausedAt ?? timeMs) - this.since;
-    const sign = waited >= signMs || (wasted !== null && this.wasted >= wasted);
+    const sign = hurry || waited >= signMs || (wasted !== null && this.wasted >= wasted);
     return { blink: !sign && blinkMs !== null && waited >= blinkMs, sign };
   }
 }

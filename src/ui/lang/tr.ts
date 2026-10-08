@@ -107,6 +107,10 @@ export const TR: Texts = {
   ruleTwos: "2'ler ve 3'ler çalışır. 2 iki zar ister, 3 üç zar.",
   ruleGlass: 'Giden bir zarın üstünden yuvarlanabilirsin. Yüz tutarsa zar zincire katılır.',
   ruleFives: "Yalnızca 5'ler çalışır. Kombo, yan yana beş 5'tir.",
+  // A proposal, like the Russian lines they follow.
+  roadHintChain: 'Kombo giderken ona bir zar daha yuvarla.',
+  roadHintWalk: 'Giden zarın üstünden yürüyebilirsin.',
+  roadHintPush: 'Zeminden bir zarı itebilirsin.',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLimited: 'GÜNÜN OTURUMU {time}',
   shellLevels: 'ALAN TEMİZLİĞİ',

@@ -17,6 +17,8 @@ export interface VoiceLine {
   anchor?: 'top' | 'middle' | 'bottom';
   /** Secondary text: fainter. */
   dim?: boolean;
+  /** How bright, 0 to 1, for words that come and go; 1 when left out. */
+  alpha?: number;
   /** How many signs of the text are there yet, for words that come little by little; all of them when left out. */
   reveal?: number;
   /** Signs that come before this text, where several are typed one after another: it starts when they are there. */
@@ -152,6 +154,7 @@ export class Voice {
       ctx.lineWidth = Math.max(1.5, size / 7);
       ctx.strokeStyle = EDGE;
       ctx.fillStyle = line.dim ? DIM : COLOR;
+      ctx.globalAlpha = line.alpha ?? 1;
       const x = line.box.x * scale + (centre ? width / 2 : 0);
       // Words that are still coming keep the places they will have: a line is written from
       // where it will start, and the lines not reached yet are left empty.
@@ -168,6 +171,7 @@ export class Voice {
         if (centre) ctx.textAlign = 'center';
       });
     }
+    ctx.globalAlpha = 1;
     now.left = Math.max(0, Math.floor(now.left));
     now.top = Math.max(0, Math.floor(now.top));
     now.right = Math.min(layer.width, Math.ceil(now.right));
