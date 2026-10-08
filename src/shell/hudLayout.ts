@@ -196,8 +196,9 @@ export function counterLeft(middle: number, width: number, bounds: Box, pad: num
 /**
  * Where the swipe sign stands so that all of it is on the picture: `at`, the start of its trail,
  * moved the least it takes for the start and the end of the trail to lie `pad` inside `bounds`.
- * A sign asked for beyond the edge, beside a board that fills the screen, comes to the edge on
- * that side. In bounds too small for it, it stands in their middle.
+ * A sign stands by the figure, so it is on the picture where the figure is; one whose trail
+ * runs off the picture, by a figure at its edge, is brought in from that edge. In bounds too
+ * small for it, it stands in their middle.
  */
 export function signPlace(at: Point, trail: Point, bounds: Box, pad: number): Point {
   const fit = (value: number, reach: number, from: number, length: number): number => {
@@ -206,4 +207,12 @@ export function signPlace(at: Point, trail: Point, bounds: Box, pad: number): Po
     return low > high ? (low + high) / 2 : Math.min(high, Math.max(low, value));
   };
   return { x: fit(at.x, trail.x, bounds.x, bounds.w), y: fit(at.y, trail.y, bounds.y, bounds.h) };
+}
+
+/**
+ * Where the key of the swipe sign stands: in the middle of the trail the dot would run, half a
+ * cell on from the edge of the figure's die, so that the key is beside the figure and not on it.
+ */
+export function signKey(at: Point, trail: Point): Point {
+  return { x: at.x + trail.x / 2, y: at.y + trail.y / 2 };
 }

@@ -1,3 +1,4 @@
+import { roadPlace } from '../levels/road';
 import { riseSpan, stoodBy } from '../render/passing';
 
 /**
@@ -161,11 +162,15 @@ export interface Board {
 }
 
 /**
- * The board the program opens on: the first piece of the road for one who has not passed it,
- * and for anyone else `onward`, the level of the list the player goes on with.
+ * The board the program opens on: the piece of the road the player stopped on, the first for
+ * one who is new, and for one who is past the road `onward`, the level of the list the player
+ * goes on with. `road` is the code that is kept of the player's place on the road, and
+ * `firstPassed` whether they passed the first level of the build before, which was what the
+ * first block of the road is (`roadPlace`).
  */
-export function startBoard(roadPassed: boolean, onward: number): Board {
-  return roadPassed ? { level: onward } : { road: 0 };
+export function startBoard(road: string | undefined, firstPassed: boolean, onward: number): Board {
+  const place = roadPlace(road, firstPassed);
+  return place === null ? { level: onward } : { road: place };
 }
 
 /**

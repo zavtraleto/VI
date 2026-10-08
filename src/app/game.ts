@@ -34,7 +34,7 @@ import { shiftFor } from '../render/framing';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { goneShare, type DicePassing } from '../render/passing';
 import { BoardView, type Frame } from '../render/view';
-import { FIRST_ID, FIRST_LEVEL } from '../levels/first';
+import { ROAD, blockOf, pieceAfter, pieceMiddle, roadPlace } from '../levels/road';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -100,8 +100,8 @@ import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
-import { firstCounters } from './firstCounters';
-import { signCell, signHeight, signMode, stageWait, type StageWait, type Waiting } from './signWay';
+import { roadCounters } from './roadCounters';
+import { roadWait, signHeight, signMode, signStart, type RoadWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
@@ -124,10 +124,16 @@ const LEVELS_PROBE = new URLSearchParams(window.location.search).has('levels');
  */
 const SHELVED = ((query) => (query.has('tutorial') ? 'tutorial' : query.has('tasks') ? 'tasks' : null))(new URLSearchParams(window.location.search));
 /**
- * The first level is not in the list of the levels and is played once. `?first` opens on its
- * first stage, to play it again and to look at it.
+ * The road is not in the list of the levels and is played once. `?first` opens on its first
+ * piece and `?road=R05` on the piece of that code, with no command to start it, to play a piece
+ * again and to look at it. Null where the address asks for neither, or names no piece.
  */
-const FIRST_PROBE = new URLSearchParams(window.location.search).has('first');
+const ROAD_PROBE = ((query) => {
+  const index = query.has('road') ? ROAD.findIndex((spec) => spec.id === query.get('road')) : query.has('first') ? 0 : -1;
+  return index < 0 ? null : index;
+})(new URLSearchParams(window.location.search));
+/** The code the first level of the build before the road was kept under: who passed it has passed what the first block of the road is. */
+const FIRST_ID = 'F1';
 /**
  * A lab that is the game itself under a panel of development, `?lab=juice`, opens on the menu, as
  * the program did before it opened on a board. The labs are tools of development: a production
@@ -189,17 +195,6 @@ const SEAL_LINGER_MS = 280;
 const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lineWalk' || level.lesson === 'lessonWalk') + 1 || 1;
 /** Of the signs the laboratory's assistant prints, one in so many is heard: a click to every sign is a rattle. */
 const TYPED_EVERY = 2;
-/**
- * The road: the boards one who is new is led through before the levels of the list, in their
- * order, joined one to the next. Today they are the four stages of the first level.
- */
-const ROAD: readonly LevelSpec[] = FIRST_LEVEL;
-/**
- * How many boards of the road, from its first, are a block seen at one scale: the camera goes
- * from one to the next without coming nearer or going back. The boards after them and the levels
- * of the list are each seen whole.
- */
-const ROAD_ONE_SCALE = ROAD.length;
 /**
  * The most a frame moves the passage between two boards on, in milliseconds: a page that was
  * out of sight comes back to the passage where it left it, and no part of it is leapt over.
@@ -303,8 +298,8 @@ export class Game {
   private tryCounted = false;
   /** Level of the game being played, or last played, in the list of levels. */
   private levelIndex = 0;
-  /** The stage of the first level on the board; null on a level of the list. */
-  private firstStage: number | null = null;
+  /** The piece of the road on the board, by its place in the road; null on a level of the list. */
+  private piece: number | null = null;
   /** The board waits under the one command the program opens on: nothing of the session is shown over it. */
   private starting = false;
   /** The level on the board was laid under that command and has not been reported as started: it is, once, with the player's first move or step on it. */
@@ -348,8 +343,8 @@ export class Game {
   private undosLeft = 0;
   /** The cell the die of the last move of a level went to, and which move it was. */
   private lastMove: { x: number; z: number; moves: number } | null = null;
-  /** The wait of the stage on the board: its swipe sign and its blinking plaque. Null on a level of the list and outside the levels. */
-  private stageWait: StageWait | null = null;
+  /** The wait of the piece of the road on the board: its swipe sign and its blinking plaque. Null on a level of the list and outside the levels. */
+  private wait: RoadWait | null = null;
   /** What that wait shows on this frame: the way the swipe sign points, and whether the plaque over the target blinks. */
   private waiting: Waiting = { dir: null, blink: false };
   /** What the player last played with: the swipe sign is a key for those who press keys. */
@@ -554,9 +549,9 @@ export class Game {
         else this.openPuzzle();
         return;
       }
-      if (FIRST_PROBE) {
+      if (ROAD_PROBE !== null) {
         this.saveWithoutRun();
-        this.startStage(0);
+        this.startPiece(ROAD_PROBE);
         return;
       }
       // A run the player was taken away from waits for them on its pause; otherwise, the board
@@ -699,9 +694,9 @@ export class Game {
     return Math.round((this.played() * this.state.config.tickMs) / 1000);
   }
 
-  /** The code of the level being played, or last played: a stage of the first level has its own. */
+  /** The code of the level being played, or last played: a piece of the road has its own. */
   private levelId(): string {
-    return this.firstStage !== null ? FIRST_LEVEL[this.firstStage].id : LEVELS[this.levelIndex].id;
+    return this.piece !== null ? ROAD[this.piece].id : LEVELS[this.levelIndex].id;
   }
 
   /** What the platform calls the thing being played: a kind of session, a task, or a level. */
@@ -720,27 +715,19 @@ export class Game {
       limit: spec.moves,
       par: spec.par ?? 0,
       undos: (spec.undos ?? LEVEL_UNDOS) - this.undosLeft,
-      try: this.levelRecord()?.tries ?? this.firstTry(),
+      try: this.levelRecord()?.tries ?? 1,
     };
   }
 
-  /** What is kept of the level on the board, try after try. A stage of the first level keeps nothing of its own. */
+  /** What is kept of the level on the board, try after try: a piece of the road keeps its own, under its code, as a level of the list does. */
   private levelRecord(): LevelStat | null {
     const run = this.state.levelRun;
-    return run && this.firstStage === null ? levelStat(this.settings, run.spec.id) : null;
-  }
-
-  /**
-   * Which try at the first level is being made: one more than the tries it has been passed with.
-   * Its stages keep no count of their own and all say this one, from their start to their end.
-   */
-  private firstTry(): number {
-    return (this.settings.levels.stats[FIRST_ID]?.tries ?? 0) + 1;
+    return run ? levelStat(this.settings, run.spec.id) : null;
   }
 
   /** What is being played, as the analytics name it: a kind of session, the exercise, a task with its number, or a level. */
   private step(): EventData {
-    if (this.kind === 'level' && this.firstStage !== null) return { step_id: `level_${this.levelId()}` };
+    if (this.kind === 'level' && this.piece !== null) return { step_id: `level_${this.levelId()}` };
     if (this.kind === 'level') return { step_id: `level_${this.levelId()}`, step_index: this.levelIndex + 1 };
     if (this.kind !== 'puzzle') return { step_id: this.kind };
     return { step_id: 'task', step_index: this.puzzleIndex + 1, level_id: PUZZLE_LEVELS[this.puzzleIndex].id };
@@ -819,7 +806,7 @@ export class Game {
       return;
     }
     if (kind === 'level') {
-      if (this.firstStage !== null) this.startStage(this.firstStage);
+      if (this.piece !== null) this.startPiece(this.piece);
       else this.startLevel(this.levelIndex);
       return;
     }
@@ -885,8 +872,8 @@ export class Game {
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
-    // A stage of the first level waits with the player; every start of it waits anew.
-    this.stageWait = state.levelRun ? stageWait(state.levelRun.spec.id) : null;
+    // A piece of the road waits with the player; every start of it waits anew.
+    this.wait = state.levelRun ? roadWait(state.levelRun.spec.id) : null;
     this.waiting = { dir: null, blink: false };
     // Where every step may be a move that counts, a held direction is one step.
     this.controller.setRepeat(!state.levelRun);
@@ -1113,22 +1100,22 @@ export class Game {
     // The level is played with the limit of moves of its chapter; as it is kept, it has none.
     const spec = limitedLevel(LEVELS, index);
     this.levelIndex = index;
-    this.firstStage = null;
+    this.piece = null;
     this.runLevel(spec, said);
     if (intro && spec.lesson) this.showLevelIntro(spec.lesson);
   }
 
   /**
-   * A stage of the first level begins on its board: a level as any is, with no window before it,
-   * no limit of moves and no number.
+   * A piece of the road begins on its board: a level as any is, with no window before it, no
+   * limit of moves and no number.
    */
-  private startStage(index: number, said = true): void {
-    this.firstStage = index;
-    this.runLevel(FIRST_LEVEL[index], said);
+  private startPiece(index: number, said = true): void {
+    this.piece = index;
+    this.runLevel(ROAD[index], said);
   }
 
   /**
-   * Puts a level on the board: one of the list or a stage of the first, whichever has just been
+   * Puts a level on the board: one of the list or a piece of the road, whichever has just been
    * named as the one in hand. Without `said` its start is not reported: the board only waits, and
    * whoever laid it sees that it is reported when the player plays it.
    */
@@ -1147,18 +1134,20 @@ export class Game {
   /** The level on the board has started: the analytics and the platform are told. */
   private sayLevelStarted(): void {
     const stat = this.levelRecord();
-    track('progression_started', { ...this.step(), try: stat ? stat.tries + 1 : this.firstTry() });
+    track('progression_started', { ...this.step(), try: (stat?.tries ?? 0) + 1 });
     tell('level_started', this.levelName());
   }
 
   /**
    * What the program opens on: the board the player will play, stepped back, with no figure on
-   * it and nothing moving, under the one command that starts it. One who has not passed the
-   * road gets its first board, anyone else the first level of the list not yet passed.
+   * it and nothing moving, under the one command that starts it: the piece of the road the
+   * player stopped on, its first for one who is new, and for one who is past the road the first
+   * level of the list not yet passed.
    */
   private showStart(): void {
-    const board = startBoard(Boolean(this.settings.levels.passed[FIRST_ID]), this.nextLevel());
-    if (board.road !== undefined) this.startStage(board.road, false);
+    const { levels } = this.settings;
+    const board = startBoard(levels.road, levels.passed[FIRST_ID] === true, this.nextLevel());
+    if (board.road !== undefined) this.startPiece(board.road, false);
     else this.startLevel(board.level!, false, false);
     // Neither a launch nor the command starts the level: one who presses the command only to go
     // on to the menu has started none. It is reported as started with the first move or step on it.
@@ -1180,15 +1169,20 @@ export class Game {
 
   /**
    * The frame the board that is on is seen in: null for its own, whole, which the view keeps
-   * through every change of the window; for a board of the block of the road that is seen at one
-   * scale, the middle of its own frame with the cell of the board of the block that fits the
-   * window smallest. Such a frame is counted for the window as it is, and counted again when
-   * the window changes.
+   * through every change of the window; for a piece of a block of the road that is seen at one
+   * scale, a frame over the middle of the cells of the piece, wherever in their square they lie,
+   * with the cell of the piece of the block that fits the window smallest. Such a frame is
+   * counted for the window as it is, and counted again when the window changes.
    */
   private boardFrame(): Frame | null {
-    if (!this.state.levelRun || this.firstStage === null || this.firstStage >= ROAD_ONE_SCALE) return null;
-    const frame = this.view.frameOf(this.view.shape);
-    for (let i = 0; i < ROAD_ONE_SCALE; i++) {
+    const block = this.state.levelRun && this.piece !== null ? blockOf(this.piece) : null;
+    if (!block?.oneScale) return null;
+    const { shape } = this.view;
+    // The frame of the square, moved from the middle of the square to the middle of the cells that are left of it.
+    const middle = pieceMiddle(shape);
+    const centre = (shape.size - 1) / 2;
+    const frame = this.view.frameOf({ ...shape, origin: { x: shape.origin.x + middle.x - centre, z: shape.origin.z + middle.z - centre } });
+    for (let i = block.from; i <= block.to; i++) {
       frame.cell = Math.min(frame.cell, this.view.frameOf({ size: ROAD[i].size, holes: ROAD[i].holes ?? [], origin: { x: 0, z: 0 } }).cell);
     }
     return frame;
@@ -1221,7 +1215,7 @@ export class Game {
   private startPassage(): void {
     const { state, passing } = this;
     const run = state.levelRun!;
-    const after = boardAfter(this.firstStage !== null ? { road: this.firstStage } : { level: this.levelIndex }, ROAD.length, LEVELS.length, this.nextLevel());
+    const after = boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length, this.nextLevel());
     const next = after && !(after.level !== undefined && this.ladder().locked[after.level]) ? after : null;
     this.frames.flush(this.lastFrame);
     const { cubes } = state;
@@ -1246,8 +1240,8 @@ export class Game {
       risen: 0,
       order: order.map((die) => cubes[die].id),
       cell: 0,
-      // A level of the list says what it came to in a line of its readings; a stage has no stars and says nothing.
-      outcome: this.firstStage === null && run.spec.par !== undefined ? { stars: levelStars(run.moves, run.spec.par), moves: run.moves } : null,
+      // A board says what it came to in a line of its readings, a piece of the road as a level of the list.
+      outcome: run.spec.par !== undefined ? { stars: levelStars(run.moves, run.spec.par), moves: run.moves } : null,
     };
     this.view.setPassing(passing);
   }
@@ -1361,7 +1355,7 @@ export class Game {
     const before = this.state.player;
     const { origin } = this.view.shape;
     this.landing = { player: { x: before.x, z: before.z }, origin: { x: origin.x, z: origin.z } };
-    if (next.road !== undefined) this.startStage(next.road);
+    if (next.road !== undefined) this.startPiece(next.road);
     else this.startLevel(next.level!);
     this.landing = null;
     // Putting a board on ends a passage; this one goes on over it, and what the board before came to is still said.
@@ -1489,7 +1483,7 @@ export class Game {
       locked: ladder.locked[index] ? { have: ladder.total, need: ladder.chapters[ladder.chapterOf(index)].gate } : undefined,
     }));
     this.shell.showPanel(
-      levelsPanel(levels, this.kind === 'level' && this.firstStage === null ? this.levelIndex : this.nextLevel(), {
+      levelsPanel(levels, this.kind === 'level' && this.piece === null ? this.levelIndex : this.nextLevel(), {
         onPick: (index) => this.startLevel(index, true),
         // What was played, as text to pass on: the report of the playtest.
         share: { label: () => this.shareLabel(), action: () => this.shareLevels() },
@@ -1513,32 +1507,28 @@ export class Game {
     const stuck = !passed && deadEnd(state);
     const left = Math.max(0, spec.moves - run.moves);
     const short = shortOf(state);
-    const stat = this.levelRecord();
-    // What is said of the try is read before the try is written down: the last stage says the try its first one said.
+    const stat = levelStat(this.settings, spec.id);
     const summary: EventData = { ...this.step(), ...this.levelTry(), duration_sec: this.seconds() };
-    if (!stat) {
-      // The first level is kept as one level: passed with its last stage, a try and a pass, and no fewest moves.
-      if (passed && this.firstStage === FIRST_LEVEL.length - 1) {
-        const first = levelStat(this.settings, FIRST_ID);
-        first.tries++;
-        first.passes++;
-        first.firstPassTry ??= first.tries;
-        this.settings.levels.passed[FIRST_ID] = true;
-      }
-    } else if (passed) {
+    if (passed) {
       stat.passes++;
       stat.firstPassTry ??= stat.tries;
       stat.bestLeft = Math.max(stat.bestLeft ?? 0, left);
       stat.bestMoves = Math.min(stat.bestMoves ?? run.moves, run.moves);
       this.settings.levels.passed[spec.id] = true;
+      // A piece of the road that is passed moves the player's place on the road to the piece after it, and never back:
+      // one who is further on, or past the road, and plays a piece again by its address stays where they were.
+      if (this.piece !== null) {
+        const { levels } = this.settings;
+        const place = roadPlace(levels.road, levels.passed[FIRST_ID] === true);
+        if (place !== null && place <= this.piece) levels.road = pieceAfter(this.piece);
+      }
     } else {
       stat.fails++;
       if (stuck) stat.stuck++;
       else noteShort(stat, short);
     }
     saveSettings(this.settings);
-    // A stage has no stars.
-    if (passed) track('progression_completed', stat ? { ...summary, stars: levelStars(run.moves, spec.par) } : summary);
+    if (passed) track('progression_completed', { ...summary, stars: levelStars(run.moves, spec.par) });
     else track('progression_failed', { ...summary, reason: stuck ? 'stuck' : 'moves', short });
     tell(passed ? 'level_completed' : 'level_failed', this.levelName());
   }
@@ -1567,11 +1557,11 @@ export class Game {
           left: spec.moves > 0 ? left : null,
           moves: run.moves,
           best: stat?.bestMoves ?? null,
-          // A level whose fewest moves are known is rated by its moves; a stage of the first level is not rated.
+          // A level whose fewest moves are known is rated by its moves.
           stars: passed && stat && spec.par !== undefined ? levelStars(run.moves, spec.par) : undefined,
           goal: lines,
           // The level after the last of a chapter is offered once its chapter is open.
-          hasNext: this.firstStage === null && this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
+          hasNext: this.piece === null && this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
           // A level that is failed says why: at a dead end, the dice that stand against the dice a combo takes.
           reason: passed
             ? undefined
@@ -1765,8 +1755,8 @@ export class Game {
         list: level ? COMMANDS.levels : undefined,
         onResume: () => this.resume(),
         onRestart: () => this.startRun(),
-        // A level has its rules to read again only where the levels up to it have said some; a stage of the first level has none.
-        onRules: level && this.firstStage === null && this.levelRules().length > 0 ? () => this.showLevelRules() : undefined,
+        // A level has its rules to read again only where the levels up to it have said some; a piece of the road has none.
+        onRules: level && this.piece === null && this.levelRules().length > 0 ? () => this.showLevelRules() : undefined,
         onRecords: () => this.showRecords(() => this.showPause()),
         onTasks: () => (level ? this.showLevels() : this.showPuzzleLevels()),
         onSystem: () => this.showSystem(() => this.showPause()),
@@ -2333,17 +2323,16 @@ export class Game {
   }
 
   /**
-   * The swipe sign of a level: beside the board on the side the swipe goes to, in the row or the
-   * column of the player and at the height the figure stands at, with a trail a cell of the board
-   * long the way that swipe goes on screen.
+   * The swipe sign of a level: by the figure, from the edge of the die it stands on (or of its
+   * cell, on the floor) on the side the swipe goes to, at the height the figure stands at, with
+   * a trail a cell of the board long the way that swipe goes on screen.
    */
   private signView(state: RunState, dir: Dir, over: (x: number, y: number, z: number) => { x: number; y: number }): HudSign {
-    const { spec } = state.levelRun!;
-    const cell = signCell(spec.size, spec.holes, state.player, dir);
-    // The sign stands at the height of the figure: on the dice it is beside their tops, on the floor it is on the floor.
+    const from = signStart(state.player, dir);
+    // The sign stands at the height of the figure: on a die it starts from the edge of its top, on the floor from the edge of the cell.
     const y = signHeight(state.player.level);
-    const at = over(cell.x, y, cell.z);
-    const next = over(cell.x + DELTA[dir].dx, y, cell.z + DELTA[dir].dz);
+    const at = over(from.x, y, from.z);
+    const next = over(from.x + DELTA[dir].dx, y, from.z + DELTA[dir].dz);
     const length = Math.hypot(next.x - at.x, next.y - at.y);
     const screen = this.swipeDirs[dir];
     return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), at, trail: { x: screen.x * length, y: screen.y * length } };
@@ -2372,10 +2361,10 @@ export class Game {
     const level = PUZZLE_LEVELS[this.puzzleIndex];
     // A level counts the groups that are short: all of them on its first levels, later the one the last move made.
     const made = levelRun ? this.shortMade(state) : null;
-    // The stages of the first level have a plaque over every die and heap of the working face from the start; they blink when the player has waited.
-    const first = levelRun !== null && this.firstStage !== null;
+    // The pieces of the road have a plaque over every die and heap of the working face from the start; they blink when the player has waited.
+    const first = levelRun !== null && this.piece !== null;
     // No plaque stands over dice that are still coming.
-    const short = !levelRun || state.over || this.passage ? [] : first ? firstCounters(state) : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
+    const short = !levelRun || state.over || this.passage ? [] : first ? roadCounters(state) : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
     const counters: HudCounter[] = short.map((group) => {
       const cx = group.cells.reduce((sum, cell) => sum + cell.x, 0) / group.cells.length;
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;
@@ -2395,8 +2384,8 @@ export class Game {
         : levelRun
           ? {
               kind: 'level',
-              // A stage of the first level has no number: it is not a level of the list.
-              number: this.firstStage === null ? this.levelIndex + 1 : null,
+              // A piece of the road has no number: it is not a level of the list.
+              number: this.piece === null ? this.levelIndex + 1 : null,
               limit: levelRun.spec.moves > 0 ? levelRun.spec.moves : null,
               made: levelRun.moves,
               goal: goalLines(state),
@@ -2546,8 +2535,8 @@ export class Game {
       this.backdrop.clear();
     }
     const shown = !covered && !this.inMenu && !this.signal.busy;
-    // Under a panel, and while the board takes no input, a stage shows no sign and its wait is not counted.
-    this.waiting = this.stageWait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };
+    // Under a panel, and while the board takes no input, a piece shows no sign and its wait is not counted.
+    this.waiting = this.wait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };
     // Under the command the program opens on, the readings keep their room and are not shown: nothing is on that screen but the board and the command.
     this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, lit, reducedMotion) : null, time, this.starting);
     // The readings stand above the board on a tall screen and beside it on a wide one: the

@@ -61,3 +61,24 @@ describe('the sessions a player has saved', () => {
     expect(joinRuns({})).toEqual({});
   });
 });
+
+describe('the place on the road a player has saved', () => {
+  it('is none where nothing was saved, and none in a save from before the road', () => {
+    saved(null);
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {} });
+    saved({ levels: { passed: { F1: true, P01: true }, stats: {} } });
+    const { levels } = loadSettings();
+    expect(levels.road).toBeUndefined();
+    // What the build before kept is still there to be read.
+    expect(levels.passed).toEqual({ F1: true, P01: true });
+  });
+
+  it('comes back as it was saved, with what was passed', () => {
+    saved({ levels: { passed: { R01: true, R02: true }, stats: {}, road: 'R03' } });
+    const { levels } = loadSettings();
+    expect(levels.road).toBe('R03');
+    expect(levels.passed).toEqual({ R01: true, R02: true });
+    // A save goes out as it was read: the place is a field of what is kept.
+    expect(JSON.parse(JSON.stringify(levels)).road).toBe('R03');
+  });
+});

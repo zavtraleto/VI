@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { beatsOf, chainTier, matchTier, peakBeat, stepBeat } from '../app/juice';
 import { CONTACT_STEPS } from '../app/ritual';
-import { FIRST_LEVEL } from '../levels/first';
+import { ROAD } from '../levels/road';
 import { createRun, defaultConfig, step, type GameEvent } from '../rules';
 import { emptyRun, land, place, put } from '../rules/testkit';
 import { soundDefaults } from './params';
@@ -718,13 +718,13 @@ describe('what the rules say', () => {
     expect(heard.some((cue) => cue.kind === 'chainEnd')).toBe(false);
   });
 
-  /** Plays the second stage of the first level by its way and says every die that was heard going under, in order. */
+  /** Plays the second piece of the road by its way and says every die that was heard going under, in order. */
   const stairHeard = (memory: ScoreMemory): Cue[] => {
-    const s = createRun({ seed: FIRST_LEVEL[1].seed, config: defaultConfig(), level: FIRST_LEVEL[1] });
+    const s = createRun({ seed: ROAD[1].seed, config: defaultConfig(), level: ROAD[1] });
     noteLaid(s, memory);
     const heard: Cue[] = [];
-    // Up the stair, over to the die beside it, and the first roll: the stair goes with that move.
-    for (const dir of ['N', 'E', 'E'] as const) {
+    // Up the stair, over to the die beyond it, and the first roll: the stair goes with that move.
+    for (const dir of ['N', 'N', 'N'] as const) {
       for (let i = 0; i <= s.config.actionTicks * 2; i++) {
         step(s, i === 0 ? dir : null);
         for (const event of s.events) heard.push(...cuesOfEvent(event, s, memory));
@@ -736,14 +736,14 @@ describe('what the rules say', () => {
   it('a die the board was laid with as leaving goes under on the note of its own face, though no group was said', () => {
     const sunk = stairHeard(new ScoreMemory());
     expect(sunk.length).toBe(1);
-    // The stair of the second stage shows a six.
+    // The stair of the second piece shows a six.
     expect(sunk[0]).toMatchObject({ kind: 'sunk', face: 6 });
   });
 
   it('keeps such a die in mind when its move is taken back: it is not forgotten once it has gone', () => {
     const memory = new ScoreMemory();
     stairHeard(memory);
-    const s = createRun({ seed: FIRST_LEVEL[1].seed, config: defaultConfig(), level: FIRST_LEVEL[1] });
+    const s = createRun({ seed: ROAD[1].seed, config: defaultConfig(), level: ROAD[1] });
     const stair = s.cubes.find((cube) => cube.state === 'sinking')!;
     expect(cuesOfEvent({ type: 'removed', cubeId: stair.id }, s, memory)).toEqual([{ kind: 'sunk', face: 6, pan: 0 }]);
     memory.reset();
@@ -762,7 +762,7 @@ describe('what the rules say', () => {
 
   it('keeps nothing in mind of a board with no die laid as leaving, nor of dice that go by their group', () => {
     const memory = new ScoreMemory();
-    noteLaid(createRun({ seed: FIRST_LEVEL[0].seed, config: defaultConfig(), level: FIRST_LEVEL[0] }), memory);
+    noteLaid(createRun({ seed: ROAD[0].seed, config: defaultConfig(), level: ROAD[0] }), memory);
     expect(memory.laid.size).toBe(0);
     const s = emptyRun();
     put(s, 0, 0, 2);

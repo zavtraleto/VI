@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FIRST_PASSED, ROAD, pieceAfter } from '../levels/road';
 import { boardAfter, orderOf, passageAt, passageEnd, startBoard, type PassageTimes } from './passage';
 
 /** The numbers the look has for the passage as it is first laid out. */
@@ -7,14 +8,28 @@ const COUNTS = { combo: 3, dice: 4, stair: false };
 const at = (ms: number, reduced = false, counts = COUNTS) => passageAt(ms, TIMES, counts, reduced);
 
 describe('the board the program opens on', () => {
-  it('is the first piece of the road for one who has not passed it, whatever they have passed of the list', () => {
-    expect(startBoard(false, 0)).toEqual({ road: 0 });
-    expect(startBoard(false, 7)).toEqual({ road: 0 });
+  it('is the first piece of the road for one who is new, whatever they have passed of the list', () => {
+    expect(startBoard(undefined, false, 0)).toEqual({ road: 0 });
+    expect(startBoard(undefined, false, 7)).toEqual({ road: 0 });
   });
 
-  it('is the level of the list the player goes on with for one who has passed it', () => {
-    expect(startBoard(true, 0)).toEqual({ level: 0 });
-    expect(startBoard(true, 7)).toEqual({ level: 7 });
+  it('is the piece the player stopped on', () => {
+    expect(startBoard('R01', false, 0)).toEqual({ road: 0 });
+    expect(startBoard('R04', false, 0)).toEqual({ road: 3 });
+    expect(startBoard('R07', false, 5)).toEqual({ road: 6 });
+    // A code that is kept is read before what was passed in the build before.
+    expect(startBoard('R02', true, 5)).toEqual({ road: 1 });
+  });
+
+  it('is the level of the list the player goes on with for one who is past the road', () => {
+    expect(startBoard(pieceAfter(ROAD.length - 1), false, 0)).toEqual({ level: 0 });
+    expect(startBoard(pieceAfter(ROAD.length - 1), false, 7)).toEqual({ level: 7 });
+  });
+
+  it('is past the first block for one who passed the first level of the build before and has no piece kept', () => {
+    expect(startBoard(undefined, true, 0)).toEqual(startBoard(FIRST_PASSED, false, 0));
+    // The road ends with its first block for now: past the block is past the road.
+    expect(startBoard(undefined, true, 3)).toEqual({ level: 3 });
   });
 });
 
@@ -45,7 +60,7 @@ describe('the board that comes after a board', () => {
 
   it('walks one who is new through the whole of it: the road, then every level, then nothing', () => {
     const seen: string[] = [];
-    let board: { road?: number; level?: number } | null = startBoard(false, 0);
+    let board: { road?: number; level?: number } | null = startBoard(undefined, false, 0);
     while (board) {
       seen.push(board.road !== undefined ? `R${board.road}` : `L${board.level}`);
       board = boardAfter(board, 4, 3, 0);

@@ -1,4 +1,4 @@
-import { STAGE_IDLE, STAGE_SIGNS } from '../levels/first';
+import { ROAD_IDLE, ROAD_SIGNS } from '../levels/road';
 import type { ControlMode } from '../platform/settings';
 import { DELTA, DIRS } from '../rules/board';
 import { worldRuns } from '../rules/level';
@@ -31,7 +31,7 @@ export interface SignWay {
 const NO_WAY: SignWay = { dir: null, left: null };
 
 /**
- * Boards the search may see for a sign. The stages of the first level have a few dozen; a board
+ * Boards the search may see for a sign. The pieces of the road have a few dozen; a board
  * that takes more than this gets no sign rather than a frame that hangs.
  */
 export const SIGN_MAX_STATES = 5000;
@@ -102,24 +102,19 @@ export function wastedMoves(par: number | undefined, made: number, left: number 
 }
 
 /**
- * The cell the sign stands at: the first one off the board from the player's cell towards `dir`,
- * along their row or their column. It is beside the board, on the side the swipe goes to, and
- * never on a cell of it.
+ * Where the trail of the sign starts, in the coordinates of the board: at the edge of the cell
+ * the figure is in, on the side the swipe goes to. That is the edge of the die under the figure,
+ * or of its cell where it stands on the floor. The sign is by the figure wherever on the board
+ * the figure is, and points away from it the way it is to go.
  */
-export function signCell(size: number, holes: readonly { x: number; z: number }[] | undefined, player: { x: number; z: number }, dir: Dir): { x: number; z: number } {
+export function signStart(player: { x: number; z: number }, dir: Dir): { x: number; z: number } {
   const { dx, dz } = DELTA[dir];
-  const onBoard = (x: number, z: number): boolean => x >= 0 && z >= 0 && x < size && z < size && !holes?.some((hole) => hole.x === x && hole.z === z);
-  let { x, z } = player;
-  do {
-    x += dx;
-    z += dz;
-  } while (onBoard(x, z));
-  return { x, z };
+  return { x: player.x + dx / 2, z: player.z + dz / 2 };
 }
 
 /**
  * How high over the floor the sign stands, in dice: at the height the figure stands at (spec of
- * the first level, 7.1). That is the top of a die for a player on the dice, and the floor for one
+ * the teaching road, 7). That is the top of a die for a player on the dice, and the floor for one
  * on the floor.
  */
 export function signHeight(level: Level): number {
@@ -136,7 +131,7 @@ export function signMode(control: ControlMode, coarse: boolean, last: 'keys' | '
   return control === 'gesture' ? 'dot' : 'key';
 }
 
-/** What a stage shows of the player's wait on a frame. */
+/** What a piece of the road shows of the player's wait on a frame. */
 export interface Waiting {
   /** The way the swipe sign points; null while there is no sign. */
   dir: Dir | null;
@@ -147,12 +142,12 @@ export interface Waiting {
 const NOTHING: Waiting = { dir: null, blink: false };
 
 /**
- * The wait of one start of a stage, followed frame by frame: the sign the stage opens with until
+ * The wait of one start of a piece, followed frame by frame: the sign the piece opens with until
  * the first move or step, then the plaque that blinks and the sign of the way as the player
  * waits. The solver is asked once for a board, when the board has come to stand, and that is
  * also the moment the wait is counted from.
  */
-export class StageWait {
+export class RoadWait {
   private readonly idle: Idle;
   /** The way from the board last asked about, and what names that board. */
   private kept: { key: string; way: SignWay } | null = null;
@@ -188,12 +183,12 @@ export class StageWait {
 }
 
 /**
- * The wait of the level with this id, new for every start of it: for a stage of the first level,
- * by what the stage opens with and by its thresholds. The thresholds are a first guess of the
- * one who built them and the owner has not named them (spec of the first level, 7.3). Null for
- * every other level: the levels of the list show no sign for waiting.
+ * The wait of the level with this id, new for every start of it: for a piece of the road, by
+ * what the piece opens with and by its thresholds. The thresholds are a first guess of the one
+ * who built them and the owner has not named them. Null for every other level: the levels of
+ * the list show no sign for waiting.
  */
-export function stageWait(id: string): StageWait | null {
-  const rule = STAGE_IDLE[id];
-  return rule ? new StageWait(STAGE_SIGNS[id], rule) : null;
+export function roadWait(id: string): RoadWait | null {
+  const rule = ROAD_IDLE[id];
+  return rule ? new RoadWait(ROAD_SIGNS[id], rule) : null;
 }

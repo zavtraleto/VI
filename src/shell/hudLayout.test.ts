@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes } from './hudLayout';
 import { CELL_W, MIN_ZONE } from './layout';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -133,6 +133,12 @@ describe('the net of the die under the player', () => {
 
 describe('the place of the swipe sign', () => {
   const picture = { x: 0, y: 0, w: 280, h: 600 };
+
+  it('has its key in the middle of the trail, beside the figure the trail starts from', () => {
+    expect(signKey({ x: 100, y: 300 }, { x: 20, y: -6 })).toEqual({ x: 110, y: 297 });
+    expect(signKey({ x: 100, y: 300 }, { x: -30, y: 0 })).toEqual({ x: 85, y: 300 });
+    expect(signKey({ x: 100, y: 300 }, { x: 0, y: 0 })).toEqual({ x: 100, y: 300 });
+  });
 
   it('is where it was asked for when the sign and its trail are on the picture', () => {
     expect(signPlace({ x: 100, y: 300 }, { x: 20, y: -6 }, picture, 4)).toEqual({ x: 100, y: 300 });

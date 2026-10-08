@@ -1,11 +1,11 @@
 /**
- * How long the player of a stage has waited, and what the stage shows for it: first the plaque
+ * How long the player of a piece of the road has waited, and what the piece shows for it: first the plaque
  * over the target blinks, then the swipe sign comes. A move or a step takes both away, and they
  * come back after the same wait. Time under a panel, or while the board takes no input, is not
  * waited. Nothing here reads a clock: whoever owns the frame says what time it is.
  */
 
-/** When the plaque blinks and when the sign comes, in milliseconds of waiting, and how many wasted moves bring the sign at once. A null is a thing the stage does not do. */
+/** When the plaque blinks and when the sign comes, in milliseconds of waiting, and how many wasted moves bring the sign at once. A null is a thing the piece does not do. */
 export interface IdleRule {
   blinkMs: number | null;
   signMs: number;

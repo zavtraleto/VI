@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FIRST_LEVEL } from '../levels/first';
 import { LEVELS } from '../levels/levels';
+import { ROAD } from '../levels/road';
 import { createRun, defaultConfig, step, type LevelSpec, type RunState } from '../rules';
 import { land, levelRun, ori, put } from '../rules/testkit';
 import { laidFace } from './laid';
@@ -13,8 +13,8 @@ function act(state: RunState, dir: 'N' | 'E' | 'S' | 'W'): void {
 }
 
 describe('the light of a die laid as leaving', () => {
-  it('is that of the face of the die, by its own reaction: the stair of the second stage shows a six', () => {
-    const state = start(FIRST_LEVEL[1]);
+  it('is that of the face of the die, by its own reaction: the stair of the second piece shows a six', () => {
+    const state = start(ROAD[1]);
     expect(laidFace(state)).toBe(6);
     // The reaction of the die is asked, not the first there is.
     state.reactions.unshift({ id: 999, value: 2, chain: 1, total: 1 });
@@ -22,17 +22,17 @@ describe('the light of a die laid as leaving', () => {
   });
 
   it('is there while the die is: walked over it is still going, and gone with the first roll it is none', () => {
-    const state = start(FIRST_LEVEL[1]);
+    const state = start(ROAD[1]);
     act(state, 'N');
-    act(state, 'E');
+    act(state, 'N');
     expect(laidFace(state)).toBe(6);
-    act(state, 'E');
-    expect(state.cubes.some((cube) => cube.x === 0 && cube.z === 2)).toBe(false);
+    act(state, 'N');
+    expect(state.cubes.some((cube) => cube.x === 3 && cube.z === 4)).toBe(false);
     expect(laidFace(state)).toBe(0);
   });
 
   it('is none on a board whose layout lays no die as leaving', () => {
-    for (const spec of [FIRST_LEVEL[0], FIRST_LEVEL[2], FIRST_LEVEL[3], LEVELS[0]]) expect(laidFace(start(spec))).toBe(0);
+    for (const spec of [ROAD[0], ROAD[2], ROAD[3], LEVELS[0]]) expect(laidFace(start(spec))).toBe(0);
   });
 
   it('is none for dice that go by a group of their own, as after a move taken back on a level of the list', () => {
@@ -44,7 +44,7 @@ describe('the light of a die laid as leaving', () => {
   });
 
   it('is none for another die that is going on the cell the laid one stood on', () => {
-    const state = start(FIRST_LEVEL[1]);
+    const state = start(ROAD[1]);
     const stair = state.cubes.find((cube) => cube.state === 'sinking')!;
     stair.ori = ori({ top: 3, north: 1 });
     expect(laidFace(state)).toBe(0);

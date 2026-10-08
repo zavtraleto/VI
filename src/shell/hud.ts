@@ -6,7 +6,7 @@ import { faceColour, figureColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -95,14 +95,14 @@ export interface HudCounter {
 }
 
 /**
- * The swipe sign: beside the board, the way to swipe now, with no word. For those who swipe it
+ * The swipe sign: by the figure, the way to swipe now, with no word. For those who swipe it
  * is a dot of the colour of the figure that slides along a short trail and goes out, again and
  * again; for those who press keys, the arrow key, in place and blinking.
  */
 export interface HudSign {
   dir: Dir;
   mode: 'dot' | 'key';
-  /** Where the trail starts, outside the board, in CSS pixels of the window. A place off the screen is brought to its edge. */
+  /** Where the trail starts, at the edge of the figure's die or of its cell, in CSS pixels of the window. A place off the screen is brought to its edge. */
   at: Point;
   /** The trail from there, in CSS pixels: a cell of the board long, the way a swipe to `dir` goes on screen. */
   trail: Point;
@@ -1215,7 +1215,7 @@ export class GameHud {
    * The swipe sign, inside the part of the picture it may stand in. The dot sets off from the
    * start of its trail, draws the trail behind it, grows small towards the end and is gone, and
    * after a moment of nothing sets off again; held still, it stands at the end of its trail.
-   * The key is lit and unlit by turns, once a second.
+   * The key stands in the middle of that trail, and is lit and unlit by turns, once a second.
    */
   private drawSign(sign: HudSign, timeMs: number, still: boolean, inside: Box): void {
     const { kit } = this;
@@ -1223,7 +1223,7 @@ export class GameHud {
     const zoom = kit.zoom;
     const at = { x: sign.at.x / zoom, y: sign.at.y / zoom };
     if (sign.mode === 'key') {
-      const centre = signPlace(at, { x: 0, y: 0 }, inside, SIGN_KEY / 2 + 1);
+      const centre = signPlace(signKey(at, { x: sign.trail.x / zoom, y: sign.trail.y / zoom }), { x: 0, y: 0 }, inside, SIGN_KEY / 2 + 1);
       const cell: Box = { x: Math.round(centre.x - SIGN_KEY / 2), y: Math.round(centre.y - SIGN_KEY / 2), w: SIGN_KEY, h: SIGN_KEY };
       const lit = still || Math.floor(timeMs / SIGN_KEY_MS) % 2 === 0;
       if (lit) kit.box(cell, ink);

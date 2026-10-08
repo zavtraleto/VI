@@ -67,6 +67,12 @@ export interface LevelProgress {
   /** Levels passed, by their code. */
   passed: Record<string, boolean>;
   stats: Record<string, LevelStat>;
+  /**
+   * The player's place on the road that leads to the levels: the code of the piece they are on,
+   * which is the piece after the last they cleared. Absent for one who has cleared none; a code
+   * that names no piece of the road is past its end (`roadPlace` in `src/levels/road.ts`).
+   */
+  road?: string;
 }
 
 export interface Settings {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STAGE_IDLE } from '../levels/first';
+import { ROAD_IDLE } from '../levels/road';
 import { Idle, type IdleRule } from './idle';
 
 const RULE: IdleRule = { blinkMs: 4000, signMs: 8000, wasted: 3 };
@@ -93,7 +93,7 @@ describe('the wait of a stage', () => {
     expect(idle.at(34_000).blink).toBe(true);
   });
 
-  it('never blinks where the stage has no plaque to blink, and counts no wasted moves where it counts none', () => {
+  it('never blinks where the piece has no plaque to blink, and counts no wasted moves where it counts none', () => {
     const idle = new Idle({ blinkMs: null, signMs: 6000, wasted: null });
     idle.acted(0, 99);
     expect(idle.at(0)).toEqual({ blink: false, sign: false });
@@ -101,8 +101,8 @@ describe('the wait of a stage', () => {
     expect(idle.at(6000)).toEqual({ blink: false, sign: true });
   });
 
-  it('takes the rule of every stage of the first level as it is written', () => {
-    for (const rule of Object.values(STAGE_IDLE)) {
+  it('takes the rule of every piece of the road as it is written', () => {
+    for (const rule of Object.values(ROAD_IDLE)) {
       const idle = new Idle(rule);
       idle.acted(0, 0);
       expect(idle.at(rule.signMs - 1).sign).toBe(false);
