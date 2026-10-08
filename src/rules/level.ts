@@ -57,7 +57,8 @@ export const LEVEL_UNDOS = 3;
  * as the level says, and the player starting on one. Where cells are cut out of it, each is a
  * cell of the square, cut out once, no die stands on one, and what is left holds together by
  * its sides: a board in two parts is two boards. Where the player starts on the floor, the start
- * is a cell of the board with no die on it. A die named as leaving is one of the dice laid, and
+ * is a cell of the board with no die on it. The player does not start on a fixed die: there
+ * would be nothing to roll. A die named as leaving is one of the dice laid, and
  * goes in a move at the least and in no more than a combo of the level does. Anything else is a
  * mistake in the level, and it says so.
  */
@@ -106,6 +107,7 @@ function checkLayout(spec: LevelSpec): void {
     if (holes.has(at)) wrong(`a start on a cell that is cut out at ${at}`);
     if (taken.has(at)) wrong(`a die on the floor the player starts on at ${at}`);
   } else if (!taken.has(at)) wrong(`no die to start on at ${at}`);
+  else if (layout.dice.some((die) => die.fixed && die.x === start.x && die.z === start.z)) wrong(`a start on a fixed die at ${at}`);
   const sinkMoves = spec.sinkMoves ?? LEVEL_SINK_MOVES;
   for (const { die, moves } of layout.leaving ?? []) {
     if (!Number.isInteger(die) || die < 0 || die >= layout.dice.length) wrong(`no die ${die} to be leaving: ${layout.dice.length} are laid`);

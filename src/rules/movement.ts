@@ -49,7 +49,8 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
   if (player.level === 'top') {
     const own = cubeAt(state, player.x, player.z);
     if (!own) return blocked;
-    if (own.state === 'idle') {
+    // A fixed die is not rolled: from it the player steps to a die beside it, and nowhere else.
+    if (own.state === 'idle' && !own.fixed) {
       const spot = landing(state, tx, tz, []);
       // A puzzle die rolls into an empty cell only: nothing is rolled over.
       const plain = spot !== null && !spot.over && !spot.displaced;

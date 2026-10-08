@@ -147,6 +147,8 @@ const indexOfOrientation = (o: Orientation): number => ORIENTATION_INDEX[o.top *
 
 /** A die's ticks of sinking and the ticks it is held for go into one sign of a name: so many to a tick held. */
 const HOLD_STEP = 128;
+/** What a fixed die adds to the index of its orientation in a name: there are twenty-four of those. */
+const FIXED_MARK = ALL_ORIENTATIONS.length;
 /** Characters a die takes in the name of a board. */
 const DIE_CHARS = 4;
 
@@ -154,7 +156,8 @@ const DIE_CHARS = 4;
  * The name of a board: its dice cell by cell, each with how it lies, how far it has sunk and
  * which group it goes with, and then every place the player can get to. Groups are numbered as
  * they are met, since the numbers the run gave them depend on the way that led here; the cell
- * the player is at is left out, since steps are free. Two runs with one name go on alike.
+ * the player is at is left out, since steps are free. A fixed die is named as one: a die that
+ * rolls may come to stand in the cell a fixed one has left. Two runs with one name go on alike.
  */
 function nameOf(state: RunState, places: Uint8Array): string {
   const { size } = state.config;
@@ -168,7 +171,7 @@ function nameOf(state: RunState, places: Uint8Array): string {
       label = labels.get(die.reactionId) ?? labels.size + 1;
       labels.set(die.reactionId, label);
     }
-    codes.push(cellIndex(size, die.x, die.z), indexOfOrientation(die.ori), sinking ? 1 + die.t + HOLD_STEP * (die.hold ?? 0) : 0, label);
+    codes.push(cellIndex(size, die.x, die.z), indexOfOrientation(die.ori) + (die.fixed ? FIXED_MARK : 0), sinking ? 1 + die.t + HOLD_STEP * (die.hold ?? 0) : 0, label);
   }
   for (let i = 0; i < places.length; i += 8) {
     let bits = 0;
@@ -195,9 +198,11 @@ function runOf(base: RunState, name: string, dice: number, place: number): RunSt
     const cell = name.charCodeAt(at);
     const sunk = name.charCodeAt(at + 2);
     const label = name.charCodeAt(at + 3);
-    const ori = ALL_ORIENTATIONS[name.charCodeAt(at + 1)];
+    const lies = name.charCodeAt(at + 1);
+    const ori = ALL_ORIENTATIONS[lies % FIXED_MARK];
     const die: Cube = { id: i + 1, x: cell % size, z: Math.floor(cell / size), ori, state: sunk > 0 ? 'sinking' : 'idle', t: sunk > 0 ? ((sunk - 1) % HOLD_STEP) : 0, reactionId: label };
     if (sunk > HOLD_STEP) die.hold = Math.floor((sunk - 1) / HOLD_STEP);
+    if (lies >= FIXED_MARK) die.fixed = true;
     cubes.push(die);
     grid[cell] = i + 1;
     if (label === 0) continue;

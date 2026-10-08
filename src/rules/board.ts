@@ -154,7 +154,8 @@ export type FloorStep = { kind: 'push'; spot: Landing } | { kind: 'climb'; dock:
  * A step from the floor at (x, z) into the standing cube beside it in `dir`. A cube with room
  * behind it is pushed; with `floorClimb`, one that cannot be pushed is stepped onto. With
  * `dockSteps` a dock is a step up: from it the cube is stepped onto whether or not it could
- * be pushed. Null when the step cannot be made.
+ * be pushed. A fixed die is never pushed: it is a cube with no room behind it, whatever is
+ * there. Null when the step cannot be made.
  */
 export function floorStep(state: RunState, x: number, z: number, dir: Dir): FloorStep | null {
   const { experiments } = state.config;
@@ -162,7 +163,7 @@ export function floorStep(state: RunState, x: number, z: number, dir: Dir): Floo
   const tx = x + DELTA[dir].dx;
   const tz = z + DELTA[dir].dz;
   // The cell the pushed cube leaves is where the player steps, so nothing may be sent there.
-  const spot = landing(state, tx + DELTA[dir].dx, tz + DELTA[dir].dz, [{ x: tx, z: tz }]);
+  const spot = cubeAt(state, tx, tz)?.fixed ? null : landing(state, tx + DELTA[dir].dx, tz + DELTA[dir].dz, [{ x: tx, z: tz }]);
   if (spot) return { kind: 'push', spot };
   return experiments.floorClimb ? { kind: 'climb', dock: false } : null;
 }

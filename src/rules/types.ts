@@ -55,6 +55,11 @@ export interface Cube {
    * the dice already going a move in which they do not go further. Absent anywhere else.
    */
   hold?: number;
+  /**
+   * A fixed die of a level: it is not rolled and not pushed, so it stays in its cell until it
+   * leaves. It is stepped over, makes a combo and goes with it like any die. Absent anywhere else.
+   */
+  fixed?: boolean;
 }
 
 export interface PlayerAction {
@@ -486,6 +491,8 @@ export interface PuzzleDie {
   z: number;
   top: number;
   north: number;
+  /** The die cannot be rolled or pushed: it joins a combo and leaves with it, and can be walked over. Read on the board of a level only. */
+  fixed?: boolean;
 }
 
 /** A puzzle as it stands before the first move. */
