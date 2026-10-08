@@ -14,7 +14,7 @@ import { boardPalette, type BoardLook } from './params';
 import { PlayerFigure } from './player';
 import { ChainSigns } from './signs';
 import { CubeSprings } from './springs';
-import { figureColour, frameTexture, gridTexture, pipGlow, type GridLayout } from './textures';
+import { figureColour, frameTexture, gridTexture, pipGlow, redrawGrid, type GridBands, type GridLayout } from './textures';
 import { SpawnWarnings } from './warnings';
 
 /** Margin around the cells that the lines of the surface and the danger frame lie in, in cells. */
@@ -186,6 +186,11 @@ export class BoardView {
   private readonly fill: FlatMesh;
   private readonly grid: FlatMesh;
   private readonly frame: FlatMesh;
+  /** The cells of the surface, and the picture of all its lines: what the surface is drawn with while it stands. */
+  private readonly layout: GridLayout;
+  private readonly whole: THREE.Texture;
+  /** The picture of the rows of the surface that are drawn while it goes out or comes, and which rows it has; null while it stands. */
+  private partial: { map: THREE.CanvasTexture; rows: string } | null = null;
   private readonly observer: ResizeObserver;
   /** Kept when what the board is drawn with has been made ready. */
   private readonly warmed: Promise<void>;
@@ -277,11 +282,13 @@ export class BoardView {
     this.floor.layers.enable(GLOW_LAYER);
 
     const layout: GridLayout = { cells: size, rim: RIM, holes };
+    this.layout = layout;
     const gridSize = size + RIM * 2;
     const lines = (map: THREE.Texture): THREE.MeshBasicMaterial =>
       new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0, depthWrite: false });
     this.fill = flat(size, 0.002, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-    this.grid = flat(gridSize, 0.004, lines(gridTexture(layout, n('gridLine'), n('gridEdge'))));
+    this.whole = gridTexture(layout, n('gridLine'), n('gridEdge'));
+    this.grid = flat(gridSize, 0.004, lines(this.whole));
     // The surface is drawn before whatever lies on it: the marks of a chain, the frames of the
     // cells beside it, the ring of a group. Left to their distance from the camera, its lines
     // came out over them.
@@ -527,6 +534,39 @@ export class BoardView {
     this.player.group.visible = shown;
   }
 
+  /**
+   * The surface goes out or comes: only the rows of `bands` of its lines are drawn, and with
+   * `dice` the dice of the board are as far here as that says, 0 to 1, gathering the dots of the
+   * tube the way a die comes in a session; one that is leaving comes as far as it stands and no
+   * further. Null: the board stands, whole. The picture of the rows is drawn anew only when the
+   * rows change, a handful of times in a passage, and is let go when the board stands.
+   */
+  setReveal(bands: GridBands | null, dice: number | null = null): void {
+    this.cubes.lay(bands ? dice : null);
+    const { material } = this.grid;
+    const { cells } = this.layout;
+    // All the rows are the picture the surface stands with.
+    if (!bands || [bands.edge, bands.lines].every(([from, to]) => from <= 0 && to >= cells)) {
+      if (!this.partial) return;
+      material.map = this.whole;
+      this.partial.map.dispose();
+      this.partial = null;
+      return;
+    }
+    const rows = `${bands.edge}|${bands.lines}`;
+    if (this.partial?.rows === rows) return;
+    const values = this.look.board;
+    const line = Number(values.gridLine ?? 0);
+    const edge = Number(values.gridEdge ?? 0);
+    if (this.partial) {
+      redrawGrid(this.partial.map, this.layout, line, edge, bands);
+      this.partial.rows = rows;
+    } else {
+      this.partial = { map: gridTexture(this.layout, line, edge, bands), rows };
+      material.map = this.partial.map;
+    }
+  }
+
   /** `riseIn` brings the dice and the figure up out of the floor instead of showing them at once. */
   reset(riseIn = false): void {
     this.rise = riseIn ? 1 : 0;
@@ -631,8 +671,10 @@ export class BoardView {
     const dip = (cubeId: number) => this.springs.offset(cubeId);
 
     // A group going down lights what stands around it with the colour of its channel.
-    const sent = this.sent > 0 ? this.lit[this.sent - 1] : this.tone;
     const reaction = this.cubes.sinkingCentre(state);
+    // Dice of a level that were leaving when its board was put on have sent nothing here: their light is that of their face all the same.
+    if (this.sent === 0 && reaction.count > 0 && state.levelRun) this.sent = state.reactions[0]?.value ?? 0;
+    const sent = this.sent > 0 ? this.lit[this.sent - 1] : this.tone;
     const { lamp } = this;
     lamp.x = reaction.x;
     lamp.z = reaction.z;
@@ -914,6 +956,7 @@ export class BoardView {
       mesh.material.map?.dispose();
       mesh.material.dispose();
     }
+    if (this.partial) this.whole.dispose();
     this.floor.geometry.dispose();
     (this.floor.material as THREE.Material).dispose();
   }

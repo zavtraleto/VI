@@ -326,6 +326,10 @@ export class CubeMeshes {
   private readonly settling = new Map<number, number>();
   /** The glass dice as the last frame drew them, by cube: how high, how many of their dots, which face on top. */
   private readonly shown = new Map<number, { height: number; cover: number; value: number }>();
+  /** How far the dice of a board that is being laid have come, 0 to 1; null on a board that stands. */
+  private laid: number | null = null;
+  /** The board has just been laid: its dice settle on the next frame drawn. */
+  private landed = false;
   /** The twelve edges of a die, as the ends of their lines around its middle. */
   private readonly outline: Float32Array;
   /** The lit edges of every glass die, in the colour each of them has. */
@@ -438,6 +442,18 @@ export class CubeMeshes {
   reset(): void {
     this.settling.clear();
     this.shown.clear();
+    this.laid = null;
+    this.landed = false;
+  }
+
+  /**
+   * The board is being laid in front of the player: its dice are as far here as `share` says,
+   * 0 to 1, coming up through the dots of the tube as a die comes in a session. Null: the board
+   * is laid, and the dice that came stand from now on as dice that have just come up.
+   */
+  lay(share: number | null): void {
+    if (share === null && this.laid !== null) this.landed = true;
+    this.laid = share;
   }
 
   /**
@@ -517,11 +533,19 @@ export class CubeMeshes {
     const places = this.edgePlaces.array as Float32Array;
     const colours = this.edgeColours.array as Float32Array;
 
+    const { laid } = this;
+    if (this.landed) {
+      this.landed = false;
+      for (const cube of state.cubes) if (cube.state === 'idle') this.settling.set(cube.id, 0);
+    }
+
     alive.clear();
     let solids = 0;
     let glasses = 0;
     for (const cube of state.cubes) {
-      const look = this.look(cube, state);
+      // A die of a board that is being laid comes as one that rises, though it stands by the rules.
+      const coming = laid !== null && cube.state === 'idle';
+      const look = coming ? 'rising' : this.look(cube, state);
       if (look === 'idle') {
         if (solids >= MAX_DICE) continue;
         this.pose(cube, state, alpha);
@@ -546,7 +570,9 @@ export class CubeMeshes {
       const glass = die.material.uniforms;
       const faint = look === 'risingLow' || look === 'sinkingLow';
       // A die held by the tutorial stays put between ticks, and so does one on a level whose world stands.
-      const height = cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
+      const own = cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
+      // On a board that is being laid a die that is already leaving comes as far as it stands, and stops there.
+      const height = coming ? laid : laid !== null ? Math.min(own, laid) : own;
       // The nearer its full height, the more of the die is here: it comes up into being solid,
       // and stops being solid as it starts to go down.
       const here = body + (1 - body) * smoothstep(solid, 1, height);

@@ -52,6 +52,11 @@ export interface HudLevel {
   made: number;
   /** One line per thing the goal counts. */
   goal: readonly GoalLine[];
+  /**
+   * What the level before this one came to, where the board follows it with no window: its
+   * stars and its moves, in the place of the moves of this one until the first of them is made.
+   */
+  outcome: { stars: number; moves: number } | null;
 }
 
 /** A face of the net: its value and how many quarter turns its picture lies at. */
@@ -239,6 +244,8 @@ const ARROW: Record<Dir, string> = { N: '↑', E: '→', S: '↓', W: '←' };
 const NET_EDGE = 0.07;
 const NET_PIP = 0.12;
 const NET_PIP_ONE = 0.19;
+/** Side of a star of the line a passed level leaves in the readings, in pixels of the picture: that of the stars of a result. */
+const OUTCOME_STAR = 10;
 /** How long a reading that has just changed keeps flashing, and a multiplier stays large, in milliseconds. */
 const FLASH_MS = 1200;
 const BUMP_MS = 220;
@@ -981,6 +988,20 @@ export class GameHud {
    */
   private levelMoves(level: HudLevel, x: number, y: number): void {
     const { kit } = this;
+    if (level.outcome) {
+      // The stars as the list of the levels has them: squares, as many filled as there are stars, of three.
+      const { ink, faint } = kit.palette;
+      const side = OUTCOME_STAR;
+      const step = side + Math.round(side / 2);
+      const top = y + Math.round((CELL_H * 2 - side) / 2);
+      for (let i = 0; i < 3; i++) {
+        const cell = { x: x + i * step, y: top, w: side, h: side };
+        if (i < level.outcome.stars) kit.box(cell, ink);
+        else kit.frame(cell, faint);
+      }
+      this.counter(level.outcome.moves, 3, x + step * 3 + 2, y, 2, 'left', true);
+      return;
+    }
     this.counter(level.made, 3, x, y, 2, 'left', true);
     if (level.limit !== null) kit.text(`/${digits(level.limit, 2)}`, x + kit.measure(digits(level.made, 3), 2) + 3, y + CELL_H, kit.palette.dim);
   }
