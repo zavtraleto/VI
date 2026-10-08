@@ -203,14 +203,26 @@ const LEVEL_LAYOUT_TRIES = 400;
  * ready to clear, and a group that lacks one die a roll away. A level has no board to fall
  * back on: one that cannot be laid is a mistake in the level, and it says so. A level that
  * gives its board die by die gets exactly that board, and the generator is not asked for anything.
+ * A die such a board names as leaving is laid as a combo of one that has only so many moves left
+ * to go in: it stands as low as a die of a combo would by then, and goes as one does.
  */
 export function placeLevelLayout(state: RunState): void {
   const spec = state.levelRun!.spec;
   if (spec.layout) {
+    const laid: Cube[] = [];
     for (const { x, z, top, north } of spec.layout.dice) {
       const ori = ALL_ORIENTATIONS.find((o) => o.top === top && o.north === north);
       if (!ori) throw new Error(`level ${spec.id}: no die shows ${top} on top and ${north} to the north`);
-      addCube(state, x, z, ori);
+      laid.push(addCube(state, x, z, ori));
+    }
+    const { sinkingTicks, actionTicks } = state.config;
+    for (const { die, moves } of spec.layout.leaving ?? []) {
+      const cube = laid[die];
+      const id = state.nextReactionId++;
+      state.reactions.push({ id, value: cube.ori.top, chain: 1, total: 1 });
+      cube.state = 'sinking';
+      cube.t = sinkingTicks - moves * actionTicks;
+      cube.reactionId = id;
     }
     return;
   }

@@ -15,6 +15,8 @@ import type { Cube, GoalLine, LevelRun, LevelSpec, RulesConfig, RunState } from 
  *
  * A level may be a board given die by die. Such a board is the same every time, nothing comes
  * to it, and a board to be cleared is lost at a dead end: one die standing and nothing going.
+ * It may name a die as leaving from the start, a combo of one with so many moves left to it, and
+ * may start the player on the floor: beside such a die, that is the way up.
  *
  * A level may shut its floor: the player then stays on the dice, and a board to be cleared is
  * lost as well where the player has no move left, on a leaving die with no die to step to.
@@ -54,8 +56,10 @@ export const LEVEL_UNDOS = 3;
  * A board given die by die has to be a board: every die on a cell of its own, as many of them
  * as the level says, and the player starting on one. Where cells are cut out of it, each is a
  * cell of the square, cut out once, no die stands on one, and what is left holds together by
- * its sides: a board in two parts is two boards. Anything else is a mistake in the level, and
- * it says so.
+ * its sides: a board in two parts is two boards. Where the player starts on the floor, the start
+ * is a cell of the board with no die on it. A die named as leaving is one of the dice laid, and
+ * goes in a move at the least and in no more than a combo of the level does. Anything else is a
+ * mistake in the level, and it says so.
  */
 function checkLayout(spec: LevelSpec): void {
   const wrong = (what: string): never => {
@@ -95,7 +99,18 @@ function checkLayout(spec: LevelSpec): void {
     if (taken.has(`${x},${z}`)) wrong(`two dice at ${x},${z}`);
     taken.add(`${x},${z}`);
   }
-  if (!taken.has(`${layout.start.x},${layout.start.z}`)) wrong(`no die to start on at ${layout.start.x},${layout.start.z}`);
+  const { start } = layout;
+  const at = `${start.x},${start.z}`;
+  if (layout.onFloor) {
+    if (!inBounds(size, start.x, start.z)) wrong(`a start off the board at ${at}`);
+    if (holes.has(at)) wrong(`a start on a cell that is cut out at ${at}`);
+    if (taken.has(at)) wrong(`a die on the floor the player starts on at ${at}`);
+  } else if (!taken.has(at)) wrong(`no die to start on at ${at}`);
+  const sinkMoves = spec.sinkMoves ?? LEVEL_SINK_MOVES;
+  for (const { die, moves } of layout.leaving ?? []) {
+    if (!Number.isInteger(die) || die < 0 || die >= layout.dice.length) wrong(`no die ${die} to be leaving: ${layout.dice.length} are laid`);
+    if (!Number.isInteger(moves) || moves < 1 || moves > sinkMoves) wrong(`a die leaving in ${moves} moves, where it is 1 to ${sinkMoves}`);
+  }
 }
 
 /**

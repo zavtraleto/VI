@@ -379,10 +379,14 @@ export type LevelGoal =
   | { kind: 'chain'; links: number }
   | { kind: 'clear' };
 
-/** The dice of a level as they are given, and the cell of the die the player starts on. */
+/** The dice of a level as they are given, and the cell the player starts at. */
 export interface LevelLayout {
   dice: readonly PuzzleDie[];
   start: { x: number; z: number };
+  /** Dice of `dice`, by index, that are already leaving when the board is laid: each goes in this many moves. */
+  leaving?: readonly { die: number; moves: number }[];
+  /** The player starts on the floor at `start`, which holds no die. Left out, they start on the die at `start`. */
+  onFloor?: boolean;
 }
 
 /**

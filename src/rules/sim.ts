@@ -45,7 +45,8 @@ export function createRun(opts: RunOptions): RunState {
     grid: new Array<number>(config.size * config.size).fill(0),
     reactions: [],
     pending: [],
-    player: { x: config.startX, z: config.startZ, level: opts.empty ? 'ground' : 'top' },
+    // A board given die by die may start the player on the floor, on a cell that holds no die.
+    player: { x: config.startX, z: config.startZ, level: opts.empty || level?.layout?.onFloor ? 'ground' : 'top' },
     score: 0,
     level: 1,
     removed: 0,
