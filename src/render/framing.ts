@@ -10,7 +10,8 @@ export interface FrameBounds {
   floorU: number;
 }
 
-export interface Frame {
+/** How a board is fitted into the view, on the camera's axes from the middle of the board. */
+export interface Fit {
   /** Half the height of the orthographic view, in world units. */
   halfHeight: number;
   centreR: number;
@@ -24,7 +25,7 @@ export interface Frame {
  * tutorial's text. The floor never reaches into it: where the screen has height to spare
  * the board moves down, and where it has none the board is drawn smaller.
  */
-export function fitBoard(b: FrameBounds, aspect: number, clear: number, sideMargin: number, margin: number): Frame {
+export function fitBoard(b: FrameBounds, aspect: number, clear: number, sideMargin: number, margin: number): Fit {
   const centreR = (b.minR + b.maxR) / 2;
   const forWidth = ((b.maxR - b.minR) / 2 + sideMargin) / aspect;
   const forHeight = (b.maxU - b.minU) / 2 + margin;
@@ -42,7 +43,7 @@ export function fitBoard(b: FrameBounds, aspect: number, clear: number, sideMarg
 }
 
 /** Size of a cell on screen, in pixels, for a view of this height. */
-export function cellPixels(frame: Frame, height: number): number {
+export function cellPixels(frame: Fit, height: number): number {
   return height / (2 * frame.halfHeight);
 }
 

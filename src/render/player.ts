@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { cubeAt, cubeHeight, isHeld, worldRuns, type Level, type MoveKind, type RunState } from '../rules';
-import { DOT_MESH, THROUGH_DOTS } from './cubes';
 import { figureGeometry } from './figure';
 
 /**
@@ -29,23 +28,6 @@ const ARC: Record<MoveKind, number> = {
 const FALL = 6;
 
 /**
- * What the figure is drawn with while it comes onto a board that has just been laid: its one
- * colour, through the mesh of the dots of the tube the dice come through. `cover` is the share
- * of the dots it has, `dot` the size of a dot in pixels of the picture.
- */
-function comingMaterial(cover: { value: number }, dot: { value: number }): THREE.MeshBasicMaterial {
-  const material = new THREE.MeshBasicMaterial();
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uCover = cover;
-    shader.uniforms.uDot = dot;
-    // The table of the mesh goes before the body of the shader, and the dots that are not there are left out first of all in it.
-    const head = ['uniform float uCover;', 'uniform float uDot;', DOT_MESH, 'void main() {', THROUGH_DOTS].join('\n');
-    shader.fragmentShader = shader.fragmentShader.replace('void main() {', head);
-  };
-  return material;
-}
-
-/**
  * The one who plays, as a pictogram of one colour: a grey mannequin, for the program has no
  * record of them, that grows into the red of the seventh. The same body is the cursor of the
  * program's menu.
@@ -60,13 +42,6 @@ export class PlayerFigure {
     depthFunc: THREE.GreaterDepth,
     depthWrite: false,
   });
-  /** How much of the figure is here while it comes onto a board, as the share of the dots it has, and the size of a dot. */
-  private readonly cover = { value: 1 };
-  private readonly dot = { value: 4 };
-  /** The figure while it comes: seen in place of the body until it is all here, and at no other time. */
-  private readonly coming = comingMaterial(this.cover, this.dot);
-  private readonly body = new THREE.Mesh(this.geometry, this.solid);
-  private readonly arriving = new THREE.Mesh(this.geometry, this.coming);
   /** The cell the figure was in on the last frame and how high it stood there. */
   private cell = -1;
   private y = 0;
@@ -74,35 +49,28 @@ export class PlayerFigure {
   constructor() {
     const through = new THREE.Mesh(this.geometry, this.ghost);
     through.renderOrder = 10;
-    this.arriving.visible = false;
-    this.group.add(this.body, this.arriving, through);
+    this.group.add(new THREE.Mesh(this.geometry, this.solid), through);
   }
 
   /** `through` is how much of the figure shows where a die stands in front of it. */
   setColor(color: string, through: number): void {
     this.solid.color.set(color);
-    this.coming.color.set(color);
     this.ghost.color.set(color);
-    // What shows of it through a die comes with the rest of it.
-    this.ghost.opacity = through * this.cover.value;
+    this.ghost.opacity = through;
+  }
+
+  /** A new board: the figure is put where it stands, it does not come down to there. */
+  reset(): void {
+    this.cell = -1;
   }
 
   /**
-   * The figure comes onto a board that has just been laid, through the dots of the tube as the
-   * dice do: `here` is how much of it has come, 0 to 1, `dot` the size of a dot in pixels of
-   * the picture. All here, it is drawn as it always is.
+   * The die under the figure stands at another height than the rules have it at, in a passage
+   * between two boards: the figure stands on it there, on this frame.
    */
-  come(here: number, dot: number): void {
-    this.cover.value = Math.min(1, Math.max(0, here));
-    this.dot.value = Math.max(1, dot);
-    this.body.visible = here >= 1;
-    this.arriving.visible = here < 1;
-  }
-
-  /** A new board: the figure is put where it stands, it does not come down to there, and is all here. */
-  reset(): void {
-    this.cell = -1;
-    this.come(1, this.dot.value);
+  standAt(y: number): void {
+    this.y = y;
+    this.group.position.y = y;
   }
 
   /**
@@ -147,7 +115,6 @@ export class PlayerFigure {
   dispose(): void {
     this.geometry.dispose();
     this.solid.dispose();
-    this.coming.dispose();
     this.ghost.dispose();
   }
 }

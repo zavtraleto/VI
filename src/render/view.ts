@@ -15,6 +15,7 @@ import { LineGrid } from './lineGrid';
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { boardPalette, type BoardLook } from './params';
+import { passingHeight, type DicePassing } from './passing';
 import { PlayerFigure } from './player';
 import { ChainSigns } from './signs';
 import { CubeSprings } from './springs';
@@ -31,13 +32,10 @@ const CAME = 1e-4;
 const CAME_SPEED = 1e-6;
 const RISE_IN_MS = 600;
 /**
- * How long the dice of a level that is cleared take to go down under the floor, and how far
- * down they go: the way they came up, turned round, a little quicker.
+ * A camera on its way to a frame is there, to the last of it, when twice the time it was given
+ * has gone: over the second half of that what it still carries is taken away smoothly.
  */
-const LEAVE_MS = 520;
-const LEAVE_DEPTH = 1.25;
-/** How far gone the dice are when their marks are put out: the top of a whole die is at the floor by then. */
-const MARKS_GONE_AT = 0.85;
+const TRAVEL_ENDS = 2;
 /** How far the dark behind the board goes towards the channel sent most, and towards a group just sent. */
 const BACK_TINT = 0.04;
 const BACK_ANSWER = 0.06;
@@ -261,9 +259,10 @@ export class BoardView {
   private readonly red = new THREE.Color();
   /** 1 when a board starts by coming up out of the floor, falling to 0. */
   private rise = 0;
-  /** How far the dice of a cleared level have gone under the floor, 0 to 1, and whether they are going. */
-  private leave = 0;
-  private leaving = false;
+  /** How the dice stand in a passage between two boards; null outside one: they stand as the rules have them. */
+  private passing: DicePassing | null = null;
+  /** Counts the changes of the window the board is fitted to: its size, and the room kept at its top. */
+  private fits = 0;
   /** Size of a cell with the whole board in view, in CSS pixels: what the view is picked by. */
   private wholeCell = 0;
   /** The frame asked for from outside; null: the frame the board that is on is in whole, kept through every change of the window. */
@@ -280,10 +279,13 @@ export class BoardView {
    * frames the board and wherever the player goes meanwhile.
    */
   private readonly carry: Sight = { r: 0, u: 0, half: 0 };
+  /** The same as the spring alone has it, and how fast it changes: `carry` is this, brought to nothing in the end. */
+  private readonly sprung: Sight = { r: 0, u: 0, half: 0 };
   private readonly pace: Sight = { r: 0, u: 0, half: 0 };
   private carried = false;
-  /** The time the camera is given to come to a frame, and whether what is on screen is still to be taken as the carry. */
+  /** The time the camera is given to come to a frame, how long it has been on its way, and whether what is on screen is still to be taken as the carry. */
   private travelMs = 0;
+  private travelled = 0;
   private taking = false;
   /** The point of the board the followed view is about, on the camera's right and up axes, and how fast it is moving. */
   private readonly at = { r: 0, u: 0 };
@@ -446,7 +448,14 @@ export class BoardView {
    * are seen one way; followed, the player is where the view goes and the frame only names the
    * scale: every board is then seen with a cell of the size the followed view asks for, a small
    * one too. Either way the camera travels from what was on screen to what it is to show, so a
-   * board put on with a frame and a time is never jumped to.
+   * board put on with a frame and a time is never jumped to. The way is a spring that never
+   * swings, and it has an end: when twice the time given has gone, the camera shows the frame
+   * and nothing else.
+   *
+   * With the whole board in view what was on screen is taken over here, at once: a place asked
+   * of the view (`project`) before the next frame is drawn is where it is on screen. Followed,
+   * the view is counted from the figure as the next frame draws it, and what was on screen is
+   * taken over then.
    */
   setFrame(frame: Frame | null, ms: number): void {
     this.asked = frame ? { x: frame.x, z: frame.z, cell: frame.cell } : null;
@@ -454,6 +463,41 @@ export class BoardView {
     this.taking = ms > 0 && this.seen;
     if (!this.taking) this.arrive();
     this.resize();
+    if (this.taking && this.mode === 'full') {
+      this.take(this.goal.r, this.goal.u, this.goal.half);
+      this.aim();
+      // The next frame drawn takes it over again, the same, or anew if the board is followed by then.
+      this.taking = true;
+    }
+  }
+
+  /**
+   * The frame that was asked for, counted anew by whoever counted it, after the window has
+   * changed (`fitted`): the camera goes on from where it is on its way.
+   */
+  refit(frame: Frame): void {
+    this.asked = { x: frame.x, z: frame.z, cell: frame.cell };
+    this.resize();
+  }
+
+  /** A number that changes whenever the window the board is fitted to does: a frame counted for the window before is to be counted again. */
+  get fitted(): number {
+    return this.fits;
+  }
+
+  /**
+   * How the dice stand in a passage between two boards, die by die; null: as the rules have
+   * them. The object is read on every frame drawn and is its owner's to change. While one is
+   * given the marks and signs of the dice that are going are not drawn: nothing can be added
+   * to a combo of a board that is passed, and a board that comes has no die on it yet.
+   */
+  setPassing(passing: DicePassing | null): void {
+    this.passing = passing;
+  }
+
+  /** A die of a board that comes stands: it settles as a die that has just come up does. */
+  stood(cubeId: number): void {
+    this.cubes.risen(cubeId);
   }
 
   /** Lays the board in the world: the surface is given its size and its lines, and the group of the rules is moved to it. */
@@ -541,6 +585,7 @@ export class BoardView {
   setClear(pixels: number): void {
     if (pixels === this.clear) return;
     this.clear = pixels;
+    this.fits++;
     this.resize();
   }
 
@@ -563,8 +608,11 @@ export class BoardView {
 
   resize(): void {
     const box = this.container.getBoundingClientRect();
-    this.width = Math.max(1, box.width);
-    this.height = Math.max(1, box.height);
+    const width = Math.max(1, box.width);
+    const height = Math.max(1, box.height);
+    if (width !== this.width || height !== this.height) this.fits++;
+    this.width = width;
+    this.height = height;
     this.rect = { x: box.left, y: box.top, width: this.width, height: this.height };
     const aspect = this.width / this.height;
     // The view is picked by the cell of the whole board with nothing over it: words that come
@@ -619,11 +667,24 @@ export class BoardView {
 
   /** The camera is where it is to be: it carries nothing over. */
   private arrive(): void {
-    const { carry, pace } = this;
+    const { carry, sprung, pace } = this;
     carry.r = carry.u = carry.half = 0;
+    sprung.r = sprung.u = sprung.half = 0;
     pace.r = pace.u = pace.half = 0;
     this.carried = false;
     this.taking = false;
+  }
+
+  /** What was on screen is taken over as what the camera carries on its way to what it is to show: `r`, `u` and `half`, counted from the target. */
+  private take(r: number, u: number, half: number): void {
+    const { carry, sprung, pace, sight, base } = this;
+    this.taking = false;
+    sprung.r = carry.r = sight.r - (base.r + r);
+    sprung.u = carry.u = sight.u - (base.u + u);
+    sprung.half = carry.half = sight.half - half;
+    pace.r = pace.u = pace.half = 0;
+    this.travelled = 0;
+    this.carried = true;
   }
 
   /**
@@ -633,28 +694,28 @@ export class BoardView {
    * changed, and notes what the camera shows now.
    */
   private glide(dt: number, r: number, u: number, half: number, still: boolean): boolean {
-    const { carry, pace, sight, base } = this;
+    const { carry, sprung, pace, sight, base } = this;
     let moved = false;
     if (still) {
       moved = this.carried;
       this.arrive();
     } else if (this.taking) {
-      this.taking = false;
-      carry.r = sight.r - (base.r + r);
-      carry.u = sight.u - (base.u + u);
-      carry.half = sight.half - half;
-      pace.r = pace.u = pace.half = 0;
-      this.carried = true;
+      this.take(r, u, half);
       moved = true;
     } else if (this.carried) {
+      this.travelled += dt;
+      // Past the time given, what the spring still has is taken away, all of it by twice that time.
+      const over = Math.min(1, Math.max(0, this.travelled / Math.max(1, this.travelMs) - 1) / (TRAVEL_ENDS - 1));
+      const kept = 1 - over * over * (3 - 2 * over);
       let far = false;
       for (const key of GLIDES) {
-        const next = follow(carry[key], pace[key], 0, dt, this.travelMs);
-        carry[key] = next.at;
+        const next = follow(sprung[key], pace[key], 0, dt, this.travelMs);
+        sprung[key] = next.at;
         pace[key] = next.speed;
-        far ||= Math.abs(next.at) > CAME || Math.abs(next.speed) > CAME_SPEED;
+        carry[key] = next.at * kept;
+        far ||= Math.abs(carry[key]) > CAME || (kept >= 1 && Math.abs(next.speed) > CAME_SPEED);
       }
-      if (!far) this.arrive();
+      if (!far || kept <= 0) this.arrive();
       moved = true;
     }
     sight.r = base.r + r + carry.r;
@@ -722,14 +783,6 @@ export class BoardView {
     }
   }
 
-  /**
-   * A level is cleared: its dice go down under the floor, all of them, the way dice come up at
-   * the start of a session. The figure goes down with the die it stands on and stays on the floor.
-   */
-  leaveBoard(): void {
-    this.leaving = true;
-  }
-
   /** The board answers the dice that have gone: light runs over its lines in the colour of the face sent last. */
   answer(value: number): void {
     this.flash = 1;
@@ -737,30 +790,14 @@ export class BoardView {
     if (value >= 1) this.sent = value;
   }
 
-  /**
-   * The figure is drawn or left out, until the next board: a board that waits to be started has
-   * none on it. With `here` under 1 it is only so far here, coming through the dots of the tube
-   * the dice of a board that is laid come through.
-   */
-  showFigure(shown: boolean, here = 1): void {
+  /** The figure is drawn or left out, until the next board: a board that waits to be started has none on it. */
+  showFigure(shown: boolean): void {
     this.player.group.visible = shown;
-    this.player.come(here, this.cubes.dot);
-  }
-
-  /**
-   * The dice of a board that comes are as far here as `dice` says, 0 to 1, gathering the dots of
-   * the tube the way a die comes in a session; one that is leaving comes as far as it stands and
-   * no further. Null: the dice stand as the rules have them.
-   */
-  setReveal(dice: number | null): void {
-    this.cubes.lay(dice);
   }
 
   /** `riseIn` brings the dice and the figure up out of the floor instead of showing them at once. */
   reset(riseIn = false): void {
     this.rise = riseIn ? 1 : 0;
-    this.leave = 0;
-    this.leaving = false;
     this.flash = 0;
     this.burst = 0;
     this.tremor = 0;
@@ -819,9 +856,7 @@ export class BoardView {
     this.rise = reducedMotion ? 0 : Math.max(0, this.rise - dt / RISE_IN_MS);
     // Fast at first, settling at the end.
     const sunk = this.rise * this.rise;
-    if (this.leaving) this.leave = reducedMotion ? 1 : Math.min(1, this.leave + dt / LEAVE_MS);
-    // Slow at first, then falling away.
-    const gone = this.leave * this.leave * LEAVE_DEPTH;
+    const { passing } = this;
     const wave = (periodMs: number) => (reducedMotion ? 0 : Math.sin((timeMs / periodMs) * Math.PI * 2));
 
     // The dice, first step: pips answer a clear together. Second: the dice breathe.
@@ -870,7 +905,9 @@ export class BoardView {
     lamp.x = reaction.x + this.board.origin.x;
     lamp.z = reaction.z + this.board.origin.z;
     lamp.colour.copy(sent);
-    lamp.power = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * (1 - this.leave);
+    // The light of a combo that has cleared its board goes out as the first of its dice goes under; a board that comes throws none.
+    const left = !passing ? 1 : passing.mode === 'come' ? 0 : 1 - Math.min(1, Math.max(0, passing.moveMs / Math.max(1, passing.moveForMs)));
+    lamp.power = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * left;
 
     // Past the last step of the contact every die is lit harder for a moment.
     this.cubes.sync(
@@ -885,17 +922,26 @@ export class BoardView {
         dt,
       },
       dip,
+      passing,
     );
     this.player.setColor(figureColour(this.palette, values), n('figureGhost'));
     this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip));
-    this.cubes.group.position.y = -sunk - gone;
+    // In a passage the figure stands on its die as the passage has it: it comes down to the
+    // floor with a die that goes under, and a die that comes up under it lifts it.
+    if (passing && player.level === 'top' && !player.action) {
+      const own = cubeAt(state, player.x, player.z);
+      const rank = own ? passing.ranks.get(own.id) : undefined;
+      if (own && rank !== undefined) this.player.standAt(Math.max(0, passingHeight(passing, rank, cubeHeight(own, state.config)) + dip(own.id)));
+    } else if (passing && player.level === 'ground') {
+      // Off the dice it is on the floor of a board that comes, and comes down to the floor of one whose dice go, from a shelf if it stood on one.
+      const gone = passing.mode === 'come' ? 1 : Math.min(1, Math.max(0, passing.moveMs / Math.max(1, passing.moveForMs)));
+      this.player.standAt(this.player.group.position.y * (1 - gone * gone));
+    }
+    this.cubes.group.position.y = -sunk;
     this.player.group.position.y -= sunk;
-    // The dice of a cleared level go under; the figure comes down with its die and is left standing on the floor.
-    if (gone > 0) this.player.group.position.y = Math.max(0, this.player.group.position.y - gone);
-    this.marks.group.position.y = -gone;
-    this.signs.group.position.y = -gone;
-    // The marks of the dice are seen through the floor: they go out as the dice go under it.
-    this.marks.group.visible = this.leave < MARKS_GONE_AT;
+    // Nothing is added to a combo that has cleared its board, and a board that comes has no die on it yet: neither is marked.
+    this.marks.group.visible = !passing;
+    this.signs.group.visible = !passing;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
     this.signs.sync(state, alpha, timeMs, reducedMotion, dip, this.worldLayer.height / Math.max(1, this.lines), params.ghosts);

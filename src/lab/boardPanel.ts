@@ -176,6 +176,8 @@ export class BoardPanel {
         folder.add(lab.grid, 'share', 0, 1, 0.005).name('линии: прогресс').listen().onChange(() => lab.holdGrid());
         folder.add(lab.grid, 'erasing').name('ползунок стирает').listen();
         folder.add(head, 'playGrid').name('Сыграть: стереть и нарисовать');
+        // Only here: no board of the game has a fixed die yet.
+        folder.add(lab, 'fixed').name('две кости фиксированные').onChange((fixed: boolean) => lab.setFixed(fixed));
       }
       for (const [name, spec] of Object.entries(params)) this.control(folder, lab.look.board, name, spec);
       folder.close();

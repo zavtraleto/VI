@@ -4,6 +4,7 @@ import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rule
 import type { ParamValues } from '../signal/scene';
 import { mixHex, type Palette } from '../shell/theme';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
+import { comeShare, goneShare, isLit, litFlash, passingHeight, unlitGrey, type DicePassing } from './passing';
 import { PIP_STEP } from './textures';
 
 /**
@@ -49,6 +50,8 @@ const LIFT = 0.6;
 const MELT_CURVE = 0.6;
 /** The height from which a die that is coming up shows the line of its own edges, in the colour of its channel. */
 const OWN_LINE_FROM = 0.6;
+/** How much of the light of its channel a die takes over all of itself at the moment its group is sent, or it lights up. */
+const FLASH_FROST = 0.6;
 
 export interface CubeGlow {
   /** How much brighter the dice at rest are than they stand: the answer to a clear, their breathing, the last step of the contact. */
@@ -76,6 +79,10 @@ attribute vec3 faceNormal;
 #ifdef USE_INSTANCING
 /** A die that has just come up: the light of its channel, and how far it has settled, 1 for a die that stands. */
 attribute vec4 arrive;
+/** 1 for a fixed die that no combo has lit yet: its screens are out. */
+attribute float dim;
+#else
+uniform float uDim;
 #endif
 
 uniform float uSide;
@@ -87,14 +94,17 @@ varying vec3 vWorld;
 /** How lit the face is; how far it looks up; how high on the die the point is, 0 at its foot. */
 varying vec3 vStand;
 varying vec4 vArrive;
+varying float vDim;
 
 void main() {
   #ifdef USE_INSTANCING
     mat4 placed = modelMatrix * instanceMatrix;
     vArrive = arrive;
+    vDim = dim;
   #else
     mat4 placed = modelMatrix;
     vArrive = vec4(0.0, 0.0, 0.0, 1.0);
+    vDim = uDim;
   #endif
   mat3 turned = mat3(placed);
   vec4 world = placed * vec4(position, 1.0);
@@ -115,16 +125,16 @@ void main() {
  * The mesh of the dots of the tube a thing that is not all here is drawn through, as lines of a
  * fragment shader: the order its dots go out in, and what leaves out of the picture the dots a
  * share `uCover` of them does not have, `uDot` being the size of a dot in pixels of the picture.
- * The dice that come and go are drawn through it, and so is the figure when it comes onto a board.
+ * The dice that come and go are drawn through it.
  */
-export const DOT_MESH = /* glsl */ `/** The order the dots of a mesh of four by four go out in: evenly over it, never two neighbours in a row. */
+const DOT_MESH = /* glsl */ `/** The order the dots of a mesh of four by four go out in: evenly over it, never two neighbours in a row. */
 const float MESH[16] = float[16](
   0.0, 8.0, 2.0, 10.0,
   12.0, 4.0, 14.0, 6.0,
   3.0, 11.0, 1.0, 9.0,
   15.0, 7.0, 13.0, 5.0
 );`;
-export const THROUGH_DOTS = /* glsl */ `  if (uCover < 1.0) {
+const THROUGH_DOTS = /* glsl */ `  if (uCover < 1.0) {
     // The mesh stands on the screen, not on the die: the die goes down through it.
     vec2 spot = floor(gl_FragCoord.xy / uDot);
     int at = int(mod(spot.x, 4.0)) + int(mod(spot.y, 4.0)) * 4;
@@ -143,6 +153,11 @@ export const THROUGH_DOTS = /* glsl */ `  if (uCover < 1.0) {
  * together. Near its full height a die that comes up shows the line of its own edges as well,
  * in the colour of its channel; standing, it keeps that colour for a moment and lets it go
  * to the pale of the program, and only then gives its light to the tube.
+ *
+ * A fixed die that no combo has lit yet has its screens out (a proposal, until the owner says
+ * how it looks): its faces are the grey of their channel, as much of it as the look keeps, its
+ * edges keep a share of their light, its pips are where they were, and it gives the tube
+ * nothing but those edges.
  */
 const FRAGMENT = /* glsl */ `
 uniform vec3 uChannels[6];
@@ -172,12 +187,15 @@ uniform float uDot;
 uniform vec3 uOwn;
 /** What the edges keep of their light in the picture the tube spreads. */
 uniform float uEmitEdge;
+/** A fixed die that is not lit: what its faces keep of their light, and its edges. */
+uniform vec2 uFixed;
 
 varying vec3 vFace;
 varying vec3 vNormal;
 varying vec3 vWorld;
 varying vec3 vStand;
 varying vec4 vArrive;
+varying float vDim;
 
 const float STEP = ${PIP_STEP.toFixed(4)};
 /** The pips of each value, a bit for each place of three by three, row by row from the top. */
@@ -208,6 +226,8 @@ ${THROUGH_DOTS}
   float up = vStand.y;
   float screen = 1.0 - uFace.x * smoothstep(0.1, 0.7, length(uv - 0.5));
   vec3 tint = uChannels[value - 1];
+  // The screens of a fixed die are out: the grey of the channel, as bright as the channel is to the eye.
+  tint = mix(tint, vec3(dot(tint, vec3(0.2126, 0.7152, 0.0722)) * uFixed.x), vDim);
   vec3 normal = normalize(vNormal);
   float rim = mix(uLineSide, 1.0, smoothstep(0.2, 0.6, normal.y));
   float line = 1.0 - smoothstep(uLine.x - px, uLine.x + px, border);
@@ -217,13 +237,15 @@ ${THROUGH_DOTS}
   // A die that has just come up has the line of its edges in the colour of its channel still.
   vec3 edge = mix(vArrive.rgb, uEdge, vArrive.a);
 #endif
+  edge *= mix(1.0, uFixed.y, vDim);
 
 #ifdef EMIT
   // Light is the colour of a channel at its fullest: a blue face spreads as much of it as a
   // yellow one. A face with little colour in it spreads less: white would outshine the six.
   float most = max(max(tint.r, tint.g), max(tint.b, 0.001));
   vec3 pure = tint / most * (0.6 + 0.4 * (most - min(min(tint.r, tint.g), tint.b)) / most);
-  vec3 colour = off ? vec3(0.0) : pure * (up * up * screen * (1.0 - pip) * (1.0 + uLift));
+  // A screen that is out gives the tube nothing.
+  vec3 colour = off ? vec3(0.0) : pure * (up * up * screen * (1.0 - pip) * (1.0 + uLift) * (1.0 - vDim));
   // The pip of the one is lit: it is the seventh.
   if (value == 1) colour = mix(colour, uSignal, pip * up * up);
   // A die that has just come up gives its light to the tube little by little.
@@ -321,6 +343,7 @@ export class CubeMeshes {
     uLamp: { value: new THREE.Vector3() },
     uLampColour: { value: new THREE.Color(0) },
     uEmitEdge: { value: 0 },
+    uFixed: { value: new THREE.Vector2(1, 1) },
     uDot: { value: 4 },
   };
   private readonly material: DieMaterial;
@@ -331,14 +354,12 @@ export class CubeMeshes {
   /** The solid dice have a shape of their own: each of them carries how far it has settled. */
   private readonly solidGeometry: THREE.BufferGeometry;
   private readonly arrivals: THREE.InstancedBufferAttribute;
+  /** And whether it is a fixed die that is not lit: 1, or 0. */
+  private readonly dims: THREE.InstancedBufferAttribute;
   /** The dice that have just come up, by cube: how far each has settled, 0 to 1. */
   private readonly settling = new Map<number, number>();
   /** The glass dice as the last frame drew them, by cube: how high, how many of their dots, which face on top. */
   private readonly shown = new Map<number, { height: number; cover: number; value: number }>();
-  /** How far the dice of a board that is being laid have come, 0 to 1; null on a board that stands. */
-  private laid: number | null = null;
-  /** The board has just been laid: its dice settle on the next frame drawn. */
-  private landed = false;
   /** The twelve edges of a die, as the ends of their lines around its middle. */
   private readonly outline: Float32Array;
   /** The lit edges of every glass die, in the colour each of them has. */
@@ -360,6 +381,8 @@ export class CubeMeshes {
   private readonly turn = new THREE.Quaternion();
   private readonly whole = new THREE.Vector3(1, 1, 1);
   private readonly colour = new THREE.Color();
+  /** The light of the die in hand: that of its channel, or the grey of it. */
+  private readonly light = new THREE.Color();
   private readonly tmpVec = new THREE.Vector3();
 
   constructor(
@@ -374,6 +397,9 @@ export class CubeMeshes {
     this.arrivals = new THREE.InstancedBufferAttribute(new Float32Array(MAX_DICE * 4).fill(1), 4);
     this.arrivals.setUsage(THREE.DynamicDrawUsage);
     this.solidGeometry.setAttribute('arrive', this.arrivals);
+    this.dims = new THREE.InstancedBufferAttribute(new Float32Array(MAX_DICE), 1);
+    this.dims.setUsage(THREE.DynamicDrawUsage);
+    this.solidGeometry.setAttribute('dim', this.dims);
     this.solids = new THREE.InstancedMesh(this.solidGeometry, this.material, MAX_DICE);
     this.solids.count = 0;
     this.solids.frustumCulled = false;
@@ -440,6 +466,7 @@ export class CubeMeshes {
     shared.uSide.value = light(n('faceSide'));
     shared.uTilt.value = n('sideTilt');
     shared.uEmitEdge.value = n('glowEdge');
+    shared.uFixed.value.set(n('fixedTone'), n('fixedEdge'));
   }
 
   /** A die has come up to its full height: it stands from now on, and settles into a die that stands. */
@@ -447,27 +474,10 @@ export class CubeMeshes {
     this.settling.set(cubeId, 0);
   }
 
-  /** The size of a dot of the tube as the dice are drawn through it, in pixels of the picture. */
-  get dot(): number {
-    return this.shared.uDot.value;
-  }
-
   /** A new board: no die of it has just come up. */
   reset(): void {
     this.settling.clear();
     this.shown.clear();
-    this.laid = null;
-    this.landed = false;
-  }
-
-  /**
-   * The board is being laid in front of the player: its dice are as far here as `share` says,
-   * 0 to 1, coming up through the dots of the tube as a die comes in a session. Null: the board
-   * is laid, and the dice that came stand from now on as dice that have just come up.
-   */
-  lay(share: number | null): void {
-    if (share === null && this.laid !== null) this.landed = true;
-    this.laid = share;
   }
 
   /**
@@ -518,7 +528,13 @@ export class CubeMeshes {
     return height <= state.config.sinkLowHeight ? 'sinkingLow' : 'sinking';
   }
 
-  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number): void {
+  /**
+   * `passing` is how the dice stand in a passage between two boards, null outside one: a die
+   * of a board that is passed stands whole until it is lit and then goes down by its own time,
+   * and a die of a board that comes is not there until its turn, comes up as a die comes in a
+   * session, and then stands as the rules have it.
+   */
+  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null = null): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     this.markFaces(state);
     const { shared } = this;
@@ -538,6 +554,8 @@ export class CubeMeshes {
       else this.settling.set(id, next);
     }
     const arrivals = this.arrivals.array as Float32Array;
+    const dims = this.dims.array as Float32Array;
+    const tone = n('fixedTone');
     const body = n('glassBody');
     const low = n('glassLow');
     const solid = n('glassSolid');
@@ -547,30 +565,51 @@ export class CubeMeshes {
     const places = this.edgePlaces.array as Float32Array;
     const colours = this.edgeColours.array as Float32Array;
 
-    const { laid } = this;
-    if (this.landed) {
-      this.landed = false;
-      for (const cube of state.cubes) if (cube.state === 'idle') this.settling.set(cube.id, 0);
-    }
-
     alive.clear();
     let solids = 0;
     let glasses = 0;
     for (const cube of state.cubes) {
-      // A die of a board that is being laid comes as one that rises, though it stands by the rules.
-      const coming = laid !== null && cube.state === 'idle';
-      const look = coming ? 'rising' : this.look(cube, state);
+      let look = this.look(cube, state);
+      // A die held by the tutorial stays put between ticks, and so does one on a level whose world stands.
+      let height = look === 'idle' ? 1 : cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
+      // What is left of the light a die of a combo took when it lit up.
+      let lit = 0;
+      const rank = passing?.ranks.get(cube.id);
+      if (passing && rank !== undefined) {
+        height = passingHeight(passing, rank, height);
+        if (passing.mode === 'leave') {
+          const gone = goneShare(passing, rank);
+          // Gone under: there is nothing of it to draw.
+          if (gone >= 1) continue;
+          // Until its turn a die of the combo stands as it stood before the combo; one that the
+          // combo left standing stands so until it goes.
+          if (!isLit(passing, rank) || (cube.state !== 'sinking' && gone <= 0)) look = 'idle';
+          else {
+            look = 'sinking';
+            lit = litFlash(passing, rank);
+          }
+        } else {
+          const come = comeShare(passing, rank);
+          if (come <= 0) continue;
+          // It comes as a die comes in a session, whatever the rules have it as, and then is that.
+          if (come < 1) look = 'rising';
+        }
+      }
+      // The screens of a fixed die are out until its combo: it is lit when it goes.
+      const dimmed = cube.fixed === true && look !== 'sinking' && look !== 'sinkingLow';
       if (look === 'idle') {
         if (solids >= MAX_DICE) continue;
         this.pose(cube, state, alpha);
         this.at.y += dip(cube.id);
         // A die that has just come up keeps the light of its channel on its edges and lets it go.
         const settled = this.settling.get(cube.id);
-        const own = this.channels[cube.ori.top - 1];
+        const own = this.light.copy(this.channels[cube.ori.top - 1]);
+        if (dimmed) own.setScalar(unlitGrey(own.r, own.g, own.b, tone));
         arrivals[solids * 4] = settled === undefined ? 0 : own.r;
         arrivals[solids * 4 + 1] = settled === undefined ? 0 : own.g;
         arrivals[solids * 4 + 2] = settled === undefined ? 0 : own.b;
         arrivals[solids * 4 + 3] = settled === undefined ? 1 : smoothstep(0, 1, settled);
+        dims[solids] = dimmed ? 1 : 0;
         this.solids.setMatrixAt(solids++, this.matrix.compose(this.at, this.turn, this.whole));
         continue;
       }
@@ -583,10 +622,6 @@ export class CubeMeshes {
       }
       const glass = die.material.uniforms;
       const faint = look === 'risingLow' || look === 'sinkingLow';
-      // A die held by the tutorial stays put between ticks, and so does one on a level whose world stands.
-      const own = cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
-      // On a board that is being laid a die that is already leaving comes as far as it stands, and stops there.
-      const height = coming ? laid : laid !== null ? Math.min(own, laid) : own;
       // The nearer its full height, the more of the die is here: it comes up into being solid,
       // and stops being solid as it starts to go down.
       const here = body + (1 - body) * smoothstep(solid, 1, height);
@@ -603,10 +638,13 @@ export class CubeMeshes {
       this.shown.set(cube.id, { height, cover: glass.uCover.value as number, value: cube.ori.top });
       // The frost is the light of the channel spread evenly over the die: its faces and pips
       // show through it, and none of them shines by itself.
-      const channel = this.channels[cube.ori.top - 1];
+      const channel = this.light.copy(this.channels[cube.ori.top - 1]);
+      // A fixed die that comes has its screens out already: its light is the grey of its channel.
+      if (dimmed) channel.setScalar(unlitGrey(channel.r, channel.g, channel.b, tone));
+      glass.uDim.value = dimmed ? 1 : 0;
       (glass.uFrost.value as THREE.Color)
         .copy(channel)
-        .multiplyScalar(frost * (1 - smoothstep(solid, 1, height)) + (cube.state === 'sinking' ? glow.flash * 0.6 : 0));
+        .multiplyScalar(frost * (1 - smoothstep(solid, 1, height)) + (sinking ? Math.max(cube.state === 'sinking' ? glow.flash : 0, lit) * FLASH_FROST : 0));
       // Near its full height a die that comes up shows the line of its own edges, in the colour
       // of its channel: the line it will stand with, before it lets the colour go.
       (glass.uOwn.value as THREE.Color).copy(channel).multiplyScalar(sinking ? 0 : smoothstep(OWN_LINE_FROM, 1, height));
@@ -616,8 +654,8 @@ export class CubeMeshes {
 
       // Its edges, around where it stands: brighter on the way down, fainter while it is low.
       if (glasses >= MAX_DICE) continue;
-      const lit = (sinking ? Math.max(1, glow.sinking) : 1) * (faint && (sinking || mounts) ? low : 1);
-      this.colour.copy(channel).multiplyScalar(Math.min(1, edge * lit));
+      const bright = (sinking ? Math.max(1, glow.sinking) : 1) * (faint && (sinking || mounts) ? low : 1);
+      this.colour.copy(channel).multiplyScalar(Math.min(1, edge * bright));
       const from = glasses++ * outline.length;
       for (let i = 0; i < outline.length; i += 3) {
         places[from + i] = outline[i] + cube.x;
@@ -634,6 +672,7 @@ export class CubeMeshes {
     if (solids > 0) {
       this.solids.instanceMatrix.needsUpdate = true;
       this.arrivals.needsUpdate = true;
+      this.dims.needsUpdate = true;
     }
     this.edges.geometry.setDrawRange(0, (glasses * outline.length) / 3);
     this.edges.visible = glasses > 0;
@@ -668,7 +707,7 @@ export class CubeMeshes {
    */
   private dieMaterial(kind: 'solid' | 'glass' | 'emit'): DieMaterial {
     return new THREE.ShaderMaterial({
-      uniforms: { ...this.shared, uOpacity: { value: 1 }, uFrost: { value: new THREE.Color(0) }, uCover: { value: 1 }, uOwn: { value: new THREE.Color(0) } },
+      uniforms: { ...this.shared, uOpacity: { value: 1 }, uFrost: { value: new THREE.Color(0) }, uCover: { value: 1 }, uOwn: { value: new THREE.Color(0) }, uDim: { value: 0 } },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
       defines: kind === 'emit' ? { EMIT: '' } : kind === 'glass' ? { GLASS: '' } : {},

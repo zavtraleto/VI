@@ -37,9 +37,11 @@ const LEAVING = [2, 6];
 const RISING = [1, 5];
 const RISING_LOW = [3, 5];
 const PENDING = [6, 6];
+/** Dice that stand, to be looked at as fixed dice: a four and a six. */
+const FIXED = [[0, 1], [5, 2]];
 const PLAYER = { x: 4, z: 4 };
 
-function sampleState(full: boolean): RunState {
+function sampleState(full: boolean, fixed: boolean): RunState {
   const dice: PuzzleDie[] = [];
   if (full) {
     for (let z = 0; z < SIZE; z++) {
@@ -55,10 +57,11 @@ function sampleState(full: boolean): RunState {
   // A board to look at, not a puzzle: the signs of an open chain are those of a session.
   state.puzzle = null;
   state.mode = 'endless';
+  const at = ([x, z]: number[]) => state.cubes.find((cube) => cube.x === x && cube.z === z)!;
+  if (fixed) for (const cell of FIXED) at(cell).fixed = true;
   if (full) return state;
 
   const { config } = state;
-  const at = ([x, z]: number[]) => state.cubes.find((cube) => cube.x === x && cube.z === z)!;
   const leave = (cell: number[], reactionId: number, gone: number): void => {
     const cube = at(cell);
     cube.state = 'sinking';
@@ -90,6 +93,8 @@ export class BoardLab {
   readonly camera: CameraAngles;
   /** Every cell holds a die: the heaviest board there is, for measuring. */
   full: boolean;
+  /** Two dice of the sample board are fixed dice: their screens are out. */
+  fixed: boolean;
   /** How deep the contact is, in steps; and the channel sent most. */
   depth: number;
   channel: number;
@@ -150,7 +155,8 @@ export class BoardLab {
     this.depth = Number(query.get('depth') ?? 0) || 0;
     this.channel = Number(query.get('channel') ?? 0) || 0;
     this.grey = query.get('grey') === '1';
-    this.state = sampleState(this.full);
+    this.fixed = query.get('fixed') === '1';
+    this.state = sampleState(this.full, this.fixed);
 
     // The part of the window the board takes: all of it.
     this.container = document.createElement('div');
@@ -226,9 +232,14 @@ export class BoardLab {
 
   setFull(full: boolean): void {
     this.full = full;
-    this.state = sampleState(full);
+    this.state = sampleState(full, this.fixed);
     this.place();
     this.view?.reset();
+  }
+
+  setFixed(fixed: boolean): void {
+    this.fixed = fixed;
+    this.setFull(this.full);
   }
 
   /** Puts the figure on the cell it is told to stand on: on the die that is there, or on the floor. */

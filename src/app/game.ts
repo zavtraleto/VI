@@ -30,8 +30,10 @@ import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/stora
 import { Backdrop } from '../render/backdrop';
 import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
+import { shiftFor } from '../render/framing';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
-import { BoardView } from '../render/view';
+import { goneShare, type DicePassing } from '../render/passing';
+import { BoardView, type Frame } from '../render/view';
 import { FIRST_ID, FIRST_LEVEL } from '../levels/first';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
@@ -41,6 +43,7 @@ import { PUZZLE_LEVELS } from '../puzzle/levels';
 import {
   createRun,
   cubeAt,
+  getCube,
   defaultConfig,
   goalLines,
   goalOf,
@@ -95,7 +98,7 @@ import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
-import { nextBoard, ribbonPhase, startBoard, type RibbonBoard } from './ribbon';
+import { boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { firstCounters } from './firstCounters';
 import { signCell, signHeight, signMode, stageWait, type StageWait, type Waiting } from './signWay';
@@ -187,20 +190,27 @@ const LEVEL_OF_COMMIT = LEVELS.findIndex((level) => level.lesson === 'lineWalk' 
 /** Of the signs the laboratory's assistant prints, one in so many is heard: a click to every sign is a rattle. */
 const TYPED_EVERY = 2;
 /**
- * The end of a level that is passed, before its result is shown: the dice go under the floor,
- * the board answers them when they are nearly gone, and the answer is let run out. A second
- * and a little: long enough to be felt, short enough not to be waited for; a press cuts it short.
- * With motion reduced the dice are gone at once and the result comes after a breath.
+ * The road: the boards one who is new is led through before the levels of the list, in their
+ * order, joined one to the next. Today they are the four stages of the first level.
  */
-const FINALE_BEAT_MS = 400;
-const FINALE_MS = 1150;
-const FINALE_STILL_MS = 350;
+const ROAD: readonly LevelSpec[] = FIRST_LEVEL;
+/**
+ * How many boards of the road, from its first, are a block seen at one scale: the camera goes
+ * from one to the next without coming nearer or going back. The boards after them and the levels
+ * of the list are each seen whole.
+ */
+const ROAD_ONE_SCALE = ROAD.length;
+/**
+ * The most a frame moves the passage between two boards on, in milliseconds: a page that was
+ * out of sight comes back to the passage where it left it, and no part of it is leapt over.
+ */
+const PASSAGE_STEP_MS = 100;
 /**
  * How long a level that is lost stands as it is before its result is shown: the board says it
  * first, the window after.
  */
 const FAIL_HOLD_MS = 900;
-/** How strong the answer of the board is, as a beat: a tier under the strongest, and the sound of a chain's fourth link. */
+/** How strong the answer of the board to a level that is passed is, as a beat: a tier under the strongest, and the sound of a chain's fourth link. */
 const FINALE_TIER = 3;
 const FINALE_CHAIN = 4;
 /** Moves a cell keeps the frame of a die rolled over on it, at the most: its group is long gone by then. */
@@ -300,11 +310,36 @@ export class Game {
   /** The level on the board was laid under that command and has not been reported as started: it is, once, with the player's first move or step on it. */
   private unsaid = false;
   /**
-   * The passage from a board that is passed to the next one of the ribbon: when the dice of the
-   * old one were gone, which board comes, and whether it is on the board yet. While it is on,
-   * the board takes no input and its world stands.
+   * The passage from a board that is passed to the next one: how long it has run, which board
+   * comes (none where a window does), what is counted of the two boards, whether the next is
+   * on yet and whether the board has answered its dice, how many dice have been heard to light
+   * up, to go under and to stand, the dice of the board that is on in the order of their turns,
+   * how much of the lines of that board the cell of the player alone is, and what the board
+   * that is passed came to. While it is on, the board takes no input and its world stands.
    */
-  private ribbon: { start: number; next: RibbonBoard; swapped: boolean } | null = null;
+  private passage: {
+    elapsed: number;
+    next: Board | null;
+    counts: PassageCounts;
+    swapped: boolean;
+    beaten: boolean;
+    lit: number;
+    gone: number;
+    risen: number;
+    order: number[];
+    cell: number;
+    outcome: { stars: number; moves: number } | null;
+  } | null = null;
+  /** How the dice stand in the passage, die by die: the view reads it on every frame. One object, changed in place. */
+  private readonly passing: DicePassing = { mode: 'leave', ranks: new Map(), count: 0, stair: -1, litMs: 0, moveMs: 0, stepMs: 0, moveForMs: 0, flashMs: 0 };
+  /** The numbers of the passage as the look has them, where the passage stands, and when its parts begin: read anew on every frame of it, into the same objects. */
+  private readonly times: PassageTimes = { comboStepMs: 0, comboHoldMs: 0, sinkMs: 0, eraseMs: 0, cameraMs: 0, drawMs: 0, riseMs: 0, riseStepMs: 0 };
+  private readonly passageNow: PassageView = { phase: 'combo', at: 0, lit: 0, swapped: false, camera: 0, lines: 1, risen: 0 };
+  private readonly marksNow = { sink: 0, swap: 0, rise: 0 };
+  /** The next board is to be laid with its starting cell on the cell the player stands on: that cell, and where the board it is a cell of lies. */
+  private landing: { player: { x: number; z: number }; origin: { x: number; z: number } } | null = null;
+  /** The board that is on is seen in a frame counted here, for the window as the view had it at this count; -1: in its own, which the view keeps. */
+  private framedAt = -1;
   /** What the level of the list just passed came to, shown in the readings until the first move on the board after it. */
   private outcome: { stars: number; moves: number } | null = null;
   /** Ticks of the level in hand that have been played: its own tick stands still between moves and is no clock. */
@@ -319,8 +354,8 @@ export class Game {
   private waiting: Waiting = { dir: null, blink: false };
   /** What the player last played with: the swipe sign is a key for those who press keys. */
   private lastInput: 'keys' | 'pointer' | null = null;
-  /** The end of a level: when it began and, for a level that is passed, whether the board has answered and whether a press has cut it short. */
-  private finale: { start: number; beaten: boolean; skipped: boolean } | null = null;
+  /** When the level on the board was lost: it stands as it is for a moment before its window. Null on a level that is not. */
+  private failedAt: number | null = null;
   /** What the level on the board came to has been written down: it is, once, the moment the level ends. */
   private levelCounted = false;
   /** Cells of a level on which a die that was going has been rolled over: where, of what face and group, on which move. */
@@ -460,14 +495,6 @@ export class Game {
       e.preventDefault();
       this.hud.proceed();
     });
-    // A press while a level that is passed plays its end brings its result at once. The moment a
-    // lost level stands for is not cut: the hand that was turning the dice is still pressing.
-    const hurry = (e: Event): void => {
-      if (e instanceof KeyboardEvent && e.repeat) return;
-      if (this.finale && !this.resultShown && this.state.endReason === 'passed') this.finale.skipped = true;
-    };
-    window.addEventListener('pointerdown', hurry);
-    window.addEventListener('keydown', hurry);
     window.addEventListener('keydown', (e) => {
       const { puzzle, levelRun } = this.state;
       if (!(puzzle || levelRun) || !enabled()) return;
@@ -758,7 +785,7 @@ export class Game {
   }
 
   private inputEnabled(): boolean {
-    return !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy && !this.ribbon;
+    return !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy && !this.passage;
   }
 
   /**
@@ -832,23 +859,30 @@ export class Game {
   /** Puts a new run on the board and clears away what the previous one left on screen. */
   private begin(state: RunState, riseIn: boolean): void {
     this.leaveRun('restart');
-    // A board put on in the middle of the ribbon ends it: its dice stand as the rules have them.
-    this.view.setReveal(null);
-    this.ribbon = null;
+    // A board put on in the middle of a passage ends it: its dice stand as the rules have them.
+    this.view.setPassing(null);
+    this.passage = null;
     this.outcome = null;
     this.tally.reset();
     this.runner = new Runner(state);
-    // Every board lies at the start of the world and is seen whole, put there at once.
-    this.view.setBoard({ size: state.config.size, holes: state.levelRun?.spec.holes ?? [], origin: { x: 0, z: 0 } });
-    this.view.setFrame(null, 0);
+    this.applyCamera();
+    // A board lies at the start of the world and is put in its frame at once; one that a passage
+    // leads to is laid with its starting cell on the cell the player stands on, and the camera
+    // is given its time to come to it.
+    const { landing } = this;
+    this.landing = null;
+    const origin = landing ? shiftFor(landing.player, landing.origin, state.player) : { x: 0, z: 0 };
+    this.view.setBoard({ size: state.config.size, holes: state.levelRun?.spec.holes ?? [], origin });
+    const frame = this.boardFrame();
+    this.view.setFrame(frame, landing ? Number(this.look.board.cameraMs) : 0);
+    this.framedAt = frame ? this.view.fitted : -1;
     // A board that is put on has all its lines, whatever was drawn of the lines of the one before.
     this.view.drawGrid(1, true);
-    this.applyCamera();
     this.history = [];
     this.beforeCommand = null;
     this.levelTicks = 0;
     this.lastMove = null;
-    this.finale = null;
+    this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
     // A stage of the first level waits with the player; every start of it waits anew.
@@ -929,7 +963,7 @@ export class Game {
    */
   private undoLevel(fromResult = false): void {
     const { levelRun, over } = this.state;
-    if (!levelRun || !this.undoable || this.inMenu || this.paused || this.ribbon || this.undosLeft <= 0) return;
+    if (!levelRun || !this.undoable || this.inMenu || this.paused || this.passage || this.undosLeft <= 0) return;
     const standing = over && !this.resultShown && deadEnd(this.state);
     if (over !== fromResult && !standing) return;
     const previous = this.history.pop();
@@ -951,7 +985,7 @@ export class Game {
     this.beforeCommand = null;
     this.lastMove = null;
     // The level goes on: its end is played anew when it comes.
-    this.finale = null;
+    this.failedAt = null;
     // What was rolled over after the board that is back is not rolled over on it.
     const made = previous.levelRun?.moves ?? 0;
     this.ghosts = this.ghosts.filter((ghost) => ghost.moves <= made);
@@ -1120,11 +1154,11 @@ export class Game {
   /**
    * What the program opens on: the board the player will play, stepped back, with no figure on
    * it and nothing moving, under the one command that starts it. One who has not passed the
-   * first level gets its first stage, anyone else the first level of the list not yet passed.
+   * road gets its first board, anyone else the first level of the list not yet passed.
    */
   private showStart(): void {
     const board = startBoard(Boolean(this.settings.levels.passed[FIRST_ID]), this.nextLevel());
-    if (board.stage !== undefined) this.startStage(board.stage, false);
+    if (board.road !== undefined) this.startStage(board.road, false);
     else this.startLevel(board.level!, false, false);
     // Neither a launch nor the command starts the level: one who presses the command only to go
     // on to the menu has started none. It is reported as started with the first move or step on it.
@@ -1145,68 +1179,219 @@ export class Game {
   }
 
   /**
-   * A level that is passed leads on with no window: the ribbon goes to the stage after a stage,
-   * after the last stage to the level of the list the player goes on with (the first not passed,
-   * or the first when all are), to the level after a level of the list, in the order of the list
-   * from wherever the player stands in it. False where it leads nowhere: after the last level, or
-   * before a chapter that is not open, and for a level that is lost; the window of the level is
-   * shown then.
+   * The frame the board that is on is seen in: null for its own, whole, which the view keeps
+   * through every change of the window; for a board of the block of the road that is seen at one
+   * scale, the middle of its own frame with the cell of the board of the block that fits the
+   * window smallest. Such a frame is counted for the window as it is, and counted again when
+   * the window changes.
    */
-  private startRibbon(time: number): boolean {
-    const run = this.state.levelRun!;
-    if (this.state.endReason !== 'passed') return false;
-    const next = nextBoard(this.firstStage !== null ? { stage: this.firstStage } : { level: this.levelIndex }, FIRST_LEVEL.length, LEVELS.length, this.nextLevel());
-    if (!next || (next.level !== undefined && this.ladder().locked[next.level])) return false;
-    this.frames.flush(this.lastFrame);
-    // A level of the list says what it came to in a line of its readings; a stage has no stars and says nothing.
-    this.outcome = this.firstStage === null && run.spec.par !== undefined ? { stars: levelStars(run.moves, run.spec.par), moves: run.moves } : null;
-    this.ribbon = { start: time, next, swapped: false };
-    return true;
+  private boardFrame(): Frame | null {
+    if (!this.state.levelRun || this.firstStage === null || this.firstStage >= ROAD_ONE_SCALE) return null;
+    const frame = this.view.frameOf(this.view.shape);
+    for (let i = 0; i < ROAD_ONE_SCALE; i++) {
+      frame.cell = Math.min(frame.cell, this.view.frameOf({ size: ROAD[i].size, holes: ROAD[i].holes ?? [], origin: { x: 0, z: 0 } }).cell);
+    }
+    return frame;
+  }
+
+  /** The numbers of the passage as the look has them now: the owner turns them while the game runs. */
+  private readTimes(): PassageTimes {
+    const { board } = this.look;
+    const { times } = this;
+    times.comboStepMs = Number(board.comboStepMs);
+    times.comboHoldMs = Number(board.comboHoldMs);
+    times.sinkMs = Number(board.sinkMs);
+    times.eraseMs = Number(board.eraseMs);
+    times.cameraMs = Number(board.cameraMs);
+    times.drawMs = Number(board.drawMs);
+    times.riseMs = Number(board.riseMs);
+    times.riseStepMs = Number(board.riseStepMs);
+    return times;
   }
 
   /**
-   * The passage of the ribbon, frame by frame. The lines of the board that is passed are erased
-   * towards the cell the player stands on; when none is left the next board is put on, with no
-   * figure, and its lines are drawn from the cell the player starts on, with its dice; then the
-   * figure comes onto it, and then the board is the player's. Neither board is on screen with
-   * the other.
+   * A level is passed: the passage begins. The dice the last combo took light up one after
+   * another, the nearest to the player first, and then go under; the dice that were going before
+   * it are lit already and go with the last of them. From there the passage leads to the board
+   * after this one with no window: the next piece of the road, after its last the level of the
+   * list the player goes on with (the first not passed, or the first when all are), the level
+   * after a level of the list. Where it leads nowhere - after the last level, or before a chapter
+   * that is not open - the window of the level comes when the dice are gone.
    */
-  private runRibbon(time: number): void {
-    const ribbon = this.ribbon!;
-    const { phase, rows, figure } = ribbonPhase(time - ribbon.start, prefersReducedMotion(this.settings));
-    if (phase === 'leave') return;
-    if (phase === 'fade') {
-      this.view.drawGrid(rows, false, this.state.player);
-      return;
+  private startPassage(): void {
+    const { state, passing } = this;
+    const run = state.levelRun!;
+    const after = boardAfter(this.firstStage !== null ? { road: this.firstStage } : { level: this.levelIndex }, ROAD.length, LEVELS.length, this.nextLevel());
+    const next = after && !(after.level !== undefined && this.ladder().locked[after.level]) ? after : null;
+    this.frames.flush(this.lastFrame);
+    const { cubes } = state;
+    // A die the combo has just taken has not begun to go down: it stands as it stood until its turn to light up.
+    const fresh = cubes.map((cube) => cube.state === 'sinking' && cube.t <= 1);
+    const order = orderOf(cubes.map(({ x, z }, i) => ({ x, z, late: !fresh[i] })), state.player);
+    passing.mode = 'leave';
+    passing.ranks.clear();
+    order.forEach((die, rank) => passing.ranks.set(cubes[die].id, rank));
+    passing.count = fresh.filter(Boolean).length;
+    passing.stair = -1;
+    passing.litMs = 0;
+    passing.moveMs = -1;
+    this.passage = {
+      elapsed: 0,
+      next,
+      counts: { combo: passing.count, dice: 0, stair: false },
+      swapped: false,
+      beaten: false,
+      lit: 0,
+      gone: 0,
+      risen: 0,
+      order: order.map((die) => cubes[die].id),
+      cell: 0,
+      // A level of the list says what it came to in a line of its readings; a stage has no stars and says nothing.
+      outcome: this.firstStage === null && run.spec.par !== undefined ? { stars: levelStars(run.moves, run.spec.par), moves: run.moves } : null,
+    };
+    this.view.setPassing(passing);
+  }
+
+  /**
+   * The passage, frame by frame, `dt` milliseconds on from the last. It is neither hurried by a
+   * press nor paused, and it reads its numbers from the look on every frame. The dice of the
+   * combo light up, each with a note a step higher than the last, and stand lit; the board
+   * answers them, and they go under one after another; the lines of the board are erased
+   * towards the cell the player stands on, and what the board came to is said in the readings
+   * from then on; the next board is put on with its starting cell on that cell, the camera sets
+   * off for it, and its lines are drawn from the cell; its dice come up, the nearest first; and
+   * the board is the player's. The figure is on screen all the while, and neither board is on
+   * screen with the other.
+   */
+  private runPassage(dt: number): void {
+    const passage = this.passage!;
+    const { passing } = this;
+    const reduced = prefersReducedMotion(this.settings);
+    const times = this.readTimes();
+    passage.elapsed += Math.min(dt, PASSAGE_STEP_MS);
+    const now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
+    const marks = passageMarks(times, passage.counts, reduced, this.marksNow);
+    if (!passage.swapped) {
+      passing.stepMs = times.comboStepMs;
+      passing.moveForMs = times.sinkMs;
+      passing.flashMs = times.comboHoldMs;
+      passing.litMs = passage.elapsed;
+      passing.moveMs = passage.elapsed - marks.sink;
+      // A die lights up on a note of its face: the first as a combo begins, each one after it a link higher, as a chain climbs.
+      for (; passage.lit < now.lit; passage.lit++) {
+        const face = getCube(this.state, passage.order[passage.lit])?.ori.top ?? 1;
+        this.audio.play(
+          passage.lit === 0 ? { kind: 'group', face, count: 1, tier: 0, pan: 0 } : { kind: 'chain', face, chain: passage.lit + 1, count: 1, tier: 0, pan: 0 },
+        );
+      }
+      if (now.phase === 'combo') return;
+      if (!passage.beaten) {
+        passage.beaten = true;
+        this.answerPassed();
+      }
+      // A die that has gone under is heard as one that goes under in a session.
+      for (; passage.gone < passage.order.length && goneShare(passing, passage.gone) >= 1; passage.gone++) {
+        const face = getCube(this.state, passage.order[passage.gone])?.ori.top ?? 1;
+        this.audio.play({ kind: 'sunk', face, pan: 0 });
+      }
+      if (now.phase === 'sink') return;
+      if (!passage.next) {
+        // The passage leads nowhere: the window of the level, over a board whose dice are gone.
+        this.passage = null;
+        this.showLevelResult();
+        return;
+      }
+      this.outcome = passage.outcome;
+      if (!now.swapped) {
+        const { player } = this.state;
+        if (passage.cell === 0) {
+          // The cell of the player stays when every other line is erased: it is one part of the wave from it.
+          this.view.drawGrid(1, false, player);
+          passage.cell = 1 / this.view.gridParts;
+        }
+        this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, false, player);
+        return;
+      }
+      this.putNext(passage);
     }
-    if (!ribbon.swapped) {
-      const { outcome } = this;
-      const { next } = ribbon;
-      // Putting a board on ends a ribbon; this one goes on over it.
-      if (next.stage !== undefined) this.startStage(next.stage);
-      else this.startLevel(next.level!);
-      ribbon.swapped = true;
-      this.ribbon = ribbon;
-      this.outcome = outcome;
-      this.view.showFigure(false);
-      // The dice come: the sound of a die that has come up in a session, once, for the die the figure will stand by.
-      const { player } = this.state;
-      const die = cubeAt(this.state, player.x, player.z) ?? this.state.cubes[0];
-      if (die) this.audio.play({ kind: 'risen', face: die.ori.top, pan: 0 });
+    const { player } = this.state;
+    passing.stepMs = times.riseStepMs;
+    passing.moveForMs = times.riseMs;
+    // With motion kept low the dice of the board do not come up: they stand.
+    passing.moveMs = reduced ? Infinity : passage.elapsed - marks.rise;
+    this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, true, player);
+    // A die that stands is heard as one that has come up in a session, and settles as one.
+    for (; passage.risen < now.risen; passage.risen++) {
+      const cube = getCube(this.state, passage.order[passage.risen]);
+      if (!cube) continue;
+      if (cube.state === 'idle') this.view.stood(cube.id);
+      this.audio.play({ kind: 'risen', face: cube.ori.top, pan: 0 });
     }
-    if (phase === 'reveal') {
-      this.view.drawGrid(rows, true, this.state.player);
-      this.view.setReveal(rows);
-      return;
-    }
+    if (now.phase !== 'done') return;
     this.view.drawGrid(1, true);
-    this.view.setReveal(null);
-    // The figure comes last, through the dots of the tube as the dice did.
-    this.view.showFigure(true, figure);
-    if (phase === 'figure') return;
-    this.ribbon = null;
+    this.view.setPassing(null);
+    this.passage = null;
     // What was pressed while the board was coming is not a move on it.
     this.controller.cancel();
+  }
+
+  /**
+   * The board answers the dice of a level that is passed as they begin to go: light runs over
+   * its lines, with the beat of a chain, from where the dice stand.
+   */
+  private answerPassed(): void {
+    const { state } = this;
+    // The face sent last: that of the die that joined its group latest.
+    const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
+    const value = last?.ori.top ?? 0;
+    this.view.answer(value);
+    this.beat({ kind: 'chain', value, tier: FINALE_TIER, cells: state.cubes.map(({ x, z }) => ({ x, z })), points: 0, chain: FINALE_CHAIN });
+  }
+
+  /**
+   * The next board of the passage is put on, once: laid with its starting cell on the cell the
+   * player stands on, so that the figure does not move, with the camera given its time to come
+   * to it. Its dice are under the floor and its lines are the cell of the player alone; they
+   * come in the order of their turns, the nearest to the player first and a stair, a die laid
+   * as leaving, last.
+   */
+  private putNext(passage: NonNullable<Game['passage']>): void {
+    const { passing } = this;
+    const next = passage.next!;
+    const before = this.state.player;
+    const { origin } = this.view.shape;
+    this.landing = { player: { x: before.x, z: before.z }, origin: { x: origin.x, z: origin.z } };
+    if (next.road !== undefined) this.startStage(next.road);
+    else this.startLevel(next.level!);
+    this.landing = null;
+    // Putting a board on ends a passage; this one goes on over it, and what the board before came to is still said.
+    this.passage = passage;
+    this.outcome = passage.outcome;
+    passage.swapped = true;
+    const { state } = this;
+    const { cubes, player } = state;
+    const layout = state.levelRun?.spec.layout;
+    const laid = layout?.leaving?.[0];
+    const stair = laid ? cubeAt(state, layout!.dice[laid.die].x, layout!.dice[laid.die].z) : undefined;
+    const order = orderOf(cubes.map((cube) => ({ x: cube.x, z: cube.z, late: cube === stair })), player);
+    passing.mode = 'come';
+    passing.ranks.clear();
+    order.forEach((die, rank) => passing.ranks.set(cubes[die].id, rank));
+    passing.count = cubes.length;
+    passing.stair = stair?.id ?? -1;
+    passing.litMs = 0;
+    passing.flashMs = 0;
+    passing.moveMs = -1;
+    passage.counts.dice = cubes.length;
+    passage.counts.stair = stair !== undefined;
+    passage.order = order.map((die) => cubes[die].id);
+    this.view.setPassing(passing);
+    // The wave of its lines starts from the cell of the player, which is there from the first.
+    this.view.drawGrid(1, true, player);
+    passage.cell = 1 / this.view.gridParts;
+    // The frame the passage is on is the next board's from here.
+    passageAt(passage.elapsed, this.times, passage.counts, prefersReducedMotion(this.settings), this.passageNow);
+    passageMarks(this.times, passage.counts, prefersReducedMotion(this.settings), this.marksNow);
   }
 
   /**
@@ -1263,7 +1448,7 @@ export class Game {
   }
 
   private restartLevel(): void {
-    if (!this.state.levelRun || this.inMenu || this.ribbon) return;
+    if (!this.state.levelRun || this.inMenu || this.passage) return;
     saveSettings(this.settings);
     this.startRun('level');
   }
@@ -1552,8 +1737,8 @@ export class Game {
   }
 
   private pause(): void {
-    // The passage of the ribbon is not paused: it is over in a moment, and the board waits then.
-    if (this.paused || this.inMenu || this.state.over || this.ribbon) return;
+    // The passage between two boards is not paused: it is over in a moment, and the board waits then.
+    if (this.paused || this.inMenu || this.state.over || this.passage) return;
     this.paused = true;
     this.controller.cancel();
     this.audio.setPaused(true);
@@ -1964,7 +2149,8 @@ export class Game {
     if (state.tick % minute === 0 && (state.mode === 'endless' || state.mode === 'timed')) {
       track('session_checkpoint', { step_id: this.kind, ...checkpoint(state, state.tick / minute) });
     }
-    for (const beat of beatsOf(state, state.events)) this.beat(beat);
+    // The combo that passes a level is answered by the passage: its dice light up one after another, each on its own note.
+    if (!(state.levelRun && state.endReason === 'passed')) for (const beat of beatsOf(state, state.events)) this.beat(beat);
     const { player } = state;
     // A level says its rules in the window it opens with, and nothing while it is played.
     if (state.levelRun) return;
@@ -2113,35 +2299,13 @@ export class Game {
   }
 
   /**
-   * The end of a level, played before its result. Passed: the dice go under the floor, and when
-   * they are nearly gone the board answers, with the beat of a chain, from where they stood.
-   * Lost: the board stands as it is for a moment, so that what is left on it is seen before it
-   * is read; no press cuts that moment, and the last move can be taken back in it. True once the
-   * end has run out or, for a level that is passed, a press has cut it short.
+   * A level that is lost stands as it is for a moment, so that what is left on it is seen before
+   * it is read: nothing is added to it, no press cuts that moment, and the last move can be
+   * taken back in it. True once the moment has gone.
    */
-  private finaleOver(time: number): boolean {
-    const { state } = this;
-    if (state.endReason !== 'passed') {
-      // A level that is lost stands as it is for a moment: nothing is added to it.
-      this.finale ??= { start: time, beaten: true, skipped: false };
-      return time - this.finale.start >= FAIL_HOLD_MS;
-    }
-    const still = prefersReducedMotion(this.settings);
-    if (!this.finale) {
-      this.finale = { start: time, beaten: false, skipped: false };
-      this.view.leaveBoard();
-    }
-    const { finale } = this;
-    const elapsed = time - finale.start;
-    if (!finale.beaten && (still || finale.skipped || elapsed >= FINALE_BEAT_MS)) {
-      finale.beaten = true;
-      // The face sent last: that of the die that joined its group latest.
-      const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
-      const value = last?.ori.top ?? 0;
-      this.view.answer(value);
-      this.beat({ kind: 'chain', value, tier: FINALE_TIER, cells: state.cubes.map(({ x, z }) => ({ x, z })), points: 0, chain: FINALE_CHAIN });
-    }
-    return finale.skipped || elapsed >= (still ? FINALE_STILL_MS : FINALE_MS);
+  private failHeld(time: number): boolean {
+    this.failedAt ??= time;
+    return time - this.failedAt >= FAIL_HOLD_MS;
   }
 
   /** The die under the player, unfolded: what the corner of the screen shows of it. */
@@ -2192,8 +2356,10 @@ export class Game {
       return { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) };
     };
     const labels: HudLabel[] = [];
+    // A chain of a level that is passed says nothing over its dice once they are being sent under.
+    const sent = state.levelRun !== null && state.endReason === 'passed' && this.passage?.beaten !== false;
     for (const reaction of state.reactions) {
-      if (reaction.chain < 2) continue;
+      if (reaction.chain < 2 || sent) continue;
       const cubes = state.cubes.filter((cube) => cube.reactionId === reaction.id && cube.state === 'sinking');
       if (cubes.length === 0) continue;
       const cx = cubes.reduce((sum, cube) => sum + cube.x, 0) / cubes.length;
@@ -2209,7 +2375,7 @@ export class Game {
     // The stages of the first level have a plaque over every die and heap of the working face from the start; they blink when the player has waited.
     const first = levelRun !== null && this.firstStage !== null;
     // No plaque stands over dice that are still coming.
-    const short = !levelRun || state.over || this.ribbon ? [] : first ? firstCounters(state) : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
+    const short = !levelRun || state.over || this.passage ? [] : first ? firstCounters(state) : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
     const counters: HudCounter[] = short.map((group) => {
       const cx = group.cells.reduce((sum, cell) => sum + cell.x, 0) / group.cells.length;
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;
@@ -2278,8 +2444,8 @@ export class Game {
     this.lastFrame = time;
     this.tools?.tick(time);
 
-    // The board the ribbon has put on waits until it is whole: its world stands and it takes no command.
-    const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy && !this.ribbon;
+    // The board a passage has put on waits until it is whole: its world stands and it takes no command.
+    const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy && !this.passage;
     if (this.governor?.frame(dt, running && !document.hidden)) this.applySamples();
     this.frames.frame(running && !document.hidden, dt, time);
     let alpha = 0;
@@ -2305,20 +2471,29 @@ export class Game {
     let state = this.state;
     // What a level came to is written down on the frame it ends: its end may yet be cut by starting it over.
     if (state.over && state.levelRun && !this.levelCounted) this.countLevel();
-    // A level plays its end before its result is shown: the dice leave a board that is cleared, and one that is lost stands for a moment.
-    const ending = state.over && !this.resultShown && state.levelRun !== null && !this.finaleOver(time);
-    if (state.over && !this.resultShown && !ending) {
-      this.resultShown = true;
-      if (state.puzzle) this.showPuzzleResult();
-      else if (state.levelRun) {
-        // A level that is passed leads on to the next board of the ribbon; its window is for a level that is lost, and for the last one.
-        if (!this.startRibbon(time)) this.showLevelResult();
-      } else this.showResult();
+    // A level that is passed begins its passage to the next board on the frame it ends, and one
+    // that is lost stands for a moment before its window; anything else shows its result at once.
+    const began = this.passage === null;
+    if (state.over && !this.resultShown) {
+      const lost = state.levelRun !== null && state.endReason !== 'passed';
+      if (!lost || this.failHeld(time)) {
+        this.resultShown = true;
+        if (state.puzzle) this.showPuzzleResult();
+        else if (!state.levelRun) this.showResult();
+        else if (lost) this.showLevelResult();
+        else this.startPassage();
+      }
     }
-    if (this.ribbon) {
-      this.runRibbon(time);
+    if (this.passage && !this.inMenu) {
+      this.runPassage(began ? 0 : dt);
       // Another board may be on by now: the rest of the frame is its own.
       state = this.state;
+    }
+    // A frame counted for the window is counted again when the window changes; the camera goes on from where it is.
+    if (this.framedAt !== -1 && this.framedAt !== this.view.fitted) {
+      const frame = this.boardFrame();
+      if (frame) this.view.refit(frame);
+      this.framedAt = this.view.fitted;
     }
 
     // The ritual follows the dice sent in this run only and never feeds back into the rules.

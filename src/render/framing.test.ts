@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lensInverse } from '../display/lens';
-import { cellPixels, fitBoard, follow, followAxis, followFocus, followFrame, shiftFor, viewMode, type Frame, type FrameBounds } from './framing';
+import { cellPixels, fitBoard, follow, followAxis, followFocus, followFrame, shiftFor, viewMode, type Fit, type FrameBounds } from './framing';
 
 // Roughly the board at the default camera: wider than tall, with headroom above the floor.
 const BOARD: FrameBounds = { minR: -4.8, maxR: 4.8, minU: -5, maxU: 4.5, floorU: 3 };
@@ -8,7 +8,7 @@ const SIDE = 0.08;
 const MARGIN = 0.25;
 
 /** Where a height lands on screen: 0 is the top edge, 1 the bottom. */
-function screenY(frame: Frame, u: number): number {
+function screenY(frame: Fit, u: number): number {
   return (frame.centreU + frame.halfHeight - u) / (frame.halfHeight * 2);
 }
 
