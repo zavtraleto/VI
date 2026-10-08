@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COUNTER_CUBE, COUNTER_GAP, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes } from './hudLayout';
 import { CELL_W, MIN_ZONE } from './layout';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -163,5 +163,43 @@ describe('the plaque of a short combo', () => {
     expect(counterWidth(3) - counterWidth(2)).toBe(COUNTER_CUBE + COUNTER_GAP);
     expect(counterWidth(6) - counterWidth(2)).toBe(4 * (COUNTER_CUBE + COUNTER_GAP));
     expect(counterWidth(2)).toBeGreaterThan(2 * COUNTER_CUBE);
+  });
+
+  /** The picture of a phone 360 wide, drawn pixel for pixel. */
+  const phone = { x: 0, y: 0, w: 360, h: 640 };
+  const six = counterWidth(6);
+
+  it('stands with its middle over its heap when all of it is in the window', () => {
+    expect(counterLeft(180, six, phone, 1)).toBe(180 - six / 2);
+    expect(counterLeft(180, counterWidth(2), phone, 1)).toBe(180 - counterWidth(2) / 2);
+    // To a whole pixel, as it was drawn before it was kept in the window.
+    expect(counterLeft(100.4, counterWidth(3), phone, 1)).toBe(Math.round(100.4 - counterWidth(3) / 2));
+    // The nearest it comes to either edge without being moved.
+    expect(counterLeft(1 + six / 2, six, phone, 1)).toBe(1);
+    expect(counterLeft(359 - six / 2, six, phone, 1)).toBe(359 - six);
+  });
+
+  it('of six over a heap at the left or the right edge of the window is brought in from the edge, whole', () => {
+    for (const middle of [-40, 0, 10, six / 2]) {
+      const left = counterLeft(middle, six, phone, 1);
+      expect(left).toBe(1);
+      expect(left + six).toBeLessThanOrEqual(360);
+    }
+    for (const middle of [360 - six / 2, 350, 360, 420]) {
+      const left = counterLeft(middle, six, phone, 1);
+      expect(left).toBe(359 - six);
+      expect(left).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('keeps out of what the edges of the screen keep to themselves, to a whole pixel', () => {
+    const notched = { x: 30.5, y: 0, w: 300, h: 640 };
+    expect(counterLeft(0, six, notched, 1)).toBe(32);
+    expect(counterLeft(360, six, notched, 1)).toBe(329 - six);
+    expect(counterLeft(180, six, notched, 1)).toBe(180 - six / 2);
+  });
+
+  it('stands in the middle of a window too narrow for it', () => {
+    expect(counterLeft(10, six, { x: 0, y: 0, w: 60, h: 100 }, 1)).toBe(30 - six / 2);
   });
 });

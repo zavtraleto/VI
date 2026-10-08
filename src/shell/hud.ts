@@ -6,7 +6,7 @@ import { faceColour, figureColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -343,6 +343,8 @@ function pushed(kept: Multiplier | undefined, label: HudLabel, timeMs: number): 
 const BLINK_MS = 250;
 /** A plaque that asks to be looked at is lit and unlit by turns this often. */
 const COUNTER_BLINK_MS = 500;
+/** A plaque brought in from the edge of the window stands this far from it, in picture pixels: as clear of it as the swipe sign. */
+const COUNTER_PAD = 1;
 /** How long the dot of a swipe takes along its line. */
 const SWIPE_MS = 900;
 const NUDGE_MS = 300;
@@ -629,7 +631,9 @@ export class GameHud {
       this.flagged(text, Math.round(stage.x + (stage.w - kit.measure(text)) / 2), Math.round(stage.y + 6), blink === 0);
     }
     if (view.lesson) this.drawLesson(view.lesson, view.stage, stage, timeMs, still, signs, blink);
-    for (const counter of view.counters ?? []) this.drawCounter(counter, plaque === 0);
+    // A plaque over a heap of a level keeps inside what the edges of the screen leave of the window.
+    const within: Box = { x: safe.left, y: safe.top, w: kit.width - safe.right - safe.left, h: kit.height - safe.bottom - safe.top };
+    for (const counter of view.counters ?? []) this.drawCounter(counter, plaque === 0, within);
     if (sign) {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
@@ -1170,12 +1174,16 @@ export class GameHud {
     return { x: stage.x + (stage.width - width) / 2, width, size };
   }
 
-  /** A small plate over the board, its foot at `at`: filled when what it says is complete. */
-  private plate(at: Point, width: number, full: boolean): Box {
+  /**
+   * A small plate over the board, its foot at `at`: filled when what it says is complete. Given
+   * `within`, a plate that would run past a side of it is moved in from that side, whole.
+   */
+  private plate(at: Point, width: number, full: boolean, within?: Box): Box {
     const { kit } = this;
     const { bg, ink } = kit.palette;
     const zoom = kit.zoom;
-    const plate: Box = { x: Math.round(at.x / zoom - width / 2), y: Math.round(at.y / zoom - CELL_H - 4), w: width, h: CELL_H + 2 };
+    const middle = at.x / zoom;
+    const plate: Box = { x: within ? counterLeft(middle, width, within, COUNTER_PAD) : Math.round(middle - width / 2), y: Math.round(at.y / zoom - CELL_H - 4), w: width, h: CELL_H + 2 };
     kit.box(plate, full ? ink : bg);
     kit.frame(plate, ink);
     return plate;
@@ -1193,12 +1201,13 @@ export class GameHud {
 
   /**
    * Over a group: a cube of its face for each die it takes, the ones it has lit and the rest dim.
-   * A plaque that blinks goes dim all through when `lit` is false. This is a first version; the
+   * A plaque that blinks goes dim all through when `lit` is false. Given `within`, the plaque of
+   * a heap at the edge of the window is brought in from the edge. This is a first version; the
    * owner adjusts its look.
    */
-  private drawCounter(counter: HudCounter, lit: boolean): void {
+  private drawCounter(counter: HudCounter, lit: boolean, within?: Box): void {
     const { value, have, need, at } = counter;
-    const plate = this.plate(at, counterWidth(need), have >= need);
+    const plate = this.plate(at, counterWidth(need), have >= need, within);
     for (let i = 0; i < need; i++) this.plateFace(value, plate.x + 3 + i * (COUNTER_CUBE + COUNTER_GAP), plate.y + 3, lit && i < have);
   }
 

@@ -40,10 +40,22 @@ export interface RibbonBoard {
   level?: number;
 }
 
-/** What comes after a board of the ribbon: the next stage, the first level of the list after the last stage, the next level of the list, or null after the last. */
-export function nextBoard(current: RibbonBoard, stages: number, levels: number): RibbonBoard | null {
+/**
+ * The board the program opens on: the first stage for one who has not passed the first level,
+ * and for anyone else `onward`, the level of the list the player goes on with.
+ */
+export function startBoard(firstPassed: boolean, onward: number): RibbonBoard {
+  return firstPassed ? { level: onward } : { stage: 0 };
+}
+
+/**
+ * What comes after a board of the ribbon: the next stage; after the last stage `onward`, the
+ * level of the list the player goes on with, so that one who has passed levels of the list is
+ * not walked through them again; the next level of the list after a level; null after the last.
+ */
+export function nextBoard(current: RibbonBoard, stages: number, levels: number, onward: number): RibbonBoard | null {
   if (current.stage !== undefined && current.stage + 1 < stages) return { stage: current.stage + 1 };
-  const level = current.stage !== undefined ? 0 : (current.level ?? 0) + 1;
+  const level = current.stage !== undefined ? onward : (current.level ?? 0) + 1;
   return level < levels ? { level } : null;
 }
 

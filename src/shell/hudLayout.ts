@@ -181,6 +181,19 @@ export function counterWidth(need: number): number {
 }
 
 /**
+ * Where the plaque of a short combo stands so that all of it is in the window: the left edge of
+ * a plaque `width` wide asked for with its middle at `middle`, moved the least it takes to lie
+ * `pad` inside `bounds` from side to side, to a whole pixel. A plaque that is in the window is
+ * where it was asked for; one over a heap at the edge of the screen is brought in from that
+ * edge. In bounds too narrow for it, it stands in their middle.
+ */
+export function counterLeft(middle: number, width: number, bounds: Box, pad: number): number {
+  const low = Math.ceil(bounds.x + pad);
+  const high = Math.floor(bounds.x + bounds.w - pad) - width;
+  return low > high ? Math.round((low + high) / 2) : Math.min(high, Math.max(low, Math.round(middle - width / 2)));
+}
+
+/**
  * Where the swipe sign stands so that all of it is on the picture: `at`, the start of its trail,
  * moved the least it takes for the start and the end of the trail to lie `pad` inside `bounds`.
  * A sign asked for beyond the edge, beside a board that fills the screen, comes to the edge on
