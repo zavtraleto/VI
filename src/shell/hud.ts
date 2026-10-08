@@ -6,7 +6,7 @@ import { faceColour, figureColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -84,6 +84,8 @@ export interface HudCounter {
   have: number;
   need: number;
   at: Point;
+  /** The plaque is asking to be looked at: it is lit and unlit by turns. */
+  blink?: boolean;
 }
 
 /**
@@ -331,6 +333,8 @@ function pushed(kept: Multiplier | undefined, label: HudLabel, timeMs: number): 
 }
 /** Half a period of everything that blinks. */
 const BLINK_MS = 250;
+/** A plaque that asks to be looked at is lit and unlit by turns this often. */
+const COUNTER_BLINK_MS = 500;
 /** How long the dot of a swipe takes along its line. */
 const SWIPE_MS = 900;
 const NUDGE_MS = 300;
@@ -575,8 +579,10 @@ export class GameHud {
     const moving = this.flyers.length > 0 || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
     // The swipe sign slides, or blinks: the picture is drawn anew for it.
     const sign = view.sign ?? null;
+    // A plaque that blinks is drawn anew each time it turns.
+    const plaque = !still && (view.counters ?? []).some((counter) => counter.blink) ? Math.floor(timeMs / COUNTER_BLINK_MS) % 2 : 0;
     const signed = !sign ? '' : `${JSON.stringify(sign)}@${still ? 0 : sign.mode === 'dot' ? Math.floor(timeMs / 33) : Math.floor(timeMs / SIGN_KEY_MS) % 2}`;
-    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       // Words that are still coming change nothing but themselves: the readings stay as they are.
       this.voice.reveal(signs);
@@ -612,7 +618,7 @@ export class GameHud {
       this.flagged(text, Math.round(stage.x + (stage.w - kit.measure(text)) / 2), Math.round(stage.y + 6), blink === 0);
     }
     if (view.lesson) this.drawLesson(view.lesson, view.stage, stage, timeMs, still, signs, blink);
-    for (const counter of view.counters ?? []) this.drawCounter(counter);
+    for (const counter of view.counters ?? []) this.drawCounter(counter, plaque === 0);
     if (sign) {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
@@ -1150,22 +1156,25 @@ export class GameHud {
     return plate;
   }
 
-  private plateFace(value: number, x: number, y: number): void {
+  /** A die's face on a plaque, flat; `lit` false gives it as dim as the thin lines are. */
+  private plateFace(value: number, x: number, y: number, lit = true): void {
     const { kit } = this;
     const values = this.look.board;
-    kit.face(value, x, y, 12, faceColour(value, kit.palette, values), pipColour(value, kit.palette, values));
+    const face = faceColour(value, kit.palette, values);
+    const pip = pipColour(value, kit.palette, values);
+    if (lit) kit.face(value, x, y, COUNTER_CUBE, face, pip);
+    else kit.face(value, x, y, COUNTER_CUBE, mixHex(kit.palette.bg, face, kit.number('faint')), mixHex(kit.palette.bg, pip, kit.number('faint')));
   }
 
-  /** Over a group: its face, and how many dice it has of how many it takes. */
-  private drawCounter(counter: HudCounter): void {
-    const { kit } = this;
-    const { bg, ink } = kit.palette;
+  /**
+   * Over a group: a cube of its face for each die it takes, the ones it has lit and the rest dim.
+   * A plaque that blinks goes dim all through when `lit` is false. This is a first version; the
+   * owner adjusts its look.
+   */
+  private drawCounter(counter: HudCounter, lit: boolean): void {
     const { value, have, need, at } = counter;
-    const text = `${have}/${need}`;
-    const full = have >= need;
-    const plate = this.plate(at, 12 + 6 + kit.measure(text) + 6, full);
-    this.plateFace(value, plate.x + 3, plate.y + 3);
-    kit.text(text, plate.x + 12 + 6, plate.y + 1, full ? bg : ink, { bold: full });
+    const plate = this.plate(at, counterWidth(need), have >= need);
+    for (let i = 0; i < need; i++) this.plateFace(value, plate.x + 3 + i * (COUNTER_CUBE + COUNTER_GAP), plate.y + 3, lit && i < have);
   }
 
   /**
@@ -1224,7 +1233,7 @@ export class GameHud {
       reveal: signs,
     });
 
-    if (lesson.counter) this.drawCounter(lesson.counter);
+    if (lesson.counter) this.drawCounter(lesson.counter, true);
     if (lesson.seven) {
       const text = '=7';
       const at2 = this.plate(lesson.seven, 12 + CELL_W + 12 + kit.measure(text) + 8, false);

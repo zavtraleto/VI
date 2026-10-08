@@ -171,6 +171,15 @@ export function turned(u: number, v: number, turns: number): { u: number; v: num
   return { u: x, v: y };
 }
 
+/** A cube on the plaque of a short combo, and the gap between two, in picture pixels. */
+export const COUNTER_CUBE = 12;
+export const COUNTER_GAP = 2;
+
+/** The width of the plaque over a heap that needs `need` dice: a cube for each, the gaps between, and 3 pixels of the plate at each end. */
+export function counterWidth(need: number): number {
+  return need * COUNTER_CUBE + (need - 1) * COUNTER_GAP + 6;
+}
+
 /**
  * Where the swipe sign stands so that all of it is on the picture: `at`, the start of its trail,
  * moved the least it takes for the start and the end of the trail to lie `pad` inside `bounds`.

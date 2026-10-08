@@ -32,6 +32,7 @@ import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { BoardView } from '../render/view';
+import { FIRST_ID } from '../levels/first';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -94,6 +95,7 @@ import { Runner } from './runner';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
+import { firstCounters } from './firstCounters';
 import { signCell, signMode, stageWait, type StageWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
@@ -2009,11 +2011,13 @@ export class Game {
     const level = PUZZLE_LEVELS[this.puzzleIndex];
     // A level counts the groups that are short: all of them on its first levels, later the one the last move made.
     const made = levelRun ? this.shortMade(state) : null;
-    const short = !levelRun || state.over ? [] : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
+    // The stages of the first level have a plaque over every die and heap of the working face from the start; they blink when the player has waited.
+    const first = levelRun?.spec.id.startsWith(FIRST_ID) ?? false;
+    const short = !levelRun || state.over ? [] : first ? firstCounters(state) : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
     const counters: HudCounter[] = short.map((group) => {
       const cx = group.cells.reduce((sum, cell) => sum + cell.x, 0) / group.cells.length;
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;
-      return { value: group.value, have: group.have, need: group.need, at: over(cx, 1.5, cz) };
+      return { value: group.value, have: group.have, need: group.need, at: over(cx, 1.5, cz), blink: first && this.waiting.blink };
     });
     // A level has no line under its board: its rules are said in the window it opens with.
     let note: HudView['note'] = null;

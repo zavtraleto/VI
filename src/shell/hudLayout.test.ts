@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterWidth, hudLayout, netBounds, netCellAt, signPlace, turned, type FloorAxes } from './hudLayout';
 import { CELL_W, MIN_ZONE } from './layout';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -155,5 +155,13 @@ describe('the place of the swipe sign', () => {
 
   it('stands in the middle of a picture too small for it', () => {
     expect(signPlace({ x: 0, y: 5 }, { x: 40, y: 0 }, { x: 0, y: 0, w: 30, h: 10 }, 4)).toEqual({ x: -5, y: 5 });
+  });
+});
+
+describe('the plaque of a short combo', () => {
+  it('is as wide as its cubes: one more cube makes it wider by a cube and its gap', () => {
+    expect(counterWidth(3) - counterWidth(2)).toBe(COUNTER_CUBE + COUNTER_GAP);
+    expect(counterWidth(6) - counterWidth(2)).toBe(4 * (COUNTER_CUBE + COUNTER_GAP));
+    expect(counterWidth(2)).toBeGreaterThan(2 * COUNTER_CUBE);
   });
 });
