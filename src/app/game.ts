@@ -98,7 +98,7 @@ import { statsText } from './stats';
 import { nextBoard, revealBands, ribbonPhase, type RibbonBoard } from './ribbon';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { firstCounters } from './firstCounters';
-import { signCell, signMode, stageWait, type StageWait, type Waiting } from './signWay';
+import { signCell, signHeight, signMode, stageWait, type StageWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
@@ -2144,13 +2144,16 @@ export class Game {
 
   /**
    * The swipe sign of a level: beside the board on the side the swipe goes to, in the row or the
-   * column of the player, with a trail a cell of the board long the way that swipe goes on screen.
+   * column of the player and at the height the figure stands at, with a trail a cell of the board
+   * long the way that swipe goes on screen.
    */
   private signView(state: RunState, dir: Dir, over: (x: number, y: number, z: number) => { x: number; y: number }): HudSign {
     const { spec } = state.levelRun!;
     const cell = signCell(spec.size, spec.holes, state.player, dir);
-    const at = over(cell.x, 0, cell.z);
-    const next = over(cell.x + DELTA[dir].dx, 0, cell.z + DELTA[dir].dz);
+    // The sign stands at the height of the figure: on the dice it is beside their tops, on the floor it is on the floor.
+    const y = signHeight(state.player.level);
+    const at = over(cell.x, y, cell.z);
+    const next = over(cell.x + DELTA[dir].dx, y, cell.z + DELTA[dir].dz);
     const length = Math.hypot(next.x - at.x, next.y - at.y);
     const screen = this.swipeDirs[dir];
     return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), at, trail: { x: screen.x * length, y: screen.y * length } };

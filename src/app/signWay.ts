@@ -118,6 +118,15 @@ export function signCell(size: number, holes: readonly { x: number; z: number }[
 }
 
 /**
+ * How high over the floor the sign stands, in dice: at the height the figure stands at (spec of
+ * the first level, 7.1). That is the top of a die for a player on the dice, and the floor for one
+ * on the floor.
+ */
+export function signHeight(level: Level): number {
+  return level === 'top' ? 1 : 0;
+}
+
+/**
  * Which of its two forms the sign takes: the dot that slides for those who swipe, the arrow key
  * for those who press. A phone has no keys; elsewhere a key pressed last says more than what is set.
  */

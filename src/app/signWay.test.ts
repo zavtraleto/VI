@@ -6,7 +6,7 @@ import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
-import { stageWait, signAt, signCell, signMode, stepsTo, wastedMoves } from './signWay';
+import { stageWait, signAt, signCell, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
 
 // The solver as it is, with its calls counted.
 vi.mock('../rules/levelSolver', async (original) => {
@@ -197,6 +197,21 @@ describe('where the sign stands', () => {
     expect(at('F1b', 'N')).toEqual({ x: 0, z: 1 });
     expect(at('F1c', 'N')).toEqual({ x: 1, z: -1 });
     expect(at('F1d', 'W')).toEqual({ x: -1, z: 1 });
+  });
+});
+
+describe('how high the sign stands', () => {
+  it('is the height the figure stands at: the top of a die for a player on the dice, the floor for one on the floor', () => {
+    expect(signHeight('top')).toBe(1);
+    expect(signHeight('ground')).toBe(0);
+  });
+
+  it('is the floor in the pocket of the second stage and the top of a die once the stair is climbed, and the top of a die where the other stages start', () => {
+    const stair = start(stageOf('F1b'));
+    expect(signHeight(stair.player.level)).toBe(0);
+    go(stair, 'N');
+    expect(signHeight(stair.player.level)).toBe(1);
+    for (const id of ['F1a', 'F1c', 'F1d']) expect(signHeight(start(stageOf(id)).player.level), id).toBe(1);
   });
 });
 
