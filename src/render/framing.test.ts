@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lensInverse } from '../display/lens';
-import { cellPixels, fitBoard, follow, followAxis, followFocus, followFrame, viewMode, type Frame, type FrameBounds } from './framing';
+import { cellPixels, fitBoard, follow, followAxis, followFocus, followFrame, shiftFor, viewMode, type Frame, type FrameBounds } from './framing';
 
 // Roughly the board at the default camera: wider than tall, with headroom above the floor.
 const BOARD: FrameBounds = { minR: -4.8, maxR: 4.8, minU: -5, maxU: 4.5, floorU: 3 };
@@ -92,6 +92,13 @@ describe('followFocus', () => {
     expect(followFocus(38.4, 64, 0.8)).toBeCloseTo(0.8);
     // No size of a cell asked for: the share alone sets the scale.
     expect(followFocus(38.4, 0, 0.6)).toBeCloseTo(0.6);
+  });
+
+  it('with a scale asked for from outside brings a small board down to it too', () => {
+    // A board whose cell would be 96 with all of it in view is seen at 64 like the boards beside it.
+    expect(followFocus(96, 64, 0.5, Infinity)).toBeCloseTo(1.5);
+    expect(followFocus(38.4, 64, 0.5, Infinity)).toBeCloseTo(0.6);
+    expect(followFocus(20, 64, 0.6, Infinity)).toBeCloseTo(0.6);
   });
 });
 
@@ -343,5 +350,36 @@ describe('follow', () => {
   it('is there at once with no time to take', () => {
     expect(follow(0, 0.2, 5, 16, 0)).toEqual({ at: 5, speed: 0 });
     expect(follow(2, 0.1, 5, 0, 250)).toEqual({ at: 2, speed: 0.1 });
+  });
+});
+
+describe('followFrame of a board smaller than the screen', () => {
+  it('shows the board whole and still, smaller than it would fit', () => {
+    const aspect = 375 / 733;
+    const whole = fitBoard(BOARD, aspect, 0, SIDE, MARGIN);
+    const frames = [-4.88, 0, 3].map((r) => followFrame(BOARD, aspect, 1.5, 0.1, 0, { r, u: 0 }, SIDE, MARGIN));
+    for (const frame of frames) {
+      expect(frame.halfHeight).toBeCloseTo(whole.halfHeight * 1.5);
+      // The window stays where it is while the player crosses the board, with the board in its middle.
+      expect(frame.at.r - frame.left).toBeCloseTo(frames[0].at.r - frames[0].left);
+      expect(frame.at.r - frame.left + (frame.left + frame.right) / 2).toBeCloseTo((BOARD.minR + BOARD.maxR) / 2);
+    }
+  });
+});
+
+describe('shiftFor', () => {
+  it('lays the next board with its starting cell on the cell the player stands on', () => {
+    expect(shiftFor({ x: 1, z: 0 }, { x: 0, z: 0 }, { x: 2, z: 3 })).toEqual({ x: -1, z: -3 });
+    expect(shiftFor({ x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 })).toEqual({ x: 0, z: 0 });
+  });
+
+  it('carries on from board to board: the player never moves in the world at a passage', () => {
+    const first = { x: 0, z: 0 };
+    // The first board is left at (1, 0); the second starts at (2, 3) and is left at (0, 1); the third starts at (4, 4).
+    const second = shiftFor({ x: 1, z: 0 }, first, { x: 2, z: 3 });
+    const third = shiftFor({ x: 0, z: 1 }, second, { x: 4, z: 4 });
+    expect(third).toEqual({ x: -5, z: -6 });
+    expect({ x: second.x + 2, z: second.z + 3 }).toEqual({ x: first.x + 1, z: first.z + 0 });
+    expect({ x: third.x + 4, z: third.z + 4 }).toEqual({ x: second.x + 0, z: second.z + 1 });
   });
 });

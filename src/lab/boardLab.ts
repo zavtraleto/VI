@@ -109,6 +109,11 @@ export class BoardLab {
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
   private readonly fps = new FpsCounter();
   private view: BoardView | null = null;
+  /**
+   * Where the sample board lies in the world, from `origin=x,z` of the address: the picture is
+   * to be the same wherever it lies.
+   */
+  private readonly origin: { x: number; z: number };
   private state: RunState;
   /** The view has to be built again before the next frame: its pictures are made once. */
   private stale = true;
@@ -120,6 +125,8 @@ export class BoardLab {
 
   constructor() {
     const query = new URLSearchParams(window.location.search);
+    const [x, z] = (query.get('origin') ?? '').split(',').map(Number);
+    this.origin = { x: Number.isFinite(x) ? x : 0, z: Number.isFinite(z) ? z : 0 };
     for (const name of Object.keys(BOARD_PARAMS)) {
       const text = query.get(name);
       const value = text === null ? undefined : parseBoardValue(name, text);
@@ -164,6 +171,7 @@ export class BoardLab {
     if (this.stale || !this.view) {
       this.view?.dispose();
       this.view = new BoardView(this.container, this.world, this.look, SIZE, this.camera);
+      if (this.origin.x !== 0 || this.origin.z !== 0) this.view.setBoard({ size: SIZE, holes: [], origin: this.origin });
       this.stale = false;
     }
     const { view } = this;

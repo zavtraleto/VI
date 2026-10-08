@@ -391,13 +391,12 @@ export class Game {
   private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen, sound: (event) => this.audio.ui(event) });
   /** What comes from the other side: a transmission in a window of the program, over the board. */
   private readonly signal = new SignalPlayer(this.display, this.shell.values, this.world);
-  /** A board is built for a size and kept: puzzles come in several. */
-  private readonly views = new Map<string, BoardView>();
   /** Boxes of the page that the canvas draws into: the readings, the board, the buttons. */
   private readonly header: HTMLElement;
   private readonly stage: HTMLElement;
   private readonly pad: HTMLElement;
-  private view: BoardView;
+  /** The one view of the game: every board is put on it, and its frame is set from here. */
+  private readonly view: BoardView;
   /**
    * The tools of development: the playtest, the debug panel, the frame counter. They are not
    * a part of the program, are loaded in development only, and a production build has none.
@@ -420,7 +419,7 @@ export class Game {
     const now = () => this.now();
     const enabled = () => this.inputEnabled();
 
-    this.view = this.useView(defaultConfig().size);
+    this.view = new BoardView(this.stage, this.world, this.look, defaultConfig().size, this.settings.camera);
     this.hud.setLessonLines(TUTORIAL_LINES.map((line) => t(`tut_${line}` as TextKey)));
     if (import.meta.env.DEV) {
       if (new URLSearchParams(window.location.search).has('debug')) this.settings.debugPanel = true;
@@ -779,20 +778,6 @@ export class Game {
     return this.recordKey(this.state.mode === 'timed' ? 'timed' : 'endless');
   }
 
-  /**
-   * The board of the given size, built on first use; a level with cells cut out of its board has
-   * a board of its own shape. All of them share a layer; only the one in use is drawn.
-   */
-  private useView(size: number, holes: readonly { x: number; z: number }[] = []): BoardView {
-    const shape = `${size}:${holes.map(({ x, z }) => `${x},${z}`).join(' ')}`;
-    let view = this.views.get(shape);
-    if (!view) {
-      view = new BoardView(this.stage, this.world, this.look, size, this.settings.camera, holes);
-      this.views.set(shape, view);
-    }
-    return view;
-  }
-
   /** Points the camera; the swipes follow the way the board now lies on screen. */
   private applyCamera(): void {
     this.view.setCamera(this.settings.camera);
@@ -853,7 +838,9 @@ export class Game {
     this.outcome = null;
     this.tally.reset();
     this.runner = new Runner(state);
-    this.view = this.useView(state.config.size, state.levelRun?.spec.holes);
+    // Every board lies at the start of the world and is seen whole, put there at once.
+    this.view.setBoard({ size: state.config.size, holes: state.levelRun?.spec.holes ?? [], origin: { x: 0, z: 0 } });
+    this.view.setFrame(null, 0);
     this.applyCamera();
     this.history = [];
     this.beforeCommand = null;

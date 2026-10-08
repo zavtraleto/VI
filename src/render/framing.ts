@@ -78,10 +78,13 @@ const clamp = (value: number, low: number, high: number): number => Math.min(Mat
  * enlarged as far as makes a cell under the player `wanted` pixels, and no farther, so a small
  * board on a small screen gets a weak lens and a large one a strong lens. It never shows less
  * than `least` of the board; with no size wanted, `least` is the share.
+ *
+ * `most` is the most of the board it may show. A board by itself is never made smaller than it
+ * fits; one of several that are seen at one scale is, and `most` is given as no limit.
  */
-export function followFocus(cell: number, wanted: number, least: number): number {
+export function followFocus(cell: number, wanted: number, least: number, most = 1): number {
   const share = clamp(least, 0.05, 1);
-  return wanted > 0 ? clamp(cell / wanted, share, 1) : share;
+  return wanted > 0 ? clamp(cell / wanted, share, Math.max(share, most)) : share;
 }
 
 /** The followed view along one side of the screen: from left to right, or from the bottom up. */
@@ -165,7 +168,8 @@ export interface FollowFrame {
 /**
  * The frame of the followed view, `aspect` times as wide as it is tall. The player is seen
  * at a scale at which `focus` of the board fits, counted along the side of the screen that
- * the whole board is fitted to. Each side of the screen is worked out by `followAxis`.
+ * the whole board is fitted to; over 1, the board is seen smaller than it fits, and stands still
+ * in the middle of the screen. Each side of the screen is worked out by `followAxis`.
  */
 export function followFrame(
   b: FrameBounds,
@@ -177,7 +181,7 @@ export function followFrame(
   sideMargin: number,
   margin: number,
 ): FollowFrame {
-  const halfHeight = fitBoard(b, aspect, 0, sideMargin, margin).halfHeight * clamp(focus, 0.05, 1);
+  const halfHeight = fitBoard(b, aspect, 0, sideMargin, margin).halfHeight * Math.max(focus, 0.05);
   const halfWidth = halfHeight * aspect;
   const [lowR, highR] = [b.minR - sideMargin, b.maxR + sideMargin];
   const [lowU, highU] = [b.minU - margin, b.maxU + margin];
@@ -214,4 +218,17 @@ export function follow(at: number, speed: number, target: number, dtMs: number, 
   const pull = speed + rate * off;
   const decay = Math.exp(-rate * dtMs);
   return { at: target + (off + pull * dtMs) * decay, speed: (speed - rate * pull * dtMs) * decay };
+}
+
+/**
+ * Where the next board is laid in the world for its starting cell to be the cell the player
+ * stands on. `origin` is where the cell (0, 0) of the board the player is on lies; what is given
+ * back is the same of the next one. All in cells.
+ */
+export function shiftFor(
+  player: { x: number; z: number },
+  origin: { x: number; z: number },
+  nextStart: { x: number; z: number },
+): { x: number; z: number } {
+  return { x: origin.x + player.x - nextStart.x, z: origin.z + player.z - nextStart.z };
 }

@@ -7,6 +7,7 @@ import type { Palette } from '../shell/theme';
 import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
 import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
+import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, shapeKey, sightOf, type BoardShape, type Frame, type Sight } from './board';
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
 import { laidFace } from './laid';
 import { ChainMarks } from './marks';
@@ -18,16 +19,14 @@ import { CubeSprings } from './springs';
 import { figureColour, frameTexture, gridTexture, pipGlow, redrawGrid, type GridBands, type GridLayout } from './textures';
 import { SpawnWarnings } from './warnings';
 
-/** Margin around the cells that the lines of the surface and the danger frame lie in, in cells. */
-const RIM = 0.25;
+export type { BoardShape, Frame } from './board';
+
 /** How far past the cells the surface hides what is under it, in cells. */
 const FLOOR_MARGIN = 4;
-/** Tallest thing that must stay in frame: a cube with the figure on top. */
-const TOP_Y = 1.9;
-const FRAME_MARGIN = 0.25;
-/** Room left beside the cells when the screen is narrower than the board. */
-const SIDE_MARGIN = 0.08;
 const CAMERA_DISTANCE = 40;
+/** A camera that is this near the frame it travels to, in cells and in cells a millisecond, has come. */
+const CAME = 1e-4;
+const CAME_SPEED = 1e-6;
 const RISE_IN_MS = 600;
 /**
  * How long the dice of a level that is cleared take to go down under the floor, and how far
@@ -71,6 +70,8 @@ const FOLLOW_CLEAR = 0.7;
 const SHARP_MAX = 2;
 const SHARP_SIDE_PX = 2048;
 const VIEWS: readonly string[] = ['auto', 'full', 'follow'];
+/** What of the camera's sight is carried from one frame to another. */
+const GLIDES = ['r', 'u', 'half'] as const;
 
 export interface CameraAngles {
   /** Turn around the vertical axis: 45 is the diamond view, 0 looks straight at the board. */
@@ -123,8 +124,9 @@ export interface SceneParams {
 
 type FlatMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
 
-function flat(size: number, y: number, material: THREE.MeshBasicMaterial): FlatMesh {
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
+/** A square of the floor, one cell on a side: it is made as large as the board asks by its scale. */
+function flat(y: number, material: THREE.MeshBasicMaterial): FlatMesh {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = y;
   return mesh;
@@ -148,6 +150,14 @@ function step(level: number, n: number): number {
  * the board as they do. The board and the dice stay as they are, flat and whole; the camera
  * does not turn. A lens over the picture that brings the rest of the board in is there to be
  * tried, and is off.
+ *
+ * There is one view for the whole game. The board it shows is given to it from outside
+ * (`setBoard`): its size, the cells cut out of it, and where it lies in the world. Everything
+ * that is drawn by the coordinates of the rules is in one group that is moved there, and the
+ * rules know nothing of it; what is asked of the view by those coordinates (`project`) is
+ * answered for the board that is on. The frame is given from outside too (`setFrame`), and the
+ * camera travels to it: so a board can be laid where the last one ended, and the picture goes
+ * from the one to the other without a jump.
  */
 export class BoardView {
   /** The dark behind the board as this frame has it: for the layer that lies under this one. */
@@ -163,7 +173,21 @@ export class BoardView {
   private readonly cameraHome = new THREE.Vector3();
   private readonly cameraRight = new THREE.Vector3();
   private readonly cameraUp = new THREE.Vector3();
-  private readonly target: THREE.Vector3;
+  /** The camera's axes, for what is counted of a board without the view. */
+  private readonly axes = { right: this.cameraRight, up: this.cameraUp };
+  /** From what the camera looks at to the camera: the way it is pointed. */
+  private readonly offset = new THREE.Vector3();
+  /** The middle of the board in the world: what the camera stands over. */
+  private readonly target = new THREE.Vector3();
+  /** The same on the camera's right and up axes: what the frames of the board are counted from. */
+  private readonly base = { r: 0, u: 0 };
+  /** The board that is on, and its middle in its own cells. */
+  private board: BoardShape;
+  private centre = 0;
+  /** What is drawn of the board that is on: the surface is made anew only when this changes. */
+  private laid = '';
+  /** Everything that is drawn by the coordinates of the rules: moved to where the board lies in the world. */
+  private readonly world = new THREE.Group();
   private readonly cubes: CubeMeshes;
   private readonly player = new PlayerFigure();
   private readonly overlays: FloorOverlays;
@@ -188,8 +212,8 @@ export class BoardView {
   private readonly grid: FlatMesh;
   private readonly frame: FlatMesh;
   /** The cells of the surface, and the picture of all its lines: what the surface is drawn with while it stands. */
-  private readonly layout: GridLayout;
-  private readonly whole: THREE.Texture;
+  private layout: GridLayout;
+  private whole: THREE.Texture | null = null;
   /** The picture of the rows of the surface that are drawn while it goes out or comes, and which rows it has; null while it stands. */
   private partial: { map: THREE.CanvasTexture; rows: string } | null = null;
   private readonly observer: ResizeObserver;
@@ -212,7 +236,6 @@ export class BoardView {
   /** A dot of the tube, in cells of the board: what a die that comes apart is made of. */
   private dotWorld = 0.04;
   private readonly tmp = new THREE.Vector3();
-  private readonly slabHalf: number;
   /** Extents of the scene on the camera's right and up axes, relative to the target. */
   private bounds: FrameBounds = { minR: -1, maxR: 1, minU: -1, maxU: 1, floorU: 0 };
   /** Where the container is in the window, in CSS pixels. */
@@ -238,6 +261,25 @@ export class BoardView {
   private leaving = false;
   /** Size of a cell with the whole board in view, in CSS pixels: what the view is picked by. */
   private wholeCell = 0;
+  /** The frame asked for from outside; null: the frame the board that is on is in whole, kept through every change of the window. */
+  private asked: Frame | null = null;
+  /** With the whole board in view: what the camera is to show, counted from the target. */
+  private readonly goal: Sight = { r: 0, u: 0, half: 1 };
+  /** What the camera showed on the last frame drawn, on its axes from the middle of the world; `seen` once a frame has been drawn. */
+  private readonly sight: Sight = { r: 0, u: 0, half: 1 };
+  private seen = false;
+  /**
+   * How far the camera still is from what it is to show, and how fast that changes: a frame
+   * given with a time is not jumped to. What was on screen is carried over as this difference,
+   * and the difference goes to nothing as a spring that never swings, whichever way the view
+   * frames the board and wherever the player goes meanwhile.
+   */
+  private readonly carry: Sight = { r: 0, u: 0, half: 0 };
+  private readonly pace: Sight = { r: 0, u: 0, half: 0 };
+  private carried = false;
+  /** The time the camera is given to come to a frame, and whether what is on screen is still to be taken as the carry. */
+  private travelMs = 0;
+  private taking = false;
   /** The point of the board the followed view is about, on the camera's right and up axes, and how fast it is moving. */
   private readonly at = { r: 0, u: 0 };
   private readonly speed = { r: 0, u: 0 };
@@ -266,48 +308,37 @@ export class BoardView {
     holes: readonly { x: number; z: number }[] = [],
   ) {
     const values = look.board;
-    const n = (name: string): number => Number(values[name] ?? 0);
     this.palette = boardPalette(look);
-
-    const centre = (size - 1) / 2;
-    this.target = new THREE.Vector3(centre, 0, centre);
-    this.slabHalf = size / 2 + RIM;
 
     // Writes depth and no colour: what goes under the surface is gone, and what lies behind
     // the board still shows through it. Drawn first, whatever stands where.
-    const floorSize = size + FLOOR_MARGIN * 2;
-    this.floor = new THREE.Mesh(new THREE.PlaneGeometry(floorSize, floorSize), new THREE.MeshBasicMaterial({ colorWrite: false }));
+    this.floor = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ colorWrite: false }));
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.renderOrder = -10;
     // What is under the surface gives no light to the tube either.
     this.floor.layers.enable(GLOW_LAYER);
 
-    const layout: GridLayout = { cells: size, rim: RIM, holes };
-    this.layout = layout;
-    const gridSize = size + RIM * 2;
-    const lines = (map: THREE.Texture): THREE.MeshBasicMaterial =>
-      new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0, depthWrite: false });
-    this.fill = flat(size, 0.002, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-    this.whole = gridTexture(layout, n('gridLine'), n('gridEdge'));
-    this.grid = flat(gridSize, 0.004, lines(this.whole));
+    // The pictures of the lines are drawn when the board is laid, below.
+    const lines = (): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    this.fill = flat(0.002, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+    this.grid = flat(0.004, lines());
     // The surface is drawn before whatever lies on it: the marks of a chain, the frames of the
     // cells beside it, the ring of a group. Left to their distance from the camera, its lines
     // came out over them.
     this.fill.renderOrder = -5;
     this.grid.renderOrder = -4;
-    this.frame = flat(gridSize, 0.01, lines(frameTexture(layout)));
-    for (const mesh of [this.floor, this.fill, this.grid, this.frame]) {
-      mesh.position.x = centre;
-      mesh.position.z = centre;
-      this.scene.add(mesh);
-    }
+    this.frame = flat(0.01, lines());
+    this.world.add(this.floor, this.fill, this.grid, this.frame);
+    this.board = { size, holes, origin: { x: 0, z: 0 } };
+    this.layout = { cells: size, rim: RIM, holes };
+    this.lay(this.board);
 
     this.cubes = new CubeMeshes(this.palette, values);
     this.overlays = new FloorOverlays(values);
     this.marks = new ChainMarks(values);
     this.signs = new ChainSigns(values);
     this.warnings = new SpawnWarnings(values);
-    this.scene.add(
+    this.world.add(
       this.overlays.group,
       this.marks.group,
       this.signs.group,
@@ -316,6 +347,7 @@ export class BoardView {
       this.player.group,
       this.bursts.group,
     );
+    this.scene.add(this.world);
     this.applyPalette();
 
     this.setCamera(angles);
@@ -364,34 +396,104 @@ export class BoardView {
       Math.sin(pitch),
       Math.cos(yaw) * Math.cos(pitch),
     ).multiplyScalar(CAMERA_DISTANCE);
-    this.cameraHome.copy(this.target).add(offset);
+    this.offset.copy(offset);
+    this.stand();
+  }
+
+  /** The board that is on. */
+  get shape(): BoardShape {
+    return this.board;
+  }
+
+  /**
+   * Puts another board on: its size, the cells cut out of it, and where its cell (0, 0) lies in
+   * the world. The view stays the one it is; only the surface is drawn anew, and only when the
+   * board is of another size or cut. The camera stands over the new board and shows what it
+   * showed until a frame is given (`setFrame`); the frame that was asked for stays asked for.
+   */
+  setBoard(shape: BoardShape): void {
+    this.lay(shape);
+    this.stand();
+  }
+
+  /**
+   * The frame a board is in whole on this window as it is now: what the view shows of a board
+   * by itself. It is counted from where the board lies, so the frames of boards laid one after
+   * another are frames of one world.
+   */
+  frameOf(shape: BoardShape): Frame {
+    return frameOf(shape, this.axes, this.width, this.height, this.clear);
+  }
+
+  /**
+   * What the camera is to show, and how long it is given to come to it: after `ms` it has
+   * covered nine tenths of the way, as the followed view does after the player; with 0, or with
+   * motion kept low, it is put there at once. Null is the frame the board that is on is in whole,
+   * and it is kept so through every change of the window; a frame given is kept as it is given,
+   * and is to be given again by whoever counted it when the window changes.
+   *
+   * With the whole board in view the camera shows the frame as it is given. Whether the player
+   * is followed instead is picked by the cell of the frame, so boards that are given one scale
+   * are seen one way; followed, the player is where the view goes and the frame only names the
+   * scale: every board is then seen with a cell of the size the followed view asks for, a small
+   * one too. Either way the camera travels from what was on screen to what it is to show, so a
+   * board put on with a frame and a time is never jumped to.
+   */
+  setFrame(frame: Frame | null, ms: number): void {
+    this.asked = frame ? { x: frame.x, z: frame.z, cell: frame.cell } : null;
+    this.travelMs = ms;
+    this.taking = ms > 0 && this.seen;
+    if (!this.taking) this.arrive();
+    this.resize();
+  }
+
+  /** Lays the board in the world: the surface is given its size and its lines, and the group of the rules is moved to it. */
+  private lay(shape: BoardShape): void {
+    const { size, origin } = shape;
+    const centre = (size - 1) / 2;
+    this.board = { size, holes: shape.holes, origin: { x: origin.x, z: origin.z } };
+    this.centre = centre;
+    this.world.position.set(origin.x, 0, origin.z);
+    this.target.set(origin.x + centre, 0, origin.z + centre);
+    const key = shapeKey(shape);
+    if (key === this.laid) return;
+    this.laid = key;
+
+    const floorSize = size + FLOOR_MARGIN * 2;
+    const gridSize = size + RIM * 2;
+    this.floor.scale.set(floorSize, floorSize, 1);
+    this.fill.scale.set(size, size, 1);
+    this.grid.scale.set(gridSize, gridSize, 1);
+    this.frame.scale.set(gridSize, gridSize, 1);
+    for (const mesh of [this.floor, this.fill, this.grid, this.frame]) {
+      mesh.position.x = centre;
+      mesh.position.z = centre;
+    }
+
+    // The pictures of the lines of the board that was on are let go.
+    const values = this.look.board;
+    this.layout = { cells: size, rim: RIM, holes: shape.holes };
+    this.partial?.map.dispose();
+    this.partial = null;
+    this.whole?.dispose();
+    this.whole = gridTexture(this.layout, Number(values.gridLine ?? 0), Number(values.gridEdge ?? 0));
+    this.grid.material.map = this.whole;
+    this.frame.material.map?.dispose();
+    this.frame.material.map = frameTexture(this.layout);
+  }
+
+  /** Stands the camera over the board, pointed as it is, and counts what of the board has to fit. */
+  private stand(): void {
+    this.cameraHome.copy(this.target).add(this.offset);
     this.camera.position.copy(this.cameraHome);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.target);
     this.camera.updateMatrixWorld();
     this.cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0);
     this.cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1);
-
-    // What has to fit top to bottom: the surface and a cube with the figure on every cell.
-    // Side to side only the cells have to: on a narrow screen the board is as large as it
-    // can be, and the tips of the margin around them run off the edges.
-    const b: FrameBounds = { minR: Infinity, maxR: -Infinity, minU: Infinity, maxU: -Infinity, floorU: -Infinity };
-    const p = new THREE.Vector3();
-    const cellsHalf = this.slabHalf - RIM;
-    for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        const r = p.set(sx * cellsHalf, 0, sz * cellsHalf).dot(this.cameraRight);
-        b.minR = Math.min(b.minR, r);
-        b.maxR = Math.max(b.maxR, r);
-        for (const y of [0, TOP_Y]) {
-          const u = p.set(sx * this.slabHalf, y, sz * this.slabHalf).dot(this.cameraUp);
-          b.minU = Math.min(b.minU, u);
-          b.maxU = Math.max(b.maxU, u);
-        }
-        b.floorU = Math.max(b.floorU, p.set(sx * this.slabHalf, 0, sz * this.slabHalf).dot(this.cameraUp));
-      }
-    }
-    this.bounds = b;
+    this.base.r = this.target.dot(this.cameraRight);
+    this.base.u = this.target.dot(this.cameraUp);
+    this.bounds = boardBounds(this.board.size, this.axes);
     this.resize();
   }
 
@@ -443,18 +545,86 @@ export class BoardView {
     }
     this.region = { x: 0, y: 0, width: this.width, height: this.height };
     this.lens = null;
-    const { halfHeight, centreR, centreU } = fitBoard(
-      this.bounds,
-      aspect,
-      this.clear / this.height,
-      SIDE_MARGIN,
-      FRAME_MARGIN,
-    );
-    this.camera.top = centreU + halfHeight;
-    this.camera.bottom = centreU - halfHeight;
-    this.camera.left = centreR - halfHeight * aspect;
-    this.camera.right = centreR + halfHeight * aspect;
-    this.camera.updateProjectionMatrix();
+    const { goal } = this;
+    if (this.asked) {
+      const sight = sightOf(this.asked, this.axes, this.height);
+      goal.r = sight.r - this.base.r;
+      goal.u = sight.u - this.base.u;
+      goal.half = sight.half;
+    } else {
+      const { halfHeight, centreR, centreU } = fitBoard(
+        this.bounds,
+        aspect,
+        this.clear / this.height,
+        SIDE_MARGIN,
+        FRAME_MARGIN,
+      );
+      goal.r = centreR;
+      goal.u = centreU;
+      goal.half = halfHeight;
+    }
+    this.aim();
+  }
+
+  /** With the whole board in view: the camera shows what it is to show, with what it still carries from before. */
+  private aim(): void {
+    const { camera, goal, carry } = this;
+    const r = goal.r + carry.r;
+    const u = goal.u + carry.u;
+    const half = goal.half + carry.half;
+    const aspect = this.width / this.height;
+    camera.top = u + half;
+    camera.bottom = u - half;
+    camera.left = r - half * aspect;
+    camera.right = r + half * aspect;
+    camera.updateProjectionMatrix();
+  }
+
+  /** The camera is where it is to be: it carries nothing over. */
+  private arrive(): void {
+    const { carry, pace } = this;
+    carry.r = carry.u = carry.half = 0;
+    pace.r = pace.u = pace.half = 0;
+    this.carried = false;
+    this.taking = false;
+  }
+
+  /**
+   * One frame of the camera's way to what it is to show: the middle of the picture and half its
+   * height, on the camera's axes from the target. A frame just given with a time takes what was
+   * on screen as the carry; after that the carry goes to nothing. Says whether the carry has
+   * changed, and notes what the camera shows now.
+   */
+  private glide(dt: number, r: number, u: number, half: number, still: boolean): boolean {
+    const { carry, pace, sight, base } = this;
+    let moved = false;
+    if (still) {
+      moved = this.carried;
+      this.arrive();
+    } else if (this.taking) {
+      this.taking = false;
+      carry.r = sight.r - (base.r + r);
+      carry.u = sight.u - (base.u + u);
+      carry.half = sight.half - half;
+      pace.r = pace.u = pace.half = 0;
+      this.carried = true;
+      moved = true;
+    } else if (this.carried) {
+      let far = false;
+      for (const key of GLIDES) {
+        const next = follow(carry[key], pace[key], 0, dt, this.travelMs);
+        carry[key] = next.at;
+        pace[key] = next.speed;
+        far ||= Math.abs(next.at) > CAME || Math.abs(next.speed) > CAME_SPEED;
+      }
+      if (!far) this.arrive();
+      moved = true;
+    }
+    sight.r = base.r + r + carry.r;
+    sight.u = base.u + u + carry.u;
+    sight.half = half + carry.half;
+    this.seen = true;
+    return moved;
   }
 
   /** Lets the scene react to what happened in a tick. */
@@ -626,7 +796,8 @@ export class BoardView {
     // The whole board, or the player followed: by the size of a cell, by what the player
     // keeps, by what the address names.
     const forced = VIEWS.includes(String(values.view)) ? (values.view as ViewChoice) : 'auto';
-    const mode = viewMode(this.wholeCell, n('minCell'), { forced, whole: params.whole === true, reducedMotion });
+    // Boards that are given one frame are seen one way: by the cell of that frame.
+    const mode = viewMode(this.asked?.cell ?? this.wholeCell, n('minCell'), { forced, whole: params.whole === true, reducedMotion });
     if (mode !== this.mode) {
       this.mode = mode;
       this.resize();
@@ -682,8 +853,9 @@ export class BoardView {
     const face = this.sent > 0 || reaction.count === 0 ? this.sent : laidFace(state);
     const sent = face > 0 ? this.lit[face - 1] : this.tone;
     const { lamp } = this;
-    lamp.x = reaction.x;
-    lamp.z = reaction.z;
+    // The lamp is a place in the world, where the dice are drawn.
+    lamp.x = reaction.x + this.board.origin.x;
+    lamp.z = reaction.z + this.board.origin.z;
     lamp.colour.copy(sent);
     lamp.power = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * (1 - this.leave);
 
@@ -763,7 +935,8 @@ export class BoardView {
     }
     // Followed, the view goes after the player; the shake and the lean of a beat stay on top of that.
     const follows = this.mode === 'follow';
-    if (follows) this.frameFollowed(dt, zoom);
+    if (follows) this.frameFollowed(dt, zoom, reducedMotion);
+    else if (this.glide(dt, this.goal.r, this.goal.u, this.goal.half, reducedMotion)) this.aim();
 
     // The board is sharp, and is shown on the same tube as the rest of the program: its lines
     // are counted as the program's picture has them, not in the pixels of the board.
@@ -862,13 +1035,14 @@ export class BoardView {
    * swings, and the camera draws what the screen has room for around them. With the lens on,
    * it draws more than that, and the lens presses the picture together towards the edges of
    * the screen. `zoom` is the lean of a beat: everything is drawn that much larger around
-   * the player.
+   * the player. A frame given with a time is come to from what was on screen, like any other:
+   * what is carried over moves and scales the window, and goes to nothing.
    */
-  private frameFollowed(dt: number, zoom: number): void {
+  private frameFollowed(dt: number, zoom: number, still: boolean): void {
     const values = this.look.board;
     const n = (name: string): number => Number(values[name] ?? 0);
     const figure = this.player.group.position;
-    this.tmp.set(figure.x - this.target.x, FOLLOW_Y, figure.z - this.target.z);
+    this.tmp.set(figure.x - this.centre, FOLLOW_Y, figure.z - this.centre);
     const goalR = this.tmp.dot(this.cameraRight);
     const goalU = this.tmp.dot(this.cameraUp);
     const { at, speed, camera, region } = this;
@@ -890,13 +1064,25 @@ export class BoardView {
     // Enlarged as far as a cell under the player needs; a view named in the address is taken
     // with the share it names, to be looked at on any screen.
     const cell = cellPixels(fitBoard(this.bounds, aspect, 0, SIDE_MARGIN, FRAME_MARGIN), region.height);
-    const focus = values.view === 'follow' ? n('focus') : followFocus(cell, n('minCell'), n('focus'));
+    // Boards that are given one frame are seen at one scale: a small one is not enlarged past it.
+    const most = this.asked ? Infinity : 1;
+    const focus = values.view === 'follow' ? n('focus') : followFocus(cell, n('minCell'), n('focus'), most);
     const frame = followFrame(this.bounds, aspect, focus, n('edge'), n('lens'), at, SIDE_MARGIN, FRAME_MARGIN);
     const point = frame.at;
-    camera.left = point.r - frame.left / zoom;
-    camera.right = point.r + frame.right / zoom;
-    camera.bottom = point.u - frame.down / zoom;
-    camera.top = point.u + frame.up / zoom;
+    // The middle of the window from the player, and half its height: what is come to.
+    const midR = (frame.right - frame.left) / 2;
+    const midU = (frame.up - frame.down) / 2;
+    const half = (frame.up + frame.down) / 2;
+    this.glide(dt, point.r + midR, point.u + midU, half, still);
+    // With nothing carried over the window is larger by 1 and moved by 0: it is the window of the player.
+    const { carry } = this;
+    const larger = (half + carry.half) / half;
+    const movedR = carry.r + midR * (1 - larger);
+    const movedU = carry.u + midU * (1 - larger);
+    camera.left = point.r + movedR - (frame.left * larger) / zoom;
+    camera.right = point.r + movedR + (frame.right * larger) / zoom;
+    camera.bottom = point.u + movedU - (frame.down * larger) / zoom;
+    camera.top = point.u + movedU + (frame.up * larger) / zoom;
     camera.zoom = 1;
     camera.updateProjectionMatrix();
 
@@ -930,9 +1116,10 @@ export class BoardView {
     return { x: one(this.enlarged.x, width), y: one(this.enlarged.y, height) };
   }
 
-  /** World position to CSS pixels inside the container. */
+  /** A place on the board that is on, in the coordinates of its rules, to CSS pixels inside the container. */
   project(x: number, y: number, z: number): { x: number; y: number } {
-    this.tmp.set(x, y, z).project(this.camera);
+    const { origin } = this.board;
+    this.tmp.set(x + origin.x, y, z + origin.z).project(this.camera);
     let u = (this.tmp.x + 1) / 2;
     let v = (this.tmp.y + 1) / 2;
     // Through the lens a point of the board is not where the camera has it.
@@ -962,7 +1149,7 @@ export class BoardView {
       mesh.material.map?.dispose();
       mesh.material.dispose();
     }
-    if (this.partial) this.whole.dispose();
+    if (this.partial) this.whole?.dispose();
     this.floor.geometry.dispose();
     (this.floor.material as THREE.Material).dispose();
   }
