@@ -5,7 +5,6 @@
  * the board is the player's. Nothing here reads a clock or draws: whoever owns the frame says
  * how long ago the dice were gone, and draws what this says.
  */
-import type { GridBands } from '../render/textures';
 
 /**
  * Where the passage between two boards stands: the dice of the old one are still leaving, its
@@ -57,19 +56,4 @@ export function nextBoard(current: RibbonBoard, stages: number, levels: number, 
   if (current.stage !== undefined && current.stage + 1 < stages) return { stage: current.stage + 1 };
   const level = current.stage !== undefined ? onward : (current.level ?? 0) + 1;
   return level < levels ? { level } : null;
-}
-
-/**
- * The rows of a surface of `cells` rows that are drawn when `share` of it is, whole rows at a
- * time, counted from the top of the screen. A board that goes out loses them from the top, as a
- * picture the tube has stopped drawing. One that comes gets them from the top: the heavy line
- * around the cells first, and the lines between them a row behind it.
- */
-export function revealBands(share: number, cells: number, coming: boolean): GridBands {
-  if (!coming) {
-    const kept = Math.min(cells, Math.max(0, Math.ceil(share * cells)));
-    return { edge: [cells - kept, cells], lines: [cells - kept, cells] };
-  }
-  const edge = Math.min(cells, Math.max(0, Math.ceil(share * (cells + 1))));
-  return { edge: [0, edge], lines: [0, share >= 1 ? cells : Math.max(0, edge - 1)] };
 }

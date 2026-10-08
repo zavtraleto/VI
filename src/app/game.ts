@@ -95,7 +95,7 @@ import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
-import { nextBoard, revealBands, ribbonPhase, startBoard, type RibbonBoard } from './ribbon';
+import { nextBoard, ribbonPhase, startBoard, type RibbonBoard } from './ribbon';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { firstCounters } from './firstCounters';
 import { signCell, signHeight, signMode, stageWait, type StageWait, type Waiting } from './signWay';
@@ -832,7 +832,7 @@ export class Game {
   /** Puts a new run on the board and clears away what the previous one left on screen. */
   private begin(state: RunState, riseIn: boolean): void {
     this.leaveRun('restart');
-    // A board put on in the middle of the ribbon ends it; the board that was going out is whole again for its next use.
+    // A board put on in the middle of the ribbon ends it: its dice stand as the rules have them.
     this.view.setReveal(null);
     this.ribbon = null;
     this.outcome = null;
@@ -841,6 +841,8 @@ export class Game {
     // Every board lies at the start of the world and is seen whole, put there at once.
     this.view.setBoard({ size: state.config.size, holes: state.levelRun?.spec.holes ?? [], origin: { x: 0, z: 0 } });
     this.view.setFrame(null, 0);
+    // A board that is put on has all its lines, whatever was drawn of the lines of the one before.
+    this.view.drawGrid(1, true);
     this.applyCamera();
     this.history = [];
     this.beforeCommand = null;
@@ -1163,17 +1165,18 @@ export class Game {
   }
 
   /**
-   * The passage of the ribbon, frame by frame. The surface of the board that is passed goes out
-   * by rows; when none is left the next board is put on, with no figure, and its surface comes
-   * by rows with its dice; then the figure comes onto it, and then the board is the player's.
-   * Each board is drawn by its own view, one after the other: neither is on screen with the other.
+   * The passage of the ribbon, frame by frame. The lines of the board that is passed are erased
+   * towards the cell the player stands on; when none is left the next board is put on, with no
+   * figure, and its lines are drawn from the cell the player starts on, with its dice; then the
+   * figure comes onto it, and then the board is the player's. Neither board is on screen with
+   * the other.
    */
   private runRibbon(time: number): void {
     const ribbon = this.ribbon!;
     const { phase, rows, figure } = ribbonPhase(time - ribbon.start, prefersReducedMotion(this.settings));
     if (phase === 'leave') return;
     if (phase === 'fade') {
-      this.view.setReveal(revealBands(rows, this.state.config.size, false));
+      this.view.drawGrid(rows, false, this.state.player);
       return;
     }
     if (!ribbon.swapped) {
@@ -1192,9 +1195,11 @@ export class Game {
       if (die) this.audio.play({ kind: 'risen', face: die.ori.top, pan: 0 });
     }
     if (phase === 'reveal') {
-      this.view.setReveal(revealBands(rows, this.state.config.size, true), rows);
+      this.view.drawGrid(rows, true, this.state.player);
+      this.view.setReveal(rows);
       return;
     }
+    this.view.drawGrid(1, true);
     this.view.setReveal(null);
     // The figure comes last, through the dots of the tube as the dice did.
     this.view.showFigure(true, figure);

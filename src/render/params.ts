@@ -192,6 +192,36 @@ export const BOARD_GROUPS = {
      */
     sharp: number(1, 0, 1, 0.05),
   },
+  road: {
+    /**
+     * The passage from a board that is passed to the next, in the order it goes. A combo that
+     * clears a board: its dice light up one after another, this far apart; then they stand lit
+     * for a moment; then they go under the floor, this slowly, one after another as they lit up.
+     */
+    comboStepMs: number(140, 0, 600, 10),
+    comboHoldMs: number(350, 0, 1500, 10),
+    sinkMs: number(1300, 200, 4000, 50),
+    /** The lines of the board are erased towards the cell of the player: how long the whole of it takes. */
+    eraseMs: number(700, 100, 3000, 50),
+    /** The camera comes to the frame of the next board: nine tenths of the way in this time. */
+    cameraMs: number(900, 0, 3000, 50),
+    /** The lines of the next board are drawn from the cell of the player: how long the whole of it takes. */
+    drawMs: number(1100, 100, 4000, 50),
+    /**
+     * The point that draws a line and erases it: 0 is no point, at 1 it is lit in full and
+     * twice as wide as its line, past 1 it is only larger. And how long the light it leaves
+     * behind lasts: on a line just drawn, going down to the light of the lines; on a line just
+     * erased, going out.
+     */
+    headGlow: number(1, 0, 3, 0.05),
+    afterglowMs: number(250, 0, 1500, 10),
+    /** The dice of the next board come up out of the floor when its lines are drawn: how long one takes, and how much later each step further from the player. */
+    riseMs: number(600, 100, 2000, 50),
+    riseStepMs: number(90, 0, 400, 10),
+    /** A die that is fixed: what its faces keep of their light until its combo, and what its edges keep. */
+    fixedTone: number(0.35, 0, 1, 0.01),
+    fixedEdge: number(0.5, 0, 1, 0.01),
+  },
 } satisfies Record<string, Record<string, ParamSpec>>;
 
 export const BOARD_PARAMS: Record<string, ParamSpec> = Object.assign({}, ...Object.values(BOARD_GROUPS));
@@ -229,14 +259,16 @@ export function parseBoardValue(name: string, text: string): number | string | b
 }
 
 /**
- * What an address says of the view, in any build, to try on a device what it is like:
- * `?view=follow&focus=0.6&minCell=64&followMs=250&edge=0.1&lens=0`. Only what is
- * named and makes sense is returned; the rest stays as it is defined.
+ * What an address says of the view and of the passage between boards, in any build, to try on
+ * a device what it is like: `?view=follow&focus=0.6&minCell=64&followMs=250&edge=0.1&lens=0`,
+ * `?drawMs=1600&eraseMs=900&headGlow=1.5`. Only what is named and makes sense is returned; the
+ * rest stays as it is defined.
  */
 export function readView(search: string): ParamValues {
   const query = new URLSearchParams(search);
   const values: ParamValues = {};
-  for (const [name, spec] of Object.entries(BOARD_GROUPS.view as Record<string, ParamSpec>)) {
+  const read: Record<string, ParamSpec> = { ...BOARD_GROUPS.view, ...BOARD_GROUPS.road };
+  for (const [name, spec] of Object.entries(read)) {
     const text = query.get(name);
     if (text === null || text === '') continue;
     const value = parseBoardValue(name, text);

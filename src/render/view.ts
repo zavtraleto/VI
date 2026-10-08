@@ -9,14 +9,16 @@ import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
 import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, shapeKey, sightOf, type BoardShape, type Frame, type Sight } from './board';
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
+import { gridSegments, waveFrom, type GridSegment } from './gridLines';
 import { laidFace } from './laid';
+import { LineGrid } from './lineGrid';
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { boardPalette, type BoardLook } from './params';
 import { PlayerFigure } from './player';
 import { ChainSigns } from './signs';
 import { CubeSprings } from './springs';
-import { figureColour, frameTexture, gridTexture, pipGlow, redrawGrid, type GridBands, type GridLayout } from './textures';
+import { figureColour, frameTexture, pipGlow } from './textures';
 import { SpawnWarnings } from './warnings';
 
 export type { BoardShape, Frame } from './board';
@@ -209,13 +211,16 @@ export class BoardView {
   private readonly lamp: CubeGlow['lamp'] = { x: 0, y: 1.5, z: 0, colour: new THREE.Color(), power: 0 };
   private readonly floor: THREE.Mesh;
   private readonly fill: FlatMesh;
-  private readonly grid: FlatMesh;
+  /** The lines of the surface: the sides of the cells of the board that is on, drawn as far as a wave has come. */
+  private readonly grid: LineGrid;
   private readonly frame: FlatMesh;
-  /** The cells of the surface, and the picture of all its lines: what the surface is drawn with while it stands. */
-  private layout: GridLayout;
-  private whole: THREE.Texture | null = null;
-  /** The picture of the rows of the surface that are drawn while it goes out or comes, and which rows it has; null while it stands. */
-  private partial: { map: THREE.CanvasTexture; rows: string } | null = null;
+  /** The sides of the cells of the board that is on, as they are before a wave is sent through them. */
+  private sides: GridSegment[] = [];
+  /**
+   * How much of the lines is drawn, 0 to 1; whether they are being drawn or erased; and the
+   * cell the wave starts from, in the cells of the board that is on, null until one is named.
+   */
+  private readonly wave: { share: number; drawing: boolean; from: { x: number; z: number } | null } = { share: 1, drawing: true, from: null };
   private readonly observer: ResizeObserver;
   /** Kept when what the board is drawn with has been made ready. */
   private readonly warmed: Promise<void>;
@@ -318,19 +323,21 @@ export class BoardView {
     // What is under the surface gives no light to the tube either.
     this.floor.layers.enable(GLOW_LAYER);
 
-    // The pictures of the lines are drawn when the board is laid, below.
-    const lines = (): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-    this.fill = flat(0.002, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-    this.grid = flat(0.004, lines());
+    // The lines and the picture of the frame are made when the board is laid, below.
+    const sheet = (): THREE.MeshBasicMaterial => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    this.fill = flat(0.002, sheet());
+    this.grid = new LineGrid(look);
+    this.grid.object.position.y = 0.004;
     // The surface is drawn before whatever lies on it: the marks of a chain, the frames of the
     // cells beside it, the ring of a group. Left to their distance from the camera, its lines
-    // came out over them.
-    this.fill.renderOrder = -5;
-    this.grid.renderOrder = -4;
-    this.frame = flat(0.01, lines());
-    this.world.add(this.floor, this.fill, this.grid, this.frame);
+    // came out over them. The lines come first of all, onto nothing: where two of them meet
+    // they are put together by the stronger, which is right only with nothing under them; the
+    // floor of the cells is one colour with them and lies over them as well as under.
+    this.grid.object.renderOrder = -5;
+    this.fill.renderOrder = -4;
+    this.frame = flat(0.01, sheet());
+    this.world.add(this.floor, this.fill, this.grid.object, this.frame);
     this.board = { size, holes, origin: { x: 0, z: 0 } };
-    this.layout = { cells: size, rim: RIM, holes };
     this.lay(this.board);
 
     this.cubes = new CubeMeshes(this.palette, values);
@@ -407,9 +414,11 @@ export class BoardView {
 
   /**
    * Puts another board on: its size, the cells cut out of it, and where its cell (0, 0) lies in
-   * the world. The view stays the one it is; only the surface is drawn anew, and only when the
-   * board is of another size or cut. The camera stands over the new board and shows what it
-   * showed until a frame is given (`setFrame`); the frame that was asked for stays asked for.
+   * the world. The view stays the one it is; only the surface is made anew, and only when the
+   * board is of another size or cut: its lines are then whole, whatever was drawn of the lines
+   * of the board before, until `drawGrid` says otherwise. The camera stands over the new board
+   * and shows what it showed until a frame is given (`setFrame`); the frame that was asked for
+   * stays asked for.
    */
   setBoard(shape: BoardShape): void {
     this.lay(shape);
@@ -463,23 +472,51 @@ export class BoardView {
     const gridSize = size + RIM * 2;
     this.floor.scale.set(floorSize, floorSize, 1);
     this.fill.scale.set(size, size, 1);
-    this.grid.scale.set(gridSize, gridSize, 1);
     this.frame.scale.set(gridSize, gridSize, 1);
-    for (const mesh of [this.floor, this.fill, this.grid, this.frame]) {
+    for (const mesh of [this.floor, this.fill, this.frame]) {
       mesh.position.x = centre;
       mesh.position.z = centre;
     }
 
-    // The pictures of the lines of the board that was on are let go.
-    const values = this.look.board;
-    this.layout = { cells: size, rim: RIM, holes: shape.holes };
-    this.partial?.map.dispose();
-    this.partial = null;
-    this.whole?.dispose();
-    this.whole = gridTexture(this.layout, Number(values.gridLine ?? 0), Number(values.gridEdge ?? 0));
-    this.grid.material.map = this.whole;
+    // The lines of the board that was on are let go, and whatever was drawn of them: these are whole.
+    this.sides = gridSegments(size, shape.holes);
+    this.grid.set(this.sides);
+    this.wave.share = 1;
+    this.wave.drawing = true;
+    this.wave.from = null;
     this.frame.material.map?.dispose();
-    this.frame.material.map = frameTexture(this.layout);
+    this.frame.material.map = frameTexture({ cells: size, rim: RIM, holes: shape.holes });
+  }
+
+  /**
+   * How much of the lines of the board is there, 0 to 1, and which way it is going: with
+   * `drawing` they are being drawn, as a wave from the cell `from` - the sides of that cell
+   * first, then on from its corners along the lines of the board, each by a bright point that
+   * runs along it and parts at every corner, the farthest whole at 1; without it
+   * they are being erased, the same run backwards: the farthest first, the point running
+   * towards the cell, the sides of the cell last, nothing at 0. `from` is a cell of the board
+   * that is on, in the coordinates of its rules: the player's; it is kept until another is
+   * named or another board is put on, and a wave that starts from another cell is counted once,
+   * here, not while it runs. Until this is called a board has all its lines: `drawGrid(1, true)`.
+   *
+   * The share is the wave's, not a time: whoever calls this gives it elapsed / `drawMs` (or 1 -
+   * elapsed / `eraseMs`) on every frame. The wave has one part for every side on its longest
+   * way and one for the cell (`gridParts`), and a side is drawn in one part; at
+   * 1 / `gridParts` the cell the wave starts from stands whole and alone.
+   */
+  drawGrid(share: number, drawing: boolean, from?: { x: number; z: number }): void {
+    const { wave } = this;
+    if (from && (!wave.from || wave.from.x !== from.x || wave.from.z !== from.z)) {
+      wave.from = { x: from.x, z: from.z };
+      this.grid.set(waveFrom(this.sides, wave.from));
+    }
+    wave.share = Math.min(1, Math.max(0, share));
+    wave.drawing = drawing;
+  }
+
+  /** How many equal parts the wave of the lines has from the cell it starts from: a side is drawn in one of them. */
+  get gridParts(): number {
+    return this.grid.reach + 1;
   }
 
   /** Stands the camera over the board, pointed as it is, and counts what of the board has to fit. */
@@ -711,36 +748,12 @@ export class BoardView {
   }
 
   /**
-   * The surface goes out or comes: only the rows of `bands` of its lines are drawn, and with
-   * `dice` the dice of the board are as far here as that says, 0 to 1, gathering the dots of the
-   * tube the way a die comes in a session; one that is leaving comes as far as it stands and no
-   * further. Null: the board stands, whole. The picture of the rows is drawn anew only when the
-   * rows change, a handful of times in a passage, and is let go when the board stands.
+   * The dice of a board that comes are as far here as `dice` says, 0 to 1, gathering the dots of
+   * the tube the way a die comes in a session; one that is leaving comes as far as it stands and
+   * no further. Null: the dice stand as the rules have them.
    */
-  setReveal(bands: GridBands | null, dice: number | null = null): void {
-    this.cubes.lay(bands ? dice : null);
-    const { material } = this.grid;
-    const { cells } = this.layout;
-    // All the rows are the picture the surface stands with.
-    if (!bands || [bands.edge, bands.lines].every(([from, to]) => from <= 0 && to >= cells)) {
-      if (!this.partial) return;
-      material.map = this.whole;
-      this.partial.map.dispose();
-      this.partial = null;
-      return;
-    }
-    const rows = `${bands.edge}|${bands.lines}`;
-    if (this.partial?.rows === rows) return;
-    const values = this.look.board;
-    const line = Number(values.gridLine ?? 0);
-    const edge = Number(values.gridEdge ?? 0);
-    if (this.partial) {
-      redrawGrid(this.partial.map, this.layout, line, edge, bands);
-      this.partial.rows = rows;
-    } else {
-      this.partial = { map: gridTexture(this.layout, line, edge, bands), rows };
-      material.map = this.partial.map;
-    }
+  setReveal(dice: number | null): void {
+    this.cubes.lay(dice);
   }
 
   /** `riseIn` brings the dice and the figure up out of the floor instead of showing them at once. */
@@ -891,8 +904,9 @@ export class BoardView {
     // The surface: a group sent runs over the lines, then the lines pulse by themselves, then
     // the run takes the colour of the group.
     const run = this.flash * step(contact.grid, 1);
-    this.grid.material.opacity = Math.min(1, n('gridBright') * (1 + 0.3 * wave(5200) * step(contact.grid, 2)) + run * 0.5);
-    this.grid.material.color.copy(this.tone).lerp(sent, run * step(contact.grid, 3)).lerp(this.red, 0.35 * step(contact.red, 2));
+    this.grid.opacity = Math.min(1, n('gridBright') * (1 + 0.3 * wave(5200) * step(contact.grid, 2)) + run * 0.5);
+    this.grid.colour.copy(this.tone).lerp(sent, run * step(contact.grid, 3)).lerp(this.red, 0.35 * step(contact.red, 2));
+    this.grid.show(this.wave.share, this.wave.drawing, timeMs);
     this.fill.visible = n('gridFill') > 0;
     this.fill.material.opacity = n('gridFill');
 
@@ -1144,12 +1158,12 @@ export class BoardView {
     this.signs.dispose();
     this.warnings.dispose();
     this.bursts.dispose();
-    for (const mesh of [this.fill, this.grid, this.frame]) {
+    for (const mesh of [this.fill, this.frame]) {
       mesh.geometry.dispose();
       mesh.material.map?.dispose();
       mesh.material.dispose();
     }
-    if (this.partial) this.whole?.dispose();
+    this.grid.dispose();
     this.floor.geometry.dispose();
     (this.floor.material as THREE.Material).dispose();
   }

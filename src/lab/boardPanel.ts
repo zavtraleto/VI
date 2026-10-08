@@ -17,6 +17,7 @@ const FOLDERS: Record<keyof typeof BOARD_GROUPS, string> = {
   signs: 'Знаки',
   screen: 'Экран',
   view: 'Вид',
+  road: 'Дорога',
 };
 
 /** What the parameters are called on the panel; one without a name here shows its own. */
@@ -76,6 +77,18 @@ const LABELS: Record<string, string> = {
   edge: 'игрок от края экрана, доля',
   lens: 'линза поверх кадра (проба)',
   sharp: 'линза: плотность слоя, доля',
+  comboStepMs: 'комбо: шаг между костями, мс',
+  comboHoldMs: 'комбо: пауза, мс',
+  sinkMs: 'комбо: уход под пол, мс',
+  eraseMs: 'линии: стирание, мс',
+  cameraMs: 'камера: переезд, мс',
+  drawMs: 'линии: отрисовка, мс',
+  headGlow: 'линии: яркая точка',
+  afterglowMs: 'линии: послесвечение, мс',
+  riseMs: 'кости: подъём, мс',
+  riseStepMs: 'кости: шаг подъёма, мс',
+  fixedTone: 'фиксированная: свет граней',
+  fixedEdge: 'фиксированная: свет рёбер',
   bgNight: 'фон ночью',
   bgDay: 'фон днём',
   toneNight: 'тон ночью',
@@ -106,6 +119,7 @@ export class BoardPanel {
       group: () => lab.pulse(1),
       chain: () => lab.pulse(3),
       turnOver: () => lab.turnOver(),
+      playGrid: () => lab.playGrid(),
       copy: () => {
         void lab.copy().then((done) => {
           copy.name(done ? 'Скопировано' : 'Не вышло скопировать');
@@ -157,6 +171,12 @@ export class BoardPanel {
 
     for (const [group, params] of Object.entries(BOARD_GROUPS)) {
       const folder = gui.addFolder(FOLDERS[group as keyof typeof BOARD_GROUPS]);
+      if (group === 'road') {
+        // Only here: the lines of the sample board erased and drawn, by hand or as a passage does it.
+        folder.add(lab.grid, 'share', 0, 1, 0.005).name('линии: прогресс').listen().onChange(() => lab.holdGrid());
+        folder.add(lab.grid, 'erasing').name('ползунок стирает').listen();
+        folder.add(head, 'playGrid').name('Сыграть: стереть и нарисовать');
+      }
       for (const [name, spec] of Object.entries(params)) this.control(folder, lab.look.board, name, spec);
       folder.close();
     }

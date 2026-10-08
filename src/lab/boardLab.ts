@@ -104,6 +104,13 @@ export class BoardLab {
   readonly stand = { ...PLAYER };
   /** How the board is seen at this moment: whole, or followed. */
   viewNow = 'full';
+  /**
+   * How much of the lines of the board is drawn, 0 to 1, and whether what is there is what an
+   * erasing has left: the wave starts from the cell the figure stands on.
+   */
+  readonly grid = { share: 1, erasing: false };
+  /** When the lines began to be erased and drawn as a passage does it; null while they are held by hand. */
+  private gridPlay: number | null = null;
   private readonly container: HTMLElement;
   private readonly backdrop = new Backdrop(this.display);
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
@@ -175,6 +182,8 @@ export class BoardLab {
       this.stale = false;
     }
     const { view } = this;
+    this.runGrid(timeMs);
+    view.drawGrid(this.grid.share, !this.grid.erasing, this.stand);
     view.draw(this.state, 0, timeMs, {
       overlay: { boardPreview: false, matchHint: false, guide: null },
       contact: {
@@ -246,6 +255,28 @@ export class BoardLab {
     ]);
     // A chain is answered as a session answers it: sparks, a ring, and on a long one the colours of the picture part.
     if (chain >= 2) this.view?.beat({ kind: 'chain', value, tier: chainTier(chain), cells: CHAIN.map(([x, z]) => ({ x, z })) }, this.state, false);
+  }
+
+  /** The lines of the board are erased towards the figure and drawn from it again, in the times the look names. */
+  playGrid(): void {
+    this.gridPlay = this.lastTime;
+  }
+
+  /** The lines are held where the panel has put them. */
+  holdGrid(): void {
+    this.gridPlay = null;
+  }
+
+  /** One frame of the lines being erased and then drawn. */
+  private runGrid(timeMs: number): void {
+    if (this.gridPlay === null) return;
+    const { grid } = this;
+    const erase = Math.max(1, Number(this.look.board.eraseMs));
+    const draw = Math.max(1, Number(this.look.board.drawMs));
+    const elapsed = timeMs - this.gridPlay;
+    grid.erasing = elapsed < erase;
+    grid.share = grid.erasing ? 1 - elapsed / erase : Math.min(1, (elapsed - erase) / draw);
+    if (elapsed >= erase + draw) this.gridPlay = null;
   }
 
   /** The contact goes past its last step. */

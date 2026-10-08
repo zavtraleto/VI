@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RIBBON_MS, nextBoard, revealBands, ribbonPhase, startBoard } from './ribbon';
+import { RIBBON_MS, nextBoard, ribbonPhase, startBoard } from './ribbon';
 
 describe('the board the program opens on', () => {
   it('is the first stage for one who has not passed the first level, whatever they have passed of the list', () => {
@@ -99,33 +99,5 @@ describe('the phases of the passage between two boards', () => {
     expect(ribbonPhase(0, true)).toEqual({ phase: 'figure', rows: 1, figure: 1 });
     expect(ribbonPhase(299, true)).toEqual({ phase: 'figure', rows: 1, figure: 1 });
     expect(ribbonPhase(300, true)).toEqual({ phase: 'done', rows: 1, figure: 1 });
-  });
-});
-
-describe('the rows of the surface that are drawn', () => {
-  it('a board going out loses its rows from the top, whole rows at a time', () => {
-    expect(revealBands(1, 4, false)).toEqual({ edge: [0, 4], lines: [0, 4] });
-    expect(revealBands(0.9, 4, false)).toEqual({ edge: [0, 4], lines: [0, 4] });
-    expect(revealBands(0.5, 4, false)).toEqual({ edge: [2, 4], lines: [2, 4] });
-    expect(revealBands(0.1, 4, false)).toEqual({ edge: [3, 4], lines: [3, 4] });
-    expect(revealBands(0, 4, false)).toEqual({ edge: [4, 4], lines: [4, 4] });
-  });
-
-  it('a board coming gets its heavy line first, row by row from the top, and the lines inside a row behind', () => {
-    expect(revealBands(0, 4, true)).toEqual({ edge: [0, 0], lines: [0, 0] });
-    expect(revealBands(0.1, 4, true)).toEqual({ edge: [0, 1], lines: [0, 0] });
-    expect(revealBands(0.5, 4, true)).toEqual({ edge: [0, 3], lines: [0, 2] });
-    expect(revealBands(0.9, 4, true)).toEqual({ edge: [0, 4], lines: [0, 3] });
-    expect(revealBands(1, 4, true)).toEqual({ edge: [0, 4], lines: [0, 4] });
-  });
-
-  it('changes no more often than a board has rows, and one time more for a board that comes', () => {
-    for (const cells of [3, 5, 6]) {
-      for (const coming of [false, true]) {
-        const seen = new Set<string>();
-        for (let i = 0; i <= 1000; i++) seen.add(JSON.stringify(revealBands(i / 1000, cells, coming)));
-        expect(seen.size).toBe(coming ? cells + 2 : cells + 1);
-      }
-    }
   });
 });

@@ -33,7 +33,7 @@ describe('board params', () => {
     expect(parseBoardValue('nothing', '1')).toBeUndefined();
   });
 
-  it('takes the view from an address, and only the view', () => {
+  it('takes the view from an address, and nothing else of the look', () => {
     expect(readView('')).toEqual({});
     expect(readView('?lab=board&perf&msaa=2')).toEqual({});
     expect(readView('?view=follow&focus=0.5&lens=1&followMs=400&edge=0.2&minCell=70&sharp=0.5')).toEqual({
@@ -47,6 +47,31 @@ describe('board params', () => {
     });
     // The rest of the look is not set from the address of the game.
     expect(readView('?view=full&gridBright=1')).toEqual({ view: 'full' });
+  });
+
+  it('takes the passage between boards from an address too', () => {
+    expect(readView('?drawMs=1600&eraseMs=900&headGlow=1.5&afterglowMs=0')).toEqual({ drawMs: 1600, eraseMs: 900, headGlow: 1.5, afterglowMs: 0 });
+    // What makes no sense is left as it is defined.
+    expect(readView('?drawMs=5&headGlow=bright&sinkMs=99999')).toEqual({});
+  });
+
+  it('names every number of the passage between boards as the plan has it', () => {
+    const defaults = boardDefaults();
+    const road = Object.fromEntries(Object.keys(BOARD_GROUPS.road).map((name) => [name, defaults[name]]));
+    expect(road).toEqual({
+      comboStepMs: 140,
+      comboHoldMs: 350,
+      sinkMs: 1300,
+      eraseMs: 700,
+      cameraMs: 900,
+      drawMs: 1100,
+      headGlow: 1,
+      afterglowMs: 250,
+      riseMs: 600,
+      riseStepMs: 90,
+      fixedTone: 0.35,
+      fixedEdge: 0.5,
+    });
   });
 
   it('keeps the view as it is defined where the address makes no sense', () => {
