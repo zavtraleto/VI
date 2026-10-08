@@ -161,6 +161,8 @@ const DEAD_END_LINE: Record<Exclude<LevelDeadEnd, 'count'>, TextKey> = { strande
  * made is counted, as on the levels that came after the lessons.
  */
 const CHAPTERS_COUNTED = 0;
+/** How long the side of the seal that a swipe pointed at stays lit after the finger has let go. */
+const SEAL_LINGER_MS = 280;
 /**
  * The level from which the step with no way back is marked: the one that says a combo on its way
  * out can be walked over and stepped off, or the first while no level says so.
@@ -240,6 +242,8 @@ export class Game {
   private lastFrame = 0;
   /** Where a swipe has to point for each board direction; follows the camera. */
   private swipeDirs: ScreenDirs = CARDINAL_DIRS;
+  /** The direction the last swipe was read as, lit on the seal for a moment after it. */
+  private sealLight: { dir: Dir; until: number } | null = null;
   /** The breath the game holds on a beat. */
   private readonly hold = new Hitstop();
   /** The peak of the contact on the last frame, to notice it begin. */
@@ -1281,6 +1285,14 @@ export class Game {
     return { board: { arrows, frames }, lesson, mark: own };
   }
 
+  /** The side of the seal a swipe being read points at; after a flick it stays lit for a moment. */
+  private sealLit(time: number): Dir | null {
+    const live = this.inputEnabled() ? this.tracker.direction : null;
+    if (live) this.sealLight = { dir: live, until: time + SEAL_LINGER_MS };
+    else if (this.sealLight && (time > this.sealLight.until || !this.inputEnabled())) this.sealLight = null;
+    return this.sealLight?.dir ?? null;
+  }
+
   /** Leaves the tutorial for a normal run, from where the player stands. */
   private skipTutorial(): void {
     if (!this.state.tutorial || this.inMenu) return;
@@ -1927,7 +1939,7 @@ export class Game {
   }
 
   /** The die under the player, unfolded: what the corner of the screen shows of it. */
-  private sealView(state: RunState, mark: MarkFace | null, pulse: Dir | null): HudSeal {
+  private sealView(state: RunState, mark: MarkFace | null, active: Dir | null, pulse: Dir | null): HudSeal {
     const { player } = state;
     const own = player.level === 'top' ? cubeAt(state, player.x, player.z) : undefined;
     const busy = player.action !== undefined || state.over;
@@ -1943,6 +1955,7 @@ export class Game {
       faces: own ? { top: { value: own.ori.top, turns: quarterTurns(own.ori) }, N: side('N'), E: side('E'), S: side('S'), W: side('W') } : null,
       sinking: own?.state === 'sinking',
       blocked,
+      active,
       pulse,
       marked: own && mark ? (DIRS.find((dir) => SIDE[dir] === mark) ?? null) : null,
       commits: state.levelRun && this.levelIndex + 1 >= LEVEL_OF_COMMIT ? this.commitSides(state) : [],
@@ -1950,7 +1963,7 @@ export class Game {
   }
 
   /** Everything the session shows over the board at this moment. */
-  private hudView(state: RunState, stage: Rect, lesson: HudLesson | null, mark: MarkFace | null, reducedMotion: boolean): HudView {
+  private hudView(state: RunState, stage: Rect, lesson: HudLesson | null, mark: MarkFace | null, steer: Dir | null, reducedMotion: boolean): HudView {
     const over = (x: number, y: number, z: number) => {
       const p = this.view.project(x, y, z);
       return { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) };
@@ -2006,7 +2019,7 @@ export class Game {
               steps: CONTACT_STEPS.length,
               next: nextThreshold(state.removed),
             },
-      seal: this.sealView(state, mark, lesson?.dir ?? null),
+      seal: this.sealView(state, mark, steer, lesson?.dir ?? null),
       labels,
       lesson,
       note,
@@ -2097,6 +2110,7 @@ export class Game {
     this.root.classList.toggle('shell-open', covered || this.signal.busy);
     this.world.look.opacity = covered ? 0 : 1;
     const stage = this.stageRect();
+    const lit = this.sealLit(time);
     const guide = this.updateGuide(state, stage);
     if (!covered) {
       this.view.draw(state, alpha, time, {
@@ -2119,7 +2133,7 @@ export class Game {
       this.backdrop.clear();
     }
     const shown = !covered && !this.inMenu && !this.signal.busy;
-    this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, reducedMotion) : null, time);
+    this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, lit, reducedMotion) : null, time);
     // The readings stand above the board on a tall screen and beside it on a wide one: the
     // box of the page that keeps their room follows them.
     const header = `${this.hud.headerHeight}px`;
