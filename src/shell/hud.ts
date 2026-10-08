@@ -6,7 +6,7 @@ import { faceColour, figureColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, toolButtons, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, lineSize, toolButtons, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -376,13 +376,6 @@ const FALL_EVERY_MS = 1700;
 const FALL_MS = 900;
 /** The colour of a sign in a foreign hand: the white of the captions. */
 const FOREIGN_INK = '#f4f1ea';
-/**
- * Letters of the voice over the board, in CSS pixels. On a tall screen they are a fixed size;
- * on a wide one they follow the height of the window, between these two.
- */
-const LINE_SIZE_TALL = 19;
-const LINE_SIZE_WIDE: readonly [number, number] = [26, 46];
-const LINE_SHARE_WIDE = 0.052;
 
 function rgb(hex: string): [number, number, number] {
   const value = Number.parseInt(hex.replace('#', '').padEnd(6, '0').slice(0, 6), 16) || 0;
@@ -549,14 +542,16 @@ export class GameHud {
     return this.hintPlace(stage, text).room;
   }
 
-  private hintPlace(stage: Rect, text: string): { box: Rect; room: number } {
+  /** Where the line of a hint stands and the room it keeps; its letters are those of the words of the exercise (`lineSize`). */
+  private hintPlace(stage: Rect, text: string): { box: Rect; room: number; size: number } {
+    const size = lineSize(stage);
     const zoom = this.kit.zoom;
     const window = { width: this.kit.width * zoom, height: this.kit.height * zoom };
     // The buttons of a level, both with the longest label they take (UNDO and the moves left), are in the same corner of the stage.
     const picture = toolButtons(this.toPicture(stage), zoom, this.kit.measure(`${HUD.undo} 9`)).box;
     const tools: Rect = { x: picture.x * zoom, y: picture.y * zoom, width: picture.w * zoom, height: picture.h * zoom };
-    const { box } = hintBox(stage, window, safeInsets(), NOTE_SIZE, 0, tools);
-    return hintBox(stage, window, safeInsets(), NOTE_SIZE, this.voice.height(text, box.width, NOTE_SIZE), tools);
+    const { box } = hintBox(stage, window, safeInsets(), size, 0, tools);
+    return { ...hintBox(stage, window, safeInsets(), size, this.voice.height(text, box.width, size), tools), size };
   }
 
   /**
@@ -678,8 +673,8 @@ export class GameHud {
       });
     }
     if (hint) {
-      const { box } = this.hintPlace(view.stage, hint.text);
-      this.voice.say({ text: hint.text, box, size: NOTE_SIZE, anchor: 'top', alpha: hint.alpha });
+      const { box, size } = this.hintPlace(view.stage, hint.text);
+      this.voice.say({ text: hint.text, box, size, anchor: 'top', alpha: hint.alpha });
     }
     kit.end();
     this.voice.end();
@@ -1225,7 +1220,7 @@ export class GameHud {
   /** Where the words of the exercise go, in CSS pixels, and how large their letters are. */
   private lineFrame(stage: Rect): { x: number; width: number; size: number } {
     const tall = stage.height > stage.width;
-    const size = tall ? LINE_SIZE_TALL : Math.round(Math.min(LINE_SIZE_WIDE[1], Math.max(LINE_SIZE_WIDE[0], stage.height * LINE_SHARE_WIDE)));
+    const size = lineSize(stage);
     const width = tall ? stage.width - 20 : Math.min(stage.width * 0.9, size * 34);
     return { x: stage.x + (stage.width - width) / 2, width, size };
   }

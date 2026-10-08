@@ -5,7 +5,7 @@ import { worldRuns } from '../rules/level';
 import { createRun, step } from '../rules/sim';
 import type { Dir, GameEvent, LevelSpec, RunState } from '../rules/types';
 import { wrapCaption } from '../signal/caption';
-import { hintAlpha, hintBox, hintResumes, HINT_FADE_MS, NOTE_SIZE, toolButtons } from '../shell/hudLayout';
+import { hintAlpha, hintBox, hintResumes, HINT_FADE_MS, NOTE_SIZE, lineSize, toolButtons } from '../shell/hudLayout';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
 import { DeadEnds, hintOver, probeHint } from './hint';
 import { roadWait } from './signWay';
@@ -94,8 +94,9 @@ describe('the lines of the road', () => {
 
   it('fit a phone: one line, or two at the most, at the width the hint has, in every language', () => {
     // The serif of the voice is not measured here: a letter of it is taken as 0.6 of its height, wider than the real one.
-    const letter = NOTE_SIZE * 0.6;
-    const phone = hintBox({ x: 0, y: 110, width: 360, height: 530 }, { width: 360, height: 640 }, { top: 0, right: 0, bottom: 0, left: 0 }, NOTE_SIZE, 0).box;
+    const size = lineSize({ width: 360, height: 530 });
+    const letter = size * 0.6;
+    const phone = hintBox({ x: 0, y: 110, width: 360, height: 530 }, { width: 360, height: 640 }, { top: 0, right: 0, bottom: 0, left: 0 }, size, 0).box;
     for (const code of LANGUAGES) {
       setLanguage(code);
       for (const [id, hint] of pieces) {
@@ -118,13 +119,30 @@ describe('the line of the address of development', () => {
   });
 });
 
+describe('the letters of the line', () => {
+  it('are those of the words of the exercise: a fixed size on a tall stage, by the height of a wide one, between two sizes', () => {
+    expect(lineSize({ width: 360, height: 530 })).toBe(19);
+    expect(lineSize({ width: 390, height: 700 })).toBe(19);
+    expect(lineSize({ width: 1680, height: 1080 })).toBe(46);
+    expect(lineSize({ width: 1920, height: 1080 })).toBe(46);
+    expect(lineSize({ width: 1280, height: 720 })).toBe(37);
+    expect(lineSize({ width: 640, height: 360 })).toBe(26);
+  });
+
+  it('are larger than those of a note on every stage', () => {
+    for (const stage of [{ width: 360, height: 530 }, { width: 640, height: 360 }, { width: 1680, height: 1080 }]) expect(lineSize(stage)).toBeGreaterThan(NOTE_SIZE);
+  });
+});
+
 describe('where the line stands', () => {
   const NONE = { top: 0, right: 0, bottom: 0, left: 0 };
-  const LINE = NOTE_SIZE * 1.3;
+  const PHONE = lineSize({ width: 360, height: 530 });
+  const DESK = lineSize({ width: 1680, height: 1080 });
+  const LINE = PHONE * 1.3;
 
   it('is at the top of the stage on a phone, centred, inside the window, and the board is given the room under it', () => {
     const stage = { x: 0, y: 110, width: 360, height: 530 };
-    const { box, room } = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * 2);
+    const { box, room } = hintBox(stage, { width: 360, height: 640 }, NONE, PHONE, LINE * 2);
     expect(box.y).toBeGreaterThanOrEqual(stage.y);
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(360);
@@ -136,10 +154,10 @@ describe('where the line stands', () => {
 
   it('is at the top of the stage on a wide screen, centred in the stage and not wider than forty letters', () => {
     const stage = { x: 240, y: 0, width: 1680, height: 1080 };
-    const { box, room } = hintBox(stage, { width: 1920, height: 1080 }, NONE, NOTE_SIZE, LINE);
+    const { box, room } = hintBox(stage, { width: 1920, height: 1080 }, NONE, DESK, DESK * 1.3);
     expect(box.x).toBeGreaterThanOrEqual(stage.x);
     expect(box.x + box.width).toBeLessThanOrEqual(1920);
-    expect(box.width).toBeLessThanOrEqual(NOTE_SIZE * 40);
+    expect(box.width).toBeLessThanOrEqual(DESK * 40);
     expect(box.x + box.width / 2).toBeCloseTo(stage.x + stage.width / 2);
     expect(stage.y + room).toBeGreaterThanOrEqual(box.y + box.height);
     expect(room).toBeLessThan(stage.height / 8);
@@ -148,13 +166,13 @@ describe('where the line stands', () => {
   it('stays inside what the edges of the screen keep', () => {
     const stage = { x: 0, y: 110, width: 360, height: 530 };
     const safe = { top: 0, right: 40, bottom: 0, left: 30 };
-    const { box } = hintBox(stage, { width: 360, height: 640 }, safe, NOTE_SIZE, LINE);
+    const { box } = hintBox(stage, { width: 360, height: 640 }, safe, PHONE, LINE);
     expect(box.x).toBeGreaterThanOrEqual(30);
     expect(box.x + box.width).toBeLessThanOrEqual(360 - 40);
   });
 
   it('takes no more than the line of a stage too narrow for it', () => {
-    const { box } = hintBox({ x: 0, y: 0, width: 20, height: 100 }, { width: 20, height: 100 }, NONE, NOTE_SIZE, LINE);
+    const { box } = hintBox({ x: 0, y: 0, width: 20, height: 100 }, { width: 20, height: 100 }, NONE, PHONE, LINE);
     expect(box.width).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(20);
   });
@@ -237,7 +255,9 @@ describe('the dead ends of a piece', () => {
 
 describe('the line and the buttons of a level', () => {
   const NONE = { top: 0, right: 0, bottom: 0, left: 0 };
-  const LINE = NOTE_SIZE * 1.3;
+  const PHONE = lineSize({ width: 360, height: 530 });
+  const DESK = lineSize({ width: 1680, height: 1080 });
+  const LINE = PHONE * 1.3;
   /** The buttons as the hud puts them, in CSS pixels: the picture is zoomed by `zoom`; the label is some 60 picture pixels wide. */
   const tools = (stage: { x: number; y: number; width: number; height: number }, zoom: number) => {
     const { box } = toolButtons({ x: stage.x / zoom, y: stage.y / zoom, w: stage.width / zoom, h: stage.height / zoom }, zoom, 60);
@@ -255,8 +275,8 @@ describe('the line and the buttons of a level', () => {
   it('keep the line below them on a phone, inside the window, with the room covering the line', () => {
     const stage = { x: 0, y: 110, width: 360, height: 530 };
     const buttons = tools(stage, 1.5);
-    const free = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * 2);
-    const { box, room } = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * 2, buttons);
+    const free = hintBox(stage, { width: 360, height: 640 }, NONE, PHONE, LINE * 2);
+    const { box, room } = hintBox(stage, { width: 360, height: 640 }, NONE, PHONE, LINE * 2, buttons);
     expect(box.y).toBeGreaterThanOrEqual(buttons.y + buttons.height);
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(360);
@@ -268,24 +288,42 @@ describe('the line and the buttons of a level', () => {
   it('keep the longest line of any language below them on a phone, in at most two rows', () => {
     const stage = { x: 0, y: 110, width: 360, height: 530 };
     const buttons = tools(stage, 1.5);
-    const { box } = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * 2, buttons);
+    const { box } = hintBox(stage, { width: 360, height: 640 }, NONE, PHONE, LINE * 2, buttons);
     let longest = '';
     for (const code of LANGUAGES) {
       setLanguage(code);
       for (const hint of Object.values(ROAD_HINTS)) if (t(hint.key as TextKey).length > longest.length) longest = t(hint.key as TextKey);
     }
     setLanguage('en');
-    const rows = wrapCaption(longest, box.width, (line) => line.length * NOTE_SIZE * 0.6);
+    const rows = wrapCaption(longest, box.width, (line) => line.length * PHONE * 0.6);
     expect(rows.length).toBeLessThanOrEqual(2);
-    const { box: placed } = hintBox(stage, { width: 360, height: 640 }, NONE, NOTE_SIZE, LINE * rows.length, buttons);
+    const { box: placed, room } = hintBox(stage, { width: 360, height: 640 }, NONE, PHONE, LINE * rows.length, buttons);
     expect(placed.y).toBeGreaterThanOrEqual(buttons.y + buttons.height);
+    expect(placed.x).toBeGreaterThanOrEqual(0);
+    expect(placed.x + placed.width).toBeLessThanOrEqual(360);
+    expect(stage.y + room).toBeGreaterThanOrEqual(placed.y + placed.height);
+    expect(room).toBeLessThan(stage.height / 3);
   });
 
-  it('are not in the way of the line on a wide screen: it stays where it was', () => {
+  it('keep the line below them on a wide screen too, where its letters are large and its box reaches them', () => {
+    const stage = { x: 240, y: 0, width: 1680, height: 1080 };
+    for (const zoom of [1, 3]) {
+      const buttons = tools(stage, zoom);
+      const { box, room } = hintBox(stage, { width: 1920, height: 1080 }, NONE, DESK, DESK * 1.3, buttons);
+      expect(box.y).toBeGreaterThanOrEqual(buttons.y + buttons.height);
+      expect(box.x).toBeGreaterThanOrEqual(stage.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(1920);
+      expect(stage.y + room).toBeGreaterThanOrEqual(box.y + box.height);
+      // One row of the line under the buttons leaves the board more than four fifths of the stage.
+      expect(room).toBeLessThan(stage.height / 5);
+    }
+  });
+
+  it('are not in the way of a line that does not reach them: it stays where it was', () => {
     const stage = { x: 240, y: 0, width: 1680, height: 1080 };
     const buttons = tools(stage, 1);
-    const free = hintBox(stage, { width: 1920, height: 1080 }, NONE, NOTE_SIZE, LINE);
-    const placed = hintBox(stage, { width: 1920, height: 1080 }, NONE, NOTE_SIZE, LINE, buttons);
+    const free = hintBox(stage, { width: 1920, height: 1080 }, NONE, NOTE_SIZE, NOTE_SIZE * 1.3);
+    const placed = hintBox(stage, { width: 1920, height: 1080 }, NONE, NOTE_SIZE, NOTE_SIZE * 1.3, buttons);
     expect(placed).toEqual(free);
   });
 });

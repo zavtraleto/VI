@@ -174,6 +174,17 @@ export function startBoard(road: string | undefined, firstPassed: boolean, onwar
 }
 
 /**
+ * Where the file of the levels in the menu leads: to the piece of the road the player is on,
+ * while the road is not finished; null is the list of the levels, for one who is past the road
+ * and at the address that opens on the list (`list`). `road` and `firstPassed` are what is kept
+ * of the player's place (`roadPlace`).
+ */
+export function levelsFile(road: string | undefined, firstPassed: boolean, list: boolean): Board | null {
+  const place = list ? null : roadPlace(road, firstPassed);
+  return place === null ? null : { road: place };
+}
+
+/**
  * Which board comes after this one: the next piece of the road; after its last `onward`, the
  * level of the list the player goes on with, so that one who has passed levels of the list is
  * not walked through them again; the next level after a level of the list; null after the last.

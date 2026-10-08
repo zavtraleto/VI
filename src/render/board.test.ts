@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FRAME_MARGIN, SIDE_MARGIN, boardBounds, frameOf, shapeKey, sightOf, toFloor, toPlane, type BoardShape, type CameraAxes } from './board';
+import { FRAME_MARGIN, SIDE_MARGIN, boardBounds, cellsOf, frameOf, frameOfPiece, shapeKey, sightOf, toFloor, toPlane, type BoardShape, type CameraAxes } from './board';
+import { ROAD, ROAD_BLOCKS } from '../levels/road';
 import { cellPixels, fitBoard } from './framing';
 
 /** The axes of a camera that is turned by `yaw` and looks down by `pitch`, in degrees: what the view reads off its camera. */
@@ -106,5 +107,75 @@ describe('shapeKey', () => {
     expect(shapeKey(cut)).not.toBe(shapeKey(board(5)));
     expect(shapeKey(cut)).not.toBe(shapeKey({ ...cut, holes: [{ x: 0, z: 0 }] }));
     expect(shapeKey(board(5))).not.toBe(shapeKey(board(6)));
+  });
+});
+
+describe('frameOfPiece', () => {
+  const [width, height] = [1920, 1080];
+  const shapeOf = (spec: { size: number; holes?: readonly { x: number; z: number }[] }, x = 0, z = 0): BoardShape => ({ size: spec.size, holes: spec.holes ?? [], origin: { x, z } });
+  const piece = (id: string): BoardShape => shapeOf(ROAD.find((one) => one.id === id)!);
+  const first = ROAD.slice(ROAD_BLOCKS[0].from, ROAD_BLOCKS[0].to + 1);
+
+  it('counts the rectangle of the cells that are left of a square', () => {
+    expect(cellsOf(piece('R01'))).toEqual({ minX: 2, maxX: 2, minZ: 0, maxZ: 5 });
+    expect(cellsOf(piece('R03'))).toEqual({ minX: 0, maxX: 1, minZ: 0, maxZ: 1 });
+    expect(cellsOf(piece('R05'))).toEqual({ minX: 0, maxX: 3, minZ: 0, maxZ: 2 });
+    expect(cellsOf(board(5))).toEqual({ minX: 0, maxX: 4, minZ: 0, maxZ: 4 });
+  });
+
+  it('is the frame of the square for a board with every cell, wherever it lies and whatever is kept at the top', () => {
+    for (const a of [STRAIGHT, DIAMOND]) {
+      for (const clear of [0, 120]) {
+        for (const shape of [board(2), board(4, 3, -7), board(6)]) {
+          expect(frameOfPiece(shape, [], a, 360, 640, clear)).toEqual(frameOf(shape, a, 360, 640, clear));
+        }
+      }
+    }
+  });
+
+  it('fits a strip of six by its cells, over the middle of the strip and not of its square', () => {
+    for (const a of [STRAIGHT, DIAMOND]) {
+      const strip = frameOfPiece(piece('R01'), [], a, width, height, 0);
+      const square = frameOf(piece('R01'), a, width, height, 0);
+      expect(strip.cell).toBeGreaterThanOrEqual(square.cell - 1e-9);
+      // Column 2, between rows 2 and 3: the picture is over the middle of the strip.
+      expect(sightOf(strip, a, height).r).toBeCloseTo(toPlane(a, 2, 2.5).r);
+    }
+    // Seen from a corner a strip is far narrower and lower than its square, and its cell is larger.
+    expect(frameOfPiece(piece('R01'), [], DIAMOND, width, height, 0).cell).toBeGreaterThan(frameOf(piece('R01'), DIAMOND, width, height, 0).cell * 1.2);
+    expect(frameOfPiece(piece('R01'), [], DIAMOND, 360, 640, 0).cell).toBeGreaterThan(frameOf(piece('R01'), DIAMOND, 360, 640, 0).cell * 1.2);
+  });
+
+  it('frames a piece of two by two by itself as a board of two', () => {
+    for (const a of [STRAIGHT, DIAMOND]) expect(frameOfPiece(piece('R03'), [], a, width, height, 0)).toEqual(frameOf(board(2), a, width, height, 0));
+  });
+
+  it('gives the pieces of the first block one cell: the smallest any of them fits with by its cells', () => {
+    for (const a of [STRAIGHT, DIAMOND]) {
+      for (const [w, h] of [[1920, 1080], [360, 640]]) {
+        const cells = first.map((spec) => frameOfPiece(shapeOf(spec), first, a, w, h, 0).cell);
+        const alone = first.map((spec) => frameOfPiece(shapeOf(spec), [], a, w, h, 0).cell);
+        for (const cell of cells) expect(cell).toBeCloseTo(Math.min(...alone), 9);
+        // No piece of the block is a square of six, and none is fitted as one.
+        expect(cells[0]).toBeGreaterThanOrEqual(frameOf(board(6), a, w, h, 0).cell - 1e-9);
+      }
+    }
+    // At a camera that looks from a corner the block is seen larger than the squares of six of its first two pieces made it.
+    expect(frameOfPiece(piece('R03'), first, DIAMOND, width, height, 0).cell).toBeGreaterThan(frameOf(board(6), DIAMOND, width, height, 0).cell * 1.1);
+  });
+
+  it('keeps the middle of the piece and only takes the cell from the others', () => {
+    const alone = frameOfPiece(piece('R03'), [], DIAMOND, width, height, 0);
+    const shared = frameOfPiece(piece('R03'), first, DIAMOND, width, height, 0);
+    expect(shared.cell).toBeLessThan(alone.cell);
+    expect({ x: shared.x, z: shared.z }).toEqual({ x: alone.x, z: alone.z });
+  });
+
+  it('moves with the piece and keeps its cell, as the frame of a square does', () => {
+    const home = frameOfPiece(piece('R05'), first, DIAMOND, width, height, 0);
+    const moved = frameOfPiece({ ...piece('R05'), origin: { x: 4, z: -9 } }, first, DIAMOND, width, height, 0);
+    expect(moved.cell).toBeCloseTo(home.cell, 9);
+    expect(moved.x - home.x).toBeCloseTo(4);
+    expect(moved.z - home.z).toBeCloseTo(-9);
   });
 });

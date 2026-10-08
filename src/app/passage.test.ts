@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIRST_PASSED, ROAD, pieceAfter } from '../levels/road';
-import { boardAfter, orderOf, passageAt, passageEnd, startBoard, type PassageTimes } from './passage';
+import { boardAfter, levelsFile, orderOf, passageAt, passageEnd, startBoard, type PassageTimes } from './passage';
 
 /** The numbers the look has for the passage as it is first laid out. */
 const TIMES: PassageTimes = { comboStepMs: 140, comboHoldMs: 350, sinkMs: 1300, eraseMs: 700, cameraMs: 900, drawMs: 1100, riseMs: 600, riseStepMs: 90 };
@@ -156,5 +156,24 @@ describe('the order of the dice in a passage', () => {
 
   it('puts the dice named as late after all the others, in the same order among themselves', () => {
     expect(orderOf([{ x: 0, z: 0, late: true }, { x: 3, z: 0 }, { x: 1, z: 0, late: true }, { x: 2, z: 0 }], { x: 0, z: 0 })).toEqual([3, 1, 0, 2]);
+  });
+});
+
+describe('where the file of the levels in the menu leads', () => {
+  it('is the piece the player is on while the road is not finished', () => {
+    expect(levelsFile(undefined, false, false)).toEqual({ road: 0 });
+    expect(levelsFile('R04', false, false)).toEqual({ road: 3 });
+    expect(levelsFile(undefined, true, false)).toEqual({ road: 7 });
+    expect(levelsFile('R20', false, false)).toEqual({ road: ROAD.length - 1 });
+  });
+
+  it('is the list for one who is past the road', () => {
+    expect(levelsFile(pieceAfter(ROAD.length - 1), false, false)).toBeNull();
+    expect(levelsFile('R99', true, false)).toBeNull();
+  });
+
+  it('is the list at the address that opens on the list, wherever the player is', () => {
+    expect(levelsFile(undefined, false, true)).toBeNull();
+    expect(levelsFile('R04', false, true)).toBeNull();
   });
 });

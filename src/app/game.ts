@@ -34,7 +34,7 @@ import { shiftFor } from '../render/framing';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { goneShare, type DicePassing } from '../render/passing';
 import { BoardView, type Frame } from '../render/view';
-import { ROAD, ROAD_HINTS, blockOf, pieceAfter, pieceMiddle, roadPlace, type HintUntil, type RoadHintKey } from '../levels/road';
+import { ROAD, ROAD_HINTS, blockOf, placeAfter, type HintUntil, type RoadHintKey } from '../levels/road';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -98,7 +98,7 @@ import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
-import { boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type PassageCounts, type PassageTimes, type PassageView } from './passage';
+import { boardAfter, levelsFile, orderOf, passageAt, passageMarks, startBoard, type Board, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, hintOver, probeHint } from './hint';
 import { roadCounters } from './roadCounters';
@@ -1187,23 +1187,16 @@ export class Game {
 
   /**
    * The frame the board that is on is seen in: null for its own, whole, which the view keeps
-   * through every change of the window; for a piece of a block of the road that is seen at one
-   * scale, a frame over the middle of the cells of the piece, wherever in their square they lie,
-   * with the cell of the piece of the block that fits the window smallest. Such a frame is
-   * counted for the window as it is, and counted again when the window changes.
+   * through every change of the window, and a level of the list has it; for a piece of the road,
+   * a frame fitted by the cells of the piece, wherever in their square they lie, and not by the
+   * square. In a block of the road that is seen at one scale the cell of the frame is that of
+   * the piece of the block whose cells fit the window smallest. Such a frame is counted for the
+   * window as it is, and counted again when the window changes.
    */
   private boardFrame(): Frame | null {
-    const block = this.state.levelRun && this.piece !== null ? blockOf(this.piece) : null;
-    if (!block?.oneScale) return null;
-    const { shape } = this.view;
-    // The frame of the square, moved from the middle of the square to the middle of the cells that are left of it.
-    const middle = pieceMiddle(shape);
-    const centre = (shape.size - 1) / 2;
-    const frame = this.view.frameOf({ ...shape, origin: { x: shape.origin.x + middle.x - centre, z: shape.origin.z + middle.z - centre } });
-    for (let i = block.from; i <= block.to; i++) {
-      frame.cell = Math.min(frame.cell, this.view.frameOf({ size: ROAD[i].size, holes: ROAD[i].holes ?? [], origin: { x: 0, z: 0 } }).cell);
-    }
-    return frame;
+    if (!this.state.levelRun || this.piece === null) return null;
+    const block = blockOf(this.piece);
+    return this.view.frameOfPiece(this.view.shape, block?.oneScale ? ROAD.slice(block.from, block.to + 1) : []);
   }
 
   /** The numbers of the passage as the look has them now: the owner turns them while the game runs. */
@@ -1332,12 +1325,15 @@ export class Game {
     // With motion kept low the dice of the board do not come up: they stand.
     passing.moveMs = reduced ? Infinity : passage.elapsed - marks.rise;
     this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, true, player);
-    // A die that stands is heard as one that has come up in a session, and settles as one.
+    // A die that stands is heard as one that has come up in a session, and settles as one. With motion kept low
+    // the dice of the board all stand in one frame, and one note is played for the board, not one for each die.
+    let heard = false;
     for (; passage.risen < now.risen; passage.risen++) {
       const cube = getCube(this.state, passage.order[passage.risen]);
       if (!cube) continue;
       if (cube.state === 'idle') this.view.stood(cube.id);
-      this.audio.play({ kind: 'risen', face: cube.ori.top, pan: 0 });
+      if (!reduced || !heard) this.audio.play({ kind: 'risen', face: cube.ori.top, pan: 0 });
+      heard = true;
     }
     if (now.phase !== 'done') return;
     this.view.drawGrid(1, true);
@@ -1533,13 +1529,12 @@ export class Game {
       stat.bestLeft = Math.max(stat.bestLeft ?? 0, left);
       stat.bestMoves = Math.min(stat.bestMoves ?? run.moves, run.moves);
       this.settings.levels.passed[spec.id] = true;
-      // A piece of the road that is passed moves the player's place on the road to the piece after it, and never back:
-      // one who is further on, or past the road, and plays a piece again by its address stays where they were.
+      // The piece of the road the player is on, passed, moves their place to the piece after it; a piece
+      // played by its address, further on or behind, moves nothing, and neither does any for one past the road.
       if (this.piece !== null) {
         this.deadEnds.forget();
         const { levels } = this.settings;
-        const place = roadPlace(levels.road, levels.passed[FIRST_ID] === true);
-        if (place !== null && place <= this.piece) levels.road = pieceAfter(this.piece);
+        levels.road = placeAfter(levels.road, levels.passed[FIRST_ID] === true, this.piece);
       }
     } else {
       stat.fails++;
@@ -1733,8 +1728,14 @@ export class Game {
     this.shell.showMenu(
       {
         onEndless: () => this.startRun('endless'),
-        // The levels stand in the menu where the session of the day stood.
-        onLevels: () => this.showLevels(),
+        // The levels stand in the menu where the session of the day stood. While the road is not finished the
+        // file leads back to the piece the player is on, with no command to start it; after it, to the list.
+        onLevels: () => {
+          const { levels } = this.settings;
+          const board = levelsFile(levels.road, levels.passed[FIRST_ID] === true, LEVELS_PROBE);
+          if (board?.road !== undefined) this.startPiece(board.road);
+          else this.showLevels();
+        },
         onHowTo: () => this.showHowTo(),
         onReadme: () => this.showReadme(),
         onRecords: () => this.showRecords(() => this.showMenu()),

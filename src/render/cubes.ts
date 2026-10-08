@@ -654,7 +654,8 @@ export class CubeMeshes {
 
       // Its edges, around where it stands: brighter on the way down, fainter while it is low.
       if (glasses >= MAX_DICE) continue;
-      const bright = (sinking ? Math.max(1, glow.sinking) : 1) * (faint && (sinking || mounts) ? low : 1);
+      // A fixed die that comes has the fainter line of a fixed die, as it will stand with.
+      const bright = (sinking ? Math.max(1, glow.sinking) : 1) * (faint && (sinking || mounts) ? low : 1) * (dimmed ? n('fixedEdge') : 1);
       this.colour.copy(channel).multiplyScalar(Math.min(1, edge * bright));
       const from = glasses++ * outline.length;
       for (let i = 0; i < outline.length; i += 3) {

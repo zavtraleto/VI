@@ -491,6 +491,16 @@ export function roadPlace(road: string | undefined, firstPassed: boolean): numbe
 }
 
 /**
+ * What is kept of the player's place on the road once the piece at `piece` is passed. The place
+ * moves on, to the piece after it, only when that piece is the one the player is on; one who is
+ * further on or behind, or past the road, and plays a piece by its address stays where they
+ * were, and what was kept is given back as it was.
+ */
+export function placeAfter(road: string | undefined, firstPassed: boolean, piece: number): string | undefined {
+  return roadPlace(road, firstPassed) === piece ? pieceAfter(piece) : road;
+}
+
+/**
  * The middle of the cells of a board, in its own coordinates: of the smallest rectangle that
  * holds the cells left of its square. A piece is a few cells of a square, wherever in it they
  * lie, and the camera is put over these and not over the square.

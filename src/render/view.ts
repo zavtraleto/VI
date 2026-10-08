@@ -7,7 +7,7 @@ import type { Palette } from '../shell/theme';
 import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
 import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
-import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, shapeKey, sightOf, type BoardShape, type Frame, type Sight } from './board';
+import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, frameOfPiece, shapeKey, sightOf, type BoardShape, type Frame, type Sight } from './board';
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
 import { gridSegments, waveFrom, type GridSegment } from './gridLines';
 import { laidFace } from './laid';
@@ -434,6 +434,15 @@ export class BoardView {
    */
   frameOf(shape: BoardShape): Frame {
     return frameOf(shape, this.axes, this.width, this.height, this.clear);
+  }
+
+  /**
+   * The frame a piece of the road is in on this window as it is now: fitted by the cells that
+   * are left of its square, with the cell of whichever of the boards it is seen at one scale
+   * with (`together`) fits smallest (`frameOfPiece`).
+   */
+  frameOfPiece(shape: BoardShape, together: readonly { size: number; holes?: BoardShape['holes'] }[]): Frame {
+    return frameOfPiece(shape, together, this.axes, this.width, this.height, this.clear);
   }
 
   /**

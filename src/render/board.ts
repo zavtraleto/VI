@@ -102,6 +102,76 @@ export function frameOf(shape: BoardShape, axes: CameraAxes, width: number, heig
   return { ...toFloor(axes, middle.r + fit.centreR, middle.u + fit.centreU), cell: cellPixels(fit, height) };
 }
 
+/** The smallest rectangle that holds the cells left of the square of a board, in its own cells. */
+export function cellsOf(shape: Pick<BoardShape, 'size'> & { holes?: BoardShape['holes'] }): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const cut = new Set((shape.holes ?? []).map((cell) => `${cell.x},${cell.z}`));
+  const rect = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+  for (let z = 0; z < shape.size; z++) {
+    for (let x = 0; x < shape.size; x++) {
+      if (cut.has(`${x},${z}`)) continue;
+      rect.minX = Math.min(rect.minX, x);
+      rect.maxX = Math.max(rect.maxX, x);
+      rect.minZ = Math.min(rect.minZ, z);
+      rect.maxZ = Math.max(rect.maxZ, z);
+    }
+  }
+  return rect;
+}
+
+/**
+ * Extents of a rectangle of `wide` by `deep` cells on the camera's axes, counted from its
+ * middle: what `boardBounds` counts for a square, and the same for a square.
+ */
+function cellsBounds(wide: number, deep: number, axes: CameraAxes): FrameBounds {
+  const b: FrameBounds = { minR: Infinity, maxR: -Infinity, minU: Infinity, maxU: -Infinity, floorU: -Infinity };
+  const slabX = wide / 2 + RIM;
+  const slabZ = deep / 2 + RIM;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const r = along(sx * (slabX - RIM), 0, sz * (slabZ - RIM), axes.right);
+      b.minR = Math.min(b.minR, r);
+      b.maxR = Math.max(b.maxR, r);
+      for (const y of [0, TOP_Y]) {
+        const u = along(sx * slabX, y, sz * slabZ, axes.up);
+        b.minU = Math.min(b.minU, u);
+        b.maxU = Math.max(b.maxU, u);
+      }
+      b.floorU = Math.max(b.floorU, along(sx * slabX, 0, sz * slabZ, axes.up));
+    }
+  }
+  return b;
+}
+
+/** How the rectangle of the cells of a board is fitted into the window: as `frameOf` fits a square. */
+function fitCells(shape: Pick<BoardShape, 'size'> & { holes?: BoardShape['holes'] }, axes: CameraAxes, width: number, height: number, clear: number) {
+  const cells = cellsOf(shape);
+  const fit = fitBoard(cellsBounds(cells.maxX - cells.minX + 1, cells.maxZ - cells.minZ + 1, axes), width / height, clear / height, SIDE_MARGIN, FRAME_MARGIN);
+  return { cells, fit };
+}
+
+/**
+ * The frame a piece of the road is in: fitted by the rectangle of its cells, wherever in its
+ * square they lie, and not by the square, in a window of `width` by `height` CSS pixels whose
+ * top `clear` pixels the floor stays out of. A board with every cell has the frame `frameOf`
+ * gives it. `together` are the boards the piece is seen at one scale with: the cell of the frame
+ * is the smallest any of them is fitted with by its own cells, so that the widest of them
+ * enters, and the middle of the picture stays that of the piece.
+ */
+export function frameOfPiece(
+  shape: BoardShape,
+  together: readonly (Pick<BoardShape, 'size'> & { holes?: BoardShape['holes'] })[],
+  axes: CameraAxes,
+  width: number,
+  height: number,
+  clear: number,
+): Frame {
+  const { cells, fit } = fitCells(shape, axes, width, height, clear);
+  const middle = toPlane(axes, shape.origin.x + (cells.minX + cells.maxX) / 2, shape.origin.z + (cells.minZ + cells.maxZ) / 2);
+  let cell = cellPixels(fit, height);
+  for (const other of together) cell = Math.min(cell, cellPixels(fitCells(other, axes, width, height, clear).fit, height));
+  return { ...toFloor(axes, middle.r + fit.centreR, middle.u + fit.centreU), cell };
+}
+
 /** What the camera shows of a frame in a window `height` CSS pixels tall. */
 export function sightOf(frame: Frame, axes: CameraAxes, height: number): Sight {
   return { ...toPlane(axes, frame.x, frame.z), half: height / (2 * frame.cell) };

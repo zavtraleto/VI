@@ -11,7 +11,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { Ban } from '../rules/reach';
 import type { Dir, LevelSpec, MoveKind, Orientation, RunState } from '../rules/types';
 import { LEVELS } from './levels';
-import { FIRST_PASSED, ROAD, ROAD_BLOCKS, ROAD_HINTS, ROAD_IDLE, ROAD_SIGNS, blockOf, pieceAfter, pieceMiddle, roadPlace } from './road';
+import { FIRST_PASSED, ROAD, ROAD_BLOCKS, ROAD_HINTS, ROAD_IDLE, ROAD_SIGNS, blockOf, pieceAfter, pieceMiddle, placeAfter, roadPlace } from './road';
 
 /**
  * The pieces of the road: they are proved the way the list of the levels is, and, since the
@@ -802,5 +802,33 @@ describe('the middle of a piece', () => {
   it('is the middle of the square for a board with nothing cut out', () => {
     expect(pieceMiddle({ size: 5 })).toEqual({ x: 2, z: 2 });
     expect(pieceMiddle({ size: 4, holes: [] })).toEqual({ x: 1.5, z: 1.5 });
+  });
+});
+
+describe('the place kept after a piece is passed', () => {
+  it('moves on by one when the piece passed is the piece the player is on', () => {
+    expect(placeAfter('R04', false, 3)).toBe('R05');
+    expect(placeAfter('R07', false, 6)).toBe('R08');
+    expect(placeAfter('R20', false, 19)).toBe('R21');
+  });
+
+  it('stays where it is when a piece further on is played by its address', () => {
+    expect(placeAfter('R04', false, 16)).toBe('R04');
+    expect(placeAfter(undefined, false, 16)).toBeUndefined();
+  });
+
+  it('stays where it is when a piece behind is played again', () => {
+    expect(placeAfter('R09', false, 2)).toBe('R09');
+    expect(placeAfter(undefined, true, 0)).toBeUndefined();
+  });
+
+  it('stays past the road whatever is passed', () => {
+    for (let piece = 0; piece < ROAD.length; piece++) expect(placeAfter('R21', false, piece)).toBe('R21');
+  });
+
+  it('takes one who is new, with nothing kept, from the first piece to the second', () => {
+    expect(placeAfter(undefined, false, 0)).toBe('R02');
+    // One who passed the first level of the build before stands after the first block with nothing kept.
+    expect(placeAfter(undefined, true, 7)).toBe('R09');
   });
 });

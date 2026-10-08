@@ -217,8 +217,21 @@ export function signKey(at: Point, trail: Point): Point {
   return { x: at.x + trail.x / 2, y: at.y + trail.y / 2 };
 }
 
-/** Letters of the voice for a note or a hint over the board, in CSS pixels. */
+/** Letters of the voice for a note over the board, in CSS pixels. */
 export const NOTE_SIZE = 17;
+/**
+ * Letters of the voice over the board, in CSS pixels. On a tall screen they are a fixed size;
+ * on a wide one they follow the height of the window, between these two.
+ */
+const LINE_SIZE_TALL = 19;
+const LINE_SIZE_WIDE: readonly [number, number] = [26, 46];
+const LINE_SHARE_WIDE = 0.052;
+
+/** How large the letters of a line over the board are on this stage: of the words of the exercise, and of the hint of a piece of the road. */
+export function lineSize(stage: Size): number {
+  if (stage.height > stage.width) return LINE_SIZE_TALL;
+  return Math.round(Math.min(LINE_SIZE_WIDE[1], Math.max(LINE_SIZE_WIDE[0], stage.height * LINE_SHARE_WIDE)));
+}
 /** The line of a hint is no longer than this many letters wide, and is centred in what the window leaves it. */
 const HINT_EM = 40;
 /** A hint stands this far from the top of the stage, in CSS pixels, and from the edges of it; the board starts this far below it. */
