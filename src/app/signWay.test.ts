@@ -208,7 +208,8 @@ describe('how high the sign stands', () => {
   it('is the height the figure stands at: the top of the die under it, the floor for one on the floor', () => {
     const stair = start(pieceOf('R02'));
     expect(signHeight(stair)).toBe(0);
-    for (const spec of ROAD) if (spec.id !== 'R02') expect(signHeight(start(spec)), spec.id).toBe(1);
+    for (const spec of ROAD) expect(signHeight(start(spec)), spec.id).toBe(spec.layout!.onFloor ? 0 : 1);
+    expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02', 'R14', 'R18']);
   });
 
   it('is half a die on the stair of the second piece, which is half down, and a whole die on the die beyond it', () => {
