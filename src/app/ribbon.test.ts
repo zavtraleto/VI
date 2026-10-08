@@ -41,32 +41,34 @@ describe('the phases of the passage between two boards', () => {
   });
 
   it('starts by putting the old board out, from all of its rows to none', () => {
-    expect(ribbonPhase(0, false)).toEqual({ phase: 'fade', rows: 1 });
-    expect(ribbonPhase(250, false)).toEqual({ phase: 'fade', rows: 0.5 });
+    expect(ribbonPhase(0, false)).toEqual({ phase: 'fade', rows: 1, figure: 0 });
+    expect(ribbonPhase(250, false)).toEqual({ phase: 'fade', rows: 0.5, figure: 0 });
     expect(ribbonPhase(499, false).phase).toBe('fade');
   });
 
-  it('then draws the new one, from none of its rows to all', () => {
-    expect(ribbonPhase(500, false)).toEqual({ phase: 'reveal', rows: 0 });
-    expect(ribbonPhase(900, false)).toEqual({ phase: 'reveal', rows: 0.5 });
-    expect(ribbonPhase(1299, false).phase).toBe('reveal');
+  it('then draws the new one, from none of its rows to all, with no figure on it yet', () => {
+    expect(ribbonPhase(500, false)).toEqual({ phase: 'reveal', rows: 0, figure: 0 });
+    expect(ribbonPhase(900, false)).toEqual({ phase: 'reveal', rows: 0.5, figure: 0 });
+    expect(ribbonPhase(1299, false)).toMatchObject({ phase: 'reveal', figure: 0 });
   });
 
-  it('then shows the figure on a board that is whole, and then is done', () => {
-    expect(ribbonPhase(1300, false)).toEqual({ phase: 'figure', rows: 1 });
+  it('then brings the figure onto a board that is whole, from none of it to all, and then is done', () => {
+    expect(ribbonPhase(1300, false)).toEqual({ phase: 'figure', rows: 1, figure: 0 });
+    expect(ribbonPhase(1450, false)).toEqual({ phase: 'figure', rows: 1, figure: 0.5 });
     expect(ribbonPhase(1599, false).phase).toBe('figure');
-    expect(ribbonPhase(1600, false)).toEqual({ phase: 'done', rows: 1 });
-    expect(ribbonPhase(60_000, false)).toEqual({ phase: 'done', rows: 1 });
+    expect(ribbonPhase(1599, false).figure).toBeLessThan(1);
+    expect(ribbonPhase(1600, false)).toEqual({ phase: 'done', rows: 1, figure: 1 });
+    expect(ribbonPhase(60_000, false)).toEqual({ phase: 'done', rows: 1, figure: 1 });
   });
 
   it('has not begun before its time: the dice are still leaving', () => {
-    expect(ribbonPhase(-1, false)).toEqual({ phase: 'leave', rows: 1 });
+    expect(ribbonPhase(-1, false)).toEqual({ phase: 'leave', rows: 1, figure: 0 });
   });
 
-  it('with motion kept low has no rows: the board is changed at once, and the figure stands on it', () => {
-    expect(ribbonPhase(0, true)).toEqual({ phase: 'figure', rows: 1 });
-    expect(ribbonPhase(299, true).phase).toBe('figure');
-    expect(ribbonPhase(300, true)).toEqual({ phase: 'done', rows: 1 });
+  it('with motion kept low has no rows and no coming: the board is changed at once, and the figure stands on it', () => {
+    expect(ribbonPhase(0, true)).toEqual({ phase: 'figure', rows: 1, figure: 1 });
+    expect(ribbonPhase(299, true)).toEqual({ phase: 'figure', rows: 1, figure: 1 });
+    expect(ribbonPhase(300, true)).toEqual({ phase: 'done', rows: 1, figure: 1 });
   });
 });
 

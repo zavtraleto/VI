@@ -4,7 +4,7 @@ import type { ShellSound } from '../shell/screen';
 import type { SignalSound } from '../signal/player';
 import type { ParamValues } from '../signal/scene';
 import { soundDefaults, soundNumber } from './params';
-import { CUTS, HELD, INTERFACE, REPLY_MOST, SPACING, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, notesFor, replyCount, silentSign, type Cue, type Note } from './score';
+import { CUTS, HELD, INTERFACE, REPLY_MOST, SPACING, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, type Cue, type Note } from './score';
 import { Variety, soundRandom, type Rand } from './variation';
 import { FADE, startVoice, type Voice, type VoicePort } from './voices';
 
@@ -301,6 +301,11 @@ export class AudioEngine {
     this.memory.reset();
     this.last.clear();
     this.heard = [];
+  }
+
+  /** A level has been put on its board: what was laid on it as already leaving is kept in mind for when it goes. */
+  laid(state: RunState): void {
+    noteLaid(state, this.memory);
   }
 
   /** The values of the panel have changed. */

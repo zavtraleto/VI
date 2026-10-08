@@ -787,12 +787,31 @@ export class ScoreMemory {
    * was pushed, with none.
    */
   readonly moving: { face: number | null; pan: number; tick: number }[] = [];
+  /**
+   * The face of every die the board of a level was laid with as already leaving, by its id. No
+   * group was said of such a die, so it is not among those that are going down; it is kept for
+   * the whole of the level, for a move taken back puts it on the board again.
+   */
+  readonly laid = new Map<number, number>();
 
   reset(): void {
     this.open.clear();
     this.sinking.clear();
+    this.laid.clear();
     this.sent.clear();
     this.moving.length = 0;
+  }
+}
+
+/**
+ * A level has been put on its board: the dice its layout names as leaving are kept in mind by
+ * their faces. A die taken away says only which die it was, and it is off the board by then.
+ */
+export function noteLaid(state: RunState, memory: ScoreMemory): void {
+  const layout = state.levelRun?.spec.layout;
+  for (const { die } of layout?.leaving ?? []) {
+    const cube = cubeAt(state, layout!.dice[die].x, layout!.dice[die].z);
+    if (cube?.state === 'sinking') memory.laid.set(cube.id, cube.ori.top);
   }
 }
 
@@ -884,7 +903,8 @@ export function cuesOfEvent(event: GameEvent, state: RunState, memory: ScoreMemo
       going((cube) => cube.ori.top === 1 && cube.reactionId === 0, 1);
       break;
     case 'removed':
-      cues.push({ kind: 'sunk', face: memory.sinking.get(event.cubeId) ?? 1, pan: 0 });
+      // A die that was laid as leaving had no group said of it: it goes under on the note of its own face.
+      cues.push({ kind: 'sunk', face: memory.sinking.get(event.cubeId) ?? memory.laid.get(event.cubeId) ?? 1, pan: 0 });
       memory.sinking.delete(event.cubeId);
       break;
     case 'fell':

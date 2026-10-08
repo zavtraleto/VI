@@ -685,7 +685,7 @@ export class Game {
       limit: spec.moves,
       par: spec.par ?? 0,
       undos: (spec.undos ?? LEVEL_UNDOS) - this.undosLeft,
-      try: this.levelRecord()?.tries ?? 0,
+      try: this.levelRecord()?.tries ?? this.firstTry(),
     };
   }
 
@@ -693,6 +693,14 @@ export class Game {
   private levelRecord(): LevelStat | null {
     const run = this.state.levelRun;
     return run && this.firstStage === null ? levelStat(this.settings, run.spec.id) : null;
+  }
+
+  /**
+   * Which try at the first level is being made: one more than the tries it has been passed with.
+   * Its stages keep no count of their own and all say this one, from their start to their end.
+   */
+  private firstTry(): number {
+    return (this.settings.levels.stats[FIRST_ID]?.tries ?? 0) + 1;
   }
 
   /** What is being played, as the analytics name it: a kind of session, the exercise, a task with its number, or a level. */
@@ -1095,6 +1103,8 @@ export class Game {
     this.tryCounted = false;
     // A level is the same for everyone: it is played by the rules as they are, whatever the player has set.
     this.begin(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }), false);
+    // A die laid as leaving sends nothing when it goes: the sound is told of it now.
+    this.audio.laid(this.state);
     this.undosLeft = spec.undos ?? LEVEL_UNDOS;
     if (said) this.sayLevelStarted();
     this.layoutGuide();
@@ -1102,7 +1112,8 @@ export class Game {
 
   /** The level on the board has started: the analytics and the platform are told. */
   private sayLevelStarted(): void {
-    track('progression_started', { ...this.step(), try: (this.levelRecord()?.tries ?? 0) + 1 });
+    const stat = this.levelRecord();
+    track('progression_started', { ...this.step(), try: stat ? stat.tries + 1 : this.firstTry() });
     tell('level_started', this.levelName());
   }
 
@@ -1153,12 +1164,12 @@ export class Game {
   /**
    * The passage of the ribbon, frame by frame. The surface of the board that is passed goes out
    * by rows; when none is left the next board is put on, with no figure, and its surface comes
-   * by rows with its dice; then the figure stands on it, and then the board is the player's.
+   * by rows with its dice; then the figure comes onto it, and then the board is the player's.
    * Each board is drawn by its own view, one after the other: neither is on screen with the other.
    */
   private runRibbon(time: number): void {
     const ribbon = this.ribbon!;
-    const { phase, rows } = ribbonPhase(time - ribbon.start, prefersReducedMotion(this.settings));
+    const { phase, rows, figure } = ribbonPhase(time - ribbon.start, prefersReducedMotion(this.settings));
     if (phase === 'leave') return;
     if (phase === 'fade') {
       this.view.setReveal(revealBands(rows, this.state.config.size, false));
@@ -1184,7 +1195,8 @@ export class Game {
       return;
     }
     this.view.setReveal(null);
-    this.view.showFigure(true);
+    // The figure comes last, through the dots of the tube as the dice did.
+    this.view.showFigure(true, figure);
     if (phase === 'figure') return;
     this.ribbon = null;
     // What was pressed while the board was coming is not a move on it.
@@ -1311,6 +1323,8 @@ export class Game {
     const left = Math.max(0, spec.moves - run.moves);
     const short = shortOf(state);
     const stat = this.levelRecord();
+    // What is said of the try is read before the try is written down: the last stage says the try its first one said.
+    const summary: EventData = { ...this.step(), ...this.levelTry(), duration_sec: this.seconds() };
     if (!stat) {
       // The first level is kept as one level: passed with its last stage, a try and a pass, and no fewest moves.
       if (passed && this.firstStage === FIRST_LEVEL.length - 1) {
@@ -1332,7 +1346,6 @@ export class Game {
       else noteShort(stat, short);
     }
     saveSettings(this.settings);
-    const summary: EventData = { ...this.step(), ...this.levelTry(), duration_sec: this.seconds() };
     // A stage has no stars.
     if (passed) track('progression_completed', stat ? { ...summary, stars: levelStars(run.moves, spec.par) } : summary);
     else track('progression_failed', { ...summary, reason: stuck ? 'stuck' : 'moves', short });

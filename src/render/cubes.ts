@@ -112,6 +112,26 @@ void main() {
 `;
 
 /**
+ * The mesh of the dots of the tube a thing that is not all here is drawn through, as lines of a
+ * fragment shader: the order its dots go out in, and what leaves out of the picture the dots a
+ * share `uCover` of them does not have, `uDot` being the size of a dot in pixels of the picture.
+ * The dice that come and go are drawn through it, and so is the figure when it comes onto a board.
+ */
+export const DOT_MESH = /* glsl */ `/** The order the dots of a mesh of four by four go out in: evenly over it, never two neighbours in a row. */
+const float MESH[16] = float[16](
+  0.0, 8.0, 2.0, 10.0,
+  12.0, 4.0, 14.0, 6.0,
+  3.0, 11.0, 1.0, 9.0,
+  15.0, 7.0, 13.0, 5.0
+);`;
+export const THROUGH_DOTS = /* glsl */ `  if (uCover < 1.0) {
+    // The mesh stands on the screen, not on the die: the die goes down through it.
+    vec2 spot = floor(gl_FragCoord.xy / uDot);
+    int at = int(mod(spot.x, 4.0)) + int(mod(spot.y, 4.0)) * 4;
+    if ((MESH[at] + 0.5) / 16.0 > uCover) discard;
+  }`;
+
+/**
  * A die is a body with six screens. A face gives its own light, the colour of its channel as
  * it is, and no lamp changes it; its pips are the places where the screen is not lit. Along
  * the middle of the rounded edges of the body runs a pale line of light, and the faces run up
@@ -162,22 +182,11 @@ varying vec4 vArrive;
 const float STEP = ${PIP_STEP.toFixed(4)};
 /** The pips of each value, a bit for each place of three by three, row by row from the top. */
 const int PIPS[7] = int[7](0, 16, 257, 273, 325, 341, 365);
-/** The order the dots of a mesh of four by four go out in: evenly over it, never two neighbours in a row. */
-const float MESH[16] = float[16](
-  0.0, 8.0, 2.0, 10.0,
-  12.0, 4.0, 14.0, 6.0,
-  3.0, 11.0, 1.0, 9.0,
-  15.0, 7.0, 13.0, 5.0
-);
+${DOT_MESH}
 
 void main() {
 #ifdef GLASS
-  if (uCover < 1.0) {
-    // The mesh stands on the screen, not on the die: the die goes down through it.
-    vec2 spot = floor(gl_FragCoord.xy / uDot);
-    int at = int(mod(spot.x, 4.0)) + int(mod(spot.y, 4.0)) * 4;
-    if ((MESH[at] + 0.5) / 16.0 > uCover) discard;
-  }
+${THROUGH_DOTS}
 #endif
   int value = int(vFace.z + 0.5);
   vec2 uv = vFace.xy;
@@ -436,6 +445,11 @@ export class CubeMeshes {
   /** A die has come up to its full height: it stands from now on, and settles into a die that stands. */
   risen(cubeId: number): void {
     this.settling.set(cubeId, 0);
+  }
+
+  /** The size of a dot of the tube as the dice are drawn through it, in pixels of the picture. */
+  get dot(): number {
+    return this.shared.uDot.value;
   }
 
   /** A new board: no die of it has just come up. */

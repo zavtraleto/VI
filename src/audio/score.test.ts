@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { beatsOf, chainTier, matchTier, peakBeat, stepBeat } from '../app/juice';
 import { CONTACT_STEPS } from '../app/ritual';
-import { step, type GameEvent } from '../rules';
+import { FIRST_LEVEL } from '../levels/first';
+import { createRun, defaultConfig, step, type GameEvent } from '../rules';
 import { emptyRun, land, place, put } from '../rules/testkit';
 import { soundDefaults } from './params';
 import { COMMA, degreeHz, faceDegree, tuning } from './scale';
-import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
+import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
 import { Variety, soundRandom } from './variation';
 
 function setup(contact = 0, seed = 1): Setup {
@@ -715,6 +716,59 @@ describe('what the rules say', () => {
     expect(sunk.every((cue) => cue.kind === 'sunk' && cue.face === 2)).toBe(true);
     // A group that no chain was added to ends without a word.
     expect(heard.some((cue) => cue.kind === 'chainEnd')).toBe(false);
+  });
+
+  /** Plays the second stage of the first level by its way and says every die that was heard going under, in order. */
+  const stairHeard = (memory: ScoreMemory): Cue[] => {
+    const s = createRun({ seed: FIRST_LEVEL[1].seed, config: defaultConfig(), level: FIRST_LEVEL[1] });
+    noteLaid(s, memory);
+    const heard: Cue[] = [];
+    // Up the stair, over to the die beside it, and the first roll: the stair goes with that move.
+    for (const dir of ['N', 'E', 'E'] as const) {
+      for (let i = 0; i <= s.config.actionTicks * 2; i++) {
+        step(s, i === 0 ? dir : null);
+        for (const event of s.events) heard.push(...cuesOfEvent(event, s, memory));
+      }
+    }
+    return heard.filter((cue) => cue.kind === 'sunk');
+  };
+
+  it('a die the board was laid with as leaving goes under on the note of its own face, though no group was said', () => {
+    const sunk = stairHeard(new ScoreMemory());
+    expect(sunk.length).toBe(1);
+    // The stair of the second stage shows a six.
+    expect(sunk[0]).toMatchObject({ kind: 'sunk', face: 6 });
+  });
+
+  it('keeps such a die in mind when its move is taken back: it is not forgotten once it has gone', () => {
+    const memory = new ScoreMemory();
+    stairHeard(memory);
+    const s = createRun({ seed: FIRST_LEVEL[1].seed, config: defaultConfig(), level: FIRST_LEVEL[1] });
+    const stair = s.cubes.find((cube) => cube.state === 'sinking')!;
+    expect(cuesOfEvent({ type: 'removed', cubeId: stair.id }, s, memory)).toEqual([{ kind: 'sunk', face: 6, pan: 0 }]);
+    memory.reset();
+    expect(cuesOfEvent({ type: 'removed', cubeId: stair.id }, s, memory)).toEqual([{ kind: 'sunk', face: 1, pan: 0 }]);
+  });
+
+  it('a die of a group goes under on the face its group was said with, laid as leaving or not', () => {
+    const s = emptyRun();
+    const memory = new ScoreMemory();
+    memory.laid.set(7, 6);
+    memory.sinking.set(7, 2);
+    expect(cuesOfEvent({ type: 'removed', cubeId: 7 }, s, memory)).toEqual([{ kind: 'sunk', face: 2, pan: 0 }]);
+    // And a die nothing is known of goes under on the note it always had.
+    expect(cuesOfEvent({ type: 'removed', cubeId: 8 }, s, memory)).toEqual([{ kind: 'sunk', face: 1, pan: 0 }]);
+  });
+
+  it('keeps nothing in mind of a board with no die laid as leaving, nor of dice that go by their group', () => {
+    const memory = new ScoreMemory();
+    noteLaid(createRun({ seed: FIRST_LEVEL[0].seed, config: defaultConfig(), level: FIRST_LEVEL[0] }), memory);
+    expect(memory.laid.size).toBe(0);
+    const s = emptyRun();
+    put(s, 0, 0, 2);
+    land(s, put(s, 1, 0, 2));
+    noteLaid(s, memory);
+    expect(memory.laid.size).toBe(0);
   });
 
   it('lets a chain ring out once, when its last die has gone', () => {

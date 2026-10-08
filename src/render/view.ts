@@ -8,6 +8,7 @@ import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
 import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
+import { laidFace } from './laid';
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { boardPalette, type BoardLook } from './params';
@@ -529,9 +530,14 @@ export class BoardView {
     if (value >= 1) this.sent = value;
   }
 
-  /** The figure is drawn or left out, until the next board: a board that waits to be started has none on it. */
-  showFigure(shown: boolean): void {
+  /**
+   * The figure is drawn or left out, until the next board: a board that waits to be started has
+   * none on it. With `here` under 1 it is only so far here, coming through the dots of the tube
+   * the dice of a board that is laid come through.
+   */
+  showFigure(shown: boolean, here = 1): void {
     this.player.group.visible = shown;
+    this.player.come(here, this.cubes.dot);
   }
 
   /**
@@ -672,9 +678,9 @@ export class BoardView {
 
     // A group going down lights what stands around it with the colour of its channel.
     const reaction = this.cubes.sinkingCentre(state);
-    // Dice of a level that were leaving when its board was put on have sent nothing here: their light is that of their face all the same.
-    if (this.sent === 0 && reaction.count > 0 && state.levelRun) this.sent = state.reactions[0]?.value ?? 0;
-    const sent = this.sent > 0 ? this.lit[this.sent - 1] : this.tone;
+    // A die the board of a level was laid with as leaving has sent nothing here: its light is that of its face all the same.
+    const face = this.sent > 0 || reaction.count === 0 ? this.sent : laidFace(state);
+    const sent = face > 0 ? this.lit[face - 1] : this.tone;
     const { lamp } = this;
     lamp.x = reaction.x;
     lamp.z = reaction.z;
