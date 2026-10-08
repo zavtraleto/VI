@@ -205,17 +205,19 @@ describe('where the sign stands', () => {
 });
 
 describe('how high the sign stands', () => {
-  it('is the height the figure stands at: the top of a die for a player on the dice, the floor for one on the floor', () => {
-    expect(signHeight('top')).toBe(1);
-    expect(signHeight('ground')).toBe(0);
+  it('is the height the figure stands at: the top of the die under it, the floor for one on the floor', () => {
+    const stair = start(pieceOf('R02'));
+    expect(signHeight(stair)).toBe(0);
+    for (const spec of ROAD) if (spec.id !== 'R02') expect(signHeight(start(spec)), spec.id).toBe(1);
   });
 
-  it('is the floor before the stair of the second piece and the top of a die once the stair is climbed, and the top of a die where the other pieces start', () => {
+  it('is half a die on the stair of the second piece, which is half down, and a whole die on the die beyond it', () => {
     const stair = start(pieceOf('R02'));
-    expect(signHeight(stair.player.level)).toBe(0);
     go(stair, 'N');
-    expect(signHeight(stair.player.level)).toBe(1);
-    for (const spec of ROAD) if (spec.id !== 'R02') expect(signHeight(start(spec).player.level), spec.id).toBe(1);
+    expect(stair.player).toMatchObject({ x: 3, z: 4, level: 'top' });
+    expect(signHeight(stair)).toBeCloseTo(0.5, 1);
+    go(stair, 'N');
+    expect(signHeight(stair)).toBe(1);
   });
 });
 

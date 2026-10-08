@@ -2367,8 +2367,8 @@ export class Game {
    */
   private signView(state: RunState, dir: Dir, over: (x: number, y: number, z: number) => { x: number; y: number }): HudSign {
     const from = signStart(state.player, dir);
-    // The sign stands at the height of the figure: on a die it starts from the edge of its top, on the floor from the edge of the cell.
-    const y = signHeight(state.player.level);
+    // The sign stands at the height of the figure: on a die it starts from the edge of its top, as high as the die stands, on the floor from the edge of the cell.
+    const y = signHeight(state);
     const at = over(from.x, y, from.z);
     const next = over(from.x + DELTA[dir].dx, y, from.z + DELTA[dir].dz);
     const length = Math.hypot(next.x - at.x, next.y - at.y);

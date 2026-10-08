@@ -1,6 +1,6 @@
 import { ROAD_IDLE, ROAD_SIGNS } from '../levels/road';
 import type { ControlMode } from '../platform/settings';
-import { DELTA, DIRS } from '../rules/board';
+import { DELTA, DIRS, cubeAt, cubeHeight } from '../rules/board';
 import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
 import { resolveMove } from '../rules/movement';
@@ -114,11 +114,15 @@ export function signStart(player: { x: number; z: number }, dir: Dir): { x: numb
 
 /**
  * How high over the floor the sign stands, in dice: at the height the figure stands at (spec of
- * the teaching road, 7). That is the top of a die for a player on the dice, and the floor for one
- * on the floor.
+ * the teaching road, 7). That is the top of the die under the figure as it stands, which is lower
+ * than a die for one that is leaving (the stair of a piece is half a die high), and the floor for
+ * a player on the floor.
  */
-export function signHeight(level: Level): number {
-  return level === 'top' ? 1 : 0;
+export function signHeight(state: RunState): number {
+  const { x, z, level } = state.player;
+  if (level !== 'top') return 0;
+  const under = cubeAt(state, x, z);
+  return under ? cubeHeight(under, state.config) : 0;
 }
 
 /**
