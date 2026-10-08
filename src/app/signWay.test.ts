@@ -168,6 +168,36 @@ describe('where the sign stands', () => {
     expect(signCell(5, undefined, { x: 2, z: 1 }, 'N')).toEqual({ x: 2, z: -1 });
     expect(signCell(5, [], { x: 2, z: 1 }, 'S')).toEqual({ x: 2, z: 5 });
   });
+
+  it('stands just past the stair when the way is up out of the pocket, not beyond the square the board is cut from', () => {
+    // The stage as it is started, with the place of the player the rules give and the way the sign gives.
+    const spec = stageOf('F1b');
+    const state = start(spec);
+    expect(state.player).toMatchObject({ x: 0, z: 3, level: 'ground' });
+    expect(signAt(state).dir).toBe('N');
+    expect(signCell(spec.size, spec.holes, state.player, 'N')).toEqual({ x: 0, z: 1 });
+  });
+
+  it('stops at a cell cut out between the player and the edge of the square, though the board goes on beyond it', () => {
+    // A whole board of five but for one cell: north of (2,3) the board ends at (2,1), and (2,0) is a cell again.
+    const holes = [{ x: 2, z: 1 }];
+    expect(signCell(5, holes, { x: 2, z: 3 }, 'N')).toEqual({ x: 2, z: 1 });
+    expect(signCell(5, holes, { x: 2, z: 0 }, 'S')).toEqual({ x: 2, z: 1 });
+    expect(signCell(5, holes, { x: 0, z: 1 }, 'E')).toEqual({ x: 2, z: 1 });
+    // Beside the hole and not through it, the column runs to the edge of the square.
+    expect(signCell(5, holes, { x: 1, z: 3 }, 'N')).toEqual({ x: 1, z: -1 });
+  });
+
+  it('is where each stage of the first level asks for it at its start', () => {
+    const at = (id: string, dir: Dir) => {
+      const spec = stageOf(id);
+      return signCell(spec.size, spec.holes, start(spec).player, dir);
+    };
+    expect(at('F1a', 'E')).toEqual({ x: 6, z: 2 });
+    expect(at('F1b', 'N')).toEqual({ x: 0, z: 1 });
+    expect(at('F1c', 'N')).toEqual({ x: 1, z: -1 });
+    expect(at('F1d', 'W')).toEqual({ x: -1, z: 1 });
+  });
 });
 
 describe('the form of the sign', () => {
