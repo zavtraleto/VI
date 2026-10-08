@@ -833,6 +833,7 @@ export class Game {
     this.controller.setRepeat(!state.levelRun);
     this.handoff = null;
     this.inMenu = false;
+    this.starting = false;
     this.lastClock = -1;
     this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
     this.tools?.showDebugButton(this.settings.debugPanel);
@@ -1042,7 +1043,7 @@ export class Game {
    * A level begins on its board. One that brings a rule opens with a window that says it, when
    * the level is come to from the list or from the level before; started over, it is not said again.
    */
-  private startLevel(index: number, intro = false): void {
+  private startLevel(index: number, intro = false, said = true): void {
     // A level of a chapter that is not open is not started: the list says what its chapter asks for.
     if (this.ladder().locked[index]) {
       this.showLevels();
@@ -1052,7 +1053,7 @@ export class Game {
     const spec = limitedLevel(LEVELS, index);
     this.levelIndex = index;
     this.firstStage = null;
-    this.runLevel(spec);
+    this.runLevel(spec, said);
     if (intro && spec.lesson) this.showLevelIntro(spec.lesson);
   }
 
@@ -1060,21 +1061,30 @@ export class Game {
    * A stage of the first level begins on its board: a level as any is, with no window before it,
    * no limit of moves and no number.
    */
-  private startStage(index: number): void {
+  private startStage(index: number, said = true): void {
     this.firstStage = index;
-    this.runLevel(FIRST_LEVEL[index]);
+    this.runLevel(FIRST_LEVEL[index], said);
   }
 
-  /** Puts a level on the board: one of the list or a stage of the first, whichever has just been named as the one in hand. */
-  private runLevel(spec: LevelSpec): void {
+  /**
+   * Puts a level on the board: one of the list or a stage of the first, whichever has just been
+   * named as the one in hand. Without `said` its start is not reported: the board only waits, and
+   * whoever lets the player onto it says so then.
+   */
+  private runLevel(spec: LevelSpec, said = true): void {
     this.kind = 'level';
     this.tryCounted = false;
     // A level is the same for everyone: it is played by the rules as they are, whatever the player has set.
     this.begin(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }), false);
     this.undosLeft = spec.undos ?? LEVEL_UNDOS;
+    if (said) this.sayLevelStarted(spec);
+    this.layoutGuide();
+  }
+
+  /** The level on the board has started: the analytics and the platform are told. */
+  private sayLevelStarted(spec: LevelSpec): void {
     track('progression_started', { ...this.step(), try: levelStat(this.settings, spec.id).tries + 1 });
     tell('level_started', this.levelName());
-    this.layoutGuide();
   }
 
   /**
@@ -1083,8 +1093,9 @@ export class Game {
    * first level gets its first stage, anyone else the first level of the list not yet passed.
    */
   private showStart(): void {
-    if (this.settings.levels.passed[FIRST_ID]) this.startLevel(this.nextLevel());
-    else this.startStage(0);
+    // The level starts when the command is pressed, and is reported then: a launch alone starts nothing.
+    if (this.settings.levels.passed[FIRST_ID]) this.startLevel(this.nextLevel(), false, false);
+    else this.startStage(0, false);
     this.paused = true;
     this.starting = true;
     this.audio.setPaused(true);
@@ -1097,6 +1108,8 @@ export class Game {
       this.shell.hide();
       this.audio.setPaused(false);
       this.lastFrame = 0;
+      const spec = this.state.levelRun?.spec;
+      if (spec) this.sayLevelStarted(spec);
     });
   }
 
