@@ -4,7 +4,7 @@ import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rule
 import type { ParamValues } from '../signal/scene';
 import { mixHex, type Palette } from '../shell/theme';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
-import { comeShare, goneShare, isLit, litFlash, passingHeight, unlitGrey, type DicePassing } from './passing';
+import { comeShare, goneShare, isLit, litFlash, passingHeight, faded, type DicePassing } from './passing';
 import { PIP_STEP } from './textures';
 
 /**
@@ -154,10 +154,10 @@ const THROUGH_DOTS = /* glsl */ `  if (uCover < 1.0) {
  * in the colour of its channel; standing, it keeps that colour for a moment and lets it go
  * to the pale of the program, and only then gives its light to the tube.
  *
- * A fixed die that no combo has lit yet has its screens out (a proposal, until the owner says
- * how it looks): its faces are the grey of their channel, as much of it as the look keeps, its
- * edges keep a share of their light, its pips are where they were, and it gives the tube
- * nothing but those edges.
+ * A fixed die that no combo has lit yet looks dead: its faces are the colours of their channels
+ * faded, washed out by as much as the look says and keeping as much of their light as it says,
+ * so the channel can still be told; its edges keep a share of their light, its pips are where
+ * they were, and it gives the tube nothing but those edges.
  */
 const FRAGMENT = /* glsl */ `
 uniform vec3 uChannels[6];
@@ -187,8 +187,8 @@ uniform float uDot;
 uniform vec3 uOwn;
 /** What the edges keep of their light in the picture the tube spreads. */
 uniform float uEmitEdge;
-/** A fixed die that is not lit: what its faces keep of their light, and its edges. */
-uniform vec2 uFixed;
+/** A fixed die that is not lit: how much of the colour of its faces is washed out, what they keep of their light, and what its edges keep. */
+uniform vec3 uFixed;
 
 varying vec3 vFace;
 varying vec3 vNormal;
@@ -226,8 +226,8 @@ ${THROUGH_DOTS}
   float up = vStand.y;
   float screen = 1.0 - uFace.x * smoothstep(0.1, 0.7, length(uv - 0.5));
   vec3 tint = uChannels[value - 1];
-  // The screens of a fixed die are out: the grey of the channel, as bright as the channel is to the eye.
-  tint = mix(tint, vec3(dot(tint, vec3(0.2126, 0.7152, 0.0722)) * uFixed.x), vDim);
+  // The screens of a fixed die are out: the channel faded, towards the pale of its brightest part, and with less light.
+  tint = mix(tint, mix(tint, vec3(max(max(tint.r, tint.g), tint.b)), uFixed.x) * uFixed.y, vDim);
   vec3 normal = normalize(vNormal);
   float rim = mix(uLineSide, 1.0, smoothstep(0.2, 0.6, normal.y));
   float line = 1.0 - smoothstep(uLine.x - px, uLine.x + px, border);
@@ -237,7 +237,7 @@ ${THROUGH_DOTS}
   // A die that has just come up has the line of its edges in the colour of its channel still.
   vec3 edge = mix(vArrive.rgb, uEdge, vArrive.a);
 #endif
-  edge *= mix(1.0, uFixed.y, vDim);
+  edge *= mix(1.0, uFixed.z, vDim);
 
 #ifdef EMIT
   // Light is the colour of a channel at its fullest: a blue face spreads as much of it as a
@@ -343,7 +343,7 @@ export class CubeMeshes {
     uLamp: { value: new THREE.Vector3() },
     uLampColour: { value: new THREE.Color(0) },
     uEmitEdge: { value: 0 },
-    uFixed: { value: new THREE.Vector2(1, 1) },
+    uFixed: { value: new THREE.Vector3(0, 1, 1) },
     uDot: { value: 4 },
   };
   private readonly material: DieMaterial;
@@ -466,7 +466,7 @@ export class CubeMeshes {
     shared.uSide.value = light(n('faceSide'));
     shared.uTilt.value = n('sideTilt');
     shared.uEmitEdge.value = n('glowEdge');
-    shared.uFixed.value.set(n('fixedTone'), n('fixedEdge'));
+    shared.uFixed.value.set(n('fixedFade'), n('fixedLight'), n('fixedEdge'));
   }
 
   /** A die has come up to its full height: it stands from now on, and settles into a die that stands. */
@@ -555,7 +555,8 @@ export class CubeMeshes {
     }
     const arrivals = this.arrivals.array as Float32Array;
     const dims = this.dims.array as Float32Array;
-    const tone = n('fixedTone');
+    const fade = n('fixedFade');
+    const dead = n('fixedLight');
     const body = n('glassBody');
     const low = n('glassLow');
     const solid = n('glassSolid');
@@ -604,7 +605,7 @@ export class CubeMeshes {
         // A die that has just come up keeps the light of its channel on its edges and lets it go.
         const settled = this.settling.get(cube.id);
         const own = this.light.copy(this.channels[cube.ori.top - 1]);
-        if (dimmed) own.setScalar(unlitGrey(own.r, own.g, own.b, tone));
+        if (dimmed) own.setRGB(...faded(own.r, own.g, own.b, fade, dead));
         arrivals[solids * 4] = settled === undefined ? 0 : own.r;
         arrivals[solids * 4 + 1] = settled === undefined ? 0 : own.g;
         arrivals[solids * 4 + 2] = settled === undefined ? 0 : own.b;
@@ -639,8 +640,8 @@ export class CubeMeshes {
       // The frost is the light of the channel spread evenly over the die: its faces and pips
       // show through it, and none of them shines by itself.
       const channel = this.light.copy(this.channels[cube.ori.top - 1]);
-      // A fixed die that comes has its screens out already: its light is the grey of its channel.
-      if (dimmed) channel.setScalar(unlitGrey(channel.r, channel.g, channel.b, tone));
+      // A fixed die that comes has its screens out already: its light is its channel faded.
+      if (dimmed) channel.setRGB(...faded(channel.r, channel.g, channel.b, fade, dead));
       glass.uDim.value = dimmed ? 1 : 0;
       (glass.uFrost.value as THREE.Color)
         .copy(channel)

@@ -1,5 +1,8 @@
+import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { comeShare, dieShare, goneShare, isLit, litFlash, passingHeight, riseSpan, riseStart, stoodBy, unlitGrey, type DicePassing } from './passing';
+import { shellDefaults } from '../shell/theme';
+import { boardDefaults } from './params';
+import { comeShare, dieShare, goneShare, isLit, litFlash, passingHeight, riseSpan, riseStart, stoodBy, faded, type DicePassing } from './passing';
 
 function leaving(litMs: number, moveMs: number, count = 3): DicePassing {
   return { mode: 'leave', ranks: new Map(), count, stair: -1, litMs, moveMs, stepMs: 140, moveForMs: 1300, flashMs: 350 };
@@ -108,11 +111,60 @@ describe('the dice of a board that comes', () => {
   });
 });
 
-describe('the grey of a fixed die', () => {
-  it('is as bright as its channel is to the eye, by the share the look keeps', () => {
-    expect(unlitGrey(1, 1, 1, 0.35)).toBeCloseTo(0.35);
-    expect(unlitGrey(0, 1, 0, 0.5)).toBeCloseTo(0.3576);
-    expect(unlitGrey(0, 0, 1, 1)).toBeLessThan(unlitGrey(1, 0, 0, 1));
-    expect(unlitGrey(0.4, 0.2, 0.7, 0)).toBe(0);
+describe('the faded colour of a fixed die', () => {
+  const look = { ...boardDefaults(), ...shellDefaults() } as Record<string, number | string | boolean>;
+  const fade = Number(look.fixedFade);
+  const light = Number(look.fixedLight);
+  /** A colour as the screen shows it: hue in degrees, how much colour there is in it, how light it is, 0 to 1. */
+  const seen = (r: number, g: number, b: number): { hue: number; colour: number; lightness: number; rgb: number[] } => {
+    const rgb = new THREE.Color().setRGB(r, g, b).getRGB({ r: 0, g: 0, b: 0 }, THREE.SRGBColorSpace);
+    const most = Math.max(rgb.r, rgb.g, rgb.b);
+    const least = Math.min(rgb.r, rgb.g, rgb.b);
+    const hsl = new THREE.Color().setRGB(r, g, b).getHSL({ h: 0, s: 0, l: 0 }, THREE.SRGBColorSpace);
+    return { hue: hsl.h * 360, colour: most > 0 ? (most - least) / most : 0, lightness: most, rgb: [rgb.r, rgb.g, rgb.b] };
+  };
+  const faces = [1, 2, 3, 4, 5, 6].map((face) => {
+    const full = new THREE.Color(String(look[`ch${face}`]));
+    return { face, full: seen(full.r, full.g, full.b), dead: seen(...faded(full.r, full.g, full.b, fade, light)) };
+  });
+
+  it('keeps the hue of every one of the six faces', () => {
+    for (const { face, full, dead } of faces) {
+      const apart = Math.abs(((dead.hue - full.hue + 540) % 360) - 180);
+      expect(apart, `face ${face}`).toBeLessThan(6);
+    }
+  });
+
+  it('keeps a part of its colour, well under what the face has and never none: no face is plain grey', () => {
+    for (const { face, full, dead } of faces) {
+      expect(dead.colour, `face ${face}`).toBeLessThan(full.colour * 0.6);
+      expect(dead.colour, `face ${face}`).toBeGreaterThan(full.colour * 0.3);
+    }
+  });
+
+  it('is much less lit than the face and never out: no face is plain black', () => {
+    for (const { face, full, dead } of faces) {
+      expect(dead.lightness, `face ${face}`).toBeLessThan(full.lightness * 0.7);
+      expect(dead.lightness, `face ${face}`).toBeGreaterThan(0.35);
+    }
+  });
+
+  it('leaves the six apart from one another', () => {
+    for (const a of faces) {
+      for (const b of faces) {
+        if (a.face >= b.face) continue;
+        const apart = Math.hypot(...a.dead.rgb.map((value, i) => value - b.dead.rgb[i]));
+        expect(apart, `faces ${a.face} and ${b.face}`).toBeGreaterThan(0.08);
+      }
+    }
+  });
+
+  it('is the face itself with nothing taken, a grey with all its colour taken, and black with all its light taken', () => {
+    expect(faded(0.4, 0.2, 0.7, 0, 1)).toEqual([0.4, 0.2, 0.7]);
+    const [r, g, b] = faded(0.4, 0.2, 0.7, 1, 0.5);
+    expect(r).toBeCloseTo(0.35);
+    expect(g).toBeCloseTo(0.35);
+    expect(b).toBeCloseTo(0.35);
+    expect(faded(0.4, 0.2, 0.7, 0.45, 0)).toEqual([0, 0, 0]);
   });
 });

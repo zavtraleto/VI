@@ -224,8 +224,13 @@ export const BOARD_GROUPS = {
     /** The dice of the next board come up out of the floor when its lines are drawn: how long one takes, and how much later each step further from the player. */
     riseMs: number(600, 100, 2000, 50),
     riseStepMs: number(90, 0, 400, 10),
-    /** A die that is fixed: what its faces keep of their light until its combo, and what its edges keep. */
-    fixedTone: number(0.35, 0, 1, 0.01),
+    /**
+     * A die that is fixed looks faded, dead, until its combo: how much of the colour of a face
+     * is washed out, 0 the channel as it is and 1 a grey; what the face keeps of its light;
+     * and what its edges keep of theirs.
+     */
+    fixedFade: number(0.45, 0, 1, 0.01),
+    fixedLight: number(0.3, 0, 1, 0.01),
     fixedEdge: number(0.5, 0, 1, 0.01),
     /**
      * The swipe sign: a small bright star that runs beside the die of the figure and leaves a

@@ -101,10 +101,15 @@ export function passingHeight(passing: DicePassing, rank: number, own: number): 
 }
 
 /**
- * The grey a face of a fixed die is before its combo lights it, from the light of its channel
- * (linear red, green, blue): as bright as the eye takes that colour to be, and `tone` of that.
- * The shader of the dice counts the same. A proposal: the owner has not said how a fixed die looks.
+ * The colour a face of a fixed die has before its combo lights it, from the light of its
+ * channel (linear red, green, blue): the channel faded. `fade` of its colour is washed out,
+ * towards the pale of its own brightest part, so its hue stays and a dark channel does not go
+ * black; and it keeps `light` of its light, as a screen that is switched off and whose
+ * phosphor can still be told. At `fade` 0 and `light` 1 it is the face itself; at `fade` 1 a
+ * grey. The shader of the dice counts the same.
  */
-export function unlitGrey(r: number, g: number, b: number, tone: number): number {
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) * tone;
+export function faded(r: number, g: number, b: number, fade: number, light: number): [number, number, number] {
+  const most = Math.max(r, g, b);
+  const one = (part: number): number => (part + (most - part) * fade) * light;
+  return [one(r), one(g), one(b)];
 }
