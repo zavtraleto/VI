@@ -6,6 +6,8 @@ import type { ThingDef } from '../stage';
 /** The sun stands this far from the camera: inside the sky, which is drawn under everything. */
 const DISTANCE = 90;
 const SEGMENTS = 20;
+/** A sun that goes down stops here, in degrees: just under the horizon. */
+const SET = -2;
 
 /**
  * The red sun. From the other side the surface is the sky, and the only one apart from the
@@ -22,6 +24,8 @@ export const sun: ThingDef = {
     elevation: num(9, -2, 60, 0.5),
     size: num(3.2, 0.5, 15, 0.1),
     pulse: num(0.2, 0, 1, 0.01),
+    /** How fast it goes down, in degrees a minute: it stops just under the horizon. 0 leaves it where it stands. */
+    fall: num(0, 0, 5, 0.01),
   },
   moods: {
     dream: {},
@@ -42,7 +46,8 @@ export const sun: ThingDef = {
     disc.renderOrder = -0.5;
     disc.frustumCulled = false;
     object.add(disc);
-    const elevation = Number(values.elevation) * DEG;
+    const start = Number(values.elevation);
+    const fall = Number(values.fall);
     const pulse = Number(values.pulse);
     const tone = new THREE.Color(String(values.color));
     const camera = stage.rig.camera;
@@ -51,6 +56,7 @@ export const sun: ThingDef = {
       object,
       height: 0,
       update(seconds) {
+        const elevation = Math.max(SET, start - (fall * seconds) / 60) * DEG;
         // It goes where the camera goes, like the sky: it is never nearer.
         disc.position.set(
           camera.position.x + Math.sin(turn) * Math.cos(elevation) * DISTANCE,
@@ -58,7 +64,9 @@ export const sun: ThingDef = {
           camera.position.z + Math.cos(turn) * Math.cos(elevation) * DISTANCE,
         );
         disc.lookAt(camera.position);
-        const beat = 1 + pulse * 0.08 * Math.sin(seconds * 0.9);
+        const flare = stage.live?.flare ?? 0;
+        disc.scale.setScalar(1 + 0.3 * flare);
+        const beat = 1 + pulse * 0.08 * Math.sin(seconds * 0.9) + 0.6 * flare;
         (material.uniforms.uColor.value as THREE.Color).copy(tone).multiplyScalar(beat);
       },
     };

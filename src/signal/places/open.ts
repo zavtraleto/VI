@@ -111,6 +111,7 @@ function groundFan(
   waveHeight: number,
   waveSpeed: number,
 ): { mesh: THREE.Mesh; update(seconds: number): void } {
+  const { live } = context;
   const waves: Wave[] = [];
   const random = context.stream(1);
   const heading = random() * Math.PI * 2;
@@ -160,7 +161,7 @@ function groundFan(
       for (let v = 0; v < vertices; v++) {
         const x = positions[v * 3];
         const z = positions[v * 3 + 2];
-        const amplitude = waveHeight * fade[v];
+        const amplitude = waveHeight * (1 + live.swell) * fade[v];
         let y = 0;
         let slopeX = 0;
         let slopeZ = 0;
@@ -238,6 +239,7 @@ function build(values: ParamValues, context: PlaceContext, subject: number): Pla
     fog,
     lamps: [lamp],
     ambient,
+    live: context.live,
     // The light is the same everywhere: a surface needs no cutting to take it.
     cell: Infinity,
     sky: true,

@@ -4,6 +4,7 @@ import { Display } from '../display/display';
 import { quality } from '../display/quality';
 import { loadSettings } from '../platform/settings';
 import { Backdrop } from '../render/backdrop';
+import { LevelScene } from '../render/levelScene';
 import { BOARD_PARAMS, boardChanged, boardDefaults, parseBoardValue, type BoardLook } from '../render/params';
 import { BoardView, type CameraAngles } from '../render/view';
 import { createRun, cubeAt, defaultConfig, type PuzzleDie, type RunState } from '../rules';
@@ -119,6 +120,8 @@ export class BoardLab {
   private readonly container: HTMLElement;
   private readonly backdrop = new Backdrop(this.display);
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
+  /** The place behind the board of a level: shown here always, to be tuned. */
+  private readonly levelScene = new LevelScene(this.display, this.look, this.world);
   private readonly fps = new FpsCounter();
   private view: BoardView | null = null;
   /**
@@ -208,6 +211,7 @@ export class BoardLab {
       shake: true,
     });
     this.backdrop.draw(view.background, view.inverted);
+    this.levelScene.frame(timeMs, this.state, Number(this.look.board.backPlace ?? 0), false);
     this.display.present(timeMs);
     this.viewNow = view.mode;
 

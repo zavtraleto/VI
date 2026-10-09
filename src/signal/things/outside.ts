@@ -49,8 +49,10 @@ export const tree: ThingDef = {
       surface,
       blocks,
       update(seconds) {
-        crown.rotation.z = sway * 0.6 * DEG * Math.sin(seconds * 0.8 + phase);
-        crown.rotation.x = sway * 0.4 * DEG * Math.sin(seconds * 0.63 + phase * 1.7);
+        // A gust bends the crown further for a moment.
+        const bend = sway * (1 + 2.5 * (stage.live?.stir ?? 0));
+        crown.rotation.z = bend * 0.6 * DEG * Math.sin(seconds * 0.8 + phase);
+        crown.rotation.x = bend * 0.4 * DEG * Math.sin(seconds * 0.63 + phase * 1.7);
       },
     };
   },

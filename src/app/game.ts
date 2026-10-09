@@ -28,6 +28,7 @@ import {
 import { SETTINGS_KEY, addRun, bestOf, bestOn, levelStat, loadSettings, noteShort, prefersReducedMotion, puzzleStat, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
+import { LevelScene } from '../render/levelScene';
 import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { shiftFor } from '../render/framing';
@@ -146,6 +147,8 @@ const FIRST_ID = 'F1';
  * the program did before it opened on a board. The labs are tools of development: a production
  * build has none of them.
  */
+/** `?bg`: the probe of a place behind the board of a level. Without it the board stands in the dark, as it did. */
+const BG_PROBE = new URLSearchParams(window.location.search).has('bg');
 const LAB = import.meta.env.DEV && new URLSearchParams(window.location.search).has('lab');
 /**
  * How the game is played, as the file of the menu says it: the rules that hold wherever dice
@@ -437,6 +440,11 @@ export class Game {
     release: () => this.controller.release(),
     cancel: () => this.controller.cancel(),
   });
+  /**
+   * A place of the other side behind the board of a level, under whatever leaks through in a
+   * session. A probe: it is there only where the address asks for it with `?bg`.
+   */
+  private readonly levelScene = BG_PROBE ? new LevelScene(this.display, this.look, this.world) : null;
   /** The program around the game: boot, menu, panels. Its layers come after the board's, so they lie over it. */
   private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen, sound: (event) => this.audio.ui(event) });
   /** What comes from the other side: a transmission in a window of the program, over the board. */
@@ -2625,6 +2633,13 @@ export class Game {
     } else {
       this.backdrop.clear();
     }
+    // Only a level has a place behind its board, and a transmission takes the screen from it.
+    this.levelScene?.frame(
+      time,
+      !covered && state.levelRun !== null && !this.signal.busy ? state : null,
+      Math.floor(this.levelIndex / Math.max(1, Number(this.look.board.backEvery ?? 1))),
+      reducedMotion,
+    );
     const shown = !covered && !this.inMenu && !this.signal.busy;
     // Under a panel, and while the board takes no input, a piece shows no sign and its wait is not counted.
     this.waiting = this.wait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };
