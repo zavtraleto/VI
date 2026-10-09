@@ -13,8 +13,10 @@ export interface BoardBeat {
 }
 
 /**
- * The sparks are drawn a second time over, on a layer of the scene of their own: the board is
- * kept inside its part of the window, and what is thrown up from it is not.
+ * The light a group throws, its sparks and its ring, is drawn a second time over, on a layer of
+ * the scene of its own: the board is kept inside its part of the window, and what is thrown
+ * from it is not. Drawn with the board, a ring that ran out past the edge of that part was cut
+ * there in a straight line, under the readings of the program.
  */
 export const FX_LAYER = 2;
 /** Most sparks there can be at once; the oldest give way to new ones. */
@@ -82,6 +84,7 @@ export class BoardBursts {
       const mesh = new THREE.Mesh(this.ringGeometry, new THREE.MeshBasicMaterial({ ...light, opacity: 0 }));
       mesh.visible = false;
       mesh.renderOrder = -2;
+      mesh.layers.set(FX_LAYER);
       this.rings.push({ mesh, age: 0, life: 1, reach: 1, strength: 0 });
       this.group.add(mesh);
     }
@@ -95,6 +98,11 @@ export class BoardBursts {
   /** There are sparks in the air. */
   get flying(): boolean {
     return this.count > 0;
+  }
+
+  /** Something of the light of a group is there to be drawn over the whole window: a spark in the air, or a ring that runs. */
+  get thrown(): boolean {
+    return this.count > 0 || this.rings.some((ring) => ring.mesh.visible);
   }
 
   /**

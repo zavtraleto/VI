@@ -1049,15 +1049,17 @@ export class BoardView {
     // A dot of the tube in cells of the board, for a die that comes apart into them.
     this.dotWorld = (((this.camera.top - this.camera.bottom) / this.camera.zoom / Math.max(1, place.height)) * layer.window.height) / Math.max(1, this.lines);
     layer.render(this.scene, this.camera, { rect: drawn });
-    if (this.bursts.flying) this.loose(drawn);
+    if (this.bursts.thrown) this.loose(drawn);
     if (lit) this.emit(drawn);
   }
 
   /**
-   * Draws what is thrown up from the board over the whole window: the board is kept inside its
-   * part of it, under the readings of the program, and a spark that flew past the edge of that
-   * part was cut off there as if the readings were a wall. The camera sees as much more as the
-   * window is larger than the board's part, so every point stays where it was.
+   * Draws what is thrown from the board, the sparks of a group and its ring, over the whole
+   * window: the board is kept inside its part of it, under the readings of the program or beside
+   * them, and light that went past the edge of that part was cut off there as if the readings
+   * were a wall. The camera sees as much more as the window is larger than the board's part, so
+   * every point stays where it was. What the board has drawn is still there, depth and all: a
+   * die that stands in front of a ring hides it, as it did.
    */
   private loose(place: Rect): void {
     const { camera } = this;
