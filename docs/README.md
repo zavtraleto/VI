@@ -24,8 +24,6 @@
 | [superpowers/specs/2026-10-06-vi-levels-onboarding-design.md](superpowers/specs/2026-10-06-vi-levels-onboarding-design.md) | решение | вводный курс и уроки по главам; построено и убрано из игры 7 октября |
 | [superpowers/specs/2026-10-08-vi-teaching-road-design.md](superpowers/specs/2026-10-08-vi-teaching-road-design.md) | решение | обучающая дорога: двадцать кусков `R01`–`R20` в четырёх блоках, переход между досками, знак свайпа, строки-подсказки, фиксированная кость; построено, не опубликовано |
 | [superpowers/specs/2026-10-08-vi-first-level-design.md](superpowers/specs/2026-10-08-vi-first-level-design.md) | решение | первая сборка обучения: экран `START`, скип boot, плашка из кубиков, стрелки убраны; лента и четыре этапа заменены дорогой |
-| [superpowers/plans/2026-10-08-vi-teaching-road.md](superpowers/plans/2026-10-08-vi-teaching-road.md) | план | сборка обучающей дороги; выполнен в ветке `first-level` |
-| [superpowers/plans/2026-10-08-vi-first-level.md](superpowers/plans/2026-10-08-vi-first-level.md) | план | сборка первого уровня; выполнен в ветке `first-level` |
 | [superpowers/specs/2026-10-07-vi-bots-design.md](superpowers/specs/2026-10-07-vi-bots-design.md) | решение | боты уровней и боты Endless; что вышло иначе — раздел 12 |
 | [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) | исследование | звёзды за ходы, предел ходов (живы), ворота глав (убраны) |
 | [VI_Levels_Onboarding_Research.md](VI_Levels_Onboarding_Research.md) | исследование | как учат в играх-ориентирах; замер прежних уровней |
@@ -128,5 +126,7 @@
 | docs/superpowers/plans/2026-10-06-vi-levels-onboarding-1-rules-and-boards.md | план, выполнен (v0.2.20) | — |
 | docs/superpowers/plans/2026-10-07-vi-bots-1-levels.md | план, выполнен | — |
 | docs/superpowers/plans/2026-10-07-vi-bots-2-endless.md | план, выполнен | — |
+| docs/superpowers/plans/2026-10-08-vi-teaching-road.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека teaching-road-design |
+| docs/superpowers/plans/2026-10-08-vi-first-level.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека first-level-design |
 
 Убранные из игры уровни (курс, лестница глав) и их слова — коммит `534b3ea`; подробно — [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md), раздел 8.
