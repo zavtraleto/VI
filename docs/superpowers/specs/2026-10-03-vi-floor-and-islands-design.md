@@ -1,5 +1,9 @@
 # VI — пол и островки
 
+> Вид: решение. Статус: построено (v0.2.0, d425e55). Дата: 2026-10-03. Проверено: 2026-10-08.
+> Что заменило: сход с причала — docs/superpowers/specs/2026-10-07-vi-glass-does-not-hold-design.md. Что живёт в коде: src/rules/movement.ts, src/rules/config.ts.
+> `floorClimb` действует только в сессиях; на уровнях пол строгий (docs/VI_Levels_Rules.md). Нынешние правила — docs/VI_Endless_Rules.md.
+
 Дата: 3 октября 2026. Исполнитель: Opus. Область — `src/rules` и отклик на новые ходы в картинке. Причины — в [логике мира](../../art/VI_World_Logic.md).
 
 ## Зачем

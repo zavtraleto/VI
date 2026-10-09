@@ -1,5 +1,8 @@
 # Первый уровень VI: план сборки
 
+> Вид: план. Статус: выполнен. Дата: 2026-10-08. Проверено: 2026-10-09.
+> Что заменило: [план обучающей дороги](2026-10-08-vi-teaching-road.md) — в части ленты и четырёх этапов. Что живёт в коде: — (ветка `first-level`, не опубликовано).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Новый игрок после boot видит одну кнопку START, играет четыре заскриптованных этапа без слов и без окон и попадает лентой на `P01`; стрелки свайпа убраны везде, вместо них знак свайпа у поля и плашка из кубиков.

@@ -1,5 +1,8 @@
 # Обучающая дорога VI: план сборки
 
+> Вид: план. Статус: выполнен. Дата: 2026-10-08. Проверено: 2026-10-09.
+> Что заменило: —. Что живёт в коде: — (ветка `first-level`, не опубликовано).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Обучение — один непрерывный набор из двадцати кусков в четырёх блоках: доски стыкуются в клетке игрока в одном виде, линии поля рисует бегущая точка, комбо уходит медленно, часть костей фиксирована; после набора уровни списка идут тем же переходом.
