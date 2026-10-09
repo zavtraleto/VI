@@ -84,6 +84,8 @@ const LABELS: Record<string, string> = {
   cameraMs: 'камера: переезд, мс',
   drawMs: 'линии: отрисовка, мс',
   headGlow: 'линии: яркая точка',
+  headSize: 'линии: ядро точки, толщин линии',
+  headHalo: 'линии: свет вокруг точки, клеток',
   afterglowMs: 'линии: послесвечение, мс',
   riseMs: 'кости: подъём, мс',
   riseStepMs: 'кости: шаг подъёма, мс',

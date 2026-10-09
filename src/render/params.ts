@@ -208,12 +208,17 @@ export const BOARD_GROUPS = {
     /** The lines of the next board are drawn from the cell of the player: how long the whole of it takes. */
     drawMs: number(1100, 100, 4000, 50),
     /**
-     * The point that draws a line and erases it: 0 is no point, at 1 it is lit in full and
-     * twice as wide as its line, past 1 it is only larger. And how long the light it leaves
+     * The point that draws a line and erases it, a bright point of light as on the screen of a
+     * console: 0 is no point, at 1 the end of the line is lit in full and twice as wide as its
+     * line, past 1 it is only larger, and the light around the point is as much stronger. How
+     * wide its hot core is, in widths of the thin line; how far the light around it reaches,
+     * in cells. The tube spreads that light further. And how long the light the point leaves
      * behind lasts: on a line just drawn, going down to the light of the lines; on a line just
      * erased, going out.
      */
-    headGlow: number(1, 0, 3, 0.05),
+    headGlow: number(1.6, 0, 3, 0.05),
+    headSize: number(2.4, 0.5, 6, 0.1),
+    headHalo: number(0.32, 0, 1, 0.01),
     afterglowMs: number(250, 0, 1500, 10),
     /** The dice of the next board come up out of the floor when its lines are drawn: how long one takes, and how much later each step further from the player. */
     riseMs: number(600, 100, 2000, 50),
