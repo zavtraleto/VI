@@ -514,6 +514,9 @@ export class Game {
 
     // Browsers keep audio locked until the first user gesture. Opening the sound holds the page
     // for a moment, and the press that opens it may be a move: the time it took is not played.
+    // What took most of that moment, the numbers of the noise and of the echo, is worked out
+    // before the press, while the page is idle.
+    this.audio.prepare();
     const unlock = () => {
       if (this.audio.unlock()) this.stalled();
     };

@@ -5,6 +5,7 @@ import type { SignalSound } from '../signal/player';
 import type { ParamValues } from '../signal/scene';
 import { soundDefaults, soundNumber } from './params';
 import { CUTS, HELD, INTERFACE, REPLY_MOST, SPACING, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, type Cue, type Note } from './score';
+import { ChainStock, EchoSide, echoLength, fillNoise, noiseLength, type ChainNumbers } from './stock';
 import { Variety, soundRandom, type Rand } from './variation';
 import { FADE, startVoice, type Voice, type VoicePort } from './voices';
 
@@ -15,8 +16,14 @@ import { FADE, startVoice, type Voice, type VoicePort } from './voices';
 
 /** A note is asked for this far ahead of the clock of the context, so it never falls into its past. */
 const LEAD = 0.004;
-/** The noise the clicks of the knocks are cut from, in seconds. */
-const NOISE_SECONDS = 0.5;
+/**
+ * The numbers worked out ahead of the first press: the idle time left over which no more of them
+ * are started, how long the page may go without being idle before a part is done anyway, and
+ * the gap between two parts where the page does not say when it is idle; in milliseconds.
+ */
+const STOCK_SPARE_MS = 3;
+const STOCK_WAIT_MS = 500;
+const STOCK_GAP_MS = 40;
 /** How long a context may take to start after it has been opened, in milliseconds. */
 const OPENING_MS = 1000;
 /** An echo that is replaced while notes still go into it is kept this long past its own tail, in seconds: the longest note there is. */
@@ -35,34 +42,24 @@ interface Echo {
  * void. Its low part is taken out, so that it does not rumble, and its high part is soft from
  * the start, so that it never hisses. Made once, from the sound's own numbers.
  */
-function impulse(ctx: BaseAudioContext, seconds: number, rand: Rand): AudioBuffer {
+function impulse(ctx: BaseAudioContext, seconds: number, rand: Rand, made?: readonly Float32Array[]): AudioBuffer {
   const rate = ctx.sampleRate;
-  const length = Math.max(2, Math.floor(rate * seconds));
-  const before = Math.min(length - 1, Math.floor(rate * 0.012));
+  const length = echoLength(rate, seconds);
   const buffer = ctx.createBuffer(2, length, rate);
-  // How fast a one-pole filter follows what it is given, for a corner in hertz, at any rate of the context.
-  const follow = (hz: number): number => 1 - Math.exp((-2 * Math.PI * hz) / rate);
-  const under = follow(160);
   for (let channel = 0; channel < 2; channel++) {
     const data = buffer.getChannelData(channel);
-    let smooth = 0;
-    let slow = 0;
-    for (let i = before; i < length; i++) {
-      const t = (i - before) / (length - before);
-      // From about five thousand hertz down to a few hundred: the tail grows dark.
-      smooth += (rand() * 2 - 1 - smooth) * follow(5200 * (1 - t) ** 2 + 500);
-      slow += (smooth - slow) * under;
-      // Sixty decibels down by its end, and to nothing exactly at it.
-      data[i] = (smooth - slow) * Math.exp(-6.9 * t) * (1 - t);
-    }
+    // Numbers worked out ahead of the first press are only put in their place.
+    if (made?.[channel]?.length === length) data.set(made[channel]);
+    else new EchoSide(data, rate, rand).fill();
   }
   return buffer;
 }
 
-function noiseBuffer(ctx: BaseAudioContext, rand: Rand): AudioBuffer {
-  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * NOISE_SECONDS), ctx.sampleRate);
+function noiseBuffer(ctx: BaseAudioContext, rand: Rand, made?: Float32Array): AudioBuffer {
+  const buffer = ctx.createBuffer(1, noiseLength(ctx.sampleRate), ctx.sampleRate);
   const data = buffer.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = rand() * 2 - 1;
+  if (made?.length === data.length) data.set(made);
+  else fillNoise(data, rand);
   return buffer;
 }
 
@@ -88,6 +85,8 @@ export class SoundChain {
     readonly ctx: BaseAudioContext,
     private readonly values: ParamValues,
     private readonly rand: Rand,
+    /** The noise and the first echo as numbers worked out ahead (`ChainStock`); without them the chain works them out here. */
+    made: ChainNumbers | null = null,
   ) {
     this.dry = ctx.createGain();
     this.master = ctx.createGain();
@@ -102,16 +101,17 @@ export class SoundChain {
     this.dry.connect(this.master);
     this.master.connect(this.limiter);
     this.limiter.connect(ctx.destination);
-    this.noise = noiseBuffer(ctx, rand);
-    this.echo = this.makeEcho();
+    this.noise = noiseBuffer(ctx, rand, made?.noise);
+    this.echo = this.makeEcho(made?.echo);
     this.refresh();
   }
 
-  private makeEcho(): Echo {
+  /** `made` is the numbers of the echo where they were worked out ahead; an echo that replaces another has its own. */
+  private makeEcho(made?: readonly Float32Array[]): Echo {
     const seconds = soundNumber(this.values, 'verbTail');
     const wet = this.ctx.createGain();
     const node = this.ctx.createConvolver();
-    node.buffer = impulse(this.ctx, seconds, this.rand);
+    node.buffer = impulse(this.ctx, seconds, this.rand, made);
     const out = this.ctx.createGain();
     out.gain.value = soundNumber(this.values, 'verbLevel');
     wet.connect(node);
@@ -232,6 +232,8 @@ export class AudioEngine {
   private heard: number[] = [];
   /** When the context was opened, by the clock of the page. */
   private openedAt = 0;
+  /** The numbers of the chain worked out ahead of the first press; null before `prepare` and once the sound is open. */
+  private stock: ChainStock | null = null;
   /** How far the contact has gone, 0 to 1. */
   private contact = 0;
   private lastWarnSecond = -1;
@@ -243,9 +245,34 @@ export class AudioEngine {
   private readonly last = new Map<Cue['kind'], number>();
 
   /**
+   * Works out ahead, in the idle time of the page and a little at a time, the numbers the first
+   * press would otherwise have to wait for: the noise and the echo (`ChainStock`). Called once,
+   * when the program starts; a press that comes before the work is done finishes it.
+   */
+  prepare(): void {
+    if (this.ctx || this.stock) return;
+    const stock = new ChainStock(soundNumber(this.values, 'verbTail'), soundRandom(Math.floor(Math.random() * 0x7fffffff)));
+    this.stock = stock;
+    const idle = (window as unknown as { requestIdleCallback?: (run: (deadline: { timeRemaining(): number }) => void, options?: { timeout: number }) => number }).requestIdleCallback;
+    const go = (deadline?: { timeRemaining(): number }): void => {
+      // The sound has been opened, and has taken what there was.
+      if (this.stock !== stock) return;
+      // One part where the page does not say how long it is idle for, and as many as fit where it does.
+      let more = stock.step();
+      while (more && deadline && deadline.timeRemaining() > STOCK_SPARE_MS) more = stock.step();
+      if (!more) return;
+      if (idle) idle.call(window, go, { timeout: STOCK_WAIT_MS });
+      else window.setTimeout(go, STOCK_GAP_MS);
+    };
+    if (idle) idle.call(window, go, { timeout: STOCK_WAIT_MS });
+    else window.setTimeout(go, STOCK_GAP_MS);
+  }
+
+  /**
    * Must be called from a user gesture; browsers keep audio locked until then. True when this
-   * call opened the sound: the context, the noise and the echo are made here, at once, and the
-   * page stands still for as long as that takes - on a slow device longer than a die rolls.
+   * call opened the sound: the context and the chain are made here, at once, and the page stands
+   * still for as long as that takes. The numbers of the noise and of the echo, which were most of
+   * that time, are worked out ahead where `prepare` was called.
    */
   unlock(): boolean {
     if (this.ctx) {
@@ -257,8 +284,16 @@ export class AudioEngine {
     const ctx = new Ctor();
     this.ctx = ctx;
     this.openedAt = performance.now();
-    this.chain = new SoundChain(ctx, this.values, this.rand);
+    const made = this.stock?.take(ctx.sampleRate, soundNumber(this.values, 'verbTail')) ?? null;
+    this.stock = null;
+    this.chain = new SoundChain(ctx, this.values, this.rand, made);
     this.chain.setMuted(this.muted);
+    // How long the opening held the page, for whoever measures it: `performance.getEntriesByName('vi-sound-open')`.
+    try {
+      performance.measure('vi-sound-open', { start: this.openedAt, detail: { stocked: made !== null, rate: ctx.sampleRate } });
+    } catch {
+      // A browser without this measure: nothing is measured.
+    }
     // A phone holds the sound until something has been started inside a touch: one empty sample is enough.
     const blank = ctx.createBufferSource();
     blank.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
