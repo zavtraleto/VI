@@ -6,7 +6,7 @@ import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
-import { roadWait, signAt, signHeight, signMode, signStart, stepsTo, wastedMoves } from './signWay';
+import { roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
 
 // The solver as it is, with its calls counted.
 vi.mock('../rules/levelSolver', async (original) => {
@@ -163,44 +163,40 @@ describe('the moves wasted', () => {
   });
 });
 
-describe('where the sign stands', () => {
-  it('starts at the edge of the cell of the figure, on the side the swipe goes to', () => {
-    expect(signStart({ x: 2, z: 3 }, 'N')).toEqual({ x: 2, z: 2.5 });
-    expect(signStart({ x: 2, z: 3 }, 'S')).toEqual({ x: 2, z: 3.5 });
-    expect(signStart({ x: 2, z: 3 }, 'E')).toEqual({ x: 2.5, z: 3 });
-    expect(signStart({ x: 2, z: 3 }, 'W')).toEqual({ x: 1.5, z: 3 });
+describe('what the sign stands beside', () => {
+  const spans = (corners: readonly { x: number; y: number; z: number }[]) => ({
+    x: [Math.min(...corners.map((c) => c.x)), Math.max(...corners.map((c) => c.x))],
+    y: [Math.min(...corners.map((c) => c.y)), Math.max(...corners.map((c) => c.y))],
+    z: [Math.min(...corners.map((c) => c.z)), Math.max(...corners.map((c) => c.z))],
   });
 
-  it('is by the figure wherever on the board the figure is, and never by the far edge of the board', () => {
-    for (const spec of ROAD) {
-      const state = start(spec);
-      const { dir } = signAt(state);
-      const at = signStart(state.player, dir!);
-      expect(Math.abs(at.x - state.player.x) + Math.abs(at.z - state.player.z), spec.id).toBe(0.5);
-    }
-    // At the edge of a wide board as in its middle.
-    expect(signStart({ x: 0, z: 0 }, 'W')).toEqual({ x: -0.5, z: 0 });
-    expect(signStart({ x: 9, z: 4 }, 'E')).toEqual({ x: 9.5, z: 4 });
+  it('is the die under the figure, corner by corner: its cell from the floor to its top', () => {
+    const state = start(pieceOf('R01'));
+    const body = signBody(state);
+    expect(body).toHaveLength(8);
+    expect(spans(body)).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [4.5, 5.5] });
   });
 
-  it('is where each piece asks for it at its start: north of the die on the strip, north of the floor before the stair', () => {
-    const at = (id: string) => {
-      const state = start(pieceOf(id));
-      return signStart(state.player, signAt(state).dir!);
-    };
-    expect(at('R01')).toEqual({ x: 2, z: 4.5 });
-    expect(at('R02')).toEqual({ x: 3, z: 4.5 });
-    expect(at('R03')).toEqual({ x: 0.5, z: 1 });
-    expect(at('R05')).toEqual({ x: 0.5, z: 2 });
+  it('is the cell of a figure on the floor, as high as a die: the figure stands in it', () => {
+    const state = start(pieceOf('R02'));
+    expect(state.player.level).toBe('ground');
+    expect(spans(signBody(state))).toEqual({ x: [2.5, 3.5], y: [0, 1], z: [4.5, 5.5] });
   });
 
-  it('goes with the figure: after a step and after a roll it starts from the cell the figure has come to', () => {
+  it('is as high as the die stands: half a die on the stair of the second piece', () => {
     const state = start(pieceOf('R02'));
     go(state, 'N');
-    expect(signStart(state.player, signAt(state).dir!)).toEqual({ x: 3, z: 3.5 });
+    const { x, y, z } = spans(signBody(state));
+    expect(x).toEqual([2.5, 3.5]);
+    expect(z).toEqual([3.5, 4.5]);
+    expect(y[0]).toBe(0);
+    expect(y[1]).toBeCloseTo(0.5, 1);
+  });
+
+  it('goes with the figure: after a roll it is the cell the figure has come to', () => {
+    const state = start(pieceOf('R01'));
     go(state, 'N');
-    go(state, 'N');
-    expect(signStart(state.player, signAt(state).dir!)).toEqual({ x: 3, z: 1.5 });
+    expect(spans(signBody(state))).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [3.5, 4.5] });
   });
 });
 

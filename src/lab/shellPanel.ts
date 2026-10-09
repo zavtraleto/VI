@@ -61,7 +61,6 @@ const LABELS: Record<string, string> = {
   bootLogoScale: 'размер логотипа в boot, ×',
   pressMs: 'отклик на нажатие, мс',
   idleHz: 'частота шума каналов, Гц',
-  signDot: 'точка знака свайпа, пикс.',
   bootMs: 'первый запуск, мс',
   bootShortMs: 'повторный запуск, мс',
   bootDarkMs: 'тёмный экран, мс',

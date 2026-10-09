@@ -196,9 +196,9 @@ export function counterLeft(middle: number, width: number, bounds: Box, pad: num
 /**
  * Where the swipe sign stands so that all of it is on the picture: `at`, the start of its trail,
  * moved the least it takes for the start and the end of the trail to lie `pad` inside `bounds`.
- * A sign stands by the figure, so it is on the picture where the figure is; one whose trail
- * runs off the picture, by a figure at its edge, is brought in from that edge. In bounds too
- * small for it, it stands in their middle.
+ * A sign stands beside the die of the figure, so it is on the picture where the figure is; one
+ * whose trail runs off the picture, by a figure at its edge, is brought in from that edge, and
+ * may then lie on the die. In bounds too small for it, it stands in their middle.
  */
 export function signPlace(at: Point, trail: Point, bounds: Box, pad: number): Point {
   const fit = (value: number, reach: number, from: number, length: number): number => {
@@ -210,8 +210,38 @@ export function signPlace(at: Point, trail: Point, bounds: Box, pad: number): Po
 }
 
 /**
- * Where the key of the swipe sign stands: in the middle of the trail the dot would run, half a
- * cell on from the edge of the figure's die, so that the key is beside the figure and not on it.
+ * Where the trail of the swipe sign runs: beside the die under the figure, on its right. `body`
+ * is that die as it lies on the picture, `step` a cell of the board the way of the swipe as it
+ * lies there, so the trail is parallel to the board; it is `length` cells long. Whichever way it
+ * runs, the end of it that is nearest the die is `gap` to the right of the die, and it is as far
+ * above the middle of the die as below it: it never lies on the die or on the figure.
+ */
+export function signBeside(body: Box, step: Point, length: number, gap: number): { from: Point; trail: Point } {
+  const trail = { x: step.x * length, y: step.y * length };
+  const left = body.x + body.w + gap;
+  const middle = body.y + body.h / 2;
+  return { from: { x: left - Math.min(0, trail.x), y: middle - trail.y / 2 }, trail };
+}
+
+/**
+ * The start of a trail moved down, the least it takes, for the trail to lie `pad` clear of
+ * `avoid`: the buttons of a level, in the corner of the stage. Where it does not reach them it
+ * is left where it is.
+ */
+export function signClear(from: Point, trail: Point, avoid: Box | null, pad: number): Point {
+  if (!avoid) return from;
+  const left = Math.min(from.x, from.x + trail.x);
+  const right = Math.max(from.x, from.x + trail.x);
+  const top = Math.min(from.y, from.y + trail.y);
+  const bottom = Math.max(from.y, from.y + trail.y);
+  const under = avoid.y + avoid.h + pad;
+  if (right < avoid.x - pad || left > avoid.x + avoid.w + pad || bottom < avoid.y - pad || top >= under) return from;
+  return { x: from.x, y: from.y + under - top };
+}
+
+/**
+ * Where the key of the swipe sign stands: in the middle of the trail the star would run, beside
+ * the die of the figure and not on it.
  */
 export function signKey(at: Point, trail: Point): Point {
   return { x: at.x + trail.x / 2, y: at.y + trail.y / 2 };

@@ -102,7 +102,7 @@ import { boardAfter, levelsFile, orderOf, passageAt, passageMarks, startBoard, t
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, hintOver, probeHint } from './hint';
 import { roadCounters } from './roadCounters';
-import { roadWait, signHeight, signMode, signStart, type RoadWait, type Waiting } from './signWay';
+import { roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
@@ -2374,19 +2374,20 @@ export class Game {
   }
 
   /**
-   * The swipe sign of a level: by the figure, from the edge of the die it stands on (or of its
-   * cell, on the floor) on the side the swipe goes to, at the height the figure stands at, with
-   * a trail a cell of the board long the way that swipe goes on screen.
+   * The swipe sign of a level: where the die under the figure (or its cell, on the floor) lies on
+   * screen, which the sign stands to the right of, and how a cell of the board the way of the
+   * swipe lies there, which its trail runs parallel to.
    */
   private signView(state: RunState, dir: Dir, over: (x: number, y: number, z: number) => { x: number; y: number }): HudSign {
-    const from = signStart(state.player, dir);
-    // The sign stands at the height of the figure: on a die it starts from the edge of its top, as high as the die stands, on the floor from the edge of the cell.
-    const y = signHeight(state);
-    const at = over(from.x, y, from.z);
-    const next = over(from.x + DELTA[dir].dx, y, from.z + DELTA[dir].dz);
-    const length = Math.hypot(next.x - at.x, next.y - at.y);
-    const screen = this.swipeDirs[dir];
-    return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), at, trail: { x: screen.x * length, y: screen.y * length } };
+    const corners = signBody(state).map((corner) => over(corner.x, corner.y, corner.z));
+    const left = Math.min(...corners.map((corner) => corner.x));
+    const top = Math.min(...corners.map((corner) => corner.y));
+    const body = { x: left, y: top, w: Math.max(...corners.map((corner) => corner.x)) - left, h: Math.max(...corners.map((corner) => corner.y)) - top };
+    // A cell of the board the way the swipe goes, as the board lies on screen: the trail is parallel to the board, not to the swipe.
+    const { player } = state;
+    const here = this.view.project(player.x, 0, player.z);
+    const there = this.view.project(player.x + DELTA[dir].dx, 0, player.z + DELTA[dir].dz);
+    return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), body, step: { x: there.x - here.x, y: there.y - here.y } };
   }
 
   /** Everything the session shows over the board at this moment. */

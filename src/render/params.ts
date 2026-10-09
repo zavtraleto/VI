@@ -221,6 +221,19 @@ export const BOARD_GROUPS = {
     /** A die that is fixed: what its faces keep of their light until its combo, and what its edges keep. */
     fixedTone: number(0.35, 0, 1, 0.01),
     fixedEdge: number(0.5, 0, 1, 0.01),
+    /**
+     * The swipe sign: a small bright star that runs beside the die of the figure and leaves a
+     * thin line behind it. How long the rays of the star are, in pixels of the picture; how much
+     * of its run the line behind it stays lit for, 0 to 1; how long a run takes and how long
+     * nothing is shown before the next; how strong the light around the star is; and how long
+     * the run is, in cells of the board.
+     */
+    signStar: number(4, 2, 10, 1),
+    signTrail: number(0.6, 0, 1, 0.05),
+    signRunMs: number(800, 200, 3000, 50),
+    signRestMs: number(350, 0, 2000, 50),
+    signGlow: number(1, 0, 2, 0.05),
+    signLength: number(1.2, 0.5, 2.5, 0.05),
   },
 } satisfies Record<string, Record<string, ParamSpec>>;
 

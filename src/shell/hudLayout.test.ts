@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, turned, type FloorAxes } from './hudLayout';
 import { CELL_W, MIN_ZONE } from './layout';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -161,6 +161,71 @@ describe('the place of the swipe sign', () => {
 
   it('stands in the middle of a picture too small for it', () => {
     expect(signPlace({ x: 0, y: 5 }, { x: 40, y: 0 }, { x: 0, y: 0, w: 30, h: 10 }, 4)).toEqual({ x: -5, y: 5 });
+  });
+});
+
+describe('the trail of the swipe sign beside the die', () => {
+  // The die under the figure as it lies on a picture, and a cell of the board the way of each swipe.
+  const die = { x: 150, y: 300, w: 40, h: 50 };
+  const ends = (run: { from: { x: number; y: number }; trail: { x: number; y: number } }) => ({ x: run.from.x + run.trail.x, y: run.from.y + run.trail.y });
+
+  it('runs to the north beside the die, on its right, the way the strip of the first piece runs on screen', () => {
+    const run = signBeside(die, { x: 0, y: -40 }, 1.2, 6);
+    // Parallel to the board: the way a cell to the north lies on screen, and as long as the look asks.
+    expect(run.trail).toEqual({ x: 0, y: -48 });
+    // Right of the die by the gap, and as far below its middle as it ends above it.
+    expect(run.from).toEqual({ x: 196, y: 349 });
+    expect(ends(run)).toEqual({ x: 196, y: 301 });
+  });
+
+  it('keeps the lean of the board: a north that goes up and to the right starts at the gap and leans away from the die', () => {
+    const run = signBeside(die, { x: 20, y: -30 }, 1, 6);
+    expect(run.trail).toEqual({ x: 20, y: -30 });
+    expect(run.from).toEqual({ x: 196, y: 340 });
+  });
+
+  it('runs to the south beside the die, on its right, downwards', () => {
+    const run = signBeside(die, { x: 0, y: 40 }, 1, 6);
+    expect(run.from).toEqual({ x: 196, y: 305 });
+    expect(ends(run)).toEqual({ x: 196, y: 345 });
+  });
+
+  it('runs to the east away from the die, from the gap on', () => {
+    const run = signBeside(die, { x: 30, y: 16 }, 1, 6);
+    expect(run.from).toEqual({ x: 196, y: 317 });
+    expect(ends(run)).toEqual({ x: 226, y: 333 });
+  });
+
+  it('runs to the west towards the die and ends at the gap: it never lies on the die', () => {
+    const run = signBeside(die, { x: -30, y: -16 }, 1, 6);
+    expect(run.from).toEqual({ x: 226, y: 333 });
+    expect(ends(run)).toEqual({ x: 196, y: 317 });
+    for (const step of [{ x: 0, y: -40 }, { x: 0, y: 40 }, { x: 30, y: 16 }, { x: -30, y: -16 }, { x: 20, y: -30 }]) {
+      const each = signBeside(die, step, 1.5, 6);
+      expect(Math.min(each.from.x, ends(each).x)).toBe(196);
+    }
+  });
+
+  it('is brought in from the right edge of a phone 360 wide, trail and all', () => {
+    const phone = { x: 0, y: 40, w: 360, h: 600 };
+    const run = signBeside({ x: 310, y: 300, w: 44, h: 50 }, { x: 0, y: -40 }, 1.2, 6);
+    expect(run.from.x).toBe(360);
+    const from = signPlace(run.from, run.trail, phone, 8);
+    expect(from).toEqual({ x: 352, y: 349 });
+    // And under the readings: a die in the top row has its sign below them.
+    const high = signBeside({ x: 100, y: 44, w: 40, h: 50 }, { x: 0, y: -40 }, 1.2, 6);
+    expect(signPlace(high.from, high.trail, phone, 8)).toEqual({ x: 146, y: 96 });
+  });
+
+  it('stands below the buttons of a level where it would lie on them, and is left alone where it would not', () => {
+    const tools = { x: 280, y: 40, w: 76, h: 24 };
+    // Its trail runs up into the buttons: it is moved down until its top is clear of them.
+    expect(signClear({ x: 300, y: 100 }, { x: 0, y: -48 }, tools, 4)).toEqual({ x: 300, y: 116 });
+    expect(signClear({ x: 300, y: 50 }, { x: 0, y: 30 }, tools, 4)).toEqual({ x: 300, y: 68 });
+    // Left of them, or below them, it stays.
+    expect(signClear({ x: 200, y: 100 }, { x: 0, y: -48 }, tools, 4)).toEqual({ x: 200, y: 100 });
+    expect(signClear({ x: 300, y: 200 }, { x: 0, y: -48 }, tools, 4)).toEqual({ x: 300, y: 200 });
+    expect(signClear({ x: 300, y: 100 }, { x: 0, y: -48 }, null, 4)).toEqual({ x: 300, y: 100 });
   });
 });
 

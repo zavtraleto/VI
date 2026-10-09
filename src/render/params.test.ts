@@ -71,6 +71,12 @@ describe('board params', () => {
       riseStepMs: 90,
       fixedTone: 0.35,
       fixedEdge: 0.5,
+      signStar: 4,
+      signTrail: 0.6,
+      signRunMs: 800,
+      signRestMs: 350,
+      signGlow: 1,
+      signLength: 1.2,
     });
   });
 

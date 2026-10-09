@@ -239,6 +239,25 @@ export class Kit {
     }
   }
 
+  /** Light on a part of the picture: `alpha` of the colour over what is there, 0 to 1. */
+  light(x: number, y: number, w: number, h: number, color: string, alpha: number): void {
+    if (alpha <= 0) return;
+    const { ctx } = this.layer;
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    ctx.globalAlpha = 1;
+  }
+
+  /** Light around a point: a disc of `alpha` of the colour over what is there. Two of them, one in the other, are a glow. */
+  halo(cx: number, cy: number, radius: number, color: string, alpha: number): void {
+    if (alpha <= 0) return;
+    const { ctx } = this.layer;
+    ctx.globalAlpha = Math.min(1, alpha);
+    this.disc(cx, cy, radius, color);
+    ctx.globalAlpha = 1;
+  }
+
   /** Width of a line of text in pixels of the picture. */
   measure(text: string, scale = 1): number {
     return textWidth(text, scale);

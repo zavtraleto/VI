@@ -102,21 +102,24 @@ export function wastedMoves(par: number | undefined, made: number, left: number 
 }
 
 /**
- * Where the trail of the sign starts, in the coordinates of the board: at the edge of the cell
- * the figure is in, on the side the swipe goes to. That is the edge of the die under the figure,
- * or of its cell where it stands on the floor. The sign is by the figure wherever on the board
- * the figure is, and points away from it the way it is to go.
+ * What the sign stands beside, in the coordinates of the board: the eight corners of the die
+ * under the figure, from the floor to as high as the die stands, or of the cell of a figure on
+ * the floor, as high as a die. Whoever draws the sign finds where these lie on screen and puts
+ * the sign to the right of them: it is by the figure wherever on the board the figure is, and
+ * never on its die.
  */
-export function signStart(player: { x: number; z: number }, dir: Dir): { x: number; z: number } {
-  const { dx, dz } = DELTA[dir];
-  return { x: player.x + dx / 2, z: player.z + dz / 2 };
+export function signBody(state: RunState): { x: number; y: number; z: number }[] {
+  const { x, z, level } = state.player;
+  const top = level === 'top' ? signHeight(state) : 1;
+  const corners: { x: number; y: number; z: number }[] = [];
+  for (const dx of [-0.5, 0.5]) for (const dz of [-0.5, 0.5]) for (const y of [0, top]) corners.push({ x: x + dx, y, z: z + dz });
+  return corners;
 }
 
 /**
- * How high over the floor the sign stands, in dice: at the height the figure stands at (spec of
- * the teaching road, 7). That is the top of the die under the figure as it stands, which is lower
- * than a die for one that is leaving (the stair of a piece is half a die high), and the floor for
- * a player on the floor.
+ * How high over the floor the figure stands, in dice: the top of the die under it as that die
+ * stands, which is lower than a die for one that is leaving (the stair of a piece is half a die
+ * high), and the floor for a player on the floor. The sign stands beside a die as high as this.
  */
 export function signHeight(state: RunState): number {
   const { x, z, level } = state.player;
@@ -126,7 +129,7 @@ export function signHeight(state: RunState): number {
 }
 
 /**
- * Which of its two forms the sign takes: the dot that slides for those who swipe, the arrow key
+ * Which of its two forms the sign takes: the star that runs for those who swipe, the arrow key
  * for those who press. A phone has no keys; elsewhere a key pressed last says more than what is set.
  */
 export function signMode(control: ControlMode, coarse: boolean, last: 'keys' | 'pointer' | null): 'dot' | 'key' {

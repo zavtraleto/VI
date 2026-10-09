@@ -2,11 +2,11 @@ import type { Display } from '../display/display';
 import type { CanvasLayer } from '../display/layer';
 import type { Rect } from '../display/sizing';
 import type { BoardLook } from '../render/params';
-import { faceColour, figureColour, pipColour } from '../render/textures';
+import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, lineSize, toolButtons, netBounds, netCellAt, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, lineSize, toolButtons, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -95,17 +95,18 @@ export interface HudCounter {
 }
 
 /**
- * The swipe sign: by the figure, the way to swipe now, with no word. For those who swipe it
- * is a dot of the colour of the figure that slides along a short trail and goes out, again and
- * again; for those who press keys, the arrow key, in place and blinking.
+ * The swipe sign: beside the die of the figure, on its right, the way to swipe now, with no
+ * word. For those who swipe it is a small bright star that runs parallel to the board and
+ * leaves a thin line behind it, again and again; for those who press keys, the arrow key, in
+ * the same place and blinking.
  */
 export interface HudSign {
   dir: Dir;
   mode: 'dot' | 'key';
-  /** Where the trail starts, at the edge of the figure's die or of its cell, in CSS pixels of the window. A place off the screen is brought to its edge. */
-  at: Point;
-  /** The trail from there, in CSS pixels: a cell of the board long, the way a swipe to `dir` goes on screen. */
-  trail: Point;
+  /** The die under the figure, or its cell on the floor, as it lies on screen, in CSS pixels of the window: the sign stands to the right of it. */
+  body: Box;
+  /** A cell of the board the way of the swipe, as it lies on screen, in CSS pixels: the trail is parallel to it. */
+  step: Point;
 }
 
 /** The multiplier of a chain, over its dice. `at` is in CSS pixels of the window. */
@@ -351,13 +352,14 @@ const COUNTER_PAD = 1;
 const SWIPE_MS = 900;
 const NUDGE_MS = 300;
 /**
- * The swipe sign, a first version for the owner to adjust: how long its dot takes along the
- * trail, how long nothing is shown before it sets off again, the last part of the way over which
- * it goes out, half a period of the blinking of the arrow key, and the side of that key in dots.
+ * The swipe sign: the last part of its run over which the star goes out, how far the sign stands
+ * from the die and from the edges of what it may stand in, in pixels of the picture, half a
+ * period of the blinking of the arrow key, and the side of that key in dots. What the owner
+ * turns - the star, its line, its times - is in the look of the board (`road`).
  */
-const SIGN_SLIDE_MS = 700;
-const SIGN_REST_MS = 300;
-const SIGN_OUT = 0.35;
+const SIGN_OUT = 0.2;
+const SIGN_GAP = 3;
+const SIGN_PAD = 2;
 const SIGN_KEY_MS = 500;
 const SIGN_KEY = 18;
 /** The words of the exercise come one sign at a time, this many milliseconds apart. */
@@ -659,7 +661,9 @@ export class GameHud {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
       const top = layout.wide ? safe.top : layout.height;
-      this.drawSign(sign, timeMs, still, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top });
+      // And of the buttons of a level, in the corner of the stage.
+      const tools = view.tools ? toolButtons(stage, zoom, kit.measure(`${HUD.undo} 9`)).box : null;
+      this.drawSign(sign, timeMs, still, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top }, tools);
     }
     if (view.tools) this.drawTools(view.tools, stage, blink);
     if (view.pad) this.drawPad(view.pad, blink);
@@ -1263,18 +1267,28 @@ export class GameHud {
   }
 
   /**
-   * The swipe sign, inside the part of the picture it may stand in. The dot sets off from the
-   * start of its trail, draws the trail behind it, grows small towards the end and is gone, and
-   * after a moment of nothing sets off again; held still, it stands at the end of its trail.
+   * The swipe sign, inside the part of the picture it may stand in and clear of the buttons of a
+   * level (`avoid`). A star of the bright ink of the program sets off from the start of its
+   * trail and runs to the end of it, parallel to the board; the thin line it leaves behind goes
+   * out towards where it came from; at the end the star goes out, and after a moment of nothing
+   * it sets off again. Held still, it stands at the end of its trail with the line behind it.
    * The key stands in the middle of that trail, and is lit and unlit by turns, once a second.
    */
-  private drawSign(sign: HudSign, timeMs: number, still: boolean, inside: Box): void {
+  private drawSign(sign: HudSign, timeMs: number, still: boolean, inside: Box, avoid: Box | null): void {
     const { kit } = this;
     const { bg, ink, dim } = kit.palette;
     const zoom = kit.zoom;
-    const at = { x: sign.at.x / zoom, y: sign.at.y / zoom };
-    if (sign.mode === 'key') {
-      const centre = signPlace(signKey(at, { x: sign.trail.x / zoom, y: sign.trail.y / zoom }), { x: 0, y: 0 }, inside, SIGN_KEY / 2 + 1);
+    const n = (name: string): number => Number(this.look.board[name] ?? 0);
+    const rays = Math.max(1, Math.round(n('signStar')));
+    const body: Box = { x: sign.body.x / zoom, y: sign.body.y / zoom, w: sign.body.w / zoom, h: sign.body.h / zoom };
+    const key = sign.mode === 'key';
+    // Beside the die: clear of it by the rays of the star, or by half the key.
+    const reach = key ? SIGN_KEY / 2 : rays;
+    const run = signBeside(body, { x: sign.step.x / zoom, y: sign.step.y / zoom }, n('signLength'), SIGN_GAP + reach);
+    const { trail } = run;
+    const from = signPlace(signClear(run.from, trail, avoid, reach + SIGN_PAD), trail, inside, reach + SIGN_PAD);
+    if (key) {
+      const centre = signKey(from, trail);
       const cell: Box = { x: Math.round(centre.x - SIGN_KEY / 2), y: Math.round(centre.y - SIGN_KEY / 2), w: SIGN_KEY, h: SIGN_KEY };
       const lit = still || Math.floor(timeMs / SIGN_KEY_MS) % 2 === 0;
       if (lit) kit.box(cell, ink);
@@ -1285,18 +1299,42 @@ export class GameHud {
       kit.text(ARROW[sign.dir], cell.x + SIGN_KEY / 2, cell.y + Math.round((SIGN_KEY - CELL_H) / 2), lit ? bg : ink, { align: 'center' });
       return;
     }
-    const turn = timeMs % (SIGN_SLIDE_MS + SIGN_REST_MS);
-    if (!still && turn >= SIGN_SLIDE_MS) return;
-    const radius = kit.number('signDot') / 2;
-    const trail = { x: sign.trail.x / zoom, y: sign.trail.y / zoom };
-    const from = signPlace(at, trail, inside, Math.ceil(radius) + 1);
-    const along = still ? 1 : turn / SIGN_SLIDE_MS;
+    const runMs = Math.max(1, n('signRunMs'));
+    const turn = timeMs % (runMs + Math.max(0, n('signRestMs')));
+    if (!still && turn >= runMs) return;
+    const along = still ? 1 : turn / runMs;
     const eased = 1 - (1 - along) * (1 - along);
-    const head = { x: from.x + trail.x * eased, y: from.y + trail.y * eased };
-    // The colour of the figure: it is the figure that the swipe moves.
-    const colour = figureColour(kit.palette, this.look.board);
-    kit.wire([from, head], colour);
-    kit.disc(head.x, head.y, still ? radius : radius * Math.min(1, (1 - along) / SIGN_OUT), colour);
+    // The star goes out over the last of its run, and its line with it.
+    const here = still ? 1 : Math.min(1, (1 - along) / SIGN_OUT);
+    // The line: thin, a dot of the picture wide, lit for a part of the run behind the star and going out towards its far end.
+    const kept = Math.max(0, Math.min(1, n('signTrail')));
+    const tail = Math.max(0, eased - kept);
+    const dots = Math.max(1, Math.ceil(Math.hypot(trail.x, trail.y) * (eased - tail)));
+    let last = '';
+    for (let i = 0; i <= dots; i++) {
+      const at = tail + ((eased - tail) * i) / dots;
+      const x = Math.round(from.x + trail.x * at);
+      const y = Math.round(from.y + trail.y * at);
+      // A dot of the picture is lit once, however many points of the line fall in it.
+      if (`${x},${y}` === last) continue;
+      last = `${x},${y}`;
+      kit.light(x, y, 1, 1, ink, 0.7 * (kept > 0 ? 1 - (eased - at) / kept : 0) * here);
+    }
+    // The star: light around it, four rays that thin out, and a core lit in full.
+    const hx = Math.round(from.x + trail.x * eased);
+    const hy = Math.round(from.y + trail.y * eased);
+    const glow = Math.max(0, n('signGlow'));
+    kit.halo(hx + 0.5, hy, rays + 1, ink, 0.14 * glow * here);
+    kit.halo(hx + 0.5, hy, Math.max(1.5, rays / 2), ink, 0.22 * glow * here);
+    for (let i = 1; i <= rays; i++) {
+      const lit = here * (1 - (i - 1) / rays);
+      kit.light(hx + i, hy, 1, 1, ink, lit);
+      kit.light(hx - i, hy, 1, 1, ink, lit);
+      kit.light(hx, hy + i, 1, 1, ink, lit);
+      kit.light(hx, hy - i, 1, 1, ink, lit);
+    }
+    for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) kit.light(hx + dx, hy + dy, 1, 1, ink, 0.55 * here);
+    kit.light(hx, hy, 1, 1, ink, here);
   }
 
   private drawLesson(lesson: HudLesson, stage: Rect, box: Box, timeMs: number, still: boolean, signs: number, blink: number): void {
