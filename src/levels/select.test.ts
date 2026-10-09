@@ -84,7 +84,7 @@ describe('a place judged', () => {
     expect(verdict.why).toBe('a board the player can come to cannot be cleared');
     // The board that cannot be lost passes, and says what the walk found.
     const fit = judge({ ...pair, lossless: true }, first).fit!;
-    expect(fit.walk).toEqual({ boards: 4, worst: 2, lost: 0, capped: false, example: null });
+    expect(fit.walk).toEqual({ boards: 4, worst: 2, lost: 0, capped: false, unsettled: 0, example: null });
   }, 30_000);
 
   it('bounds the most moves from any board the player can come to', () => {
@@ -94,6 +94,16 @@ describe('a place judged', () => {
 
   it('turns a board away when the walk is cut before it can say the board is never lost', () => {
     expect(judge({ ...pair, lossless: true, walkLimit: 2 }, first).why).toBe('the walk over the boards is cut at 2');
+  });
+
+  it('turns a board away when the solver gives up on a board of the walk, and says that and not the limit of the walk', () => {
+    // With one board to see the solver settles only a board a single move clears: the walk is whole in its boards and still proves nothing.
+    expect(judge({ ...pair, lossless: true }, first, { walkStates: 1 }).why).toBe('the solver gave up on a board the player can come to');
+    // The nearest board is still given, with the miss said and the board not counted lost.
+    const near = judge({ ...pair, lossless: true }, first, { walkStates: 1, near: true }).fit!;
+    expect(near.misses).toEqual(['the solver gave up on a board the player can come to']);
+    expect(near.walk).toMatchObject({ lost: 0, capped: true, example: null });
+    expect(near.walk!.unsettled).toBeGreaterThan(0);
   });
 
   it('asks a share of the runs of a persona, the same runs every time', () => {

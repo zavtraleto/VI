@@ -653,7 +653,7 @@ describe('the free pieces and the mixes', () => {
     expect(other.state.levelRun!.moves).toBe(2);
     // A push does not turn a die: the two show their 3s when the combo is made.
     const walk = walkBoards(spec, 2000);
-    expect(walk).toEqual({ boards: 60, worst: 2, lost: 0, capped: false, example: null });
+    expect(walk).toEqual({ boards: 60, worst: 2, lost: 0, capped: false, unsettled: 0, example: null });
     expect(lostOf(spec)).toEqual({ boards: 5, lost: 0, said: 0 });
   });
 

@@ -72,6 +72,8 @@ export interface JudgeOptions {
    * looked for this way. What a place is there to teach is still asked of it.
    */
   near?: boolean;
+  /** Boards the solver may see on every board of the walk before it gives up on it (`SOLVE_MAX_STATES` of the walk unless said). */
+  walkStates?: number;
 }
 
 const within = (value: number, [from, to]: readonly [number, number]): boolean => value >= from - 1e-9 && value <= to + 1e-9;
@@ -119,7 +121,7 @@ function builtFor(recipe: Recipe, seed: number, board: LevelSpec): SolverMove[] 
  * the first one that fails is the reason given.
  */
 export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Verdict {
-  const { maxStates = JUDGE_MAX_STATES, loose = false, near = false } = opts;
+  const { maxStates = JUDGE_MAX_STATES, loose = false, near = false, walkStates } = opts;
   const no = (why: string): Verdict => ({ seed, fit: null, why });
   const misses: string[] = [];
   /** A bound that is not met turns the board away, or, where the nearest board is looked for, is noted. */
@@ -262,7 +264,8 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
   if (recipe.lossless || recipe.worst !== undefined) {
     const limit = recipe.walkLimit ?? WALK_LIMIT;
     // Once the answer is in, the rest of the walk is not made, unless the nearest board is looked for.
-    walk = walkBoards(board, limit, near ? {} : { lost: recipe.lossless, worst: recipe.worst });
+    // A walk that is not whole turns the board away as well, so it is left at its limit: the boards still queued are not solved for nothing.
+    walk = walkBoards(board, limit, near ? { solveStates: walkStates } : { lost: recipe.lossless, worst: recipe.worst, capped: true, solveStates: walkStates });
     if (recipe.lossless && walk.lost > 0) {
       const turned = outside(near ? `${walk.lost} boards the player can come to cannot be cleared` : 'a board the player can come to cannot be cleared');
       if (turned) return turned;
@@ -272,7 +275,8 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
       if (turned) return turned;
     }
     if (walk.capped) {
-      const turned = outside(`the walk over the boards is cut at ${limit}`);
+      // Cut at its limit, or whole in its boards with some the solver gave up on: two things, and each is said as what it is.
+      const turned = outside(walk.unsettled > 0 ? 'the solver gave up on a board the player can come to' : `the walk over the boards is cut at ${limit}`);
       if (turned) return turned;
     }
   }

@@ -18,7 +18,7 @@ const SMALL: LevelSpec = {
 describe('the walk over the boards a player can come to', () => {
   it('counts the boards of a small piece, the most moves to clear any of them, and finds none lost', () => {
     const walk = walkBoards(SMALL);
-    expect(walk).toMatchObject({ boards: 4, worst: 2, lost: 0, capped: false, example: null });
+    expect(walk).toEqual({ boards: 4, worst: 2, lost: 0, capped: false, unsettled: 0, example: null });
   });
 
   it('finds the boards of a level from which the board cannot be cleared, and the commands that lead to the first', () => {
@@ -42,6 +42,33 @@ describe('the walk over the boards a player can come to', () => {
     expect(walk.capped).toBe(true);
     expect(walk.boards).toBe(3);
     expect(walkBoards(SMALL, 4).capped).toBe(false);
+  });
+
+  it('does not count lost a board the solver gave up on: the walk is not whole, and says how many it could not settle', () => {
+    // The solver let see one board settles the boards one move clears and gives up on the rest.
+    const walk = walkBoards(SMALL, 5000, { solveStates: 1 });
+    expect(walk.boards).toBe(4);
+    expect(walk.unsettled).toBeGreaterThan(0);
+    expect(walk).toMatchObject({ lost: 0, capped: true, example: null });
+    // A board that is lost is still counted, by a search that went through every way: P04, as above.
+    const level = LEVELS.find((spec) => spec.id === 'P04')!;
+    expect(walkBoards(level, 60)).toMatchObject({ unsettled: 0, example: 'EESN' });
+  }, 30_000);
+
+  it('is left as soon as it is not whole, where it is told to: at its limit, or at a board the solver gave up on', () => {
+    const level = LEVELS.find((spec) => spec.id === 'P04')!;
+    // Left at the board after the one whose moves filled the queue, the rest of the queue is not solved.
+    const cut = walkBoards(level, 60, { capped: true });
+    expect(cut).toMatchObject({ capped: true, boards: 60 });
+    expect(cut.lost).toBeLessThan(walkBoards(level, 60).lost);
+    expect(walkBoards(SMALL, 5000, { solveStates: 1, capped: true }).unsettled).toBe(1);
+    // A walk that is whole is not left.
+    expect(walkBoards(SMALL, 5000, { capped: true })).toEqual(walkBoards(SMALL));
+  }, 30_000);
+
+  it('is only for a level that is cleared, with nothing coming and no limit of moves', () => {
+    expect(() => walkBoards({ ...SMALL, moves: 5 })).toThrow('walkBoards');
+    expect(() => walkBoards({ ...SMALL, arrival: 'refill' })).toThrow('walkBoards');
   });
 
   it('is the same every time', () => {
