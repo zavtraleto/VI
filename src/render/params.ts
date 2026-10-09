@@ -19,17 +19,17 @@ export const BOARD_GROUPS = {
      * lamp changes it. How far all six are taken down from their channels together; no face
      * is taken further than another.
      */
-    faceMute: number(0, 0, 0.8, 0.01),
+    faceMute: number(0.19, 0, 0.8, 0.01),
     /** How much a face darkens from its middle towards its edges, as a screen does. */
-    faceShade: number(0.14, 0, 0.6, 0.01),
+    faceShade: number(0.18, 0, 0.6, 0.01),
     /**
      * The face on top is the one that counts, and is lit in full. What the faces on the sides
      * keep of that light; how far apart the two sides in view are, which gives the die its
      * shape; how much a side darkens towards the foot of the die.
      */
-    faceSide: number(0.78, 0.2, 1, 0.01),
-    sideTilt: number(0.24, 0, 0.6, 0.01),
-    sideFall: number(0.47, 0, 0.9, 0.01),
+    faceSide: number(0.9, 0.2, 1, 0.01),
+    sideTilt: number(0, 0, 0.6, 0.01),
+    sideFall: number(0.76, 0, 0.9, 0.01),
     /** What a face that does not work on the level in hand keeps of its light. */
     faceOff: number(0.5, 0.1, 1, 0.01),
     /**
@@ -52,9 +52,9 @@ export const BOARD_GROUPS = {
      * it is around the face on top, and what the other edges keep of that; how far it is from
      * the tone of the program towards white.
      */
-    edgeWidth: number(0.042, 0, 0.1, 0.002),
+    edgeWidth: number(0.028, 0, 0.1, 0.002),
     edgeBright: number(0.92, 0, 1, 0.01),
-    edgeSide: number(0.15, 0, 1, 0.01),
+    edgeSide: number(1, 0, 1, 0.01),
     edgePale: number(0.44, 0, 1, 0.01),
     /** The light of the line spread over the face beside it: how far, as a share of the face, and how bright. */
     edgeSpread: number(0.03, 0.005, 0.15, 0.005),
@@ -95,10 +95,10 @@ export const BOARD_GROUPS = {
   },
   surface: {
     /** Width of the lines between the cells and of the line around them, in cells. */
-    gridLine: number(0.055, 0.005, 0.1, 0.005),
-    gridEdge: number(0.05, 0.005, 0.15, 0.005),
+    gridLine: number(0.035, 0.005, 0.1, 0.005),
+    gridEdge: number(0.125, 0.005, 0.15, 0.005),
     /** How much of the tone the lines take, and the floor of the cells under them. */
-    gridBright: number(0.5, 0, 1, 0.01),
+    gridBright: number(0.85, 0, 1, 0.01),
     gridFill: number(0, 0, 0.5, 0.01),
   },
   figure: {
@@ -137,12 +137,12 @@ export const BOARD_GROUPS = {
      * much of it lies over the dice themselves, the rest going into the dark around them; and
      * what the edges give to it against the faces.
      */
-    glow: number(0.74, 0, 1.5, 0.01),
-    glowReach: number(7.5, 1, 16, 0.5),
+    glow: number(0.92, 0, 1.5, 0.01),
+    glowReach: number(10.5, 1, 16, 0.5),
     glowOver: number(0.14, 0, 1, 0.01),
-    glowEdge: number(0.8, 0, 2, 0.05),
+    glowEdge: number(0.4, 0, 2, 0.05),
     /** How far red and blue stand apart along the lines while nothing happens, in lines of the tube. */
-    fringe: number(0.1, 0, 1, 0.01),
+    fringe: number(0, 0, 1, 0.01),
     /**
      * How far they part for a moment on what is rare in a session without end: a chain of
      * three links or more - further the longer it is - and a board left clean.

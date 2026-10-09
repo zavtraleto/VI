@@ -42,14 +42,14 @@ export const SHELL_GROUPS = {
     /** The one who is separate: the seventh. Nothing else is red. */
     signal: color('#ff3a2e'),
     /** The six channels, by the faces of the die: bars of a television test card. */
-    ch1: color('#eeeadc'),
-    ch2: color('#dccb5a'),
-    ch3: color('#5fc9d6'),
-    ch4: color('#62bf6e'),
-    ch5: color('#c867c0'),
-    ch6: color('#4f63dc'),
+    ch1: color('#ece9e2'),
+    ch2: color('#fce872'),
+    ch3: color('#2ae4fe'),
+    ch4: color('#8ff3a9'),
+    ch5: color('#ee91e2'),
+    ch6: color('#6090fa'),
     /** How much of the tone the secondary text and the thin lines keep. */
-    dim: number(0.55, 0.2, 1, 0.01),
+    dim: number(0.67, 0.2, 1, 0.01),
     faint: number(0.3, 0.05, 1, 0.01),
   },
   space: {
