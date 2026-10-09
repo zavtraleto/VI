@@ -512,8 +512,11 @@ export class Game {
     window.addEventListener('resize', () => this.layoutGuide());
     void document.fonts?.ready.then(() => this.layoutGuide());
 
-    // Browsers keep audio locked until the first user gesture.
-    const unlock = () => this.audio.unlock();
+    // Browsers keep audio locked until the first user gesture. Opening the sound holds the page
+    // for a moment, and the press that opens it may be a move: the time it took is not played.
+    const unlock = () => {
+      if (this.audio.unlock()) this.stalled();
+    };
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
     window.addEventListener('pointerdown', () => (this.lastInput = 'pointer'));
@@ -780,6 +783,15 @@ export class Game {
 
   private now(): number {
     return this.played() * this.state.config.tickMs;
+  }
+
+  /**
+   * The page has just stood still for work of its own, between two frames: the next frame does
+   * not count that time. A roll lasts a fifth of a second, and a frame given that much time at
+   * once plays all of it between two pictures: the die is seen where it stood and where it lands.
+   */
+  private stalled(): void {
+    this.lastFrame = 0;
   }
 
   private inputEnabled(): boolean {

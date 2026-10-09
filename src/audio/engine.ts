@@ -242,14 +242,18 @@ export class AudioEngine {
   /** When a sound of a kind was last played, for those that may not come too often. */
   private readonly last = new Map<Cue['kind'], number>();
 
-  /** Must be called from a user gesture; browsers keep audio locked until then. */
-  unlock(): void {
+  /**
+   * Must be called from a user gesture; browsers keep audio locked until then. True when this
+   * call opened the sound: the context, the noise and the echo are made here, at once, and the
+   * page stands still for as long as that takes - on a slow device longer than a die rolls.
+   */
+  unlock(): boolean {
     if (this.ctx) {
       if (this.ctx.state !== 'running' && !this.suspended) void this.ctx.resume();
-      return;
+      return false;
     }
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctor) return;
+    if (!Ctor) return false;
     const ctx = new Ctor();
     this.ctx = ctx;
     this.openedAt = performance.now();
@@ -265,6 +269,7 @@ export class AudioEngine {
     const { owed } = this;
     this.owed = null;
     if (owed) this.play(owed);
+    return true;
   }
 
   setMuted(muted: boolean): void {

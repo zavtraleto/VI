@@ -91,7 +91,7 @@ export function startSoundLab(): void {
   const engine = new AudioEngine();
   // For looking at it from the console.
   (window as unknown as { viSound: AudioEngine }).viSound = engine;
-  const unlock = (): void => engine.unlock();
+  const unlock = (): void => void engine.unlock();
   window.addEventListener('pointerdown', unlock, true);
   window.addEventListener('keydown', unlock, true);
 

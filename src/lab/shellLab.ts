@@ -92,7 +92,7 @@ export class ShellLab {
     document.documentElement.style.touchAction = 'none';
     this.shell = new Shell(this.display, this.settings, { sound: (event) => this.audio.ui(event) });
     // Browsers keep audio locked until the first press.
-    const unlock = (): void => this.audio.unlock();
+    const unlock = (): void => void this.audio.unlock();
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
     const score = Number(query.get('score'));
