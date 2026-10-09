@@ -19,22 +19,22 @@ export const BOARD_GROUPS = {
      * lamp changes it. How far all six are taken down from their channels together; no face
      * is taken further than another.
      */
-    faceMute: number(0.19, 0, 0.8, 0.01),
+    faceMute: number(0.1, 0, 0.8, 0.01),
     /** How much a face darkens from its middle towards its edges, as a screen does. */
-    faceShade: number(0.18, 0, 0.6, 0.01),
+    faceShade: number(0.2, 0, 0.6, 0.01),
     /**
      * The face on top is the one that counts, and is lit in full. What the faces on the sides
      * keep of that light; how far apart the two sides in view are, which gives the die its
      * shape; how much a side darkens towards the foot of the die.
      */
     faceSide: number(0.9, 0.2, 1, 0.01),
-    sideTilt: number(0, 0, 0.6, 0.01),
-    sideFall: number(0.76, 0, 0.9, 0.01),
+    sideTilt: number(0.1, 0, 0.6, 0.01),
+    sideFall: number(0.25, 0, 0.9, 0.01),
     /**
      * The pips are the places of a face that are not lit; the pip of the one is lit, and red.
      * Radius of a pip as a share of the face; the single pip of the one is this many times larger.
      */
-    pipSize: number(0.098, 0.05, 0.16, 0.002),
+    pipSize: number(0.09, 0.05, 0.16, 0.002),
     pipOne: number(1.5, 1, 2.4, 0.05),
     pipDark: color('#171616'),
     /**
@@ -44,10 +44,10 @@ export const BOARD_GROUPS = {
      */
     pipRing: number(0.4, 0.15, 0.65, 0.01),
     /** The screen is a little less lit around a pip: how far that reaches, in radii of the pip, and how dark it is. */
-    pipDusk: number(0.5, 0, 2, 0.05),
-    pipDuskDark: number(0.14, 0, 1, 0.01),
+    pipDusk: number(0.2, 0, 2, 0.05),
+    pipDuskDark: number(0.3, 0, 1, 0.01),
     /** How far the die the figure stands on is pressed into the surface, in dice. */
-    pressDepth: number(0.08, 0, 0.2, 0.005),
+    pressDepth: number(0.1, 0, 0.2, 0.005),
   },
   edge: {
     /**
@@ -56,13 +56,13 @@ export const BOARD_GROUPS = {
      * it is around the face on top, and what the other edges keep of that; how far it is from
      * the tone of the program towards white.
      */
-    edgeWidth: number(0.028, 0, 0.1, 0.002),
-    edgeBright: number(0.92, 0, 1, 0.01),
-    edgeSide: number(1, 0, 1, 0.01),
-    edgePale: number(0.44, 0, 1, 0.01),
+    edgeWidth: number(0.04, 0, 0.1, 0.002),
+    edgeBright: number(0.75, 0, 1, 0.01),
+    edgeSide: number(0.49, 0, 1, 0.01),
+    edgePale: number(0.45, 0, 1, 0.01),
     /** The light of the line spread over the face beside it: how far, as a share of the face, and how bright. */
     edgeSpread: number(0.03, 0.005, 0.15, 0.005),
-    edgeGlow: number(0.42, 0, 1, 0.01),
+    edgeGlow: number(0.5, 0, 1, 0.01),
   },
   glass: {
     /**
@@ -70,16 +70,16 @@ export const BOARD_GROUPS = {
      * the colour of the channel on top. How much of it there is, and how milky it is.
      */
     glassBody: number(0.7, 0.1, 1, 0.01),
-    glassFrost: number(0.3, 0, 1, 0.01),
+    glassFrost: number(0.2, 0, 1, 0.01),
     /** The height from which such a die is whole again, as a share of its own. */
-    glassSolid: number(0.98, 0.3, 1, 0.01),
+    glassSolid: number(0.85, 0.3, 1, 0.01),
     /** How bright the lit edges of such a die are. */
-    glassEdge: number(1.7, 0, 2, 0.05),
+    glassEdge: number(1.4, 0, 2, 0.05),
     /**
      * What a low die keeps of its dots and of the light of its edges: one that can be rolled
      * over or stepped onto. The step between the two is what says a die can be climbed.
      */
-    glassLow: number(0.69, 0, 1, 0.01),
+    glassLow: number(0.7, 0, 1, 0.01),
     /**
      * A die that is not all here is drawn through a mesh of the dots of the tube: as much of
      * it as is here, so many dots it has. One that is going down thins out and is gone at the
@@ -89,7 +89,7 @@ export const BOARD_GROUPS = {
      */
     sinkMelt: number(1, 0, 1, 0.01),
     riseMelt: number(1, 0, 1, 0.01),
-    meshDot: number(1, 0.5, 4, 0.25),
+    meshDot: number(0.5, 0.5, 4, 0.25),
     /**
      * A die that has come up keeps the colour of its channel on its edges for a moment and
      * lets it go to the pale of the program, and its light comes to the tube: how long that
@@ -100,7 +100,7 @@ export const BOARD_GROUPS = {
   surface: {
     /** Width of the lines between the cells and of the line around them, in cells. */
     gridLine: number(0.035, 0.005, 0.1, 0.005),
-    gridEdge: number(0.125, 0.005, 0.15, 0.005),
+    gridEdge: number(0.035, 0.005, 0.15, 0.005),
     /** How much of the tone the lines take, and the floor of the cells under them. */
     gridBright: number(0.85, 0, 1, 0.01),
     gridFill: number(0, 0, 0.5, 0.01),
@@ -109,16 +109,16 @@ export const BOARD_GROUPS = {
     /** The one the program has no record of: a grey mannequin. */
     mannequin: color('#8b90a0'),
     /** How far the mannequin has grown into the red of the seventh: 0 is grey, 1 is red. */
-    figureRed: number(0, 0, 1, 0.01),
+    figureRed: number(0.58, 0, 1, 0.01),
     /** How much of the figure shows through a die that stands in front of it. */
-    figureGhost: number(0.4, 0, 1, 0.01),
+    figureGhost: number(0.21, 0, 1, 0.01),
   },
   signs: {
     /**
      * The zone of a combo. On the floor of every free cell beside an open chain, four corners:
      * a socket, the place a die is brought to. How bright they are.
      */
-    dockBright: number(0.84, 0, 1, 0.01),
+    dockBright: number(0.7, 0, 1, 0.01),
     /**
      * A shelf at the height of the top of the chain's dice, over the free cells beside it: with
      * the steps of the docks they are walked on from up there. It is shown over all of them
@@ -129,11 +129,11 @@ export const BOARD_GROUPS = {
     dockTop: number(0.6, 0, 1, 0.01),
     shelfDots: number(0.25, 0, 1, 0.01),
     /** The mark of a cell a die is about to come up on. */
-    warnBright: number(0.59, 0, 1, 0.01),
+    warnBright: number(0.55, 0, 1, 0.01),
   },
   screen: {
     /** The tube the board is shown on: its lines and its dark corners. The sign itself stays sharp. */
-    scanlines: number(0.42, 0, 1, 0.01),
+    scanlines: number(0.3, 0, 1, 0.01),
     vignette: number(0.39, 0, 1, 0.01),
     /**
      * The light the tube spreads around what gives light off: the faces on top, the edges, the
@@ -141,10 +141,10 @@ export const BOARD_GROUPS = {
      * much of it lies over the dice themselves, the rest going into the dark around them; and
      * what the edges give to it against the faces.
      */
-    glow: number(0.92, 0, 1.5, 0.01),
-    glowReach: number(10.5, 1, 16, 0.5),
+    glow: number(0.65, 0, 1.5, 0.01),
+    glowReach: number(5.5, 1, 16, 0.5),
     glowOver: number(0.14, 0, 1, 0.01),
-    glowEdge: number(0.4, 0, 2, 0.05),
+    glowEdge: number(0.2, 0, 2, 0.05),
     /** How far red and blue stand apart along the lines while nothing happens, in lines of the tube. */
     fringe: number(0, 0, 1, 0.01),
     /**
