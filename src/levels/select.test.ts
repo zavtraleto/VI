@@ -4,9 +4,11 @@ import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
 import { ori } from '../rules/testkit';
 import type { LevelLayout, Orientation, PuzzleDie } from '../rules/types';
 import { FROM_ROUTE, SKETCH, levelId } from './generate';
+import { LEVELS } from './levels';
+import { ROAD } from './road';
 import type { Recipe } from './recipes';
 import { layFromRoute } from './route';
-import { MEASURE_HEAD, gather, judge, levelSource, measureRow } from './select';
+import { MEASURE_HEAD, gather, judge, levelSource, measureRow, placeReport, REPORT_WALK_LIMIT } from './select';
 
 /** A die of a board, lying as the faces given say. */
 const die = (x: number, z: number, faces: Partial<Orientation>): PuzzleDie => {
@@ -24,6 +26,8 @@ const RIDE: LevelLayout = { start: { x: 0, z: 2 }, dice: [die(1, 1, { top: 3 }),
 /** A place of three dice where 3s work, with its floor shut and one board laid by hand. */
 const place: Recipe = { slot: 901, id: 'X01', chapter: 0, size: 3, dice: 3, faces: [3], compact: false, par: [3, 3], floor: false, sketch: [RIDE] };
 const first = SKETCH + 1;
+/** A place of the road's third piece, laid by hand: a 2 rolled to a dim 2, on a board the player cannot lose and walks in four boards. */
+const pair: Recipe = { slot: 904, id: 'X05', chapter: 0, size: 2, dice: 2, faces: [2], compact: false, par: [1, 2], floor: false, sketch: [ROAD[2].layout!] };
 
 describe('a place judged', () => {
   it('takes a board laid by hand as it takes one laid from a seed, and names its level as the place says', () => {
@@ -69,6 +73,52 @@ describe('a place judged', () => {
     expect(judge({ ...place, hasty: [2, 2] }, first).why).toBe('hasty not 2');
     expect(judge({ ...place, gap: [2, 3] }, first).why).toBe('gap not 2-3');
     // Four personas play the board a dozen times each, for every board judged so.
+  }, 30_000);
+
+  it('walks the boards the player can come to where the place asks, and turns away one that loses the board', () => {
+    // P04 of the list, laid by hand into a place: four moves clear it, and after four commands it cannot be cleared.
+    const p04 = LEVELS.find((spec) => spec.id === 'P04')!;
+    const lossy: Recipe = { slot: 903, id: 'X04', chapter: 0, size: 4, dice: 6, faces: [5], compact: false, par: [1, 6], sketch: [p04.layout!] };
+    expect(judge(lossy, first).fit!.walk).toBeNull();
+    const verdict = judge({ ...lossy, lossless: true }, first);
+    expect(verdict.fit).toBeNull();
+    expect(verdict.why).toBe('a board the player can come to cannot be cleared');
+    // The board that cannot be lost passes, and says what the walk found.
+    const fit = judge({ ...pair, lossless: true }, first).fit!;
+    expect(fit.walk).toEqual({ boards: 4, worst: 2, lost: 0, capped: false, example: null });
+  }, 30_000);
+
+  it('bounds the most moves from any board the player can come to', () => {
+    expect(judge({ ...pair, worst: 2 }, first).why).toBe('');
+    expect(judge({ ...pair, worst: 1 }, first).why).toBe('more than 1 moves from a board the player can come to');
+  });
+
+  it('turns a board away when the walk is cut before it can say the board is never lost', () => {
+    expect(judge({ ...pair, lossless: true, walkLimit: 2 }, first).why).toBe('the walk over the boards is cut at 2');
+  });
+
+  it('asks a share of the runs of a persona, the same runs every time', () => {
+    const planner = judge({ ...place, personas: { planner: 0 } }, first).fit!.shares!;
+    expect(Object.keys(planner)).toEqual(['planner']);
+    expect(judge({ ...place, personas: { planner: 0 } }, first).fit!.shares).toEqual(planner);
+    expect(judge({ ...place, personas: { planner: planner.planner } }, first).why).toBe('');
+    const hasty = judge({ ...place, personas: { hasty: 0 } }, first).fit!.shares!.hasty!;
+    expect(judge({ ...place, personas: { hasty: hasty + 0.01 } }, first).why).toBe(`hasty ${hasty.toFixed(2)} is under ${(hasty + 0.01).toFixed(2)}`);
+    expect(judge(place, first).fit!.shares).toBeNull();
+  }, 30_000);
+
+  it('puts what the walk and the runs found in the table of a place, as the columns worst and lossless', () => {
+    expect(MEASURE_HEAD.slice(MEASURE_HEAD.indexOf('firsts'), MEASURE_HEAD.indexOf('firsts') + 3)).toEqual(['firsts', 'worst', 'lossless']);
+    const fit = judge({ ...pair, lossless: true }, first).fit!;
+    const row = measureRow('1', fit);
+    expect(row).toHaveLength(MEASURE_HEAD.length);
+    expect([row[MEASURE_HEAD.indexOf('worst')], row[MEASURE_HEAD.indexOf('lossless')]]).toEqual([String(fit.walk!.worst), 'yes']);
+    // A fit that was not walked has a dash.
+    expect(measureRow('1', judge(pair, first).fit!)[MEASURE_HEAD.indexOf('lossless')]).toBe('-');
+    // The report of a place walks the boards it keeps.
+    const report = placeReport(gather(pair, [judge(pair, first)]), 3, 0, REPORT_WALK_LIMIT);
+    expect(report.split(/\r?\n/)[1].split(/ +/)).toContain('lossless');
+    expect(report).toMatch(/ yes( |$)/m);
   }, 30_000);
 
   it('writes a level into the list with what its place gave it', () => {

@@ -24,6 +24,7 @@
 | [superpowers/specs/2026-10-06-vi-levels-onboarding-design.md](superpowers/specs/2026-10-06-vi-levels-onboarding-design.md) | решение | вводный курс и уроки по главам; построено и убрано из игры 7 октября |
 | [superpowers/specs/2026-10-08-vi-teaching-road-design.md](superpowers/specs/2026-10-08-vi-teaching-road-design.md) | решение | обучающая дорога: двадцать кусков `R01`–`R20` в четырёх блоках, переход между досками, знак свайпа, строки-подсказки, фиксированная кость; построено, не опубликовано |
 | [superpowers/specs/2026-10-08-vi-first-level-design.md](superpowers/specs/2026-10-08-vi-first-level-design.md) | решение | первая сборка обучения: экран `START`, скип boot, плашка из кубиков, стрелки убраны; лента и четыре этапа заменены дорогой |
+| [superpowers/specs/2026-10-09-vi-road-free-pieces-design.md](superpowers/specs/2026-10-09-vi-road-free-pieces-design.md) | решение | дорога, вторая редакция: уроки в рамках, между ними свободные куски на настоящих костях, смеси; слова строки по одному, очки за звёзды |
 | [superpowers/specs/2026-10-07-vi-bots-design.md](superpowers/specs/2026-10-07-vi-bots-design.md) | решение | боты уровней и боты Endless; что вышло иначе — раздел 12 |
 | [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) | исследование | звёзды за ходы, предел ходов (живы), ворота глав (убраны) |
 | [VI_Levels_Onboarding_Research.md](VI_Levels_Onboarding_Research.md) | исследование | как учат в играх-ориентирах; замер прежних уровней |
@@ -101,6 +102,7 @@
 |---|---|---|
 | [VI_Docs_Audit.md](VI_Docs_Audit.md) | исследование | аудит документов 8 октября 2026: таблица, противоречия, решения владельца |
 | [superpowers/plans/2026-10-08-vi-docs-cleanup.md](superpowers/plans/2026-10-08-vi-docs-cleanup.md) | план | план аудита |
+| [superpowers/plans/2026-10-09-vi-road-free-pieces.md](superpowers/plans/2026-10-09-vi-road-free-pieces.md) | план | дорога, вторая редакция: пять задач сборки |
 
 ## В истории git
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { cubeAt } from '../rules/board';
 import { defaultConfig } from '../rules/config';
-import { levelDeadEnd, worldRuns } from '../rules/level';
+import { worldRuns } from '../rules/level';
 import { randomMoves, randomPlay } from '../rules/levelBot';
-import { explore, moveOf, solveFrom, solveLevel, tryWay } from '../rules/levelSolver';
+import { explore, moveOf, solveLevel, tryWay } from '../rules/levelSolver';
 import { resolveMove } from '../rules/movement';
 import { roll } from '../rules/orientation';
 import { createRun, step } from '../rules/sim';
@@ -11,6 +11,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { Ban } from '../rules/reach';
 import type { Dir, LevelSpec, MoveKind, Orientation, RunState } from '../rules/types';
 import { LEVELS } from './levels';
+import { walkBoards } from './walk';
 import { FIRST_PASSED, ROAD, ROAD_BLOCKS, ROAD_HINTS, ROAD_IDLE, ROAD_SIGNS, blockOf, pieceAfter, pieceMiddle, placeAfter, roadPlace } from './road';
 
 /**
@@ -253,57 +254,16 @@ describe('the first block of the road', () => {
   });
 
   it('is cleared from every board the player can come to, in a few moves, and is never lost', () => {
-    // Every board the player can come to by moves and by steps, walked from the start by the commands that lead there.
-    const reached = (spec: LevelSpec): { cmds: Dir[]; state: RunState }[] => {
-      const replay = (cmds: readonly Dir[]): RunState => {
-        const state = start(spec);
-        for (const dir of cmds) go(state, dir);
-        return state;
-      };
-      const keyOf = (state: RunState): string =>
-        JSON.stringify([
-          state.cubes.map((c) => [c.x, c.z, c.ori.top, c.ori.north, c.state, c.t]).sort(),
-          state.player.x, state.player.z, state.player.level, state.endReason,
-        ]);
-      const seen = new Map<string, Dir[]>();
-      const found: { cmds: Dir[]; state: RunState }[] = [];
-      const queue: Dir[][] = [[]];
-      seen.set(keyOf(replay([])), []);
-      for (let at = 0; at < queue.length; at++) {
-        const cmds = queue[at];
-        const state = replay(cmds);
-        found.push({ cmds, state });
-        if (state.over) continue;
-        for (const dir of DIRS) {
-          if (resolveMove(state, dir).kind === 'blocked') continue;
-          const next = [...cmds, dir];
-          const key = keyOf(replay(next));
-          if (seen.has(key)) continue;
-          seen.set(key, next);
-          queue.push(next);
-          if (queue.length > 2000) throw new Error(`${spec.id}: more boards than a piece of the first block has`);
-        }
-      }
-      return found;
-    };
+    // Every board the player can come to by moves and by steps is walked from the start (src/levels/walk.ts).
     const worst: Record<string, number> = {};
     const boards: Record<string, number> = {};
     for (const spec of BLOCK_ONE) {
-      let most = 0;
-      const all = reached(spec);
-      boards[spec.id] = all.length;
-      for (const { cmds, state } of all) {
-        if (state.over) {
-          // The only end there is, is the board cleared.
-          expect(state.endReason, `${spec.id} after ${cmds.join('')}`).toBe('passed');
-          continue;
-        }
-        expect(levelDeadEnd(state), `${spec.id} after ${cmds.join('')}`).toBeNull();
-        const solved = solveFrom(state);
-        expect(solved.solution, `${spec.id} after ${cmds.join('')}`).not.toBeNull();
-        most = Math.max(most, solved.solution!.moves.length);
-      }
-      worst[spec.id] = most;
+      const walk = walkBoards(spec, 2000);
+      expect(walk.capped, `${spec.id}: more boards than a piece of the first block has`).toBe(false);
+      // The only end there is, is the board cleared, and from every other board it is cleared in a few moves.
+      expect(walk.lost, `${spec.id} after ${walk.example}`).toBe(0);
+      boards[spec.id] = walk.boards;
+      worst[spec.id] = walk.worst;
     }
     // Five moves at the most, but for the piece with the stair: its die can be rolled back into the two cells
     // the figure came up by, and from the far one the four rolls of its way are six.

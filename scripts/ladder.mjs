@@ -10,6 +10,9 @@
 //                                            from its route where it has one (seeds 30001 on), else at random
 //                                            (seeds 1 on); 2000 seeds, the three that fit best
 //   node scripts/ladder.mjs place=P06 keep=5 the five that fit best
+//   node scripts/ladder.mjs place=R03        a place of the road (src/levels/roadRecipes.ts, ROAD_PLACES), found by the name of its level when no place of
+//                                            the ladder has it; recipes=/src/levels/other.ts:NAME takes the places from any list a module exports
+//   node scripts/ladder.mjs place=R03 walk=300   the boards a player can come to are walked for the table up to so many (150 unless said, 0 to leave it out)
 //   node scripts/ladder.mjs chapter=0        fills every place of a chapter (boards laid every way, seeds 1 to 1000 of each, and
 //                                            the boards laid by hand) and puts the chapter together: for every place one board
 //                                            that is unlike the one before it, with its picture and its line for levels.ts
@@ -25,6 +28,7 @@
 //   workers=6                                processes the work is shared among: six unless said, or fewer on a machine
 //                                            of few cores. A process solving a big board holds up to a gigabyte.
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,7 +41,7 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 const args = process.argv.slice(2);
 const named = Object.fromEntries(args.filter((arg) => arg.includes('=')).map((arg) => arg.split('=')));
 const flag = (name) => args.includes(name);
-const known = ['place', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep'];
+const known = ['place', 'recipes', 'walk', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep'];
 for (const key of Object.keys(named)) {
   if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as place=P06, seeds=300, from=1, states=3000000, boards=20 or workers=6`);
 }
@@ -124,12 +128,26 @@ if (flag('limit')) {
   }
 } else if (named.place !== undefined) {
   const { PLACES } = await load('/src/levels/recipes.ts');
-  const { judge, gather, placeReport, levelSource, boardText } = await load('/src/levels/select.ts');
+  const { judge, gather, placeReport, levelSource, boardText, REPORT_WALK_LIMIT } = await load('/src/levels/select.ts');
   const { levelId, SKETCH } = await load('/src/levels/generate.ts');
   const { neededBy } = await load('/src/rules/levelBot.ts');
-  // A place is asked for by the name of its level.
-  const recipe = PLACES.find((candidate) => levelId(candidate) === named.place);
-  if (!recipe) throw new Error(`no place ${named.place} among the levels`);
+  // A place is asked for by the name of its level: among the places of the ladder, or in the list a module is named for
+  // (recipes=/src/levels/roadRecipes.ts:ROAD_PLACES), or, failing both, among the places of the road if that list is written.
+  const ROAD_LIST = ['/src/levels/roadRecipes.ts', 'ROAD_PLACES'];
+  const lists = [];
+  if (named.recipes) {
+    const [path, name] = named.recipes.split(':');
+    if (!path || !name) throw new Error('write recipes= as /src/levels/roadRecipes.ts:ROAD_PLACES');
+    lists.push([path, name]);
+  }
+  const recipes = [PLACES];
+  for (const [path, name] of lists.length > 0 ? lists : existsSync(resolve(root, `.${ROAD_LIST[0]}`)) ? [ROAD_LIST] : []) {
+    const list = (await load(path))[name];
+    if (!Array.isArray(list)) throw new Error(`${path} has no list ${name}`);
+    recipes.push(list);
+  }
+  const recipe = (named.recipes ? recipes.slice(1) : recipes).flat().find((candidate) => levelId(candidate) === named.place);
+  if (!recipe) throw new Error(`no place ${named.place} among the levels${named.recipes ? ` or in ${named.recipes}` : ''}`);
   // Seeds above ten thousand lay a board from its solution, and above thirty thousand from its route: see src/levels/generate.ts.
   const first = Number(named.from ?? 1);
   const count = Number(named.seeds ?? 2000);
@@ -155,7 +173,7 @@ if (flag('limit')) {
     // What the three kept cannot be cleared without is asked of the solver for every technique their way leans on.
     for (const fit of filled.fits.slice(0, 3)) fit.needs = neededBy(fit.spec, fit.par, fit.uses);
     const keep = Number(named.keep ?? 3);
-    console.log(placeReport(filled, keep, Number(named.skills ?? 20)));
+    console.log(placeReport(filled, keep, Number(named.skills ?? 20), Number(named.walk ?? REPORT_WALK_LIMIT)));
     for (const fit of filled.fits.slice(0, keep)) {
       console.log('');
       console.log(boardText(fit.spec));

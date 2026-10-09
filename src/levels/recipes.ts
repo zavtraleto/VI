@@ -1,3 +1,4 @@
+import type { PersonaName } from '../rules/levelBot';
 import type { Score } from '../rules/levelScore';
 import type { Ban } from '../rules/reach';
 import type { LevelLayout, LevelSpec, Technique } from '../rules/types';
@@ -107,7 +108,21 @@ export interface Recipe {
   tail?: readonly [number, number];
   /** First moves that leave the board cleared in no more than a move over the fewest. */
   firsts?: readonly [number, number];
-  /** Share of the runs of a persona that clear the board. */
+  /**
+   * The boards the player can come to by moves and by steps are walked (`src/levels/walk.ts`) and
+   * the board is solved from each: the most moves it takes from any of them, at the most.
+   */
+  worst?: number;
+  /** The walk finds no board from which the board cannot be cleared: a piece the player may wander on and not lose. */
+  lossless?: boolean;
+  /** Boards the walk may see, where it is asked for; `WALK_LIMIT` unless said. A walk cut short turns the board away. */
+  walkLimit?: number;
+  /**
+   * A share of the runs of a persona that clear the board, at the least, each from 0 to 1: the
+   * persona plays `PERSONA_RUNS` runs from fixed seeds, so a board is judged alike every time.
+   */
+  personas?: Partial<Record<PersonaName, number>>;
+  /** Share of the runs of a persona that clear the board, within bounds. */
   hasty?: readonly [number, number];
   casual?: readonly [number, number];
   /** Share of the planner over the share of the hasty one. */

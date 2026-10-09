@@ -1,4 +1,4 @@
-import { PERSONA_NAMES, neededBy, personaRates, randomRate, trapRate, witnessWay, type PersonaName } from '../rules/levelBot';
+import { PERSONA_NAMES, neededBy, personaPlay, personaRates, randomRate, trapRate, witnessWay, type PersonaName } from '../rules/levelBot';
 import { scoreOf, type Score } from '../rules/levelScore';
 import { moveOf, moveText, movesAt, playMove, solveLevel, tryWay, type SolverMove } from '../rules/levelSolver';
 import { defaultConfig } from '../rules/config';
@@ -7,6 +7,7 @@ import type { LevelSpec, Technique } from '../rules/types';
 import { FROM_SOLUTION, SKETCH, boardText, builtWay, candidate } from './generate';
 import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, startsUnder, tailOf, trapOf, underOf } from './measures';
 import { boundsOf, type Recipe } from './recipes';
+import { walkBoards, type Walk } from './walk';
 
 /**
  * Picks the boards of the ladder. A candidate of a place is solved, its way is looked at, and it
@@ -40,6 +41,10 @@ export interface Fit {
   firsts: number | null;
   /** Share of the runs of every persona that clear the board; null where the place did not ask. */
   personas: Record<PersonaName, number> | null;
+  /** The shares of the runs the personas the place names floors for clear, each from its fixed runs; null where the place named none. */
+  shares: Partial<Record<PersonaName, number>> | null;
+  /** The walk over the boards the player can come to; null where the place did not ask and it was not made. */
+  walk: Walk | null;
   /** How far it is from the middles of the bounds, each in halves of its width. */
   distance: number;
   /**
@@ -78,6 +83,12 @@ const JUDGE_MAX_STATES = 1_500_000;
 const BIG_BOARD = 7;
 /** Runs of every persona on a candidate whose place asks what they come to. */
 const PERSONA_RUNS = 12;
+/** Runs of a persona a place names a floor for: seeds 1 to this, so the same board is judged alike every time. */
+export const PERSONA_FLOOR_RUNS = 30;
+/** Boards the walk may see on a candidate whose place asks for it; a board whose walk is longer is turned away. */
+export const WALK_LIMIT = 2000;
+/** Boards the walk sees for the table of a place in `ladder.mjs place=`, for the boards that were not asked it; the report itself walks none unless told. */
+export const REPORT_WALK_LIMIT = 150;
 /** Boards a search for a way round a part of the route may see, and one for a way with a single face: a board it cannot settle is turned away. */
 const PROOF_MAX_STATES = 300_000;
 
@@ -246,7 +257,42 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     if (recipe.trap === 'floor' && trap !== 'floor') return no('no combo at hand that leaves the player nowhere to step');
   }
   if (recipe.bothFaces && recipe.faces.some((face) => oneFaceClears(board, face, par + 2, Math.min(maxStates, PROOF_MAX_STATES)))) return no('one face clears the board alone');
+  // The boards the player can come to are walked and solved from: dear, but dearer if the board were not turned away before.
+  let walk: Walk | null = null;
+  if (recipe.lossless || recipe.worst !== undefined) {
+    const limit = recipe.walkLimit ?? WALK_LIMIT;
+    // Once the answer is in, the rest of the walk is not made, unless the nearest board is looked for.
+    walk = walkBoards(board, limit, near ? {} : { lost: recipe.lossless, worst: recipe.worst });
+    if (recipe.lossless && walk.lost > 0) {
+      const turned = outside(near ? `${walk.lost} boards the player can come to cannot be cleared` : 'a board the player can come to cannot be cleared');
+      if (turned) return turned;
+    }
+    if (recipe.worst !== undefined && walk.worst > recipe.worst) {
+      const turned = outside(near ? `${walk.worst} moves from a board the player can come to, not ${recipe.worst}` : `more than ${recipe.worst} moves from a board the player can come to`);
+      if (turned) return turned;
+    }
+    if (walk.capped) {
+      const turned = outside(`the walk over the boards is cut at ${limit}`);
+      if (turned) return turned;
+    }
+  }
   // The players made of the rules are asked last: they are the dearest thing to ask.
+  let shares: Partial<Record<PersonaName, number>> | null = null;
+  if (recipe.personas) {
+    shares = {};
+    for (const name of PERSONA_NAMES) {
+      const floor = recipe.personas[name];
+      if (floor === undefined) continue;
+      let cleared = 0;
+      for (let run = 1; run <= PERSONA_FLOOR_RUNS; run++) if (personaPlay(board, name, run).endReason === 'passed') cleared++;
+      const share = cleared / PERSONA_FLOOR_RUNS;
+      shares[name] = share;
+      if (share < floor - 1e-9) {
+        const turned = outside(`${name} ${share.toFixed(2)} is under ${floor.toFixed(2)}`);
+        if (turned) return turned;
+      }
+    }
+  }
   let personas: Record<PersonaName, number> | null = null;
   if (recipe.hasty || recipe.casual || recipe.gap) {
     personas = personaRates(board, PERSONA_RUNS);
@@ -276,7 +322,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     solution: way.map(moveText),
     ...(recipe.lesson ? { lesson: recipe.lesson } : {}),
   };
-  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, clears: report.cleared.filter(Boolean).length, route: score.route, kind: score.kind, firsts, personas, distance, misses }, why: '' };
+  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, clears: report.cleared.filter(Boolean).length, route: score.route, kind: score.kind, firsts, personas, shares, walk, distance, misses }, why: '' };
 }
 
 /** What of the route and the score of a way is not what the place asks for: the first thing found, or null. */
@@ -337,7 +383,7 @@ export function layOutRows(rows: readonly string[][]): string {
   return rows.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join('  ').trimEnd()).join('\n');
 }
 
-export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'tail', 'route', 'kind', 'firsts', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
+export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'tail', 'route', 'kind', 'firsts', 'worst', 'lossless', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
 
 /** A board that fits, as a row of the table: what the solver says and how the yardsticks play it. */
 export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName, number>): string[] {
@@ -354,6 +400,8 @@ export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName,
     fit.route || '-',
     fit.kind,
     fit.firsts === null ? '-' : String(fit.firsts),
+    fit.walk ? String(fit.walk.worst) : '-',
+    fit.walk ? (fit.walk.lost > 0 ? `no (${fit.walk.lost})` : fit.walk.capped ? 'cut' : 'yes') : '-',
     fit.uses.join(' ') || '-',
     fit.needs.join(' ') || '-',
     percent(fit.traps),
@@ -366,9 +414,11 @@ export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName,
  * The table of a place: the board for the ladder and the two in reserve, each played by the five
  * players by skill, and under it what turned the other candidates away.
  */
-export function placeReport(filled: Filled, keep = 3, skillRuns = 20): string {
+export function placeReport(filled: Filled, keep = 3, skillRuns = 20, walkLimit = 0): string {
   const { recipe, fits, tried, reasons } = filled;
   const kept = fits.slice(0, keep);
+  // The boards kept are walked for the table, where the place did not ask it: the boards that are asked have been.
+  if (walkLimit > 0) for (const fit of kept) fit.walk ??= walkBoards(fit.spec, walkLimit);
   const rows = [[...MEASURE_HEAD], ...kept.map((fit, index) => measureRow(index === 0 ? `${recipe.slot}` : `${recipe.slot} spare`, fit, skillRuns > 0 ? personaRates(fit.spec, skillRuns) : undefined))];
   const turned = Object.entries(reasons)
     .sort((a, b) => b[1] - a[1])
