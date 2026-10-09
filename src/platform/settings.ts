@@ -79,6 +79,8 @@ export interface LevelProgress {
    * (`ROAD_EDITION`); absent in what was saved before the second, which is brought to it on load.
    */
   roadEdition?: number;
+  /** The line about a dim die has been said to this player: it is said once (`saysFixed` in `src/app/hint.ts`). */
+  fixedSaid: boolean;
 }
 
 export interface Settings {
@@ -142,7 +144,7 @@ export function loadSettings(): Settings {
     debugPanel: false,
     runs: {},
     puzzle: { stars: {}, stats: {}, rulesSeen: false },
-    levels: { passed: {}, stats: {} },
+    levels: { passed: {}, stats: {}, fixedSaid: false },
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
@@ -154,6 +156,7 @@ export function loadSettings(): Settings {
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
   // What was kept under the codes of an earlier edition of the road is of other boards (`toRoadEdition`).
+  // A save from before the line about a dim die has not heard it: it takes `fixedSaid` of the fallback.
   loaded.levels = toRoadEdition({ ...fallback.levels, ...loaded.levels });
   loaded.language ??= null;
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {

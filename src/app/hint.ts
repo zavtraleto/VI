@@ -1,5 +1,6 @@
 import { DEAD_ENDS_FOR_SIGN, type HintUntil, type RoadHint } from '../levels/road';
-import type { CubeState, GameEvent } from '../rules/types';
+import { DELTA, cubeAt, inBounds, isFree } from '../rules/board';
+import type { CubeState, GameEvent, RunState } from '../rules/types';
 
 /**
  * The line above the board of a piece that teaches a move, and the mistake that is repeated.
@@ -28,6 +29,42 @@ export function hintOver(until: HintUntil, events: readonly GameEvent[], under: 
         return event.type === 'move' && (event.kind === 'hop' || event.kind === 'mount') && under === 'sinking';
     }
   });
+}
+
+/** The line about a dim die stands this long at the most. */
+export const FIXED_LINE_MS = 6000;
+
+/**
+ * Whether the tick that has just been played stopped a step because the die under the player is
+ * fixed: the player stands on a whole fixed die and has swiped towards an empty cell of the
+ * board, where any other die would have rolled. A step stopped by the edge of the board, by a
+ * hole in it or by a die that is coming up is stopped by those, and is not this.
+ */
+export function fixedStopped(state: RunState): boolean {
+  const { player } = state;
+  if (player.level !== 'top') return false;
+  const own = cubeAt(state, player.x, player.z);
+  if (!own || !own.fixed || own.state !== 'idle') return false;
+  return state.events.some((event) => {
+    if (event.type !== 'blocked') return false;
+    const tx = player.x + DELTA[event.dir].dx;
+    const tz = player.z + DELTA[event.dir].dz;
+    return inBounds(state.config.size, tx, tz) && !cubeAt(state, tx, tz) && isFree(state, tx, tz);
+  });
+}
+
+/**
+ * Whether the line about a dim die is put up after this tick: once for a player (`said` is what
+ * is kept of it), on the first step a fixed die stops, and not while the line of a lesson stands
+ * (`lesson`) - that one is of the piece and wins; the line about the die waits for a later step.
+ */
+export function saysFixed(state: RunState, said: boolean, lesson: boolean): boolean {
+  return !said && !lesson && state.levelRun !== null && fixedStopped(state);
+}
+
+/** Whether the line about a dim die goes out: the player has stepped to another die, or it has stood `FIXED_LINE_MS`. */
+export function fixedLineOver(events: readonly GameEvent[], shownMs: number): boolean {
+  return shownMs >= FIXED_LINE_MS || events.some((event) => event.type === 'move' && event.kind === 'hop');
 }
 
 /** The lines the address may ask for, by the short name of what they teach. */

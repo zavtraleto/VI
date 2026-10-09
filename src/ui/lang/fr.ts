@@ -113,7 +113,8 @@ export const FR: Texts = {
   // A proposal, like the Russian lines they follow.
   roadHintChain: 'Quand le combo part, roule-lui un autre dé.',
   roadHintWalk: 'Tu peux marcher sur un dé qui part.',
-  roadHintPush: 'Depuis le sol, tu peux pousser un dé.',
+  roadHintPush: 'Descends du dé qui part, puis pousse.',
+  roadHintFixed: 'Le dé terne reste là. Passe au voisin.',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLimited: 'SESSION DU JOUR {time}',
   shellLevels: 'NETTOYAGE DU CHAMP',

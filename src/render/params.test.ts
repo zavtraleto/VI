@@ -90,6 +90,7 @@ describe('board params', () => {
       signRestMs: 350,
       signGlow: 1,
       signLength: 1.2,
+      hintWordMs: 180,
     });
   });
 

@@ -110,7 +110,8 @@ export const DE: Texts = {
   // A proposal, like the Russian lines they follow.
   roadHintChain: 'Solange das Combo geht, rolle einen Würfel dazu.',
   roadHintWalk: 'Über einen gehenden Würfel kannst du laufen.',
-  roadHintPush: 'Vom Boden aus kannst du Würfel schieben.',
+  roadHintPush: 'Steig vom gehenden Würfel zu Boden und schiebe.',
+  roadHintFixed: 'Der matte Würfel steht fest. Geh zum nächsten.',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLimited: 'SITZUNG DES TAGES {time}',
   shellLevels: 'FELDRÄUMUNG',

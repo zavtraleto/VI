@@ -97,6 +97,7 @@ const LABELS: Record<string, string> = {
   fixedLight: 'фиксированная: свет граней',
   fixedEdge: 'фиксированная: свет рёбер',
   signStar: 'знак свайпа: лучи звезды, px',
+  hintWordMs: 'строка над полем: мс на слово',
   signTrail: 'знак свайпа: длина следа, доля',
   signRunMs: 'знак свайпа: пробег, мс',
   signRestMs: 'знак свайпа: пауза, мс',

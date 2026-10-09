@@ -110,7 +110,8 @@ export const PT: Texts = {
   // A proposal, like the Russian lines they follow.
   roadHintChain: 'Enquanto o combo sai, role outro dado.',
   roadHintWalk: 'Dá para andar sobre um dado que sai.',
-  roadHintPush: 'Do chão, dá para empurrar um dado.',
+  roadHintPush: 'Desça do dado que sai e empurre.',
+  roadHintFixed: 'O dado apagado não rola. Passe para outro.',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLimited: 'SESSÃO DO DIA {time}',
   shellLevels: 'LIMPEZA DO CAMPO',

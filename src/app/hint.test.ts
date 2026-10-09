@@ -5,9 +5,9 @@ import { worldRuns } from '../rules/level';
 import { createRun, step } from '../rules/sim';
 import type { Dir, GameEvent, LevelSpec, RunState } from '../rules/types';
 import { wrapCaption } from '../signal/caption';
-import { hintAlpha, hintBox, hintResumes, HINT_FADE_MS, NOTE_SIZE, lineSize, toolButtons } from '../shell/hudLayout';
+import { hintAlpha, hintBox, hintResumes, HINT_FADE_MS, HINT_WORD_MS, NOTE_SIZE, lineSize, toolButtons, wordsShown } from '../shell/hudLayout';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
-import { DeadEnds, hintOver, probeHint } from './hint';
+import { DeadEnds, FIXED_LINE_MS, fixedLineOver, fixedStopped, hintOver, probeHint, saysFixed } from './hint';
 import { roadWait } from './signWay';
 
 const move = (kind: Extract<GameEvent, { type: 'move' }>['kind']): GameEvent => ({ type: 'move', kind, dir: 'N' });
@@ -64,11 +64,12 @@ describe('when a hint goes out', () => {
 });
 
 describe('the lines of the road', () => {
-  const pieces = Object.entries(ROAD_HINTS);
+  // The lines of the lessons, and the one about a dim die, which is of no piece.
+  const pieces: [string, { key: string }][] = [...Object.entries(ROAD_HINTS), ['fixed', { key: 'roadHintFixed' }]];
 
   it('are three, for the chain, the walk over a leaving die and the push, on the pieces that will teach them', () => {
     expect(Object.keys(ROAD_HINTS)).toEqual(['R07', 'R11', 'R15']);
-    const untils: HintUntil[] = pieces.map(([, hint]) => hint.until);
+    const untils: HintUntil[] = Object.values(ROAD_HINTS).map((hint) => hint.until);
     expect(untils).toEqual(['chain', 'walk', 'push']);
   });
 
@@ -88,8 +89,8 @@ describe('the lines of the road', () => {
   it('differ from one another and from the lines of a session that have names close to theirs', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      const lines = [t('roadHintChain'), t('roadHintWalk'), t('roadHintPush')];
-      expect(new Set(lines).size, code).toBe(3);
+      const lines = [t('roadHintChain'), t('roadHintWalk'), t('roadHintPush'), t('roadHintFixed')];
+      expect(new Set(lines).size, code).toBe(4);
       expect(lines, code).not.toContain(t('hintChain'));
     }
     setLanguage('en');
@@ -339,5 +340,106 @@ describe('a hint given again while it goes out', () => {
     expect(hintAlpha(hintResumes(5000, 150, false) + 0, null, false)).toBe(0.5);
     expect(hintResumes(5000, 400, false)).toBe(0);
     expect(hintResumes(40, 30, false)).toBeLessThanOrEqual(30);
+  });
+});
+
+describe('the words of a hint', () => {
+  const line = 'Тусклая кость стоит. Шагни на другую.';
+
+  it('come one at a time: the first at once, one more every 180 ms, and then the whole line', () => {
+    expect(HINT_WORD_MS).toBe(180);
+    expect(wordsShown(line, 0)).toBe('Тусклая');
+    expect(wordsShown(line, 179)).toBe('Тусклая');
+    expect(wordsShown(line, 180)).toBe('Тусклая кость');
+    expect(wordsShown(line, 180 * 4)).toBe('Тусклая кость стоит. Шагни на');
+    expect(wordsShown(line, 180 * 5)).toBe(line);
+    expect(wordsShown(line, 60_000)).toBe(line);
+    expect(wordsShown(line, -50)).toBe('Тусклая');
+  });
+
+  it('are always the start of the line as it is written, so each stands where it will in the whole line', () => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      for (const key of ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintFixed'] as const) {
+        const text = t(key);
+        const count = text.split(' ').length;
+        for (let n = 0; n <= count; n++) expect(text.startsWith(wordsShown(text, n * HINT_WORD_MS)), `${key} ${code}`).toBe(true);
+        expect(wordsShown(text, (count - 1) * HINT_WORD_MS)).toBe(text);
+      }
+    }
+    setLanguage('en');
+  });
+
+  it('wait as long as they are told to, and are all there at once where a word is given no time', () => {
+    expect(wordsShown('a b c', 250, 100)).toBe('a b c');
+    expect(wordsShown('a b c', 150, 100)).toBe('a b');
+    expect(wordsShown('a b c', 0, 0)).toBe('a b c');
+    expect(wordsShown('', 0)).toBe('');
+  });
+});
+
+describe('the line about a dim die', () => {
+  // A die that rolls at the start, a fixed one east of it at the edge of the board, and the row below them empty.
+  //   A #
+  //   . .
+  const spec = {
+    arrival: 'none', goal: { kind: 'clear' }, moves: 0, undos: 3, sinkMoves: 2, liftMoves: 1, chapter: 0, exact: true, floor: false,
+    id: 'T01', seed: 1, size: 2, values: [2], faces: [2], norm: 2,
+    layout: { start: { x: 0, z: 0 }, dice: [{ x: 0, z: 0, top: 6, north: 3 }, { x: 1, z: 0, top: 2, north: 1, fixed: true }] },
+    par: 1, solution: [],
+  } as unknown as LevelSpec;
+  const settle = (state: RunState): void => {
+    for (let ticks = 0; (worldRuns(state) || state.player.action) && ticks < 1000; ticks++) step(state, null);
+  };
+  const onFixed = (): RunState => {
+    const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
+    step(state, 'E');
+    settle(state);
+    expect(state.player.x).toBe(1);
+    return state;
+  };
+
+  it('is for a step a fixed die stops: a swipe from it towards an empty cell of the board', () => {
+    const state = onFixed();
+    step(state, 'S');
+    expect(state.events).toContainEqual({ type: 'blocked', dir: 'S' });
+    expect(fixedStopped(state)).toBe(true);
+    // The tick after it has no such step.
+    step(state, null);
+    expect(fixedStopped(state)).toBe(false);
+  });
+
+  it('is not for a step the edge of the board stops, nor for one from a die that rolls', () => {
+    const state = onFixed();
+    step(state, 'N');
+    expect(state.events).toContainEqual({ type: 'blocked', dir: 'N' });
+    expect(fixedStopped(state)).toBe(false);
+    const fresh = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
+    step(fresh, 'N');
+    expect(fresh.events).toContainEqual({ type: 'blocked', dir: 'N' });
+    expect(fixedStopped(fresh)).toBe(false);
+  });
+
+  it('is not for a step from a fixed die to the die beside it: that one is made', () => {
+    const state = onFixed();
+    step(state, 'W');
+    expect(state.events.some((event) => event.type === 'blocked')).toBe(false);
+    expect(fixedStopped(state)).toBe(false);
+  });
+
+  it('is said once to a player, and waits while the line of a lesson stands', () => {
+    const state = onFixed();
+    step(state, 'S');
+    expect(saysFixed(state, false, false)).toBe(true);
+    expect(saysFixed(state, true, false)).toBe(false);
+    expect(saysFixed(state, false, true)).toBe(false);
+  });
+
+  it('goes out at the first step to another die, or after six seconds', () => {
+    expect(FIXED_LINE_MS).toBe(6000);
+    expect(fixedLineOver([], 0)).toBe(false);
+    expect(fixedLineOver([{ type: 'blocked', dir: 'S' }, move('roll')], 5999)).toBe(false);
+    expect(fixedLineOver([move('hop')], 100)).toBe(true);
+    expect(fixedLineOver([], 6000)).toBe(true);
   });
 });

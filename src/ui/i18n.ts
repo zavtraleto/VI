@@ -139,13 +139,15 @@ const RU = {
   ruleTwos: 'Работают двойки и тройки. Двойке нужны две кости, тройке — три.',
   ruleGlass: 'По уходящей кости можно прокатиться. Совпала грань — кость вошла в цепочку.',
   ruleFives: 'Работают только пятёрки. Комбо — пять пятёрок рядом.',
-  // The three lines a piece of the road carries over its board when it teaches a move (`ROAD_HINTS`): a hint and not an
-  // instruction, eight words at most, in the voice of the lab assistant but short. THE TEXTS ARE A PROPOSAL OF THE
-  // IMPLEMENTER; the owner corrects them. The other six languages say the same in the same length and have not been
+  // The three lines a piece of the road carries over its board when it teaches a move (`ROAD_HINTS`), and the one
+  // about a dim die, said once to a player on any board (`roadHintFixed`): a hint and not an instruction, eight words
+  // at most, in the voice of the lab assistant but short. THE TEXTS ARE A PROPOSAL OF THE IMPLEMENTER, `roadHintFixed`
+  // and the words of `roadHintPush` of 9 October too; the owner corrects them. The other six languages say the same in the same length and have not been
   // read by a native speaker either.
   roadHintChain: 'Пока комбо уходит, докати к нему ещё одну.',
   roadHintWalk: 'По уходящей кости можно пройти.',
-  roadHintPush: 'С пола кость можно толкнуть.',
+  roadHintPush: 'Сойди с уходящей кости на пол и толкни.',
+  roadHintFixed: 'Тусклая кость стоит. Шагни на другую.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLimited: 'СЕАНС ДНЯ {time}',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
@@ -275,7 +277,8 @@ const EN: typeof RU = {
   ruleFives: 'Only 5s work. A combo is five 5s side by side.',
   roadHintChain: 'Roll another die to the leaving combo.',
   roadHintWalk: 'You can walk over a leaving die.',
-  roadHintPush: 'From the floor, you can push a die.',
+  roadHintPush: 'Step down from the leaving die and push.',
+  roadHintFixed: 'A dim die stays put. Step to another.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',
   shellLevels: 'CLEAR THE BOARD',

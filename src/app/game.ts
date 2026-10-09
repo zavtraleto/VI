@@ -100,7 +100,7 @@ import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { boardAfter, levelsFile, orderOf, passageAt, passageMarks, startBoard, type Board, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
-import { DeadEnds, hintOver, probeHint } from './hint';
+import { DeadEnds, fixedLineOver, hintOver, probeHint, saysFixed } from './hint';
 import { roadCounters } from './roadCounters';
 import { roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
@@ -356,6 +356,14 @@ export class Game {
   private readonly deadEnds = new DeadEnds();
   /** The line above the board of the piece in hand, while it teaches a move: from the start of the piece to the move being made. Null where the piece has none. */
   private hint: { key: RoadHintKey; until: HintUntil; done: boolean } | null = null;
+  /**
+   * The line about a dim die, said once to a player: the time of play it was put up at, null
+   * while it is not shown. And whether the board in hand keeps room for it above itself: it does
+   * from its start where it has a fixed die and the line has not been said, so it does not move
+   * when the line comes.
+   */
+  private fixedLine: number | null = null;
+  private fixedRoom = false;
   /** What that wait shows on this frame: the way the swipe sign points, and whether the plaque over the target blinks. */
   private waiting: Waiting = { dir: null, blink: false };
   /** What the player last played with: the swipe sign is a key for those who press keys. */
@@ -419,6 +427,8 @@ export class Game {
     onPoints: (points, tier) => this.audio.points(points, tier),
     onCount: () => this.audio.count(),
     onSign: (sign) => this.audio.sign(sign),
+    // The words over the board come with the click the program types the windows of the levels with.
+    onHintWord: (sign) => this.audio.typed(sign),
     press: (dir) => {
       if (!this.inputEnabled()) return;
       // While the words of the exercise wait to be read, a button of the pad reads them.
@@ -900,6 +910,9 @@ export class Game {
     this.ghosts = [];
     // Only a piece of the road carries a line over its board; one that begins after it carries none.
     if (!state.levelRun) this.hint = null;
+    // Every start of a board is without the line about a dim die; a board that is no level keeps no room for it.
+    this.fixedLine = null;
+    if (!state.levelRun) this.fixedRoom = false;
     // A piece of the road waits with the player; every start of it waits anew.
     this.wait = state.levelRun ? roadWait(state.levelRun.spec.id, this.deadEnds.hurries) : null;
     this.waiting = { dir: null, blink: false };
@@ -1153,6 +1166,7 @@ export class Game {
     // A piece that teaches a move carries its line from its start; its room is the board's from the first frame it is framed in.
     const carried = this.piece !== null ? (ROAD_HINTS[spec.id] ?? HINT_PROBE) : null;
     this.hint = carried ? { ...carried, done: false } : null;
+    this.fixedRoom = !this.settings.levels.fixedSaid && (spec.layout?.dice.some((die) => die.fixed) ?? false);
     this.deadEnds.begin(spec.id);
     this.view.setClear(this.hintRoom());
     // A level is the same for everyone: it is played by the rules as they are, whatever the player has set.
@@ -1637,7 +1651,8 @@ export class Game {
    * shown or has gone out: the board does not move when it goes. None where the piece has none.
    */
   private hintRoom(): number {
-    return this.hint ? this.hud.hintRoom(this.stageRect(), t(this.hint.key)) : 0;
+    const lesson = this.hint ? this.hud.hintRoom(this.stageRect(), t(this.hint.key)) : 0;
+    return this.fixedRoom ? Math.max(lesson, this.hud.hintRoom(this.stageRect(), t('roadHintFixed'))) : lesson;
   }
 
   /**
@@ -2188,6 +2203,15 @@ export class Game {
       const under = player.level === 'top' ? (cubeAt(state, player.x, player.z)?.state ?? null) : null;
       if (hintOver(this.hint.until, state.events, under)) this.hint.done = true;
     }
+    // The line about a dim die: said once to a player, at the first step such a die stops, unless
+    // the line of the lesson stands - that one wins, and this waits for a later step.
+    if (this.fixedLine !== null) {
+      if (fixedLineOver(state.events, this.now() - this.fixedLine)) this.fixedLine = null;
+    } else if (saysFixed(state, this.settings.levels.fixedSaid, this.hint !== null && !this.hint.done)) {
+      this.fixedLine = this.now();
+      this.settings.levels.fixedSaid = true;
+      saveSettings(this.settings);
+    }
     // A scored session says how it stands at every whole minute.
     const minute = Math.round(60_000 / state.config.tickMs);
     if (state.tick % minute === 0 && (state.mode === 'endless' || state.mode === 'timed')) {
@@ -2464,7 +2488,15 @@ export class Game {
       counters,
       sign: levelRun && this.waiting.dir ? this.signView(state, this.waiting.dir, over) : null,
       // The hint stands once the board is whole, and goes when the move is made or the piece is over.
-      hint: this.hint && !this.hint.done && !this.passage && !this.starting && !state.over ? { text: t(this.hint.key) } : null,
+      // The line about a dim die stands in the same place, and only where the lesson has none standing.
+      hint:
+        this.passage || this.starting || state.over
+          ? null
+          : this.hint && !this.hint.done
+            ? { text: t(this.hint.key) }
+            : this.fixedLine !== null
+              ? { text: t('roadHintFixed') }
+              : null,
       tools: puzzle
         ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null }
         : levelRun

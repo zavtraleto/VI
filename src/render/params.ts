@@ -254,6 +254,8 @@ export const BOARD_GROUPS = {
     signRestMs: number(350, 0, 2000, 50),
     signGlow: number(1, 0, 2, 0.05),
     signLength: number(1.2, 0.5, 2.5, 0.05),
+    /** The line of a hint over the board is said a word at a time: how long each word waits for the one before it; 0 puts the line up whole. */
+    hintWordMs: number(180, 0, 600, 10),
   },
 } satisfies Record<string, Record<string, ParamSpec>>;
 

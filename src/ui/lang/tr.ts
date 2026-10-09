@@ -110,7 +110,8 @@ export const TR: Texts = {
   // A proposal, like the Russian lines they follow.
   roadHintChain: 'Kombo giderken ona bir zar daha yuvarla.',
   roadHintWalk: 'Giden zarın üstünden yürüyebilirsin.',
-  roadHintPush: 'Zeminden bir zarı itebilirsin.',
+  roadHintPush: 'Giden zardan zemine in ve it.',
+  roadHintFixed: 'Soluk zar yerinde durur. Başka zara geç.',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLimited: 'GÜNÜN OTURUMU {time}',
   shellLevels: 'ALAN TEMİZLİĞİ',

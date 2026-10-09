@@ -6,7 +6,7 @@ import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signRoom, signTurn, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, wordsShown, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signRoom, signTurn, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -223,6 +223,8 @@ export interface HudActions {
   onContinue(): void;
   /** One more sign of the words of the exercise has come. */
   onSign?(sign: string): void;
+  /** One more word of the hint over the board has come: its first sign. */
+  onHintWord?(sign: string): void;
   /** Points of a group have reached the score; the score has counted a little further up. */
   onPoints?(points: number, tier: number): void;
   onCount?(): void;
@@ -449,6 +451,9 @@ export class GameHud {
   private hintText = '';
   private hintSince = 0;
   private hintGone: number | null = null;
+  /** The frame the hint now on screen was first given at, from which its words come one at a time, and how many signs of it have come. */
+  private hintSaid = 0;
+  private hintSigns = 0;
   /**
    * The swipe sign of the picture as it was last drawn whole, where the sign can be drawn alone:
    * how it is laid out, the part of the picture it can light (`room`), and what was in that part
@@ -602,6 +607,11 @@ export class GameHud {
       this.lineFull = view.reducedMotion ? timeMs : timeMs + words.length * SIGN_MS;
     }
     const hint = this.hintFade(view, timeMs);
+    // Each new word of the hint is answered once, and not where a window lies over the session.
+    if (hint && hint.reveal > this.hintSigns) {
+      if (hint.reveal < Infinity && !unseen && this.actions.live()) this.actions.onHintWord?.(hint.text[this.hintSigns === 0 ? 0 : this.hintSigns + 1] ?? '');
+      this.hintSigns = hint.reveal;
+    }
     const signs = Math.min(words.length, this.signs(timeMs));
     if (signs > this.signsSaid) this.actions.onSign?.(words[signs - 1]);
     this.signsSaid = signs;
@@ -699,7 +709,8 @@ export class GameHud {
     }
     if (hint) {
       const { box, size } = this.hintPlace(view.stage, hint.text);
-      this.voice.say({ text: hint.text, box, size, anchor: 'top', alpha: hint.alpha });
+      // The line is put into its rows whole and each word is written where it will stand: nothing moves as they come.
+      this.voice.say({ text: hint.text, box, size, anchor: 'top', alpha: hint.alpha, shown: hint.reveal < hint.text.length ? hint.reveal : undefined });
     }
     kit.end();
     this.voice.end();
@@ -709,12 +720,17 @@ export class GameHud {
    * The hint as it is on this frame: its words and how bright they are. It comes in when the view
    * gives it and goes out, over the same time, when the view stops giving it; null once it is gone.
    */
-  private hintFade(view: HudView, timeMs: number): { text: string; alpha: number } | null {
+  private hintFade(view: HudView, timeMs: number): { text: string; alpha: number; reveal: number } | null {
     const given = view.hint?.text ?? '';
     if (given && (given !== this.hintText || this.hintGone !== null)) {
       // The same line given again while it goes out comes back from how bright it had got, not from nothing.
       const resumed = given === this.hintText && this.hintGone !== null;
       const into = resumed ? hintResumes(timeMs - this.hintSince, timeMs - this.hintGone!, view.reducedMotion) : 0;
+      // A line that is new is said from its first word; one that comes back keeps the words it had.
+      if (!resumed) {
+        this.hintSaid = timeMs;
+        this.hintSigns = 0;
+      }
       this.hintText = given;
       this.hintSince = timeMs - into;
       this.hintGone = null;
@@ -728,7 +744,9 @@ export class GameHud {
       this.hintGone = null;
       return null;
     }
-    return { text: this.hintText, alpha };
+    // With reduced motion the line is there whole, and no word of it is answered.
+    const reveal = view.reducedMotion ? Infinity : wordsShown(this.hintText, timeMs - this.hintSaid, Number(this.look.board.hintWordMs)).length;
+    return { text: this.hintText, alpha, reveal };
   }
 
   /** Keeps what runs from frame to frame: the number that counts up, what has just changed. */

@@ -21,6 +21,8 @@ export interface VoiceLine {
   alpha?: number;
   /** How many signs of the text are there yet, for words that come little by little; all of them when left out. */
   reveal?: number;
+  /** As `reveal`, for a text whose own clock says how much of it is there: `reveal()` of the voice leaves it as it is. */
+  shown?: number;
   /** Signs that come before this text, where several are typed one after another: it starts when they are there. */
   after?: number;
 }
@@ -158,7 +160,7 @@ export class Voice {
       const x = line.box.x * scale + (centre ? width / 2 : 0);
       // Words that are still coming keep the places they will have: a line is written from
       // where it will start, and the lines not reached yet are left empty.
-      let left = line.reveal ?? Infinity;
+      let left = line.reveal ?? line.shown ?? Infinity;
       rows.forEach((row, i) => {
         if (left <= 0) return;
         const y = top + (i + 0.82) * size * LEADING;

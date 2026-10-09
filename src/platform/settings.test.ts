@@ -62,10 +62,24 @@ describe('the sessions a player has saved', () => {
   });
 });
 
+describe('the line about a dim die', () => {
+  it('has not been said in a new save nor in one from before it, and stays said once it is', () => {
+    saved(null);
+    expect(loadSettings().levels.fixedSaid).toBe(false);
+    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 2 } });
+    expect(loadSettings().levels.fixedSaid).toBe(false);
+    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 2, fixedSaid: true } });
+    expect(loadSettings().levels.fixedSaid).toBe(true);
+    // A save of the first edition is brought to the second and keeps what the player has been told.
+    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', fixedSaid: true } });
+    expect(loadSettings().levels.fixedSaid).toBe(true);
+  });
+});
+
 describe('the place on the road a player has saved', () => {
   it('is none where nothing was saved, and none in a save from before the road', () => {
     saved(null);
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, roadEdition: 2 });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, fixedSaid: false, roadEdition: 2 });
     saved({ levels: { passed: { F1: true, P01: true }, stats: {} } });
     const { levels } = loadSettings();
     expect(levels.road).toBeUndefined();
@@ -87,9 +101,9 @@ describe('the place on the road a player has saved', () => {
     // A save of v0.2.27: on the ninth piece of twenty, with the pieces before it and two levels of the list passed.
     saved({ levels: { passed: { R01: true, R08: true, P01: true, P02: true }, stats: { R01: stat, R08: stat, P01: stat }, road: 'R09' } });
     const { levels } = loadSettings();
-    expect(levels).toEqual({ passed: { P01: true, P02: true }, stats: { P01: stat }, road: 'R01', roadEdition: 2 });
+    expect(levels).toEqual({ passed: { P01: true, P02: true }, stats: { P01: stat }, road: 'R01', fixedSaid: false, roadEdition: 2 });
     // One who had cleared that road is past this one, and keeps the levels of the list.
     saved({ levels: { passed: { R20: true, P01: true }, stats: { R20: stat, P01: stat }, road: 'R21' } });
-    expect(loadSettings().levels).toEqual({ passed: { P01: true }, stats: { P01: stat }, road: 'R19', roadEdition: 2 });
+    expect(loadSettings().levels).toEqual({ passed: { P01: true }, stats: { P01: stat }, road: 'R19', fixedSaid: false, roadEdition: 2 });
   });
 });
