@@ -51,8 +51,8 @@ export const FR: Texts = {
   lessonThrees:
     "Bonjour ! Bienvenue dans Visual Interconnection. Je suis le laborantin d'ici, et aujourd'hui je t'apprends à travailler avec la table.\n\n" +
     'Dans les années trente, le docteur Rhine demandait aux gens de lancer des dés en souhaitant de toutes leurs forces la face voulue. Nous, nous ne lançons pas les dés. Nous les guidons.\n\n' +
-    'Tu es debout sur un dé. Guide-le en suivant la flèche : il roulera, et une autre face passera au-dessus.\n\n' +
-    "Aujourd'hui, le troisième canal est ouvert : nous travaillons avec les 3. Mets trois 3 côte à côte : c'est un combo, et il s'en ira. Les autres combinaisons ne marchent pas : leurs faces sont barrées.",
+    'Tu es debout sur un dé. Guide-le : il roulera, et une autre face passera au-dessus.\n\n' +
+    "Aujourd'hui, le troisième canal est ouvert : nous travaillons avec les 3. Mets trois 3 côte à côte : c'est un combo, et il s'en ira. Les autres combinaisons ne marchent pas : leurs faces ont des points creux.",
   lessonStep:
     "Réussi ! Les dés de Rhine ne faisaient que tomber. Les tiens t'obéissent déjà.\n\n" +
     "Maintenant, les pas. Tu peux marcher sur les dés, de l'un au voisin. Un pas ne compte pas comme un coup : marche autant que tu veux.\n\n" +
@@ -99,7 +99,7 @@ export const FR: Texts = {
   lineFloor: "D'un dé qui s'en va, tu peux descendre au sol. Ce n'est pas grave : [nous attendrons]. Depuis le sol, on pousse les dés.",
   lineGlass: "Un dé qui s'en va est [déjà à moitié ici]. Tu peux rouler dessus : le tien prend sa place.",
   lineFaces: 'Un canal de plus est ouvert : maintenant, les 2 et les 3 [sont acceptés]. Compte les dés avant.',
-  ruleThrees: "Un combo, c'est trois 3 côte à côte : il s'en va. Seuls les 3 marchent, les autres faces sont barrées.",
+  ruleThrees: "Un combo, c'est trois 3 côte à côte : il s'en va. Seuls les 3 marchent, les autres faces ont des points creux.",
   ruleStep: "Un pas sur les dés n'est pas un coup. Un coup, c'est rouler le dé sur lequel tu te tiens vers une place libre.",
   ruleWalk: "Un pas n'est pas un coup ; un coup, c'est rouler. Tu peux marcher sur un combo qui s'en va et en descendre sur un autre dé.",
   ruleLink: "Un combo s'en va en deux coups. Amène-lui un dé avec la même face : c'est une chaîne. Chaque dé ainsi amené donne à ceux qui s'en vont un coup de plus.",
@@ -127,7 +127,7 @@ export const FR: Texts = {
   howCombo: "Un combo, c'est autant de dés côte à côte que leur face du dessus a de points : deux 2, trois 3, six 6.\nUn combo formé s'en va.",
   howChain: "Un combo ne s'en va pas tout de suite.\nPendant qu'il s'en va, amène-lui un dé de plus avec la même face : il part avec le combo. C'est une chaîne.",
   howOnes: "Les 1 ne forment pas de combo.\nAmène un 1 à un combo qui s'en va, et tous les autres 1 du plateau s'en vont.",
-  howLevels: "NIVEAUX : enlève tous les dés du plateau.\nSeules les faces du niveau marchent, les autres sont barrées.\nLes coups sont limités : moins tu en joues, plus tu as d'étoiles.\nLe sol a ici ses propres règles : on ne remonte que par un dé qui s'en va.",
+  howLevels: "NIVEAUX : enlève tous les dés du plateau.\nSeules les faces du niveau marchent, les autres ont des points creux.\nLes coups sont limités : moins tu en joues, plus tu as d'étoiles.\nLe sol a ici ses propres règles : on ne remonte que par un dé qui s'en va.",
   howProtocol: 'PROTOCOLE : les dés arrivent tout seuls.\nUne chaîne multiplie le score.\nSi le plateau se remplit et reste plein, la session est finie.',
   shareScore: "VI — envoyé de l'autre côté : {score}",
 };

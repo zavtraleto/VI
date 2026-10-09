@@ -48,8 +48,8 @@ export const ES: Texts = {
   lessonThrees:
     '¡Hola! Te doy la bienvenida a Visual Interconnection. Soy el ayudante del laboratorio, y hoy te enseño a trabajar con la mesa.\n\n' +
     'En los años treinta, el doctor Rhine pedía a la gente que tirara dados y deseara con todas sus fuerzas la cara que quería. Nosotros no tiramos los dados. Los guiamos.\n\n' +
-    'Estás de pie sobre un dado. Guíalo por la flecha: rodará, y otra cara quedará arriba.\n\n' +
-    'Hoy está abierto el tercer canal: trabajamos con treses. Pon tres 3 juntos: eso es un combo, y se irá. Otras combinaciones no funcionan: sus caras están tachadas.',
+    'Estás de pie sobre un dado. Guíalo: rodará, y otra cara quedará arriba.\n\n' +
+    'Hoy está abierto el tercer canal: trabajamos con treses. Pon tres 3 juntos: eso es un combo, y se irá. Otras combinaciones no funcionan: sus caras tienen puntos huecos.',
   lessonStep:
     '¡Lo lograste! Los dados de Rhine solo caían. Los tuyos ya te hacen caso.\n\n' +
     'Ahora, los pasos. Puedes caminar por los dados, de uno al de al lado. Un paso no cuenta como movimiento: camina cuanto quieras.\n\n' +
@@ -96,7 +96,7 @@ export const ES: Texts = {
   lineFloor: 'De un dado que se va puedes bajar al suelo. No pasa nada: [te esperamos]. Desde el suelo los dados se empujan.',
   lineGlass: 'Un dado que se va [ya está medio aquí]. Puedes rodar por encima: el tuyo ocupa su lugar.',
   lineFaces: 'Se abrió un canal más: ahora [se aceptan] doses y treses. Cuenta los dados antes.',
-  ruleThrees: 'Un combo son tres 3 juntos: se va. Solo funcionan los treses; las demás caras están tachadas.',
+  ruleThrees: 'Un combo son tres 3 juntos: se va. Solo funcionan los treses; las demás caras tienen puntos huecos.',
   ruleStep: 'Un paso por los dados no es un movimiento. Un movimiento es rodar el dado sobre el que estás hacia un lugar libre.',
   ruleWalk: 'Un paso no es un movimiento; un movimiento es rodar. Por un combo que se va puedes caminar y bajar de él a otro dado.',
   ruleLink: 'Un combo se va en dos movimientos. Acércale un dado con la misma cara: eso es una cadena. Cada dado así les da a los que se van un movimiento más.',
@@ -124,7 +124,7 @@ export const ES: Texts = {
   howCombo: 'Un combo son tantos dados juntos como puntos tiene su cara de arriba: dos 2, tres 3, seis 6.\nUn combo formado se va.',
   howChain: 'Un combo no se va enseguida.\nMientras se va, acércale otro dado con la misma cara: se irá con el combo. Esto es una cadena.',
   howOnes: 'Los 1 no forman combo.\nLleva un 1 a un combo que se va, y se irán todos los demás 1 del tablero.',
-  howLevels: 'NIVELES: quita todos los dados del tablero.\nSolo funcionan las caras del nivel, las demás están tachadas.\nLos movimientos son limitados: cuantos menos hagas, más estrellas.\nEl suelo tiene aquí sus propias reglas: solo se sube por un dado que se va.',
+  howLevels: 'NIVELES: quita todos los dados del tablero.\nSolo funcionan las caras del nivel, las demás tienen puntos huecos.\nLos movimientos son limitados: cuantos menos hagas, más estrellas.\nEl suelo tiene aquí sus propias reglas: solo se sube por un dado que se va.',
   howProtocol: 'PROTOCOLO: los dados llegan solos.\nUna cadena multiplica los puntos.\nSi el tablero se llena y sigue lleno, la sesión termina.',
   shareScore: 'VI — enviado al otro lado: {score}',
 };
