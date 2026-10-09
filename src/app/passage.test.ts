@@ -29,7 +29,7 @@ describe('the board the program opens on', () => {
   it('is past the first block for one who passed the first level of the build before and has no piece kept', () => {
     expect(startBoard(undefined, true, 0)).toEqual(startBoard(FIRST_PASSED, false, 0));
     // Past the block is the first piece of the second block, whatever level of the list they would go on with.
-    expect(startBoard(undefined, true, 3)).toEqual({ road: 7 });
+    expect(startBoard(undefined, true, 3)).toEqual({ road: 6 });
   });
 });
 
@@ -163,13 +163,14 @@ describe('where the file of the levels in the menu leads', () => {
   it('is the piece the player is on while the road is not finished', () => {
     expect(levelsFile(undefined, false, false)).toEqual({ road: 0 });
     expect(levelsFile('R04', false, false)).toEqual({ road: 3 });
-    expect(levelsFile(undefined, true, false)).toEqual({ road: 7 });
-    expect(levelsFile('R20', false, false)).toEqual({ road: ROAD.length - 1 });
+    expect(levelsFile(undefined, true, false)).toEqual({ road: 6 });
+    expect(levelsFile('R18', false, false)).toEqual({ road: ROAD.length - 1 });
   });
 
   it('is the list for one who is past the road', () => {
     expect(levelsFile(pieceAfter(ROAD.length - 1), false, false)).toBeNull();
-    expect(levelsFile('R99', true, false)).toBeNull();
+    // A code that names no piece and is not the end of the road is the first piece: it is not known where its player stood.
+    expect(levelsFile('R99', true, false)).toEqual({ road: 0 });
   });
 
   it('is the list at the address that opens on the list, wherever the player is', () => {

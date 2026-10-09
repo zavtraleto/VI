@@ -118,8 +118,10 @@ describe('frameOfPiece', () => {
 
   it('counts the rectangle of the cells that are left of a square', () => {
     expect(cellsOf(piece('R01'))).toEqual({ minX: 2, maxX: 2, minZ: 0, maxZ: 5 });
-    expect(cellsOf(piece('R03'))).toEqual({ minX: 0, maxX: 1, minZ: 0, maxZ: 1 });
-    expect(cellsOf(piece('R05'))).toEqual({ minX: 0, maxX: 3, minZ: 0, maxZ: 2 });
+    expect(cellsOf(piece('R03'))).toEqual({ minX: 0, maxX: 2, minZ: 0, maxZ: 2 });
+    // Three cells wide and four long: the east column of its square is cut off.
+    expect(cellsOf(piece('R04'))).toEqual({ minX: 0, maxX: 2, minZ: 0, maxZ: 3 });
+    expect(cellsOf(piece('R15'))).toEqual({ minX: 0, maxX: 3, minZ: 0, maxZ: 2 });
     expect(cellsOf(board(5))).toEqual({ minX: 0, maxX: 4, minZ: 0, maxZ: 4 });
   });
 
@@ -146,8 +148,8 @@ describe('frameOfPiece', () => {
     expect(frameOfPiece(piece('R01'), [], DIAMOND, 360, 640, 0).cell).toBeGreaterThan(frameOf(piece('R01'), DIAMOND, 360, 640, 0).cell * 1.2);
   });
 
-  it('frames a piece of two by two by itself as a board of two', () => {
-    for (const a of [STRAIGHT, DIAMOND]) expect(frameOfPiece(piece('R03'), [], a, width, height, 0)).toEqual(frameOf(board(2), a, width, height, 0));
+  it('frames a piece of three by three by itself as a board of three', () => {
+    for (const a of [STRAIGHT, DIAMOND]) expect(frameOfPiece(piece('R03'), [], a, width, height, 0)).toEqual(frameOf(board(3), a, width, height, 0));
   });
 
   it('gives the pieces of the first block one cell: the smallest any of them fits with by its cells', () => {

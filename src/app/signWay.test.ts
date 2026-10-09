@@ -14,7 +14,57 @@ vi.mock('../rules/levelSolver', async (original) => {
   return { ...actual, solveFrom: vi.fn(actual.solveFrom) };
 });
 
-const pieceOf = (id: string): LevelSpec => ROAD.find((spec) => spec.id === id)!;
+/** A square `size` a side with only the cells given left in it. */
+function cutAllBut(size: number, cells: readonly [number, number][]): { x: number; z: number }[] {
+  const holes: { x: number; z: number }[] = [];
+  for (let z = 0; z < size; z++) for (let x = 0; x < size; x++) if (!cells.some(([cx, cz]) => cx === x && cz === z)) holes.push({ x, z });
+  return holes;
+}
+
+const COMMON = { arrival: 'none', goal: { kind: 'clear' }, moves: 0, undos: 3, sinkMoves: 2, liftMoves: 1, chapter: 0, exact: true, floor: false } as const;
+
+/**
+ * Three pieces of the first edition of the road, kept here as the small boards the sign is
+ * tried on: each is a few boards in all, so what the sign says on every one of them is known.
+ * They go by the codes they had, which name pieces of the road still, so each waits as a piece
+ * of the road does (`ROAD_IDLE`). The first and the second piece are those of the road itself.
+ *
+ *   2 #      . . 2 .      3 3 . .
+ *   # A      . . # .      # # . .
+ *            A # # #      . # . .
+ *                         . B # 2
+ *                         . . A .
+ */
+const SMALL: Readonly<Record<string, LevelSpec>> = {
+  R03: {
+    ...COMMON, id: 'R03', seed: 8103, size: 2, values: [2], faces: [2], norm: 2,
+    layout: { start: { x: 1, z: 1 }, dice: [{ x: 1, z: 1, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1, fixed: true }] },
+    par: 1, solution: ['1,1,W'],
+  },
+  R05: {
+    ...COMMON, id: 'R05', seed: 8105, size: 4, values: [2], faces: [2], norm: 2,
+    holes: cutAllBut(4, [[2, 0], [2, 1], [0, 2], [1, 2], [2, 2], [3, 2]]),
+    layout: { start: { x: 0, z: 2 }, dice: [{ x: 0, z: 2, top: 6, north: 5 }, { x: 2, z: 0, top: 2, north: 1, fixed: true }] },
+    par: 3, solution: ['0,2,E', '1,2,E', '2,2,N'],
+  },
+  R07: {
+    ...COMMON, id: 'R07', seed: 8107, size: 5, values: [2, 3], faces: [2, 3], norm: 5,
+    holes: cutAllBut(5, [[0, 0], [1, 0], [0, 1], [1, 1], [1, 2], [1, 3], [2, 3], [3, 3], [2, 4]]),
+    layout: {
+      start: { x: 2, z: 4 },
+      dice: [
+        { x: 2, z: 4, top: 4, north: 5 },
+        { x: 1, z: 3, top: 1, north: 2 },
+        { x: 0, z: 0, top: 3, north: 1, fixed: true },
+        { x: 1, z: 0, top: 3, north: 1, fixed: true },
+        { x: 3, z: 3, top: 2, north: 1, fixed: true },
+      ],
+    },
+    par: 4, solution: ['2,4,N', '1,3,N', '1,2,N', '1,1,W'],
+  },
+};
+
+const pieceOf = (id: string): LevelSpec => SMALL[id] ?? ROAD.find((spec) => spec.id === id)!;
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 
 /** Gives a command and runs the level until the world stands and the player is free, as a move is made. */
@@ -205,7 +255,7 @@ describe('how high the sign stands', () => {
     const stair = start(pieceOf('R02'));
     expect(signHeight(stair)).toBe(0);
     for (const spec of ROAD) expect(signHeight(start(spec)), spec.id).toBe(spec.layout!.onFloor ? 0 : 1);
-    expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02', 'R14', 'R18']);
+    expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02', 'R13', 'R16']);
   });
 
   it('is half a die on the stair of the second piece, which is half down, and a whole die on the die beyond it', () => {

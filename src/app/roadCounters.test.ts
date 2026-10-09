@@ -19,19 +19,20 @@ describe('the plaques of the road', () => {
 
   it('stand over the pair of threes on the second piece and on the fourth', () => {
     expect(places(start('R02'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['1,0', '1,1'] }]);
-    expect(places(start('R04'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['1,0', '2,0'] }]);
+    expect(places(start('R04'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['0,1', '1,1'] }]);
   });
 
-  it('stand over a lone two, and over the corner of three fours', () => {
-    expect(places(start('R03'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['0,0'] }]);
-    expect(places(start('R05'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['2,0'] }]);
-    expect(places(start('R06'))).toEqual([{ value: 4, have: 3, need: 4, cells: ['0,0', '0,1', '1,0'] }]);
+  it('stand over a lone two, and over the fours of the corner the player does not stand on', () => {
+    expect(places(start('R03'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,1'] }]);
+    expect(places(start('R07'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,1'] }]);
+    // Three 4s stand as a corner and the player is on one of them: the plaque counts the two that are left as they are.
+    expect(places(start('R05'))).toEqual([{ value: 4, have: 2, need: 4, cells: ['3,1', '3,2'] }]);
   });
 
-  it('stand over each of the two asks of the last piece: the pair of threes and the lone two', () => {
-    expect(places(start('R07'))).toEqual([
-      { value: 3, have: 2, need: 3, cells: ['0,0', '1,0'] },
-      { value: 2, have: 1, need: 2, cells: ['3,3'] },
+  it('stand over each of the two asks of the mix of the first block: the pair of threes and the lone two', () => {
+    expect(places(start('R06'))).toEqual([
+      { value: 3, have: 2, need: 3, cells: ['2,0', '3,0'] },
+      { value: 2, have: 1, need: 2, cells: ['3,2'] },
     ]);
   });
 
@@ -53,13 +54,13 @@ describe('the plaques of the road', () => {
   it('give none for a heap as large as its combo', () => {
     const state = start('R04');
     // A third three put under the pair makes three side by side: a combo, which has no plaque.
-    const third = state.cubes.find((c) => c.x === 2 && c.z === 2)!;
+    const third = state.cubes.find((c) => c.x === 1 && c.z === 3)!;
     third.x = 1;
-    third.z = 1;
+    third.z = 2;
     third.ori = { ...third.ori, top: 3 };
     state.grid.fill(0);
     for (const cube of state.cubes) state.grid[cube.z * state.config.size + cube.x] = cube.id;
-    state.player = { x: 1, z: 2, level: 'ground' };
+    state.player = { x: 1, z: 3, level: 'ground' };
     expect(roadCounters(state)).toEqual([]);
   });
 });

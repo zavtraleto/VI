@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { MEASURE_HEAD } from './select';
-import { measureBoard, tableOf } from './table';
+import { ROAD } from './road';
+import { ROAD_HEAD, measureBoard, roadRow, roadTable, tableOf } from './table';
 
 /**
  * A level as the list keeps one, written for this test: two pairs where 2s work. The die of the
@@ -48,5 +49,23 @@ describe('the table of the levels', () => {
       const under = lines[1].slice(lines[0].indexOf(` ${column} `) + 1);
       expect(under.startsWith(cell(row, column)), column).toBe(true);
     }
+  });
+});
+
+describe('the table of the road', () => {
+  it('is a row for a piece: what it is, its board, its fewest moves, its first moves, the walk and two personas', () => {
+    const lesson = ROAD.find((spec) => spec.id === 'R15')!;
+    expect(roadRow(lesson, 'lesson', 300, 4)).toEqual(['R15', 'lesson', '4x3', '5', '2 3', '2', '1', '4', '0', '11', '100%', '100%']);
+    expect(roadRow(lesson, 'lesson', 300, 4)).toHaveLength(ROAD_HEAD.length);
+  });
+
+  it('marks what the walk counted with a plus where it was cut: the numbers are of the boards nearest the start', () => {
+    const free = ROAD.find((spec) => spec.id === 'R03')!;
+    const row = roadRow(free, 'free', 12, 2);
+    expect(row.slice(0, 7)).toEqual(['R03', 'free', '3x3', '2', '2', '2', '2']);
+    expect(row[ROAD_HEAD.indexOf('boards')]).toBe('12+');
+    expect(row[ROAD_HEAD.indexOf('lost')]).toBe('0+');
+    expect(row[ROAD_HEAD.indexOf('worst')]).toMatch(/^\d+\+$/);
+    expect(roadTable([row]).split('\n')).toHaveLength(2);
   });
 });

@@ -98,5 +98,7 @@ export default defineConfig({
       },
     },
   },
-  test: { include: ['src/**/*.test.ts'] },
+  // The files are run side by side, and a test that plays whole runs takes three times as long among them as alone:
+  // the five seconds a test gets unless said were what `bot.test.ts` took to the millisecond, and one file more tipped it.
+  test: { include: ['src/**/*.test.ts'], testTimeout: 20_000 },
 });

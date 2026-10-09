@@ -43,7 +43,7 @@ describe('when a hint goes out', () => {
     expect(hintOver('walk', [match], 'sinking')).toBe(false);
   });
 
-  it('is found in the real events of a piece: the combo of R03 is a match, and the rolls before it are nothing', () => {
+  it('is found in the real events of a piece: the combo of R03 is a match, and the roll before it is nothing', () => {
     const spec = ROAD.find((piece) => piece.id === 'R03') as LevelSpec;
     const state: RunState = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
     const seen: GameEvent[] = [];
@@ -51,9 +51,12 @@ describe('when a hint goes out', () => {
       step(state, dir);
       seen.push(...state.events);
     };
-    go('W');
+    go('E');
     for (let ticks = 0; (worldRuns(state) || state.player.action) && ticks < 1000; ticks++) go(null);
     expect(seen.some((event) => event.type === 'move' && event.kind === 'roll')).toBe(true);
+    expect(hintOver('combo', seen, null)).toBe(false);
+    go('N');
+    for (let ticks = 0; (worldRuns(state) || state.player.action) && ticks < 1000; ticks++) go(null);
     expect(hintOver('combo', seen, null)).toBe(true);
     expect(hintOver('chain', seen, null)).toBe(false);
     expect(hintOver('push', seen, null)).toBe(false);
@@ -64,7 +67,7 @@ describe('the lines of the road', () => {
   const pieces = Object.entries(ROAD_HINTS);
 
   it('are three, for the chain, the walk over a leaving die and the push, on the pieces that will teach them', () => {
-    expect(Object.keys(ROAD_HINTS)).toEqual(['R09', 'R13', 'R17']);
+    expect(Object.keys(ROAD_HINTS)).toEqual(['R07', 'R11', 'R15']);
     const untils: HintUntil[] = pieces.map(([, hint]) => hint.until);
     expect(untils).toEqual(['chain', 'walk', 'push']);
   });
@@ -249,7 +252,7 @@ describe('the dead ends of a piece', () => {
     const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
     expect(roadWait('R03', false)!.frame(state, 0, true)).toEqual({ dir: null, blink: false });
     // Standing on the board the first moment, with no wait at all.
-    expect(roadWait('R03', true)!.frame(state, 0, true)).toEqual({ dir: 'W', blink: false });
+    expect(roadWait('R03', true)!.frame(state, 0, true)).toEqual({ dir: 'E', blink: false });
   });
 });
 

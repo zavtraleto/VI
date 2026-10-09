@@ -1,4 +1,5 @@
 import { RULES_VERSION, defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
+import { toRoadEdition } from '../levels/road';
 import { loadJson, saveJson } from './storage';
 
 export type ControlMode = 'gesture' | 'dpad';
@@ -70,9 +71,14 @@ export interface LevelProgress {
   /**
    * The player's place on the road that leads to the levels: the code of the piece they are on,
    * which is the piece after the last they cleared. Absent for one who has cleared none; a code
-   * that names no piece of the road is past its end (`roadPlace` in `src/levels/road.ts`).
+   * after its last is past its end (`roadPlace` in `src/levels/road.ts`).
    */
   road?: string;
+  /**
+   * The edition of the road `road` and the codes of its pieces in `passed` and `stats` are of
+   * (`ROAD_EDITION`); absent in what was saved before the second, which is brought to it on load.
+   */
+  roadEdition?: number;
 }
 
 export interface Settings {
@@ -147,7 +153,8 @@ export function loadSettings(): Settings {
   loaded.runs = joinRuns(loaded.runs);
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
-  loaded.levels = { ...fallback.levels, ...loaded.levels };
+  // What was kept under the codes of an earlier edition of the road is of other boards (`toRoadEdition`).
+  loaded.levels = toRoadEdition({ ...fallback.levels, ...loaded.levels });
   loaded.language ??= null;
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
