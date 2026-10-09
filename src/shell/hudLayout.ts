@@ -247,6 +247,39 @@ export function signKey(at: Point, trail: Point): Point {
   return { x: at.x + trail.x / 2, y: at.y + trail.y / 2 };
 }
 
+/**
+ * The part of the picture the swipe sign can light, wherever on its run the star is: the trail
+ * from `from`, and `reach` dots around it on every side, in whole dots. The sign is drawn anew
+ * many times a second, and only this part of the picture is drawn and sent again for it.
+ */
+export function signRoom(from: Point, trail: Point, reach: number): Box {
+  const around = Math.max(0, Math.ceil(reach));
+  const left = Math.floor(Math.min(from.x, from.x + trail.x)) - around;
+  const top = Math.floor(Math.min(from.y, from.y + trail.y)) - around;
+  const right = Math.ceil(Math.max(from.x, from.x + trail.x)) + around + 1;
+  const bottom = Math.ceil(Math.max(from.y, from.y + trail.y)) + around + 1;
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+/** Whether two boxes of the picture have a dot in common. */
+export function boxesMeet(a: Box, b: Box): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/**
+ * A number that names the picture of the swipe sign at a moment: while it stays the same the
+ * sign is not drawn again. The key is lit and unlit by turns of `keyMs`. The star is another
+ * picture at every moment of its run of `runMs`, and one picture, nothing, for the `restMs`
+ * after it. With `step` the run is counted in steps of that many milliseconds: for a sign that
+ * cannot be drawn alone, where each new picture of it is a new picture of all the readings.
+ */
+export function signTurn(mode: 'dot' | 'key', timeMs: number, times: { runMs: number; restMs: number; keyMs: number }, step = 0): number {
+  if (mode === 'key') return Math.floor(timeMs / Math.max(1, times.keyMs)) % 2;
+  const runMs = Math.max(1, times.runMs);
+  if (timeMs % (runMs + Math.max(0, times.restMs)) >= runMs) return -1;
+  return step > 0 ? Math.floor(timeMs / step) : timeMs;
+}
+
 /** Letters of the voice for a note over the board, in CSS pixels. */
 export const NOTE_SIZE = 17;
 /**

@@ -6,10 +6,11 @@ import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, lineSize, toolButtons, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signRoom, signTurn, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
+import { SIGN_KEY, SIGN_KEY_MS, paintSign, signReach, type SignLook, type SignPlan } from './swipeSign';
 import { HUD, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, type Palette } from './theme';
 import { Voice } from './voice';
@@ -352,16 +353,14 @@ const COUNTER_PAD = 1;
 const SWIPE_MS = 900;
 const NUDGE_MS = 300;
 /**
- * The swipe sign: the last part of its run over which the star goes out, how far the sign stands
- * from the die and from the edges of what it may stand in, in pixels of the picture, half a
- * period of the blinking of the arrow key, and the side of that key in dots. What the owner
- * turns - the star, its line, its times - is in the look of the board (`road`).
+ * The swipe sign: how far it stands from the die and from the edges of what it may stand in, in
+ * pixels of the picture. How it is drawn is in `swipeSign.ts`; what the owner turns - the star,
+ * its line, its times - is in the look of the board (`road`).
  */
-const SIGN_OUT = 0.2;
 const SIGN_GAP = 3;
 const SIGN_PAD = 2;
-const SIGN_KEY_MS = 500;
-const SIGN_KEY = 18;
+/** A sign that cannot be drawn alone has all the readings drawn anew for it, and then no more often than this, in milliseconds. */
+const SIGN_STEP_MS = 33;
 /** The words of the exercise come one sign at a time, this many milliseconds apart. */
 const SIGN_MS = 38;
 /** Words that are all there cannot be passed sooner than this: a press meant for a move does not skip them. */
@@ -450,6 +449,14 @@ export class GameHud {
   private hintText = '';
   private hintSince = 0;
   private hintGone: number | null = null;
+  /**
+   * The swipe sign of the picture as it was last drawn whole, where the sign can be drawn alone:
+   * how it is laid out, the part of the picture it can light (`room`), and what was in that part
+   * before the sign was drawn. Null where there is no sign, or it lies on a button.
+   */
+  private signKept: { plan: SignPlan; room: Box; under: ImageData } | null = null;
+  /** Which picture of the sign is on the picture now (`signTurn`). */
+  private signTurned = 0;
 
   constructor(
     private readonly display: Display,
@@ -613,18 +620,26 @@ export class GameHud {
     const decay = this.decayAt(view.header.kind === 'session' ? program : 0, timeMs, still, layout.rule + 2);
     // Points in the air and the score they have just reached are drawn anew every frame.
     const moving = this.flyers.length > 0 || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
-    // The swipe sign slides, or blinks: the picture is drawn anew for it.
+    // The swipe sign runs, or blinks, and the picture is not drawn anew for it: only its own part of it is (`signAgain`).
     const sign = view.sign ?? null;
     // A plaque that blinks is drawn anew each time it turns.
     const plaque = !still && (view.counters ?? []).some((counter) => counter.blink) ? Math.floor(timeMs / COUNTER_BLINK_MS) % 2 : 0;
-    const signed = !sign ? '' : `${JSON.stringify(sign)}@${still ? 0 : sign.mode === 'dot' ? Math.floor(timeMs / 33) : Math.floor(timeMs / SIGN_KEY_MS) % 2}`;
+    const signed = sign ? JSON.stringify(sign) : '';
     const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(hint), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       // Words that are still coming change nothing but themselves: the readings stay as they are.
       this.voice.reveal(signs);
-      return;
+      const turn = this.signTurnAt(sign, timeMs, still);
+      if (turn === this.signTurned) return;
+      if (this.signKept) {
+        this.signTurned = turn;
+        this.signAgain(timeMs);
+        return;
+      }
+      // A sign that lies on a button is drawn with it: the whole picture, as before.
     }
     this.drawn = state;
+    this.signKept = null;
 
     this.zones = [];
     this.voice.begin();
@@ -663,8 +678,14 @@ export class GameHud {
       const top = layout.wide ? safe.top : layout.height;
       // And of the buttons of a level, in the corner of the stage.
       const tools = view.tools ? toolButtons(stage, zoom, kit.measure(`${HUD.undo} 9`)).box : null;
-      this.drawSign(sign, timeMs, still, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top }, tools);
+      const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top }, tools);
+      // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
+      const room = signRoom(plan.from, plan.trail, signReach(plan));
+      const covered = (tools !== null && boxesMeet(room, tools)) || (view.pad ? boxesMeet(room, this.toPicture(view.pad.box)) : false);
+      if (!still && !covered) this.signKept = { plan, room, under: kit.grab(room) };
+      paintSign(kit, plan, this.signLook(), timeMs, still);
     }
+    this.signTurned = this.signTurnAt(sign, timeMs, still);
     if (view.tools) this.drawTools(view.tools, stage, blink);
     if (view.pad) this.drawPad(view.pad, blink);
     if (view.note) {
@@ -1267,74 +1288,48 @@ export class GameHud {
   }
 
   /**
-   * The swipe sign, inside the part of the picture it may stand in and clear of the buttons of a
-   * level (`avoid`). A star of the bright ink of the program sets off from the start of its
-   * trail and runs to the end of it, parallel to the board; the thin line it leaves behind goes
-   * out towards where it came from; at the end the star goes out, and after a moment of nothing
-   * it sets off again. Held still, it stands at the end of its trail with the line behind it.
-   * The key stands in the middle of that trail, and is lit and unlit by turns, once a second.
+   * Where the swipe sign stands: inside the part of the picture it may stand in and clear of the
+   * buttons of a level (`avoid`), its trail beside the die of the figure and parallel to the
+   * board. The star runs along that trail and the key stands in the middle of it (`paintSign`).
    */
-  private drawSign(sign: HudSign, timeMs: number, still: boolean, inside: Box, avoid: Box | null): void {
-    const { kit } = this;
-    const { bg, ink, dim } = kit.palette;
-    const zoom = kit.zoom;
+  private signPlan(sign: HudSign, inside: Box, avoid: Box | null): SignPlan {
+    const zoom = this.kit.zoom;
     const n = (name: string): number => Number(this.look.board[name] ?? 0);
     const rays = Math.max(1, Math.round(n('signStar')));
     const body: Box = { x: sign.body.x / zoom, y: sign.body.y / zoom, w: sign.body.w / zoom, h: sign.body.h / zoom };
-    const key = sign.mode === 'key';
     // Beside the die: clear of it by the rays of the star, or by half the key.
-    const reach = key ? SIGN_KEY / 2 : rays;
+    const reach = sign.mode === 'key' ? SIGN_KEY / 2 : rays;
     const run = signBeside(body, { x: sign.step.x / zoom, y: sign.step.y / zoom }, n('signLength'), SIGN_GAP + reach);
     const { trail } = run;
     const from = signPlace(signClear(run.from, trail, avoid, reach + SIGN_PAD), trail, inside, reach + SIGN_PAD);
-    if (key) {
-      const centre = signKey(from, trail);
-      const cell: Box = { x: Math.round(centre.x - SIGN_KEY / 2), y: Math.round(centre.y - SIGN_KEY / 2), w: SIGN_KEY, h: SIGN_KEY };
-      const lit = still || Math.floor(timeMs / SIGN_KEY_MS) % 2 === 0;
-      if (lit) kit.box(cell, ink);
-      else {
-        kit.box(cell, bg);
-        kit.frame(cell, dim);
-      }
-      kit.text(ARROW[sign.dir], cell.x + SIGN_KEY / 2, cell.y + Math.round((SIGN_KEY - CELL_H) / 2), lit ? bg : ink, { align: 'center' });
-      return;
-    }
-    const runMs = Math.max(1, n('signRunMs'));
-    const turn = timeMs % (runMs + Math.max(0, n('signRestMs')));
-    if (!still && turn >= runMs) return;
-    const along = still ? 1 : turn / runMs;
-    const eased = 1 - (1 - along) * (1 - along);
-    // The star goes out over the last of its run, and its line with it.
-    const here = still ? 1 : Math.min(1, (1 - along) / SIGN_OUT);
-    // The line: thin, a dot of the picture wide, lit for a part of the run behind the star and going out towards its far end.
-    const kept = Math.max(0, Math.min(1, n('signTrail')));
-    const tail = Math.max(0, eased - kept);
-    const dots = Math.max(1, Math.ceil(Math.hypot(trail.x, trail.y) * (eased - tail)));
-    let last = '';
-    for (let i = 0; i <= dots; i++) {
-      const at = tail + ((eased - tail) * i) / dots;
-      const x = Math.round(from.x + trail.x * at);
-      const y = Math.round(from.y + trail.y * at);
-      // A dot of the picture is lit once, however many points of the line fall in it.
-      if (`${x},${y}` === last) continue;
-      last = `${x},${y}`;
-      kit.light(x, y, 1, 1, ink, 0.7 * (kept > 0 ? 1 - (eased - at) / kept : 0) * here);
-    }
-    // The star: light around it, four rays that thin out, and a core lit in full.
-    const hx = Math.round(from.x + trail.x * eased);
-    const hy = Math.round(from.y + trail.y * eased);
-    const glow = Math.max(0, n('signGlow'));
-    kit.halo(hx + 0.5, hy, rays + 1, ink, 0.14 * glow * here);
-    kit.halo(hx + 0.5, hy, Math.max(1.5, rays / 2), ink, 0.22 * glow * here);
-    for (let i = 1; i <= rays; i++) {
-      const lit = here * (1 - (i - 1) / rays);
-      kit.light(hx + i, hy, 1, 1, ink, lit);
-      kit.light(hx - i, hy, 1, 1, ink, lit);
-      kit.light(hx, hy + i, 1, 1, ink, lit);
-      kit.light(hx, hy - i, 1, 1, ink, lit);
-    }
-    for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) kit.light(hx + dx, hy + dy, 1, 1, ink, 0.55 * here);
-    kit.light(hx, hy, 1, 1, ink, here);
+    return { mode: sign.mode, dir: sign.dir, from, trail, rays };
+  }
+
+  /** The numbers of the look the sign is drawn with, as they are now: the owner turns them while the game runs. */
+  private signLook(): SignLook {
+    const n = (name: string): number => Number(this.look.board[name] ?? 0);
+    return { runMs: n('signRunMs'), restMs: n('signRestMs'), trail: n('signTrail'), glow: n('signGlow') };
+  }
+
+  /** Which picture of the sign belongs to this moment (`signTurn`): 0 where there is no sign, or it is held still. */
+  private signTurnAt(sign: HudSign | null, timeMs: number, still: boolean): number {
+    if (!sign || still) return 0;
+    const { runMs, restMs } = this.signLook();
+    return signTurn(sign.mode, timeMs, { runMs, restMs, keyMs: SIGN_KEY_MS }, this.signKept ? 0 : SIGN_STEP_MS);
+  }
+
+  /**
+   * The sign as it is at this moment, drawn alone: its part of the picture is put back as it was
+   * before the sign, the sign is drawn on it, and only that part goes to the screen. The readings
+   * are text and frames over the whole picture, and a star that runs is another picture on every
+   * frame: drawn with them, it had all of them drawn and sent anew thirty times a second.
+   */
+  private signAgain(timeMs: number): void {
+    const kept = this.signKept;
+    if (!kept) return;
+    this.kit.put(kept.under, kept.room);
+    paintSign(this.kit, kept.plan, this.signLook(), timeMs, false);
+    this.kit.endPart(kept.room);
   }
 
   private drawLesson(lesson: HudLesson, stage: Rect, box: Box, timeMs: number, still: boolean, signs: number, blink: number): void {

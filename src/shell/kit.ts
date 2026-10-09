@@ -152,6 +152,21 @@ export class Kit {
     this.layer.markDirty();
   }
 
+  /** A part of the picture as it is now, in whole dots, to be put back later (`put`). */
+  grab(box: Box): ImageData {
+    return this.layer.ctx.getImageData(box.x, box.y, Math.max(1, box.w), Math.max(1, box.h));
+  }
+
+  /** Puts back a part of the picture that was taken with `grab`, in place of what is there now. */
+  put(image: ImageData, box: Box): void {
+    this.layer.ctx.putImageData(image, box.x, box.y);
+  }
+
+  /** A part of the picture has been drawn anew and the rest stands as it was: the layer takes that part to the screen. */
+  endPart(box: Box): void {
+    this.layer.markDirty({ x: box.x, y: box.y, width: box.w, height: box.h });
+  }
+
   /** A new font has arrived: text drawn with the stand-in is forgotten. */
   forgetText(): void {
     this.masks.clear();
