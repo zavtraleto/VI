@@ -86,6 +86,7 @@ const LABELS: Record<string, string> = {
   headGlow: 'линии: яркая точка',
   headSize: 'линии: ядро точки, толщин линии',
   headHalo: 'линии: свет вокруг точки, клеток',
+  headCore: 'линии: ядро точки добела',
   afterglowMs: 'линии: послесвечение, мс',
   riseMs: 'кости: подъём, мс',
   riseStepMs: 'кости: шаг подъёма, мс',

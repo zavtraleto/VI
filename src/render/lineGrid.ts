@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FX_LAYER } from './burst';
 import { GLOW_LAYER } from './cubes';
 import { farthest, type GridSegment } from './gridLines';
 import type { BoardLook } from './params';
@@ -9,6 +10,10 @@ const ROOM = 0.06;
 const HEAD_SWELL = 1;
 /** How much of `headGlow` the light around a point has at its middle: at 2 it is as bright there as the core. */
 const HALO_SHARE = 0.5;
+/** How far the square of a point stands clear of the floor it has been brought up to, in cells. */
+const HEAD_CLEAR = 0.01;
+/** The least the floor may face the camera, for how far a point is brought towards it: a board seen almost from the side does not send it out of the picture. */
+const HEAD_FACING = 0.2;
 
 const VERTEX = /* glsl */ `
 uniform float uLine;
@@ -101,6 +106,13 @@ void main() {
 /**
  * The point that draws a side, as a light of its own: a square that faces the camera, standing
  * where the wave has come to on its side, and nowhere while the side is not being drawn.
+ *
+ * The square stands up from the floor towards the camera, and the floor writes its depth: left
+ * at the distance of its middle, the half of it below the middle on screen is behind the floor
+ * there, which is nearer, and was not drawn - a point with light only above it. So the square
+ * is brought towards the camera by as much as the floor rises under its lowest corner, and all
+ * of it is in front of the floor; the camera has no perspective, so the point stays where it
+ * was on screen. A die that stands in front of the point still hides it.
  */
 const HEAD_VERTEX = /* glsl */ `
 uniform float uWave;
@@ -120,32 +132,42 @@ void main() {
   vec4 at = modelViewMatrix * vec4(centre.x - 0.5, 0.0, centre.y - 0.5, 1.0);
   // Turned to the camera: the point is round on the screen however the board lies.
   at.xy += vOff;
+  // The way the floor faces, as the camera sees it: z is towards the camera.
+  vec3 up = normalize(normalMatrix * vec3(0.0, 1.0, 0.0));
+  at.z += uRoom * (abs(up.x) + abs(up.y)) / max(abs(up.z), ${HEAD_FACING.toFixed(2)}) + ${HEAD_CLEAR.toFixed(3)};
   // A side that is whole, or not begun, has no point: its square is put out of the picture.
   gl_Position = drawn > 0.0 && drawn < 1.0 ? projectionMatrix * at : vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
 
 /**
- * A point of light: a hot core lit in full, with a sharp rim, and light around it that falls
- * off to nothing. It is put together with the lines by the stronger of the two, as the lines
- * are with one another, so a corner where several points part is no brighter than one of them.
+ * A point of light, as an orb seen face-on: a small core that is white-hot and soft at its rim,
+ * inside light that is round and falls off to nothing at its own rim, with no edge anywhere.
+ * The light is the colour of the lines and goes towards white where it is strongest. It is put
+ * together with the lines by the stronger of the two, as the lines are with one another, so a
+ * corner where several points part is no brighter than one of them.
  */
 const HEAD_FRAGMENT = /* glsl */ `
 uniform vec3 uColour;
 uniform float uCore;
 uniform float uHalo;
 uniform float uGlow;
+uniform float uHot;
 
 varying vec2 vOff;
 
 void main() {
   float off = length(vOff);
   float px = max(fwidth(off), 1e-5);
-  float core = clamp((uCore - off) / px + 0.5, 0.0, 1.0);
+  // Full in its middle, and going down over the outer half of it.
+  float core = 1.0 - smoothstep(0.5 * uCore - 0.5 * px, uCore + 0.5 * px, off);
+  // Nothing at the rim, and coming to nothing there without a step.
   float fall = clamp(1.0 - off / max(uHalo, 1e-4), 0.0, 1.0);
-  float level = min(1.0, max(core, uGlow * ${HALO_SHARE.toFixed(2)} * fall * fall));
+  float halo = uGlow * ${HALO_SHARE.toFixed(2)} * fall * fall;
+  float level = min(1.0, core + (1.0 - core) * halo);
+  float hot = uHot * min(1.0, core + fall * fall * fall * fall);
 
-  gl_FragColor = vec4(uColour, 1.0);
+  gl_FragColor = vec4(mix(uColour, vec3(1.0), hot), 1.0);
   #include <colorspace_fragment>
   gl_FragColor = vec4(gl_FragColor.rgb * level, level);
 }
@@ -165,8 +187,9 @@ type Strips = THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
  *
  * The points that draw the lines are a second draw, there only while a wave runs: a bright
  * point of light for every side that is being drawn, placed on the graphics card by the same
- * numbers as the sides. They are on the layer of what gives light off, so the tube spreads
- * their light around them; the lines are not.
+ * numbers as the sides. They are drawn over the whole window, after the board, and they are on
+ * the layer of what gives light off, so the tube spreads their light around them; the lines
+ * are neither.
  */
 export class LineGrid {
   /** The lines and the points that draw them: what is put on the board. Its order in the picture is the order of both. */
@@ -198,6 +221,8 @@ export class LineGrid {
     uCore: { value: 0.05 },
     uHalo: { value: 0.1 },
     uGlow: { value: 1 },
+    /** How far towards white the middle of a point goes, 0 to 1. */
+    uHot: { value: 1 },
   };
   private readonly material: THREE.ShaderMaterial;
   private readonly headMaterial: THREE.ShaderMaterial;
@@ -231,6 +256,9 @@ export class LineGrid {
     this.heads.frustumCulled = false;
     // The points over the lines they draw.
     this.heads.renderOrder = 1;
+    // Drawn over the whole window, with the light a group throws: the part of the window the
+    // board is kept in would cut the light of a point at its edge in a straight line.
+    this.heads.layers.set(FX_LAYER);
     // A point is light, and the tube spreads it.
     this.heads.layers.enable(GLOW_LAYER);
     // A board at rest has none.
@@ -333,6 +361,7 @@ export class LineGrid {
     headUniforms.uCore.value = core;
     headUniforms.uHalo.value = halo;
     headUniforms.uGlow.value = glow;
+    headUniforms.uHot.value = Math.min(1, Math.max(0, n('headCore')));
     headUniforms.uRoom.value = Math.max(core, halo) + ROOM;
     this.heads.visible = glow > 0 && share > 0 && share < 1;
   }

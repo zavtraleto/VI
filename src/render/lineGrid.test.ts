@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { shellDefaults } from '../shell/theme';
+import { FX_LAYER } from './burst';
 import { GLOW_LAYER } from './cubes';
 import { gridSegments, waveFrom } from './gridLines';
 import { LineGrid } from './lineGrid';
@@ -72,5 +73,35 @@ describe('the points that draw the lines of a board', () => {
     expect(uniforms.uRoom.value).toBeGreaterThanOrEqual(0.4);
     // The points are where the wave is: the same number the lines are drawn by.
     expect(uniforms.uWave).toBe(grid.lines.material.uniforms.uWave);
+  });
+
+  it('are drawn over the whole window with the light a group throws, not inside the part the board has, where its edge would cut their light', () => {
+    const grid = new LineGrid(look());
+    const on = (layer: number): boolean => {
+      const layers = new THREE.Layers();
+      layers.set(layer);
+      return grid.heads.layers.test(layers);
+    };
+    expect(on(FX_LAYER)).toBe(true);
+    expect(on(0)).toBe(false);
+    // The lines stay with the board.
+    expect(grid.lines.layers.mask).toBe(1);
+  });
+
+  it('stand clear of the floor: the square of a point is brought towards the camera by the lie of the floor, so the floor hides no half of it', () => {
+    const grid = new LineGrid(look());
+    const { vertexShader } = grid.heads.material;
+    expect(vertexShader).toContain('normalMatrix * vec3(0.0, 1.0, 0.0)');
+    expect(vertexShader).toMatch(/at\.z \+=/);
+    // What stands in front of a point still hides it.
+    expect(grid.heads.material.depthTest).toBe(true);
+    expect(grid.heads.material.depthWrite).toBe(false);
+  });
+
+  it('are white-hot in the middle by as much as the look asks', () => {
+    const grid = new LineGrid(look({ headCore: 0.7 }));
+    grid.set(sides(3));
+    grid.show(0.4, true, 0);
+    expect(grid.heads.material.uniforms.uHot.value).toBeCloseTo(0.7, 6);
   });
 });

@@ -212,13 +212,14 @@ export const BOARD_GROUPS = {
      * console: 0 is no point, at 1 the end of the line is lit in full and twice as wide as its
      * line, past 1 it is only larger, and the light around the point is as much stronger. How
      * wide its hot core is, in widths of the thin line; how far the light around it reaches,
-     * in cells. The tube spreads that light further. And how long the light the point leaves
+     * in cells; how far towards white its middle goes. The tube spreads that light further. And how long the light the point leaves
      * behind lasts: on a line just drawn, going down to the light of the lines; on a line just
      * erased, going out.
      */
     headGlow: number(1.6, 0, 3, 0.05),
-    headSize: number(2.4, 0.5, 6, 0.1),
-    headHalo: number(0.32, 0, 1, 0.01),
+    headSize: number(2, 0.5, 6, 0.1),
+    headHalo: number(0.45, 0, 1, 0.01),
+    headCore: number(0.9, 0, 1, 0.01),
     afterglowMs: number(250, 0, 1500, 10),
     /** The dice of the next board come up out of the floor when its lines are drawn: how long one takes, and how much later each step further from the player. */
     riseMs: number(600, 100, 2000, 50),
