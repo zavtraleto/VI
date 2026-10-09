@@ -30,8 +30,6 @@ export const BOARD_GROUPS = {
     faceSide: number(0.78, 0.2, 1, 0.01),
     sideTilt: number(0.24, 0, 0.6, 0.01),
     sideFall: number(0.47, 0, 0.9, 0.01),
-    /** What a face that does not work on the level in hand keeps of its light. */
-    faceOff: number(0.5, 0.1, 1, 0.01),
     /**
      * The pips are the places of a face that are not lit; the pip of the one is lit, and red.
      * Radius of a pip as a share of the face; the single pip of the one is this many times larger.
@@ -39,6 +37,12 @@ export const BOARD_GROUPS = {
     pipSize: number(0.098, 0.05, 0.16, 0.002),
     pipOne: number(1.5, 1, 2.4, 0.05),
     pipDark: color('#171616'),
+    /**
+     * The pips of a face that does not work on the level in hand are hollow: rings, with the
+     * face showing inside them. How thick a ring is, as a share of the radius of the pip; it is
+     * never drawn thinner than two pixels of the picture, nor so thick that the hole is gone.
+     */
+    pipRing: number(0.4, 0.15, 0.65, 0.01),
     /** The screen is a little less lit around a pip: how far that reaches, in radii of the pip, and how dark it is. */
     pipDusk: number(0.5, 0, 2, 0.05),
     pipDuskDark: number(0.14, 0, 1, 0.01),

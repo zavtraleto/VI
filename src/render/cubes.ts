@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import { mixHex, type Palette } from '../shell/theme';
+import { RING_LEAST_PX, RING_MOST, offMask } from './faces';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
 import { comeShare, goneShare, isLit, litFlash, passingHeight, faded, type DicePassing } from './passing';
 import { PIP_STEP } from './textures';
@@ -87,6 +88,11 @@ uniform float uDim;
 
 uniform float uSide;
 uniform float uTilt;
+/** The faces that do not work, a bit for each. */
+uniform int uOff;
+
+/** The value of each side of a die that has not been turned: +x, -x, +y, -y, +z, -z. */
+const int SIDES[6] = int[6](${CANONICAL_FACE_VALUES.join(', ')});
 
 varying vec3 vFace;
 varying vec3 vNormal;
@@ -95,6 +101,8 @@ varying vec3 vWorld;
 varying vec3 vStand;
 varying vec4 vArrive;
 varying float vDim;
+/** 1 on a die whose face on top does not work, 0 on one whose face on top does. */
+varying float vTopOff;
 
 void main() {
   #ifdef USE_INSTANCING
@@ -114,6 +122,15 @@ void main() {
   float up = clamp(facing.y, 0.0, 1.0);
   float side = uSide * (1.0 + uTilt * 0.5 * (facing.z - facing.x));
   vStand = vec3(mix(side, 1.0, up * up), up, (turned * position).y / ${CUBE_SIZE.toFixed(4)} + 0.5);
+  // Which side of the die looks up, and whether the face on it works. A die that rolls goes
+  // from the one face to the other by degrees, as the light of its faces does.
+  vec3 above = vec3(turned[0].y, turned[1].y, turned[2].y);
+  vec3 share = smoothstep(0.6, 0.8, abs(above));
+  ivec3 tops = ivec3(above.x > 0.0 ? 0 : 1, above.y > 0.0 ? 2 : 3, above.z > 0.0 ? 4 : 5);
+  vTopOff = min(1.0,
+    share.x * float((uOff >> (SIDES[tops.x] - 1)) & 1) +
+    share.y * float((uOff >> (SIDES[tops.y] - 1)) & 1) +
+    share.z * float((uOff >> (SIDES[tops.z] - 1)) & 1));
   vFace = face;
   vNormal = turned * normal;
   vWorld = world.xyz;
@@ -147,7 +164,11 @@ const THROUGH_DOTS = /* glsl */ `  if (uCover < 1.0) {
  * the middle of the rounded edges of the body runs a pale line of light, and the faces run up
  * to it: nothing dark stands between a face and its edge. `EMIT` leaves only what the tube
  * spreads light around: the face on top,
- * the edges, the red of the one. `GLASS` is the die that is not all here: its edges are drawn
+ * the edges, the red of the one. A face that does not work on the level in hand is as bright
+ * and of the same colour as one that does, and is told by two things on the face alone: its
+ * pips are hollow, rings with the face showing inside them, and it gives the tube nothing -
+ * no light of its own, none of the answer of the dice, and on top no brighter line around it
+ * than the other edges have. `GLASS` is the die that is not all here: its edges are drawn
  * over it in the colour of its channel, and it is drawn through a mesh of the dots of the tube,
  * the way a console that could not blend made a thing half here; a tube runs such a mesh
  * together. Near its full height a die that comes up shows the line of its own edges as well,
@@ -166,14 +187,16 @@ uniform vec3 uPipDark;
 uniform vec3 uEdge;
 /** Radius of a pip; how many times larger the pip of the one is; how far the dusk around a pip reaches, in radii; how dark it is. */
 uniform vec4 uPip;
-/** How much a face darkens towards its edges; how much the sides darken towards the foot; what is left of a face that does not work. */
-uniform vec3 uFace;
+/** How much a face darkens towards its edges; how much the sides darken towards the foot. */
+uniform vec2 uFace;
+/** How thick the ring of a hollow pip is, as a share of the radius of the pip. */
+uniform float uRing;
 /** Half the width of the line of an edge; how bright it is; how far its light spreads over the face; how bright that light is. */
 uniform vec4 uLine;
 /** What the edges that are not around the face on top keep of their light. */
 uniform float uLineSide;
 /** The faces that do not work, a bit for each. */
-uniform int uCrossed;
+uniform int uOff;
 /** How much brighter than it stands the die is at this moment. */
 uniform float uLift;
 uniform vec3 uLamp;
@@ -196,6 +219,7 @@ varying vec3 vWorld;
 varying vec3 vStand;
 varying vec4 vArrive;
 varying float vDim;
+varying float vTopOff;
 
 const float STEP = ${PIP_STEP.toFixed(4)};
 /** The pips of each value, a bit for each place of three by three, row by row from the top. */
@@ -222,14 +246,24 @@ ${THROUGH_DOTS}
   float radius = uPip.x * (value == 1 ? uPip.y : 1.0);
   float pip = 1.0 - smoothstep(radius - px, radius + px, away);
 
-  bool off = ((uCrossed >> (value - 1)) & 1) == 1;
+  bool off = ((uOff >> (value - 1)) & 1) == 1;
+  // The pips of a face that does not work are hollow: the face shows inside its rings. A ring
+  // is never thinner than can be read, and never so thick that the hole is gone.
+  float hole = 0.0;
+  if (off) {
+    float inner = radius - min(max(radius * uRing, ${RING_LEAST_PX.toFixed(1)} * px), radius * ${RING_MOST.toFixed(4)});
+    hole = 1.0 - smoothstep(inner - px, inner + px, away);
+  }
+  float ink = pip - hole;
   float up = vStand.y;
   float screen = 1.0 - uFace.x * smoothstep(0.1, 0.7, length(uv - 0.5));
   vec3 tint = uChannels[value - 1];
   // The screens of a fixed die are out: the channel faded, towards the pale of its brightest part, and with less light.
   tint = mix(tint, mix(tint, vec3(max(max(tint.r, tint.g), tint.b)), uFixed.x) * uFixed.y, vDim);
   vec3 normal = normalize(vNormal);
-  float rim = mix(uLineSide, 1.0, smoothstep(0.2, 0.6, normal.y));
+  // The line is bright around the face on top, if that face works.
+  float above = smoothstep(0.2, 0.6, normal.y);
+  float rim = mix(uLineSide, 1.0, above * (1.0 - vTopOff));
   float line = 1.0 - smoothstep(uLine.x - px, uLine.x + px, border);
 #ifdef GLASS
   vec3 edge = uOwn;
@@ -244,36 +278,30 @@ ${THROUGH_DOTS}
   // yellow one. A face with little colour in it spreads less: white would outshine the six.
   float most = max(max(tint.r, tint.g), max(tint.b, 0.001));
   vec3 pure = tint / most * (0.6 + 0.4 * (most - min(min(tint.r, tint.g), tint.b)) / most);
-  // A screen that is out gives the tube nothing.
+  // A face that does not work gives the tube nothing.
   vec3 colour = off ? vec3(0.0) : pure * (up * up * screen * (1.0 - pip) * (1.0 + uLift) * (1.0 - vDim));
-  // The pip of the one is lit: it is the seventh.
-  if (value == 1) colour = mix(colour, uSignal, pip * up * up);
+  // The pip of the one is lit: it is the seventh. Its ring on a level the one does not work on is not.
+  if (value == 1 && !off) colour = mix(colour, uSignal, pip * up * up);
   // A die that has just come up gives its light to the tube little by little.
   colour *= vArrive.a;
-  colour += edge * (rim * line * uLine.y * uEmitEdge * (1.0 + uLift));
+  // Nor do the edges around such a face on top give it anything.
+  colour += edge * (rim * (1.0 - above * vTopOff) * line * uLine.y * uEmitEdge * (1.0 + uLift));
   gl_FragColor = vec4(colour, 1.0);
 #else
   float power = vStand.x * (1.0 - uFace.y * (1.0 - up) * (1.0 - vStand.z));
-  power *= off ? uFace.z : 1.0 + uLift;
-  // Around a pip the screen is a little less lit: a place that is out has no sharp end.
-  float dusk = uPip.w * (1.0 - smoothstep(radius, radius * (1.0 + uPip.z), away));
+  // A face that does not work is as bright as it stands, and takes none of the answer of the dice.
+  power *= off ? 1.0 : 1.0 + uLift;
+  // Around a pip the screen is a little less lit: a place that is out has no sharp end. Inside a ring it is lit as the face is.
+  float dusk = uPip.w * (1.0 - smoothstep(radius, radius * (1.0 + uPip.z), away)) * (1.0 - hole);
   vec3 colour = tint * (power * screen * (1.0 - dusk));
   vec3 mark = value == 1 ? uSignal * min(1.0, power) : uPipDark;
-  colour = mix(colour, mark, pip);
-  if (off) {
-    // Crossed out quietly: a dark line with a pale one in it reads on a light face and on a dark one.
-    vec2 q = abs(p - 0.5);
-    float reach = 1.0 - smoothstep(0.3 - px, 0.3 + px, max(q.x, q.y));
-    float gap = min(abs(p.x - p.y), abs(p.x + p.y - 1.0)) * 0.7071;
-    colour *= 1.0 - 0.4 * reach * (1.0 - smoothstep(0.0275 - px, 0.0275 + px, gap));
-    colour += vec3(0.028) * reach * (1.0 - smoothstep(0.011 - px, 0.011 + px, gap));
-  }
+  colour = mix(colour, mark, ink);
   colour += edge * (rim * (line * uLine.y + exp(-border / max(uLine.z, 0.0001)) * uLine.w) * (1.0 + uLift));
   // A group going down lights what stands around it: the body takes that light as matter does.
   vec3 toLamp = uLamp - vWorld;
   float span = max(length(toLamp), 0.001);
   float fall = pow(clamp(1.0 - pow(span / 7.0, 4.0), 0.0, 1.0), 2.0) / max(pow(span, 1.6), 0.01);
-  colour += tint * uLampColour * (fall * max(dot(normal, toLamp / span), 0.0) * 0.3183 * (1.0 - pip));
+  colour += tint * uLampColour * (fall * max(dot(normal, toLamp / span), 0.0) * 0.3183 * (1.0 - ink));
   gl_FragColor = vec4(colour + uFrost, uOpacity);
 #endif
   #include <colorspace_fragment>
@@ -333,12 +361,13 @@ export class CubeMeshes {
     uPipDark: { value: new THREE.Color() },
     uEdge: { value: new THREE.Color() },
     uPip: { value: new THREE.Vector4() },
-    uFace: { value: new THREE.Vector3() },
+    uFace: { value: new THREE.Vector2() },
+    uRing: { value: 0.4 },
     uLine: { value: new THREE.Vector4() },
     uLineSide: { value: 1 },
     uSide: { value: 1 },
     uTilt: { value: 0 },
-    uCrossed: { value: 0 },
+    uOff: { value: 0 },
     uLift: { value: 0 },
     uLamp: { value: new THREE.Vector3() },
     uLampColour: { value: new THREE.Color(0) },
@@ -435,17 +464,6 @@ export class CubeMeshes {
     this.spare.push(this.glassDie());
   }
 
-  /**
-   * The faces that do not work in the run go out and are crossed out: on a level that names
-   * its faces, every other one.
-   */
-  private markFaces(state: RunState): void {
-    const faces = state.levelRun?.spec.faces;
-    let crossed = 0;
-    if (faces) for (let face = 1; face <= 6; face++) if (!faces.includes(face)) crossed |= 1 << (face - 1);
-    this.shared.uCrossed.value = crossed;
-  }
-
   /** The colours have changed with the hour, or the look has: every die is drawn from them from now on. */
   setPalette(palette: Palette): void {
     const { shared, values } = this;
@@ -460,7 +478,8 @@ export class CubeMeshes {
     shared.uPipDark.value.set(String(values.pipDark));
     shared.uEdge.value.set(mixHex(palette.ink, '#ffffff', n('edgePale')));
     shared.uPip.value.set(n('pipSize'), n('pipOne'), n('pipDusk'), n('pipDuskDark'));
-    shared.uFace.value.set(n('faceShade'), n('sideFall'), light(n('faceOff')));
+    shared.uFace.value.set(n('faceShade'), n('sideFall'));
+    shared.uRing.value = n('pipRing');
     shared.uLine.value.set(n('edgeWidth') / 2, light(n('edgeBright')), n('edgeSpread'), light(n('edgeGlow')));
     shared.uLineSide.value = light(n('edgeSide'));
     shared.uSide.value = light(n('faceSide'));
@@ -536,8 +555,9 @@ export class CubeMeshes {
    */
   sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null = null): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
-    this.markFaces(state);
     const { shared } = this;
+    // The faces that do not work in the run have hollow pips and give no light.
+    shared.uOff.value = offMask(state.levelRun?.spec.faces);
     shared.uLift.value = glow.idle * LIFT;
     // The dice hang with their group: the light is told where it stands among them.
     shared.uLamp.value.set(glow.lamp.x, glow.lamp.y, glow.lamp.z);

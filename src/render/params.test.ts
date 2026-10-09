@@ -17,6 +17,14 @@ describe('board params', () => {
     }
   });
 
+  it('tells a face that does not work by the ring of its pips alone, and takes no light from it', () => {
+    expect(Object.keys(BOARD_GROUPS.die)).toContain('pipRing');
+    const ring = BOARD_GROUPS.die.pipRing;
+    expect(ring.kind === 'number' && ring.min > 0 && ring.max < 1).toBe(true);
+    // Neither the cross nor the dimming is a number of the look any more.
+    expect(Object.keys(BOARD_PARAMS).filter((name) => /cross|faceOff/i.test(name))).toEqual([]);
+  });
+
   it('writes down only what differs from the defaults', () => {
     const values = boardDefaults();
     expect(boardChanged(values)).toEqual({});
