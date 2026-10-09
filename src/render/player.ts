@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { cubeAt, cubeHeight, isHeld, worldRuns, type Level, type MoveKind, type RunState } from '../rules';
-import { figureGeometry } from './figure';
+import { FigureBody, figureGeometry, type FigureLook } from './figure';
 
 /**
  * How high the one who plays stands in a cell: on the die there, or, off the dice, on the upper
@@ -28,14 +28,13 @@ const ARC: Record<MoveKind, number> = {
 const FALL = 6;
 
 /**
- * The one who plays, as a pictogram of one colour: a grey mannequin, for the program has no
- * record of them, that grows into the red of the seventh. The same body is the cursor of the
- * program's menu.
+ * The one who plays, as a pictogram of one colour, in plastic that can be seen through: the red
+ * of the seventh. The same body is the cursor of the program's menu.
  */
 export class PlayerFigure {
   readonly group = new THREE.Group();
   private readonly geometry = figureGeometry();
-  private readonly solid = new THREE.MeshBasicMaterial();
+  private readonly body = new FigureBody(this.geometry);
   // Drawn only where a cube hides the figure, so the player never gets lost behind the dice.
   private readonly ghost = new THREE.MeshBasicMaterial({
     transparent: true,
@@ -49,12 +48,12 @@ export class PlayerFigure {
   constructor() {
     const through = new THREE.Mesh(this.geometry, this.ghost);
     through.renderOrder = 10;
-    this.group.add(new THREE.Mesh(this.geometry, this.solid), through);
+    this.group.add(this.body.object, through);
   }
 
   /** `through` is how much of the figure shows where a die stands in front of it. */
-  setColor(color: string, through: number): void {
-    this.solid.color.set(color);
+  setColor(color: string, through: number, look: FigureLook): void {
+    this.body.set(color, look);
     this.ghost.color.set(color);
     this.ghost.opacity = through;
   }
@@ -114,7 +113,7 @@ export class PlayerFigure {
 
   dispose(): void {
     this.geometry.dispose();
-    this.solid.dispose();
+    this.body.dispose();
     this.ghost.dispose();
   }
 }

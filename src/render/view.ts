@@ -27,6 +27,8 @@ export type { BoardShape, Frame } from './board';
 /** How far past the cells the surface hides what is under it, in cells. */
 const FLOOR_MARGIN = 4;
 const CAMERA_DISTANCE = 40;
+/** How many times its own time a trail is drawn for after the last thing has moved: by then nothing of it is left to see. */
+const TRAIL_LASTS = 5;
 /** A camera that is this near the frame it travels to, in cells and in cells a millisecond, has come. */
 const CAME = 1e-4;
 const CAME_SPEED = 1e-6;
@@ -259,6 +261,8 @@ export class BoardView {
   private readonly red = new THREE.Color();
   /** 1 when a board starts by coming up out of the floor, falling to 0. */
   private rise = 0;
+  /** How long the trail of what has moved is still drawn, in milliseconds. */
+  private trailLeft = 0;
   /** How the dice stand in a passage between two boards; null outside one: they stand as the rules have them. */
   private passing: DicePassing | null = null;
   /** Counts the changes of the window the board is fitted to: its size, and the room kept at its top. */
@@ -929,11 +933,14 @@ export class BoardView {
         lamp,
         dot: this.worldLayer.height / Math.max(1, this.lines),
         dt,
+        combo: n('comboGlow'),
+        comboBody: n('glowThreshold') > 0,
+        comboMs: n('comboBlinkMs'),
       },
       dip,
       passing,
     );
-    this.player.setColor(figureColour(this.palette, values), n('figureGhost'));
+    this.player.setColor(figureColour(this.palette, values), n('figureGhost'), { body: n('figureBody'), rim: n('figureRim'), shine: n('figureShine') });
     this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip));
     // In a passage the figure stands on its die as the passage has it: it comes down to the
     // floor with a die that goes under, and a die that comes up under it lifts it.
@@ -1034,6 +1041,9 @@ export class BoardView {
     layer.look.halo = n('glow');
     layer.look.haloReach = (n('glowReach') * layer.height) / Math.max(1, this.lines);
     layer.look.haloOver = n('glowOver');
+    // The light is taken from what is bright in the picture, or drawn alone for it: see `glowThreshold`.
+    const bright = n('glowThreshold') > 0;
+    layer.look.haloThreshold = n('glowThreshold');
     layer.look.grain = reducedMotion ? 0 : n('grain');
     // The colours part for a moment on a long chain and on a board left clean. The screen,
     // second step: the picture jolts sideways on a large group.
@@ -1050,7 +1060,22 @@ export class BoardView {
     this.dotWorld = (((this.camera.top - this.camera.bottom) / this.camera.zoom / Math.max(1, place.height)) * layer.window.height) / Math.max(1, this.lines);
     layer.render(this.scene, this.camera, { rect: drawn });
     if (this.bursts.thrown || this.grid.heads.visible) this.loose(drawn);
-    if (lit) this.emit(drawn);
+    // The frame before stays under this one for a moment, as the consoles of the last years of
+    // the tube drew a frame over the one before: what moves leaves a trail. It is short while
+    // the board is played, and long where the board comes and where a combo is taken. Not
+    // where motion is asked to be less.
+    const event = this.rise > 0 || passing ? 1 : Math.min(1, this.burst);
+    const trailMs = reducedMotion ? 0 : n('trailMs') + Math.max(0, n('trailPeakMs') - n('trailMs')) * event;
+    // A picture in which nothing moves fast has no trail to draw, and is not drawn a second time
+    // for one: only while the figure steps or a die rolls, and until the last of what they left
+    // has gone. A die that comes up or goes down is too slow to leave one: in a session without
+    // end some die always does, and the trail would be drawn on every frame for nothing.
+    const moving = event > 0 || Boolean(state.player.action) || this.bursts.thrown || state.cubes.some((cube) => cube.state === 'moving');
+    if (moving && trailMs > 0) this.trailLeft = trailMs * TRAIL_LASTS;
+    else this.trailLeft = Math.max(0, this.trailLeft - dt);
+    if (trailMs > 0 && this.trailLeft > 0) layer.trail(Math.exp(-Math.max(1, dt) / trailMs));
+    else layer.dropTrail();
+    if (lit && !bright) this.emit(drawn);
   }
 
   /**

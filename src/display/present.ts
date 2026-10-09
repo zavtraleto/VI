@@ -180,6 +180,9 @@ uniform sampler2D uHalo;
 /** How much of that light is added, and how much of it lies over what the layer has drawn. */
 uniform float uHaloAmount;
 uniform float uHaloOver;
+/** What is left behind what has moved in the layer, small; shown under the layer. */
+uniform sampler2D uTrail;
+uniform bool uTrailOn;
 uniform float uGrain;
 /** Which grain this is: it counts up as the tape runs. */
 uniform float uTick;
@@ -204,6 +207,8 @@ void main() {
     if (texel.a > 0.0) texel.rgb = min(texel.rgb, texel.a);
   }
   if (uLens && lensMisses(point)) texel = vec4(0.0);
+  // The trail lies under the picture: it shows where the picture has nothing of its own.
+  else if (uTrailOn) texel += texture2D(uTrail, at) * (1.0 - texel.a);
   vec3 colour = texel.rgb;
   float alpha = texel.a;
 
@@ -211,8 +216,11 @@ void main() {
     // The tube spreads light into the dark around what gives it off. Over what is drawn it
     // lies faintly: pips stay dark, and no colour is washed out to white. It has colour and
     // no alpha, and is taken as it is. The steps of so slow a slope are broken up.
-    vec3 halo = texture2D(uHalo, point).rgb + (hash(gl_FragCoord.xy) - 0.5) / 255.0;
-    colour += max(halo, 0.0) * uHaloAmount * mix(1.0, uHaloOver, alpha);
+    vec4 spread = texture2D(uHalo, point);
+    vec3 halo = spread.rgb + (hash(gl_FragCoord.xy) - 0.5) / 255.0;
+    // Its alpha is where the things that give the light are, spread a little: only there is
+    // the light held back, and it comes back by degrees, with no edge of its own.
+    colour += max(halo, 0.0) * uHaloAmount * mix(1.0, uHaloOver, spread.a * alpha);
   }
 
   if (uScanlines > 0.0) {
@@ -246,16 +254,51 @@ const SPREAD_FRAGMENT = /* glsl */ `
 uniform sampler2D uMap;
 /** The way of the blur, as the distance between two points of the picture read. */
 uniform vec2 uStep;
+/**
+ * What is done with the alpha: 0 leaves in it what stands in the middle, 1 spreads it, 2 puts
+ * there, spread, where the picture read gives light at all.
+ */
+uniform int uOwn;
+
+varying vec2 vUv;
+
+/** The light of a point, and with it whether the point gives light: a face does, its edge hardly. */
+vec4 tap(vec2 at) {
+  vec4 texel = texture2D(uMap, at);
+  if (uOwn == 2) texel.a = min(1.0, dot(texel.rgb, vec3(1.0)) * 2.0);
+  return texel;
+}
+
+void main() {
+  vec4 middle = tap(vUv);
+  vec4 sum = middle * 0.2270270270;
+  sum += (tap(vUv + uStep * 1.3846153846) + tap(vUv - uStep * 1.3846153846)) * 0.3162162162;
+  sum += (tap(vUv + uStep * 3.2307692308) + tap(vUv - uStep * 3.2307692308)) * 0.0702702703;
+  gl_FragColor = vec4(sum.rgb, uOwn == 0 ? middle.a : sum.a);
+}
+`;
+/**
+ * The light of a layer taken from the layer itself: its picture made small, and of every point
+ * only what is brighter than the threshold, by as much as it is brighter. Four readings, each
+ * of four points of the layer run together, are the sixteen points one point of the small
+ * picture stands for.
+ */
+const BRIGHT_FRAGMENT = /* glsl */ `
+uniform sampler2D uMap;
+/** One point of the layer, as a share of it. */
+uniform vec2 uPoint;
+uniform float uThreshold;
 
 varying vec2 vUv;
 
 void main() {
-  vec3 sum = texture2D(uMap, vUv).rgb * 0.2270270270;
-  sum += (texture2D(uMap, vUv + uStep * 1.3846153846).rgb + texture2D(uMap, vUv - uStep * 1.3846153846).rgb) * 0.3162162162;
-  sum += (texture2D(uMap, vUv + uStep * 3.2307692308).rgb + texture2D(uMap, vUv - uStep * 3.2307692308).rgb) * 0.0702702703;
-  gl_FragColor = vec4(sum, 1.0);
+  vec3 sum = texture2D(uMap, vUv + uPoint * vec2(-1.0, -1.0)).rgb + texture2D(uMap, vUv + uPoint * vec2(1.0, -1.0)).rgb
+    + texture2D(uMap, vUv + uPoint * vec2(-1.0, 1.0)).rgb + texture2D(uMap, vUv + uPoint * vec2(1.0, 1.0)).rgb;
+  gl_FragColor = vec4(max(sum * 0.25 - uThreshold, 0.0) / max(1.0 - uThreshold, 0.01), 1.0);
 }
 `;
+/** How many times smaller along a side the picture of that light is than the layer. */
+const BRIGHT_SHRINK = 4;
 /** How wide that blur is, in points of the picture it reads, at a step of one. */
 const SPREAD_SIGMA = 1.78;
 /** The blur is done twice, the second time this many times wider: near light and far light from few points. */
@@ -278,7 +321,7 @@ interface Stage {
 interface Halo {
   a: THREE.WebGLRenderTarget;
   b: THREE.WebGLRenderTarget;
-  kept: [revision: number, width: number, height: number, reach: number];
+  kept: [revision: number, width: number, height: number, reach: number, threshold: number];
 }
 
 function stageTarget(): THREE.WebGLRenderTarget {
@@ -311,6 +354,8 @@ interface Way {
   dressed: boolean;
   /** What gives light off in the layer, to be spread around it; null where there is none or the look asks for none. */
   lit: THREE.Texture | null;
+  /** That is the layer itself, and what gives light in it is what is brighter than this; 0 where it is a picture drawn for the light. */
+  threshold: number;
   /** Colours parted in the screen pass itself, in pixels of the layer; 0 where the video pass parts them. */
   chroma: number;
 }
@@ -370,6 +415,8 @@ export class Presenter {
     uHalo: { value: null as THREE.Texture | null },
     uHaloAmount: { value: 0 },
     uHaloOver: { value: 0 },
+    uTrail: { value: null as THREE.Texture | null },
+    uTrailOn: { value: false },
     uGrain: { value: 0 },
     uTick: { value: 0 },
     ...lensUniforms(),
@@ -377,7 +424,14 @@ export class Presenter {
   private readonly spreadUniforms = {
     uMap: { value: null as THREE.Texture | null },
     uStep: { value: new THREE.Vector2() },
+    uOwn: { value: 0 },
   };
+  private readonly brightUniforms = {
+    uMap: { value: null as THREE.Texture | null },
+    uPoint: { value: new THREE.Vector2() },
+    uThreshold: { value: 0 },
+  };
+  private readonly brightMaterial: THREE.ShaderMaterial;
   private readonly material: THREE.ShaderMaterial;
   private readonly videoMaterial: THREE.ShaderMaterial;
   private readonly screenMaterial: THREE.ShaderMaterial;
@@ -387,7 +441,7 @@ export class Presenter {
   private readonly camera = new THREE.Camera();
   private readonly stages = new Map<Layer, Stage>();
   private readonly halos = new Map<Layer, Halo>();
-  private readonly way: Way = { video: false, staged: false, dressed: false, chroma: 0, lit: null };
+  private readonly way: Way = { video: false, staged: false, dressed: false, chroma: 0, lit: null, threshold: 0 };
   /** Which grain the frame in hand has. */
   private tick = 0;
 
@@ -420,6 +474,14 @@ export class Presenter {
       depthWrite: false,
       blending: THREE.NoBlending,
     });
+    this.brightMaterial = new THREE.ShaderMaterial({
+      uniforms: this.brightUniforms,
+      vertexShader: VERTEX,
+      fragmentShader: BRIGHT_FRAGMENT,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.NoBlending,
+    });
     // One triangle that covers the screen: no seam down the diagonal.
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
@@ -436,7 +498,7 @@ export class Presenter {
   prepare(renderer: THREE.WebGLRenderer, layer: Layer, timeMs = 0): void {
     this.tick = Math.floor((timeMs / 1000) * GRAIN_HZ);
     const way = this.wayOf(layer);
-    if (way.lit) this.spread(renderer, layer, way.lit);
+    if (way.lit) this.spread(renderer, layer, way.lit, way.threshold);
     if (!way.staged) return;
     const { look } = layer;
     const stage = this.stage(layer);
@@ -498,6 +560,9 @@ export class Presenter {
     uniforms.uHalo.value = way.lit ? (this.halos.get(layer)?.b.texture ?? null) : null;
     uniforms.uHaloAmount.value = uniforms.uHalo.value ? look.halo : 0;
     uniforms.uHaloOver.value = look.haloOver;
+    // Under the layer as it is: one that goes through a picture of its own first shows no trail.
+    uniforms.uTrail.value = stage ? null : layer.trailTexture;
+    uniforms.uTrailOn.value = uniforms.uTrail.value !== null;
     uniforms.uGrain.value = look.grain;
     uniforms.uTick.value = this.tick;
     // The lens is the last thing done to a layer: on its way to the screen, whichever way it came.
@@ -526,11 +591,14 @@ export class Presenter {
    * the lines and across them, and once more wider. Done again only when the picture or the
    * reach has changed.
    */
-  private spread(renderer: THREE.WebGLRenderer, layer: Layer, lit: THREE.Texture): void {
-    const { width, height } = lit.image as { width: number; height: number };
+  private spread(renderer: THREE.WebGLRenderer, layer: Layer, lit: THREE.Texture, threshold: number): void {
+    const { width, height } =
+      threshold > 0
+        ? { width: Math.max(1, Math.ceil(layer.width / BRIGHT_SHRINK)), height: Math.max(1, Math.ceil(layer.height / BRIGHT_SHRINK)) }
+        : (lit.image as { width: number; height: number });
     let halo = this.halos.get(layer);
     if (!halo) {
-      halo = { a: stageTarget(), b: stageTarget(), kept: [-1, 0, 0, 0] };
+      halo = { a: stageTarget(), b: stageTarget(), kept: [-1, 0, 0, 0, 0] };
       this.halos.set(layer, halo);
     }
     if (halo.a.width !== width || halo.a.height !== height) {
@@ -538,7 +606,7 @@ export class Presenter {
       halo.b.setSize(width, height);
     }
     const reach = Math.max(0, layer.look.haloReach);
-    if (taken(halo.kept, layer.revision, width, height, reach)) return;
+    if (taken(halo.kept, layer.revision, width, height, reach, threshold)) return;
     // The reach is in pixels of the layer; the blur is counted in those of the small picture.
     const one = (reach * width) / Math.max(1, layer.width) / SPREAD_SIGMA / Math.sqrt(1 + SPREAD_WIDER * SPREAD_WIDER);
     const uniforms = this.spreadUniforms;
@@ -551,8 +619,24 @@ export class Presenter {
       this.pass(renderer, this.spreadMaterial);
     };
     renderer.setClearColor(0x000000, 1);
-    pass(lit, halo.a, one, 0);
+    // Where the things that give light are is spread with the near light only, and kept as it
+    // is through the far one: it stays about those things.
+    let from = lit;
+    if (threshold > 0) {
+      const bright = this.brightUniforms;
+      bright.uMap.value = lit;
+      bright.uPoint.value.set(1 / Math.max(1, layer.width), 1 / Math.max(1, layer.height));
+      bright.uThreshold.value = Math.min(0.95, threshold);
+      renderer.setRenderTarget(halo.b);
+      renderer.clear(true, false, false);
+      this.pass(renderer, this.brightMaterial);
+      from = halo.b.texture;
+    }
+    uniforms.uOwn.value = 2;
+    pass(from, halo.a, one, 0);
+    uniforms.uOwn.value = 1;
     pass(halo.a.texture, halo.b, 0, one);
+    uniforms.uOwn.value = 0;
     pass(halo.b.texture, halo.a, one * SPREAD_WIDER, 0);
     pass(halo.a.texture, halo.b, 0, one * SPREAD_WIDER);
   }
@@ -567,7 +651,9 @@ export class Presenter {
     const alone = video && look.blur <= 0 && look.smear <= 0 && look.glow <= 0 && look.noise <= 0 && layer.encoded && look.depth >= 7.5;
     way.chroma = alone ? look.chroma : 0;
     way.video = video && !alone;
-    way.lit = quality().halo && look.halo > 0 ? layer.emitted : null;
+    // A layer that is not kept as the screen takes it has its light drawn for it.
+    way.threshold = layer.encoded && !layer.topDown ? Math.max(0, look.haloThreshold) : 0;
+    way.lit = quality().halo && look.halo > 0 ? (way.threshold > 0 ? layer.texture : layer.emitted) : null;
     way.dressed = video || look.scanlines > 0 || look.vignette > 0 || look.grain > 0 || way.lit !== null;
     way.staged = way.dressed && (way.video || !layer.encoded || look.depth < 7.5);
     return way;

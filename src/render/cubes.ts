@@ -67,7 +67,23 @@ export interface CubeGlow {
   dot: number;
   /** Milliseconds since the frame before: a die that has just come up settles over a few of them. */
   dt: number;
+  /**
+   * A die blinks once with the light around it when a combo takes it: how bright that light is
+   * at its most, against the light of a standing die, and how long the blink is, in milliseconds.
+   */
+  combo: number;
+  comboMs: number;
+  /**
+   * The light the tube spreads is taken from what is bright in the picture: the die then blinks
+   * in the picture itself, and the light around it comes of that.
+   */
+  comboBody: boolean;
 }
+
+/** The share of the blink of a die a combo takes in which its light comes up. */
+const BLINK_RISE = 0.3;
+/** How much of its channel a die that blinks in the picture itself takes on at the most of the blink, for a blink of one. */
+const BLINK_BODY = 0.3;
 
 type DieMaterial = THREE.ShaderMaterial;
 type GlassDie = THREE.Mesh<THREE.BufferGeometry, DieMaterial>;
@@ -294,6 +310,8 @@ ${THROUGH_DOTS}
   float span = max(length(toLamp), 0.001);
   float fall = pow(clamp(1.0 - pow(span / 7.0, 4.0), 0.0, 1.0), 2.0) / max(pow(span, 1.6), 0.01);
   colour += tint * uLampColour * (fall * max(dot(normal, toLamp / span), 0.0) * 0.3183 * (1.0 - pip));
+#ifndef GLASS
+  // A die that is not all here has no crosses: neither one that comes nor one a combo takes.
   if (off) {
     // A face that does not work is crossed out: two strokes with round ends from corner to
     // corner of the middle half of the face, red, with a thin dark line around them so that
@@ -307,6 +325,7 @@ ${THROUGH_DOTS}
     colour = mix(colour, uPipDark, uCross.z * (1.0 - smoothstep(shell - px, shell + px, gap)));
     colour = mix(colour, uSignal * min(1.0, power), uCross.z * (1.0 - smoothstep(thick - px, thick + px, gap)));
   }
+#endif
   gl_FragColor = vec4(colour + uFrost, uOpacity);
 #endif
   #include <colorspace_fragment>
@@ -390,6 +409,15 @@ export class CubeMeshes {
   private readonly arrivals: THREE.InstancedBufferAttribute;
   /** And whether it is a fixed die that is not lit: 1, or 0. */
   private readonly dims: THREE.InstancedBufferAttribute;
+  /**
+   * The dice a combo takes, as the light they give the tube: drawn only into the small picture
+   * of that light, where the glass they are shown as is not.
+   */
+  private readonly glows: THREE.InstancedMesh<THREE.BufferGeometry, DieMaterial>;
+  private readonly glowGeometry: THREE.BufferGeometry;
+  private readonly glowShares: THREE.InstancedBufferAttribute;
+  /** The dice a combo has taken, by cube: how long ago, in milliseconds. */
+  private readonly taken = new Map<number, number>();
   /** The dice that have just come up, by cube: how far each has settled, 0 to 1. */
   private readonly settling = new Map<number, number>();
   /** The glass dice as the last frame drew them, by cube: how high, how many of their dots, which face on top. */
@@ -439,6 +467,16 @@ export class CubeMeshes {
     this.solids.frustumCulled = false;
     this.solids.layers.enable(GLOW_LAYER);
 
+    this.glowGeometry = this.geometry.clone();
+    this.glowShares = new THREE.InstancedBufferAttribute(new Float32Array(MAX_DICE * 4), 4);
+    this.glowShares.setUsage(THREE.DynamicDrawUsage);
+    this.glowGeometry.setAttribute('arrive', this.glowShares);
+    this.glowGeometry.setAttribute('dim', new THREE.InstancedBufferAttribute(new Float32Array(MAX_DICE), 1));
+    this.glows = new THREE.InstancedMesh(this.glowGeometry, this.emitted, MAX_DICE);
+    this.glows.count = 0;
+    this.glows.frustumCulled = false;
+    this.glows.layers.set(GLOW_LAYER);
+
     const frame = CUBE_SIZE - round * EDGE_INSET;
     const box = new THREE.BoxGeometry(frame, frame, frame);
     const outline = new THREE.EdgesGeometry(box);
@@ -461,7 +499,7 @@ export class CubeMeshes {
     this.edges.renderOrder = 2;
     // The edges of the glass are light, and the tube spreads it.
     this.edges.layers.enable(GLOW_LAYER);
-    this.group.add(this.solids, this.edges);
+    this.group.add(this.solids, this.glows, this.edges);
     this.setPalette(palette);
 
     // One glass die is there from the start, unseen: the board has none when it is made
@@ -564,6 +602,8 @@ export class CubeMeshes {
     // The faces that do not work in the run are crossed out and give no light.
     shared.uOff.value = offMask(state.levelRun?.spec.faces);
     shared.uLift.value = glow.idle * LIFT;
+    const shares = this.glowShares.array as Float32Array;
+    let glows = 0;
     // The dice hang with their group: the light is told where it stands among them.
     shared.uLamp.value.set(glow.lamp.x, glow.lamp.y, glow.lamp.z);
     shared.uLampColour.value.copy(glow.lamp.colour).multiplyScalar(glow.lamp.power);
@@ -677,6 +717,21 @@ export class CubeMeshes {
       const y = height - 0.5 + dip(cube.id);
       die.position.set(cube.x, y, cube.z);
       die.quaternion.copy(quatFor(cube.ori));
+      // A die a combo takes blinks once with the light the tube spreads around it: from the
+      // light it stood with up to the most of the blink, quickly, and slowly down to none.
+      if (sinking && glow.combo > 0 && glow.comboMs > 0) {
+        const since = this.taken.get(cube.id) ?? 0;
+        this.taken.set(cube.id, since + glow.dt);
+        const gone = since / glow.comboMs;
+        if (gone < 1 && glow.comboBody) {
+          const up = gone < BLINK_RISE ? smoothstep(0, BLINK_RISE, gone) : 1 - smoothstep(BLINK_RISE, 1, gone);
+          (glass.uFrost.value as THREE.Color).add(this.colour.copy(channel).multiplyScalar(up * glow.combo * BLINK_BODY));
+        } else if (gone < 1 && glows < MAX_DICE) {
+          const light = gone < BLINK_RISE ? 1 + (glow.combo - 1) * smoothstep(0, BLINK_RISE, gone) : glow.combo * (1 - smoothstep(BLINK_RISE, 1, gone));
+          shares[glows * 4 + 3] = light;
+          this.glows.setMatrixAt(glows++, this.matrix.compose(die.position, die.quaternion, this.whole));
+        }
+      }
 
       // Its edges, around where it stands: brighter on the way down, fainter while it is low.
       if (glasses >= MAX_DICE) continue;
@@ -701,6 +756,12 @@ export class CubeMeshes {
       this.arrivals.needsUpdate = true;
       this.dims.needsUpdate = true;
     }
+    this.glows.count = glows;
+    this.glows.visible = glows > 0;
+    if (glows > 0) {
+      this.glows.instanceMatrix.needsUpdate = true;
+      this.glowShares.needsUpdate = true;
+    }
     this.edges.geometry.setDrawRange(0, (glasses * outline.length) / 3);
     this.edges.visible = glasses > 0;
     if (glasses > 0) {
@@ -713,6 +774,7 @@ export class CubeMeshes {
       this.spare.push(die);
       this.worn.delete(id);
       this.shown.delete(id);
+      this.taken.delete(id);
     }
   }
 
@@ -722,6 +784,8 @@ export class CubeMeshes {
     this.material.dispose();
     this.emitted.dispose();
     this.solids.dispose();
+    this.glowGeometry.dispose();
+    this.glows.dispose();
     this.edges.geometry.dispose();
     this.edges.material.dispose();
     for (const die of this.worn.values()) die.material.dispose();
