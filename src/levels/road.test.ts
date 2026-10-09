@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { cubeAt } from '../rules/board';
 import { defaultConfig } from '../rules/config';
-import { worldRuns } from '../rules/level';
-import { explore, moveOf, solveLevel, tryWay } from '../rules/levelSolver';
+import { levelDeadEnd, worldRuns } from '../rules/level';
+import { explore, moveOf, movesAt, playMove, solveFrom, solveLevel, tryWay } from '../rules/levelSolver';
 import { resolveMove } from '../rules/movement';
 import { roll } from '../rules/orientation';
 import { createRun, step } from '../rules/sim';
@@ -145,18 +145,62 @@ function clearedWithout(spec: LevelSpec, over: number, ...ban: Ban[]): boolean {
  * which it can no longer be cleared; and how many of those are dead ends the level says at
  * once: too few dice, or nothing left to do. Only for a piece whose boards are few.
  */
-function lostOf(spec: LevelSpec): { boards: number; lost: number; said: number } {
+function lostOf(spec: LevelSpec): { boards: number; lost: number; said: number; worst: number } {
   const { complete, boards, next, end } = explore(start(spec));
   expect(complete, spec.id).toBe(true);
-  // The boards a cleared board can be come to from, found from the cleared one backwards.
-  const leads = end.map((how) => how === 'passed');
-  for (let grew = true; grew; ) {
+  // The moves from every board to the cleared one, found from the cleared one backwards, a move at a time.
+  const far: number[] = end.map((how) => (how === 'passed' ? 0 : -1));
+  let worst = 0;
+  for (let moves = 1, grew = true; grew; moves++) {
     grew = false;
-    next.forEach((to, at) => {
-      if (!leads[at] && to.some((board) => leads[board])) leads[at] = grew = true;
+    const nearer = next.map((to, at) => far[at] < 0 && to.some((board) => far[board] >= 0 && far[board] < moves));
+    nearer.forEach((is, at) => {
+      if (!is) return;
+      far[at] = worst = moves;
+      grew = true;
     });
   }
-  return { boards, lost: leads.filter((led) => !led).length, said: end.filter((how) => how === 'count' || how === 'floor').length };
+  return { boards, lost: far.filter((moves) => moves < 0).length, said: end.filter((how) => how === 'count' || how === 'floor').length, worst };
+}
+
+/**
+ * The boards of a piece within two moves of its start, every one of them, each solved: how many
+ * they are, how many are dead ends the level says at once, how many are lost and not said, and
+ * the most moves it takes to clear any of the rest. What a careless move or two cost.
+ */
+function nearOf(spec: LevelSpec): [boards: number, said: number, silent: number, worst: number] {
+  const nameOf = (state: RunState): string =>
+    JSON.stringify([state.cubes.map((cube) => [cube.x, cube.z, cube.ori.top, cube.ori.north, cube.state, cube.t, cube.hold ?? 0, cube.reactionId]).sort(), state.player.x, state.player.z, state.player.level, state.endReason]);
+  const root = start(spec);
+  const seen = new Set([nameOf(root)]);
+  let front = [root];
+  let [boards, said, silent, worst] = [0, 0, 0, 0];
+  for (let moves = 1; moves <= 2; moves++) {
+    const next: RunState[] = [];
+    for (const state of front) {
+      for (const move of movesAt(state)) {
+        const after = playMove(state, move);
+        const name = nameOf(after);
+        if (seen.has(name)) continue;
+        seen.add(name);
+        boards++;
+        if (after.endReason === 'passed') continue;
+        if (after.over || levelDeadEnd(after) !== null) {
+          said++;
+          continue;
+        }
+        const solved = solveFrom(after);
+        expect(solved.exhausted, `${spec.id}: a board the solver gave up on`).toBe(true);
+        if (!solved.solution) silent++;
+        else {
+          worst = Math.max(worst, solved.solution.moves.length);
+          next.push(after);
+        }
+      }
+    }
+    front = next;
+  }
+  return [boards, said, silent, worst];
 }
 
 describe('the road', () => {
@@ -336,7 +380,7 @@ describe('the lessons of the road', () => {
     // Boards, the most moves from any of them, and the boards that are lost.
     expect(seen).toEqual({ R01: [5, 4, 0], R02: [10, 6, 0], R07: [10, 3, 2], R11: [14, 6, 0], R15: [11, 4, 0] });
     // The chain that is missed is a dead end the level says at once: nothing is left to be rolled about on.
-    expect(lostOf(pieceOf('R07'))).toEqual({ boards: 6, lost: 2, said: 2 });
+    expect(lostOf(pieceOf('R07'))).toEqual({ boards: 6, lost: 2, said: 2, worst: 3 });
   });
 
   it('R01: a 2 on top and four rolls to the north that bring the 2 back up beside the fixed 2', () => {
@@ -490,20 +534,43 @@ describe('the free pieces and the mixes', () => {
     expect([...Object.keys(ROAD_SEEDS), ...sketched.map((place) => place.id)].sort()).toEqual(ROAD_PLACES.map((place) => place.id));
   });
 
-  it('R03, R04 and R05 cannot be lost: as many dice as the one combo of their face takes, and the floor shut', { timeout: 60_000 }, () => {
+  it('R03, R04 and R05 cannot be lost, by what they are made of; R03 is counted whole, and is twelve moves from its farthest board', { timeout: 60_000 }, () => {
+    // As many dice as the one combo of the one face takes, and the floor shut: no die leaves before all do, and the player is never off them.
     for (const id of ['R03', 'R04', 'R05']) {
       const spec = pieceOf(id);
       expect(spec.faces, id).toHaveLength(1);
       expect(spec.norm, id).toBe(spec.faces![0]);
       expect(spec.floor, id).toBe(false);
-      // The boards nearest the start are walked, and none is lost. The walk is cut: the boards are thousands and millions.
-      const walk = walkBoards(spec, 20);
-      expect(walk.capped, id).toBe(true);
-      expect(walk.lost, `${id} after ${walk.example}`).toBe(0);
     }
-    // The smallest is counted whole, by its moves: 8592 boards, and the cleared one is come to from every one of them.
-    // (So is R04, by `explore` let run to 2 539 344 boards: none lost, fifteen moves at the most. It is too long for a test.)
-    expect(lostOf(pieceOf('R03'))).toEqual({ boards: 8592, lost: 0, said: 0 });
+    // The smallest is counted whole, by its moves: 8592 boards, the cleared one come to from every one of them, from the
+    // farthest in twelve moves. So no open board holds «six moves from any board»: two dice on nine cells do not.
+    expect(lostOf(pieceOf('R03'))).toEqual({ boards: 8592, lost: 0, said: 0, worst: 12 });
+    // R04 was counted whole by the same count let run (2 539 344 boards, none lost, fifteen moves from the farthest):
+    // a minute and a half, too long for a test. R05 is not counted: four dice on sixteen cells are some six hundred
+    // million boards. Of both, the forty boards nearest the start are walked here, steps among them, and that is all
+    // this says of them: the walk is cut, and says so.
+    for (const id of ['R04', 'R05']) {
+      const walk = walkBoards(pieceOf(id), 40);
+      expect(walk, `${id} after ${walk.example}`).toMatchObject({ boards: 40, lost: 0, unsettled: 0, capped: true });
+    }
+  });
+
+  it('are known near their start and no further: every board within two moves is solved, and a slip or two costs what is written here', { timeout: 120_000 }, () => {
+    // The boards within two moves of the start, all of them; of those the dead ends the level says at once, the boards
+    // lost that it does not say yet, and the most moves from any of the rest. Beyond this an open board is not counted:
+    // the walk over the boards of any piece but R16 is cut wherever its limit is put (`node scripts/ladder.mjs road`).
+    const near = Object.fromEntries([...FREE, ...MIXES].sort().map((id) => [id, nearOf(pieceOf(id))]));
+    expect(near).toEqual({
+      R03: [14, 0, 0, 4], R04: [11, 0, 0, 4], R05: [35, 0, 0, 4], R06: [32, 2, 0, 5], R08: [17, 1, 0, 5], R09: [12, 1, 2, 4], R10: [44, 5, 0, 6],
+      R12: [6, 0, 0, 4], R13: [11, 1, 0, 4], R14: [22, 2, 0, 7], R16: [6, 0, 0, 1], R17: [6, 0, 0, 4], R18: [13, 0, 1, 10],
+    });
+    // Two moves astray cost two moves more than the fewest at the most, but on two mixes: R14 and R18 each have a board
+    // two moves in that is far from cleared.
+    const dear = Object.keys(near).filter((id) => near[id][3] > pieceOf(id).par! + 2);
+    expect(dear).toEqual(['R14', 'R18']);
+    // No piece of the first block is lost within two moves but its mix, and that by dead ends the level says at once.
+    for (const id of ['R03', 'R04', 'R05']) expect(near[id].slice(1, 3), id).toEqual([0, 0]);
+    expect(near.R06.slice(1, 3)).toEqual([2, 0]);
   });
 
   it('R03: the 2 of the die under the player is on its south side, and a roll to either side and one north bring it up', () => {
@@ -654,7 +721,7 @@ describe('the free pieces and the mixes', () => {
     // A push does not turn a die: the two show their 3s when the combo is made.
     const walk = walkBoards(spec, 2000);
     expect(walk).toEqual({ boards: 60, worst: 2, lost: 0, capped: false, unsettled: 0, example: null });
-    expect(lostOf(spec)).toEqual({ boards: 5, lost: 0, said: 0 });
+    expect(lostOf(spec)).toEqual({ boards: 5, lost: 0, said: 0, worst: 2 });
   });
 
   it('R17: down from the 2s as they leave, a push that makes the 3s, and up by them to the last die', { timeout: 60_000 }, () => {

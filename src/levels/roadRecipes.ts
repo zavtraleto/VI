@@ -28,6 +28,14 @@ import { cutFrom, type Recipe } from './recipes';
  * the hasty persona clears `R05` and `R08` in 57 runs of a hundred where 70 are asked, and `R09`
  * has one first move that keeps it in hand where two are asked. `road.test.ts` holds the three
  * to exactly that.
+ *
+ * What the edition asks of the walk, six moves at the most from any board a player can come to,
+ * no open board holds: `R03`, counted whole, is twelve moves from its farthest board, and `R04`
+ * fifteen. What is known of each piece is what `road.test.ts` counts: `R03` whole, and of every
+ * piece the boards within two moves of its start, each solved. The shares of the personas are of
+ * thirty fixed runs, as a place is judged, and a run is called off after sixty moves: on these
+ * boards the hasty one mostly wanders and is seldom lost, and over two hundred runs its share on
+ * `R13` is 0.59 where the thirty give 0.83.
  */
 
 /** What a place of the road is: a free piece, or the mix that ends its block. */
