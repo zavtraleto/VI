@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Layer, Rect } from '../display/layer';
-import { figureGeometry } from '../render/figure';
+import { FIGURE_LOOK, FigureBody, figureGeometry } from '../render/figure';
 import type { ParamValues } from '../signal/scene';
 import { NET, netPosition, type NetProjection } from './layout';
 import type { Palette } from './theme';
@@ -76,7 +76,7 @@ export class ShellSpace {
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, CAMERA_DISTANCE * 3);
   private readonly dice: Die[] = [];
   private readonly figure = new THREE.Group();
-  private readonly figureMaterial = new THREE.MeshBasicMaterial();
+  private readonly figureBody: FigureBody;
   private readonly rings: THREE.LineLoop<THREE.BufferGeometry, THREE.LineBasicMaterial>[] = [];
   private readonly disposables: { dispose(): void }[] = [];
   private readonly clear = new THREE.Color();
@@ -120,9 +120,11 @@ export class ShellSpace {
 
     // The body of the board, a little smaller: the dice here stand apart.
     const body = figureGeometry(FIGURE_SCALE);
-    this.figure.add(new THREE.Mesh(body, this.figureMaterial));
+    // After the dice and their faces: the die it stands on shows through it.
+    this.figureBody = new FigureBody(body, 3);
+    this.figure.add(this.figureBody.object);
     this.scene.add(this.figure);
-    this.disposables.push(body, this.figureMaterial);
+    this.disposables.push(body, this.figureBody);
 
     for (const radius of RING_RADII) {
       const points: THREE.Vector3[] = [];
@@ -193,7 +195,7 @@ export class ShellSpace {
       fromY + (toY - fromY) * step + HOP_ARC * Math.sin(step * Math.PI),
       from.z + (to.z - from.z) * step,
     );
-    this.figureMaterial.color.set(palette.signal);
+    this.figureBody.set(palette.signal, FIGURE_LOOK);
 
     const rings = n('spaceRings');
     this.rings.forEach((ring, i) => {

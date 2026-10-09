@@ -39,13 +39,58 @@ describe('Governor', () => {
     ]);
   });
 
-  it('gives up the first step only to reach the rate of a faster screen', () => {
+  it('gives nothing up for sixty frames a second on a faster screen', () => {
     const governor = new Governor();
     // The menu runs at the 120 of the screen; the session at 60.
     run(governor, 1000 / 120, 5, false);
-    run(governor, 1000 / 60, 60);
-    expect(governor.samples).toBe(2);
+    expect(run(governor, 1000 / 60, 60)).toBe(0);
+    expect(governor.samples).toBe(4);
     expect(governor.halo).toBe(true);
+  });
+
+  it('gives a step back after half a minute of play on time, and the next after another', () => {
+    const governor = new Governor(3);
+    run(governor, 1000 / 60, 5, false);
+    // Not at once: the frames have to be on time for a while first.
+    expect(run(governor, 1000 / 60, 20)).toBe(0);
+    run(governor, 1000 / 60, 20);
+    expect(governor.step).toBe(2);
+    run(governor, 1000 / 60, 120);
+    expect(governor.step).toBe(0);
+    expect(governor.samples).toBe(4);
+  });
+
+  it('takes back a step the device does not hold, and tries it later each time', () => {
+    const governor = new Governor(1);
+    run(governor, 1000 / 60, 5, false);
+    /** Plays on time at the lower step and slowly at the upper one; returns the seconds until the step is tried. */
+    const untilTried = (): number => {
+      let seconds = 0;
+      while (governor.step === 1 && seconds < 3600) {
+        run(governor, 1000 / 60, 1);
+        seconds++;
+      }
+      // The upper step is slow: it is taken back within a few seconds.
+      let slow = 0;
+      while (governor.step === 0 && slow++ < 20) run(governor, 1000 / 30, 0.5);
+      expect(governor.step).toBe(1);
+      expect(slow).toBeLessThan(16);
+      return seconds;
+    };
+    const first = untilTried();
+    const second = untilTried();
+    const third = untilTried();
+    expect(first).toBeLessThan(45);
+    expect(second).toBeGreaterThan(first * 1.5);
+    expect(third).toBeGreaterThan(second * 1.5);
+  });
+
+  it('gives nothing back while the frames are only just on time', () => {
+    const governor = new Governor(2);
+    run(governor, 1000 / 60, 5, false);
+    // Fifty-five a second is not slow, and leaves no room for more.
+    expect(run(governor, 1000 / 55, 120)).toBe(0);
+    expect(governor.step).toBe(2);
   });
 
   it('does not judge a screen that never shows more than thirty frames', () => {

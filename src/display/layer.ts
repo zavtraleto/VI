@@ -46,8 +46,19 @@ export interface LayerLook {
   halo: number;
   /** How far that light spreads, in pixels of the layer. */
   haloReach: number;
-  /** How much of it lies over what the layer has drawn itself; the rest goes only into the dark around. */
+  /**
+   * How much of it lies over the very things that give the light: there it would wash out what
+   * is dark on them. Over everything else the layer has drawn, and into the dark around, it
+   * lies in full, as the light of a tube does: it knows nothing of what stands behind what.
+   */
   haloOver: number;
+  /**
+   * 0 spreads the light of the picture `emit` has drawn. Above it, the light is taken from the
+   * layer itself, as the consoles of the last years of the tube took it: whatever in the
+   * picture is brighter than this gives light, by as much as it is brighter, and nothing has
+   * to be drawn a second time.
+   */
+  haloThreshold: number;
   /** 0..1, grain of the tube over the layer as it stands on screen: counted in the lines of the scanlines, new 24 times a second. */
   grain: number;
   /**
@@ -115,6 +126,7 @@ const DEFAULT_LOOK: LayerLook = {
   halo: 0,
   haloReach: 0,
   haloOver: 0,
+  haloThreshold: 0,
   grain: 0,
   lens: 0,
   lensCentre: { x: 0.5, y: 0.5 },
@@ -123,6 +135,64 @@ const DEFAULT_LOOK: LayerLook = {
 
 /** How many times smaller along a side the picture of what gives light off is than the layer. */
 const EMIT_SHRINK = 4;
+
+/** How many times smaller along a side the picture a trail is kept in is than the layer. */
+const TRAIL_SHRINK = 2;
+
+/** The layer made small: four of its points run together into one. */
+const TRAIL_SMALL_FRAGMENT = /* glsl */ `
+uniform sampler2D uNow;
+
+varying vec2 vUv;
+
+void main() {
+  gl_FragColor = texture2D(uNow, vUv);
+}
+`;
+
+/**
+ * What a layer leaves behind what moves in it: at every place, what was there a frame ago and
+ * is there no longer, with what was left before it, fainter. A place where nothing has changed
+ * has nothing in it, so nothing that stands still gets an edge of its own from so small a
+ * picture. The least step of the picture is taken off as well, or the last of a trail would
+ * never go.
+ */
+const TRAIL_FRAGMENT = /* glsl */ `
+uniform sampler2D uNow;
+uniform sampler2D uWas;
+uniform sampler2D uTrail;
+uniform float uKeep;
+
+varying vec2 vUv;
+
+void main() {
+  vec4 gone = max(texture2D(uWas, vUv) - texture2D(uNow, vUv), 0.0);
+  gl_FragColor = max(texture2D(uTrail, vUv) * uKeep - 0.006, gone * uKeep);
+}
+`;
+
+/** One triangle over the whole of a picture, and what the two pictures of a trail are drawn with. */
+function trailPass(): { scene: THREE.Scene; camera: THREE.Camera; mesh: THREE.Mesh; small: THREE.ShaderMaterial; left: THREE.ShaderMaterial } {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 2, 0, 0, 2], 2));
+  const material = (uniforms: Record<string, THREE.IUniform>, fragmentShader: string): THREE.ShaderMaterial =>
+    new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.NoBlending,
+    });
+  const small = material({ uNow: { value: null } }, TRAIL_SMALL_FRAGMENT);
+  const left = material({ uNow: { value: null }, uWas: { value: null }, uTrail: { value: null }, uKeep: { value: 0 } }, TRAIL_FRAGMENT);
+  const mesh = new THREE.Mesh(geometry, small);
+  mesh.frustumCulled = false;
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return { scene, camera: new THREE.Camera(), mesh, small, left };
+}
 
 /** A picture the size of the window, at a resolution of its own, that scenes are drawn into. */
 export class Layer {
@@ -146,6 +216,10 @@ export class Layer {
   private emitTarget: THREE.WebGLRenderTarget | null = null;
   /** The frame of the layer that picture was drawn for. */
   private emitRevision = -1;
+  /** The frame made small, this one and the one before, and what they have left behind, likewise; made when a trail is first asked for. */
+  private trails: { small: THREE.WebGLRenderTarget[]; left: THREE.WebGLRenderTarget[] } | null = null;
+  private trailRevision = -1;
+  private trailPass: ReturnType<typeof trailPass> | null = null;
 
   constructor(
     protected readonly host: LayerHost,
@@ -172,6 +246,70 @@ export class Layer {
   /** The picture, with colour premultiplied by alpha. */
   get texture(): THREE.Texture {
     return this.renderTarget().texture;
+  }
+
+  /**
+   * What is left behind what has moved in the picture, small, colour premultiplied by alpha;
+   * null where no trail is kept of the picture as it is now. It is shown under the picture.
+   */
+  get trailTexture(): THREE.Texture | null {
+    return this.trails && this.trailRevision === this.revision ? this.trails.left[0].texture : null;
+  }
+
+  /**
+   * Keeps what the frame that has been drawn leaves behind of the one before: `keep` is the
+   * share of what was left already that stays, 0 to 1. Called once everything of the frame is
+   * drawn into the layer. Both pictures are a quarter of the layer: a trail costs a fraction
+   * of what drawing the layer over itself would.
+   */
+  trail(keep: number): void {
+    const { renderer } = this.host;
+    const now = this.renderTarget();
+    const width = Math.max(1, Math.ceil(this.size.width / TRAIL_SHRINK));
+    const height = Math.max(1, Math.ceil(this.size.height / TRAIL_SHRINK));
+    if (!this.trails) {
+      const make = (): THREE.WebGLRenderTarget =>
+        new THREE.WebGLRenderTarget(width, height, {
+          type: now.texture.type,
+          depthBuffer: false,
+          generateMipmaps: false,
+          minFilter: THREE.LinearFilter,
+          magFilter: THREE.LinearFilter,
+        });
+      this.trails = { small: [make(), make()], left: [make(), make()] };
+      this.trailRevision = -1;
+    }
+    const { small, left } = this.trails;
+    let fresh = this.trailRevision < 0;
+    for (const target of [...small, ...left]) {
+      if (target.width === width && target.height === height) continue;
+      target.setSize(width, height);
+      fresh = true;
+    }
+    const pass = (this.trailPass ??= trailPass());
+    // The frame as it is now, small.
+    small.reverse();
+    pass.mesh.material = pass.small;
+    pass.small.uniforms.uNow.value = now.texture;
+    renderer.setRenderTarget(small[0]);
+    renderer.render(pass.scene, pass.camera);
+    // What it has left of the frame before, over what was left already.
+    left.reverse();
+    pass.mesh.material = pass.left;
+    pass.left.uniforms.uNow.value = small[0].texture;
+    pass.left.uniforms.uWas.value = small[1].texture;
+    pass.left.uniforms.uTrail.value = left[1].texture;
+    // Nothing of a picture of another size, or of a frame from before the trail was dropped.
+    pass.left.uniforms.uKeep.value = fresh ? 0 : Math.min(0.98, Math.max(0, keep));
+    renderer.setRenderTarget(left[0]);
+    renderer.render(pass.scene, pass.camera);
+    renderer.setRenderTarget(null);
+    this.trailRevision = this.revision;
+  }
+
+  /** Lets the trail go: the next one starts from nothing. */
+  dropTrail(): void {
+    this.trailRevision = -1;
   }
 
   /** The rows of the picture run from the top down, as those of a canvas do, and not from the bottom up. */
@@ -335,6 +473,11 @@ export class Layer {
     this.target = null;
     this.emitTarget?.dispose();
     this.emitTarget = null;
+    for (const target of [...(this.trails?.small ?? []), ...(this.trails?.left ?? [])]) target.dispose();
+    this.trails = null;
+    this.trailPass?.small.dispose();
+    this.trailPass?.left.dispose();
+    this.trailPass = null;
   }
 
   protected resized(): void {

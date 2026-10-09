@@ -24,8 +24,14 @@ const STUMBLE_MS = 250;
 const SCREEN_WINDOW = 60;
 /** A frame slower than this is under sixty a second, with room for the clock's own unevenness. */
 const SLOW_MS = 20;
-/** A screen whose frames come faster than this refreshes more than sixty times a second. */
-const FAST_SCREEN_MS = 12;
+/** Frames that come at least this fast are on time with room to spare: something may be given back. */
+const EASY_MS = 17.5;
+/** Judgements in a row that have to find the frames on time before a step is given back: half a minute of play. */
+const CLIMB_AFTER = 10;
+/** Judgements a step that was given back is on trial for: slow within them, it is taken away again and asked for later. */
+const TRIAL = 3;
+/** The most judgements between one try and the next: a quarter of an hour of play. */
+const CLIMB_AFTER_MOST = 320;
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -34,13 +40,15 @@ function median(values: number[]): number {
 
 /**
  * Watches how the frames of play come and takes samples of anti-aliasing away, and the light
- * of the tube, where the device does not keep up. It only ever goes down: what a frame costs the graphics card
- * cannot be seen from frames that are on time, so there is no telling when it is safe to go
- * back up.
+ * of the tube, where the device does not keep up. Under sixty frames a second it gives up a
+ * step at a time, down to the last. Sixty is enough on any screen: a screen that refreshes
+ * faster is not a reason to give anything up.
  *
- * Under sixty frames a second it gives up a step at a time, down to the last. On a screen that
- * refreshes faster, where the game runs at sixty or more but not at the screen's own rate, it
- * gives up the first step only: four samples for two is hard to see, none at all is not.
+ * It gives a step back as well. What a frame costs the graphics card cannot be seen from frames
+ * that are on time, so it can only try: after half a minute of play on time it goes a step
+ * up, and if the frames are then slow it comes back down and waits twice as long before the
+ * next try. One bad moment does not cost the look of the board for good, and a device that
+ * cannot hold a step is asked less and less often.
  *
  * A device that never shows more than thirty frames a second, as a phone saving its battery
  * does, is not slow by this measure: the frames are judged against what the screen gives.
@@ -54,6 +62,12 @@ export class Governor {
   private readonly gaps: number[] = [];
   private span = 0;
   private rest = SETTLE_MS;
+  /** Judgements in a row that found the frames on time. */
+  private easy = 0;
+  /** How many of them a step up is tried after: more after every try that failed. */
+  private climbAfter = CLIMB_AFTER;
+  /** Judgements left of the trial of a step that was given back; 0 outside one. */
+  private trial = 0;
 
   constructor(step = 0) {
     this.step = Math.min(QUALITY_STEPS.length - 1, Math.max(0, Math.round(step)));
@@ -97,11 +111,28 @@ export class Governor {
     const pace = median(this.gaps);
     this.gaps.length = 0;
     this.span = 0;
-    if (this.step >= QUALITY_STEPS.length - 1) return false;
     const slow = pace > SLOW_MS && pace > this.screen * 1.3;
-    const behind = this.step === 0 && this.screen < FAST_SCREEN_MS && pace > this.screen * 1.6;
-    if (!slow && !behind) return false;
-    this.step++;
+    if (slow) {
+      this.easy = 0;
+      // The step that was just given back is more than the device holds: later next time.
+      if (this.trial > 0) this.climbAfter = Math.min(CLIMB_AFTER_MOST, this.climbAfter * 2);
+      this.trial = 0;
+      if (this.step >= QUALITY_STEPS.length - 1) return false;
+      this.step++;
+      this.rest = SETTLE_MS;
+      return true;
+    }
+    // A step that has held through its trial is held: the next is tried as soon as the first was.
+    if (this.trial > 0 && --this.trial === 0) this.climbAfter = CLIMB_AFTER;
+    // On time with room to spare, by the screen's own measure where it shows fewer than sixty.
+    if (pace > (this.screen > EASY_MS ? this.screen * 1.15 : EASY_MS)) {
+      this.easy = 0;
+      return false;
+    }
+    if (this.step === 0 || ++this.easy < this.climbAfter) return false;
+    this.easy = 0;
+    this.step--;
+    this.trial = TRIAL;
     this.rest = SETTLE_MS;
     return true;
   }

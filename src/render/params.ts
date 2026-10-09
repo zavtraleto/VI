@@ -114,7 +114,15 @@ export const BOARD_GROUPS = {
     /** The one the program has no record of: a grey mannequin. */
     mannequin: color('#8b90a0'),
     /** How far the mannequin has grown into the red of the seventh: 0 is grey, 1 is red. */
-    figureRed: number(0.58, 0, 1, 0.01),
+    figureRed: number(1, 0, 1, 0.01),
+    /**
+     * The figure is plastic that can be seen through. How much of the body there is where it is
+     * looked at straight on, 1 is a body nothing shows through; how much denser and lighter it
+     * is towards its outline; how bright the one gleam on it is.
+     */
+    figureBody: number(0.5, 0.05, 1, 0.01),
+    figureRim: number(0.7, 0, 1, 0.01),
+    figureShine: number(0.6, 0, 1, 0.01),
     /** How much of the figure shows through a die that stands in front of it. */
     figureGhost: number(0.21, 0, 1, 0.01),
   },
@@ -150,6 +158,27 @@ export const BOARD_GROUPS = {
     glowReach: number(5.5, 1, 16, 0.5),
     glowOver: number(0.14, 0, 1, 0.01),
     glowEdge: number(0.2, 0, 2, 0.05),
+    /**
+     * Where that light is taken from. 0: from the faces on top, the edges and the red of the
+     * one, drawn alone for it. Above 0: from the picture itself, as the consoles of the last
+     * years of the tube took it - whatever is brighter than this gives light, the figure and a
+     * die that flashes with the rest.
+     */
+    glowThreshold: number(0.5, 0, 0.95, 0.01),
+    /**
+     * The frame before stays under the new one for a moment, and what moves leaves a trail:
+     * how long it takes to go, in milliseconds, while the board is played, and where a board
+     * comes or a combo is taken. 0 leaves none.
+     */
+    trailMs: number(30, 0, 400, 5),
+    trailPeakMs: number(160, 0, 600, 10),
+    /**
+     * A die blinks once with that light when a combo takes it: how bright the light around it
+     * is at its most, against that of a standing die, 0 for no blink; how long the blink is,
+     * in milliseconds.
+     */
+    comboGlow: number(1.6, 0, 3, 0.05),
+    comboBlinkMs: number(700, 0, 2000, 50),
     /** How far red and blue stand apart along the lines while nothing happens, in lines of the tube. */
     fringe: number(0, 0, 1, 0.01),
     /**
