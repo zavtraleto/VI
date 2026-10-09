@@ -49,7 +49,7 @@ export const DE: Texts = {
     'Hallo! Willkommen bei Visual Interconnection. Ich bin der Laborassistent hier, und heute bringe ich dir bei, mit dem Tisch zu arbeiten.\n\n' +
     'In den Dreißigern bat Doktor Rhine Menschen, Würfel zu werfen und sich mit aller Kraft die gewünschte Seite zu wünschen. Wir werfen die Würfel nicht. Wir führen sie.\n\n' +
     'Du stehst auf einem Würfel. Führe ihn: Er rollt, und eine andere Seite kommt nach oben.\n\n' +
-    'Heute ist der dritte Kanal offen: Wir arbeiten mit 3ern. Lege drei 3er nebeneinander: Das ist ein Combo, und es wird gehen. Andere Kombinationen wirken nicht: Ihre Seiten haben hohle Punkte.',
+    'Heute ist der dritte Kanal offen: Wir arbeiten mit 3ern. Lege drei 3er nebeneinander: Das ist ein Combo, und es wird gehen. Andere Kombinationen wirken nicht: Ihre Seiten sind mit einem Kreuz markiert.',
   lessonStep:
     'Geschafft! Rhines Würfel sind nur gefallen. Deine hören schon auf dich.\n\n' +
     'Jetzt zu den Schritten. Du kannst über die Würfel gehen, von einem zum nächsten. Ein Schritt zählt nicht als Zug: Geh, so viel du willst.\n\n' +
@@ -96,7 +96,7 @@ export const DE: Texts = {
   lineFloor: 'Von einem gehenden Würfel kannst du auf den Boden steigen. Das macht nichts: [Wir warten]. Vom Boden werden Würfel geschoben.',
   lineGlass: 'Ein gehender Würfel ist [schon halb hier]. Du kannst über ihn rollen: Deiner nimmt seinen Platz ein.',
   lineFaces: 'Ein weiterer Kanal ist offen: Jetzt [werden] 2er und 3er [angenommen]. Zähl die Würfel vorher.',
-  ruleThrees: 'Ein Combo sind drei 3er nebeneinander: Es geht. Nur 3er wirken, die anderen Seiten haben hohle Punkte.',
+  ruleThrees: 'Ein Combo sind drei 3er nebeneinander: Es geht. Nur 3er wirken, die anderen Seiten sind mit einem Kreuz markiert.',
   ruleStep: 'Ein Schritt über die Würfel ist kein Zug. Ein Zug ist, den Würfel, auf dem du stehst, auf einen freien Platz zu rollen.',
   ruleWalk: 'Ein Schritt ist kein Zug, ein Zug ist ein Rollen. Über ein gehendes Combo kannst du gehen und von ihm auf einen anderen Würfel steigen.',
   ruleLink: 'Ein Combo geht in zwei Zügen. Rolle einen Würfel mit derselben Seite heran: Das ist eine Kette. Jeder solche Würfel gibt den gehenden einen Zug mehr.',
@@ -124,7 +124,7 @@ export const DE: Texts = {
   howCombo: 'Ein Combo sind so viele Würfel nebeneinander, wie ihre obere Seite Augen hat: zwei 2er, drei 3er, sechs 6er.\nEin fertiges Combo geht.',
   howChain: 'Ein Combo geht nicht sofort.\nSolange es geht, rolle noch einen Würfel mit derselben Seite heran: Er geht mit dem Combo. Das ist eine Kette.',
   howOnes: 'Einsen bilden kein Combo.\nBring eine 1 an ein gehendes Combo, und alle anderen 1er auf dem Feld gehen.',
-  howLevels: 'STUFEN: Räume alle Würfel vom Feld.\nNur die Seiten der Stufe wirken, die anderen haben hohle Punkte.\nDie Züge sind begrenzt: Je weniger Züge, desto mehr Sterne.\nAm Boden gelten hier eigene Regeln: Nach oben geht es nur über einen gehenden Würfel.',
+  howLevels: 'STUFEN: Räume alle Würfel vom Feld.\nNur die Seiten der Stufe wirken, die anderen sind mit einem Kreuz markiert.\nDie Züge sind begrenzt: Je weniger Züge, desto mehr Sterne.\nAm Boden gelten hier eigene Regeln: Nach oben geht es nur über einen gehenden Würfel.',
   howProtocol: 'PROTOKOLL: Die Würfel kommen von selbst.\nEine Kette vervielfacht die Punkte.\nLäuft das Feld voll und bleibt voll, ist die Sitzung vorbei.',
   shareScore: 'VI — auf die andere Seite gesendet: {score}',
 };

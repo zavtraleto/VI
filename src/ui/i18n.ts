@@ -75,7 +75,7 @@ const RU = {
     'Привет! Добро пожаловать в Visual Interconnection. Я здешний лаборант, и сегодня я учу тебя работать со столом.\n\n' +
     'В тридцатые годы доктор Райн просил людей бросать кости и изо всех сил хотеть нужную грань. Мы кости не бросаем. Мы их ведём.\n\n' +
     'Ты стоишь на кости. Веди её: она перекатится, и наверх ляжет другая грань.\n\n' +
-    'Сегодня открыт третий канал: работаем с тройками. Поставь три тройки рядом — это комбо, и оно уйдёт. Другие комбинации не работают: у их граней полые точки.',
+    'Сегодня открыт третий канал: работаем с тройками. Поставь три тройки рядом — это комбо, и оно уйдёт. Другие комбинации не работают: их грани помечены крестом.',
   // The level this was said on gives its place to `lessonWalk` on the ladder of lessons: it stays while the boards of the old ladder do.
   lessonStep:
     'Получилось! У Райна кости только падали. Тебя они уже слушаются.\n\n' +
@@ -128,7 +128,7 @@ const RU = {
   lineFloor: 'С уходящей кости можно сойти на пол. Это не страшно: [мы подождём]. С пола кости толкают.',
   lineGlass: 'Уходящая кость [уже наполовину здесь]. По ней можно прокатиться: твоя встанет на её место.',
   lineFaces: 'Открыт ещё один канал: теперь [принимаются] и двойки, и тройки. Считай кости заранее.',
-  ruleThrees: 'Комбо — три тройки рядом: оно уходит. Работают только тройки, у остальных граней полые точки.',
+  ruleThrees: 'Комбо — три тройки рядом: оно уходит. Работают только тройки, остальные грани помечены крестом.',
   ruleStep: 'Шаг по костям — не ход. Ход — перекат кости, на которой стоишь, на свободное место.',
   ruleWalk: 'Шаг по костям — не ход, ход — перекат. По уходящему комбо можно ходить и сходить с него на другую кость.',
   ruleLink: 'Комбо уходит два хода. Докати к нему кость с той же гранью — это цепочка. Каждая такая кость даёт уходящим ещё один ход.',
@@ -161,7 +161,7 @@ const RU = {
   howCombo: 'Комбо — столько костей рядом, сколько точек на их верхней грани: две двойки, три тройки, шесть шестёрок.\nСобранное комбо уходит.',
   howChain: 'Комбо уходит не сразу.\nПока оно уходит, докати к нему ещё кость с той же гранью: она уйдёт вместе с ним. Это цепочка.',
   howOnes: 'Единицы в комбо не собираются.\nПодведи единицу к уходящему комбо — и уйдут все остальные единицы на поле.',
-  howLevels: 'УРОВНИ: убери с поля все кости.\nРаботают только грани уровня, у остальных полые точки.\nХоды ограничены: чем их меньше, тем больше звёзд.\nПравила пола здесь свои: наверх — только по уходящей кости.',
+  howLevels: 'УРОВНИ: убери с поля все кости.\nРаботают только грани уровня, остальные помечены крестом.\nХоды ограничены: чем их меньше, тем больше звёзд.\nПравила пола здесь свои: наверх — только по уходящей кости.',
   howProtocol: 'ПРОТОКОЛ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — сеанс окончен.',
   // What a player sends out with a link to the game: the score is what was sent to the other side.
   shareScore: 'VI — передано на ту сторону: {score}',
@@ -215,7 +215,7 @@ const EN: typeof RU = {
     'Hello! Welcome to Visual Interconnection. I am the lab assistant here, and today I am teaching you to work the table.\n\n' +
     'In the thirties Dr. Rhine asked people to throw dice and to wish with all their might for the face they wanted. We do not throw the dice. We lead them.\n\n' +
     'You are standing on a die. Lead it: it rolls, and another face comes up on top.\n\n' +
-    'Today the third channel is open: we work with 3s. Put three 3s side by side: that is a combo, and it will leave. Other combinations do not work: their faces have hollow pips.',
+    'Today the third channel is open: we work with 3s. Put three 3s side by side: that is a combo, and it will leave. Other combinations do not work: their faces are marked with a cross.',
   lessonStep:
     'You did it! Rhine’s dice only fell. Yours already listen to you.\n\n' +
     'Now, steps. You can walk over the dice, from one to the next. A step is not counted as a move: walk as much as you like.\n\n' +
@@ -262,7 +262,7 @@ const EN: typeof RU = {
   lineFloor: 'You can step down from a leaving die to the floor. Nothing to fear: [we will wait]. From the floor, dice are pushed.',
   lineGlass: 'A leaving die is [already half here]. You can roll over it: yours takes its place.',
   lineFaces: 'One more channel is open: now 2s and 3s [are accepted]. Count the dice beforehand.',
-  ruleThrees: 'A combo is three 3s side by side: it leaves. Only 3s work, the other faces have hollow pips.',
+  ruleThrees: 'A combo is three 3s side by side: it leaves. Only 3s work, the other faces are marked with a cross.',
   ruleStep: 'A step over the dice is not a move. A move is a roll of the die you stand on into an empty place.',
   ruleWalk: 'A step over the dice is not a move, a move is a roll. You can walk over a leaving combo and step off it onto another die.',
   ruleLink: 'A combo leaves in two moves. Roll a die of the same face up to it: that is a chain. Every such die gives the leaving ones one more move.',
@@ -289,7 +289,7 @@ const EN: typeof RU = {
   howCombo: 'A combo is as many dice side by side as their top face has pips: two 2s, three 3s, six 6s.\nA finished combo leaves.',
   howChain: 'A combo does not leave at once.\nWhile it is leaving, roll one more die with the same face up to it: it leaves with the combo. This is a chain.',
   howOnes: 'Ones make no combo.\nBring a 1 to a leaving combo, and every other 1 on the board leaves.',
-  howLevels: 'LEVELS: clear every die off the board.\nOnly the faces of the level work, the others have hollow pips.\nMoves are limited: the fewer you make, the more stars.\nThe floor has rules of its own here: the only way up is a leaving die.',
+  howLevels: 'LEVELS: clear every die off the board.\nOnly the faces of the level work, the others are marked with a cross.\nMoves are limited: the fewer you make, the more stars.\nThe floor has rules of its own here: the only way up is a leaving die.',
   howProtocol: 'PROTOCOL: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the session is over.',
   shareScore: 'VI — sent to the other side: {score}',
 };

@@ -49,7 +49,7 @@ export const TR: Texts = {
     "Merhaba! Visual Interconnection'a hoş geldin. Ben buranın laborantıyım ve bugün sana masayla çalışmayı öğreteceğim.\n\n" +
     'Otuzlu yıllarda Doktor Rhine insanlardan zar atmalarını ve istedikleri yüzü var güçleriyle dilemelerini isterdi. Biz zarları atmayız. Onları yönlendiririz.\n\n' +
     'Bir zarın üstünde duruyorsun. Onu yönlendir: yuvarlanır ve başka bir yüz üste gelir.\n\n' +
-    "Bugün üçüncü kanal açık: 3'lerle çalışıyoruz. Üç 3'ü yan yana koy: bu bir kombodur ve gidecek. Diğer kombinasyonlar çalışmaz: yüzlerinin noktalarının içi boş.",
+    "Bugün üçüncü kanal açık: 3'lerle çalışıyoruz. Üç 3'ü yan yana koy: bu bir kombodur ve gidecek. Diğer kombinasyonlar çalışmaz: yüzleri çarpıyla işaretli.",
   lessonStep:
     "Başardın! Rhine'ın zarları yalnızca düşerdi. Seninkiler şimdiden sözünü dinliyor.\n\n" +
     'Şimdi adımlar. Zarların üstünde yürüyebilirsin, birinden yanındakine. Adım hamle sayılmaz: istediğin kadar yürü.\n\n' +
@@ -96,7 +96,7 @@ export const TR: Texts = {
   lineFloor: 'Giden bir zardan zemine inebilirsin. Korkma: [biz bekleriz]. Zeminden zarlar itilir.',
   lineGlass: 'Giden bir zar [şimdiden yarı yarıya burada]. Üstünden yuvarlanabilirsin: seninki onun yerini alır.',
   lineFaces: "Bir kanal daha açıldı: artık 2'ler de 3'ler de [kabul ediliyor]. Zarları önceden say.",
-  ruleThrees: "Kombo, yan yana üç 3'tür: gider. Yalnızca 3'ler çalışır; diğer yüzlerin noktalarının içi boş.",
+  ruleThrees: "Kombo, yan yana üç 3'tür: gider. Yalnızca 3'ler çalışır; diğer yüzler çarpıyla işaretli.",
   ruleStep: 'Zarların üstünde adım hamle değildir. Hamle, üstünde durduğun zarı boş bir yere yuvarlamaktır.',
   ruleWalk: 'Adım hamle değildir; hamle yuvarlamaktır. Giden bir kombonun üstünde yürüyebilir, ondan başka bir zara geçebilirsin.',
   ruleLink: 'Kombo iki hamlede gider. Yanına aynı yüzlü bir zar yuvarla: bu bir zincirdir. Böyle her zar gidenlere bir hamle daha verir.',
@@ -124,7 +124,7 @@ export const TR: Texts = {
   howCombo: 'Kombo, üst yüzündeki nokta sayısı kadar zarın yan yana gelmesidir: iki 2, üç 3, altı 6.\nTamamlanan kombo gider.',
   howChain: 'Kombo hemen gitmez.\nO giderken yanına aynı yüzlü bir zar daha yuvarla: komboyla birlikte gider. Buna zincir denir.',
   howOnes: "1'ler kombo oluşturmaz.\nBir 1'i giden bir komboya getir: tahtadaki diğer bütün 1'ler gider.",
-  howLevels: 'SEVİYELER: tahtadaki bütün zarları temizle.\nYalnızca seviyenin yüzleri çalışır, diğerlerinin noktalarının içi boştur.\nHamle sayısı sınırlıdır: ne kadar az hamle, o kadar çok yıldız.\nBurada zeminin kuralları ayrıdır: yukarı yalnızca giden bir zarın üstünden çıkılır.',
+  howLevels: 'SEVİYELER: tahtadaki bütün zarları temizle.\nYalnızca seviyenin yüzleri çalışır, diğerleri çarpıyla işaretlidir.\nHamle sayısı sınırlıdır: ne kadar az hamle, o kadar çok yıldız.\nBurada zeminin kuralları ayrıdır: yukarı yalnızca giden bir zarın üstünden çıkılır.',
   howProtocol: 'PROTOKOL: zarlar kendiliğinden gelir.\nZincir puanı katlar.\nAlan dolar ve dolu kalırsa oturum biter.',
   shareScore: 'VI — karşı tarafa gönderildi: {score}',
 };

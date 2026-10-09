@@ -49,7 +49,7 @@ export const PT: Texts = {
     'Olá! Boas-vindas ao Visual Interconnection. Sou o assistente do laboratório, e hoje vou ensinar você a trabalhar com a mesa.\n\n' +
     'Nos anos trinta, o doutor Rhine pedia às pessoas que jogassem dados e desejassem com toda a força a face que queriam. Nós não jogamos os dados. Nós os conduzimos.\n\n' +
     'Você está em cima de um dado. Conduza-o: ele vai rolar, e outra face ficará em cima.\n\n' +
-    'Hoje está aberto o terceiro canal: trabalhamos com os 3. Ponha três 3 lado a lado: isso é um combo, e ele vai sair. Outras combinações não funcionam: suas faces têm pontos vazados.',
+    'Hoje está aberto o terceiro canal: trabalhamos com os 3. Ponha três 3 lado a lado: isso é um combo, e ele vai sair. Outras combinações não funcionam: suas faces estão marcadas com uma cruz.',
   lessonStep:
     'Conseguiu! Os dados de Rhine só caíam. Os seus já obedecem a você.\n\n' +
     'Agora, os passos. Dá para andar pelos dados, de um para o vizinho. Um passo não conta como jogada: ande quanto quiser.\n\n' +
@@ -96,7 +96,7 @@ export const PT: Texts = {
   lineFloor: 'De um dado que está saindo dá para descer ao chão. Não tem problema: [nós esperamos]. Do chão, os dados são empurrados.',
   lineGlass: 'Um dado que está saindo [já está meio aqui]. Dá para rolar por cima dele: o seu fica no lugar dele.',
   lineFaces: 'Mais um canal foi aberto: agora [são aceitos] os 2 e os 3. Conte os dados antes.',
-  ruleThrees: 'Um combo são três 3 lado a lado: ele sai. Só os 3 funcionam; as outras faces têm pontos vazados.',
+  ruleThrees: 'Um combo são três 3 lado a lado: ele sai. Só os 3 funcionam; as outras faces estão marcadas com uma cruz.',
   ruleStep: 'Um passo pelos dados não é uma jogada. Uma jogada é rolar o dado em que você está para um lugar livre.',
   ruleWalk: 'Um passo não é uma jogada; uma jogada é rolar. Por um combo que está saindo dá para andar e descer dele para outro dado.',
   ruleLink: 'Um combo sai em duas jogadas. Role até ele um dado com a mesma face: isso é uma corrente. Cada dado assim dá aos que estão saindo mais uma jogada.',
@@ -124,7 +124,7 @@ export const PT: Texts = {
   howCombo: 'Um combo são tantos dados lado a lado quantos pontos tem a face de cima: dois 2, três 3, seis 6.\nUm combo formado sai.',
   howChain: 'Um combo não sai na hora.\nEnquanto ele sai, role até ele mais um dado com a mesma face: ele sai junto com o combo. Isso é uma corrente.',
   howOnes: 'Os 1 não formam combo.\nLeve um 1 até um combo que está saindo, e todos os outros 1 do tabuleiro saem.',
-  howLevels: 'NÍVEIS: tire todos os dados do tabuleiro.\nSó as faces do nível funcionam, as outras têm pontos vazados.\nAs jogadas são limitadas: quanto menos, mais estrelas.\nAqui o chão tem regras próprias: só se sobe por um dado que está saindo.',
+  howLevels: 'NÍVEIS: tire todos os dados do tabuleiro.\nSó as faces do nível funcionam, as outras estão marcadas com uma cruz.\nAs jogadas são limitadas: quanto menos, mais estrelas.\nAqui o chão tem regras próprias: só se sobe por um dado que está saindo.',
   howProtocol: 'PROTOCOLO: os dados chegam sozinhos.\nUma corrente multiplica os pontos.\nSe o tabuleiro encher e continuar cheio, a sessão acaba.',
   shareScore: 'VI — enviado para o outro lado: {score}',
 };
