@@ -31,10 +31,21 @@ export interface SignWay {
 const NO_WAY: SignWay = { dir: null, left: null };
 
 /**
- * Boards the search may see for a sign. The pieces of the road have a few dozen; a board
- * that takes more than this gets no sign rather than a frame that hangs.
+ * Boards the search may see for a sign on a lesson. A lesson is a tree of a few dozen boards and
+ * is searched whole long before this; a board that takes more gets no sign rather than a frame
+ * that hangs.
  */
 export const SIGN_MAX_STATES = 5000;
+
+/**
+ * Boards the search may see for a sign on a free piece or a mix. Those boards are open: hundreds
+ * of boards a player can come to, and thousands the search sees from one of them. The number
+ * keeps one search under about 50 ms on a desktop: over the 250 boards nearest the start of each
+ * of the six dearest pieces (R06, R09, R10, R14, R17, R18) a search takes 7 to 17 ms on average
+ * and 50 ms at the worst, where 5000 boards took up to 216 ms. Where it is not enough there is
+ * no sign for that board: on those boards, a quarter of R06 and about two thirds of the rest.
+ */
+export const SIGN_FREE_STATES = 1000;
 
 /** Where a step of each kind leaves the player; a roll and a push are moves, not steps. */
 const STEP_TO: Partial<Record<MoveKind, Level>> = { hop: 'top', mount: 'top', climb: 'top', descend: 'ground', walk: 'ground' };
@@ -151,13 +162,17 @@ const NOTHING: Waiting = { dir: null, blink: false };
 /**
  * The wait of one start of a piece, followed frame by frame: the sign the piece opens with until
  * the first move or step, then the plaque that blinks and the sign of the way as the player
- * waits. The solver is asked once for a board, when the board has come to stand, and that is
- * also the moment the wait is counted from.
+ * waits. The wait is counted from the moment the board has come to stand.
+ *
+ * The solver is asked once for a board at the most, and only when its answer is needed: on a
+ * piece that counts wasted moves (a lesson, where the search is cheap) as the board comes to
+ * stand, and on every other piece when the sign is due, by the wait or by the hurry. A move or a
+ * step on such a piece asks nothing.
  */
 export class RoadWait {
   private readonly idle: Idle;
-  /** The way from the board last asked about, and what names that board. */
-  private kept: { key: string; way: SignWay } | null = null;
+  /** What names the board that stands, and the way from it: null until the solver has been asked. */
+  private kept: { key: string; way: SignWay | null } | null = null;
 
   /**
    * The piece has come to a dead end often enough for the sign to be shown at once, on every board
@@ -167,7 +182,7 @@ export class RoadWait {
 
   constructor(
     private readonly opening: Dir | undefined,
-    rule: IdleRule,
+    private readonly rule: IdleRule,
     hurry = false,
   ) {
     this.idle = new Idle(rule);
@@ -184,16 +199,21 @@ export class RoadWait {
     this.idle.resume(timeMs);
     const { player } = state;
     if (state.over || worldRuns(state) || player.action) return NOTHING;
+    const counts = this.rule.wasted !== null;
     // Every move and every step is counted, and a move taken back takes its count back: no two boards in a row have one name.
     const key = `${run.moves}|${state.stats.steps}|${player.x},${player.z},${player.level}`;
     if (this.kept?.key !== key) {
-      const way = signAt(state);
+      // Only a piece that counts the moves wasted needs the way now; a way that is not known wastes nothing and gains nothing.
+      const way = counts ? signAt(state) : null;
       this.kept = { key, way };
-      this.idle.acted(timeMs, wastedMoves(run.spec.par, run.moves, way.left));
+      this.idle.acted(timeMs, way ? wastedMoves(run.spec.par, run.moves, way.left) : 0);
     }
     const { blink, sign } = this.idle.at(timeMs, this.hurry);
     if (this.opening && run.moves === 0 && state.stats.steps === 0) return { dir: this.opening, blink };
-    return { dir: sign ? this.kept.way.dir : null, blink };
+    if (!sign) return { dir: null, blink };
+    // The sign is due: the board is asked about now, once, if it has not been.
+    this.kept.way ??= signAt(state, counts ? SIGN_MAX_STATES : SIGN_FREE_STATES);
+    return { dir: this.kept.way.dir, blink };
   }
 }
 

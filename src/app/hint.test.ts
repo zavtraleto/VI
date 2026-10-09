@@ -5,9 +5,9 @@ import { worldRuns } from '../rules/level';
 import { createRun, step } from '../rules/sim';
 import type { Dir, GameEvent, LevelSpec, RunState } from '../rules/types';
 import { wrapCaption } from '../signal/caption';
-import { hintAlpha, hintBox, hintResumes, HINT_FADE_MS, HINT_WORD_MS, NOTE_SIZE, lineSize, toolButtons, wordsShown } from '../shell/hudLayout';
+import { hintAlpha, hintBox, hintResumes, hintSaidFor, HINT_FADE_MS, HINT_WORD_MS, NOTE_SIZE, lineSize, toolButtons, wordsShown } from '../shell/hudLayout';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
-import { DeadEnds, FIXED_LINE_MS, fixedLineOver, fixedStopped, hintOver, probeHint, saysFixed } from './hint';
+import { DeadEnds, FIXED_LINE_MS, fixedLineOver, fixedStopped, hintOver, probeHint, roomLines, saysFixed } from './hint';
 import { roadWait } from './signWay';
 
 const move = (kind: Extract<GameEvent, { type: 'move' }>['kind']): GameEvent => ({ type: 'move', kind, dir: 'N' });
@@ -375,6 +375,36 @@ describe('the words of a hint', () => {
     expect(wordsShown('a b c', 150, 100)).toBe('a b');
     expect(wordsShown('a b c', 0, 0)).toBe('a b c');
     expect(wordsShown('', 0)).toBe('');
+  });
+});
+
+describe('the words of a hint that goes out', () => {
+  it('stop coming: the line says its words until it is taken away, and none after', () => {
+    const line = 'one two three four five';
+    expect(wordsShown(line, hintSaidFor(200, 0, null))).toBe('one two');
+    // Taken away at 200 ms: through the 300 ms it fades in, the words are those it had.
+    for (const now of [200, 360, 499, 5000]) expect(wordsShown(line, hintSaidFor(now, 0, 200)), `${now}`).toBe('one two');
+    expect(wordsShown(line, hintSaidFor(540, 0, null))).toBe('one two three four');
+  });
+});
+
+describe('the room a board keeps for its lines', () => {
+  it('is none for the line about a dim die until that line has come: a board with a fixed die and no lesson has the whole stage', () => {
+    const fixed = ROAD.filter((spec) => spec.layout!.dice.some((die) => die.fixed));
+    expect(fixed.map((spec) => spec.id)).toEqual(expect.arrayContaining(['R01', 'R02', 'R16']));
+    for (const spec of fixed) {
+      const lesson = ROAD_HINTS[spec.id]?.key ?? null;
+      // Whether the line has been said to the player or not is not asked: only whether it stands on this board.
+      expect(roomLines(lesson, false), spec.id).toEqual(lesson ? [lesson] : []);
+    }
+    // The frame of the first piece is that of a board with no hint at all.
+    expect(roomLines(ROAD_HINTS.R01?.key ?? null, false)).toEqual(roomLines(null, false));
+    expect(roomLines(null, false)).toEqual([]);
+  });
+
+  it('is taken when the line is put up, beside the room of a lesson if the piece has one', () => {
+    expect(roomLines(null, true)).toEqual(['roadHintFixed']);
+    expect(roomLines('roadHintChain', true)).toEqual(['roadHintChain', 'roadHintFixed']);
   });
 });
 

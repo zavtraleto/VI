@@ -366,13 +366,27 @@ export const DEAD_ENDS_FOR_SIGN = 2;
 /** What a piece does when the player waits, ms: when the plaque over the target blinks, when the sign comes, how many wasted moves bring it at once. */
 type Wait = { blinkMs: number | null; signMs: number; wasted: number | null };
 
-/** The first piece shows its sign from the start, and after a move brings it back in six seconds. */
-const FIRST_WAIT: Wait = { blinkMs: null, signMs: 6000, wasted: null };
-/** Every other piece blinks its plaque from four seconds and shows the sign from eight, or at once after three moves that led nowhere. */
-const WAIT: Wait = { blinkMs: 4000, signMs: 8000, wasted: 3 };
+/**
+ * The lessons: boards shaped like a tree, a few dozen boards each, where the way is cheap to
+ * find after every move. Only they count the moves that led nowhere.
+ */
+export const ROAD_LESSONS: readonly string[] = ['R01', 'R02', 'R07', 'R11', 'R15'];
+
+/** The first piece shows its sign from the start, and after a move brings it back in six seconds, or at once after three moves that led nowhere. */
+const FIRST_WAIT: Wait = { blinkMs: null, signMs: 6000, wasted: 3 };
+/** A lesson after it blinks its plaque from four seconds and shows the sign from eight, or at once after three moves that led nowhere. */
+const LESSON_WAIT: Wait = { blinkMs: 4000, signMs: 8000, wasted: 3 };
+/**
+ * A free piece or a mix blinks and shows the sign by the same seconds, and counts no wasted
+ * moves: that count asks the solver after every move, and on an open board the answer costs a
+ * frame that hangs. Its sign comes by waiting, and at the second dead end.
+ */
+const FREE_WAIT: Wait = { blinkMs: 4000, signMs: 8000, wasted: null };
 
 /** The waiting of every piece of the road, by its code. */
-export const ROAD_IDLE: Readonly<Record<string, Wait>> = Object.fromEntries(ROAD.map((spec, index) => [spec.id, index === 0 ? FIRST_WAIT : WAIT]));
+export const ROAD_IDLE: Readonly<Record<string, Wait>> = Object.fromEntries(
+  ROAD.map((spec, index) => [spec.id, index === 0 ? FIRST_WAIT : ROAD_LESSONS.includes(spec.id) ? LESSON_WAIT : FREE_WAIT]),
+);
 
 /** The code of the piece at a place of the road, whether the road has come that far or not: `R01` is at place 0. */
 function codeAt(index: number): string {

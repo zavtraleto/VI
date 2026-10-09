@@ -22,6 +22,7 @@ import {
   ROAD_END,
   ROAD_HINTS,
   ROAD_IDLE,
+  ROAD_LESSONS,
   ROAD_SIGNS,
   blockOf,
   pieceAfter,
@@ -508,6 +509,8 @@ describe('the free pieces and the mixes', () => {
       // The board of the piece is judged as the one board laid by hand for its place.
       const { fit, why } = judge({ ...place, sketch: [spec.layout!] }, SKETCH + 1, { near: true });
       expect(fit, `${place.id}: ${why}`).not.toBeNull();
+      // What was judged is the board that is shipped, by the rules it is shipped with.
+      for (const key of ['size', 'holes', 'floor', 'sinkMoves'] as const) expect(fit!.spec[key], `${place.id} ${key}`).toEqual(spec[key]);
       expect(fit!.misses, place.id).toEqual(MISSES[place.id] ?? []);
       expect(fit!.par, place.id).toBe(spec.par);
       expect(fit!.spec.solution, place.id).toHaveLength(spec.par!);
@@ -764,10 +767,13 @@ describe('what a piece does when the player waits', () => {
     expect(moveOf(ROAD[0].solution![0]).dir).toBe('N');
   });
 
-  it('blinks the plaque, shows the sign and counts the moves wasted, on every piece of the road', () => {
-    const rest = { blinkMs: 4000, signMs: 8000, wasted: 3 };
-    expect(ROAD_IDLE.R01).toEqual({ blinkMs: null, signMs: 6000, wasted: null });
-    for (const spec of ROAD.slice(1)) expect(ROAD_IDLE[spec.id], spec.id).toEqual(rest);
+  it('blinks the plaque and shows the sign on every piece, and counts the moves wasted on the lessons alone', () => {
+    expect(ROAD_LESSONS).toEqual(['R01', 'R02', 'R07', 'R11', 'R15']);
+    expect(ROAD_IDLE.R01).toEqual({ blinkMs: null, signMs: 6000, wasted: 3 });
+    for (const spec of ROAD.slice(1)) {
+      // A free piece asks the solver for no count of wasted moves: its sign comes by waiting and by the second dead end.
+      expect(ROAD_IDLE[spec.id], spec.id).toEqual({ blinkMs: 4000, signMs: 8000, wasted: ROAD_LESSONS.includes(spec.id) ? 3 : null });
+    }
     expect(Object.keys(ROAD_IDLE)).toEqual(ROAD.map((spec) => spec.id));
   });
 });

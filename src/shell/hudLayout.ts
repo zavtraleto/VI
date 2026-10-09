@@ -321,6 +321,15 @@ export function wordsShown(text: string, elapsedMs: number, perWordMs = HINT_WOR
 }
 
 /**
+ * How long a hint has been saying its words, for `wordsShown`: from when it was put up to now,
+ * or to when it was taken away (`goneMs`), if it was. A line that is going out says no more
+ * words: those it had stay as it fades.
+ */
+export function hintSaidFor(nowMs: number, saidMs: number, goneMs: number | null): number {
+  return (goneMs ?? nowMs) - saidMs;
+}
+
+/**
  * Where the one line of a hint stands, in CSS pixels of the window: at the top of the stage, under
  * the readings of a level, centred, wider than neither `HINT_EM` letters nor the stage and its
  * edges, and within what the edges of the screen keep; `tools` is the rectangle of the buttons of a level, if it has them. `height` is what the text takes in the lines

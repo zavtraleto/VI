@@ -12,7 +12,8 @@
 //   node scripts/ladder.mjs place=P06 keep=5 the five that fit best
 //   node scripts/ladder.mjs place=R03        a place of the road (src/levels/roadRecipes.ts, ROAD_PLACES), found by the name of its level when no place of
 //                                            the ladder has it; recipes=/src/levels/other.ts:NAME takes the places from any list a module exports
-//   node scripts/ladder.mjs place=R03 walk=300   the boards a player can come to are walked for the table up to so many (150 unless said, 0 to leave it out)
+//   node scripts/ladder.mjs place=R03 walk=300   the boards a player can come to are walked for the table up to so many (150 unless said, 0 to leave it out;
+//                                            a place of the ladder that asks nothing of the walk is not walked unless walk= is said)
 //   node scripts/ladder.mjs road             the table of the pieces of the road (src/levels/road.ts): what each is, its board, its fewest moves, the first
 //                                            moves that keep it in hand, the walk over the boards a player can come to (walk=300 boards unless said;
 //                                            a `+` where it was cut) and the shares of the hasty and the casual persona
@@ -193,7 +194,10 @@ if (flag('limit')) {
     // What the three kept cannot be cleared without is asked of the solver for every technique their way leans on.
     for (const fit of filled.fits.slice(0, 3)) fit.needs = neededBy(fit.spec, fit.par, fit.uses);
     const keep = Number(named.keep ?? 3);
-    console.log(placeReport(filled, keep, Number(named.skills ?? 20), Number(named.walk ?? REPORT_WALK_LIMIT)));
+    // The boards kept are walked for the table only where the place asks something of the walk, or is a place of the road:
+    // a place of the ladder that asks nothing of it is reported as it always was, unless walk= is said.
+    const walked = recipe.lossless || recipe.worst !== undefined || !PLACES.includes(recipe);
+    console.log(placeReport(filled, keep, Number(named.skills ?? 20), Number(named.walk ?? (walked ? REPORT_WALK_LIMIT : 0))));
     for (const fit of filled.fits.slice(0, keep)) {
       console.log('');
       console.log(boardText(fit.spec));

@@ -6,7 +6,7 @@ import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, wordsShown, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signRoom, signTurn, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hintSaidFor, wordsShown, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signRoom, signTurn, turned, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -730,6 +730,9 @@ export class GameHud {
       if (!resumed) {
         this.hintSaid = timeMs;
         this.hintSigns = 0;
+      } else {
+        // While it went out it said nothing: its words go on from where they stopped.
+        this.hintSaid += timeMs - this.hintGone!;
       }
       this.hintText = given;
       this.hintSince = timeMs - into;
@@ -744,8 +747,8 @@ export class GameHud {
       this.hintGone = null;
       return null;
     }
-    // With reduced motion the line is there whole, and no word of it is answered.
-    const reveal = view.reducedMotion ? Infinity : wordsShown(this.hintText, timeMs - this.hintSaid, Number(this.look.board.hintWordMs)).length;
+    // With reduced motion the line is there whole, and no word of it is answered. A line that goes out keeps the words it had: no more come, and none clicks.
+    const reveal = view.reducedMotion ? Infinity : wordsShown(this.hintText, hintSaidFor(timeMs, this.hintSaid, this.hintGone), Number(this.look.board.hintWordMs)).length;
     return { text: this.hintText, alpha, reveal };
   }
 

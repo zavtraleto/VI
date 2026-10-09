@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LEVELS } from '../levels/levels';
-import { ROAD } from '../levels/road';
+import { ROAD, ROAD_IDLE, ROAD_LESSONS } from '../levels/road';
 import { defaultConfig } from '../rules/config';
 import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
-import { roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
+import { SIGN_FREE_STATES, SIGN_MAX_STATES, roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
 
 // The solver as it is, with its calls counted.
 vi.mock('../rules/levelSolver', async (original) => {
@@ -26,8 +26,9 @@ const COMMON = { arrival: 'none', goal: { kind: 'clear' }, moves: 0, undos: 3, s
 /**
  * Three pieces of the first edition of the road, kept here as the small boards the sign is
  * tried on: each is a few boards in all, so what the sign says on every one of them is known.
- * They go by the codes they had, which name pieces of the road still, so each waits as a piece
- * of the road does (`ROAD_IDLE`). The first and the second piece are those of the road itself.
+ * They go by the codes they had, which name pieces of the road still: `R03` and `R05` wait as a
+ * free piece does and `R07` as a lesson (`ROAD_IDLE`). The first and the second piece are those
+ * of the road itself.
  *
  *   2 #      . . 2 .      3 3 . .
  *   # A      . . # .      # # . .
@@ -154,6 +155,22 @@ describe('the way the swipe sign points', () => {
 
   it('is none where the search is not let to find a way', () => {
     expect(signAt(start(LEVELS[LEVELS.length - 1]), 1)).toEqual({ dir: null, left: null });
+  });
+
+  it('is a way or none from the start of every piece, with the boards its kind of piece is given, and never hangs', () => {
+    expect(SIGN_FREE_STATES).toBeLessThanOrEqual(SIGN_MAX_STATES);
+    for (const spec of ROAD) {
+      const state = start(spec);
+      const began = performance.now();
+      const way = signAt(state, ROAD_LESSONS.includes(spec.id) ? SIGN_MAX_STATES : SIGN_FREE_STATES);
+      // Loose: a search of this size takes tens of milliseconds, and a machine that is busy takes more.
+      expect(performance.now() - began, spec.id).toBeLessThan(3000);
+      expect([null, 'N', 'E', 'S', 'W'], spec.id).toContain(way.dir);
+      // A way that is said is said with its length, and no way with none.
+      if (way.dir !== null) expect(way.left, spec.id).toBeGreaterThan(0);
+    }
+    // A lesson is searched whole: its sign is there from the start.
+    for (const id of ROAD_LESSONS) expect(signAt(start(pieceOf(id))).dir, id).not.toBeNull();
   });
 });
 
@@ -369,9 +386,11 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     expect(wait.frame(state, 16, true)).toEqual({ dir: 'N', blink: false });
   });
 
-  it('shows the way at once when three moves have been wasted', () => {
+  it('shows the way at once when three moves have been wasted, on a lesson', () => {
+    // The small board, waited on as a lesson waits: only a lesson counts the moves wasted.
+    expect(ROAD_IDLE.R02.wasted).toBe(3);
     const state = start(pieceOf('R03'));
-    const wait = roadWait('R03')!;
+    const wait = roadWait('R02')!;
     let time = 0;
     const seen: (Dir | null)[] = [];
     // To the north and back, and to the north again: three rolls, and the board no nearer.
@@ -386,6 +405,21 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     expect(seen[2]).toBe(signAt(state).dir);
   });
 
+  it('counts no wasted moves on a free piece: its sign waits its seconds however the board is rolled about', () => {
+    expect(ROAD_IDLE.R03.wasted).toBeNull();
+    const state = start(pieceOf('R03'));
+    const wait = roadWait('R03')!;
+    let time = 0;
+    for (const dir of ['N', 'S', 'N', 'S', 'N'] as const) {
+      expect(wait.frame(state, time, true)).toEqual(NOTHING);
+      go(state, dir);
+      time += 500;
+      expect(wait.frame(state, time, true)).toEqual(NOTHING);
+    }
+    expect(wait.frame(state, time + 7999, true).dir).toBeNull();
+    expect(wait.frame(state, time + 8000, true).dir).toBe(signAt(state).dir);
+  });
+
   it('shows nothing of a level that is over', () => {
     const state = start(pieceOf('R03'));
     const wait = roadWait('R03')!;
@@ -393,6 +427,33 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     go(state, 'W');
     expect(state.endReason).toBe('passed');
     expect(wait.frame(state, 60_000, true)).toEqual(NOTHING);
+  });
+
+  it('asks the solver nothing for a move or a step on a free piece, until the sign is due, and then once', () => {
+    const asked = vi.mocked(solveFrom);
+    const spec = ROAD.find((piece) => piece.id === 'R06')!;
+    expect(ROAD_LESSONS).not.toContain(spec.id);
+    const state = start(spec);
+    const wait = roadWait(spec.id)!;
+    asked.mockClear();
+    for (let time = 0; time < 8000; time += 16) wait.frame(state, time, true);
+    expect(asked).not.toHaveBeenCalled();
+    // A move, and frames after it short of the wait: still nothing is asked.
+    go(state, signAt(state).dir!);
+    expect(state.levelRun!.moves + state.stats.steps).toBeGreaterThan(0);
+    asked.mockClear();
+    for (let time = 8000; time < 15_984; time += 16) expect(wait.frame(state, time, true).dir).toBeNull();
+    expect(asked).not.toHaveBeenCalled();
+    // The sign is due: the board is asked about, once, with the boards a free piece is given, however long it then stands.
+    for (let time = 16_000; time < 20_000; time += 16) wait.frame(state, time, true);
+    expect(asked).toHaveBeenCalledTimes(1);
+    expect(asked.mock.calls[0][1]).toEqual({ maxStates: SIGN_FREE_STATES });
+    expect(wait.frame(state, 20_000, true).dir).toBe(signAt(state, SIGN_FREE_STATES).dir);
+    // A piece in a hurry is due at once on every board: one asking for each.
+    asked.mockClear();
+    const hurried = roadWait(spec.id, true)!;
+    for (let time = 0; time < 1000; time += 16) hurried.frame(state, time, true);
+    expect(asked).toHaveBeenCalledTimes(1);
   });
 
   it('asks the solver once for a board, not on every frame', () => {

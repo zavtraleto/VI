@@ -1,4 +1,4 @@
-import { DEAD_ENDS_FOR_SIGN, type HintUntil, type RoadHint } from '../levels/road';
+import { DEAD_ENDS_FOR_SIGN, type HintUntil, type RoadHint, type RoadHintKey } from '../levels/road';
 import { DELTA, cubeAt, inBounds, isFree } from '../rules/board';
 import type { CubeState, GameEvent, RunState } from '../rules/types';
 
@@ -65,6 +65,16 @@ export function saysFixed(state: RunState, said: boolean, lesson: boolean): bool
 /** Whether the line about a dim die goes out: the player has stepped to another die, or it has stood `FIXED_LINE_MS`. */
 export function fixedLineOver(events: readonly GameEvent[], shownMs: number): boolean {
   return shownMs >= FIXED_LINE_MS || events.some((event) => event.type === 'move' && event.kind === 'hop');
+}
+
+/**
+ * The lines the board in hand keeps room for above itself: the line of its lesson, from its
+ * start, and the line about a dim die from the moment it has been put up on this board
+ * (`fixedShown`) and not before. No room waits for a line that may never come: a board with a
+ * fixed die and no lesson has the whole stage.
+ */
+export function roomLines(lesson: RoadHintKey | null, fixedShown: boolean): (RoadHintKey | 'roadHintFixed')[] {
+  return [...(lesson ? [lesson] : []), ...(fixedShown ? (['roadHintFixed'] as const) : [])];
 }
 
 /** The lines the address may ask for, by the short name of what they teach. */
