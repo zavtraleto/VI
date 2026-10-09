@@ -22,9 +22,9 @@
 | [VI_Levels_Brief.md](VI_Levels_Brief.md) | решение | уровни — основной режим (раздел 1); остальное — материал на 4 октября |
 | [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md) | решение | точка возврата к обучению: слова владельца, голос текста, темп, словарь, где лежит убранное |
 | [superpowers/specs/2026-10-06-vi-levels-onboarding-design.md](superpowers/specs/2026-10-06-vi-levels-onboarding-design.md) | решение | вводный курс и уроки по главам; построено и убрано из игры 7 октября |
-| [superpowers/specs/2026-10-08-vi-teaching-road-design.md](superpowers/specs/2026-10-08-vi-teaching-road-design.md) | решение | обучающая дорога: двадцать кусков `R01`–`R20` в четырёх блоках, переход между досками, знак свайпа, строки-подсказки, фиксированная кость; построено, не опубликовано |
+| [superpowers/specs/2026-10-08-vi-teaching-road-design.md](superpowers/specs/2026-10-08-vi-teaching-road-design.md) | решение | обучающая дорога, первая редакция (в игре с 0.2.27): переход между досками, знак свайпа, строки-подсказки, фиксированная кость; набор из двадцати кусков заменён второй редакцией |
 | [superpowers/specs/2026-10-08-vi-first-level-design.md](superpowers/specs/2026-10-08-vi-first-level-design.md) | решение | первая сборка обучения: экран `START`, скип boot, плашка из кубиков, стрелки убраны; лента и четыре этапа заменены дорогой |
-| [superpowers/specs/2026-10-09-vi-road-free-pieces-design.md](superpowers/specs/2026-10-09-vi-road-free-pieces-design.md) | решение | дорога, вторая редакция: уроки в рамках, между ними свободные куски на настоящих костях, смеси; слова строки по одному, очки за звёзды |
+| [superpowers/specs/2026-10-09-vi-road-free-pieces-design.md](superpowers/specs/2026-10-09-vi-road-free-pieces-design.md) | решение | дорога, вторая редакция: восемнадцать кусков `R01`–`R18`, уроки в рамках, между ними свободные куски на настоящих костях, смеси; слова строки по одному; построено в ветке `first-level`, что вышло иначе — раздел 14; очки за звёзды не построены |
 | [superpowers/specs/2026-10-07-vi-bots-design.md](superpowers/specs/2026-10-07-vi-bots-design.md) | решение | боты уровней и боты Endless; что вышло иначе — раздел 12 |
 | [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) | исследование | звёзды за ходы, предел ходов (живы), ворота глав (убраны) |
 | [VI_Levels_Onboarding_Research.md](VI_Levels_Onboarding_Research.md) | исследование | как учат в играх-ориентирах; замер прежних уровней |
@@ -34,7 +34,7 @@
 | [VI_TurnBased_Research.md](VI_TurnBased_Research.md) | исследование | пошаговые игры с источниками |
 | [VI_Tutorial_Research.md](VI_Tutorial_Research.md) | исследование | как учат правилам: источники |
 
-Команды: отчёт о досках — `node scripts/bots.mjs` (`level=P06` — один уровень с партитурой, `climb=on`, `edits level=P06`); подбор досок места — `node scripts/ladder.mjs place=P06`, таблица — `node scripts/ladder.mjs levels`; звёзды — `node scripts/stars.mjs`. Код: `src/levels/`, `src/rules/level.ts`, `src/rules/levelSolver.ts`.
+Команды: отчёт о досках — `node scripts/bots.mjs` (`level=P06` — один уровень с партитурой, `climb=on`, `edits level=P06`); подбор досок места — `node scripts/ladder.mjs place=P06`, таблица — `node scripts/ladder.mjs levels`; места дороги — `node scripts/ladder.mjs place=R05` (рецепты `ROAD_PLACES` в `src/levels/roadRecipes.ts`), таблица кусков дороги — `node scripts/ladder.mjs road`; звёзды — `node scripts/stars.mjs`. Код: `src/levels/`, `src/rules/level.ts`, `src/rules/levelSolver.ts`.
 
 ## Endless (сессии)
 
@@ -102,7 +102,6 @@
 |---|---|---|
 | [VI_Docs_Audit.md](VI_Docs_Audit.md) | исследование | аудит документов 8 октября 2026: таблица, противоречия, решения владельца |
 | [superpowers/plans/2026-10-08-vi-docs-cleanup.md](superpowers/plans/2026-10-08-vi-docs-cleanup.md) | план | план аудита |
-| [superpowers/plans/2026-10-09-vi-road-free-pieces.md](superpowers/plans/2026-10-09-vi-road-free-pieces.md) | план | дорога, вторая редакция: пять задач сборки |
 
 ## В истории git
 
@@ -130,5 +129,6 @@
 | docs/superpowers/plans/2026-10-07-vi-bots-2-endless.md | план, выполнен | — |
 | docs/superpowers/plans/2026-10-08-vi-teaching-road.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека teaching-road-design |
 | docs/superpowers/plans/2026-10-08-vi-first-level.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека first-level-design |
+| docs/superpowers/plans/2026-10-09-vi-road-free-pieces.md | план, выполнен (ветка `first-level`); достать — `git show cb574c3:<путь>` | спека road-free-pieces-design |
 
 Убранные из игры уровни (курс, лестница глав) и их слова — коммит `534b3ea`; подробно — [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md), раздел 8.

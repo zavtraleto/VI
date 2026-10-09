@@ -91,7 +91,7 @@
 
 | Где | Что там | Состояние |
 |---|---|---|
-| ветка `first-level` (worktree `.claude/worktrees/first-level`) | учебная дорога `R01`–`R20`, первый уровень; спеки и планы `2026-10-08-vi-teaching-road*`, `2026-10-08-vi-first-level*` | владелец ведёт сам: обучение и онбординг — первое по важности (его слово 8–9 октября) |
+| ветка `first-level` (worktree `.claude/worktrees/first-level`) | учебная дорога `R01`–`R18` (вторая редакция 9 октября, не опубликована), первый уровень; спеки `2026-10-08-vi-teaching-road*`, `2026-10-08-vi-first-level*`, `2026-10-09-vi-road-free-pieces*` | владелец ведёт сам: обучение и онбординг — первое по важности (его слово 8–9 октября) |
 | ветка `claude/nice-chebyshev-0be447` (`ea03fcd`) | `VI_Level_Types_Research.md` (каталог особых костей), `VI_Levels_First20.md`, две спеки 4 октября | не вносить: владелец работает с особыми костями сам (9 октября) |
 | ветка `worktree-visual-lab` (worktree `.claude/worktrees/visual-lab`) | рёбра тоном программы, свет линий сетки, свет трубки | не влита по решению 5 октября |
 | worktree `.claude/worktrees/elated-rosalind-5ba18b` (ветка `visual-probes`) | пробы мягкости 1–5 и 7, снимки в `docs/art/probes/` | **не закоммичено**: удаление worktree их уничтожит |
