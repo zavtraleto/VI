@@ -1,14 +1,14 @@
 /**
- * A face that does not work on the level in hand is told on the face alone: its pips are
- * hollow, rings where the others have dots, and it gives no light to the tube. Its colour and
- * its brightness are those of a face that works: a die that is faded is a fixed one, and the
- * two are not to be taken for one another.
+ * A face that does not work on the level in hand is told on the face alone: over its pips, in
+ * the middle of it, stands a red cross half the face wide, and it gives no light to the tube.
+ * Its colour and its brightness are those of a face that works: a die that is faded is a fixed
+ * one, and the two are not to be taken for one another.
  */
 
-/** The least a ring is thick, in pixels of the picture: under that it does not read on a phone. */
-export const RING_LEAST_PX = 2;
-/** The most of the radius of a pip its ring takes: there is always a hole to see. */
-export const RING_MOST = 0.65;
+/** The least a stroke of the cross is thick, in pixels of the picture: under that it does not read on a phone. */
+export const CROSS_LEAST_PX = 3;
+/** The least the dark line around a stroke is thick, in pixels of the picture. */
+export const CROSS_RIM_LEAST_PX = 1;
 
 /**
  * The faces that do not work, a bit for each, the one in the lowest: on a level that names its
@@ -21,12 +21,25 @@ export function offMask(faces: readonly number[] | undefined): number {
   return mask;
 }
 
+/** The strokes of the cross, in the measure the face is given in. */
+export interface CrossStrokes {
+  /** Half the thickness of a stroke. */
+  thick: number;
+  /** How far from the middle of the face the middle line of a stroke runs, along the stroke. */
+  reach: number;
+  /** How far from the middle line of a stroke the dark line around it ends. */
+  shell: number;
+}
+
 /**
- * The radius of the hole of a hollow pip, in the measure its `radius` is given in. The ring is
- * a share `ring` of the radius, never thinner than a ring can be read at with a pixel of the
- * picture `px` of that measure wide, and never so thick that the hole is gone. The shader of the
- * die works it out the same way, from the same numbers.
+ * The cross of a face that does not work: two strokes with round ends along the diagonals of
+ * the face, `size` wide from end to end across the face, `width` thick, with a dark line
+ * `rim` thick around them; all three are shares of the face. A stroke is never thinner than
+ * can be read with a pixel of the picture `px` faces wide, nor the dark line thinner than a
+ * pixel. The shader of the die works it out the same way, from the same numbers.
  */
-export function ringHole(radius: number, ring: number, px: number): number {
-  return radius - Math.min(Math.max(radius * ring, RING_LEAST_PX * px), radius * RING_MOST);
+export function crossStrokes(size: number, width: number, rim: number, px: number): CrossStrokes {
+  const thick = Math.max(width / 2, (CROSS_LEAST_PX / 2) * px);
+  const reach = Math.max(0, size / 2 - thick) * Math.SQRT2;
+  return { thick, reach, shell: thick + Math.max(rim, CROSS_RIM_LEAST_PX * px) };
 }

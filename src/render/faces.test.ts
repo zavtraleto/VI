@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RING_LEAST_PX, RING_MOST, offMask, ringHole } from './faces';
+import { CROSS_LEAST_PX, CROSS_RIM_LEAST_PX, crossStrokes, offMask } from './faces';
 import { boardDefaults } from './params';
-import { pipRadius } from './textures';
 
 describe('the faces that do not work', () => {
   it('are none where no faces are named', () => {
@@ -18,32 +17,35 @@ describe('the faces that do not work', () => {
   });
 });
 
-describe('the ring of a hollow pip', () => {
-  it('is a share of the radius of the pip where the face is large', () => {
-    expect(ringHole(10, 0.4, 0.01)).toBeCloseTo(6);
-    expect(ringHole(10, 0, 0)).toBe(10);
+describe('the cross of a face that does not work', () => {
+  it('is as wide as it is asked to be, round ends and all', () => {
+    const { thick, reach } = crossStrokes(0.5, 0.08, 0.02, 0.001);
+    expect(thick).toBeCloseTo(0.04);
+    // The end of a stroke lies on a diagonal; its round end reaches the side of the square.
+    expect(reach * Math.SQRT1_2 + thick).toBeCloseTo(0.25);
   });
 
-  it('is never thinner than can be read', () => {
-    // A pip of five pixels with a ring of a fifth of it: two pixels all the same.
-    expect(ringHole(5, 0.2, 1)).toBeCloseTo(5 - RING_LEAST_PX);
+  it('has a dark line around its strokes', () => {
+    const { thick, shell } = crossStrokes(0.5, 0.08, 0.02, 0.001);
+    expect(shell - thick).toBeCloseTo(0.02);
+    expect(crossStrokes(0.5, 0.08, 0, 0.01).shell - 0.04).toBeCloseTo(CROSS_RIM_LEAST_PX * 0.01);
   });
 
-  it('always leaves a hole', () => {
-    expect(ringHole(2, 1, 1)).toBeCloseTo(2 * (1 - RING_MOST));
-    expect(ringHole(10, 1, 0)).toBeGreaterThan(0);
+  it('is never thinner than can be read, nor turned inside out', () => {
+    expect(crossStrokes(0.5, 0.01, 0.02, 0.02).thick * 2).toBeCloseTo(CROSS_LEAST_PX * 0.02);
+    expect(crossStrokes(0.1, 0.4, 0, 0).reach).toBe(0);
   });
 
-  it('is two pixels or more on a phone as the look stands, with a hole left in it', () => {
+  it('is three pixels thick or more on a phone as the look stands, half the face wide', () => {
     const values = boardDefaults();
+    expect(Number(values.crossSize)).toBe(0.5);
+    expect(Number(values.crossWidth) * 48).toBeGreaterThanOrEqual(3);
     for (const face of [40, 50, 60]) {
-      for (const value of [1, 2]) {
-        // In pixels: the face is that many of them wide.
-        const radius = pipRadius(value, values) * face;
-        const hole = ringHole(radius, Number(values.pipRing), 1);
-        expect(radius - hole, `${value} on ${face}`).toBeGreaterThanOrEqual(RING_LEAST_PX - 1e-9);
-        expect(hole, `${value} on ${face}`).toBeGreaterThan(1);
-      }
+      const { thick, reach, shell } = crossStrokes(Number(values.crossSize), Number(values.crossWidth), Number(values.crossRim), 1 / face);
+      expect(thick * 2 * face, `stroke on ${face}`).toBeGreaterThanOrEqual(CROSS_LEAST_PX - 1e-9);
+      expect((shell - thick) * face, `rim on ${face}`).toBeGreaterThanOrEqual(CROSS_RIM_LEAST_PX - 1e-9);
+      // The strokes are longer than they are thick: a cross, not a blot.
+      expect(reach).toBeGreaterThan(thick * 2);
     }
   });
 });
