@@ -52,6 +52,7 @@ export interface SystemValues {
   muted: boolean;
   reducedMotion: boolean;
   shake: boolean;
+  backdrop: boolean;
   control: ControlMode;
   view: ViewSetting;
   language: LanguageCode;
@@ -83,6 +84,7 @@ export function systemPanel(actions: {
         action: () => actions.onToggle('reducedMotion'),
       },
       { kind: 'switch', id: 'shake', label: SYSTEM.shake, value: () => word(values().shake ? SYSTEM.on : SYSTEM.off), action: () => actions.onToggle('shake') },
+      { kind: 'switch', id: 'backdrop', label: SYSTEM.backdrop, value: () => word(values().backdrop ? SYSTEM.on : SYSTEM.off), action: () => actions.onToggle('backdrop') },
       {
         kind: 'switch',
         id: 'control',

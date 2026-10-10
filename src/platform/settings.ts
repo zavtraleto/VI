@@ -96,6 +96,8 @@ export interface Settings {
   /** null follows the system preference. */
   reducedMotion: boolean | null;
   shake: boolean;
+  /** A place of the other side stands behind the board of a level. */
+  backdrop: boolean;
   view: ViewSetting;
   /** The language the player has picked, as `src/ui/i18n.ts` names it; null follows the platform, then the browser. */
   language: string | null;
@@ -137,6 +139,7 @@ export function loadSettings(): Settings {
     muted: false,
     reducedMotion: null,
     shake: true,
+    backdrop: false,
     view: 'auto',
     language: null,
     tuning: {},
@@ -159,6 +162,8 @@ export function loadSettings(): Settings {
   // A save from before the line about a dim die has not heard it: it takes `fixedSaid` of the fallback.
   loaded.levels = toRoadEdition({ ...fallback.levels, ...loaded.levels });
   loaded.language ??= null;
+  // A save from before the place behind the board has it off, as a new one does.
+  loaded.backdrop ??= false;
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
   }

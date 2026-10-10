@@ -62,6 +62,7 @@ export const WORDS = {
   SOUND: { ru: 'ЗВУК', es: 'SONIDO', pt: 'SOM', tr: 'SES', de: 'TON', fr: 'SON' },
   MOTION: { ru: 'ДВИЖЕНИЕ', es: 'MOVIMIENTO', pt: 'MOVIMENTO', tr: 'HAREKET', de: 'BEWEGUNG', fr: 'MOUVEMENT' },
   SHAKE: { ru: 'ТРЯСКА', es: 'SACUDIDA', pt: 'TREMOR', tr: 'SARSINTI', de: 'WACKELN', fr: 'SECOUSSE' },
+  BACKDROP: { ru: 'ФОН', es: 'FONDO', pt: 'FUNDO', tr: 'ARKA PLAN', de: 'HINTERGRUND', fr: 'DÉCOR' },
   CONTROL: { ru: 'УПРАВЛЕНИЕ', es: 'CONTROL', pt: 'CONTROLE', tr: 'KONTROL', de: 'STEUERUNG', fr: 'COMMANDES' },
   CAMERA: { ru: 'КАМЕРА', es: 'CÁMARA', pt: 'CÂMERA', tr: 'KAMERA', de: 'KAMERA', fr: 'CAMÉRA' },
   ON: { ru: 'ВКЛ', es: 'SÍ', pt: 'SIM', tr: 'AÇIK', de: 'AN', fr: 'OUI' },

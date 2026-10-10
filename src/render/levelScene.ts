@@ -35,8 +35,9 @@ const tree = (name: string): string => thingParam('tree', name);
 const PLACES: readonly Place[] = [
   {
     recipe: { id: 'level_sea', place: 'sea', things: ['pole', 'sun'] },
-    // Fewer glints than the sea of the transmission has: under a board they are a noise of their own.
-    values: { glint: 0.2 },
+    // Fewer glints than the sea of the transmission has, and slow ones, on slow water: under a
+    // board they are a noise of their own, and a quick one is a flicker.
+    values: { glint: 0.16, glintSpeed: 1, waveSpeed: 0.45 },
     hours: [
       { values: { skyTop: '#5f93c7', skyHorizon: '#cfdde6', ground: '#6f96b8', glintColor: '#ffffff', [pole('color')]: '#39424f' }, sun: { at: 16, size: 2.6, colour: '#e8442a' }, shade: 1 },
       { values: { skyTop: '#4b4c80', skyHorizon: '#ea9a5c', ground: '#86605c', glintColor: '#ffd29a', [pole('color')]: '#2a2430' }, sun: { at: 3.5, size: 4.6, colour: '#ff4a1c' }, shade: 0.55 },
@@ -73,7 +74,7 @@ const AWAY_MS = 100;
 /** A place that has just come is brought up out of the dark over this long, in milliseconds. */
 const COME_MS = 1800;
 /** How long the hour of the place takes to come to where the board has brought it, in milliseconds: a level passed is seen as light changing. */
-const HOUR_MS = 2600;
+const HOUR_MS = 5000;
 
 /**
  * What the board does to the place. A step of the figure is a small gust in what hangs or
@@ -82,12 +83,14 @@ const HOUR_MS = 2600;
  * the place: for a moment everything in it goes faster.
  *
  * Each is how much is told at once, how long it takes to come, and how long to go, in
- * milliseconds: none of it jumps.
+ * milliseconds. All of it is slow and slight: the place is behind the board, and what it does
+ * is felt more than seen. A thing that comes in under half a second is a flicker at the edge
+ * of the eye, and none of these does.
  */
-const STIR = { step: 0.5, roll: 1, comeMs: 90, goMs: 700 };
-const SWELL = { die: 0.7, most: 3, comeMs: 350, goMs: 2600 };
-const FLARE = { comeMs: 120, goMs: 900 };
-const GUST = { speed: 4, goMs: 1600 };
+const STIR = { step: 0.2, roll: 0.4, comeMs: 500, goMs: 2600 };
+const SWELL = { die: 0.22, most: 0.9, comeMs: 1800, goMs: 7000 };
+const FLARE = { most: 0.45, comeMs: 700, goMs: 3200 };
+const GUST = { speed: 0.6, goMs: 3500 };
 
 /** `value` on its way to `to`: fast when it has to rise, slow when it falls. */
 function toward(value: number, to: number, dt: number, comeMs: number, goMs: number): number {
@@ -346,7 +349,7 @@ export class LevelScene {
     // The dice a board starts with are not news; nor is a board that is put on in place of another.
     if (this.going >= 0 && going > this.going) {
       told.swell = Math.min(SWELL.most * much, told.swell + (going - this.going) * SWELL.die * much);
-      told.flare = Math.min(1, much);
+      told.flare = Math.min(1, much) * FLARE.most;
     }
     this.going = going;
     const passed = state.over && state.endReason === 'passed';

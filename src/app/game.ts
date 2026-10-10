@@ -150,7 +150,7 @@ const FIRST_ID = 'F1';
  * the program did before it opened on a board. The labs are tools of development: a production
  * build has none of them.
  */
-/** `?bg`: the probe of a place behind the board of a level. Without it the board stands in the dark, as it did. */
+/** `?bg`: the place behind the board of a level is on whatever the settings say. */
 const BG_PROBE = new URLSearchParams(window.location.search).has('bg');
 const LAB = import.meta.env.DEV && new URLSearchParams(window.location.search).has('lab');
 /**
@@ -465,9 +465,10 @@ export class Game {
   });
   /**
    * A place of the other side behind the board of a level, under whatever leaks through in a
-   * session. A probe: it is there only where the address asks for it with `?bg`.
+   * session. The player turns it on in the settings, and it is off until then; `?bg` in the
+   * address turns it on as well. Nothing of it is built while it is off.
    */
-  private readonly levelScene = BG_PROBE ? new LevelScene(this.display, this.look, this.world) : null;
+  private readonly levelScene = new LevelScene(this.display, this.look, this.world);
   /** The program around the game: boot, menu, panels. Its layers come after the board's, so they lie over it. */
   private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen, sound: (event) => this.audio.ui(event) });
   /** What comes from the other side: a transmission in a window of the program, over the board. */
@@ -2094,6 +2095,7 @@ export class Game {
       muted: this.settings.muted,
       reducedMotion: prefersReducedMotion(this.settings),
       shake: this.settings.shake,
+      backdrop: this.settings.backdrop,
       control: this.settings.controlMode,
       view: this.settings.view,
       language: language(),
@@ -2112,6 +2114,8 @@ export class Game {
             this.settings.reducedMotion = !prefersReducedMotion(this.settings);
           } else if (key === 'shake') {
             this.settings.shake = !this.settings.shake;
+          } else if (key === 'backdrop') {
+            this.settings.backdrop = !this.settings.backdrop;
           } else if (key === 'view') {
             this.settings.view = this.settings.view === 'full' ? 'auto' : 'full';
           } else {
@@ -2793,9 +2797,9 @@ export class Game {
     }
     span('board', drawFrom);
     // Only a level has a place behind its board, and a transmission takes the screen from it.
-    this.levelScene?.frame(
+    this.levelScene.frame(
       time,
-      !covered && state.levelRun !== null && !this.signal.busy ? state : null,
+      (this.settings.backdrop || BG_PROBE) && !covered && state.levelRun !== null && !this.signal.busy ? state : null,
       this.levelIndex,
       reducedMotion,
     );

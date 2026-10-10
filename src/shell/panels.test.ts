@@ -31,7 +31,7 @@ describe('the panels of the program', () => {
   it('open with the focus on something that can be pressed', () => {
     const specs = [
       pausePanel({ task: false, ...PAUSE }),
-      systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture', view: 'auto', language: 'en' }), onToggle: nothing, onLanguage: nothing, onBack: nothing }),
+      systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture', view: 'auto', language: 'en' }), onToggle: nothing, onLanguage: nothing, onBack: nothing }),
       languagePanel({ languages: LANGUAGES, current: 'pt', onPick: nothing, onBack: nothing }),
       resultPanel({ timeUp: false, score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
       recordsPanel(() => ({ lines: [] }), 0, { onBack: nothing }),
@@ -55,7 +55,7 @@ describe('the panels of the program', () => {
   });
 
   it('show a setting as it stands now', () => {
-    const values = { muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as 'auto' | 'full', language: 'en' as const };
+    const values = { muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture' as const, view: 'auto' as 'auto' | 'full', language: 'en' as const };
     const spec = systemPanel({
       values: () => values,
       onToggle: (key) => {
@@ -270,7 +270,7 @@ describe('the languages of the voice', () => {
   });
 
   it('are named in the settings by the one that is set', () => {
-    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const, language: 'ru' as const });
+    const values = () => ({ muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture' as const, view: 'auto' as const, language: 'ru' as const });
     const spec = systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing });
     const line = spec.rows.find((candidate) => candidate.kind === 'switch' && candidate.id === 'language');
     expect(line?.kind === 'switch' && line.value()).toBe('РУССКИЙ');
@@ -281,8 +281,8 @@ describe('the tools of development', () => {
   const tool = { id: 'playtest', label: { native: 'DEV', name: 'PLAYTEST' }, action: nothing };
 
   it('are in a panel only when they are passed to it', () => {
-    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'gesture' as const, view: 'auto' as const, language: 'en' as const });
-    expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'control', 'view', 'language', 'back']);
+    const values = () => ({ muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture' as const, view: 'auto' as const, language: 'en' as const });
+    expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'backdrop', 'control', 'view', 'language', 'back']);
     expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
     const levels = [{ stars: 0, tier: 'first' }];
     expect(pressed(tasksPanel(levels, 0, { onPick: nothing, onRules: nothing, onBack: nothing }))).toEqual(['rules', 'back']);
