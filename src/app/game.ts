@@ -96,7 +96,7 @@ import { levelReport, shortOf } from './levelStats';
 import { puzzleReport, starsFor } from './puzzleStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
-import { Runner } from './runner';
+import { Runner, frameBound } from './runner';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { FILE_LEADS, boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
@@ -2573,7 +2573,9 @@ export class Game {
     let alpha = 0;
     if (running) {
       // On a beat the simulation holds its breath; the picture goes on.
-      alpha = this.runner.advance(this.hold.take(dt), () => this.takeCommand(), (s) => this.onTick(s));
+      // A board with no clock takes a small step of a frame that comes late: a roll is never played out between two pictures.
+      const fed = Math.min(this.hold.take(dt), frameBound(this.state.levelRun !== null));
+      alpha = this.runner.advance(fed, () => this.takeCommand(), (s) => this.onTick(s));
       this.keepLesson();
       if (this.state.puzzle) {
         // Time on a level counts until it is first cleared: that is how hard it was to read.

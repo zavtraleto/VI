@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRun, defaultConfig, type Dir } from '../rules';
-import { Runner } from './runner';
+import { ROAD } from '../levels/road';
+import { Runner, frameBound } from './runner';
 
 function record(): { log: { tick: number; dir: Dir }[]; endTick: number } {
   const runner = new Runner(createRun({ seed: 2024, config: defaultConfig() }));
@@ -52,5 +53,36 @@ describe('Runner', () => {
     expect(runner.log.length).toBe(asked);
     expect(asked).toBeLessThanOrEqual(3);
     expect(runner.log[0]).toEqual({ tick: 0, dir: 'N' });
+  });
+
+  it('gives a level a small step of a late frame, and a session the frame as before', () => {
+    expect(frameBound(false)).toBe(250);
+    expect(frameBound(true)).toBe(40);
+    // A session after a stall of a quarter of a second: all of it is played at once.
+    const session = new Runner(createRun({ seed: 1, config: defaultConfig() }));
+    session.advance(Math.min(250, frameBound(false)), () => null);
+    expect(session.state.tick).toBe(12);
+  });
+
+  it('never plays a roll of a level out within one late frame', () => {
+    const spec = ROAD[0];
+    const runner = new Runner(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }));
+    const { state } = runner;
+    // Every frame comes a quarter of a second late: the worst the page can do.
+    let pictures = 0;
+    let started = false;
+    for (let i = 0; i < 200 && !(started && !state.player.action); i++) {
+      const before = state.tick;
+      runner.advance(Math.min(250, frameBound(true)), () => (started ? null : 'N'));
+      expect(state.tick - before).toBeLessThanOrEqual(2);
+      if (state.player.action) {
+        started = true;
+        pictures++;
+      }
+    }
+    expect(started).toBe(true);
+    // The roll is ten ticks, two to a frame at the most: five pictures of it, not one.
+    expect(state.config.actionTicks).toBe(10);
+    expect(pictures).toBeGreaterThanOrEqual(4);
   });
 });
