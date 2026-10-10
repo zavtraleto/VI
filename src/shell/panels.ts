@@ -383,6 +383,49 @@ export function levelsPanel(
   };
 }
 
+/**
+ * The pieces of the road, by number, under the name of the file of the menu that says how the
+ * game is played: the list of the levels in every way but that all of them are open and that
+ * nothing is sent out from it. A cell has the stars of the best pass of its piece, and under
+ * the cells the faces and the goal of the piece in focus are written as those of a level are.
+ * `RULES` opens what the file held before the list: the rules of the game, to read.
+ */
+export function roadPanel(
+  pieces: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number }[],
+  current: number,
+  /** `home` is the line the panel opens on where it is not the cell of `current`: the command come back from. */
+  actions: { onPick: (index: number) => void; onRules: () => void; onBack: () => void; home?: string },
+): PanelSpec {
+  return {
+    title: PANELS.howto,
+    home: actions.home ?? `piece-${current}`,
+    back: actions.onBack,
+    rows: [
+      {
+        kind: 'levels',
+        id: 'piece',
+        levels: pieces.map((piece) => ({ stars: piece.stars ?? (piece.passed ? 1 : 0) })),
+        marks: 3,
+        current,
+        pick: actions.onPick,
+        note: (index) => {
+          const piece = pieces[index];
+          if (!piece) return '';
+          return piece.faces ? `${GOAL.face} ${piece.faces.join(' ')} · ${goalText(piece.goal)}` : goalText(piece.goal);
+        },
+        program: true,
+      },
+      {
+        kind: 'commands',
+        commands: [
+          { id: 'rules', label: COMMANDS.rules, action: actions.onRules },
+          { id: 'back', label: COMMANDS.menu, action: actions.onBack },
+        ],
+      },
+    ],
+  };
+}
+
 /** Signs of the window a level opens with come one in so many milliseconds: printed, at a pace a click to a sign can be heard at. */
 const INTRO_SIGN_MS = 30;
 

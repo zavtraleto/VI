@@ -20,7 +20,7 @@ export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'clim
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
-const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 20, limitSec: DEFAULT_TUNING.timedSec, rules: 8, sessions: 12 };
+const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 20, limitSec: DEFAULT_TUNING.timedSec, roadDone: 4, roadTotal: 18, sessions: 12 };
 /** Players for the sample of the table a platform keeps: one with no name, one with a name too long for the table. */
 const SAMPLE_PLAYERS = ['Green Chicken', '', 'A name far too long for the table', 'Yellow Mackerel'].map((name, i) => ({
   name,

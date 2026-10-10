@@ -35,6 +35,7 @@ import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { goneShare, type DicePassing } from '../render/passing';
 import { BoardView, type Frame } from '../render/view';
 import { ROAD, ROAD_HINTS, blockOf, placeAfter, type HintUntil, type RoadHintKey } from '../levels/road';
+import { roadCells, roadDone, roadFocus } from '../levels/roadList';
 import { LEVELS } from '../levels/levels';
 import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -78,7 +79,7 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, roadPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -98,7 +99,7 @@ import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Runner } from './runner';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
-import { boardAfter, levelsFile, orderOf, passageAt, passageMarks, startBoard, type Board, type PassageCounts, type PassageTimes, type PassageView } from './passage';
+import { FILE_LEADS, boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, fixedLineOver, hintOver, probeHint, roomLines, saysFixed } from './hint';
 import { roadCounters } from './roadCounters';
@@ -1728,10 +1729,55 @@ export class Game {
     this.handoff = { x: this.state.player.x, z: this.state.player.z };
   }
 
-  /** How the game is played, from the menu: the rules that hold everywhere, a few to a window. Back leads to the menu. */
+  /**
+   * How the game is played, from the menu: the pieces of the road by number, every one open, the
+   * focus on the one the player is on. A piece picked starts as it does by its address, with no
+   * screen before it, and the road goes on from it; the place that is kept moves only as it does
+   * anywhere (`placeAfter`). `home` is the command of the list the player has come back from.
+   */
+  private showRoad(home?: string): void {
+    this.leaveRun('menu');
+    this.inMenu = true;
+    this.paused = false;
+    this.controller.cancel();
+    this.audio.setPaused(true);
+    this.hints.reset();
+    this.tools?.hide();
+    saveSettings(this.settings);
+    const { levels } = this.settings;
+    this.shell.showPanel(
+      roadPanel(roadCells(levels), roadFocus(levels.road, levels.passed[FIRST_ID] === true), {
+        onPick: (index) => this.startPiece(index),
+        onRules: () => this.showHowTo(),
+        onBack: () => this.showMenu('howto'),
+        home,
+      }),
+      true,
+    );
+  }
+
+  /** The rules that hold everywhere, a few to a window: read from the list of the pieces of the road, and back leads to it. */
   private showHowTo(page = 0): void {
     const lines = HOW_TO_PLAY.map((key) => t(key).replace(/\n/g, ' '));
-    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showHowTo(next), onBack: () => this.showMenu('howto') }, PANELS.howto), true);
+    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showHowTo(next), onBack: () => this.showRoad('rules') }, PANELS.howto), true);
+  }
+
+  /** What a file of the menu opens (`FILE_LEADS`). */
+  private open(lead: FileLead): void {
+    switch (lead) {
+      case 'levels':
+        return this.showLevels();
+      case 'endless':
+        return this.startRun('endless');
+      case 'road':
+        return this.showRoad();
+      case 'readme':
+        return this.showReadme();
+      case 'records':
+        return this.showRecords(() => this.showMenu());
+      case 'system':
+        return this.showSystem(() => this.showMenu());
+    }
   }
 
   /** The note that came with the program, from the menu: a page to a window. Back leads to the menu. */
@@ -1756,26 +1802,22 @@ export class Game {
     const rules = defaultConfig(this.settings.experiments, this.settings.tuning);
     this.shell.showMenu(
       {
-        onEndless: () => this.startRun('endless'),
-        // The levels stand in the menu where the session of the day stood. While the road is not finished the
-        // file leads back to the piece the player is on, with no command to start it; after it, to the list.
-        onLevels: () => {
-          const { levels } = this.settings;
-          const board = levelsFile(levels.road, levels.passed[FIRST_ID] === true, LEVELS_PROBE);
-          if (board?.road !== undefined) this.startPiece(board.road);
-          else this.showLevels();
-        },
-        onHowTo: () => this.showHowTo(),
-        onReadme: () => this.showReadme(),
-        onRecords: () => this.showRecords(() => this.showMenu()),
-        onSystem: () => this.showSystem(() => this.showMenu()),
+        onEndless: () => this.open(FILE_LEADS.protocol),
+        // The levels stand in the menu where the session of the day stood: the file opens their list. The
+        // pieces of the road are listed in the file that says how the game is played.
+        onLevels: () => this.open(FILE_LEADS.levels),
+        onHowTo: () => this.open(FILE_LEADS.howto),
+        onReadme: () => this.open(FILE_LEADS.readme),
+        onRecords: () => this.open(FILE_LEADS.records),
+        onSystem: () => this.open(FILE_LEADS.system),
       },
       {
         bestEndless: this.bestScore('endless'),
         levelsDone: LEVELS.filter((level) => this.settings.levels.passed[level.id] === true).length,
         levelsTotal: LEVELS.length,
         limitSec: (rules.timedTicks * rules.tickMs) / 1000,
-        rules: HOW_TO_PLAY.length,
+        roadDone: roadDone(this.settings.levels),
+        roadTotal: ROAD.length,
         sessions: Object.values(this.settings.runs).reduce((sum, runs) => sum + runs.length, 0),
       },
       home,

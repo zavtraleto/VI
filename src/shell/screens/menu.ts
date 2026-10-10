@@ -28,8 +28,9 @@ export interface MenuData {
   levelsTotal: number;
   /** Seconds a session with a limit lasts, as the rules have it: for a line that names the time. */
   limitSec: number;
-  /** Rules the file of how the game is played holds. */
-  rules: number;
+  /** Pieces of the road passed, out of how many there are: what the file of how the game is played lists. */
+  roadDone: number;
+  roadTotal: number;
   /** Sessions on record. */
   sessions: number;
 }
@@ -355,8 +356,8 @@ export class MenuScreen implements ShellScreen {
         return digits(data.bestEndless, 6);
       case 'levels':
         return `${digits(data.levelsDone, 2)}/${digits(data.levelsTotal, 2)}`;
-      case 'rules':
-        return digits(data.rules, 2);
+      case 'road':
+        return `${digits(data.roadDone, 2)}/${digits(data.roadTotal, 2)}`;
       case 'readme':
         return README_DATE;
       case 'sessions':

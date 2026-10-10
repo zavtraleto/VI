@@ -62,7 +62,7 @@ export const STATUS = {
 export const LEGEND = '←↑↓→ 移動   ENTER 実行';
 
 /** What a file of the menu shows under its name. */
-export type FileField = 'bestEndless' | 'levels' | 'rules' | 'readme' | 'sessions' | 'revision';
+export type FileField = 'bestEndless' | 'levels' | 'road' | 'readme' | 'sessions' | 'revision';
 
 export interface MenuFile {
   id: string;
@@ -90,8 +90,8 @@ export const MENU_FILES: readonly MenuFile[] = [
   { id: 'levels', face: 1, name: 'LEVELS', native: '段階', line: 'shellLevels', field: ['完了', 'levels'] },
   /** "Protocol"; "best record". */
   { id: 'protocol', face: 2, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', field: ['最高記録', 'bestEndless'] },
-  /** "Procedure": how the game is played; "rules", how many of them. */
-  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: '手順', line: 'shellHowTo', field: ['規則', 'rules'] },
+  /** "Procedure": how the game is played, on the pieces of the road; "completed": the pieces passed, as the levels are counted. */
+  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: '手順', line: 'shellHowTo', field: ['完了', 'road'] },
   /** "To begin with": the note that came with the program; "last": the day it was last written to. */
   { id: 'readme', face: 4, name: 'README', native: 'はじめに', line: 'shellReadme', field: ['最終', 'readme'] },
   /** "Records"; "number of entries". */

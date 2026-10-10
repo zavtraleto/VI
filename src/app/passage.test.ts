@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIRST_PASSED, ROAD, pieceAfter } from '../levels/road';
-import { boardAfter, levelsFile, orderOf, passageAt, passageEnd, startBoard, type PassageTimes } from './passage';
+import { MENU_FILES } from '../shell/text';
+import { FILE_LEADS, boardAfter, orderOf, passageAt, passageEnd, startBoard, type PassageTimes } from './passage';
 
 /** The numbers the look has for the passage as it is first laid out. */
 const TIMES: PassageTimes = { comboStepMs: 140, comboHoldMs: 350, sinkMs: 1300, eraseMs: 700, cameraMs: 900, drawMs: 1100, riseMs: 600, riseStepMs: 90 };
@@ -159,22 +160,14 @@ describe('the order of the dice in a passage', () => {
   });
 });
 
-describe('where the file of the levels in the menu leads', () => {
-  it('is the piece the player is on while the road is not finished', () => {
-    expect(levelsFile(undefined, false, false)).toEqual({ road: 0 });
-    expect(levelsFile('R04', false, false)).toEqual({ road: 3 });
-    expect(levelsFile(undefined, true, false)).toEqual({ road: 6 });
-    expect(levelsFile('R18', false, false)).toEqual({ road: ROAD.length - 1 });
+describe('where the files of the menu lead', () => {
+  it('opens the list of the levels from the file of the levels, and the list of the pieces of the road from the file that says how the game is played', () => {
+    expect(FILE_LEADS.levels).toBe('levels');
+    expect(FILE_LEADS.howto).toBe('road');
   });
 
-  it('is the list for one who is past the road', () => {
-    expect(levelsFile(pieceAfter(ROAD.length - 1), false, false)).toBeNull();
-    // A code that names no piece and is not the end of the road is the first piece: it is not known where its player stood.
-    expect(levelsFile('R99', true, false)).toEqual({ road: 0 });
-  });
-
-  it('is the list at the address that opens on the list, wherever the player is', () => {
-    expect(levelsFile(undefined, false, true)).toBeNull();
-    expect(levelsFile('R04', false, true)).toBeNull();
+  it('has a place of its own for every file of the menu', () => {
+    expect(Object.keys(FILE_LEADS).sort()).toEqual(MENU_FILES.map((file) => file.id).sort());
+    expect(new Set(Object.values(FILE_LEADS)).size).toBe(MENU_FILES.length);
   });
 });

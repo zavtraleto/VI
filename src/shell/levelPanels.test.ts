@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
-import { textWidth } from './layout';
-import { LANGUAGES, setLanguage } from '../ui/i18n';
+import type { Size } from '../display/sizing';
+import { ROAD } from '../levels/road';
+import { roadCells } from '../levels/roadList';
+import { MIN_ZONE, pictureSize, textWidth } from './layout';
+import { LANGUAGES, setLanguage, word } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
-import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel } from './panels';
-import type { PanelRow, PanelSpec } from './screens/panel';
+import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, roadPanel } from './panels';
+import type { ShellContext } from './screen';
+import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
 import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { shellDefaults } from './theme';
+import type { Voice } from './voice';
 
 const nothing = (): void => undefined;
 
@@ -142,6 +148,111 @@ describe('the list of levels', () => {
     label = COMMANDS.copied;
     expect(send.label.name).toBe('COPIED');
     expect(send.label.native).toBe(COMMANDS.copied.native);
+  });
+});
+
+/** A phone held upright and a desk screen: the window in CSS pixels and the pixels of the canvas to one of them. */
+const SCREENS: readonly [name: string, window: Size, ratio: number][] = [
+  ['phone', { width: 360, height: 640 }, 3],
+  ['desk', { width: 1920, height: 1080 }, 1],
+];
+
+/** What a screen is given, for a window: the picture is the one the shell would make for it. */
+function context(window: Size, ratio: number): ShellContext {
+  const values = shellDefaults();
+  const picture = pictureSize({ width: window.width * ratio, height: window.height * ratio }, Number(values.pixelsTall), Number(values.pixelsWide));
+  return {
+    values,
+    window: () => window,
+    picture: () => picture,
+    safe: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+    reducedMotion: () => false,
+    voice: {} as Voice,
+    sound: nothing,
+    focus: nothing,
+  };
+}
+
+describe('the list of the pieces of the road', () => {
+  const pieces = roadCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: ROAD[0].par! }, R02: { bestMoves: 99 } } });
+  const actions = { onPick: nothing, onRules: nothing, onBack: nothing };
+
+  it('has a cell for each of the eighteen pieces, every one open, with the stars of the ones passed, out of three', () => {
+    const spec = roadPanel(pieces, 2, actions);
+    const cells = row(spec, 'levels');
+    expect(spec.title).toBe(PANELS.howto);
+    expect(cells.levels).toHaveLength(18);
+    expect(cells.levels.slice(0, 3)).toEqual([{ stars: 3 }, { stars: 1 }, { stars: 0 }]);
+    expect(cells.levels.every((cell) => !cell.locked)).toBe(true);
+    expect(cells.marks).toBe(3);
+    expect(cells.current).toBe(2);
+    expect(spec.home).toBe('piece-2');
+  });
+
+  it('writes the faces and the goal of the piece in focus in the font of the program, as the list of the levels does', () => {
+    const cells = row(roadPanel(pieces, 0, actions), 'levels');
+    expect(cells.program).toBe(true);
+    expect(cells.note(0)).toBe(`FACE ${ROAD[0].faces!.join(' ')} · ${goalText(pieces[0].goal)}`);
+    expect(cells.note(17)).toBe(`FACE ${ROAD[17].faces!.join(' ')} · ${goalText(pieces[17].goal)}`);
+    expect(cells.note(18)).toBe('');
+  });
+
+  it('starts the piece picked, whichever it is', () => {
+    const picked: number[] = [];
+    const cells = row(roadPanel(pieces, 0, { ...actions, onPick: (index) => picked.push(index) }), 'levels');
+    cells.pick(17);
+    cells.pick(0);
+    expect(picked).toEqual([17, 0]);
+  });
+
+  it('has the rules to read under the word the program has for them, and leads back to the menu', () => {
+    const run: string[] = [];
+    const spec = roadPanel(pieces, 0, { onPick: nothing, onRules: () => run.push('rules'), onBack: () => run.push('back') });
+    expect(commands(spec)).toEqual(['rules', 'back']);
+    const [rules, menu] = row(spec, 'commands').commands;
+    expect(rules.label).toBe(COMMANDS.rules);
+    expect(menu.label).toBe(COMMANDS.menu);
+    rules.action();
+    menu.action();
+    spec.back?.();
+    expect(run).toEqual(['rules', 'back', 'back']);
+  });
+
+  it('opens on the command the player has come back from', () => {
+    expect(roadPanel(pieces, 4, { ...actions, home: 'rules' }).home).toBe('rules');
+  });
+
+  it.each(SCREENS)('fits the window of a %s: eighteen cells and two commands, each large enough for a finger', (_name, window, ratio) => {
+    const screen = new PanelScreen(context(window, ratio), roadPanel(pieces, 0, actions), true);
+    const items = screen.items();
+    expect(items.map((item) => item.id)).toEqual([...ROAD.map((_, index) => `piece-${index}`), 'rules', 'back']);
+    expect(screen.home).toBe('piece-0');
+    for (const item of items) {
+      expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(item.rect.x).toBeGreaterThanOrEqual(0);
+      expect(item.rect.y).toBeGreaterThanOrEqual(0);
+      expect(item.rect.x + item.rect.width).toBeLessThanOrEqual(window.width);
+      expect(item.rect.y + item.rect.height).toBeLessThanOrEqual(window.height);
+    }
+    // No zone lies over another.
+    for (let a = 0; a < items.length; a++) {
+      for (let b = a + 1; b < items.length; b++) {
+        const one = items[a].rect;
+        const other = items[b].rect;
+        const apart = one.x + one.width <= other.x || other.x + other.width <= one.x || one.y + one.height <= other.y || other.y + other.height <= one.y;
+        expect(apart).toBe(true);
+      }
+    }
+  });
+
+  it('has commands short enough to stand side by side in the panel of a phone, in every language', () => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      const { commands: pair } = row(roadPanel(pieces, 0, actions), 'commands');
+      for (const command of pair) expect(textWidth(`${command.label.native} ${word(command.label.name)}`)).toBeLessThanOrEqual(118);
+    }
+    setLanguage('en');
   });
 });
 

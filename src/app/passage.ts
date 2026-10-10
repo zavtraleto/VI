@@ -173,16 +173,24 @@ export function startBoard(road: string | undefined, firstPassed: boolean, onwar
   return place === null ? { level: onward } : { road: place };
 }
 
+/** What a file of the menu opens. */
+export type FileLead = 'levels' | 'endless' | 'road' | 'readme' | 'records' | 'system';
+
 /**
- * Where the file of the levels in the menu leads: to the piece of the road the player is on,
- * while the road is not finished; null is the list of the levels, for one who is past the road
- * and at the address that opens on the list (`list`). `road` and `firstPassed` are what is kept
- * of the player's place (`roadPlace`).
+ * Where each file of the menu leads, wherever the player stands on the road. The file of the
+ * levels opens their list, always: until 10 October 2026 it led back to the piece of the road
+ * the player was on while the road was not finished. The way back to the teaching is the file
+ * that says how the game is played: it opens the list of the pieces of the road, and its rules
+ * are read from a command of that list.
  */
-export function levelsFile(road: string | undefined, firstPassed: boolean, list: boolean): Board | null {
-  const place = list ? null : roadPlace(road, firstPassed);
-  return place === null ? null : { road: place };
-}
+export const FILE_LEADS = {
+  levels: 'levels',
+  protocol: 'endless',
+  howto: 'road',
+  readme: 'readme',
+  records: 'records',
+  system: 'system',
+} as const satisfies Record<string, FileLead>;
 
 /**
  * Which board comes after this one: the next piece of the road; after its last `onward`, the
