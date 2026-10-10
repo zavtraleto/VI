@@ -11,8 +11,24 @@ import type { Block, Lamp, Surface } from './surface';
  * in a room.
  */
 
+/**
+ * What a scene is told from outside while it is shown, each of them nought when nothing is
+ * told: whoever shows the scene behind a board has it answer what is done on the board. A
+ * scene of a transmission is told nothing.
+ */
+export interface Live {
+  /** The ground heaves: its waves are this much higher, as a share of their own height. */
+  swell: number;
+  /** A gust: what hangs or stands loose is shaken this much more. */
+  stir: number;
+  /** The sun flares: this much brighter, and a little larger. */
+  flare: number;
+}
+
 /** What a place gives the things that stand in it. */
 export interface Stage {
+  /** What the scene is told from outside; a place that takes none of it leaves it out. */
+  live?: Live;
   scene: THREE.Scene;
   rig: CameraRig;
   keep<T extends { dispose(): void }>(item: T): T;
@@ -53,6 +69,8 @@ export interface PlaceContext {
   stream(part: number): () => number;
   /** The place is left out: only its light, its air and its camera are wanted. */
   bare: boolean;
+  /** What the scene is told from outside while it is shown. */
+  live: Live;
 }
 
 export interface PlaceDef {

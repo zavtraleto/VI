@@ -17,6 +17,10 @@ const WIRE_SHAKE = 0.12;
 /** The post goes on under the ground. */
 const SUNK = 2;
 
+/** How many times harder a gust of one shakes the wires, and what it gives wires that hang still. */
+const STIR = 2.5;
+const STIR_STILL = 0.15;
+
 /** One wire from a tie on this pole to the next pole, or down through the ground. */
 interface Wire {
   from: THREE.Vector3;
@@ -116,7 +120,7 @@ export const pole: ThingDef = {
       object.add(lines);
     }
 
-    const tremble = n('wireTremble');
+    const base = n('wireTremble');
     const speed = n('wireSpeed');
     const point = new THREE.Vector3();
     return {
@@ -126,6 +130,9 @@ export const pole: ThingDef = {
       update(seconds) {
         if (!positions) return;
         const t = seconds * speed;
+        // A gust shakes the wires harder for a moment; wires that hang still are stirred by it too.
+        const stir = stage.live?.stir ?? 0;
+        const tremble = base * (1 + STIR * stir) + STIR_STILL * stir;
         const put = (wire: Wire, s: number, index: number): void => {
           const { from, to, phases } = wire;
           point.lerpVectors(from, to, s);

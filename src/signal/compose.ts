@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { DEG, bool, keeper, num, streams } from './kit';
 import { placeById } from './places';
 import { MOODS, type Mood, type ParamSpec, type ParamValues, type SceneDef, type SceneInstance } from './scene';
-import type { PlaceDef, ThingDef, ThingInstance } from './stage';
+import type { Live, PlaceDef, ThingDef, ThingInstance } from './stage';
 import type { Block } from './surface';
 import { thingById } from './things';
 
@@ -89,7 +89,8 @@ function build(recipe: Recipe, values: ParamValues, seed: number, bare: boolean)
   const stream = streams(seed);
   const { keep, dispose } = keeper();
   const scene = new THREE.Scene();
-  const place = placeDef.build(values, { scene, keep, stream, bare });
+  const live: Live = { swell: 0, stir: 0, flare: 0 };
+  const place = placeDef.build(values, { scene, keep, stream, bare, live });
   const { stage } = place;
 
   const standing: Standing[] = [];
@@ -159,6 +160,7 @@ function build(recipe: Recipe, values: ParamValues, seed: number, bare: boolean)
   return {
     scene,
     camera: stage.rig.camera,
+    live,
     update(timeMs, aspect) {
       const seconds = timeMs / 1000;
       // A thing that carries a light moves it first: the place and the other things are lit by it.

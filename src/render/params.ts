@@ -126,6 +126,32 @@ export const BOARD_GROUPS = {
     /** How much of the figure shows through a die that stands in front of it. */
     figureGhost: number(0.21, 0, 1, 0.01),
   },
+  back: {
+    /**
+     * A place of the other side stands behind the board of a level: how much of it there is,
+     * 0 leaves the dark alone; how far its colours are taken to the dark of the board; how
+     * fast its time runs, 0 holds it still; how much its camera drifts; how fast its sun goes
+     * down, in degrees a minute of that time. The board covers the middle of the screen: how
+     * far up the camera of the place looks, in degrees - below nought it looks down, which lifts
+     * the horizon over the board - and how far aside its pole stands, in metres.
+     */
+    backScene: number(0.4, 0, 1, 0.01),
+    backMute: number(0.45, 0, 1, 0.01),
+    backMotion: number(1, 0, 4, 0.05),
+    backDrift: number(0.2, 0, 1, 0.01),
+    backSunset: number(0.3, 0, 5, 0.01),
+    backPitch: number(-7, -20, 30, 0.5),
+    backAside: number(-11, -20, 20, 0.5),
+    /**
+     * The place answers what is done on the board: a step or a roll is a gust in its wires, a
+     * die a combo takes heaves its water and makes its sun flare, a board cleared is a gust of
+     * its whole time. How strong all of that is, 0 for a place that answers nothing.
+     */
+    backReact: number(1, 0, 2, 0.05),
+    /** The place is another one after this many levels; and which of them the lab shows. */
+    backEvery: number(5, 1, 30, 1),
+    backPlace: number(0, 0, 2, 1),
+  },
   signs: {
     /**
      * The zone of a combo. On the floor of every free cell beside an open chain, four corners:
