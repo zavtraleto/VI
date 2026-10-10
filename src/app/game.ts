@@ -96,7 +96,9 @@ import { levelReport, shortOf } from './levelStats';
 import { puzzleReport, starsFor } from './puzzleStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
+import { Later } from './later';
 import { Runner, frameBound } from './runner';
+import { mark, span } from './spans';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { FILE_LEADS, boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
@@ -393,6 +395,10 @@ export class Game {
   private readonly tally = new RunTally();
   /** The frames of active play, measured for the platform. */
   private readonly frames = new FrameSampler(trackPerformance);
+  /** What is owed the platform and storage, and is paid when the move is over and not on its frame. */
+  private readonly later = new Later();
+  /** A move has been taken since the page opened: the first one is marked for whoever measures it. */
+  private moved = false;
   /** Tasks cleared since an advertisement had its chance, and how many it takes for the next one. */
   private clearedSinceAd = 0;
   private clearsToAd = tasksToAd();
@@ -543,7 +549,10 @@ export class Game {
 
     document.addEventListener('visibilitychange', () => this.setAway('page', document.hidden));
     // A page that is closed or thrown out of memory says so here, if it says anything at all.
-    window.addEventListener('pagehide', () => this.keepRun());
+    window.addEventListener('pagehide', () => {
+      this.later.flush();
+      this.keepRun();
+    });
     // What goes wrong while the game is played is counted with the frames, and nothing more is said of it.
     window.addEventListener('error', () => this.frames.noteError('error'));
     window.addEventListener('unhandledrejection', () => this.frames.noteError('rejection'));
@@ -616,6 +625,7 @@ export class Game {
   private setAway(by: 'page' | 'platform', away: boolean): void {
     if (away) {
       this.away.add(by);
+      this.later.flush();
       // What has been gathered so far is kept even if the page never comes back: the settings
       // and the run in hand, in one call to storage.
       this.keepAll();
@@ -762,6 +772,8 @@ export class Game {
 
   /** A run that is left before its end is noted, with how far it got. */
   private leaveRun(how: 'menu' | 'restart'): void {
+    // What was owed of the board is said before anything is said of leaving it.
+    this.later.flush();
     if (!this.opened || this.inMenu || this.handoff || this.state.over || this.state.tick === 0) return;
     const { state } = this;
     const reached: EventData = state.puzzle
@@ -980,6 +992,10 @@ export class Game {
   /** The next command, with the board as it stands remembered in case the command is a move that can be taken back. */
   private takeCommand(): Dir | null {
     const cmd = this.controller.take(this.now());
+    if (cmd && !this.moved) {
+      this.moved = true;
+      mark('first-move');
+    }
     if (cmd && (this.state.puzzle || this.undoable)) this.beforeCommand = structuredClone(this.state);
     return cmd;
   }
@@ -1179,10 +1195,20 @@ export class Game {
   }
 
   /** The level on the board has started: the analytics and the platform are told. */
-  private sayLevelStarted(): void {
+  private sayLevelStarted(late = false): void {
     const stat = this.levelRecord();
-    track('progression_started', { ...this.step(), try: (stat?.tries ?? 0) + 1 });
-    tell('level_started', this.levelName());
+    // What is said is what stands now, whenever it is said.
+    const data = { ...this.step(), try: (stat?.tries ?? 0) + 1 };
+    const name = this.levelName();
+    const say = (): void => {
+      const from = performance.now();
+      track('progression_started', data);
+      tell('level_started', name);
+      span('start-said', from, 0);
+    };
+    // Said from a move, it waits for the move to be over: the frame the die sets off on does nothing for the platform.
+    if (late) this.later.after(say);
+    else say();
   }
 
   /**
@@ -1211,6 +1237,7 @@ export class Game {
       this.shell.hide();
       this.audio.setPaused(false);
       this.lastFrame = 0;
+      mark('play');
     });
   }
 
@@ -1542,6 +1569,7 @@ export class Game {
    * later, and the level may be started over or left before it does.
    */
   private countLevel(): void {
+    this.later.flush();
     this.levelCounted = true;
     const { state } = this;
     const run = state.levelRun!;
@@ -1836,6 +1864,7 @@ export class Game {
     this.paused = true;
     this.controller.cancel();
     this.audio.setPaused(true);
+    this.later.flush();
     // A level that has not been reported as started is not reported as paused, nor as going on again.
     if (!this.unsaid) tell('level_paused', this.levelName());
     this.showPause();
@@ -2254,7 +2283,8 @@ export class Game {
       this.fixedShown = true;
       this.layoutGuide();
       this.settings.levels.fixedSaid = true;
-      saveSettings(this.settings);
+      // Written once the move is over, and at once if the page is hidden before that.
+      this.later.after(() => saveSettings(this.settings), 'settings');
     }
     // A scored session says how it stands at every whole minute.
     const minute = Math.round(60_000 / state.config.tickMs);
@@ -2366,7 +2396,7 @@ export class Game {
     // it, and before the try is counted: it says the try it would have said at its start.
     if (this.unsaid) {
       this.unsaid = false;
-      this.sayLevelStarted();
+      this.sayLevelStarted(true);
     }
     if (kind !== 'roll' && kind !== 'push') return;
     // A rolled die carries the player to its cell; a pushed one goes a cell further than they step.
@@ -2575,7 +2605,9 @@ export class Game {
       // On a beat the simulation holds its breath; the picture goes on.
       // A board with no clock takes a small step of a frame that comes late: a roll is never played out between two pictures.
       const fed = Math.min(this.hold.take(dt), frameBound(this.state.levelRun !== null));
+      const from = performance.now();
       alpha = this.runner.advance(fed, () => this.takeCommand(), (s) => this.onTick(s));
+      span('sim', from);
       this.keepLesson();
       if (this.state.puzzle) {
         // Time on a level counts until it is first cleared: that is how hard it was to read.
@@ -2592,6 +2624,8 @@ export class Game {
       this.startRun('endless', start);
       this.audio.begin();
     }
+    // What is owed outside is paid on a frame in which nothing moves.
+    this.later.frame(running && this.state.player.action !== null);
     let state = this.state;
     // What a level came to is written down on the frame it ends: its end may yet be cut by starting it over.
     if (state.over && state.levelRun && !this.levelCounted) this.countLevel();
@@ -2649,6 +2683,7 @@ export class Game {
     const stage = this.stageRect();
     const lit = this.sealLit(time);
     const guide = this.updateGuide(state, stage);
+    const drawFrom = performance.now();
     if (!covered) {
       this.view.draw(state, alpha, time, {
         overlay: {
@@ -2669,11 +2704,16 @@ export class Game {
     } else {
       this.backdrop.clear();
     }
+    span('board', drawFrom);
     const shown = !covered && !this.inMenu && !this.signal.busy;
     // Under a panel, and while the board takes no input, a piece shows no sign and its wait is not counted.
+    const waitFrom = performance.now();
     this.waiting = this.wait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };
+    span('wait', waitFrom);
+    const hudFrom = performance.now();
     // Under the command the program opens on, the readings keep their room and are not shown: nothing is on that screen but the board and the command.
     this.hud.frame(shown ? this.hudView(state, stage, guide.lesson, guide.mark, lit, reducedMotion) : null, time, this.starting);
+    span('hud', hudFrom);
     // The readings stand above the board on a tall screen and beside it on a wide one: the
     // box of the page that keeps their room follows them.
     const header = `${this.hud.headerHeight}px`;
@@ -2695,7 +2735,9 @@ export class Game {
           }
         : null;
     this.signal.frame(time, session);
+    const presentFrom = performance.now();
     this.display.present(time);
+    span('present', presentFrom);
     // The first picture with the program's own letters is on screen: the platform takes its loading screen away.
     if (!this.announced && this.shell.ready) {
       this.announced = true;

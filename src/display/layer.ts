@@ -265,27 +265,8 @@ export class Layer {
   trail(keep: number): void {
     const { renderer } = this.host;
     const now = this.renderTarget();
-    const width = Math.max(1, Math.ceil(this.size.width / TRAIL_SHRINK));
-    const height = Math.max(1, Math.ceil(this.size.height / TRAIL_SHRINK));
-    if (!this.trails) {
-      const make = (): THREE.WebGLRenderTarget =>
-        new THREE.WebGLRenderTarget(width, height, {
-          type: now.texture.type,
-          depthBuffer: false,
-          generateMipmaps: false,
-          minFilter: THREE.LinearFilter,
-          magFilter: THREE.LinearFilter,
-        });
-      this.trails = { small: [make(), make()], left: [make(), make()] };
-      this.trailRevision = -1;
-    }
-    const { small, left } = this.trails;
-    let fresh = this.trailRevision < 0;
-    for (const target of [...small, ...left]) {
-      if (target.width === width && target.height === height) continue;
-      target.setSize(width, height);
-      fresh = true;
-    }
+    const fresh = this.fitTrails() || this.trailRevision < 0;
+    const { small, left } = this.trails!;
     const pass = (this.trailPass ??= trailPass());
     // The frame as it is now, small.
     small.reverse();
@@ -307,9 +288,53 @@ export class Layer {
     this.trailRevision = this.revision;
   }
 
-  /** Lets the trail go: the next one starts from nothing. */
+  /**
+   * Lets the trail go: the next one starts from nothing. The pictures a trail was kept in stay
+   * and are held to the size of the layer, so that the frame a trail is next asked for on, the
+   * frame something first moves, makes nothing.
+   */
   dropTrail(): void {
     this.trailRevision = -1;
+    if (this.trails && this.fitTrails()) for (const target of [...this.trails.small, ...this.trails.left]) this.host.renderer.initRenderTarget(target);
+  }
+
+  /**
+   * Makes ready, ahead of the first thing that moves, what a trail is kept with: its four
+   * pictures and its two programs, built by drawing with them once. Nothing is left of that
+   * drawing. Without it they are made on the frame of the first roll, and hold it up.
+   */
+  warmTrail(): void {
+    // Twice: a trail is drawn into each of its two pairs of pictures in turn.
+    this.trail(0);
+    this.trail(0);
+    this.trailRevision = -1;
+  }
+
+  /** The pictures of a trail, made if there are none and brought to the size of the layer; true when any of them is new or has changed its size. */
+  private fitTrails(): boolean {
+    const now = this.renderTarget();
+    const width = Math.max(1, Math.ceil(this.size.width / TRAIL_SHRINK));
+    const height = Math.max(1, Math.ceil(this.size.height / TRAIL_SHRINK));
+    let changed = false;
+    if (!this.trails) {
+      const make = (): THREE.WebGLRenderTarget =>
+        new THREE.WebGLRenderTarget(width, height, {
+          type: now.texture.type,
+          depthBuffer: false,
+          generateMipmaps: false,
+          minFilter: THREE.LinearFilter,
+          magFilter: THREE.LinearFilter,
+        });
+      this.trails = { small: [make(), make()], left: [make(), make()] };
+      this.trailRevision = -1;
+      changed = true;
+    }
+    for (const target of [...this.trails.small, ...this.trails.left]) {
+      if (target.width === width && target.height === height) continue;
+      target.setSize(width, height);
+      changed = true;
+    }
+    return changed;
   }
 
   /** The rows of the picture run from the top down, as those of a canvas do, and not from the bottom up. */

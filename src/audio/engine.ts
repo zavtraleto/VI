@@ -7,7 +7,7 @@ import { soundDefaults, soundNumber } from './params';
 import { CUTS, HELD, INTERFACE, REPLY_MOST, SPACING, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, type Cue, type Note } from './score';
 import { ChainStock, EchoSide, echoLength, fillNoise, noiseLength, type ChainNumbers } from './stock';
 import { Variety, soundRandom, type Rand } from './variation';
-import { FADE, startVoice, type Voice, type VoicePort } from './voices';
+import { FADE, startVoice, warmNotes, type Voice, type VoicePort } from './voices';
 
 /**
  * The sound of the game, made entirely in code with WebAudio: no files. Between two sounds
@@ -181,6 +181,26 @@ export class SoundChain {
     }
   }
 
+  /**
+   * Makes a note of every kind once, into a way out that lets nothing through: nothing of it is
+   * heard, and it is not counted among the voices. What the browser builds the first time a
+   * kind of note is made is built here, and not on the frame of the first move.
+   */
+  warm(): void {
+    const mute = this.ctx.createGain();
+    mute.gain.value = 0;
+    mute.connect(this.master);
+    // A chance of its own: the notes that are heard get the numbers they would have got.
+    const port: VoicePort = { ctx: this.ctx, dry: mute, wet: mute, noise: this.noise, values: this.values, rand: () => 0.5 };
+    const notes = warmNotes();
+    let left = notes.length;
+    for (const note of notes) {
+      startVoice(port, note, this.ctx.currentTime + LEAD, () => {
+        if (--left === 0) mute.disconnect();
+      });
+    }
+  }
+
   /** Takes off the notes of one part of a sound, over `fade` seconds: a note that was being held is let go. */
   release(part: string, fade: number, at = this.ctx.currentTime + LEAD): void {
     for (const voice of this.voices) if (voice.part === part) voice.release(at, fade);
@@ -304,6 +324,16 @@ export class AudioEngine {
     const { owed } = this;
     this.owed = null;
     if (owed) this.play(owed);
+    // A note of every kind, unheard, in a turn of the page of its own right after the press: the first note of a move is then no dearer than the second.
+    window.setTimeout(() => {
+      const from = performance.now();
+      this.chain?.warm();
+      try {
+        performance.measure('vi-sound-warm', { start: from });
+      } catch {
+        // A browser without this measure: nothing is measured.
+      }
+    }, 0);
     return true;
   }
 

@@ -828,3 +828,19 @@ describe('what the rules say', () => {
     expect(chain && 'pan' in chain && chain.pan).toBeGreaterThan(0);
   });
 });
+
+describe('the notes that are made once, unheard, when the sound opens', () => {
+  it('are one of every voice, a knock on each of its attacks and the muffled ones, off to a side and into the echo', async () => {
+    const { warmNotes } = await import('./voices');
+    const notes = warmNotes();
+    expect(new Set(notes.map((note) => note.voice))).toEqual(new Set(['bell', 'knock', 'click', 'low', 'other']));
+    expect(notes.filter((note) => note.voice === 'knock' && !note.dull).map((note) => note.variant)).toEqual([0, 1, 2, 3]);
+    expect(notes.some((note) => note.voice === 'knock' && note.dull)).toBe(true);
+    expect(notes.some((note) => note.voice === 'click' && note.dull)).toBe(true);
+    for (const note of notes) {
+      expect(Math.abs(note.pan)).toBeGreaterThan(0.001);
+      expect(note.echo).toBeGreaterThan(0);
+      expect(note.at).toBe(0);
+    }
+  });
+});

@@ -1,4 +1,5 @@
 import type { Quality } from '../display/quality';
+import { PLAY_MS, firstLines, type EarlyFrame, type Measured } from './perfFirst';
 
 /** How often the lines are written anew, and how far back they look, in milliseconds. */
 const WRITE_MS = 500;
@@ -43,7 +44,9 @@ type Call = (this: unknown, ...args: unknown[]) => unknown;
  * Lines of measurements in a corner of the page, asked for with `?perf` in the address, in
  * any build: how many frames a second there are, how late the slowest come, how long the
  * code of a frame runs and what the frame asks of the graphics card. A tool, not a part of
- * the program's interface. It has to be started before the game is built: it stands between
+ * the program's interface. Under them stand the first seconds of play (`perfFirst.ts`): the
+ * latest frame after the command that starts and around the first move, and what the game has
+ * measured of itself then. It has to be started before the game is built: it stands between
  * the game and the frames of the browser. `set` is the quality the page is drawn with, written
  * under the measurements so that a picture of the screen says what was measured.
  */
@@ -52,6 +55,12 @@ export function startPerf(set: Quality): void {
   let current: Frame | null = null;
   let last = 0;
   let written = 0;
+  // The first seconds of play: the frames from the command that starts, or from the first move, on.
+  const early: EarlyFrame[] = [];
+  let play: number | null = null;
+  let move: number | null = null;
+  const marked = (name: string): number | null => performance.getEntriesByName(name, 'mark')[0]?.startTime ?? null;
+  const first = (): string => firstLines(early, play, move, performance.getEntriesByType('measure') as Measured[]);
 
   const proto = WebGL2RenderingContext.prototype as unknown as Record<string, Call>;
   const watch = (name: string, note: (frame: Frame, args: unknown[]) => void): void => {
@@ -108,6 +117,7 @@ export function startPerf(set: Quality): void {
     el.textContent =
       `${r.fps.toFixed(0)} fps  p95 ${r.p95.toFixed(1)}  max ${r.max.toFixed(0)}  >33ms ${r.long}  js ${r.js.toFixed(1)}\n` +
       `fb ${r.binds.toFixed(1)}  draws ${r.draws.toFixed(0)}  up ${(r.uploaded / 1000).toFixed(0)}k  sh ${r.shaders}\n` +
+      `${first()}\n` +
       settings;
   };
 
@@ -128,6 +138,10 @@ export function startPerf(set: Quality): void {
           frame.gap = gap > AWAY_MS ? 0 : gap;
           last = time;
           frames.push(frame);
+          play ??= marked('vi-play');
+          move ??= marked('vi-first-move');
+          const since = play ?? move;
+          if (since !== null && time <= Math.max(since, move ?? since) + PLAY_MS) early.push({ at: time, gap: frame.gap, shaders: frame.shaders });
           while (frames.length > 0 && frames[0].at < time - WINDOW_MS) frames.shift();
           if (time - written >= WRITE_MS) {
             written = time;
@@ -137,5 +151,5 @@ export function startPerf(set: Quality): void {
       }
     });
 
-  (window as unknown as { viPerf: { read: () => PerfReading } }).viPerf = { read };
+  (window as unknown as { viPerf: { read: () => PerfReading; first: () => string } }).viPerf = { read, first };
 }

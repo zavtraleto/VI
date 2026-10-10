@@ -370,3 +370,22 @@ export function startVoice(port: VoicePort, note: Note, at: number, ended: (voic
   if (last) last.onended = () => voice.dispose();
   return voice;
 }
+
+/**
+ * One note of every make there is: each voice, a knock on each of its waves, the muffled ones,
+ * off to a side and with a share of the echo. Played once into nothing when the sound opens, they
+ * have the browser build what a note is made of - the tables of its waves, its filters, its
+ * noise - before the first note of a move asks for it.
+ */
+export function warmNotes(): Note[] {
+  const base: Note = { voice: 'knock', part: 'warm', hz: 440, at: 0, gain: 0.2, pan: 0.3, attack: 0.002, decay: 0.03, bright: 0.6, variant: 0, dull: false, drop: 1.5, fall: 0.02, echo: 1, wide: 0.5 };
+  return [
+    ...KNOCKS.map((_, variant) => ({ ...base, variant })),
+    { ...base, dull: true },
+    { ...base, voice: 'bell' },
+    { ...base, voice: 'click' },
+    { ...base, voice: 'click', dull: true },
+    { ...base, voice: 'low' },
+    { ...base, voice: 'other' },
+  ];
+}

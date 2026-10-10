@@ -379,6 +379,7 @@ export class BoardView {
    */
   private rehearse(): void {
     if (this.disposed) return;
+    const from = performance.now();
     const unseen: THREE.Object3D[] = [];
     const empty: THREE.InstancedMesh[] = [];
     this.scene.traverse((object) => {
@@ -396,8 +397,16 @@ export class BoardView {
     this.worldLayer.render(this.scene, this.camera, { rect: this.rect });
     this.loose(this.rect);
     this.emit(this.rect);
+    // What moves leaves a trail, and the first thing to move is the die of the first move.
+    this.worldLayer.warmTrail();
     for (const object of unseen) object.visible = false;
     for (const mesh of empty) mesh.count = 0;
+    // When it was done and how long it held the page, for whoever measures: it belongs before the first press.
+    try {
+      performance.measure('vi-rehearse', { start: from });
+    } catch {
+      // A browser without this measure: nothing is measured.
+    }
   }
 
   /** Points the camera and reframes the board. The rules never depend on this. */
