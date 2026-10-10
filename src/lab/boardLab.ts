@@ -211,7 +211,7 @@ export class BoardLab {
       shake: true,
     });
     this.backdrop.draw(view.background, view.inverted);
-    this.levelScene.frame(timeMs, this.state, Number(this.look.board.backPlace ?? 0), false);
+    this.levelScene.frame(timeMs, this.state, { place: Number(this.look.board.backPlace ?? 0), day: Number(this.look.board.backDay ?? 0) }, false);
     this.display.present(timeMs);
     this.viewNow = view.mode;
 

@@ -89,7 +89,7 @@ function build(recipe: Recipe, values: ParamValues, seed: number, bare: boolean)
   const stream = streams(seed);
   const { keep, dispose } = keeper();
   const scene = new THREE.Scene();
-  const live: Live = { swell: 0, stir: 0, flare: 0 };
+  const live: Live = { swell: 0, stir: 0, flare: 0, shade: 1, sun: null };
   const place = placeDef.build(values, { scene, keep, stream, bare, live });
   const { stage } = place;
 
@@ -157,12 +157,19 @@ function build(recipe: Recipe, values: ParamValues, seed: number, bare: boolean)
   place.casters?.(casters, stage.spots[0]);
 
   const at = new THREE.Vector3();
+  // The light of the place as it was built: what the things keep of it is told from outside.
+  const ambient = stage.ambient.clone();
+  const amounts = stage.lamps.map((lamp) => lamp.amount);
   return {
     scene,
     camera: stage.rig.camera,
     live,
     update(timeMs, aspect) {
       const seconds = timeMs / 1000;
+      stage.ambient.copy(ambient).multiplyScalar(live.shade);
+      stage.lamps.forEach((lamp, index) => {
+        if (index < amounts.length) lamp.amount = amounts[index] * live.shade;
+      });
       // A thing that carries a light moves it first: the place and the other things are lit by it.
       for (const { instance, holder, sky } of standing) {
         if (sky) continue;

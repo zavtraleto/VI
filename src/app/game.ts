@@ -2717,7 +2717,7 @@ export class Game {
     this.levelScene?.frame(
       time,
       !covered && state.levelRun !== null && !this.signal.busy ? state : null,
-      Math.floor(this.levelIndex / Math.max(1, Number(this.look.board.backEvery ?? 1))),
+      this.levelIndex,
       reducedMotion,
     );
     const shown = !covered && !this.inMenu && !this.signal.busy;

@@ -52,7 +52,7 @@ export interface SceneInstance {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   /** What the scene is told from outside: set before `update`, all nought for a transmission. See `Live` in `stage.ts`. */
-  live: { swell: number; stir: number; flare: number };
+  live: { swell: number; stir: number; flare: number; shade: number; sun: { at: number; size: number; r: number; g: number; b: number } | null };
   update(timeMs: number, aspect: number): void;
   dispose(): void;
 }

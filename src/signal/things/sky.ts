@@ -56,7 +56,8 @@ export const sun: ThingDef = {
       object,
       height: 0,
       update(seconds) {
-        const elevation = Math.max(SET, start - (fall * seconds) / 60) * DEG;
+        const told = stage.live?.sun ?? null;
+        const elevation = (told ? told.at : Math.max(SET, start - (fall * seconds) / 60)) * DEG;
         // It goes where the camera goes, like the sky: it is never nearer.
         disc.position.set(
           camera.position.x + Math.sin(turn) * Math.cos(elevation) * DISTANCE,
@@ -65,9 +66,10 @@ export const sun: ThingDef = {
         );
         disc.lookAt(camera.position);
         const flare = stage.live?.flare ?? 0;
-        disc.scale.setScalar(1 + 0.3 * flare);
+        disc.scale.setScalar((told ? told.size : 1) * (1 + 0.3 * flare));
         const beat = 1 + pulse * 0.08 * Math.sin(seconds * 0.9) + 0.6 * flare;
-        (material.uniforms.uColor.value as THREE.Color).copy(tone).multiplyScalar(beat);
+        if (told) (material.uniforms.uColor.value as THREE.Color).setRGB(told.r, told.g, told.b).multiplyScalar(beat);
+        else (material.uniforms.uColor.value as THREE.Color).copy(tone).multiplyScalar(beat);
       },
     };
   },

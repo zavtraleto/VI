@@ -23,6 +23,10 @@ export interface Live {
   stir: number;
   /** The sun flares: this much brighter, and a little larger. */
   flare: number;
+  /** How much of their light the things of the place keep: 1 by day, less as the day goes. */
+  shade: number;
+  /** Where the sun stands, in degrees over the horizon, how many times its own size it is, and its colour; null leaves it as it was built. */
+  sun: { at: number; size: number; r: number; g: number; b: number } | null;
 }
 
 /** What a place gives the things that stand in it. */
