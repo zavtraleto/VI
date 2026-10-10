@@ -38,7 +38,7 @@ import { BoardView, type Frame } from '../render/view';
 import { ROAD, ROAD_HINTS, blockOf, placeAfter, type HintUntil, type RoadHintKey } from '../levels/road';
 import { roadCells, roadDone, roadFocus } from '../levels/roadList';
 import { LEVELS } from '../levels/levels';
-import { ladderProgress, levelStars, limitedLevel, type LadderProgress } from '../levels/progress';
+import { STAR_POINTS, ladderProgress, levelStars, starScore, starsHeld, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
 import { messagesOf } from '../levels/voices';
 import { PUZZLE_LEVELS } from '../puzzle/levels';
@@ -50,8 +50,8 @@ import {
   goalLines,
   goalOf,
   levelDeadEnd,
-  shortGroups,
   smallestGroup,
+  worldRuns,
   previewAll,
   previewMove,
   resolveMove,
@@ -64,7 +64,6 @@ import {
   tutorialWaits,
   DELTA,
   DIRS,
-  LEVEL_UNDOS,
   TUTORIAL_LESSONS,
   TUTORIAL_LINES,
   type Dir,
@@ -105,6 +104,7 @@ import { statsText } from './stats';
 import { FILE_LEADS, boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, fixedLineOver, hintOver, probeHint, roomLines, saysFixed } from './hint';
+import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
 import { roadCounters } from './roadCounters';
 import { roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
@@ -194,11 +194,20 @@ const deadEnd = (state: RunState): boolean => levelDeadEnd(state) !== null;
 const DEAD_END_LINE: Record<Exclude<LevelDeadEnd, 'count'>, TextKey> = { stranded: 'levelStranded', floor: 'levelFloorStuck', faces: 'levelFloorFaces' };
 
 /**
- * Chapters on whose levels every group that is short is counted from the start: those that teach.
- * The probe has none: it is played by one who knows the rules, and only the group the last move
- * made is counted, as on the levels that came after the lessons.
+ * Pieces of the road that count every die and heap of the working face from the start: the
+ * first two, which teach what a combo is. Every board after them shows a plaque only over a heap
+ * whose combo can be made within two moves with the board still one that can be cleared.
  */
-const CHAPTERS_COUNTED = 0;
+const PIECES_COUNTED = 2;
+/** A move taken back runs backwards this many times as fast as it was made, and never for longer than this. */
+const REWIND_SPEED = 1.2;
+const REWIND_MOST_MS = 700;
+/**
+ * The stars of a pass stand over the board and not on it: above every corner of the board taken
+ * at the height of a plaque over a die, in cells, and this many CSS pixels higher still.
+ */
+const STARS_LIFT = 1.6;
+const STARS_CLEAR = 44;
 /** How long the side of the seal that a swipe pointed at stays lit after the finger has let go. */
 const SEAL_LINGER_MS = 280;
 /**
@@ -336,7 +345,6 @@ export class Game {
     risen: number;
     order: number[];
     cell: number;
-    outcome: { stars: number; moves: number } | null;
   } | null = null;
   /** How the dice stand in the passage, die by die: the view reads it on every frame. One object, changed in place. */
   private readonly passing: DicePassing = { mode: 'leave', ranks: new Map(), count: 0, stair: -1, litMs: 0, moveMs: 0, stepMs: 0, moveForMs: 0, flashMs: 0 };
@@ -349,13 +357,21 @@ export class Game {
   /** The board that is on is seen in a frame counted here, for the window as the view had it at this count; -1: in its own, which the view keeps. */
   private framedAt = -1;
   /** What the level of the list just passed came to, shown in the readings until the first move on the board after it. */
-  private outcome: { stars: number; moves: number } | null = null;
+  private gained: { stars: number; fresh: number } | null = null;
   /** Ticks of the level in hand that have been played: its own tick stands still between moves and is no clock. */
   private levelTicks = 0;
-  /** Moves of the level in hand that can still be taken back. */
-  private undosLeft = 0;
-  /** The cell the die of the last move of a level went to, and which move it was. */
-  private lastMove: { x: number; z: number; moves: number } | null = null;
+  /** Moves of the try in hand that have been taken back. */
+  private undosMade = 0;
+  /**
+   * What the board went through since each move that can be taken back, tick by tick, oldest
+   * first: one list for each board of `history`. A move taken back is played backwards from it.
+   */
+  private trails: RunState[][] = [];
+  /** A move is being taken back: what is drawn runs backwards over `frames`, the boards the move went through, from `at`. */
+  private rewind: { frames: RunState[]; at: number } | null = null;
+  /** The plaques of the level in hand: the heaps a combo can be made of within two moves, counted aside for the board named `key`. */
+  private hinted: { key: string; groups: ShortGroup[] } = { key: '', groups: [] };
+  private readonly hintWork = new ComboHintWork();
   /** The wait of the piece of the road on the board: its swipe sign and its blinking plaque. Null on a level of the list and outside the levels. */
   private wait: RoadWait | null = null;
   /** The dead ends of the piece in hand, which a try started over and a move taken back do not forget. */
@@ -759,7 +775,7 @@ export class Game {
       left: Math.max(0, spec.moves - run.moves),
       limit: spec.moves,
       par: spec.par ?? 0,
-      undos: (spec.undos ?? LEVEL_UNDOS) - this.undosLeft,
+      undos: this.undosMade,
       try: this.levelRecord()?.tries ?? 1,
     };
   }
@@ -828,7 +844,7 @@ export class Game {
   }
 
   private inputEnabled(): boolean {
-    return !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy && !this.passage;
+    return !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy && !this.passage && !this.rewind;
   }
 
   /**
@@ -905,7 +921,7 @@ export class Game {
     // A board put on in the middle of a passage ends it: its dice stand as the rules have them.
     this.view.setPassing(null);
     this.passage = null;
-    this.outcome = null;
+    this.rewind = null;
     this.tally.reset();
     this.runner = new Runner(state);
     this.applyCamera();
@@ -922,9 +938,10 @@ export class Game {
     // A board that is put on has all its lines, whatever was drawn of the lines of the one before.
     this.view.drawGrid(1, true);
     this.history = [];
+    this.trails = [];
+    this.undosMade = 0;
     this.beforeCommand = null;
     this.levelTicks = 0;
-    this.lastMove = null;
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
@@ -1009,18 +1026,21 @@ export class Game {
   }
 
   /**
-   * Takes the last move of a level back, with every step made since, while the try has moves to
-   * take back. A level that has ended at a dead end is taken back from its result, or from the
-   * board while it still stands before its result: it goes on from before the move that ended it.
+   * Takes the last move of a level back, with every step made since; a try may take back as
+   * many moves as it has made. A level that has come to a dead end stands on the board with no
+   * window over it, and goes on from before the move that ended it. The board is the one before
+   * the move at once, and what is drawn runs backwards to it: the die rolls back the way it came
+   * and the dice that had begun to leave come back up.
    */
-  private undoLevel(fromResult = false): void {
+  private undoLevel(): void {
     const { levelRun, over } = this.state;
-    if (!levelRun || !this.undoable || this.inMenu || this.paused || this.passage || this.undosLeft <= 0) return;
-    const standing = over && !this.resultShown && deadEnd(this.state);
-    if (over !== fromResult && !standing) return;
+    if (!levelRun || !this.undoable || this.inMenu || this.paused || this.passage || this.rewind) return;
+    // A level that is over is taken back only from a dead end that still stands on the board.
+    if (over && (this.resultShown || !deadEnd(this.state))) return;
     const previous = this.history.pop();
     if (!previous) return;
-    this.undosLeft--;
+    const trail = this.trails.pop() ?? [];
+    this.undosMade++;
     const stat = this.levelRecord();
     if (stat) stat.undos++;
     if (over) {
@@ -1028,21 +1048,38 @@ export class Game {
       if (stat) stat.fails = Math.max(0, stat.fails - 1);
       this.levelCounted = false;
     }
-    if (fromResult) {
-      this.resultShown = false;
-      this.shell.hide();
-      this.lastFrame = 0;
-    }
     this.runner = new Runner(previous);
     this.beforeCommand = null;
-    this.lastMove = null;
     // The level goes on: its end is played anew when it comes.
     this.failedAt = null;
     // What was rolled over after the board that is back is not rolled over on it.
     const made = previous.levelRun?.moves ?? 0;
     this.ghosts = this.ghosts.filter((ghost) => ghost.moves <= made);
     this.controller.cancel();
-    this.view.reset();
+    // With motion kept low the board is put back as it was, with nothing played.
+    if (trail.length === 0 || prefersReducedMotion(this.settings)) this.view.reset();
+    else this.rewind = { frames: trail, at: trail.length - 1 };
+  }
+
+  /**
+   * The board a move is being taken back over, as it is drawn on this frame, `dt` milliseconds on
+   * from the last: one of the boards the move went through and how far it is into its tick. Null
+   * once the move is back, and the board is drawn as it stands.
+   */
+  private rewound(dt: number): { state: RunState; alpha: number } | null {
+    const { rewind } = this;
+    if (!rewind) return null;
+    const { tickMs } = this.state.config;
+    const speed = Math.max(REWIND_SPEED, (rewind.frames.length * tickMs) / REWIND_MOST_MS);
+    rewind.at -= (Math.min(dt, 100) / tickMs) * speed;
+    if (rewind.at <= 0) {
+      this.rewind = null;
+      this.view.reset();
+      this.controller.cancel();
+      return null;
+    }
+    const index = Math.floor(rewind.at);
+    return { state: rewind.frames[index], alpha: rewind.at - index };
   }
 
   /** Takes back the last move of what is on the board: a task or a level, each its own way. */
@@ -1162,8 +1199,8 @@ export class Game {
       this.showLevels();
       return;
     }
-    // The level is played with the limit of moves of its chapter; as it is kept, it has none.
-    const spec = limitedLevel(LEVELS, index);
+    // A level is played as it is kept: its moves are not limited.
+    const spec = LEVELS[index];
     this.levelIndex = index;
     this.piece = null;
     this.runLevel(spec, said);
@@ -1197,7 +1234,6 @@ export class Game {
     this.begin(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }), false);
     // A die laid as leaving sends nothing when it goes: the sound is told of it now.
     this.audio.laid(this.state);
-    this.undosLeft = spec.undos ?? LEVEL_UNDOS;
     if (said) this.sayLevelStarted();
     this.layoutGuide();
   }
@@ -1289,7 +1325,6 @@ export class Game {
    */
   private startPassage(): void {
     const { state, passing } = this;
-    const run = state.levelRun!;
     const after = boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length, this.nextLevel());
     const next = after && !(after.level !== undefined && this.ladder().locked[after.level]) ? after : null;
     this.frames.flush(this.lastFrame);
@@ -1315,10 +1350,9 @@ export class Game {
       risen: 0,
       order: order.map((die) => cubes[die].id),
       cell: 0,
-      // A board says what it came to in a line of its readings, a piece of the road as a level of the list.
-      outcome: run.spec.par !== undefined ? { stars: levelStars(run.moves, run.spec.par), moves: run.moves } : null,
     };
     this.view.setPassing(passing);
+    this.awardStars();
   }
 
   /**
@@ -1370,7 +1404,6 @@ export class Game {
         this.showLevelResult();
         return;
       }
-      this.outcome = passage.outcome;
       if (!now.swapped) {
         const { player } = this.state;
         if (passage.cell === 0) {
@@ -1408,6 +1441,29 @@ export class Game {
   }
 
   /**
+   * The stars of the pass that has just been made stand over the board, and those the player did
+   * not hold fly to the score. A board with no fewest moves known is not rated and shows none.
+   */
+  private awardStars(): void {
+    const { gained, state } = this;
+    this.gained = null;
+    if (!gained) return;
+    const stage = this.stageRect();
+    // Over the board and clear of it: above the highest point of its dice and of the figure on screen, in the middle of its width.
+    const far = state.config.size - 0.5;
+    const corners = [this.view.project(-0.5, STARS_LIFT, -0.5), this.view.project(far, STARS_LIFT, -0.5), this.view.project(-0.5, STARS_LIFT, far), this.view.project(far, STARS_LIFT, far)];
+    const p = { x: (Math.min(...corners.map((c) => c.x)) + Math.max(...corners.map((c) => c.x))) / 2, y: Math.min(...corners.map((c) => c.y)) - STARS_CLEAR };
+    const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
+    this.hud.award({ stars: gained.stars, fresh: gained.fresh, points: STAR_POINTS, value: last?.ori.top ?? 0, at: { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) } });
+  }
+
+  /** The score of the levels: the stars the player holds on every piece of the road and level of the list, in points. */
+  private starScore(): number {
+    const { stats } = this.settings.levels;
+    return starScore(ROAD, (id) => stats[id]?.bestMoves) + starScore(LEVELS, (id) => stats[id]?.bestMoves);
+  }
+
+  /**
    * The board answers the dice of a level that is passed as they begin to go: light runs over
    * its lines, with the beat of a chain, from where the dice stand.
    */
@@ -1438,7 +1494,6 @@ export class Game {
     this.landing = null;
     // Putting a board on ends a passage; this one goes on over it, and what the board before came to is still said.
     this.passage = passage;
-    this.outcome = passage.outcome;
     passage.swapped = true;
     const { state } = this;
     const { cubes, player } = state;
@@ -1592,7 +1647,10 @@ export class Game {
       stat.passes++;
       stat.firstPassTry ??= stat.tries;
       stat.bestLeft = Math.max(stat.bestLeft ?? 0, left);
+      const held = starsHeld(stat.bestMoves, spec.par);
       stat.bestMoves = Math.min(stat.bestMoves ?? run.moves, run.moves);
+      // The stars of this pass, and how many of them the player did not hold: those are what the score gains.
+      this.gained = spec.par !== undefined ? { stars: levelStars(run.moves, spec.par), fresh: starsHeld(stat.bestMoves, spec.par) - held } : null;
       this.settings.levels.passed[spec.id] = true;
       // The piece of the road the player is on, passed, moves their place to the piece after it; a piece
       // played by its address, further on or behind, moves nothing, and neither does any for one past the road.
@@ -1627,13 +1685,11 @@ export class Game {
     const { spec } = run;
     const passed = state.endReason === 'passed';
     const end = passed ? null : levelDeadEnd(state);
-    const stuck = end !== null;
     const left = Math.max(0, spec.moves - run.moves);
     const short = shortOf(state);
     const lines: GoalLine[] = goalLines(state);
     const stat = this.levelRecord();
     this.frames.flush(this.lastFrame);
-    const canUndo = stuck && this.undoable && this.undosLeft > 0 && this.history.length > 0;
     this.shell.showPanel(
       levelResultPanel(
         {
@@ -1654,13 +1710,14 @@ export class Game {
                 ? t('levelStuck').replace('{left}', String(short)).replace('{need}', String(smallestGroup(spec)))
                 : t(DEAD_END_LINE[end])
               : t('levelShort').replace('{short}', String(short)),
-          undos: canUndo ? this.undosLeft : 0,
+          // A dead end that can be taken back has no window: the move is taken back on the board.
+          undos: 0,
         },
         {
           onNext: () => this.startLevel(this.levelIndex + 1, true),
           onAgain: () => this.startRun('level'),
           onLevels: () => this.showLevels(),
-          onUndo: () => this.undoLevel(true),
+          onUndo: () => this.undoLevel(),
         },
       ),
       false,
@@ -2010,7 +2067,7 @@ export class Game {
   /** Sends out what the player did on the levels: the report of the playtest, as text. */
   private shareLevels(): void {
     const report = levelReport(
-      LEVELS.map((level, index) => ({ ...level, limit: limitedLevel(LEVELS, index).moves })),
+      LEVELS.map((level) => ({ ...level, limit: level.moves })),
       this.settings.levels.stats,
     );
     void shareOut(report || LEVELS_UNPLAYED).then((how) => {
@@ -2275,6 +2332,9 @@ export class Game {
       this.onEvent(state, event);
     }
     this.tally.watch(state);
+    // What a move that can be taken back sets going is kept tick by tick: taken back, it is played backwards.
+    const trail = this.trails[this.trails.length - 1];
+    if (trail && state.levelRun && (state.player.action || state.events.length > 0 || worldRuns(state))) trail.push(structuredClone(state));
     // The line of a hint goes out when the move it speaks of is made.
     if (this.hint && !this.hint.done) {
       const { player } = state;
@@ -2418,22 +2478,15 @@ export class Game {
         this.ghosts.push({ x: over.x, z: over.z, value: over.ori.top, reactionId: over.reactionId, moves: run.moves });
       }
     }
-    if (this.undoable && this.beforeCommand) this.history.push(this.beforeCommand);
+    if (this.undoable && this.beforeCommand) {
+      this.history.push(this.beforeCommand);
+      this.trails.push([]);
+    }
     if (!this.tryCounted) {
       this.tryCounted = true;
       const stat = this.levelRecord();
       if (stat) stat.tries++;
     }
-    // What the level before came to has been read: the readings are those of this one.
-    this.outcome = null;
-    this.lastMove = { ...landed, moves: run.moves };
-  }
-
-  /** The group that is short which the die of the last move stands in, until the next move is made. */
-  private shortMade(state: RunState): ShortGroup | null {
-    const { lastMove } = this;
-    if (!lastMove || lastMove.moves !== state.levelRun?.moves) return null;
-    return shortGroups(state).find((group) => group.cells.some((cell) => cell.x === lastMove.x && cell.z === lastMove.z)) ?? null;
   }
 
   /**
@@ -2499,6 +2552,23 @@ export class Game {
     return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), body, step: { x: there.x - here.x, y: there.y - here.y } };
   }
 
+  /**
+   * The heaps of a level a plaque stands over: those a combo can be made of within two moves,
+   * with the board still one that can be cleared. They are counted aside once the board stands,
+   * and until the count of a board has come the plaques of the board before stay over the heaps
+   * that have not changed.
+   */
+  private hintedGroups(state: RunState): ShortGroup[] {
+    const key = boardKey(state);
+    if (key !== this.hinted.key) {
+      const standing = !this.rewind && !state.player.action && !worldRuns(state);
+      const counted = standing ? this.hintWork.groups(key, state) : null;
+      if (counted) this.hinted = { key, groups: counted };
+      else return this.hinted.groups.filter((group) => stillShort(state, group));
+    }
+    return this.hinted.groups;
+  }
+
   /** Everything the session shows over the board at this moment. */
   private hudView(state: RunState, stage: Rect, lesson: HudLesson | null, mark: MarkFace | null, lit: Dir | null, reducedMotion: boolean): HudView {
     const over = (x: number, y: number, z: number) => {
@@ -2520,16 +2590,15 @@ export class Game {
     const { puzzle } = state;
     const levelRun = state.levelRun ?? null;
     const level = PUZZLE_LEVELS[this.puzzleIndex];
-    // A level counts the groups that are short: all of them on its first levels, later the one the last move made.
-    const made = levelRun ? this.shortMade(state) : null;
-    // The pieces of the road have a plaque over every die and heap of the working face from the start; they blink when the player has waited.
-    const first = levelRun !== null && this.piece !== null;
+    // The first pieces of the road have a plaque over every die and heap of the working face from the start; a board after
+    // them has one only over a heap that is a good next combo. On a piece they blink when the player has waited.
+    const first = levelRun !== null && this.piece !== null && this.piece < PIECES_COUNTED;
     // No plaque stands over dice that are still coming.
-    const short = !levelRun || state.over || this.passage ? [] : first ? roadCounters(state) : (levelRun.spec.chapter ?? 0) < CHAPTERS_COUNTED ? shortGroups(state) : made ? [made] : [];
+    const short = !levelRun || state.over || this.passage ? [] : first ? roadCounters(state) : this.hintedGroups(state);
     const counters: HudCounter[] = short.map((group) => {
       const cx = group.cells.reduce((sum, cell) => sum + cell.x, 0) / group.cells.length;
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;
-      return { value: group.value, have: group.have, need: group.need, at: over(cx, 1.5, cz), blink: first && this.waiting.blink };
+      return { value: group.value, have: group.have, need: group.need, at: over(cx, 1.5, cz), blink: this.piece !== null && this.waiting.blink };
     });
     // A level has no line under its board: its rules are said in the window it opens with.
     let note: HudView['note'] = null;
@@ -2547,10 +2616,11 @@ export class Game {
               kind: 'level',
               // A piece of the road has no number: it is not a level of the list.
               number: this.piece === null ? this.levelIndex + 1 : null,
-              limit: levelRun.spec.moves > 0 ? levelRun.spec.moves : null,
+              score: this.starScore(),
               made: levelRun.moves,
-              goal: goalLines(state),
-              outcome: this.outcome,
+              best: levelRun.spec.par ?? null,
+              // How many dice are left is not told: a board to be cleared has no line of its goal.
+              goal: goalLines(state).filter((line) => line.what !== 'cleared'),
             }
           : {
               kind: 'session',
@@ -2583,7 +2653,8 @@ export class Game {
         ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null }
         : levelRun
           ? this.undoable
-            ? { canUndo: this.history.length > 0 && this.undosLeft > 0, urgent: false, undos: this.undosLeft }
+            ? // A dead end is left by taking the move back: no window comes, and the button is the one to press.
+              { canUndo: this.history.length > 0 && !this.rewind, urgent: this.state.over && deadEnd(this.state) }
             : { canUndo: false, urgent: false, retryOnly: true }
           : null,
       pad:
@@ -2605,7 +2676,7 @@ export class Game {
     this.tools?.tick(time);
 
     // The board a passage has put on waits until it is whole: its world stands and it takes no command.
-    const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy && !this.passage;
+    const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy && !this.passage && !this.rewind;
     if (this.governor?.frame(dt, running && !document.hidden)) this.applySamples();
     this.frames.frame(running && !document.hidden, dt, time);
     let alpha = 0;
@@ -2642,7 +2713,9 @@ export class Game {
     const began = this.passage === null;
     if (state.over && !this.resultShown) {
       const lost = state.levelRun !== null && state.endReason !== 'passed';
-      if (!lost || this.failHeld(time)) {
+      // A dead end the last move can be taken back from stands on the board: no window comes over it, and the button that takes the move back is lit.
+      const held = lost && this.undoable && this.history.length > 0 && deadEnd(state);
+      if (!held && (!lost || this.failHeld(time))) {
         this.resultShown = true;
         if (state.puzzle) this.showPuzzleResult();
         else if (!state.levelRun) this.showResult();
@@ -2680,6 +2753,12 @@ export class Game {
       this.lastClock = clock;
     }
 
+    // A move that is being taken back: what is drawn is the board on its way back.
+    const back = this.rewound(dt);
+    if (back) {
+      state = back.state;
+      alpha = back.alpha;
+    }
     const { experiments } = this.settings;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.root.classList.toggle('reduced-motion', reducedMotion);

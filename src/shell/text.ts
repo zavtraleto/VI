@@ -155,6 +155,9 @@ export const HUD = {
   skip: { native: '省略', name: 'SKIP' },
 } as const;
 
+/** The two small readings of a level: the moves made on this try, and the fewest the board is cleared in. */
+export const READS = { current: 'CURRENT', best: 'BEST' } as const;
+
 /** What a line of the goal of a level goes under, where it is written and not drawn. */
 export const GOAL = { dice: 'SEND', face: 'FACE', links: 'CHAIN', cleared: 'LEFT', clear: 'CLEAR' } as const;
 

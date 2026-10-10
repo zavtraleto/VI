@@ -40,6 +40,18 @@ export function starsHeld(bestMoves: number | null | undefined, par: number | un
   return bestMoves === null || bestMoves === undefined ? 0 : levelStars(bestMoves, par);
 }
 
+/** Points a star is worth: the score of the levels is the stars held, counted in them. */
+export const STAR_POINTS = 100;
+
+/**
+ * The score of the levels: the stars held on every board given, a level of the list or a piece
+ * of the road, in points. It is the sum of the best passes, so a board passed again adds only
+ * the stars it had not earned before.
+ */
+export function starScore(boards: readonly Pick<LevelSpec, 'id' | 'par'>[], bestMoves: (id: string) => number | null | undefined): number {
+  return boards.reduce((sum, board) => sum + starsHeld(bestMoves(board.id), board.par), 0) * STAR_POINTS;
+}
+
 /** A chapter as a ladder has it: its number, and its levels from `from` up to and not including `to`, counted from 0. */
 export interface Chapter {
   chapter: number;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
-import { chaptersOf, gateOf, ladderProgress, levelStars, limitedLevel, moveLimit, starsHeld } from './progress';
+import { STAR_POINTS, chaptersOf, gateOf, ladderProgress, levelStars, limitedLevel, moveLimit, starScore, starsHeld } from './progress';
 
 /** A level as far as its place among the levels goes: its name, its chapter and the fewest moves it is cleared in. */
 const level = (id: string, par: number | undefined, chapter = 0): LevelSpec => ({
@@ -97,5 +97,22 @@ describe('the levels as a player has them', () => {
     const progress = ladderProgress([level('A', 4), level('B', 4), level('C', 4, 2), level('D', 4, 5)], () => null);
     expect([0, 1, 2, 3].map(progress.chapterOf)).toEqual([0, 0, 1, 2]);
     expect(progress.chapterOf(9)).toBe(-1);
+  });
+});
+
+describe('the score of the levels', () => {
+  it('is the stars held on every board, a hundred points each', () => {
+    const boards = [level('A', 4), level('B', 4), level('C', 4)];
+    const best: Record<string, number> = { A: 4, B: 7 };
+    expect(STAR_POINTS).toBe(100);
+    expect(starScore(boards, (id) => best[id])).toBe(500);
+    expect(starScore(boards, () => null)).toBe(0);
+  });
+
+  it('gains by a pass only the stars the board did not have', () => {
+    const boards = [level('A', 4)];
+    expect(starScore(boards, () => 9) - starScore(boards, () => null)).toBe(100);
+    expect(starScore(boards, () => 4) - starScore(boards, () => 9)).toBe(200);
+    expect(starScore(boards, () => 5) - starScore(boards, () => 4)).toBe(0);
   });
 });

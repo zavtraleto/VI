@@ -94,7 +94,8 @@ function columnLayout(left: number, top: number, zoom: number): HudLayout {
   const cells = link + CELL_H + 1;
   const rule = cells + 9 + 5;
   const side = Math.max(CELL_H + 4, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
-  const pause: Box = { x: left, y: rule + 6, w: width, h: side };
+  // A square, as on a tall screen: the two bars of the pause stand in it as tall as they are there.
+  const pause: Box = { x: left, y: rule + 6, w: side, h: side };
   return {
     wide: true,
     height: 0,

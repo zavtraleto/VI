@@ -11,7 +11,7 @@ import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signReach, type SignLook, type SignPlan } from './swipeSign';
-import { HUD, digits, goalLabel, goalProgress } from './text';
+import { HUD, READS, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, type Palette } from './theme';
 import { Voice } from './voice';
 
@@ -42,22 +42,35 @@ export interface HudTask {
   best: number | null;
 }
 
-/** The readings of a level: the moves it has taken, the most it may take where it has a limit, and how far its goal has come. */
+/**
+ * The readings of a level: the score of the levels, large; the moves made on this try and the
+ * fewest the board is cleared in, small; and a line for whatever its goal counts.
+ */
 export interface HudLevel {
   kind: 'level';
   /** Its place in the list of the levels; null on a level that is not in the list and has no number. */
   number: number | null;
-  /** The most moves the level may take; null on a level with no limit. */
-  limit: number | null;
+  /** The score of the levels: the stars the player holds, in points. */
+  score: number;
   /** Moves made. */
   made: number;
+  /** The fewest moves the board is cleared in; null where they are not known. */
+  best: number | null;
   /** One line per thing the goal counts. */
   goal: readonly GoalLine[];
-  /**
-   * What the level before this one came to, where the board follows it with no window: its
-   * stars and its moves, in the place of the moves of this one until the first of them is made.
-   */
-  outcome: { stars: number; moves: number } | null;
+}
+
+/**
+ * The stars of a level that has just been passed: `stars` of three light up over the board, and
+ * the last `fresh` of them, those the player did not hold, fly to the score, each with `points`.
+ * `value` is the channel of the combo that passed it; `at` is in CSS pixels of the window.
+ */
+export interface HudAward {
+  stars: number;
+  fresh: number;
+  points: number;
+  value: number;
+  at: Point;
 }
 
 /** A face of the net: its value and how many quarter turns its picture lies at. */
@@ -164,10 +177,7 @@ export interface HudView {
   sign?: HudSign | null;
   /** The one line of a hint over the board of a piece that teaches a move; it comes and goes by itself. */
   hint?: { text: string } | null;
-  /**
-   * The two buttons of a task. `retryOnly` leaves the one that starts over, where no move can be
-   * taken back; `undos` is how many moves can still be, written beside the button of a level.
-   */
+  /** The two buttons of a task. `retryOnly` leaves the one that starts over, where no move can be taken back. */
   tools: HudTools | null;
   /** The four buttons of those who would rather press than swipe; `box` is theirs in the window. */
   pad: { pulse: Dir | null; box: Rect } | null;
@@ -185,7 +195,6 @@ export interface HudTools {
   canUndo: boolean;
   urgent: boolean;
   retryOnly?: boolean;
-  undos?: number;
 }
 
 /** What the contact does to the readings at one moment. */
@@ -250,8 +259,23 @@ const ARROW: Record<Dir, string> = { N: '↑', E: '→', S: '↓', W: '←' };
 const NET_EDGE = 0.07;
 const NET_PIP = 0.12;
 const NET_PIP_ONE = 0.19;
-/** Side of a star of the line a passed level leaves in the readings, in pixels of the picture: that of the stars of a result. */
-const OUTCOME_STAR = 10;
+/** Side of a star of a pass over the board, and the space between two, in pixels of the picture. */
+const STAR_SIDE = 14;
+const STAR_GAP = 7;
+/**
+ * The stars of a pass light up one after another this far apart, stand for this long after the
+ * last, and then leave: those that are new fly to the score one after another, the rest go out.
+ */
+const STAR_STEP_MS = 190;
+const STAR_HOLD_MS = 1300;
+const STAR_FLY_STEP_MS = 150;
+const STAR_FLY_MS = 460;
+/**
+ * The two buttons of a level as pictures, nine dots by nine: the arrow that turns back takes
+ * the last move back, the arrow that goes round starts the level over.
+ */
+const ICON_UNDO = ['.........', '..#......', '.##......', '#######..', '.##....#.', '..#.....#', '........#', '.......#.', '..#####..'];
+const ICON_RETRY = ['..####.#.', '.#....##.', '#....###.', '#........', '#.......#', '#.......#', '.#.....#.', '..#####..', '.........'];
 /** How long a reading that has just changed keeps flashing, and a multiplier stays large, in milliseconds. */
 const FLASH_MS = 1200;
 const BUMP_MS = 220;
@@ -385,6 +409,11 @@ function rgb(hex: string): [number, number, number] {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
+/** When the stars of a pass begin to leave, in milliseconds from the first of them: all three have had their turn to light, and have stood. */
+function starsLeave(): number {
+  return STAR_STEP_MS * 2 + STAR_HOLD_MS;
+}
+
 let probe: HTMLElement | null = null;
 
 /** What the edges of the screen keep to themselves in CSS pixels, read from an element padded by them. */
@@ -445,6 +474,10 @@ export class GameHud {
   private hit = { at: -Infinity, value: 0, tier: 0 };
   /** Where points fly to: the middle of the score, in pixels of the picture. */
   private scoreAt: Point = { x: 0, y: 0 };
+  /** The stars of the pass just made: where they stand in pixels of the picture, since when, and how many of the new ones have reached the score. */
+  private passed: (HudAward & { born: number; landed: number }) | null = null;
+  /** Nothing has been shown since the last start: the score of the levels is there at once, and does not run up from nothing. */
+  private fresh = true;
   /** Every line the exercise can say: the room kept for them is that of the longest. */
   private lessonLines: readonly string[] = [];
   /** The hint now on screen (it stays while it goes out), the frame it came at, and the frame it was taken away at; null while it stands. */
@@ -494,6 +527,12 @@ export class GameHud {
     this.flyers.push({ points: beat.points, value: beat.value, tier: beat.tier, from: { x: beat.at.x / zoom, y: beat.at.y / zoom }, born: this.lastTime });
   }
 
+  /** A level is passed: its stars stand over the board, and the new ones fly to the score. */
+  award(award: HudAward): void {
+    const zoom = this.kit.zoom;
+    this.passed = { ...award, at: { x: award.at.x / zoom, y: award.at.y / zoom }, born: this.lastTime, landed: 0 };
+  }
+
   /**
    * The player has pressed to go on. Words that are still coming arrive at once and the press
    * is spent on that; words that are all there have been read. Returns whether they had been.
@@ -522,6 +561,8 @@ export class GameHud {
     this.flyers = [];
     this.hit = { at: -Infinity, value: 0, tier: 0 };
     this.shown = 0;
+    // The stars of a pass are not put away: the board after it is put on under them.
+    this.fresh = true;
     this.lastLevel = 1;
     this.lastStage = 0;
     this.levelFlash = 0;
@@ -561,8 +602,8 @@ export class GameHud {
     const size = lineSize(stage);
     const zoom = this.kit.zoom;
     const window = { width: this.kit.width * zoom, height: this.kit.height * zoom };
-    // The buttons of a level, both with the longest label they take (UNDO and the moves left), are in the same corner of the stage.
-    const picture = toolButtons(this.toPicture(stage), zoom, this.kit.measure(`${HUD.undo} 9`)).box;
+    // The buttons of a level are in the same corner of the stage.
+    const picture = toolButtons(this.toPicture(stage), zoom, 0).box;
     const tools: Rect = { x: picture.x * zoom, y: picture.y * zoom, width: picture.w * zoom, height: picture.h * zoom };
     const { box } = hintBox(stage, window, safeInsets(), size, 0, tools);
     return { ...hintBox(stage, window, safeInsets(), size, this.voice.height(text, box.width, size), tools), size };
@@ -629,7 +670,7 @@ export class GameHud {
     const swings = this.chains.size === 0 ? 0 : still ? this.chains.size : Math.floor(timeMs / 33);
     const decay = this.decayAt(view.header.kind === 'session' ? program : 0, timeMs, still, layout.rule + 2);
     // Points in the air and the score they have just reached are drawn anew every frame.
-    const moving = this.flyers.length > 0 || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
+    const moving = this.flyers.length > 0 || this.passed !== null || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
     // The swipe sign runs, or blinks, and the picture is not drawn anew for it: only its own part of it is (`signAgain`).
     const sign = view.sign ?? null;
     // A plaque that blinks is drawn anew each time it turns.
@@ -658,8 +699,8 @@ export class GameHud {
       if (layout.wide) this.drawSessionWide(view.header, layout, timeMs, blink, program, decay);
       else this.drawSession(view.header, layout, timeMs, blink, program, decay);
     } else if (view.header.kind === 'level') {
-      if (layout.wide) this.drawLevelWide(view.header, layout);
-      else this.drawLevel(view.header, layout);
+      if (layout.wide) this.drawLevelWide(view.header, layout, timeMs);
+      else this.drawLevel(view.header, layout, timeMs);
     } else if (layout.wide) {
       this.drawTaskWide(view.header, layout);
     } else {
@@ -673,6 +714,8 @@ export class GameHud {
     if (view.seal && !(view.lesson && !layout.wide)) this.drawSeal(view.seal, layout, blink);
     this.drawLabels(timeMs, still);
     this.drawFlyers(timeMs);
+    // The stars of a pass keep under the readings and inside the window.
+    if (this.passed) this.drawAward(this.passed, timeMs, still, layout.wide ? safe.top + 10 : layout.height + 6);
     // A step of the contact: the program says so over the board, for as long as its cell blinks.
     if (view.header.kind === 'session' && !view.lesson && timeMs < this.stageFlash) {
       const text = `${program >= 1 ? HUD.found : HUD.link} ${digits(view.header.stage, 2)}/${digits(view.header.steps, 2)}`;
@@ -687,7 +730,7 @@ export class GameHud {
       const left = layout.wide ? layout.column : safe.left;
       const top = layout.wide ? safe.top : layout.height;
       // And of the buttons of a level, in the corner of the stage.
-      const tools = view.tools ? toolButtons(stage, zoom, kit.measure(`${HUD.undo} 9`)).box : null;
+      const tools = view.tools ? toolButtons(stage, zoom, 0).box : null;
       const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top }, tools);
       // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
       const room = signRoom(plan.from, plan.trail, signReach(plan));
@@ -778,9 +821,35 @@ export class GameHud {
       if (header.level !== null) this.lastLevel = header.level;
       if (header.stage > this.lastStage) this.stageFlash = timeMs + FLASH_MS;
       this.lastStage = header.stage;
+    } else if (header.kind === 'level') {
+      this.flyers = [];
+      // The points of a star that is still on its way are not in the score yet.
+      const { passed } = this;
+      let coming = 0;
+      if (passed) {
+        const age = timeMs - passed.born;
+        const leave = starsLeave();
+        const landed = view.reducedMotion ? passed.fresh : clamp(Math.floor((age - leave - STAR_FLY_MS) / STAR_FLY_STEP_MS) + 1, 0, passed.fresh);
+        for (; passed.landed < landed; passed.landed++) {
+          this.hit = { at: timeMs, value: passed.value, tier: 1 };
+          this.actions.onPoints?.(passed.points, 1);
+        }
+        coming = (passed.fresh - passed.landed) * passed.points;
+        const last = leave + Math.max(LABEL_OUT_MS, passed.fresh > 0 ? (passed.fresh - 1) * STAR_FLY_STEP_MS + STAR_FLY_MS : 0);
+        if (age >= last) this.passed = null;
+      }
+      const due = header.score - coming;
+      const gap = due - this.shown;
+      if (this.fresh || view.reducedMotion || gap < 0) this.shown = due;
+      else if (gap > 0) {
+        this.shown += Math.max(1, Math.ceil(gap * 0.2));
+        this.actions.onCount?.();
+      }
+      this.fresh = false;
     } else {
       this.shown = 0;
       this.flyers = [];
+      this.passed = null;
     }
     const seen = new Set<number>();
     for (const label of view.labels) {
@@ -1084,27 +1153,72 @@ export class GameHud {
   }
 
   /**
-   * The moves a level has taken, counted up as large as the moves of a task; where the level
-   * has a limit, the most it may take stands after them, small: `007 /30`.
+   * The two small readings of a level, one under the other, their numbers ending at `right`: the
+   * moves made on this try, and the fewest the board is cleared in. `left` puts the names at the
+   * left edge of a column; without it they stand close before the numbers.
    */
-  private levelMoves(level: HudLevel, x: number, y: number): void {
+  private levelReads(level: HudLevel, right: number, rows: readonly [number, number], left?: number): void {
     const { kit } = this;
-    if (level.outcome) {
-      // The stars as the list of the levels has them: squares, as many filled as there are stars, of three.
-      const { ink, faint } = kit.palette;
-      const side = OUTCOME_STAR;
-      const step = side + Math.round(side / 2);
-      const top = y + Math.round((CELL_H * 2 - side) / 2);
-      for (let i = 0; i < 3; i++) {
-        const cell = { x: x + i * step, y: top, w: side, h: side };
-        if (i < level.outcome.stars) kit.box(cell, ink);
-        else kit.frame(cell, faint);
+    const { ink, dim, faint } = kit.palette;
+    const names = right - kit.measure('000') - CELL_W;
+    const name = (text: string, y: number): void => void kit.text(text, left ?? names - kit.measure(text), y, dim);
+    name(READS.current, rows[0]);
+    kit.text(digits(level.made, 3), right, rows[0], ink, { align: 'right' });
+    name(READS.best, rows[1]);
+    if (level.best === null) kit.text('--', right, rows[1], faint, { align: 'right' });
+    else kit.text(digits(level.best, 3), right, rows[1], ink, { align: 'right' });
+  }
+
+  /** The stars of a pass over the board: three squares, lit one after another; then the new ones fly to the score and the rest go out. */
+  private drawAward(passed: NonNullable<GameHud['passed']>, timeMs: number, still: boolean, top: number): void {
+    const { kit } = this;
+    const { ink, faint } = kit.palette;
+    const age = timeMs - passed.born;
+    const leave = starsLeave();
+    const step = STAR_SIDE + STAR_GAP;
+    const y = Math.max(top, Math.round(passed.at.y - STAR_SIDE / 2));
+    const x0 = Math.round(clamp(passed.at.x - (step * 3 - STAR_GAP) / 2, 4, kit.width - step * 3 - 4));
+    const colour = passed.value > 0 ? this.beatColour(passed.value) : ink;
+    for (let i = 0; i < 3; i++) {
+      const cell: Box = { x: x0 + i * step, y, w: STAR_SIDE, h: STAR_SIDE };
+      const lit = i < passed.stars && (still || age >= i * STAR_STEP_MS);
+      // The stars the player did not hold are the last of those that are lit: they are the ones that fly.
+      const flies = i < passed.stars && i >= passed.stars - passed.fresh;
+      const sets = leave + (i - (passed.stars - passed.fresh)) * STAR_FLY_STEP_MS;
+      if (age < leave || (flies && !still && age < sets)) {
+        if (!lit) kit.frame(cell, faint);
+        else {
+          // It comes on large and settles.
+          const pop = !still && age - i * STAR_STEP_MS < 90 ? 2 : 0;
+          kit.box({ x: cell.x - pop, y: cell.y - pop, w: cell.w + pop * 2, h: cell.h + pop * 2 }, ink);
+        }
+        continue;
       }
-      this.counter(level.outcome.moves, 3, x + step * 3 + 2, y, 2, 'left', true);
-      return;
+      if (!flies || still) {
+        // It goes out where it stood, there and not there, as the tube puts things out.
+        const left = leave + LABEL_OUT_MS - age;
+        if (left <= 0 || (!still && Math.floor(left / 55) % 2 === 1)) continue;
+        if (lit) kit.box(cell, ink);
+        else kit.frame(cell, faint);
+        continue;
+      }
+      const p = (age - sets) / STAR_FLY_MS;
+      if (p >= 1) continue;
+      const start = { x: cell.x + STAR_SIDE / 2, y: cell.y + STAR_SIDE / 2 };
+      const along = (at: number): Point => {
+        const t = clamp(at, 0, 1);
+        // A shallow arc, as the points of a group fly: it leaves sideways and comes in from below.
+        return { x: start.x + (this.scoreAt.x - start.x) * (1 - (1 - t) ** 2), y: start.y + (this.scoreAt.y - start.y) * t * t };
+      };
+      for (let tail = 4; tail >= 1; tail--) {
+        const at = along(p - tail * 0.06);
+        const side = 6 - tail;
+        kit.rect(Math.round(at.x - side / 2), Math.round(at.y - side / 2), side, side, colour);
+      }
+      const head = along(p);
+      const side = Math.round(STAR_SIDE - (STAR_SIDE - 8) * clamp(p, 0, 1));
+      kit.rect(Math.round(head.x - side / 2), Math.round(head.y - side / 2), side, side, ink);
     }
-    this.counter(level.made, 3, x, y, 2, 'left', true);
-    if (level.limit !== null) kit.text(`/${digits(level.limit, 2)}`, x + kit.measure(digits(level.made, 3), 2) + 3, y + CELL_H, kit.palette.dim);
   }
 
   /**
@@ -1128,30 +1242,29 @@ export class GameHud {
     }
   }
 
-  /** The readings of a level as a column: its moves, its number, and a line for each thing its goal counts. */
-  private drawLevelWide(level: HudLevel, layout: HudLayout): void {
+  /** The readings of a level as a column: the score, the number of the level, its two small readings, and a line of its goal where it has one. */
+  private drawLevelWide(level: HudLevel, layout: HudLayout, timeMs: number): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
     const { left, right, lines } = layout;
-    kit.text(HUD.moves, left, lines.label, dim);
-    this.levelMoves(level, left, lines.big);
+    kit.text(HUD.score, left, lines.label, dim);
+    this.score(left, lines.big, timeMs, WHOLE);
     if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, left, lines.tag, ink);
-    const rows = [lines.best, lines.link, lines.cells];
-    level.goal.slice(0, rows.length).forEach((line, i) => this.goalLine(line, right, rows[i], left));
+    this.levelReads(level, right, [lines.best, lines.link], left);
+    if (level.goal.length > 0) this.goalLine(level.goal[0], right, lines.cells, left);
     kit.rect(left, layout.rule, right - left, 1, faint);
   }
 
-  private drawLevel(level: HudLevel, layout: HudLayout): void {
+  private drawLevel(level: HudLevel, layout: HudLayout, timeMs: number): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
     const { left, end, mid, rowA, rowB, rowC, big } = layout;
-    kit.text(HUD.moves, left, rowA, dim);
-    this.levelMoves(level, left, big);
+    kit.text(HUD.score, left, rowA, dim);
+    this.score(left, big, timeMs, WHOLE);
     if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, mid, rowA, ink);
-    // The goal stands on the right, its last line on the last row.
-    const rows = [rowA, rowB, rowC];
-    const shown = level.goal.slice(0, rows.length);
-    shown.forEach((line, i) => this.goalLine(line, end, rows[rows.length - shown.length + i]));
+    // The two small readings stand on the right, one under the other; a line of the goal, where there is one, over them.
+    if (level.goal.length > 0) this.goalLine(level.goal[0], end, rowA);
+    this.levelReads(level, end, [rowB, rowC]);
     kit.rect(left, layout.rule, layout.right - left, 1, faint);
   }
 
@@ -1436,15 +1549,15 @@ export class GameHud {
   }
 
   /**
-   * The two buttons every task needs, in the corner of the board and out of the way of swipes.
-   * On a level the one that takes a move back says how many moves it still has, and goes out at none.
+   * The two buttons every task needs, in the corner of the board and out of the way of swipes:
+   * each a picture, the arrow that turns back and the arrow that goes round. At a dead end the
+   * one that takes the move back blinks: it is the one to press.
    */
   private drawTools(tools: HudTools, stage: Box, blink: number): void {
     const { kit } = this;
     const { bg, ink, dim, faint } = kit.palette;
-    const undo = tools.undos === undefined ? HUD.undo : `${HUD.undo} ${tools.undos}`;
-    const { tall, wide, right } = toolButtons(stage, kit.zoom, kit.measure(undo));
-    const button = (id: string, text: string, x: number, on: boolean, urgent: boolean, action: () => void): void => {
+    const { tall, wide, right } = toolButtons(stage, kit.zoom, 0);
+    const button = (id: string, icon: readonly string[], x: number, on: boolean, urgent: boolean, action: () => void): void => {
       const box: Box = { x, y: Math.round(stage.y + 6), w: wide, h: tall };
       const filled = this.held?.zone.id === id || (urgent && blink === 0);
       if (filled) kit.box(box, ink);
@@ -1452,13 +1565,19 @@ export class GameHud {
         kit.box(box, bg);
         kit.frame(box, on ? dim : faint);
       }
-      kit.text(text, box.x + box.w / 2, box.y + Math.round((tall - CELL_H) / 2), filled ? bg : on ? ink : faint, { align: 'center' });
+      // The picture is drawn in whole dots, as large as the button lets it be.
+      const dot = Math.max(1, Math.floor((Math.min(wide, tall) - 6) / icon.length));
+      const colour = filled ? bg : on ? ink : faint;
+      const ix = box.x + Math.round((wide - icon[0].length * dot) / 2);
+      const iy = box.y + Math.round((tall - icon.length * dot) / 2);
+      icon.forEach((row, r) => {
+        for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
+      });
       if (on) this.zones.push({ id, rect: kit.toWindow(box), action });
     };
-    button('retry', HUD.retry, right - wide, true, false, () => this.actions.onRestart());
+    button('retry', ICON_RETRY, right - wide, true, false, () => this.actions.onRestart());
     if (tools.retryOnly) return;
-    // A dead end is left by taking the move back: that button becomes the one to press.
-    button('undo', undo, right - wide * 2 - 6, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
+    button('undo', ICON_UNDO, right - wide * 2 - 6, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
   }
 
   /** Four buttons in a cross: up is north, right is east. */
