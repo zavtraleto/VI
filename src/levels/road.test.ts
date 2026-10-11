@@ -652,6 +652,10 @@ describe('the free pieces and the mixes', () => {
 
   it('R08: the board of P08 of the list, a long chain: a pair and three dice joined to it one after another', { timeout: 60_000 }, () => {
     const spec = pieceOf('R08');
+    // The level P08 is now R10 of the second edition (levels.ts), and the board that was P08 is this piece.
+    const probe = LEVELS.find((level) => level.id === 'P08')!;
+    expect(probe.layout!.dice).toHaveLength(6);
+    expect(probe.solution).toEqual(['2,2,S', '3,3,N', '3,2,W', '2,1,E']);
     const report = tryWay(spec, wayOf(spec));
     expect(report.uses).toEqual(['link']);
     expect(report.values).toEqual([2, 2, 2, 2]);
@@ -830,6 +834,9 @@ describe('what was kept of a player of an edition before', () => {
     expect(moved.stats).toEqual({ R10: { bestMoves: 3 }, P08: { bestMoves: 4 }, R09: { bestMoves: 4 }, R08: { bestMoves: 5 }, P09: stat });
     expect(moved.road).toBe(ROAD_END);
     expect(moved.roadEdition).toBe(3);
+    // The boards went with their stars: what was R10 is the level P08, and the board of P08 is the piece R08.
+    expect(LEVELS.find((level) => level.id === 'P08')!.par).toBe(4);
+    expect(pieceOf('R08').par).toBe(5);
     // The levels of the list that did not move are left as they were, and so is one who has passed nothing of the road.
     expect(toRoadEdition({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 2 })).toEqual({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 3 });
   });

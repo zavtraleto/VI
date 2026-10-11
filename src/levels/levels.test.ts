@@ -4,7 +4,7 @@ import { RunTally } from '../app/telemetry';
 import { NO_CELL, cellIndex, isCell } from '../rules/board';
 import { defaultConfig } from '../rules/config';
 import { scoreOf } from '../rules/levelScore';
-import { moveOf, moveText, movesAt, playMove, tryWay } from '../rules/levelSolver';
+import { moveOf, moveText, movesAt, playMove, solveLevel, tryWay } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
@@ -28,6 +28,10 @@ import { sameBoard } from './variety';
 const placeOf = (spec: LevelSpec): Recipe | undefined => PLACES.find((place) => levelId(place) === spec.id);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 const ALL: readonly LevelSpec[] = [...LEVELS, ...SPARES];
+/** The level that is a board of the road and not of its place: P08 is R10 of the second edition of the road (levels.ts). */
+const FROM_ROAD = LEVELS[7];
+/** The levels and the boards in reserve that are boards of their places. */
+const OF_PLACE: readonly LevelSpec[] = ALL.filter((level) => level !== FROM_ROAD);
 
 /** The cells cut out of the board of a level, written out and in order. */
 const cutOf = (spec: LevelSpec): string[] => (spec.holes ?? []).map((cell) => `${cell.x},${cell.z}`).sort();
@@ -128,7 +132,7 @@ describe('the levels of the game', () => {
   });
 
   it('let only the faces of their places work, the 1s with them where the place sweeps the 1s, and send a die that has joined a combo off in two moves', () => {
-    for (const level of ALL) {
+    for (const level of OF_PLACE) {
       const place = placeOf(level);
       expect(place, level.id).toBeDefined();
       if (!place) continue;
@@ -143,7 +147,7 @@ describe('the levels of the game', () => {
   });
 
   it('have the boards, the numbers of dice and the fewest moves of their places', () => {
-    for (const level of ALL) {
+    for (const level of OF_PLACE) {
       const place = placeOf(level);
       expect(place, level.id).toBeDefined();
       if (!place) continue;
@@ -226,12 +230,28 @@ describe('the levels of the game', () => {
   });
 
   it('are what their places ask for, as far as a board and the score of its way tell', () => {
-    for (const level of ALL) {
+    for (const level of OF_PLACE) {
       const place = placeOf(level);
       expect(place, level.id).toBeDefined();
       if (!place) continue;
       expect(offPlace(level, place), `${level.id}, seed ${level.seed}`).toEqual([]);
     }
+  });
+
+  it('hold one board of the road: P08 is R10 of the second edition, played by the rules of the list, and its place is not asked of it', () => {
+    expect(FROM_ROAD.id).toBe('P08');
+    expect(placeOf(FROM_ROAD)).toBeDefined();
+    expect(offPlace(FROM_ROAD, placeOf(FROM_ROAD)!)).not.toEqual([]);
+    // The faces of the list, its two moves of leaving, the floor open: what any level of the list is played with.
+    expect(FROM_ROAD.faces).toEqual([2, 3]);
+    expect(FROM_ROAD.floor).toBeUndefined();
+    expect(FROM_ROAD.layout!.dice).toHaveLength(6);
+    // Its fewest moves are those it had on the road, with the floor open as well, and the way it keeps is of the road.
+    expect(solveLevel(FROM_ROAD).solution!.par).toBe(4);
+    expect(FROM_ROAD.par).toBe(4);
+    expect(tryWay(FROM_ROAD, wayOf(FROM_ROAD)).uses).toEqual(['link']);
+    // The boards in reserve of P08 are of its place.
+    expect(SPARES.filter((spare) => spare.id === 'P08').every((spare) => offPlace(spare, placeOf(spare)!).length === 0)).toBe(true);
   });
 
   it('have no board twice, and no level that is another one turned or mirrored', () => {
