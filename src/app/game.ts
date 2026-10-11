@@ -1,4 +1,5 @@
 import { AudioEngine } from '../audio/engine';
+import { Haptics, hapticScale } from '../haptics/haptics';
 import { Display } from '../display/display';
 import { Governor, QUALITY_STEPS } from '../display/governor';
 import { quality } from '../display/quality';
@@ -152,6 +153,8 @@ const FIRST_ID = 'F1';
  */
 /** `?bg`: the place behind the board of a level is on whatever the settings say. */
 const BG_PROBE = new URLSearchParams(window.location.search).has('bg');
+/** The phone answers dice that leave: a probe, `?haptic=off` takes it away and `?haptic=2` makes its ticks twice as long. */
+const HAPTIC_SCALE = hapticScale(window.location.search);
 const LAB = import.meta.env.DEV && new URLSearchParams(window.location.search).has('lab');
 /**
  * How the game is played, as the file of the menu says it: the rules that hold wherever dice
@@ -425,6 +428,7 @@ export class Game {
   private readonly controller = new InputController();
   private readonly ritual = new Ritual();
   private readonly audio = new AudioEngine();
+  private readonly haptics = new Haptics(HAPTIC_SCALE);
   private readonly hints = new Hints();
   private readonly tracker: GestureTracker;
   /** The one canvas of the page; the picture is put together from its layers. */
@@ -2332,6 +2336,7 @@ export class Game {
     for (const event of state.events) {
       // Levels mean nothing in the tutorial: no fanfare for passing one.
       if (!(state.tutorial && event.type === 'levelUp')) this.audio.handle(event, state);
+      this.haptics.handle(event);
       this.tally.note(event);
       this.onEvent(state, event);
     }
@@ -2389,6 +2394,7 @@ export class Game {
     const reducedMotion = prefersReducedMotion(this.settings);
     this.view.beat(beat, state, reducedMotion);
     this.audio.beat(beat, state);
+    this.haptics.beat(beat);
     if (!reducedMotion) this.hold.hold(beat.tier);
     let at: { x: number; y: number } | null = null;
     if (beat.cells.length > 0) {
