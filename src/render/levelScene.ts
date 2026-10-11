@@ -35,13 +35,14 @@ const tree = (name: string): string => thingParam('tree', name);
 const PLACES: readonly Place[] = [
   {
     recipe: { id: 'level_sea', place: 'sea', things: ['pole', 'sun'] },
-    // Fewer glints than the sea of the transmission has, and slow ones, on slow water: under a
-    // board they are a noise of their own, and a quick one is a flicker.
-    values: { glint: 0.16, glintSpeed: 1, waveSpeed: 0.45 },
+    // The glints of the transmission are lit or dark at once, and one of them changes on every
+    // frame: under a board that is a flicker. Here they are slow light - a cell takes five
+    // seconds to come or go, gives a third of its colour, and has no hard edge - on slow water.
+    values: { glint: 0.2, glintSpeed: 0.2, glintSoft: 0.32, waveSpeed: 0.35 },
     hours: [
       { values: { skyTop: '#5f93c7', skyHorizon: '#cfdde6', ground: '#6f96b8', glintColor: '#ffffff', [pole('color')]: '#39424f' }, sun: { at: 16, size: 2.6, colour: '#e8442a' }, shade: 1 },
       { values: { skyTop: '#4b4c80', skyHorizon: '#ea9a5c', ground: '#86605c', glintColor: '#ffd29a', [pole('color')]: '#2a2430' }, sun: { at: 3.5, size: 4.6, colour: '#ff4a1c' }, shade: 0.55 },
-      { values: { skyTop: '#060a20', skyHorizon: '#1f2c66', ground: '#0a1230', glintColor: '#c4d0ff', [pole('color')]: '#04050b' }, sun: { at: -8, size: 4.6, colour: '#6a1a18' }, shade: 0.12 },
+      { values: { skyTop: '#060a20', skyHorizon: '#1f2c66', ground: '#0a1230', glintColor: '#7f8cc8', [pole('color')]: '#04050b' }, sun: { at: -8, size: 4.6, colour: '#6a1a18' }, shade: 0.12 },
     ],
   },
   {
@@ -389,6 +390,13 @@ export class LevelScene {
     if ('ground' in values) values.ground = mixColor(String(values.ground), dark, GROUND_DARKER);
     if ('fogNear' in values) values.fogNear = Number(values.fogNear) * AIR_CLEARER;
     if ('fogFar' in values) values.fogFar = Number(values.fogFar) * AIR_CLEARER;
+    // Nothing in the picture changes from one frame to the next by itself. A transmission has
+    // grain that is new 24 times a second, points that jump to a grid as they move, and few
+    // colours, whose steps crawl as the light changes: all three are let go.
+    values.noise = 0;
+    values.snap = 0;
+    values.depth = 8;
+    values.dither = 0;
     // A narrow strip of 240 lines is some hundred points wide, and soft at that: it gets more of them, and less blur.
     if (tall) {
       values.lines = TALL_LINES;

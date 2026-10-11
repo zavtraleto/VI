@@ -31,6 +31,13 @@ export interface Ps1Glint {
   width: number;
   /** How many times a second a cell is lit or put out anew. */
   rate: number;
+  /**
+   * 0, or left out: a cell is lit or dark, and changes at once, as a transmission has it.
+   * Above 0 the glints are slow light, for water that lies behind something: a cell goes from
+   * the one to the other over the whole of its turn, none of them has a hard edge of chance,
+   * and this is how much of their colour they give, 0 to 1.
+   */
+  soft?: number;
 }
 
 export interface Ps1Options {
@@ -114,6 +121,7 @@ varying vec3 vAffineUv;
   uniform vec2 uGlintDir;
   uniform float uGlintEdge;
   uniform float uGlintRate;
+  uniform float uGlintSoft;
   uniform float uTime;
   varying vec3 vWorld;
 
@@ -138,11 +146,23 @@ void main() {
     path *= path * (1.0 - 0.85 * smoothstep(0.0, 0.5, down));
     // Each cell is lit or dark by chance, and draws again at its own moment.
     vec2 cell = floor(vec2(atan(away.x, -away.y), down) / uGlintCell);
-    float tick = floor(uTime * uGlintRate + hash(cell + 0.5) * 16.0);
-    float lit = step(1.0 - uGlintAmount * path, hash(cell + tick * vec2(0.731, 1.377)));
+    float turn = uTime * uGlintRate + hash(cell + 0.5) * 16.0;
+    float tick = floor(turn);
+    float least = 1.0 - uGlintAmount * path;
+    float lit = step(least, hash(cell + tick * vec2(0.731, 1.377)));
+    float strength = 1.0;
+    if (uGlintSoft > 0.0) {
+      // Slow light: what the cell is now runs into what it will be next over its whole turn,
+      // and a cell near the edge of the path is half lit, not lit or dark as the eye moves.
+      float now = smoothstep(least - 0.1, least + 0.1, hash(cell + tick * vec2(0.731, 1.377)));
+      float next = smoothstep(least - 0.1, least + 0.1, hash(cell + (tick + 1.0) * vec2(0.731, 1.377)));
+      float along = fract(turn);
+      lit = mix(now, next, along * along * (3.0 - 2.0 * along));
+      strength = uGlintSoft;
+    }
     // Haze takes half of a glint, not all of it: light gets through where colour does not.
     float glint = max(lit, 0.2 * uGlintAmount * path) * (1.0 - 0.5 * vFog);
-    colour = mix(colour, uGlintColor, glint);
+    colour = mix(colour, uGlintColor, glint * strength);
   #endif
   gl_FragColor = vec4(colour, 1.0);
   #include <colorspace_fragment>
@@ -184,6 +204,7 @@ export function ps1Material(options: Ps1Options): THREE.ShaderMaterial {
       uGlintDir: { value: glint ? glint.direction.clone().normalize() : new THREE.Vector2(0, -1) },
       uGlintEdge: { value: glint ? Math.cos(glint.width) : 1 },
       uGlintRate: { value: glint ? glint.rate : 0 },
+      uGlintSoft: { value: glint ? (glint.soft ?? 0) : 0 },
       uTime: { value: 0 },
     },
     vertexShader: VERTEX,

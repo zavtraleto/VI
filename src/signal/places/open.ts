@@ -225,6 +225,7 @@ function build(values: ParamValues, context: PlaceContext, subject: number): Pla
           direction: new THREE.Vector2(light.direction.x, light.direction.z),
           width: n('glintWidth') * DEG,
           rate: n('glintSpeed'),
+          soft: n('glintSoft'),
         }
       : null;
   const groundMaterial = keep(ps1Material({ color: String(values.ground), fog, snap, light, glint }));
@@ -344,7 +345,9 @@ function openPlace(config: OpenConfig): PlaceDef {
     glintColor: color('#ffffff'),
     glintSize: num(0.25, 0.05, 2, 0.01),
     glintWidth: num(25, 2, 90, 1),
-    glintSpeed: num(5, 0, 20, 0.5),
+    glintSpeed: num(5, 0, 20, 0.05),
+    /** 0 for glints that are lit or dark at once; above it they are slow light, and give this much of their colour. */
+    glintSoft: num(0, 0, 1, 0.01),
     camHeight: num(2.2, 0.3, 12, 0.1),
     camDistance: num(16, 4, 60, 0.5),
     camFov: num(45, 20, 90, 1),
