@@ -1,6 +1,7 @@
 import { AudioEngine } from '../audio/engine';
 import { Display } from '../display/display';
 import { Governor, QUALITY_STEPS } from '../display/governor';
+import { Pacer } from '../display/pacer';
 import { quality } from '../display/quality';
 import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
@@ -247,7 +248,7 @@ const READ_KEYS = new Set(['Enter', 'NumpadEnter', 'Space', 'ArrowUp', 'ArrowRig
  * how long. The step only goes down while the game runs, so it is forgotten after a few days:
  * a device that was slow once, hot or busy with something else, gets its samples back.
  */
-const SAMPLE_STEP_KEY = 'vi.samples.v1';
+const SAMPLE_STEP_KEY = 'vi.samples.v2';
 const SAMPLE_STEP_DAYS = 3;
 
 function keptSampleStep(): number {
@@ -437,8 +438,10 @@ export class Game {
   private readonly governor = quality().auto ? new Governor(keptSampleStep()) : null;
   /** The board, as crisp as the screen allows and looking as it would on a canvas of its own. Clear around the dice. */
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: this.governor?.samples ?? quality().samples, encoded: true });
-  /** The least time between two frames drawn, in milliseconds, where the frames of the screen are held to a limit; 0 where they are not. */
-  private readonly frameGap = quality().fpsCap > 0 ? 1000 / quality().fpsCap - 1 : 0;
+  /** The density of the canvas the address allows: the governor may come down from it, never go over it. */
+  private readonly ratioAsked = quality().maxRatio;
+  /** Lets frames of a screen faster than the limit pass, evenly. */
+  private readonly pacer = new Pacer(quality().fpsCap);
   /** What the board and the interface are drawn from: the board's own values, and the look of the program. The address may name the view. */
   private readonly look: BoardLook = { board: { ...boardDefaults(), ...readView(window.location.search) }, shell: shellDefaults() };
   /** What the program shows of a session over the board. Its layers lie under those of the menu and the panels. */
@@ -488,8 +491,9 @@ export class Game {
 
   constructor(root: HTMLElement) {
     this.root = root;
-    // A device that gave the light of the tube up on an earlier visit starts without it.
+    // A device that gave the light of the tube up on an earlier visit starts without it, and with the canvas as dense as it was left.
     if (this.governor && !this.governor.halo) quality().halo = false;
+    if (this.governor) quality().maxRatio = Math.min(this.ratioAsked, this.governor.ratio);
     this.header = h('header', { class: 'hud' });
     const stage = h('div', { class: 'stage' });
     this.stage = stage;
@@ -634,6 +638,8 @@ export class Game {
     if (!governor) return;
     quality().samples = governor.samples;
     quality().halo = this.haloAsked && governor.halo;
+    // The canvas and its layers take their new size on the next frame.
+    quality().maxRatio = Math.min(this.ratioAsked, governor.ratio);
     this.world.setSamples(governor.samples);
     keepSampleStep(governor.step);
   }
@@ -2674,7 +2680,7 @@ export class Game {
   private frame(time: number): void {
     requestAnimationFrame((next) => this.frame(next));
     // A screen faster than the limit has some of its frames let pass.
-    if (this.frameGap > 0 && this.lastFrame !== 0 && time > this.lastFrame && time - this.lastFrame < this.frameGap) return;
+    if (!this.pacer.take(time)) return;
     const dt = this.lastFrame === 0 ? 0 : Math.max(0, time - this.lastFrame);
     this.lastFrame = time;
     this.tools?.tick(time);

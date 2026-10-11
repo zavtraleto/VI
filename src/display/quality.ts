@@ -21,7 +21,10 @@ export interface Quality {
   halo: boolean;
   /** Things come through behind the board during a session. */
   leak: boolean;
-  /** Most frames drawn in a second; 0 follows the screen. */
+  /**
+   * Most frames drawn in a second on a screen that refreshes faster; 0 follows the screen.
+   * Frames are let pass whole: see `Pacer`.
+   */
   fpsCap: number;
   /**
    * A canvas layer sends to the graphics card only the part of it that has changed. Off, it
@@ -30,7 +33,7 @@ export interface Quality {
   patches: boolean;
 }
 
-export const DEFAULT_QUALITY: Quality = { samples: 4, auto: true, maxRatio: MAX_PIXEL_RATIO, video: true, halo: true, leak: true, fpsCap: 0, patches: true };
+export const DEFAULT_QUALITY: Quality = { samples: 4, auto: true, maxRatio: MAX_PIXEL_RATIO, video: true, halo: true, leak: true, fpsCap: 60, patches: true };
 
 const SAMPLES = [0, 2, 4];
 const OFF = ['off', '0', 'false'];

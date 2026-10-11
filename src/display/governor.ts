@@ -1,16 +1,24 @@
+import { MAX_PIXEL_RATIO } from './sizing';
+
 /**
- * What the board may be drawn with, from the finest down: samples of anti-aliasing, and the
- * light the tube spreads around the dice. Smoothing the edges of the dice is the heaviest
- * thing the graphics card does for a frame: on a large canvas it is more than everything else
- * together. Two samples for four is hard to see, so they go first; then the light of the
- * tube, which is a small picture drawn and blurred on every frame; then the rest of the
- * smoothing, which shows.
+ * What the board may be drawn with, from the finest down: samples of anti-aliasing, the
+ * light the tube spreads around the dice, and how dense the canvas is, in its pixels to a CSS
+ * pixel. Smoothing the edges of the dice is the heaviest thing the graphics card does for a
+ * frame: on a large canvas it is more than everything else together. Two samples for four is
+ * hard to see, so they go first. Then the canvas is made less dense: everything drawn is
+ * drawn over a third fewer pixels, and the picture is a little softer for it. Then the light
+ * of the tube, which is a small picture drawn and blurred on every frame, and is seen more
+ * than the density; then the canvas has a pixel to a CSS pixel; and the rest of the
+ * smoothing, which shows most, goes last. A screen that has fewer pixels than a step allows
+ * is not changed by it.
  */
-export const QUALITY_STEPS: readonly { samples: number; halo: boolean }[] = [
-  { samples: 4, halo: true },
-  { samples: 2, halo: true },
-  { samples: 2, halo: false },
-  { samples: 0, halo: false },
+export const QUALITY_STEPS: readonly { samples: number; halo: boolean; ratio: number }[] = [
+  { samples: 4, halo: true, ratio: MAX_PIXEL_RATIO },
+  { samples: 2, halo: true, ratio: MAX_PIXEL_RATIO },
+  { samples: 2, halo: true, ratio: 1.25 },
+  { samples: 2, halo: false, ratio: 1.25 },
+  { samples: 2, halo: false, ratio: 1 },
+  { samples: 0, halo: false, ratio: 1 },
 ];
 
 /** Play one judgement is made from, in milliseconds, and the fewest frames it may be made from. */
@@ -39,8 +47,8 @@ function median(values: number[]): number {
 }
 
 /**
- * Watches how the frames of play come and takes samples of anti-aliasing away, and the light
- * of the tube, where the device does not keep up. Under sixty frames a second it gives up a
+ * Watches how the frames of play come and takes samples of anti-aliasing away, the light of
+ * the tube and the density of the canvas, where the device does not keep up. Under sixty frames a second it gives up a
  * step at a time, down to the last. Sixty is enough on any screen: a screen that refreshes
  * faster is not a reason to give anything up.
  *
@@ -81,6 +89,11 @@ export class Governor {
   /** The tube still spreads light around the dice. */
   get halo(): boolean {
     return QUALITY_STEPS[this.step].halo;
+  }
+
+  /** The most pixels of the canvas to a CSS pixel now. */
+  get ratio(): number {
+    return QUALITY_STEPS[this.step].ratio;
   }
 
   /**

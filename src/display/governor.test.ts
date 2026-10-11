@@ -26,16 +26,18 @@ describe('Governor', () => {
     expect(governor.step).toBe(QUALITY_STEPS.length - 1);
   });
 
-  it('gives up two samples first, then the light of the tube, then the rest of the smoothing', () => {
+  it('gives up two samples first, then density, the light of the tube, more density, and the rest of the smoothing last', () => {
     const governor = new Governor();
     run(governor, 1000 / 60, 5, false);
-    const seen: [number, boolean][] = [[governor.samples, governor.halo]];
-    for (let t = 0; t < 60000; t += 1000 / 30) if (governor.frame(1000 / 30, true)) seen.push([governor.samples, governor.halo]);
+    const seen: [number, boolean, number][] = [[governor.samples, governor.halo, governor.ratio]];
+    for (let t = 0; t < 60000; t += 1000 / 30) if (governor.frame(1000 / 30, true)) seen.push([governor.samples, governor.halo, governor.ratio]);
     expect(seen).toEqual([
-      [4, true],
-      [2, true],
-      [2, false],
-      [0, false],
+      [4, true, 1.5],
+      [2, true, 1.5],
+      [2, true, 1.25],
+      [2, false, 1.25],
+      [2, false, 1],
+      [0, false, 1],
     ]);
   });
 
@@ -120,7 +122,9 @@ describe('Governor', () => {
   it('starts from the step it is given', () => {
     expect(new Governor(1).samples).toBe(2);
     expect(new Governor(1).halo).toBe(true);
-    expect(new Governor(2).halo).toBe(false);
+    expect(new Governor(2).halo).toBe(true);
+    expect(new Governor(2).ratio).toBe(1.25);
+    expect(new Governor(3).halo).toBe(false);
     expect(new Governor(9).samples).toBe(0);
     expect(new Governor(-3).samples).toBe(4);
   });
