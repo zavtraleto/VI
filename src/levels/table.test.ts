@@ -54,8 +54,8 @@ describe('the table of the levels', () => {
 
 describe('the table of the road', () => {
   it('is a row for a piece: what it is, its board, its fewest moves, its first moves, the walk and two personas', () => {
-    const lesson = ROAD.find((spec) => spec.id === 'R15')!;
-    expect(roadRow(lesson, 'lesson', 300, 4)).toEqual(['R15', 'lesson', '4x3', '5', '2 3', '2', '1', '4', '0', '11', '100%', '100%']);
+    const lesson = ROAD.find((spec) => spec.id === 'R11')!;
+    expect(roadRow(lesson, 'lesson', 300, 4)).toEqual(['R11', 'lesson', '4x4', '5', '2 3', '2', '1', '4', '0', '11', '100%', '100%']);
     expect(roadRow(lesson, 'lesson', 300, 4)).toHaveLength(ROAD_HEAD.length);
   });
 

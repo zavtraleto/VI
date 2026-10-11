@@ -26,9 +26,8 @@ const COMMON = { arrival: 'none', goal: { kind: 'clear' }, moves: 0, undos: 3, s
 /**
  * Three pieces of the first edition of the road, kept here as the small boards the sign is
  * tried on: each is a few boards in all, so what the sign says on every one of them is known.
- * They go by the codes they had, which name pieces of the road still: `R03` and `R05` wait as a
- * free piece does and `R07` as a lesson (`ROAD_IDLE`). The first and the second piece are those
- * of the road itself.
+ * They go by the codes they had, which name pieces of the road still, all three of which wait as
+ * a free piece does (`ROAD_IDLE`). The first and the second piece are those of the road itself.
  *
  *   2 #      . . 2 .      3 3 . .
  *   # A      . . # .      # # . .
@@ -272,7 +271,7 @@ describe('how high the sign stands', () => {
     const stair = start(pieceOf('R02'));
     expect(signHeight(stair)).toBe(0);
     for (const spec of ROAD) expect(signHeight(start(spec)), spec.id).toBe(spec.layout!.onFloor ? 0 : 1);
-    expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02', 'R13', 'R16']);
+    expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02']);
   });
 
   it('is half a die on the stair of the second piece, which is half down, and a whole die on the die beyond it', () => {

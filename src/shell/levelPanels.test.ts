@@ -177,11 +177,11 @@ describe('the list of the pieces of the road', () => {
   const pieces = roadCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: ROAD[0].par! }, R02: { bestMoves: 99 } } });
   const actions = { onPick: nothing, onRules: nothing, onBack: nothing };
 
-  it('has a cell for each of the eighteen pieces, every one open, with the stars of the ones passed, out of three', () => {
+  it('has a cell for each of the sixteen pieces, every one open, with the stars of the ones passed, out of three', () => {
     const spec = roadPanel(pieces, 2, actions);
     const cells = row(spec, 'levels');
     expect(spec.title).toBe(PANELS.howto);
-    expect(cells.levels).toHaveLength(18);
+    expect(cells.levels).toHaveLength(16);
     expect(cells.levels.slice(0, 3)).toEqual([{ stars: 3 }, { stars: 1 }, { stars: 0 }]);
     expect(cells.levels.every((cell) => !cell.locked)).toBe(true);
     expect(cells.marks).toBe(3);
@@ -193,8 +193,8 @@ describe('the list of the pieces of the road', () => {
     const cells = row(roadPanel(pieces, 0, actions), 'levels');
     expect(cells.program).toBe(true);
     expect(cells.note(0)).toBe(`FACE ${ROAD[0].faces!.join(' ')} · ${goalText(pieces[0].goal)}`);
-    expect(cells.note(17)).toBe(`FACE ${ROAD[17].faces!.join(' ')} · ${goalText(pieces[17].goal)}`);
-    expect(cells.note(18)).toBe('');
+    expect(cells.note(15)).toBe(`FACE ${ROAD[15].faces!.join(' ')} · ${goalText(pieces[15].goal)}`);
+    expect(cells.note(16)).toBe('');
   });
 
   it('starts the piece picked, whichever it is', () => {
@@ -222,7 +222,7 @@ describe('the list of the pieces of the road', () => {
     expect(roadPanel(pieces, 4, { ...actions, home: 'rules' }).home).toBe('rules');
   });
 
-  it.each(SCREENS)('fits the window of a %s: eighteen cells and two commands, each large enough for a finger', (_name, window, ratio) => {
+  it.each(SCREENS)('fits the window of a %s: sixteen cells and two commands, each large enough for a finger', (_name, window, ratio) => {
     const screen = new PanelScreen(context(window, ratio), roadPanel(pieces, 0, actions), true);
     const items = screen.items();
     expect(items.map((item) => item.id)).toEqual([...ROAD.map((_, index) => `piece-${index}`), 'rules', 'back']);

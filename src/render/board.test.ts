@@ -121,7 +121,8 @@ describe('frameOfPiece', () => {
     expect(cellsOf(piece('R03'))).toEqual({ minX: 0, maxX: 2, minZ: 0, maxZ: 2 });
     // Three cells wide and four long: the east column of its square is cut off.
     expect(cellsOf(piece('R04'))).toEqual({ minX: 0, maxX: 2, minZ: 0, maxZ: 3 });
-    expect(cellsOf(piece('R15'))).toEqual({ minX: 0, maxX: 3, minZ: 0, maxZ: 2 });
+    // Four cells wide and three long: the north row of its square is cut off.
+    expect(cellsOf(piece('R05'))).toEqual({ minX: 0, maxX: 3, minZ: 1, maxZ: 3 });
     expect(cellsOf(board(5))).toEqual({ minX: 0, maxX: 4, minZ: 0, maxZ: 4 });
   });
 

@@ -9,7 +9,7 @@ const NEW = { passed: {}, stats: {} };
 describe('the list of the pieces of the road', () => {
   it('has a cell for every piece, numbered from one in the order of the road', () => {
     const cells = roadCells(NEW);
-    expect(cells).toHaveLength(18);
+    expect(cells).toHaveLength(16);
     expect(cells.map((cell) => cell.number)).toEqual(ROAD.map((_, index) => index + 1));
   });
 
@@ -33,9 +33,9 @@ describe('the list of the pieces of the road', () => {
   });
 
   it('counts a piece as passed by its own code only: the levels of the list are not pieces', () => {
-    const kept = { passed: { P01: true, F1: true, [ROAD[4].id]: true, [ROAD[17].id]: true }, stats: { P01: { bestMoves: 1 } } };
+    const kept = { passed: { P01: true, F1: true, [ROAD[4].id]: true, [ROAD[15].id]: true }, stats: { P01: { bestMoves: 1 } } };
     expect(roadDone(kept)).toBe(2);
-    expect(roadCells(kept).filter((cell) => cell.passed).map((cell) => cell.number)).toEqual([5, 18]);
+    expect(roadCells(kept).filter((cell) => cell.passed).map((cell) => cell.number)).toEqual([5, 16]);
   });
 
   it('carries the faces and the goal of every piece, for the line under the cells', () => {
@@ -50,7 +50,7 @@ describe('the cell the list of the pieces opens on', () => {
   it('is the piece the player is on', () => {
     expect(roadFocus(undefined, false)).toBe(0);
     expect(roadFocus('R04', false)).toBe(3);
-    expect(roadFocus('R18', false)).toBe(17);
+    expect(roadFocus('R16', false)).toBe(15);
     expect(roadFocus(undefined, true)).toBe(ROAD.findIndex((spec) => spec.id === FIRST_PASSED));
   });
 

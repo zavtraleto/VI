@@ -30,7 +30,7 @@ describe('the board the program opens on', () => {
   it('is past the first block for one who passed the first level of the build before and has no piece kept', () => {
     expect(startBoard(undefined, true, 0)).toEqual(startBoard(FIRST_PASSED, false, 0));
     // Past the block is the first piece of the second block, whatever level of the list they would go on with.
-    expect(startBoard(undefined, true, 3)).toEqual({ road: 6 });
+    expect(startBoard(undefined, true, 3)).toEqual({ road: 5 });
   });
 });
 

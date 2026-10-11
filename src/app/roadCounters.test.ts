@@ -22,15 +22,18 @@ describe('the plaques of the road', () => {
     expect(places(start('R04'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['0,1', '1,1'] }]);
   });
 
-  it('stand over a lone two, and over the fours of the corner the player does not stand on', () => {
+  it('stand over a lone two, one for each, and not over the dice that show no face of the piece', () => {
     expect(places(start('R03'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,1'] }]);
-    expect(places(start('R07'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,1'] }]);
-    // Three 4s stand as a corner and the player is on one of them: the plaque counts the two that are left as they are.
-    expect(places(start('R05'))).toEqual([{ value: 4, have: 2, need: 4, cells: ['3,1', '3,2'] }]);
+    expect(places(start('R06'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,0'] }]);
+    // Two 2s apart and two dice that show 4s: a plaque over each of the 2s.
+    expect(places(start('R05'))).toEqual([
+      { value: 2, have: 1, need: 2, cells: ['1,1'] },
+      { value: 2, have: 1, need: 2, cells: ['1,3'] },
+    ]);
   });
 
-  it('stand over each of the two asks of the mix of the first block: the pair of threes and the lone two', () => {
-    expect(places(start('R06'))).toEqual([
+  it('stand over each of the two asks of the mix of the second block: the pair of threes and the lone two', () => {
+    expect(places(start('R10'))).toEqual([
       { value: 3, have: 2, need: 3, cells: ['2,0', '3,0'] },
       { value: 2, have: 1, need: 2, cells: ['3,2'] },
     ]);
