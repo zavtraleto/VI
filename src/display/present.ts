@@ -103,8 +103,10 @@ const GLOW = spiral(GLOW_TAPS, (f) => 1.5 + 6.5 * Math.sqrt(f), (f) => 1 - 0.7 *
 
 /**
  * The layer as a worn video signal, still in its own pixels: blur, smear along the lines,
- * colours that have parted, light spilling out of the bright parts, grain. It reads and writes
- * sRGB with the colour premultiplied by alpha.
+ * colours that have parted, light spilling out of the bright parts. It reads and writes sRGB
+ * with the colour premultiplied by alpha. The grain of the signal is not put on here: it
+ * changes many times a second, and this pass, the heaviest there is for a pixel, would be done
+ * again every time for a layer that has not changed. The screen pass puts it on.
  */
 const VIDEO_FRAGMENT = /* glsl */ `
 uniform sampler2D uMap;
@@ -113,19 +115,12 @@ uniform float uBlur;
 uniform float uSmear;
 uniform float uChroma;
 uniform float uGlow;
-uniform float uNoise;
-/** Which grain this is: it counts up as the tape runs. */
-uniform float uTick;
 
 varying vec2 vUv;
 
 /** Taps of the blur and of the glow: x and y are where a tap lies, z is how much it counts. */
 const vec3 BLUR[${BLUR_TAPS}] = ${BLUR.taps};
 const vec3 GLOW[${GLOW_TAPS}] = ${GLOW.taps};
-
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
 
 vec4 soft(vec2 uv) {
   vec4 sum = texture2D(uMap, uv) * 2.0;
@@ -150,16 +145,11 @@ void main() {
     colour += halo / ${GLOW.total.toFixed(8)} * 2.0 * uGlow;
   }
 
-  if (uNoise > 0.0) {
-    float grain = hash(floor(vUv * uSize) + vec2(uTick * 0.37, uTick * 1.91)) - 0.5;
-    colour += grain * 0.3 * uNoise * texel.a;
-  }
-
   gl_FragColor = vec4(clamp(colour, 0.0, texel.a), texel.a);
 }
 `;
 
-/** Puts the worked signal on the screen: stretch, scanlines, dark corners, inversion, opacity. */
+/** Puts the worked signal on the screen: stretch, the grain of the signal, scanlines, dark corners, inversion, opacity. */
 const SCREEN_FRAGMENT = /* glsl */ `
 uniform sampler2D uMap;
 uniform vec2 uSize;
@@ -184,6 +174,8 @@ uniform float uHaloOver;
 uniform sampler2D uTrail;
 uniform bool uTrailOn;
 uniform float uGrain;
+/** The grain of the signal, in the pixels of the layer and only over what the layer has drawn. */
+uniform float uNoise;
 /** Which grain this is: it counts up as the tape runs. */
 uniform float uTick;
 
@@ -191,6 +183,11 @@ varying vec2 vUv;
 ${LENS_PASS}
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+/** The grain of a pixel of the layer. */
+float noiseAt(vec2 cell) {
+  return hash(cell + vec2(uTick * 0.37, uTick * 1.91)) - 0.5;
 }
 
 void main() {
@@ -205,6 +202,23 @@ void main() {
     texel.b = texture2D(uMap, at - shift).b;
     // Colour stays under its alpha; light added over nothing has no alpha and is left as it is.
     if (texel.a > 0.0) texel.rgb = min(texel.rgb, texel.a);
+  }
+  if (uNoise > 0.0) {
+    // A pixel of the layer has one grain. Read softly, the layer has its grain run from pixel
+    // to pixel as its picture does.
+    float grain;
+    if (uNearest && !uLens) {
+      grain = noiseAt(floor(at * uSize));
+    } else {
+      vec2 spot = at * uSize - 0.5;
+      vec2 cell = floor(spot);
+      vec2 f = spot - cell;
+      grain = mix(
+        mix(noiseAt(cell), noiseAt(cell + vec2(1.0, 0.0)), f.x),
+        mix(noiseAt(cell + vec2(0.0, 1.0)), noiseAt(cell + vec2(1.0, 1.0)), f.x),
+        f.y);
+    }
+    texel.rgb = clamp(texel.rgb + grain * 0.3 * uNoise * texel.a, 0.0, texel.a);
   }
   if (uLens && lensMisses(point)) texel = vec4(0.0);
   // The trail lies under the picture: it shows where the picture has nothing of its own.
@@ -313,8 +327,8 @@ interface Stage {
   b: THREE.WebGLRenderTarget;
   /** The first picture: the layer it was made from, its size, the colour depth and the dither. */
   first: [revision: number, width: number, height: number, depth: number, dither: number];
-  /** The second: the signal it was given, and which grain. */
-  second: [blur: number, smear: number, chroma: number, glow: number, noise: number, tick: number];
+  /** The second: the signal it was given; a blur under 0 is a picture that has to be made anew. */
+  second: [blur: number, smear: number, chroma: number, glow: number];
 }
 
 /** The two small pictures the light of a layer is spread through, and what the second was last made from. */
@@ -358,6 +372,8 @@ interface Way {
   threshold: number;
   /** Colours parted in the screen pass itself, in pixels of the layer; 0 where the video pass parts them. */
   chroma: number;
+  /** The grain of the signal, put on in the screen pass; 0 where the look asks for none. */
+  noise: number;
 }
 
 /**
@@ -397,8 +413,6 @@ export class Presenter {
     uSmear: { value: 0 },
     uChroma: { value: 0 },
     uGlow: { value: 0 },
-    uNoise: { value: 0 },
-    uTick: { value: 0 },
   };
   private readonly screenUniforms = {
     uMap: { value: null as THREE.Texture | null },
@@ -418,6 +432,7 @@ export class Presenter {
     uTrail: { value: null as THREE.Texture | null },
     uTrailOn: { value: false },
     uGrain: { value: 0 },
+    uNoise: { value: 0 },
     uTick: { value: 0 },
     ...lensUniforms(),
   };
@@ -441,7 +456,7 @@ export class Presenter {
   private readonly camera = new THREE.Camera();
   private readonly stages = new Map<Layer, Stage>();
   private readonly halos = new Map<Layer, Halo>();
-  private readonly way: Way = { video: false, staged: false, dressed: false, chroma: 0, lit: null, threshold: 0 };
+  private readonly way: Way = { video: false, staged: false, dressed: false, chroma: 0, noise: 0, lit: null, threshold: 0 };
   /** Which grain the frame in hand has. */
   private tick = 0;
 
@@ -493,7 +508,8 @@ export class Presenter {
 
   /**
    * Works out, off the screen, the pictures a layer is shown through. Called for every layer
-   * that will be shown, before the first of them is drawn. `timeMs` moves the grain.
+   * that will be shown, before the first of them is drawn. `timeMs` moves the grain, which is
+   * put on in `compose`: no picture made here is made again for it.
    */
   prepare(renderer: THREE.WebGLRenderer, layer: Layer, timeMs = 0): void {
     this.tick = Math.floor((timeMs / 1000) * GRAIN_HZ);
@@ -511,13 +527,11 @@ export class Presenter {
       renderer.clear(true, false, false);
       this.plain(renderer, layer, true, false, 1, false);
       // What was made from the picture before this one is no longer of it.
-      stage.second[5] = -1;
+      stage.second[0] = -1;
     }
     if (!way.video) return;
 
-    const tick = look.noise > 0 ? Math.floor((timeMs / 1000) * GRAIN_HZ) : 0;
-    const second = taken(stage.second, look.blur, look.smear, look.chroma, look.glow, look.noise, tick);
-    if (first && second) return;
+    if (taken(stage.second, look.blur, look.smear, look.chroma, look.glow)) return;
     const uniforms = this.videoUniforms;
     uniforms.uMap.value = stage.a.texture;
     uniforms.uSize.value.set(layer.width, layer.height);
@@ -525,8 +539,6 @@ export class Presenter {
     uniforms.uSmear.value = look.smear;
     uniforms.uChroma.value = look.chroma;
     uniforms.uGlow.value = look.glow;
-    uniforms.uNoise.value = look.noise;
-    uniforms.uTick.value = tick;
     renderer.setRenderTarget(stage.b);
     // The pass writes every pixel; cleared first, the card does not fetch the old picture to draw over.
     renderer.clear(true, false, false);
@@ -564,6 +576,7 @@ export class Presenter {
     uniforms.uTrail.value = stage ? null : layer.trailTexture;
     uniforms.uTrailOn.value = uniforms.uTrail.value !== null;
     uniforms.uGrain.value = look.grain;
+    uniforms.uNoise.value = way.noise;
     uniforms.uTick.value = this.tick;
     // The lens is the last thing done to a layer: on its way to the screen, whichever way it came.
     setLens(uniforms, look, true);
@@ -644,17 +657,18 @@ export class Presenter {
   private wayOf(layer: Layer): Way {
     const { look } = layer;
     const { way } = this;
-    const video = quality().video && (look.blur > 0 || look.smear > 0 || look.chroma > 0 || look.glow > 0 || look.noise > 0);
+    const video = quality().video && (look.blur > 0 || look.smear > 0 || look.chroma > 0 || look.glow > 0);
+    way.noise = quality().video ? Math.max(0, look.noise) : 0;
     // Parted colours alone, on a layer the screen pass reads as it is, are three readings of
     // the layer in that pass: the board, when a group goes. The two pictures of the video
     // pass, each as large as the screen, are not made for it.
-    const alone = video && look.blur <= 0 && look.smear <= 0 && look.glow <= 0 && look.noise <= 0 && layer.encoded && look.depth >= 7.5;
+    const alone = video && look.blur <= 0 && look.smear <= 0 && look.glow <= 0 && layer.encoded && look.depth >= 7.5;
     way.chroma = alone ? look.chroma : 0;
     way.video = video && !alone;
     // A layer that is not kept as the screen takes it has its light drawn for it.
     way.threshold = layer.encoded && !layer.topDown ? Math.max(0, look.haloThreshold) : 0;
     way.lit = quality().halo && look.halo > 0 ? (way.threshold > 0 ? layer.texture : layer.emitted) : null;
-    way.dressed = video || look.scanlines > 0 || look.vignette > 0 || look.grain > 0 || way.lit !== null;
+    way.dressed = video || way.noise > 0 || look.scanlines > 0 || look.vignette > 0 || look.grain > 0 || way.lit !== null;
     way.staged = way.dressed && (way.video || !layer.encoded || look.depth < 7.5);
     return way;
   }
@@ -686,7 +700,7 @@ export class Presenter {
   private stage(layer: Layer): Stage {
     let stage = this.stages.get(layer);
     if (!stage) {
-      stage = { a: stageTarget(), b: stageTarget(), first: [-1, 0, 0, 0, 0], second: [0, 0, 0, 0, 0, -1] };
+      stage = { a: stageTarget(), b: stageTarget(), first: [-1, 0, 0, 0, 0], second: [-1, 0, 0, 0] };
       this.stages.set(layer, stage);
     }
     const width = Math.max(1, layer.width);
