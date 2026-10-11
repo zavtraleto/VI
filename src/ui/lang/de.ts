@@ -109,7 +109,7 @@ export const DE: Texts = {
   ruleFives: 'Nur 5er wirken. Ein Combo sind fünf 5er nebeneinander.',
   // A proposal, like the Russian lines they follow.
   roadHintChain: 'Solange das Combo geht, rolle einen Würfel dazu.',
-  roadHintWalk: 'Über einen gehenden Würfel kannst du laufen.',
+  roadHintWalk: 'Solange das Combo geht, kannst du darüber laufen.',
   roadHintPush: 'Steig vom gehenden Würfel zu Boden und schiebe.',
   roadHintFixed: 'Der matte Würfel steht fest. Geh zum nächsten.',
   shellProtocol: 'SITZUNG OHNE LIMIT',

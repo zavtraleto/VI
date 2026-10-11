@@ -142,10 +142,11 @@ const RU = {
   // The three lines a piece of the road carries over its board when it teaches a move (`ROAD_HINTS`), and the one
   // about a dim die, said once to a player on any board (`roadHintFixed`): a hint and not an instruction, eight words
   // at most, in the voice of the lab assistant but short. THE TEXTS ARE A PROPOSAL OF THE IMPLEMENTER, `roadHintFixed`
-  // and the words of `roadHintPush` of 9 October too; the owner corrects them. The other six languages say the same in the same length and have not been
-  // read by a native speaker either.
+  // and the words of `roadHintPush` of 9 October too; the owner corrects them. The words of `roadHintWalk` are the
+  // owner's, of 11 October: it says when a combo can be walked over, while it leaves. The other six languages say the
+  // same in the same length and have not been read by a native speaker either.
   roadHintChain: 'Пока комбо уходит, докати к нему ещё одну.',
-  roadHintWalk: 'По уходящей кости можно пройти.',
+  roadHintWalk: 'Пока комбо уходит, по нему можно пройти.',
   roadHintPush: 'Сойди с уходящей кости на пол и толкни.',
   roadHintFixed: 'Тусклая кость стоит. Шагни на другую.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
@@ -276,7 +277,7 @@ const EN: typeof RU = {
   ruleGlass: 'You can roll over a leaving die. If the face matches, the die joins the chain.',
   ruleFives: 'Only 5s work. A combo is five 5s side by side.',
   roadHintChain: 'Roll another die to the leaving combo.',
-  roadHintWalk: 'You can walk over a leaving die.',
+  roadHintWalk: 'While a combo leaves, you can cross it.',
   roadHintPush: 'Step down from the leaving die and push.',
   roadHintFixed: 'A dim die stays put. Step to another.',
   shellProtocol: 'SESSION WITHOUT LIMIT',

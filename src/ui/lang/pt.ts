@@ -109,7 +109,7 @@ export const PT: Texts = {
   ruleFives: 'Só os 5 funcionam. Um combo são cinco 5 lado a lado.',
   // A proposal, like the Russian lines they follow.
   roadHintChain: 'Enquanto o combo sai, role outro dado.',
-  roadHintWalk: 'Dá para andar sobre um dado que sai.',
+  roadHintWalk: 'Enquanto o combo sai, dá para atravessá-lo.',
   roadHintPush: 'Desça do dado que sai e empurre.',
   roadHintFixed: 'O dado apagado não rola. Passe para outro.',
   shellProtocol: 'SESSÃO SEM LIMITE',

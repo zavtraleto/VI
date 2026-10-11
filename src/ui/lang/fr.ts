@@ -112,7 +112,7 @@ export const FR: Texts = {
   ruleFives: "Seuls les 5 marchent. Un combo, c'est cinq 5 côte à côte.",
   // A proposal, like the Russian lines they follow.
   roadHintChain: 'Quand le combo part, roule-lui un autre dé.',
-  roadHintWalk: 'Tu peux marcher sur un dé qui part.',
+  roadHintWalk: 'Quand le combo part, tu peux le traverser.',
   roadHintPush: 'Descends du dé qui part, puis pousse.',
   roadHintFixed: 'Le dé terne reste là. Passe au voisin.',
   shellProtocol: 'SESSION SANS LIMITE',
