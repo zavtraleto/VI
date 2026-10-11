@@ -207,6 +207,8 @@ uniform vec4 uPip;
 uniform vec2 uFace;
 /** The cross of a face that does not work, in faces: how wide it is; how thick its strokes are; how much of what is under it it hides; how thick the dark line around it is. */
 uniform vec4 uCross;
+/** Above a half, a face that does not work has a small pale cross in the place of each pip, and no cross over the face. */
+uniform float uOffPips;
 /** Half the width of the line of an edge; how bright it is; how far its light spreads over the face; how bright that light is. */
 uniform vec4 uLine;
 /** What the edges that are not around the face on top keep of their light. */
@@ -263,6 +265,21 @@ ${THROUGH_DOTS}
   float pip = 1.0 - smoothstep(radius - px, radius + px, away);
 
   bool off = ((uOff >> (value - 1)) & 1) == 1;
+  // A face that does not work may have its pips crossed out one by one: where a pip would be
+  // stands a small cross, two strokes with round ends as wide as the pip, with a thin dark
+  // line around them so that they read on a pale face. They are counted as pips are.
+  bool crossed = off && uOffPips > 0.5;
+  float pipRim = 0.0;
+  if (crossed) {
+    vec2 from = (grid - node) * STEP;
+    vec2 turn = abs(vec2(from.x + from.y, from.x - from.y)) * 0.70710678;
+    float thick = max(radius * 0.3, px);
+    float reach = max(0.0, radius * 1.15 - thick);
+    float gap = away < 1.0 ? min(length(vec2(max(turn.x - reach, 0.0), turn.y)), length(vec2(turn.x, max(turn.y - reach, 0.0)))) : 1.0;
+    float shell = thick + max(radius * 0.18, px);
+    pip = 1.0 - smoothstep(thick - px, thick + px, gap);
+    pipRim = 1.0 - smoothstep(shell - px, shell + px, gap);
+  }
   float up = vStand.y;
   float screen = 1.0 - uFace.x * smoothstep(0.1, 0.7, length(uv - 0.5));
   vec3 tint = uChannels[value - 1];
@@ -302,7 +319,8 @@ ${THROUGH_DOTS}
   // Around a pip the screen is a little less lit: a place that is out has no sharp end.
   float dusk = uPip.w * (1.0 - smoothstep(radius, radius * (1.0 + uPip.z), away));
   vec3 colour = tint * (power * screen * (1.0 - dusk));
-  vec3 mark = value == 1 ? uSignal * min(1.0, power) : uPipDark;
+  vec3 mark = crossed ? uEdge * min(1.0, power) : value == 1 ? uSignal * min(1.0, power) : uPipDark;
+  colour = mix(colour, uPipDark, pipRim);
   colour = mix(colour, mark, pip);
   colour += edge * (rim * (line * uLine.y + exp(-border / max(uLine.z, 0.0001)) * uLine.w) * (1.0 + uLift));
   // A group going down lights what stands around it: the body takes that light as matter does.
@@ -312,7 +330,7 @@ ${THROUGH_DOTS}
   colour += tint * uLampColour * (fall * max(dot(normal, toLamp / span), 0.0) * 0.3183 * (1.0 - pip));
 #ifndef GLASS
   // A die that is not all here has no crosses: neither one that comes nor one a combo takes.
-  if (off) {
+  if (off && !crossed) {
     // A face that does not work is crossed out: two strokes with round ends from corner to
     // corner of the middle half of the face, red, with a thin dark line around them so that
     // they read on a red face and over the pip of the one. The pips show through them. A
@@ -387,6 +405,7 @@ export class CubeMeshes {
     uPip: { value: new THREE.Vector4() },
     uFace: { value: new THREE.Vector2() },
     uCross: { value: new THREE.Vector4(0.5, 0.08, 0.8, 0.02) },
+    uOffPips: { value: 1 },
     uLine: { value: new THREE.Vector4() },
     uLineSide: { value: 1 },
     uSide: { value: 1 },
@@ -523,6 +542,7 @@ export class CubeMeshes {
     shared.uPip.value.set(n('pipSize'), n('pipOne'), n('pipDusk'), n('pipDuskDark'));
     shared.uFace.value.set(n('faceShade'), n('sideFall'));
     shared.uCross.value.set(n('crossSize'), n('crossWidth'), n('crossAlpha'), n('crossRim'));
+    shared.uOffPips.value = n('offPips');
     shared.uLine.value.set(n('edgeWidth') / 2, light(n('edgeBright')), n('edgeSpread'), light(n('edgeGlow')));
     shared.uLineSide.value = light(n('edgeSide'));
     shared.uSide.value = light(n('faceSide'));

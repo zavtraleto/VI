@@ -48,6 +48,8 @@ export const BOARD_GROUPS = {
     crossWidth: number(0.08, 0.02, 0.2, 0.005),
     crossAlpha: number(0.8, 0.2, 1, 0.01),
     crossRim: number(0.02, 0, 0.08, 0.005),
+    /** A face that does not work has a small pale cross in the place of each pip and no cross over the face (1); at 0 it keeps its pips under the red cross. A probe. */
+    offPips: number(1, 0, 1, 1),
     /** The screen is a little less lit around a pip: how far that reaches, in radii of the pip, and how dark it is. */
     pipDusk: number(0.2, 0, 2, 0.05),
     pipDuskDark: number(0.3, 0, 1, 0.01),
