@@ -25,7 +25,8 @@
 //                                                       ends= firsts= trap= trapdepth= hidden= far= last=); seconds=10, keep=5
 //   node scripts/level.mjs complete file=H01 pinned=1.1,3.2 preset=flow   the dice named stay, the rest are laid for the order
 //   node scripts/level.mjs repair file=H01 par=4-4 needs=link   the nearest board that meets the order, by the fewest changes
-//                                                       (both: seconds=10, out=<file> to write the board; pinned= dice left alone)
+//   node scripts/level.mjs improve file=H01 preset=tricky   as repair, by many small changes: for a board three changes do not mend
+//                                                       (all three: seconds=10, out=<file> to write the board; pinned= dice left alone)
 //   node scripts/level.mjs set name=set7 orders=insight,insight,wall,gift   a set: a board to every preset, each ordered
 //                                                       after those before it, written as set7-1, set7-2 … (seconds=6 a board)
 //   node scripts/level.mjs ratings                      what the owner answered after his plays: the boards called fire
@@ -72,6 +73,7 @@ const COMMANDS = {
   set: { keys: ['name', 'orders', 'seconds', 'out'], flags: ['json'] },
   complete: { keys: null, flags: ['json'] },
   repair: { keys: null, flags: ['json'] },
+  improve: { keys: null, flags: ['json'] },
 };
 
 /** Ends the script on what could not be read: said on stderr, code 2. */
@@ -261,11 +263,11 @@ if (command === 'show') {
     { order: orderText(order), tried, boards: written },
   );
   if (!written.some((board) => board.misses.length === 0)) process.exitCode = 1;
-} else if (command === 'complete' || command === 'repair') {
+} else if (command === 'complete' || command === 'repair' || command === 'improve') {
   // The board of file= worked on by an order: the words that are not the script's own are the order's.
   const own = ['file', 'pinned', 'seconds', 'out'];
   const { orderOf, orderText } = await load('/src/levels/orders.ts');
-  const { completeFor, repairFor } = await load('/src/levels/orderSearch.ts');
+  const { completeFor, repairFor, improveFor } = await load('/src/levels/orderSearch.ts');
   const { spec } = loadBoard();
   let order;
   try {
@@ -280,7 +282,7 @@ if (command === 'show') {
     return { x, z };
   });
   const budgetMs = (number('seconds') ?? 10) * 1000;
-  const found = command === 'complete' ? completeFor(order, spec, pinned, { budgetMs, keep: 1 }).offers : repairFor(order, spec, pinned, { budgetMs, keep: 1 }).mended;
+  const found = command === 'complete' ? completeFor(order, spec, pinned, { budgetMs, keep: 1 }).offers : command === 'repair' ? repairFor(order, spec, pinned, { budgetMs, keep: 1 }).mended : improveFor(order, spec, pinned, { budgetMs, keep: 1 }).mended;
   const best = found[0];
   if (!best) {
     console.error(`${command}: no board found for ${orderText(order)}`);

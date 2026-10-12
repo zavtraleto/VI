@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DOWN_AND_UP } from './boardSamples';
-import { byOrder, completeFor, judgeBoard, offersFor, repairFor } from './orderSearch';
+import { byOrder, completeFor, improveFor, judgeBoard, offersFor, repairFor } from './orderSearch';
 import { BASE_ORDER, type Order } from './orders';
 import { sameBoard } from './variety';
 
@@ -117,5 +117,30 @@ describe('repairFor', () => {
       expect(board.edits.every((edit) => !edit.startsWith('die 3,2'))).toBe(true);
       expect(board.spec.layout!.dice).toContainEqual({ x: 3, z: 2, top: 3, north: 1 });
     }
+  });
+});
+
+describe('improveFor', () => {
+  const order: Order = { size: 4, dice: 5, faces: [2], par: [4, 4], needs: ['link', 'floor'] };
+  const dice = DOWN_AND_UP.layout!.dice.map((die) => (die.x === 3 && die.z === 2 ? { ...die, top: 3, north: 1 } : die));
+  const spoilt = { ...DOWN_AND_UP, layout: { ...DOWN_AND_UP.layout!, dice } };
+  it('keeps a pool no bigger than it is told, and its best board never gets worse', { timeout: 120_000 }, () => {
+    const bests: number[] = [];
+    let most = 0;
+    improveFor(order, spoilt, [], { budgetMs: 100_000, steps: 25, pool: 4, onStep: (best, pool) => {
+      bests.push(best.misses.length * 1000 + best.distance);
+      most = Math.max(most, pool);
+    } });
+    expect(most).toBeLessThanOrEqual(4);
+    expect(bests.length).toBeGreaterThan(0);
+    expect([...bests].sort((a, b) => b - a)).toEqual(bests);
+  });
+  it('searches the same way from the same seed, and stops at once on a board that meets the order', { timeout: 120_000 }, () => {
+    const once = improveFor(order, spoilt, [], { budgetMs: 100_000, steps: 12, seed: 3 }).mended.map((board) => board.edits);
+    const again = improveFor(order, spoilt, [], { budgetMs: 100_000, steps: 12, seed: 3 }).mended.map((board) => board.edits);
+    expect(again).toEqual(once);
+    const { mended, tried } = improveFor(order, DOWN_AND_UP, []);
+    expect(tried).toBe(0);
+    expect(mended[0]).toMatchObject({ edits: [], misses: [] });
   });
 });

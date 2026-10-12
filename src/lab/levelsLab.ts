@@ -156,7 +156,8 @@ class LevelsLab {
   private orderSays: string[] = [];
   private ordering = false;
   /** The worker that builds a board about pinned dice or mends one; where it begins its next building; the cells its last answer changed. */
-  private readonly askFix = new SolveClient<Question<'complete'> | Question<'repair'>, Fixed>(solver);
+  private readonly askFix = new SolveClient<Question<'complete'> | Question<'repair'> | Question<'improve'>, Fixed>(solver);
+  private improveSeed = 1;
   private completeFrom = 1;
   private foundMarks: { x: number; z: number }[] = [];
   /** The set on the panel: its presets in a line; the worker that lays it; and the set being played, board after board. */
@@ -367,6 +368,7 @@ class LevelsLab {
     folder.add({ more: () => void this.layOrder() }, 'more').name('ещё');
     folder.add({ complete: () => this.fix('complete') }, 'complete').name('достроить вокруг закреплённых (K)');
     folder.add({ repair: () => this.fix('repair') }, 'repair').name('починить под заказ');
+    folder.add({ improve: () => this.fix('improve') }, 'improve').name('улучшить под заказ (10 с)');
     const set = gui.addFolder('Связка').close();
     set.add(this.setForm, 'keys').name('заготовки по порядку');
     set.add({ lay: () => this.laySet() }, 'lay').name('собрать связку');
@@ -558,7 +560,7 @@ class LevelsLab {
    * cells it changed are framed until the board is changed again. An answer about a board that
    * has been changed since it was asked is dropped.
    */
-  private fix(kind: 'complete' | 'repair'): void {
+  private fix(kind: 'complete' | 'repair' | 'improve'): void {
     if (this.name === '' || this.editor.locked || this.moment !== null) return;
     let order: Order;
     try {
@@ -572,16 +574,17 @@ class LevelsLab {
     const { par: _par, exact: _exact, solution: _solution, ...head } = this.head;
     const spec = rawSpecOf(board, head);
     const pinned = this.editor.pins;
-    this.orderSays = [kind === 'complete' ? `достраиваю вокруг закреплённых (${pinned.length})…` : 'чиню под заказ…'];
+    this.orderSays = [kind === 'complete' ? `достраиваю вокруг закреплённых (${pinned.length})…` : kind === 'repair' ? 'чиню под заказ…' : 'улучшаю под заказ, до десяти секунд…'];
     this.show();
-    const question = kind === 'complete' ? ({ tier: 'complete', order, spec, pinned, from: this.completeFrom } as const) : ({ tier: 'repair', order, spec, pinned } as const);
+    const question =
+      kind === 'complete' ? ({ tier: 'complete', order, spec, pinned, from: this.completeFrom } as const) : kind === 'repair' ? ({ tier: 'repair', order, spec, pinned } as const) : ({ tier: 'improve', order, spec, pinned, seed: this.improveSeed++ } as const);
     this.askFix.ask(question).then(
       (answer) => {
         if (this.editor.current !== board) return;
         const best = answer.kind === 'complete' ? answer.offers[0] : answer.mended[0];
         if (answer.kind === 'complete') this.completeFrom = answer.next;
         if (!best) {
-          this.orderSays = [`${kind === 'complete' ? 'достроить' : 'починить'}: ни одной доски за ${answer.tried} попыток`];
+          this.orderSays = [`${kind === 'complete' ? 'достроить' : kind === 'repair' ? 'починить' : 'улучшить'}: ни одной доски за ${answer.tried} попыток`];
           this.show();
           return;
         }

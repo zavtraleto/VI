@@ -276,3 +276,49 @@ export function repairFor(order: Order, board: LevelSpec, pinned: readonly { x: 
   }
   return { mended: sorted().slice(0, keep), tried };
 }
+
+/**
+ * A board made better for an order by many small changes: a pool of boards is kept, the board
+ * given first in it; a board of the pool is taken by chance and changed by one die, the board
+ * that comes of it is judged and put in the pool, and the worst of the pool goes out. So the
+ * search goes as far from the board as it has to, where mending it by three changes at the most
+ * does not do. Better is fewer things missed of the order, and then nearer to it. A die of
+ * `pinned` is not changed. The best boards of the pool are given, each with the changes that
+ * made it; the same seed gives the same search.
+ */
+export function improveFor(
+  order: Order,
+  board: LevelSpec,
+  pinned: readonly { x: number; z: number }[],
+  opts: { budgetMs?: number; pool?: number; keep?: number; seed?: number; steps?: number; now?: () => number; onStep?: (best: Mended, pool: number) => void } = {},
+): { mended: Mended[]; tried: number } {
+  const { budgetMs = 10_000, pool: size = 10, keep = 3, seed = 1, steps = 100_000, now = Date.now, onStep } = opts;
+  const held = new Set(pinned.map(at));
+  const better = (a: Mended, b: Mended): number => a.misses.length - b.misses.length || a.distance - b.distance || a.edits.length - b.edits.length;
+  const whole = judgeBoard(order, board);
+  const pool: Mended[] = [{ ...(whole ?? { spec: board, par: null, exact: false, route: null, uses: [], misses: ['the rules lay no such board'], distance: 1000 }), edits: [] }];
+  const next = numbersFrom(seed);
+  const began = now();
+  let tried = 0;
+  for (let step = 0; step < steps && now() - began < budgetMs && pool[0].misses.length > 0; step++) {
+    const parent = pool[Math.floor(next() * pool.length)];
+    const { leaving, onFloor } = parent.spec.layout!;
+    const edits = editsOf(parent.spec).filter((edit) => {
+      const named = /(\d+),(\d+)/.exec(edit.what);
+      return !(named && held.has(`${named[1]},${named[2]}`));
+    });
+    if (edits.length === 0) break;
+    const edit = edits[Math.floor(next() * edits.length)];
+    const moved = edit.what.startsWith('start at');
+    const spec: LevelSpec = { ...edit.spec, layout: { ...edit.spec.layout!, ...(leaving ? { leaving } : {}), ...(onFloor && !moved ? { onFloor } : {}) } };
+    if (pool.some((kept) => JSON.stringify(kept.spec.layout) === JSON.stringify(spec.layout))) continue;
+    tried++;
+    const judged = judgeBoard(order, spec);
+    if (!judged) continue;
+    pool.push({ ...judged, edits: [...parent.edits, edit.what] });
+    pool.sort(better);
+    if (pool.length > size) pool.length = size;
+    onStep?.(pool[0], pool.length);
+  }
+  return { mended: pool.slice(0, keep), tried };
+}

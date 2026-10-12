@@ -1,6 +1,6 @@
 import { levelId } from '../levels/generate';
 import { QUICK_MAX_STATES, checkOf, genFile, genOf, movesOf, nearBoards, nearOf, type Check, type MoveFact, type NearFact } from '../levels/labText';
-import { completeFor, offersFor, repairFor, type Mended, type OrderOffer } from '../levels/orderSearch';
+import { completeFor, improveFor, offersFor, repairFor, type Mended, type OrderOffer } from '../levels/orderSearch';
 import type { Order } from '../levels/orders';
 import { setFor, type SetBoard } from '../levels/sets';
 import { PLACES } from '../levels/recipes';
@@ -140,17 +140,19 @@ export type Ask =
   | { id: number; tier: 'order'; order: Order; from: number; budgetMs: number; skip: LevelSpec[] }
   | { id: number; tier: 'complete'; order: Order; spec: LevelSpec; pinned: { x: number; z: number }[]; from: number }
   | { id: number; tier: 'repair'; order: Order; spec: LevelSpec; pinned: { x: number; z: number }[] }
+  | { id: number; tier: 'improve'; order: Order; spec: LevelSpec; pinned: { x: number; z: number }[]; seed: number }
   | { id: number; tier: 'set'; keys: string[] };
 
 /** What a worker answers when it is asked to build a board about pinned dice, or to mend one. */
 export type Fixed = { kind: 'complete'; offers: OrderOffer[]; tried: number; next: number } | { kind: 'repair'; mended: Mended[]; tried: number };
-export type Told = { id: number; tier: 'seconds'; facts: Seconds } | { id: number; tier: 'later'; facts: Later } | { id: number; tier: 'gen'; facts: Offer[] } | { id: number; tier: 'order'; facts: { offers: OrderOffer[]; tried: number; next: number } } | { id: number; tier: 'complete' | 'repair'; facts: Fixed } | { id: number; tier: 'set'; facts: { boards: SetBoard[]; missing: string[] } } | { id: number; tier: Ask['tier']; error: string };
+export type Told = { id: number; tier: 'seconds'; facts: Seconds } | { id: number; tier: 'later'; facts: Later } | { id: number; tier: 'gen'; facts: Offer[] } | { id: number; tier: 'order'; facts: { offers: OrderOffer[]; tried: number; next: number } } | { id: number; tier: 'complete' | 'repair' | 'improve'; facts: Fixed } | { id: number; tier: 'set'; facts: { boards: SetBoard[]; missing: string[] } } | { id: number; tier: Ask['tier']; error: string };
 
 /** Answers a question: the work of the worker, kept here so that it can be asked without one. */
 export function answer(ask: Ask): Told {
   try {
     if (ask.tier === 'seconds') return { id: ask.id, tier: 'seconds', facts: secondsOf(ask.spec) };
     if (ask.tier === 'set') return { id: ask.id, tier: 'set', facts: setFor(ask.keys) };
+    if (ask.tier === 'improve') return { id: ask.id, tier: 'improve', facts: { kind: 'repair', ...improveFor(ask.order, ask.spec, ask.pinned, { seed: ask.seed }) } };
     if (ask.tier === 'complete') return { id: ask.id, tier: 'complete', facts: { kind: 'complete', ...completeFor(ask.order, ask.spec, ask.pinned, { from: ask.from }) } };
     if (ask.tier === 'repair') return { id: ask.id, tier: 'repair', facts: { kind: 'repair', ...repairFor(ask.order, ask.spec, ask.pinned) } };
     if (ask.tier === 'order') return { id: ask.id, tier: 'order', facts: offersFor(ask.order, { from: ask.from, budgetMs: ask.budgetMs, skip: ask.skip }) };
