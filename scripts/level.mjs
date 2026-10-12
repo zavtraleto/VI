@@ -26,6 +26,8 @@
 //   node scripts/level.mjs complete file=H01 pinned=1.1,3.2 preset=flow   the dice named stay, the rest are laid for the order
 //   node scripts/level.mjs repair file=H01 par=4-4 needs=link   the nearest board that meets the order, by the fewest changes
 //                                                       (both: seconds=10, out=<file> to write the board; pinned= dice left alone)
+//   node scripts/level.mjs set name=set7 orders=insight,insight,wall,gift   a set: a board to every preset, each ordered
+//                                                       after those before it, written as set7-1, set7-2 … (seconds=6 a board)
 //   node scripts/level.mjs ratings                      what the owner answered after his plays: the boards called fire
 //                                                       beside those called a miss, measure by measure and preset by preset
 //   node scripts/level.mjs gen place=R05 out=boards/out/   boards laid for a place and judged by it, the ones that fit
@@ -67,6 +69,7 @@ const COMMANDS = {
   // The keys of `order` are the words of an order, read by `orderOf`: any key is taken here and held against them there.
   order: { keys: null, flags: ['json'] },
   ratings: { keys: [], flags: ['json'] },
+  set: { keys: ['name', 'orders', 'seconds', 'out'], flags: ['json'] },
   complete: { keys: null, flags: ['json'] },
   repair: { keys: null, flags: ['json'] },
 };
@@ -294,6 +297,29 @@ if (command === 'show') {
     { order: orderText(order), par: best.par, misses: best.misses, edits: best.edits ?? null, text },
   );
   if (best.misses.length > 0) process.exitCode = 1;
+} else if (command === 'set') {
+  const { setFor } = await load('/src/levels/sets.ts');
+  const { orderText } = await load('/src/levels/orders.ts');
+  if (!named.orders || !named.name) refuse('set: name the set and its presets in their order, as in name=set7 orders=insight,insight,wall,gift');
+  if (!/^[A-Za-z0-9_]{1,40}$/.test(named.name)) refuse(`set: "name=${named.name}" has more than letters, digits and _`);
+  let laid;
+  try {
+    laid = setFor(named.orders.split(',').filter(Boolean), { budgetMs: (number('seconds') ?? 6) * 1000 });
+  } catch (error) {
+    refuse(error.message);
+  }
+  const dir = resolve(process.cwd(), named.out ?? resolve(root, 'boards'));
+  mkdirSync(dir, { recursive: true });
+  const written = laid.boards.map((board, index) => {
+    const name = `${named.name}-${index + 1}`;
+    writeFileSync(resolve(dir, `${name}.txt`), printBoard({ ...board.offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(board.order)}` }));
+    return { name, preset: board.key, par: board.offer.par, route: board.offer.route, misses: board.offer.misses };
+  });
+  print(
+    [...written.map((board) => `${board.name}  ${board.preset}  moves ${board.par}  route ${board.route}  ${board.misses.length === 0 ? 'meets its order' : `misses: ${board.misses.join('; ')}`}`), `set: ${written.length} boards${laid.missing.length > 0 ? `, none found for ${laid.missing.join(', ')}` : ''}`].join('\n'),
+    { name: named.name, boards: written, missing: laid.missing },
+  );
+  if (laid.missing.length > 0) process.exitCode = 1;
 } else if (command === 'ratings') {
   // The plays written down beside the boards, every board's, with the answers given after them laid over.
   const { mergePlays, ratingsOf, ratingsText } = await load('/src/lab/playLog.ts');

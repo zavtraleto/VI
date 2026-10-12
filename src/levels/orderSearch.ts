@@ -30,6 +30,8 @@ export interface Judged {
   par: number | null;
   exact: boolean;
   route: string | null;
+  /** What its way leans on: empty where it has none. */
+  uses: Technique[];
   /** What it does not meet of the order, in words; empty where it meets all of it. */
   misses: string[];
   /** How far it is from the order: a miss of a number by how far outside it is, any other miss as one. */
@@ -71,7 +73,7 @@ export function judgeBoard(order: Order, board: LevelSpec, opts: { maxStates?: n
   const found = solved.solution;
   if (!found) {
     miss(solved.exhausted ? 'no way: the board cannot be cleared' : 'no way found: the board is too big for a search of seconds', 100);
-    return { spec: bare, par: null, exact: false, route: null, misses, distance };
+    return { spec: bare, par: null, exact: false, route: null, uses: [], misses, distance };
   }
   const way = found.moves.map(moveText);
   const score = scoreOf(bare, found.moves);
@@ -96,7 +98,7 @@ export function judgeBoard(order: Order, board: LevelSpec, opts: { maxStates?: n
   // What takes a search of its own is asked last, and only of a board that is near the order already.
   if (order.firsts && distance <= 2) within('first moves', firstsOf(bare, found.par, 15_000), order.firsts);
   if (distance <= 2) for (const said of orderMisses(order, bare, way)) miss(said);
-  return { spec: { ...bare, par: found.par, exact: true, solution: way }, par: found.par, exact: true, route: score.route, misses, distance };
+  return { spec: { ...bare, par: found.par, exact: true, solution: way }, par: found.par, exact: true, route: score.route, uses: [...found.uses], misses, distance };
 }
 
 /** A board offered for an order: the board judged, and the seed it was laid from. */
@@ -245,7 +247,7 @@ export function repairFor(order: Order, board: LevelSpec, pinned: readonly { x: 
   let front: Mended[] = [];
   const whole = judgeBoard(order, board);
   if (whole && whole.misses.length === 0) return { mended: [{ ...whole, edits: [] }], tried: 0 };
-  front.push({ ...(whole ?? { spec: board, par: null, exact: false, route: null, misses: ['the rules lay no such board'], distance: 1000 }), edits: [] });
+  front.push({ ...(whole ?? { spec: board, par: null, exact: false, route: null, uses: [], misses: ['the rules lay no such board'], distance: 1000 }), edits: [] });
   search: for (let changes = 1; changes <= 3 && front.length > 0; changes++) {
     const next: Mended[] = [];
     for (const parent of front) {

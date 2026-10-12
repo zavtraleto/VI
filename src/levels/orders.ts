@@ -191,13 +191,21 @@ export interface Preset {
 
 /**
  * The presets, by their keys. Four are the owner's own of 12 October 2026: one guess, flow, on
- * the last move, deceptive. Their numbers are a first guess.
+ * the last move, deceptive; four he took after the research: a wall, a gift, mastery, a finale.
+ * Their numbers are a first guess. A wall and a gift are places in a run of boards more than
+ * boards: alone they are a long strict board and a short forgiving one, and in a set
+ * (`sets.ts`) they are set by what was played before them.
  */
 export const PRESETS: Readonly<Record<string, Preset>> = {
   insight: { name: 'одна догадка', order: { size: 4, dice: 4, faces: [2], par: [3, 5], firsts: [1, 1], trap: 'none', avoid: ['ones'] } },
   flow: { name: 'поток', order: { size: 4, dice: 5, more: 1, faces: [2], par: [5, 8], events: [3, 9], firsts: [2, 9], avoid: ['ones'] } },
   lastMove: { name: 'на последнем ходу', order: { size: 4, dice: 5, faces: [2], par: [3, 6], needs: ['link'], endsOn: { event: 'link', spare: 0 }, avoid: ['ones'] } },
   tricky: { name: 'обманчивая', order: { size: 4, dice: 5, faces: [2], par: [3, 7], trap: 'any', trapDepth: [0, 6], avoid: ['ones'] } },
+  // Four more, after the research of the emotions of a level (docs/VI_Level_Emotion_Research.md): what the first four do not cover.
+  wall: { name: 'стена', order: { size: 4, dice: 5, faces: [2], par: [7, 10], firsts: [1, 1], avoid: ['ones'] } },
+  gift: { name: 'подарок', order: { size: 4, dice: 4, faces: [2], par: [2, 3], firsts: [2, 9], trap: 'none', avoid: ['ones'] } },
+  mastery: { name: 'мастерство', order: { size: 4, dice: 5, faces: [2], par: [3, 5], firsts: [1, 9], avoid: ['ones'] } },
+  finale: { name: 'развязка', order: { size: 4, dice: 5, more: 1, faces: [2], par: [3, 6], last: [3, 9], avoid: ['ones'] } },
 };
 
 /** The order a board is asked by where nothing is said: a small board of one face. */

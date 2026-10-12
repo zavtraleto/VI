@@ -18,6 +18,7 @@ import { boardHash, type Version } from './boardsServer';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, rawSpecOf, resize, textOf, type EditBoard } from './editBoard';
 import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Fixed, type Instant, type Later, type Offer, type Seconds } from './labFacts';
+import type { SetBoard } from '../levels/sets';
 import { OrderDesk } from './orderDesk';
 import { mergePlays, playRecordOf, ratingsOf, ratingsText, versionSummary, type PlayPatch, type PlayRecord, type Rate } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
@@ -158,6 +159,10 @@ class LevelsLab {
   private readonly askFix = new SolveClient<Question<'complete'> | Question<'repair'>, Fixed>(solver);
   private completeFrom = 1;
   private foundMarks: { x: number; z: number }[] = [];
+  /** The set on the panel: its presets in a line; the worker that lays it; and the set being played, board after board. */
+  private readonly setForm = { keys: 'insight insight wall gift' };
+  private readonly askSet = new SolveClient<Question<'set'>, { boards: SetBoard[]; missing: string[] }>(solver);
+  private setRun: { names: string[]; index: number } | null = null;
   /** The play that was last written down, while its answers are taken; and whether the ratings are shown in place of the facts. */
   private asked: Asked | null = null;
   private readonly askBar = document.createElement('div');
@@ -215,6 +220,13 @@ class LevelsLab {
         event.stopImmediatePropagation();
         event.preventDefault();
         if (!event.repeat) this.togglePlay();
+        return;
+      }
+      // In a set, `Enter` after a board is cleared goes on to the next board.
+      if (this.playing && this.setRun && (event.code === 'Enter' || event.code === 'NumpadEnter') && this.inside.state.endReason === 'passed') {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        if (event.type === 'keydown' && !event.repeat) void this.nextOfSet();
         return;
       }
       if (this.playing) {
@@ -355,6 +367,10 @@ class LevelsLab {
     folder.add({ more: () => void this.layOrder() }, 'more').name('ещё');
     folder.add({ complete: () => this.fix('complete') }, 'complete').name('достроить вокруг закреплённых (K)');
     folder.add({ repair: () => this.fix('repair') }, 'repair').name('починить под заказ');
+    const set = gui.addFolder('Связка').close();
+    set.add(this.setForm, 'keys').name('заготовки по порядку');
+    set.add({ lay: () => this.laySet() }, 'lay').name('собрать связку');
+    set.add({ play: () => void this.playSet() }, 'play').name('играть связку этой доски');
     for (const control of this.orderControls) control.updateDisplay();
   }
 
@@ -428,6 +444,91 @@ class LevelsLab {
       return;
     }
     await this.keepOrdered(order, offer);
+  }
+
+  /**
+   * Lays a set: a board to every preset named on the panel, each ordered after those before it
+   * (`setFor`). The boards are kept as files `set<n>-1`, `set<n>-2` and on, and the first is
+   * opened. It takes a few seconds to a board.
+   */
+  private laySet(): void {
+    const keys = this.setForm.keys.split(' ').join(',').split(',').filter(Boolean);
+    const unknown = keys.filter((key) => !PRESETS[key]);
+    if (keys.length === 0 || unknown.length > 0) {
+      this.orderSays = [`связка: ${unknown.length > 0 ? `нет заготовки ${unknown.join(', ')}` : 'назовите заготовки'}; есть ${Object.keys(PRESETS).join(' ')}`];
+      this.show();
+      return;
+    }
+    this.orderSays = [`связка: собираю ${keys.length} досок, по несколько секунд на каждую…`];
+    this.show();
+    this.askSet.ask({ tier: 'set', keys }).then(
+      async ({ boards, missing }) => {
+        if (boards.length === 0) {
+          this.orderSays = ['связка: ни одной доски'];
+          this.show();
+          return;
+        }
+        if (this.saveTimer !== 0) await this.save();
+        let number = 1;
+        while (this.names.some((name) => name.startsWith(`set${number}-`))) number++;
+        const texts = boards.map((board, index) => {
+          const name = `set${number}-${index + 1}`;
+          return { name, text: printBoard({ ...board.offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(board.order)}` }) };
+        });
+        for (const { name, text } of texts) await writeBoard(name, text);
+        await this.readNames();
+        this.load(texts[0].name, texts[0].text);
+        const lines = boards.map((board, index) => `  ${index + 1}. ${PRESETS[board.key].name}${board.offer.misses.length === 0 ? '' : ` — ближайшая: ${board.offer.misses.join('; ')}`}`);
+        this.orderSays = [`связка set${number}: досок ${boards.length}`, ...lines, ...(missing.length > 0 ? [`не нашлось: ${missing.join(', ')}`] : []), '«играть связку этой доски» — сыграть подряд'];
+        this.show();
+      },
+      (error: Error) => {
+        if (error.message === CANCELLED) return;
+        this.orderSays = [`связка: ${error.message}`];
+        this.show();
+      },
+    );
+  }
+
+  /** The boards of the set the board in hand is one of, in the order of their numbers; empty where it is of no set. */
+  private setNames(): string[] {
+    const dash = this.name.lastIndexOf('-');
+    if (dash < 1) return [];
+    const stem = this.name.slice(0, dash + 1);
+    const numberOf = (name: string): number => Number(name.slice(stem.length));
+    return this.names.filter((name) => name.startsWith(stem) && name.length > stem.length && Number.isInteger(numberOf(name))).sort((a, b) => numberOf(a) - numberOf(b));
+  }
+
+  /** Plays the set of the board in hand from that board on: when a board is cleared, `Enter` goes on to the next, and after the last the editor is back. */
+  private async playSet(): Promise<void> {
+    const names = this.setNames();
+    const index = names.indexOf(this.name);
+    if (index < 0 || names.length < 2) {
+      this.orderSays = ['связка: эта доска не из связки (имя вида set1-2)'];
+      this.show();
+      return;
+    }
+    if (this.playing) this.togglePlay();
+    if (!this.spec) return;
+    this.togglePlay();
+    this.setRun = { names, index };
+  }
+
+  /** The next board of the set being played is put on, or, after the last, the editor is come back to. */
+  private async nextOfSet(): Promise<void> {
+    const run = this.setRun;
+    if (!run) return;
+    if (this.playing) this.togglePlay();
+    run.index++;
+    if (run.index >= run.names.length) {
+      this.orderSays = ['связка сыграна'];
+      this.show();
+      return;
+    }
+    await this.open(run.names[run.index]);
+    if (!this.spec) return;
+    this.togglePlay();
+    this.setRun = run;
   }
 
   /** The pins of the board in hand are kept by its name, in the page's own store: no file of a board says them. */
@@ -955,6 +1056,7 @@ class LevelsLab {
       this.watch();
     } else {
       this.endPlay();
+      this.setRun = null;
       this.playing = false;
       this.root.style.display = 'grid';
       this.gui.show();
