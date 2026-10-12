@@ -11,6 +11,7 @@ import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
 import { praiseWord } from './praise';
+import { paintStar, paintStarGhost, starRow } from './star';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
 import { COMMANDS, HUD, READS, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, type Palette } from './theme';
@@ -268,9 +269,13 @@ const ARROW: Record<Dir, string> = { N: '↑', E: '→', S: '↓', W: '←' };
 const NET_EDGE = 0.07;
 const NET_PIP = 0.12;
 const NET_PIP_ONE = 0.19;
-/** Side of a star of a pass over the board, and the space between two, in pixels of the picture. */
-const STAR_SIDE = 14;
-const STAR_GAP = 7;
+/** A star of a pass comes on with a burst of its light that takes this long, and then breathes, once in this long. */
+const STAR_FLARE_MS = 320;
+const STAR_BREATH_MS = 1700;
+/** The foot of the row of the stars is this far under the place the game asks for them at, in dots: what keeps them clear of the board. */
+const STAR_FOOT = 7;
+/** A star that flies to the score is this small when it lands, in dots of its radius. */
+const STAR_LAND = 4;
 /**
  * The stars of a pass light up one after another this far apart, stand for this long after the
  * last, and then leave: those that are new fly to the score one after another, the rest go out.
@@ -1170,55 +1175,59 @@ export class GameHud {
     else kit.text(digits(level.best, 3), right, rows[1], dim, { align: 'right' });
   }
 
-  /** The stars of a pass over the board: three squares, lit one after another; then the new ones fly to the score and the rest go out. */
+  /**
+   * The stars of a pass over the board: three, lit one after another, each with a burst of its
+   * light; then the new ones fly to the score and the rest go out. A star that is held gives
+   * light and breathes; one that is not is its outline, dull and smeared (`star.ts`).
+   */
   private drawAward(passed: NonNullable<GameHud['passed']>, timeMs: number, still: boolean, top: number): void {
     const { kit } = this;
-    const { ink, faint } = kit.palette;
+    const colours = kit.palette.star;
     const age = timeMs - passed.born;
     const leave = starsLeave();
-    const step = STAR_SIDE + STAR_GAP;
-    const y = Math.max(top, Math.round(passed.at.y - STAR_SIDE / 2));
-    const x0 = Math.round(clamp(passed.at.x - (step * 3 - STAR_GAP) / 2, 4, kit.width - step * 3 - 4));
-    const colour = passed.value > 0 ? this.beatColour(passed.value) : ink;
+    const { radius, gap, wide } = starRow(kit.width);
+    const side = radius * 2 + 1;
+    const step = side + gap;
+    // Their lower points stand where the foot of the row is asked for: a larger star goes up from there, not down on the board.
+    const y = Math.max(top + radius, Math.round(passed.at.y + STAR_FOOT - radius));
+    const x0 = Math.round(clamp(passed.at.x - wide / 2, 4, kit.width - wide - 4)) + radius;
     for (let i = 0; i < 3; i++) {
-      const cell: Box = { x: x0 + i * step, y, w: STAR_SIDE, h: STAR_SIDE };
-      const lit = i < passed.stars && (still || age >= i * STAR_STEP_MS);
+      const cx = x0 + i * step;
+      const since = age - i * STAR_STEP_MS;
+      const lit = i < passed.stars && (still || since >= 0);
+      const glow = still ? { flare: 0, shimmer: 0 } : { flare: clamp(1 - since / STAR_FLARE_MS, 0, 1), shimmer: Math.sin((timeMs / STAR_BREATH_MS) * Math.PI * 2 + i * 2.1) };
+      const stand = (): void => {
+        if (lit) paintStar(kit, cx, y, radius, colours, glow);
+        else paintStarGhost(kit, cx, y, radius, colours);
+      };
       // The stars the player did not hold are the last of those that are lit: they are the ones that fly.
       const flies = i < passed.stars && i >= passed.stars - passed.fresh;
       const sets = leave + (i - (passed.stars - passed.fresh)) * STAR_FLY_STEP_MS;
       if (age < leave || (flies && !still && age < sets)) {
-        if (!lit) kit.frame(cell, faint);
-        else {
-          // It comes on large and settles.
-          const pop = !still && age - i * STAR_STEP_MS < 90 ? 2 : 0;
-          kit.box({ x: cell.x - pop, y: cell.y - pop, w: cell.w + pop * 2, h: cell.h + pop * 2 }, ink);
-        }
+        stand();
         continue;
       }
       if (!flies || still) {
         // It goes out where it stood, there and not there, as the tube puts things out.
         const left = leave + LABEL_OUT_MS - age;
         if (left <= 0 || (!still && Math.floor(left / 55) % 2 === 1)) continue;
-        if (lit) kit.box(cell, ink);
-        else kit.frame(cell, faint);
+        stand();
         continue;
       }
       const p = (age - sets) / STAR_FLY_MS;
       if (p >= 1) continue;
-      const start = { x: cell.x + STAR_SIDE / 2, y: cell.y + STAR_SIDE / 2 };
       const along = (at: number): Point => {
         const t = clamp(at, 0, 1);
         // A shallow arc, as the points of a group fly: it leaves sideways and comes in from below.
-        return { x: start.x + (this.scoreAt.x - start.x) * (1 - (1 - t) ** 2), y: start.y + (this.scoreAt.y - start.y) * t * t };
+        return { x: cx + (this.scoreAt.x - cx) * (1 - (1 - t) ** 2), y: y + (this.scoreAt.y - y) * t * t };
       };
-      for (let tail = 4; tail >= 1; tail--) {
-        const at = along(p - tail * 0.06);
-        const side = 6 - tail;
-        kit.rect(Math.round(at.x - side / 2), Math.round(at.y - side / 2), side, side, colour);
+      // Behind it, the light it leaves: paler the further back.
+      for (let tail = 5; tail >= 1; tail--) {
+        const at = along(p - tail * 0.05);
+        kit.halo(Math.round(at.x) + 0.5, Math.round(at.y), Math.max(1.5, (radius * (6 - tail)) / 12), colours.light, 0.1 + 0.05 * (5 - tail));
       }
       const head = along(p);
-      const side = Math.round(STAR_SIDE - (STAR_SIDE - 8) * clamp(p, 0, 1));
-      kit.rect(Math.round(head.x - side / 2), Math.round(head.y - side / 2), side, side, ink);
+      paintStar(kit, head.x, head.y, Math.round(radius - (radius - STAR_LAND) * clamp(p, 0, 1)), colours, { flare: 0, shimmer: 1 });
     }
   }
 

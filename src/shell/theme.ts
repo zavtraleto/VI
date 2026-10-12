@@ -41,6 +41,10 @@ export const SHELL_GROUPS = {
     hour: number(-1, -1, 24, 0.5),
     /** The one who is separate: the seventh. Nothing else is red. */
     signal: color('#ff3a2e'),
+    /** The star of a level that is passed, the same at every hour: its white heart, the pale light of its facets, the deep blue of those turned away. */
+    starCore: color('#fbfff2'),
+    starLight: color('#9fd8ff'),
+    starDeep: color('#3d49f0'),
     /** The six channels, by the faces of the die: bars of a television test card. */
     ch1: color('#ece9e2'),
     ch2: color('#fce872'),
@@ -158,6 +162,8 @@ export interface Palette {
   signal: string;
   /** The six channels, index 0 is the face 1. */
   channels: string[];
+  /** The star of a level that is passed: its heart, its light, its deep. */
+  star: { core: string; light: string; deep: string };
 }
 
 function parseHex(hex: string): [number, number, number] {
@@ -200,5 +206,6 @@ export function paletteAt(values: ParamValues, clockHour: number): Palette {
     faint: mixHex(bg, ink, num(values, 'faint')),
     signal: String(values.signal),
     channels: [1, 2, 3, 4, 5, 6].map((face) => String(values[`ch${face}`])),
+    star: { core: String(values.starCore), light: String(values.starLight), deep: String(values.starDeep) },
   };
 }
