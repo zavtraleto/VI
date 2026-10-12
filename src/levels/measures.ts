@@ -161,6 +161,24 @@ export function islandsOf(spec: LevelSpec): number {
 
 const startOf = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: { ...spec, moves: 0 } });
 
+/**
+ * Dice that have to be turned before anything goes: those that start with a face on top that
+ * does not work and show one that does at the first event of the way, the move it is made by
+ * played. A 1 is not counted as a face that works: the 1s are swept, not brought. Where the way
+ * sets nothing off, the dice are counted at its end.
+ */
+export function turnsOf(spec: LevelSpec, way: readonly SolverMove[]): number {
+  let state = startOf(spec);
+  const works = (top: number): boolean => top !== 1 && (spec.faces ?? []).includes(top);
+  const hidden = new Set(state.cubes.filter((cube) => !works(cube.ori.top)).map((cube) => cube.id));
+  for (const move of way) {
+    const told = tellMove(state, move);
+    state = told.state;
+    if (told.outcome.cleared) break;
+  }
+  return state.cubes.filter((cube) => hidden.has(cube.id) && works(cube.ori.top)).length;
+}
+
 /** Boards a search may see to say that a board with a combo made cannot be cleared. */
 const TRAP_MAX_STATES = 150_000;
 

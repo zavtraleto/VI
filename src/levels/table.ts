@@ -2,7 +2,7 @@ import { measure, personaPlay } from '../rules/levelBot';
 import { scoreOf } from '../rules/levelScore';
 import { tryWay } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
-import { firstsOf, tailOf } from './measures';
+import { firstsOf, tailOf, turnsOf } from './measures';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { walkBoards } from './walk';
 
@@ -21,7 +21,7 @@ export function measureBoard(place: string, spec: LevelSpec, skillRuns = 20, wal
   const score = measured.way ? scoreOf(spec, measured.way) : null;
   return measureRow(
     place,
-    { seed: spec.seed, spec, par, exact: measured.exact, short: par, depth: measured.depth, uses: measured.uses, needs: measured.needs, traps: measured.traps, random: measured.random, tail, clears: cleared.filter(Boolean).length, route: score?.route ?? '', kind: score?.kind ?? 'other', firsts, personas: measured.personas, shares: null, walk: walkLimit > 0 ? walkBoards(spec, walkLimit) : null, distance: 0, misses: [] },
+    { seed: spec.seed, spec, par, exact: measured.exact, short: par, depth: measured.depth, uses: measured.uses, needs: measured.needs, traps: measured.traps, random: measured.random, tail, turns: measured.way ? turnsOf(spec, measured.way) : 0, clears: cleared.filter(Boolean).length, route: score?.route ?? '', kind: score?.kind ?? 'other', firsts, personas: measured.personas, shares: null, walk: walkLimit > 0 ? walkBoards(spec, walkLimit) : null, distance: 0, misses: [] },
     measured.personas,
   );
 }

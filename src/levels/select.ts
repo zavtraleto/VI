@@ -5,7 +5,7 @@ import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec, Technique } from '../rules/types';
 import { FROM_SOLUTION, SKETCH, boardText, builtWay, candidate } from './generate';
-import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, startsUnder, tailOf, trapOf, underOf } from './measures';
+import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, startsUnder, tailOf, trapOf, turnsOf, underOf } from './measures';
 import { boundsOf, type Recipe } from './recipes';
 import { walkBoards, type Walk } from './walk';
 
@@ -32,6 +32,8 @@ export interface Fit {
   random: number;
   /** Moves of the way after the clearing move before its last. */
   tail: number;
+  /** Dice turned from a face that does not work to one that does by the first event of the way. */
+  turns: number;
   /** Clearing moves of the way: its combos and links. */
   clears: number;
   /** The route of the way kept, in its signs, and the kind of route it is. */
@@ -326,7 +328,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     solution: way.map(moveText),
     ...(recipe.lesson ? { lesson: recipe.lesson } : {}),
   };
-  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, clears: report.cleared.filter(Boolean).length, route: score.route, kind: score.kind, firsts, personas, shares, walk, distance, misses }, why: '' };
+  return { seed, fit: { seed, spec, par, exact, short, depth: report.depth, uses: report.uses, needs, traps: traps!, random, tail, turns: turnsOf(board, way), clears: report.cleared.filter(Boolean).length, route: score.route, kind: score.kind, firsts, personas, shares, walk, distance, misses }, why: '' };
 }
 
 /** What of the route and the score of a way is not what the place asks for: the first thing found, or null. */
@@ -387,7 +389,7 @@ export function layOutRows(rows: readonly string[][]): string {
   return rows.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join('  ').trimEnd()).join('\n');
 }
 
-export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'tail', 'route', 'kind', 'firsts', 'worst', 'lossless', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
+export const MEASURE_HEAD: readonly string[] = ['place', 'board', 'dice', 'seed', 'moves', 'exact', 'depth', 'tail', 'turns', 'route', 'kind', 'firsts', 'worst', 'lossless', 'uses', 'needs', 'traps', 'random', ...PERSONA_NAMES];
 
 /** A board that fits, as a row of the table: what the solver says and how the yardsticks play it. */
 export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName, number>): string[] {
@@ -401,6 +403,7 @@ export function measureRow(place: string, fit: Fit, skills?: Record<PersonaName,
     fit.exact ? 'yes' : 'no',
     String(fit.depth),
     String(fit.tail),
+    String(fit.turns),
     fit.route || '-',
     fit.kind,
     fit.firsts === null ? '-' : String(fit.firsts),

@@ -4,7 +4,8 @@ import { moveOf, movesAt, solveLevel, tryWay } from '../rules/levelSolver';
 import { createRun } from '../rules/sim';
 import { ori } from '../rules/testkit';
 import type { LevelSpec, Orientation, PuzzleDie } from '../rules/types';
-import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, underOf } from './measures';
+import { LEVELS } from './levels';
+import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf } from './measures';
 
 /** A die of a board, lying as the faces given say. */
 const die = (x: number, z: number, faces: Partial<Orientation>): PuzzleDie => {
@@ -266,5 +267,24 @@ describe('a combo nearly made that is not what it looks', () => {
 
   it('is told by the way: on a way that moves none of those dice there is none', () => {
     expect(decoyOf(LONE_TWO, [])).toBe(false);
+  });
+});
+
+describe('the dice turned before anything goes', () => {
+  it('are those that start with a face that does not work and show one that does at the first event', () => {
+    const p13 = LEVELS.find((spec) => spec.id === 'P13')!;
+    // Six dice go with one move, and four of them show their 6 from the start.
+    expect(turnsOf(p13, p13.solution!.map(moveOf))).toBe(2);
+    // The dice of the first event alone are counted: what is turned after it is turned under the count.
+    expect(turnsOf(p13, [])).toBe(0);
+  });
+
+  it('do not count a 1 as a face that works, and count to the end of a way that sets nothing off', () => {
+    // Rolled south, a die lays on top the face that looked north: a 1 here, which is swept and not brought.
+    const one = open(3, [1, 3], [die(0, 0, { top: 2, north: 1 }), die(2, 2, { top: 6, north: 4 })]);
+    expect(turnsOf(one, way('0,0,S'))).toBe(0);
+    // Rolled north, it lays on top the face that looked south: the 3 across from the 4.
+    const three = open(3, [1, 3], [die(2, 2, { top: 6, north: 4 }), die(0, 0, { top: 2, north: 1 })]);
+    expect(turnsOf(three, way('2,2,N'))).toBe(1);
   });
 });

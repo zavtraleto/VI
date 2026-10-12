@@ -41,6 +41,7 @@ for (const arg of args) {
 const { LEVELS, PARKED, SPARES } = await load('/src/levels/levels.ts');
 const { report, reportRow, REPORT_HEAD, REPORT_PLAYERS, layOut, scoreText } = await load('/src/rules/levelReport.ts');
 const { boardText } = await load('/src/levels/generate.ts');
+const { turnsOf } = await load('/src/levels/measures.ts');
 const { moveText } = await load('/src/rules/levelSolver.ts');
 
 const runs = Number(named.runs ?? 10);
@@ -66,6 +67,7 @@ function full(spec) {
     lines.push(`moves ${told.par}${told.exact ? '' : ' (not proved the fewest)'}: ${told.way.map(moveText).join(' ')}`);
     lines.push(`route ${told.score.route}  (${told.score.kind})`);
     lines.push(`quiet ${told.score.quiet}, under the count ${told.score.counted}, longest pause ${told.score.pause}, tail ${told.score.tail}, biggest event ${told.score.biggest} dice, last ${told.score.last}, links ${told.score.chain}`);
+    lines.push(`turns ${turnsOf(spec, told.way)}: dice turned to a face that works by the first event`);
     lines.push('', scoreText(told.score), '');
     for (const bypass of told.bypasses) {
       const says = bypass.way ? `a way round, ${bypass.way.length - told.par} longer: ${bypass.way.map(moveText).join(' ')}` : bypass.settled ? 'needed: no way without it within a move' : 'not settled: the search gave up';

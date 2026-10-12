@@ -6,6 +6,7 @@
 //
 //   node scripts/ladder.mjs                  the table of the levels and of the boards in reserve
 //   node scripts/ladder.mjs levels           the table of the levels alone
+//   node scripts/ladder.mjs parked           the table of the levels that are parked
 //   node scripts/ladder.mjs place=P06        looks for the boards of a place, by the name of its level: boards laid
 //                                            from its route where it has one (seeds 30001 on), else at random
 //                                            (seeds 1 on); 2000 seeds, the three that fit best
@@ -205,11 +206,12 @@ if (flag('limit')) {
     }
   }
 } else {
-  const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
+  const { LEVELS: LISTED, PARKED, SPARES } = await load('/src/levels/levels.ts');
+  const LEVELS = flag('parked') ? PARKED : LISTED;
   const { measureBoard, tableOf } = await load('/src/levels/table.ts');
   // Every level under its name, in the order of the ladder, and after it the boards in reserve for its place;
   // the boards of places that have no level any more come last. `levels` leaves the reserve out.
-  const spares = flag('levels') ? [] : SPARES;
+  const spares = flag('levels') || flag('parked') ? [] : SPARES;
   const boards = [
     ...LEVELS.flatMap((spec) => [{ place: spec.id, spec }, ...spares.filter((spare) => spare.id === spec.id).map((spare) => ({ place: `${spare.id} spare`, spec: spare }))]),
     ...spares.filter((spare) => !LEVELS.some((level) => level.id === spare.id)).map((spare) => ({ place: `${spare.id} gone`, spec: spare })),
