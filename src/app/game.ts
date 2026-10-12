@@ -330,6 +330,12 @@ export class Game {
    * started over it is the same board. Null on a level of the list and on a piece of the road.
    */
   private labSpec: LevelSpec | null = null;
+  /**
+   * The board of the lab on the board is shown and not played: it takes no move and comes to no
+   * end, whatever the rules say of it as it lies. That is the board of the lab while it is being
+   * drawn. False on every board that is played.
+   */
+  private labFrozen = false;
   /** The program has opened: its boot is over, and a board can be put on at once. */
   private booted = false;
   /** The board waits under the one command the program opens on: nothing of the session is shown over it. */
@@ -800,8 +806,27 @@ export class Game {
    */
   playBoard(spec: LevelSpec): void {
     this.labSpec = spec;
+    this.labFrozen = false;
     this.piece = null;
     if (this.booted) this.runLevel(spec, false);
+  }
+
+  /**
+   * Puts a board of the lab on the board to be looked at, as the player would see it, and holds
+   * it still: no move is taken and no window comes over it. `playBoard` plays it.
+   */
+  showBoard(spec: LevelSpec): void {
+    this.labSpec = spec;
+    this.labFrozen = true;
+    this.piece = null;
+    if (this.booted) this.runLevel(spec, false);
+  }
+
+  /** Where a cell of the board that is on lies on the page, in the pixels of the window, at the height `y` over the floor: for the lab, which is laid over the board. */
+  cellPoint(x: number, z: number, y = 0): { x: number; y: number } {
+    const box = this.stage.getBoundingClientRect();
+    const point = this.view.project(x, y, z);
+    return { x: box.left + point.x, y: box.top + point.y };
   }
 
   /** What the platform calls the thing being played: a kind of session, a task, or a level. */
@@ -889,7 +914,7 @@ export class Game {
   }
 
   private inputEnabled(): boolean {
-    return !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy && !this.passage && !this.rewind;
+    return !this.labFrozen && !this.paused && !this.state.over && !this.toolsOpen && !this.shell.visible && !this.signal.busy && !this.passage && !this.rewind;
   }
 
   /**
@@ -1259,6 +1284,7 @@ export class Game {
     this.levelIndex = index;
     this.piece = null;
     this.labSpec = null;
+    this.labFrozen = false;
     this.runLevel(spec, said);
     if (intro && spec.lesson) this.showLevelIntro(spec.lesson);
   }
@@ -1270,6 +1296,7 @@ export class Game {
   private startPiece(index: number, said = true): void {
     this.piece = index;
     this.labSpec = null;
+    this.labFrozen = false;
     this.runLevel(ROAD[index], said);
   }
 
@@ -2825,7 +2852,8 @@ export class Game {
     // A level that is passed begins its passage to the next board on the frame it ends, and one
     // that is lost stands for a moment before its window; anything else shows its result at once.
     const began = this.passage === null;
-    if (state.over && !this.resultShown) {
+    // A board of the lab that is only shown has no end: it may lie at a dead end while it is drawn.
+    if (state.over && !this.resultShown && !this.labFrozen) {
       const lost = state.levelRun !== null && state.endReason !== 'passed';
       // A dead end the last move can be taken back from stands on the board: no window comes over it, and the button that takes the move back is lit.
       const held = lost && this.undoable && this.history.length > 0 && deadEnd(state);
