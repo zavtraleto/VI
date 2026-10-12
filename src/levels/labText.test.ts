@@ -1,6 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { ROAD } from './road';
-import { boardFrom, checkJson, checkOf, checkText, regressOne, regressText } from './labText';
+import { createRun, defaultConfig } from '../rules';
+import { movesAt, moveText } from '../rules/levelSolver';
+import { boardFrom, checkJson, checkOf, checkText, movesOf, movesText, nearOf, nearText, regressOne, regressText } from './labText';
+
+describe('movesOf', () => {
+  const R03 = ROAD[2];
+  it('tells every move there is from the start, and which keep the fewest moves', () => {
+    const start = createRun({ seed: R03.seed, config: defaultConfig(), level: { ...R03, moves: 0 } });
+    const facts = movesOf(R03);
+    expect(facts.map((fact) => fact.move)).toEqual(movesAt(start).map(moveText));
+    expect(facts.find((fact) => fact.move === '1,2,E')).toMatchObject({ keeps: 'par', par: 2 });
+    expect(movesText(facts)).toContain('keep the fewest');
+  });
+  it('tells the moves of the board after moves made', () => {
+    const facts = movesOf(R03, { after: ['1,2,E'] });
+    expect(facts.find((fact) => fact.move === '2,2,N')).toMatchObject({ keeps: 'par', par: 1 });
+  });
+});
+
+describe('nearOf', () => {
+  it('solves every board one change away and says what the change does', () => {
+    const facts = nearOf(ROAD[2]);
+    expect(facts.length).toBeGreaterThan(0);
+    expect(facts.every((fact) => fact.what !== '')).toBe(true);
+    expect(facts.some((fact) => fact.change === 'unsolved' || fact.change === 'longer')).toBe(true);
+    expect(nearText(facts)).toContain(`near: ${facts.length} changes`);
+  });
+  it('keeps a start on the floor and the dice that are leaving, where the change is not of the start', () => {
+    const facts = nearOf(ROAD[1]);
+    expect(facts.some((fact) => fact.par !== null)).toBe(true);
+  });
+});
 
 describe('regressOne', () => {
   it('says ok of a board that is as it says, shorter of one that keeps a move too many, broken of a way that does not play', () => {

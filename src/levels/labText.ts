@@ -1,8 +1,10 @@
 import type { LevelSpec, RulesConfig } from '../rules/types';
 import { scoreOf, type Score } from '../rules/levelScore';
 import { layOut, scoreText } from '../rules/levelReport';
-import { moveOf, moveText, solveLevel, tryWay } from '../rules/levelSolver';
+import { levelDeadEnd, type LevelDeadEnd } from '../rules/level';
+import { moveOf, moveText, movesAt, playMove, solveFrom, solveLevel, tryWay } from '../rules/levelSolver';
 import { boardSigns } from './boardFile';
+import { editsOf } from './edits';
 import { LEVELS } from './levels';
 import { ROAD } from './road';
 
@@ -111,6 +113,95 @@ export function checkJson(spec: LevelSpec, check: Check): Record<string, unknown
     kept: check.kept,
     ok: checkPassed(check),
   };
+}
+
+/** Boards the solver may see on a board that is one of many asked at once: a move of a board, a board a change away. */
+export const QUICK_MAX_STATES = 200_000;
+
+/**
+ * What a move does to the board it is made on. `keeps` is `par` where the board is still
+ * cleared in the fewest moves after it, `longer` where it is cleared but in more, `dead` where
+ * it is not cleared at all, `unknown` where the search gave up. `par` is the fewest moves the
+ * board is cleared in by a way that begins with the move, the move counted; `deadEnd` is the
+ * dead end the move comes to at once, where it does.
+ */
+export interface MoveFact {
+  move: string;
+  keeps: 'par' | 'longer' | 'dead' | 'unknown';
+  par: number | null;
+  deadEnd: LevelDeadEnd | null;
+}
+
+/** Every move there is from the board as it stands after the moves of `after`, with what it does. */
+export function movesOf(spec: LevelSpec, opts: { after?: readonly string[]; maxStates?: number } = {}): MoveFact[] {
+  const { after = [], maxStates = QUICK_MAX_STATES } = opts;
+  const state = tryWay(spec, after.map(moveOf)).state;
+  if (state.over) return [];
+  const best = solveFrom(state, { maxStates }).solution?.par ?? null;
+  return movesAt(state).map((move): MoveFact => {
+    const next = playMove(state, move);
+    const text = moveText(move);
+    if (next.endReason === 'passed') return { move: text, keeps: best === 1 ? 'par' : 'longer', par: 1, deadEnd: null };
+    if (next.over) return { move: text, keeps: 'dead', par: null, deadEnd: levelDeadEnd(next) };
+    const solved = solveFrom(next, { maxStates });
+    if (!solved.solution) return { move: text, keeps: solved.exhausted ? 'dead' : 'unknown', par: null, deadEnd: levelDeadEnd(next) };
+    const par = solved.solution.par + 1;
+    return { move: text, keeps: best === null ? 'unknown' : par === best ? 'par' : 'longer', par, deadEnd: null };
+  });
+}
+
+export function movesText(facts: readonly MoveFact[]): string {
+  if (facts.length === 0) return 'no moves: the board is over';
+  const table = [['move', 'keeps', 'moves', 'dead end']];
+  for (const fact of facts) table.push([fact.move, fact.keeps, fact.par === null ? '-' : String(fact.par), fact.deadEnd ?? '-']);
+  const count = (keeps: MoveFact['keeps']) => facts.filter((fact) => fact.keeps === keeps).length;
+  return `${layOut(table)}\n\nmoves: ${facts.length}, ${count('par')} keep the fewest, ${count('longer')} longer, ${count('dead')} dead${count('unknown') > 0 ? `, ${count('unknown')} the search gave up on` : ''}`;
+}
+
+/**
+ * What a change of one die does to a board: the fewest moves of the board changed, and whether
+ * that is the same, fewer or more than before, or the board is not cleared any more.
+ */
+export interface NearFact {
+  what: string;
+  par: number | null;
+  /** The search went through: the moves are the fewest, or there is proved to be no way. */
+  exact: boolean;
+  change: 'same' | 'shorter' | 'longer' | 'unsolved';
+}
+
+/**
+ * Every board one change away (`editsOf`), each only solved: no report is made of it, which is
+ * what makes this a matter of seconds. A change keeps what the board says of dice that are
+ * leaving and of a start on the floor, where the change is not of the start. A change the rules
+ * refuse, a combo ready at the start and the like, is left out.
+ */
+export function nearOf(spec: LevelSpec, opts: { maxStates?: number } = {}): NearFact[] {
+  const { maxStates = QUICK_MAX_STATES } = opts;
+  const before = solveLevel(spec, { maxStates }).solution?.par ?? spec.par ?? null;
+  const facts: NearFact[] = [];
+  for (const edit of editsOf(spec)) {
+    const { leaving, onFloor } = spec.layout!;
+    const moved = edit.what.startsWith('start at');
+    const layout = { ...edit.spec.layout!, ...(leaving ? { leaving } : {}), ...(onFloor && !moved ? { onFloor } : {}) };
+    let solved;
+    try {
+      solved = solveLevel({ ...edit.spec, layout }, { maxStates });
+    } catch {
+      continue;
+    }
+    const par = solved.solution?.par ?? null;
+    const change: NearFact['change'] = par === null ? 'unsolved' : before === null || par === before ? 'same' : par < before ? 'shorter' : 'longer';
+    facts.push({ what: edit.what, par, exact: solved.exhausted, change });
+  }
+  return facts;
+}
+
+export function nearText(facts: readonly NearFact[]): string {
+  const table = [['change', 'moves', 'exact', 'what it does']];
+  for (const fact of facts) table.push([fact.what, fact.par === null ? '-' : String(fact.par), fact.exact ? 'yes' : 'no', fact.change]);
+  const count = (change: NearFact['change']) => facts.filter((fact) => fact.change === change).length;
+  return `${layOut(table)}\n\nnear: ${facts.length} changes, ${count('same')} same, ${count('shorter')} shorter, ${count('longer')} longer, ${count('unsolved')} unsolved`;
 }
 
 /**

@@ -10,6 +10,10 @@
 //   node scripts/level.mjs regress                      every board there is solved anew, and what it keeps held
 //                                                       against it: the list, its reserve, the road, the files of boards/
 //                                                       (workers=6: the processes the boards are shared among)
+//   node scripts/level.mjs moves file=P06 after=3,0,W   every move there is, after the moves named if any are: whether
+//                                                       it keeps the fewest moves, makes the way longer, or is a dead end
+//   node scripts/level.mjs near file=P06                every board one change of a die away, only solved: what the
+//                                                       change does to the fewest moves
 //
 // file= is a path, or the name of a file in boards/ without its .txt, or the code of a board the
 // game has: a level of the list (P06) or a piece of the road (R03).
@@ -35,6 +39,8 @@ const COMMANDS = {
   check: { keys: ['file', 'states'], flags: ['json'] },
   export: { keys: ['file', 'out'], flags: [] },
   regress: { keys: ['states', 'workers', 'share'], flags: ['json'] },
+  moves: { keys: ['file', 'after', 'states'], flags: ['json'] },
+  near: { keys: ['file', 'states'], flags: ['json'] },
 };
 
 /** Ends the script on what could not be read: said on stderr, code 2. */
@@ -97,6 +103,23 @@ if (command === 'show') {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, printBoard(spec, head));
   console.log(out);
+} else if (command === 'moves') {
+  const { spec } = loadBoard();
+  // after= is the moves made before the board is asked, with a space, a plus or a semicolon between them.
+  const after = (named.after ?? '').split(/[\s+;]+/).filter(Boolean);
+  let facts;
+  try {
+    facts = lab.movesOf(spec, { after, maxStates: number('states') });
+  } catch (error) {
+    refuse(`moves: ${error.message}`);
+  }
+  print(lab.movesText(facts), { id: spec.id, after, moves: facts });
+} else if (command === 'near') {
+  const { spec } = loadBoard();
+  const began = Date.now();
+  const facts = lab.nearOf(spec, { maxStates: number('states') });
+  console.error(`near: ${facts.length} boards solved in ${((Date.now() - began) / 1000).toFixed(1)} s`);
+  print(lab.nearText(facts), { id: spec.id, near: facts });
 } else if (command === 'regress') {
   const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
   const { ROAD } = await load('/src/levels/road.ts');
