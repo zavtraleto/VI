@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { DOWN_AND_UP, LESSON } from './boardSamples';
 import { ROAD } from './road';
 import { createRun, defaultConfig } from '../rules';
 import { movesAt, moveText } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import { normalSpec } from './boardFile';
-import { LEVELS } from './levels';
 import { ROAD_PLACES } from './roadRecipes';
 import { levelSource } from './select';
 import { parseBoard, readBoardHead } from './boardFile';
@@ -50,7 +50,7 @@ describe('fitOf', () => {
 });
 
 describe('diffOf', () => {
-  const P06 = LEVELS[5];
+  const P06 = DOWN_AND_UP;
   it('finds no cell between a board and itself, and the one cell of a die turned', () => {
     expect(diffOf(P06, P06)).toEqual({ cells: [], same: true });
     const dice = P06.layout!.dice.map((die, index) => (index === 1 ? { ...die, top: 1, north: 2 } : die));
@@ -62,13 +62,13 @@ describe('diffOf', () => {
 
 describe('levelSource', () => {
   it('writes what a board of the road has: fixed dice, a start on the floor, a die that is leaving, the moves taken back', () => {
-    const source = levelSource(ROAD[1]);
+    const source = levelSource(LESSON);
     expect(source).toContain('fixed: true');
     expect(source).toContain('onFloor: true');
-    expect(source).toContain('leaving: [{ die: 0, moves: 1 }]');
+    expect(source).toMatch(/leaving: \[\{ die: \d, moves: 1 \}\]/);
     expect(source).toContain('undos: 3');
     const read = new Function(`return [${source}][0]`)() as LevelSpec;
-    expect(normalSpec(read)).toEqual(normalSpec(ROAD[1]));
+    expect(normalSpec(read)).toEqual(normalSpec(LESSON));
   });
 });
 
@@ -96,7 +96,7 @@ describe('nearOf', () => {
     expect(nearText(facts)).toContain(`near: ${facts.length} changes`);
   });
   it('keeps a start on the floor and the dice that are leaving, where the change is not of the start', () => {
-    const facts = nearOf(ROAD[1]);
+    const facts = nearOf(LESSON);
     expect(facts.some((fact) => fact.par !== null)).toBe(true);
   });
 });

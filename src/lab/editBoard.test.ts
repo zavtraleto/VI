@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LESSON } from '../levels/boardSamples';
 import { normalSpec } from '../levels/boardFile';
 import { LEVELS } from '../levels/levels';
 import { ROAD } from '../levels/road';
@@ -7,7 +8,7 @@ import { cellAt, clearCell, cycleLeaving, editBoardOf, emptyBoard, putDie, resiz
 
 describe('editBoardOf', () => {
   it('holds a board cell for cell: a start on the floor, a fixed die, a die that is leaving', () => {
-    const board = editBoardOf(ROAD[1]);
+    const board = editBoardOf(LESSON);
     expect(cellAt(board, 3, 5)).toEqual({ kind: 'empty', floorStart: true });
     expect(cellAt(board, 1, 0)).toMatchObject({ kind: 'die', fixed: true });
     expect(cellAt(board, 3, 4)).toMatchObject({ kind: 'die', leaving: 1 });
