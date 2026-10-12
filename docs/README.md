@@ -19,7 +19,6 @@
 | [VI_Levels_Rules.md](VI_Levels_Rules.md) | истина | правила уровня; заморожены 7 октября 2026, идеи правил — в её раздел 11 |
 | [VI_Levels_Probe_Key.md](VI_Levels_Probe_Key.md) | истина | ключ слепой пробы `P01`–`P30`; **владельцу не показывать и не пересказывать** |
 | [VI_Levels_Playtest_2026-10-12.md](VI_Levels_Playtest_2026-10-12.md) | решение | плейтест пробы 12 октября: слова владельца по `P01`–`P22` дословно, сведение с ключом, порядок списка; решения приняты |
-| [superpowers/plans/2026-10-12-vi-levels-list-rebuild.md](superpowers/plans/2026-10-12-vi-levels-list-rebuild.md) | план | пересборка списка по плейтесту: порядок из 18, парковка, `P02` уже, `P17`/`P19` без ловушки на первом ходу, `P31`, мерило `turns`; выполнен 12 октября, что вышло иначе — его раздел 4 |
 | [VI_Levels_Routes_Brief.md](VI_Levels_Routes_Brief.md) | решение | формы и маршруты уровня, постройка доски от маршрута, слепая оценка |
 | [VI_Levels_Brief.md](VI_Levels_Brief.md) | решение | уровни — основной режим (раздел 1); остальное — материал на 4 октября |
 | [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md) | решение | точка возврата к обучению: слова владельца, голос текста, темп, словарь, где лежит убранное |
@@ -137,5 +136,6 @@
 | docs/superpowers/plans/2026-10-08-vi-teaching-road.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека teaching-road-design |
 | docs/superpowers/plans/2026-10-08-vi-first-level.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека first-level-design |
 | docs/superpowers/plans/2026-10-09-vi-road-free-pieces.md | план, выполнен (ветка `first-level`); достать — `git show cb574c3:<путь>` | спека road-free-pieces-design |
+| docs/superpowers/plans/2026-10-12-vi-levels-list-rebuild.md | план пересборки списка уровней, выполнен (v0.2.44), с разделом «что вышло иначе»; достать — `git show ea22017:<путь>` | VI_Levels_Probe_Key.md, абзацы «Список с 12 октября 2026» и «Что вышло иначе» |
 
 Убранные из игры уровни (курс, лестница глав) и их слова — коммит `534b3ea`; подробно — [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md), раздел 8.
