@@ -5,7 +5,7 @@ import { worldRuns } from '../rules/level';
 import { createRun, step } from '../rules/sim';
 import type { Dir, GameEvent, LevelSpec, RunState } from '../rules/types';
 import { wrapCaption } from '../signal/caption';
-import { hintAlpha, hintBox, hintResumes, hintSaidFor, HINT_FADE_MS, HINT_WORD_MS, NOTE_SIZE, lineSize, toolButtons, wordsShown } from '../shell/hudLayout';
+import { hintAlpha, hintBox, hintResumes, hintSaidFor, HINT_FADE_MS, HINT_WORD_MS, NOTE_SIZE, lineSize, wordsShown } from '../shell/hudLayout';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
 import { DeadEnds, FIXED_LINE_MS, fixedLineOver, fixedStopped, hintOver, probeHint, roomLines, saysFixed } from './hint';
 import { roadWait } from './signWay';
@@ -269,10 +269,11 @@ describe('the line and the buttons of a level', () => {
   const PHONE = lineSize({ width: 360, height: 530 });
   const DESK = lineSize({ width: 1680, height: 1080 });
   const LINE = PHONE * 1.3;
-  /** The buttons as the hud puts them, in CSS pixels: the picture is zoomed by `zoom`; the label is some 60 picture pixels wide. */
+  /** Two buttons in the top right corner of a stage, in CSS pixels, each as tall as a finger needs: what a line may have to start below. */
   const tools = (stage: { x: number; y: number; width: number; height: number }, zoom: number) => {
-    const { box } = toolButtons({ x: stage.x / zoom, y: stage.y / zoom, w: stage.width / zoom, h: stage.height / zoom }, zoom, { undo: 32, retry: 56 });
-    return { x: box.x * zoom, y: box.y * zoom, width: box.w * zoom, height: box.h * zoom };
+    const tall = Math.max(24, Math.ceil(44 / zoom)) * zoom;
+    const wide = tall * 4 + 6 * zoom;
+    return { x: stage.x + stage.width - 6 * zoom - wide, y: stage.y + 6 * zoom, width: wide, height: tall };
   };
 
   it('stand in the top right corner of the stage, in a row a finger needs', () => {

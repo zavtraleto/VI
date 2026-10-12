@@ -41,18 +41,33 @@ export interface HudLayout {
   tight: boolean;
   /** The zone that pauses the session. */
   pause: Box;
-  /** The line under the readings. */
+  /** The zone that starts a level over, beside the one that pauses and of its size; null where nothing is started over. */
+  restart: Box | null;
+  /** Tops of the two small readings of a level, the moves made and the fewest: under its two buttons. */
+  moves: readonly [number, number];
+  /** Where the readings end below; what comes apart with the contact is cut here. */
   rule: number;
 }
+
+/** What the readings are of: a level has its small readings under its buttons, and whatever can be started over has a button for it. */
+export interface HeaderNeeds {
+  restart?: boolean;
+  level?: boolean;
+  /** A level that counts something towards its goal has a line for it. */
+  goal?: boolean;
+}
+
+/** Between the button that starts over and the one that pauses, and between them and the readings under them. */
+const BUTTON_GAP = 4;
 
 /**
  * Lays the readings out. `zoom` is CSS pixels per pixel of the picture: the zone that pauses
  * is as large as a finger needs whatever the picture is.
  */
-export function hudLayout(picture: Size, safe: Insets, zoom: number): HudLayout {
+export function hudLayout(picture: Size, safe: Insets, zoom: number, needs: HeaderNeeds = {}): HudLayout {
   const left = ceilTo(safe.left, CELL_W) + MARGIN;
   const top = ceilTo(safe.top, 4) + 4;
-  if (isWide(picture)) return columnLayout(left, top, zoom);
+  if (isWide(picture)) return columnLayout(left, top, zoom, needs);
   const right = picture.width - ceilTo(safe.right, CELL_W) - MARGIN;
   const rowA = top;
   const rowB = top + CELL_H;
@@ -60,14 +75,19 @@ export function hudLayout(picture: Size, safe: Insets, zoom: number): HudLayout 
   const rule = rowC + CELL_H + 3;
   const side = Math.min(rule - top, Math.max(24, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4)));
   const pause: Box = { x: right - side, y: top, w: side, h: side };
+  const restart: Box | null = needs.restart ? { x: pause.x - BUTTON_GAP - side, y: top, w: side, h: side } : null;
   const mid = left + SCORE_PLACES * CELL_W * 2 + MARGIN;
-  const end = pause.x - MARGIN;
+  const end = (restart ?? pause).x - MARGIN;
+  // The small readings of a level stand under its buttons, and the board starts below them.
+  const under = pause.y + side + BUTTON_GAP;
+  const moves: readonly [number, number] = needs.level ? [under, under + CELL_H] : [rowB, rowC];
+  const height = Math.max(rule + 4, needs.level ? moves[1] + CELL_H + 2 : 0);
   return {
     wide: false,
-    height: rule + 4,
+    height,
     column: 0,
     lines: { label: rowA, big: top + CELL_H - 2, tag: rowA, best: rowB, link: rowC, cells: rowC },
-    net: { x: left, y: rule + 10 },
+    net: { x: left, y: height + 6 },
     left,
     right,
     rowA,
@@ -78,42 +98,41 @@ export function hudLayout(picture: Size, safe: Insets, zoom: number): HudLayout 
     end,
     tight: end - SCORE_PLACES * CELL_W < mid + MID_PLACES * CELL_W + CELL_W / 2,
     pause,
+    restart,
+    moves,
     rule,
   };
 }
 
-/** The readings as a column down the left side: as wide as the large number, one reading to a line. */
-function columnLayout(left: number, top: number, zoom: number): HudLayout {
+/**
+ * The readings as a column down the left side: as wide as the large number, one reading to a
+ * line, and the buttons under them. Those of a level are its score, its number and the line of
+ * its goal; then its two buttons, and under those its two small readings.
+ */
+function columnLayout(left: number, top: number, zoom: number, needs: HeaderNeeds): HudLayout {
   const width = SCORE_PLACES * CELL_W * 2;
   const right = left + width;
   const label = top;
   const big = label + CELL_H - 2;
   const tag = big + CELL_H * 2 + 4;
+  const side = Math.max(CELL_H + 4, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
+  // A square, as on a tall screen: the two bars of the pause stand in it as tall as they are there.
+  const buttons = (y: number): { pause: Box; restart: Box | null } =>
+    needs.restart ? { restart: { x: left, y, w: side, h: side }, pause: { x: left + side + BUTTON_GAP, y, w: side, h: side } } : { restart: null, pause: { x: left, y, w: side, h: side } };
+  const shared = { wide: true, height: 0, column: right + MARGIN, left, right, big, mid: left, end: right, tight: false };
+  if (needs.level) {
+    const goal = tag + CELL_H + 2;
+    const y = (needs.goal ? goal : tag) + CELL_H + 8;
+    const moves: readonly [number, number] = [y + side + BUTTON_GAP, y + side + BUTTON_GAP + CELL_H];
+    const rule = moves[1] + CELL_H;
+    return { ...shared, ...buttons(y), lines: { label, big, tag, best: moves[0], link: moves[1], cells: goal }, net: { x: left, y: rule + 10 }, rowA: label, rowB: tag, rowC: goal, moves, rule };
+  }
   const best = tag + CELL_H + 2;
   const link = best + CELL_H + 2;
   const cells = link + CELL_H + 1;
   const rule = cells + 9 + 5;
-  const side = Math.max(CELL_H + 4, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
-  // A square, as on a tall screen: the two bars of the pause stand in it as tall as they are there.
-  const pause: Box = { x: left, y: rule + 6, w: side, h: side };
-  return {
-    wide: true,
-    height: 0,
-    column: right + MARGIN,
-    lines: { label, big, tag, best, link, cells },
-    net: { x: left, y: pause.y + pause.h + 10 },
-    left,
-    right,
-    rowA: label,
-    rowB: tag,
-    rowC: link,
-    big,
-    mid: left,
-    end: right,
-    tight: false,
-    pause,
-    rule,
-  };
+  const placed = buttons(rule + 6);
+  return { ...shared, ...placed, lines: { label, big, tag, best, link, cells }, net: { x: left, y: placed.pause.y + side + 10 }, rowA: label, rowB: tag, rowC: link, moves: [best, link], rule };
 }
 
 /** How the floor of the board lies on screen: where a cell to the east and a cell to the south lead, y pointing down. */
@@ -362,52 +381,26 @@ export function hintAlpha(since: number, gone: number | null, reduced: boolean):
   return Math.round(Math.min(coming, going) * HINT_STEPS) / HINT_STEPS;
 }
 
-/** The picture on a button of a level is this many dots a side; what a button keeps around it, between the picture and the word, and between two buttons. */
+/** The picture on a button of a level is this many dots a side; what the button that takes a move back keeps around its picture and its word, and between them. */
 export const TOOL_ICON = 9;
 const TOOL_PAD = 6;
 const TOOL_GAP = 6;
 
-/** The two buttons of a level as they are laid out, in pixels of the picture: `dot` is a dot of their pictures, `box` holds both. */
-export interface ToolPlan {
-  tall: number;
-  dot: number;
-  undo: Box;
-  retry: Box;
-  box: Box;
-}
-
 /**
- * The two buttons of a level, UNDO and RESTART, in pixels of the picture: each a picture and,
- * right of it, its word, `words` wide (0 leaves the picture alone). High, they stand in the top
- * right corner of the stage, the one that starts over last. `low`, on a tall screen, they stand
- * in its bottom left corner, where the thumb is: side by side, or one over the other where the
- * stage is too narrow for both words. `retryOnly` leaves the one that starts over, in the corner.
+ * The button that takes a move back, in pixels of the picture: its picture and, right of it,
+ * its word, `word` wide, with no frame around them, in the middle of the bottom of the stage,
+ * where either thumb reaches. `dot` is a dot of its picture; `box` is what a finger presses.
  */
-export function toolButtons(stage: Box, zoom: number, words: { undo: number; retry: number }, low = false, retryOnly = false): ToolPlan {
+export function undoButton(stage: Box, zoom: number, word: number): { tall: number; dot: number; box: Box } {
   const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / zoom));
   const dot = Math.max(1, Math.floor((tall - 6) / TOOL_ICON));
-  const width = (word: number): number => Math.max(tall, word > 0 ? TOOL_PAD + TOOL_ICON * dot + TOOL_GAP + word + TOOL_PAD : 0);
-  let undoWide = width(words.undo);
-  let retryWide = width(words.retry);
-  const around = (undo: Box, retry: Box): ToolPlan => {
-    const x = Math.min(undo.x, retry.x);
-    const y = Math.min(undo.y, retry.y);
-    return { tall, dot, undo, retry, box: { x, y, w: Math.max(undo.x + undo.w, retry.x + retry.w) - x, h: Math.max(undo.y + undo.h, retry.y + retry.h) - y } };
-  };
-  if (!low) {
-    const y = Math.round(stage.y + TOOL_PAD);
-    const retry: Box = { x: Math.round(stage.x + stage.w - TOOL_PAD) - retryWide, y, w: retryWide, h: tall };
-    return around({ x: retry.x - TOOL_GAP - undoWide, y, w: undoWide, h: tall }, retry);
-  }
-  const x = Math.round(stage.x + TOOL_PAD);
-  const y = Math.round(stage.y + stage.h - TOOL_PAD) - tall;
-  if (retryOnly) {
-    const retry: Box = { x, y, w: retryWide, h: tall };
-    return { tall, dot, undo: retry, retry, box: retry };
-  }
-  if (undoWide + TOOL_GAP + retryWide <= stage.w - TOOL_PAD * 2) return around({ x, y, w: undoWide, h: tall }, { x: x + undoWide + TOOL_GAP, y, w: retryWide, h: tall });
-  undoWide = retryWide = Math.max(undoWide, retryWide);
-  return around({ x, y: y - tall - TOOL_GAP, w: undoWide, h: tall }, { x, y, w: retryWide, h: tall });
+  const wide = Math.max(tall, TOOL_PAD + TOOL_ICON * dot + TOOL_GAP + word + TOOL_PAD);
+  return { tall, dot, box: { x: Math.round(stage.x + (stage.w - wide) / 2), y: Math.round(stage.y + stage.h - TOOL_PAD) - tall, w: wide, h: tall } };
+}
+
+/** How large a dot of the picture on the button that starts over is, for a button `side` on a side: the picture takes about half of the button, as the two bars of the pause do. */
+export function restartDot(side: number): number {
+  return Math.max(1, Math.round(side / 2 / TOOL_ICON));
 }
 
 /**

@@ -6,9 +6,9 @@ import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hintSaidFor, wordsShown, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout, type ToolPlan } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hintSaidFor, wordsShown, hudLayout, lineSize, undoButton, restartDot, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
-import { CELL_H, CELL_W, MIN_ZONE, isWide, pictureSize, type Box, type Insets, type Point } from './layout';
+import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
 import { praiseWord } from './praise';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
@@ -621,11 +621,8 @@ export class GameHud {
     const size = lineSize(stage);
     const zoom = this.kit.zoom;
     const window = { width: this.kit.width * zoom, height: this.kit.height * zoom };
-    // On a wide screen the buttons of a level are in the same corner of the stage.
-    const picture = this.toolsLow() ? null : this.toolPlan(this.toPicture(stage)).box;
-    const tools: Rect | null = picture && { x: picture.x * zoom, y: picture.y * zoom, width: picture.w * zoom, height: picture.h * zoom };
-    const { box } = hintBox(stage, window, safeInsets(), size, 0, tools);
-    return { ...hintBox(stage, window, safeInsets(), size, this.voice.height(text, box.width, size), tools), size };
+    const { box } = hintBox(stage, window, safeInsets(), size, 0);
+    return { ...hintBox(stage, window, safeInsets(), size, this.voice.height(text, box.width, size)), size };
   }
 
   /**
@@ -658,7 +655,8 @@ export class GameHud {
     const zoom = kit.zoom;
     const css = safeInsets();
     const safe = { top: css.top / zoom, right: css.right / zoom, bottom: css.bottom / zoom, left: css.left / zoom };
-    const layout = hudLayout({ width: kit.width, height: kit.height }, safe, zoom);
+    const header = view.header;
+    const layout = hudLayout({ width: kit.width, height: kit.height }, safe, zoom, { restart: view.tools !== null, level: header.kind === 'level', goal: header.kind === 'level' && header.goal.length > 0 });
     this.lastTime = timeMs;
     const words = view.lesson?.line ?? '';
     if (words !== this.line) {
@@ -748,9 +746,8 @@ export class GameHud {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
       const top = layout.wide ? safe.top : layout.height;
-      // And of the buttons of a level, where they are in the top corner of the stage: it is moved down from those.
-      const tools = view.tools ? this.toolPlan(stage, view.tools.retryOnly, view.pad ? this.toPicture(view.pad.box) : null).box : null;
-      const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top }, this.toolsLow() ? null : tools);
+      const tools = view.tools && !view.tools.retryOnly ? this.undoPlan(stage, view.pad ? this.toPicture(view.pad.box) : null).box : null;
+      const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top });
       // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
       const room = signBounds(plan);
       const covered = (tools !== null && boxesMeet(room, tools)) || (view.pad ? boxesMeet(room, this.toPicture(view.pad.box)) : false);
@@ -758,7 +755,8 @@ export class GameHud {
       paintSign(kit, plan, this.signLook(), timeMs, still);
     }
     this.signTurned = this.signTurnAt(sign, timeMs, still);
-    if (view.tools) this.drawTools(view.tools, stage, blink, view.pad ? this.toPicture(view.pad.box) : null);
+    if (view.tools) this.drawRestart(layout);
+    if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, view.pad ? this.toPicture(view.pad.box) : null);
     if (view.pad) this.drawPad(view.pad, blink);
     if (view.note) {
       const width = Math.min(view.stage.width - 24, 460);
@@ -978,22 +976,6 @@ export class GameHud {
     return drift > 0 ? Math.round((hash(part * 31.7) - 0.5) * 8 * drift) : 0;
   }
 
-  /** The rule under the readings; it breaks up as they come apart. */
-  private rule(x: number, y: number, w: number, drift: number): void {
-    const { kit } = this;
-    const { faint } = kit.palette;
-    if (drift <= 0) {
-      kit.rect(x, y, w, 1, faint);
-      return;
-    }
-    const piece = 9;
-    for (let i = 0; i * piece < w; i++) {
-      if (hash(i * 3.3 + 1) < 0.4 * drift) continue;
-      kit.rect(x + i * piece, y + this.adrift(40 + i, drift * 0.5), Math.min(piece, w - i * piece), 1, faint);
-    }
-  }
-
-  /** Points of a group: they stand over it, then fly to the score with a tail behind them. */
   private drawFlyers(timeMs: number): void {
     const { kit } = this;
     for (const flyer of this.flyers) {
@@ -1085,7 +1067,6 @@ export class GameHud {
       else kit.frame(cell, faint);
     }
     if (tail) kit.text(tail, at + cells + 4, rowC, dim);
-    this.rule(left, layout.rule, layout.right - left, drift);
   }
 
   /** A reading that calls for the eye: filled while `on`, plain otherwise. */
@@ -1140,7 +1121,6 @@ export class GameHud {
       if (i < session.stage && !(fresh && blink === 0)) kit.box(cell, ink);
       else kit.frame(cell, faint);
     }
-    this.rule(left, layout.rule, right - left, drift);
   }
 
   private drawTaskWide(task: HudTask, layout: HudLayout): void {
@@ -1155,7 +1135,6 @@ export class GameHud {
     else this.counter(task.best, 2, right, lines.best, 1, 'right', false);
     kit.text(HUD.target, left, lines.link, dim);
     kit.text(digits(task.target, 2), right, lines.link, ink, { align: 'right' });
-    kit.rect(left, layout.rule, right - left, 1, faint);
   }
 
   private drawTask(task: HudTask, layout: HudLayout): void {
@@ -1171,7 +1150,6 @@ export class GameHud {
     const target = digits(task.target, 2);
     const at = kit.text(HUD.target, end - kit.measure(target) - 4 - kit.measure(HUD.target), rowC, dim);
     kit.text(target, at + 4, rowC, ink);
-    kit.rect(left, layout.rule, layout.right - left, 1, faint);
   }
 
   /**
@@ -1181,14 +1159,15 @@ export class GameHud {
    */
   private levelReads(level: HudLevel, right: number, rows: readonly [number, number], left?: number): void {
     const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
+    const { dim, faint } = kit.palette;
     const names = right - kit.measure('000') - CELL_W;
     const name = (text: string, y: number): void => void kit.text(text, left ?? names - kit.measure(text), y, dim);
+    // Under the buttons and quieter than the score: names and numbers in the one dim tone.
     name(READS.current, rows[0]);
-    kit.text(digits(level.made, 3), right, rows[0], ink, { align: 'right' });
+    kit.text(digits(level.made, 3), right, rows[0], dim, { align: 'right' });
     name(READS.best, rows[1]);
     if (level.best === null) kit.text('--', right, rows[1], faint, { align: 'right' });
-    else kit.text(digits(level.best, 3), right, rows[1], ink, { align: 'right' });
+    else kit.text(digits(level.best, 3), right, rows[1], dim, { align: 'right' });
   }
 
   /** The stars of a pass over the board: three squares, lit one after another; then the new ones fly to the score and the rest go out. */
@@ -1267,27 +1246,25 @@ export class GameHud {
   /** The readings of a level as a column: the score, the number of the level, its two small readings, and a line of its goal where it has one. */
   private drawLevelWide(level: HudLevel, layout: HudLayout, timeMs: number): void {
     const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
+    const { ink, dim } = kit.palette;
     const { left, right, lines } = layout;
     kit.text(HUD.score, left, lines.label, dim);
     this.score(left, lines.big, timeMs, WHOLE);
     if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, left, lines.tag, ink);
-    this.levelReads(level, right, [lines.best, lines.link], left);
+    this.levelReads(level, right, layout.moves, left);
     if (level.goal.length > 0) this.goalLine(level.goal[0], right, lines.cells, left);
-    kit.rect(left, layout.rule, right - left, 1, faint);
   }
 
   private drawLevel(level: HudLevel, layout: HudLayout, timeMs: number): void {
     const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
-    const { left, end, mid, rowA, rowB, rowC, big } = layout;
+    const { ink, dim } = kit.palette;
+    const { left, end, mid, rowA, big } = layout;
     kit.text(HUD.score, left, rowA, dim);
     this.score(left, big, timeMs, WHOLE);
     if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, mid, rowA, ink);
-    // The two small readings stand on the right, one under the other; a line of the goal, where there is one, over them.
+    // A line of the goal, where there is one, stands before the buttons; the two small readings under them, one under the other.
     if (level.goal.length > 0) this.goalLine(level.goal[0], end, rowA);
-    this.levelReads(level, end, [rowB, rowC]);
-    kit.rect(left, layout.rule, layout.right - left, 1, faint);
+    this.levelReads(level, layout.right, layout.moves);
   }
 
   private drawPause(layout: HudLayout): void {
@@ -1304,6 +1281,25 @@ export class GameHud {
     kit.rect(box.x + Math.round(box.w / 2) - wide * 2, y, wide, tall, colour);
     kit.rect(box.x + Math.round(box.w / 2) + wide, y, wide, tall, colour);
     this.zones.push({ id: 'pause', rect: kit.toWindow(box), action: () => this.actions.onPause() });
+  }
+
+  /** The button that starts a level over: beside the pause, of its size and drawn as it is, with the arrow that goes round in place of the two bars. */
+  private drawRestart(layout: HudLayout): void {
+    const { kit } = this;
+    const { ink, faint } = kit.palette;
+    const box = layout.restart;
+    if (!box) return;
+    const pressed = this.held?.zone.id === 'retry';
+    if (pressed) kit.box(box, ink);
+    else kit.frame(box, faint);
+    const dot = restartDot(box.w);
+    const colour = pressed ? kit.palette.bg : ink;
+    const ix = box.x + Math.round((box.w - TOOL_ICON * dot) / 2);
+    const iy = box.y + Math.round((box.h - TOOL_ICON * dot) / 2);
+    ICON_RETRY.forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
+    });
+    this.zones.push({ id: 'retry', rect: kit.toWindow(box), action: () => this.actions.onRestart() });
   }
 
   /**
@@ -1449,11 +1445,11 @@ export class GameHud {
   }
 
   /**
-   * Where the swipe sign stands: inside the part of the picture it may stand in and clear of the
-   * buttons of a level (`avoid`), its trail beside the die of the figure and parallel to the
+   * Where the swipe sign stands: inside the part of the picture it may stand in, its trail beside
+   * the die of the figure and parallel to the
    * board. The star runs along that trail and the key stands in the middle of it (`paintSign`).
    */
-  private signPlan(sign: HudSign, inside: Box, avoid: Box | null): SignPlan {
+  private signPlan(sign: HudSign, inside: Box): SignPlan {
     const zoom = this.kit.zoom;
     const n = (name: string): number => Number(this.look.board[name] ?? 0);
     const rays = Math.max(1, Math.round(n('signStar')));
@@ -1462,7 +1458,7 @@ export class GameHud {
     const reach = sign.mode === 'key' ? SIGN_KEY / 2 : rays;
     const run = signBeside(body, { x: sign.step.x / zoom, y: sign.step.y / zoom }, n('signLength'), SIGN_GAP + reach);
     const { trail } = run;
-    const place = (start: Point, way: Point): Point => signPlace(signClear(start, way, avoid, reach + SIGN_PAD), way, inside, reach + SIGN_PAD);
+    const place = (start: Point, way: Point): Point => signPlace(start, way, inside, reach + SIGN_PAD);
     const from = place(run.from, trail);
     // The plain stroke: as long as the one along the board, beside the die as that one is.
     let plain: SignPlan['plain'] = null;
@@ -1583,59 +1579,44 @@ export class GameHud {
     if (lesson.waits) this.zones.push({ id: 'continue', rect: { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }, action: () => this.proceed() });
   }
 
-  /** On a tall screen the buttons of a level stand at the bottom of the stage, on the left. */
-  private toolsLow(): boolean {
-    return !isWide({ width: this.kit.width, height: this.kit.height });
-  }
-
   /**
-   * Where the buttons of a level stand (`toolButtons`), with their words in the language of the
-   * player. At the bottom they keep inside what the edges of the screen leave, and over the four
-   * buttons of those who press (`pad`) where those are under them.
+   * Where the button that takes a move back stands (`undoButton`), with its word in the language
+   * of the player: inside what the edges of the screen leave, and over the four buttons of those
+   * who press (`pad`) where those are under it.
    */
-  private toolPlan(stage: Box, retryOnly = false, pad: Box | null = null): ToolPlan {
+  private undoPlan(stage: Box, pad: Box | null): { tall: number; dot: number; box: Box } {
     const { kit } = this;
-    const words = { undo: kit.measure(word(COMMANDS.undo.name)), retry: kit.measure(word(COMMANDS.restart.name)) };
-    if (!this.toolsLow()) return toolButtons(stage, kit.zoom, words, false, retryOnly);
-    const css = safeInsets();
-    const left = Math.max(stage.x, css.left / kit.zoom);
-    const bottom = Math.min(stage.y + stage.h, kit.height - css.bottom / kit.zoom);
-    const room: Box = { x: left, y: stage.y, w: stage.x + stage.w - left, h: bottom - stage.y };
-    const plan = toolButtons(room, kit.zoom, words, true, retryOnly);
+    const word = kit.measure(this.undoWord());
+    const bottom = Math.min(stage.y + stage.h, kit.height - safeInsets().bottom / kit.zoom);
+    const room: Box = { ...stage, h: bottom - stage.y };
+    const plan = undoButton(room, kit.zoom, word);
     if (!pad || !boxesMeet(plan.box, pad)) return plan;
-    return toolButtons({ ...room, h: pad.y - room.y }, kit.zoom, words, true, retryOnly);
+    return undoButton({ ...room, h: pad.y - room.y }, kit.zoom, word);
+  }
+
+  private undoWord(): string {
+    return word(COMMANDS.undo.name);
   }
 
   /**
-   * The two buttons every task needs, out of the way of swipes: each a picture, the arrow that
-   * turns back and the arrow that goes round, and its word. At a dead end the one that takes the
-   * move back blinks: it is the one to press.
+   * The button that takes a move back, out of the way of swipes: the arrow that turns back and
+   * its word, with no frame. Until there is a move to take back it is faint. At a dead end it
+   * blinks, picture and word: it is the one to press.
    */
-  private drawTools(tools: HudTools, stage: Box, blink: number, pad: Box | null): void {
+  private drawUndo(tools: HudTools, stage: Box, blink: number, pad: Box | null): void {
     const { kit } = this;
-    const { bg, ink, dim, faint } = kit.palette;
-    const plan = this.toolPlan(stage, tools.retryOnly, pad);
-    const { tall, dot } = plan;
-    const button = (id: string, icon: readonly string[], text: string, box: Box, on: boolean, urgent: boolean, action: () => void): void => {
-      const filled = (on && this.held?.zone.id === id) || (urgent && blink === 0);
-      if (filled) kit.box(box, ink);
-      else {
-        kit.box(box, bg);
-        kit.frame(box, on ? dim : faint);
-      }
-      // The picture is drawn in whole dots, as large as the button lets it be, and the word stands right of it.
-      const colour = filled ? bg : on ? ink : faint;
-      const ix = box.x + 6;
-      const iy = box.y + Math.round((tall - icon.length * dot) / 2);
-      icon.forEach((row, r) => {
-        for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
-      });
-      kit.text(text, ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
-      this.zones.push({ id, rect: kit.toWindow(box), action: on ? action : () => this.actions.onRefused?.() });
-    };
-    button('retry', ICON_RETRY, word(COMMANDS.restart.name), plan.retry, true, false, () => this.actions.onRestart());
-    if (tools.retryOnly) return;
-    button('undo', ICON_UNDO, word(COMMANDS.undo.name), plan.undo, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
+    const { ink, dim, faint } = kit.palette;
+    const { tall, dot, box } = this.undoPlan(stage, pad);
+    const held = this.held?.zone.id === 'undo';
+    const urgent = tools.urgent && tools.canUndo;
+    const colour = !tools.canUndo ? faint : held ? dim : urgent && blink !== 0 ? faint : ink;
+    const ix = box.x + 6;
+    const iy = box.y + Math.round((tall - ICON_UNDO.length * dot) / 2);
+    ICON_UNDO.forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
+    });
+    kit.text(this.undoWord(), ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
+    if (tools.canUndo) this.zones.push({ id: 'undo', rect: kit.toWindow(box), action: () => this.actions.onUndo() });
   }
 
   /** Four buttons in a cross: up is north, right is east. */

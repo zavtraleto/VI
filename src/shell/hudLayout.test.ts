@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, toolButtons, turned, type FloorAxes } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, undoButton, restartDot, turned, type FloorAxes } from './hudLayout';
 import { CELL_W, MIN_ZONE } from './layout';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -275,40 +275,71 @@ describe('the plaque of a short combo', () => {
   });
 });
 
-describe('the buttons of a level', () => {
-  const stage = { x: 0, y: 55, w: 180, h: 265 };
-  const within = (box: { x: number; y: number; w: number; h: number }): boolean => box.x >= stage.x && box.y >= stage.y && box.x + box.w <= stage.x + stage.w && box.y + box.h <= stage.y + stage.h;
+describe('the buttons and the small readings of a level', () => {
+  const NEEDS = { restart: true, level: true, goal: true };
 
-  it('stand in the top right corner of the stage on a wide screen, the one that starts over last', () => {
-    const plan = toolButtons(stage, 2, { undo: 32, retry: 56 });
-    expect(plan.retry.x + plan.retry.w).toBe(stage.x + stage.w - 6);
-    expect(plan.undo.x + plan.undo.w).toBeLessThan(plan.retry.x);
-    expect(plan.undo.y).toBe(stage.y + 6);
-    expect(plan.tall * 2).toBeGreaterThanOrEqual(MIN_ZONE);
+  it('have the one that starts over left of the pause on a tall picture, of its size, and the readings under the two', () => {
+    for (const [width, height, zoom] of [
+      [180, 295, 2],
+      [240, 520, 1.33],
+      [320, 693, 1.33],
+    ]) {
+      const plain = hudLayout({ width, height }, NO_INSETS, zoom);
+      const layout = hudLayout({ width, height }, NO_INSETS, zoom, NEEDS);
+      const restart = layout.restart!;
+      expect(layout.pause).toEqual(plain.pause);
+      expect([restart.w, restart.h, restart.y]).toEqual([layout.pause.w, layout.pause.h, layout.pause.y]);
+      expect(restart.x + restart.w).toBeLessThan(layout.pause.x);
+      expect(layout.end).toBeLessThan(restart.x);
+      expect(layout.moves[0]).toBeGreaterThan(layout.pause.y + layout.pause.h);
+      expect(layout.moves[1]).toBe(layout.moves[0] + 16);
+      // The board starts below the readings, and the net of the die below them too.
+      expect(layout.height).toBeGreaterThanOrEqual(layout.moves[1] + 16);
+      expect(layout.net.y).toBeGreaterThan(layout.height);
+      // Under buttons a finger needs, the readings take the board a row and a little more of the picture, no more.
+      expect(layout.height - plain.height).toBeLessThan(24);
+    }
+    expect(hudLayout({ width: 180, height: 295 }, NO_INSETS, 2).restart).toBeNull();
   });
 
-  it('stand side by side in the bottom left corner on a tall screen, each as wide as its picture and its word', () => {
-    const plan = toolButtons(stage, 2, { undo: 32, retry: 56 }, true);
-    expect(plan.undo.x).toBe(stage.x + 6);
-    expect(plan.undo.y + plan.undo.h).toBe(stage.y + stage.h - 6);
-    expect(plan.retry.y).toBe(plan.undo.y);
-    expect(plan.retry.x).toBeGreaterThan(plan.undo.x + plan.undo.w);
-    expect(plan.undo.w).toBeGreaterThanOrEqual(6 + 9 * plan.dot + 6 + 32 + 6);
-    expect(within(plan.box)).toBe(true);
+  it('stand in the column of a wide picture: the two buttons side by side, the readings under them, the net under those', () => {
+    for (const [width, height, zoom] of [
+      [640, 360, 2],
+      [640, 360, 3],
+      [609, 281, 1.33],
+    ]) {
+      for (const goal of [true, false]) {
+        const layout = hudLayout({ width, height }, NO_INSETS, zoom, { ...NEEDS, goal });
+        const restart = layout.restart!;
+        expect(restart.x).toBe(layout.left);
+        expect(layout.pause.x).toBeGreaterThan(restart.x + restart.w);
+        expect(layout.pause.x + layout.pause.w).toBeLessThanOrEqual(layout.right);
+        expect(layout.pause.y).toBe(restart.y);
+        expect(restart.y).toBeGreaterThanOrEqual((goal ? layout.lines.cells : layout.lines.tag) + 16);
+        expect(layout.moves[0]).toBeGreaterThan(restart.y + restart.h);
+        expect(layout.net.y).toBeGreaterThan(layout.moves[1] + 16);
+        expect(layout.net.y + 70).toBeLessThan(height);
+      }
+    }
+  });
+});
+
+describe('the button that takes a move back', () => {
+  const stage = { x: 0, y: 60, w: 180, h: 235 };
+
+  it('stands in the middle of the bottom of the stage, as tall as a finger needs', () => {
+    const { box, tall, dot } = undoButton(stage, 2, 32);
+    expect(box.x + box.w / 2).toBeCloseTo(stage.x + stage.w / 2, 0);
+    expect(box.y + box.h).toBe(stage.y + stage.h - 6);
+    expect(tall * 2).toBeGreaterThanOrEqual(MIN_ZONE);
+    expect(box.w).toBeGreaterThanOrEqual(6 + 9 * dot + 6 + 32 + 6);
+    const wide = undoButton({ x: 120, y: 0, w: 520, h: 360 }, 2, 80).box;
+    expect(wide.x + wide.w / 2).toBeCloseTo(380, 0);
   });
 
-  it('stand one over the other where the words are too long for a row', () => {
-    const plan = toolButtons(stage, 2, { undo: 56, retry: 112 }, true);
-    expect(plan.undo.x).toBe(plan.retry.x);
-    expect(plan.undo.w).toBe(plan.retry.w);
-    expect(plan.undo.y + plan.undo.h).toBeLessThan(plan.retry.y);
-    expect(plan.retry.y + plan.retry.h).toBe(stage.y + stage.h - 6);
-    expect(within(plan.box)).toBe(true);
-  });
-
-  it('leave the one that starts over in the corner where no move can be taken back', () => {
-    const plan = toolButtons(stage, 2, { undo: 32, retry: 56 }, true, true);
-    expect(plan.retry.x).toBe(stage.x + 6);
-    expect(plan.box).toEqual(plan.retry);
+  it('has a picture on the button that starts over that takes about half of it', () => {
+    expect(restartDot(24)).toBe(1);
+    expect(restartDot(32)).toBe(2);
+    expect(restartDot(44)).toBe(2);
   });
 });
