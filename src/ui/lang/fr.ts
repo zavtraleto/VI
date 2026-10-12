@@ -115,6 +115,7 @@ export const FR: Texts = {
   roadHintWalk: 'Quand le combo part, tu peux le traverser.',
   roadHintPush: 'Descends du dé qui part, puis pousse.',
   roadHintFixed: 'Le dé terne reste là. Passe au voisin.',
+  roadHintClimb: 'Sur le dé qui part, descends et remonte.',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLimited: 'SESSION DU JOUR {time}',
   shellLevels: 'NETTOYAGE DU CHAMP',

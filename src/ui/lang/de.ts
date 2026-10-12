@@ -112,6 +112,7 @@ export const DE: Texts = {
   roadHintWalk: 'Solange das Combo geht, kannst du darüber laufen.',
   roadHintPush: 'Steig vom gehenden Würfel zu Boden und schiebe.',
   roadHintFixed: 'Der matte Würfel steht fest. Geh zum nächsten.',
+  roadHintClimb: 'Vom gehenden Würfel steigst du ab und auf.',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLimited: 'SITZUNG DES TAGES {time}',
   shellLevels: 'FELDRÄUMUNG',

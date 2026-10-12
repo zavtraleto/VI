@@ -13,7 +13,8 @@ import type { CubeState, GameEvent, RunState } from '../rules/types';
  *
  * A combo is the first `match`; a chain is the rules' own `chain` (a die joined to a combo that
  * is leaving); a push is a `move` of that kind; a walk is a step onto a die that is leaving, a
- * `hop` from a die or a `mount` from the floor that ends on a sinking die.
+ * `hop` from a die or a `mount` from the floor that ends on a sinking die; a climb is a `mount`,
+ * the step up from the floor onto a die that is low or leaving.
  */
 export function hintOver(until: HintUntil, events: readonly GameEvent[], under: CubeState | null): boolean {
   return events.some((event) => {
@@ -27,6 +28,8 @@ export function hintOver(until: HintUntil, events: readonly GameEvent[], under: 
         return event.type === 'move' && event.kind === 'push';
       case 'walk':
         return event.type === 'move' && (event.kind === 'hop' || event.kind === 'mount') && under === 'sinking';
+      case 'climb':
+        return event.type === 'move' && event.kind === 'mount';
     }
   });
 }
@@ -82,6 +85,7 @@ const PROBE: Readonly<Record<string, RoadHint>> = {
   chain: { key: 'roadHintChain', until: 'chain' },
   walk: { key: 'roadHintWalk', until: 'walk' },
   push: { key: 'roadHintPush', until: 'push' },
+  climb: { key: 'roadHintClimb', until: 'climb' },
 };
 
 /**

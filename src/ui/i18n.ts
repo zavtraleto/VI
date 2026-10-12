@@ -139,16 +139,19 @@ const RU = {
   ruleTwos: 'Работают двойки и тройки. Двойке нужны две кости, тройке — три.',
   ruleGlass: 'По уходящей кости можно прокатиться. Совпала грань — кость вошла в цепочку.',
   ruleFives: 'Работают только пятёрки. Комбо — пять пятёрок рядом.',
-  // The three lines a piece of the road carries over its board when it teaches a move (`ROAD_HINTS`), and the one
+  // The lines a piece of the road carries over its board when it teaches a move (`ROAD_HINTS`), and the one
   // about a dim die, said once to a player on any board (`roadHintFixed`): a hint and not an instruction, eight words
   // at most, in the voice of the lab assistant but short. THE TEXTS ARE A PROPOSAL OF THE IMPLEMENTER, `roadHintFixed`
   // and the words of `roadHintPush` of 9 October too; the owner corrects them. The words of `roadHintWalk` are the
-  // owner's, of 11 October: it says when a combo can be walked over, while it leaves. The other six languages say the
+  // owner's, of 11 October: it says when a combo can be walked over, while it leaves; since 12 October no piece carries
+  // it, and the key is kept. `roadHintClimb` (12 October) is the implementer's too: the brief proposed «Пока кость
+  // уходит, с неё сходят и на неё поднимаются.», ten words, cut to eight. The other six languages say the
   // same in the same length and have not been read by a native speaker either.
   roadHintChain: 'Пока комбо уходит, докати к нему ещё одну.',
   roadHintWalk: 'Пока комбо уходит, по нему можно пройти.',
   roadHintPush: 'Сойди с уходящей кости на пол и толкни.',
   roadHintFixed: 'Тусклая кость стоит. Шагни на другую.',
+  roadHintClimb: 'С уходящей кости сходят и на неё поднимаются.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLimited: 'СЕАНС ДНЯ {time}',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
@@ -280,6 +283,7 @@ const EN: typeof RU = {
   roadHintWalk: 'While a combo leaves, you can cross it.',
   roadHintPush: 'Step down from the leaving die and push.',
   roadHintFixed: 'A dim die stays put. Step to another.',
+  roadHintClimb: 'Step off a leaving die and back on.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',
   shellLevels: 'CLEAR THE BOARD',

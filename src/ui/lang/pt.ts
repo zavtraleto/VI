@@ -112,6 +112,7 @@ export const PT: Texts = {
   roadHintWalk: 'Enquanto o combo sai, dá para atravessá-lo.',
   roadHintPush: 'Desça do dado que sai e empurre.',
   roadHintFixed: 'O dado apagado não rola. Passe para outro.',
+  roadHintClimb: 'No dado que sai, desça e suba.',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLimited: 'SESSÃO DO DIA {time}',
   shellLevels: 'LIMPEZA DO CAMPO',

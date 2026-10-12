@@ -112,6 +112,7 @@ export const TR: Texts = {
   roadHintWalk: 'Kombo giderken üstünden geçebilirsin.',
   roadHintPush: 'Giden zardan zemine in ve it.',
   roadHintFixed: 'Soluk zar yerinde durur. Başka zara geç.',
+  roadHintClimb: 'Giden zardan inip yeniden çıkabilirsin.',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLimited: 'GÜNÜN OTURUMU {time}',
   shellLevels: 'ALAN TEMİZLİĞİ',

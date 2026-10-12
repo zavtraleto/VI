@@ -14,7 +14,8 @@ import type { Dir, LevelSpec } from '../rules/types';
  *
  * A lesson is the piece that brings a move, with a line above the board. `R01`, `R02`, `R10` and
  * `R13` are boards cut to few cells, and none of them can be lost: the dice that wait are fixed,
- * but for the pair of 2s and the two 3s of `R13`, whose fixed 3 is the one they are pushed to.
+ * but for the die of the second pair and the stair of `R10`, and the pair of 2s and the two 3s of
+ * `R13`, whose fixed 3 is the one they are pushed to.
  * The lesson of the chain (`R06`) is an open board of three dice that all roll: the first pair
  * is the player's own to find, and the chain missed leaves one die alone, a dead end said at
  * once. The camera sees the south and the east side of a die, and the face of a lesson's combo
@@ -157,24 +158,27 @@ export const ROAD: readonly LevelSpec[] = [
     },
     par: 3, solution: ['3,1,W', '2,2,S', '2,3,E'],
   },
-  // 3 3 . .    C1, the lesson of the walk. One roll north makes the 2s, with the 2 that waits. The
-  // . # B .    die that is to make the 3s is beyond it, and the only way to it is over the 2 while it
-  // . . 2 #    leaves: a step is no move, so the dice wait while the player walks. Then one roll
-  // . . . A    west, under the 3s.
+  // . . 2 #    C1, the lesson of the way down and up. One roll north makes the 2s, with the 2 that
+  // 2 . s B    waits, and the player stands on a die that is leaving. The die that is to make the
+  // # # # .    other 2s is off to the east, beside no die of the pair: no step over the dice leads to
+  // A . . .    it. Down to the floor, along it to the stair, a die laid as leaving in two moves that
+  //            still stands after the first, up it, a step onto the die, and a roll north. The stair
+  //            goes with that roll. The lesson of the walk of the third edition went: the walk is
+  //            done from the fifth piece on (the owner, 12 October).
   {
-    ...COMMON, id: 'R10', seed: 8110, size: 4, values: [2, 3], faces: [2, 3], norm: 5, floor: false,
-    holes: cutAllBut(4, [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2], [3, 2], [3, 3]]),
+    ...COMMON, id: 'R10', seed: 8110, size: 4, values: [2], faces: [2], norm: 5, floor: true,
+    holes: cutAllBut(4, [[2, 0], [3, 0], [0, 1], [2, 1], [3, 1], [0, 2], [1, 2], [2, 2], [0, 3]]),
     layout: {
-      start: { x: 3, z: 3 },
+      start: { x: 0, z: 3 }, leaving: [{ die: 4, moves: 2 }],
       dice: [
-        { x: 3, z: 3, top: 6, north: 5 },
-        { x: 2, z: 1, top: 5, north: 1 },
-        { x: 2, z: 2, top: 2, north: 1, fixed: true },
-        { x: 0, z: 0, top: 3, north: 1, fixed: true },
-        { x: 1, z: 0, top: 3, north: 1, fixed: true },
+        { x: 0, z: 3, top: 6, north: 5 },
+        { x: 0, z: 1, top: 2, north: 1, fixed: true },
+        { x: 3, z: 1, top: 4, north: 5 },
+        { x: 2, z: 0, top: 2, north: 1, fixed: true },
+        { x: 2, z: 1, top: 6, north: 3 },
       ],
     },
-    par: 2, solution: ['3,3,N', '2,1,W'],
+    par: 2, solution: ['0,3,N', '3,1,N'],
   },
   // b # # A    C2, free: the walk as a short cut. Two rolls west bring a 3 up over the column of
   // # c # #    3s. The die that makes the 2s is at the foot of that column: three moves by the walk
@@ -311,11 +315,15 @@ export function blockOf(index: number): RoadBlock | null {
 /** The sign a piece opens with, if any: the direction the swipe sign shows from the first frame. */
 export const ROAD_SIGNS: Readonly<Record<string, Dir | undefined>> = { R01: 'N' };
 
-/** The moves a piece can teach that a line above the board speaks of, and what ends the line: the first combo, a die joined to a combo that is leaving, a step onto a leaving die, a push. */
-export type HintUntil = 'combo' | 'chain' | 'walk' | 'push';
+/**
+ * The moves a piece can teach that a line above the board speaks of, and what ends the line: the
+ * first combo, a die joined to a combo that is leaving, a step onto a leaving die, a push, a step
+ * up from the floor onto a leaving die.
+ */
+export type HintUntil = 'combo' | 'chain' | 'walk' | 'push' | 'climb';
 
 /** The lines of the texts (`src/ui/i18n.ts`) that a piece can carry above its board. */
-export type RoadHintKey = 'roadHintChain' | 'roadHintWalk' | 'roadHintPush';
+export type RoadHintKey = 'roadHintChain' | 'roadHintWalk' | 'roadHintPush' | 'roadHintClimb';
 
 export interface RoadHint {
   /** The key of the line, in the seven languages. */
@@ -326,12 +334,13 @@ export interface RoadHint {
 
 /**
  * The pieces that teach a move carry a line above the board, a hint and not an instruction (the
- * owner: «они скорее подсказка, а не наставление»): `R06` the chain, `R10` the walk over dice
- * that are leaving, `R13` the way down and the push.
+ * owner: «они скорее подсказка, а не наставление»): `R06` the chain, `R10` the way down from a
+ * die that is leaving and up onto one, `R13` the way down and the push. The line of the walk over
+ * dice that are leaving (`roadHintWalk`) is no piece's now: its lesson went with the third edition.
  */
 export const ROAD_HINTS: Readonly<Record<string, RoadHint>> = {
   R06: { key: 'roadHintChain', until: 'chain' },
-  R10: { key: 'roadHintWalk', until: 'walk' },
+  R10: { key: 'roadHintClimb', until: 'climb' },
   R13: { key: 'roadHintPush', until: 'push' },
 };
 
@@ -439,11 +448,13 @@ const SECOND_EDITION_PLACES: Readonly<Record<string, string>> = {
 /**
  * The boards of the third edition that are in this one, by the code each had there and the code
  * it has here: the walk as a short cut (`R09`) went from the block of the chain to the block of
- * the dice that leave, after its lesson, and the mix of the chain (`R10`) came a place nearer.
+ * the dice that leave, after its lesson, and the mix of the chain (`R10`) came a place nearer. The
+ * lesson of the walk (`R11`) went, and what was kept of it with it: the lesson in its place is
+ * another board.
  */
 const THIRD_EDITION_BOARDS: Readonly<Record<string, string>> = {
   R01: 'R01', R02: 'R02', R03: 'R03', R04: 'R04', R05: 'R05', R06: 'R06', R07: 'R07', R08: 'R08',
-  R09: 'R11', R10: 'R09', R11: 'R10', R12: 'R12', R13: 'R13', R14: 'R14', R15: 'R15', R16: 'R16',
+  R09: 'R11', R10: 'R09', R12: 'R12', R13: 'R13', R14: 'R14', R15: 'R15', R16: 'R16',
 };
 
 /**
@@ -451,7 +462,7 @@ const THIRD_EDITION_BOARDS: Readonly<Record<string, string>> = {
  * where the board went further along the road, past pieces the player has not played, on the
  * first of those. One on `R09` (the walk as a short cut, now `R11`) has played neither the mix of
  * the chain nor the lesson before it, and stands on the mix (`R09`); one on `R10`, the mix, is on
- * it still; one on the lesson of the walk is on the lesson of its block. One past the end (`R17`)
+ * it still; one on the lesson of the walk that went is on the lesson in its place. One past the end (`R17`)
  * is past this one.
  */
 const THIRD_EDITION_PLACES: Readonly<Record<string, string>> = {
