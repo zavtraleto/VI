@@ -90,7 +90,7 @@ const KEYS: Readonly<Record<string, string>> = {
   R07: 'S:roll W:roll W:roll W:hop N:roll',
   R08: 'W:roll W:roll W:hop S:roll S:hop E:roll E:hop N:roll',
   R09: 'W:roll S:hop S:roll E:roll',
-  R10: 'N:roll E:descend E:walk N:mount E:hop N:roll',
+  R10: 'N:roll E:descend E:walk N:mount E:hop S:roll W:roll W:roll',
   R11: 'W:roll W:roll S:hop S:hop W:hop N:roll',
   R12: 'N:roll N:hop W:hop W:roll S:hop E:hop E:hop N:hop W:roll',
   R13: 'W:roll W:hop N:descend N:walk N:walk E:push W:walk S:walk S:walk S:mount E:hop E:descend E:walk N:push',
@@ -327,7 +327,7 @@ describe('the road', () => {
   });
 
   it('keeps a way that clears each piece in as many moves as the piece says, and the solver finds no shorter one', { timeout: 60_000 }, () => {
-    expect(ROAD.map((spec) => spec.par)).toEqual([4, 4, 2, 2, 3, 2, 4, 5, 3, 2, 3, 3, 3, 3, 3, 4]);
+    expect(ROAD.map((spec) => spec.par)).toEqual([4, 4, 2, 2, 3, 2, 4, 5, 3, 4, 3, 3, 3, 3, 3, 4]);
     for (const spec of ROAD) {
       expect(spec.solution, spec.id).toHaveLength(spec.par!);
       const { state } = tryWay(spec, wayOf(spec));
@@ -467,19 +467,19 @@ describe('the lessons of the road', () => {
     expect(nearOf(spec)).toEqual([7, 0, 0, 5]);
   });
 
-  it('R10: down from the 2s as they leave, along the floor, up the stair while it stands, and a roll that makes the other 2s; on a whole board, where it can be lost', { timeout: 60_000 }, () => {
+  it('R10: down from the 2s as they leave, along the floor, up the stair while it stands, and three rolls that make the other 2s; on a whole board, where it can be lost and has no way round the floor', { timeout: 60_000 }, () => {
     const spec = pieceOf('R10');
     expect(spec.floor).toBe(true);
-    // No cell is cut out of it (the owner, 12 October), and the dice are where they were when five were.
+    // No cell is cut out of it (the owner, 12 October), and four of its dice are where they were when five were.
     expect(spec.holes).toBeUndefined();
     expect(extentOf(spec)).toEqual([4, 4]);
-    expect(spec.layout!.dice.map((die) => `${die.x},${die.z}`)).toEqual(['0,3', '0,1', '3,1', '2,0', '2,1']);
-    // The short way is by the floor and up the stair. On the whole board there is a way round without either, by the
-    // solver let run: the own die rolled east and north round the board to the die of the second pair, the stair gone
-    // by then. It is six moves against the two of the lesson. No one die moved, and no fixed 2 added as a wall, takes that
-    // way away and keeps the board within three moves (spec, section 16, the second wave): the dice stay as they were.
-    expect(parWithout(spec, 'floor')).toBe(6);
-    expect(parWithout(spec, 'up')).toBe(6);
+    // The 2 that waits for the second pair stands in the south row since 12 October 2026, at (1,3) and not at (2,0).
+    expect(spec.layout!.dice.map((die) => `${die.x},${die.z}`)).toEqual(['0,3', '0,1', '3,1', '1,3', '2,1']);
+    expect(spec.par).toBe(4);
+    // There is no way round without the floor at all: with the 2 at (2,0) there was one, six moves against the two of
+    // the lesson. The search goes through every board, so it is no matter of how many moves over.
+    expect(parWithout(spec, 'floor')).toBeNull();
+    expect(parWithout(spec, 'up')).toBeNull();
     expect(clearedWithout(spec, 3, 'floor')).toBe(false);
     expect(parWithout(spec, 'push')).toBe(spec.par);
     expect(tryWay(spec, wayOf(spec)).uses).toEqual(['floor']);
@@ -498,21 +498,22 @@ describe('the lessons of the road', () => {
     go(at, 'N');
     expect(at.cubes.filter((cube) => cube.state === 'sinking').map((cube) => `${cube.x},${cube.z}`).sort()).toEqual(['0,1', '0,2', '2,1']);
     expect(DIRS.map((dir) => resolveMove(at, dir).kind)).toEqual(['hop', 'descend', 'descend', 'blocked']);
-    // The stair goes with the roll that makes the other 2s, and the board is cleared with it.
+    // The stair goes with the first roll of the die it led to, and the board is cleared by the third.
     const { state, events } = playKeys(spec);
     expect(events).toContain('move');
     expect(state.endReason).toBe('passed');
-    expect(state.levelRun!.moves).toBe(2);
+    expect(state.levelRun!.moves).toBe(4);
     expect(state.cubes.some((cube) => cube.x === 2 && cube.z === 1 && cube.state !== 'sinking')).toBe(false);
     // Near the start: the boards within two moves, the dead ends said at once, the boards lost and not said, the most
-    // moves from the rest. Within two moves nothing is lost but a dead end the level says at once.
-    expect(nearOf(spec)).toEqual([9, 1, 0, 6]);
-    // Further on it can be lost, as the owner asked. The walk over the boards the player can come to, cut at 300 as the
-    // table of the road cuts it: 40 of them lost, the first three moves in (east and back west, and the stair is gone
-    // with those two moves; then north makes the 2s, and the die of the second pair is not come to), and 35 of the 40
-    // not said by the level at once; the most moves from a board not lost is eight.
+    // moves from the rest. One board within two moves is lost and not said: the 2s made, and the die of the second pair
+    // pushed north from the floor, away from the row its 2 waits in.
+    expect(nearOf(spec)).toEqual([6, 1, 1, 4]);
+    // Further on it can be lost, as the owner asked. The walk over the boards the player can come to goes through all
+    // of them, 247, under the 300 the table of the road cuts it at: 17 of them lost, where 40 of 300 were with the 2 at
+    // (2,0); the first is five keys in (the 2s made, down, along the floor past the stair, and that push north); the
+    // most moves from a board not lost is six.
     const walk = walkBoards(spec, 300);
-    expect([walk.boards, walk.lost, walk.capped, walk.unsettled, walk.worst, walk.example]).toEqual([300, 40, true, 0, 8, 'EWN']);
+    expect([walk.boards, walk.lost, walk.capped, walk.unsettled, walk.worst, walk.example]).toEqual([247, 17, false, 0, 6, 'NEEEN']);
   });
 
   it('R13: the pair of 2s in the corner on a whole board, down off it, and two pushes in either order; a push amiss is a dead end that is taken back', { timeout: 240_000 }, () => {
@@ -849,20 +850,20 @@ describe('what was kept of a player of an edition before', () => {
   const stat = { tries: 1, passes: 1 };
 
   it('is of this edition for one who is new, with nothing changed', () => {
-    expect(ROAD_EDITION).toBe(5);
-    expect(toRoadEdition({ passed: {}, stats: {} })).toEqual({ passed: {}, stats: {}, roadEdition: 5 });
+    expect(ROAD_EDITION).toBe(6);
+    expect(toRoadEdition({ passed: {}, stats: {} })).toEqual({ passed: {}, stats: {}, roadEdition: 6 });
   });
 
   it('of the first edition: loses what was passed and counted under the codes of the road, keeps the levels of the list, and starts the road again', () => {
     const kept = { passed: { R01: true, R02: true, R07: true, P03: true, F1: true }, stats: { R01: stat, R07: stat, P03: stat }, road: 'R08' };
-    expect(toRoadEdition(kept)).toEqual({ passed: { P03: true, F1: true }, stats: { P03: stat }, road: 'R01', roadEdition: 5 });
+    expect(toRoadEdition(kept)).toEqual({ passed: { P03: true, F1: true }, stats: { P03: stat }, road: 'R01', roadEdition: 6 });
     // What was given is not changed.
     expect(kept.passed.R01).toBe(true);
     expect(kept.road).toBe('R08');
     for (const road of ['R01', 'R12', 'R20', 'R19', '', 'X']) expect(toRoadEdition({ passed: {}, stats: {}, road }).road, road).toBe('R01');
     // One who had cleared its twenty pieces is past this road.
     const done = toRoadEdition({ passed: { R20: true, P01: true }, stats: { R20: stat }, road: 'R21' });
-    expect(done).toEqual({ passed: { P01: true }, stats: {}, road: ROAD_END, roadEdition: 5 });
+    expect(done).toEqual({ passed: { P01: true }, stats: {}, road: ROAD_END, roadEdition: 6 });
     expect(roadPlace(done.road, false)).toBeNull();
   });
 
@@ -875,12 +876,12 @@ describe('what was kept of a player of an edition before', () => {
     // R06 of the second edition was R10 of the third and is R09 here; R12 was R09 and is R11.
     expect(moved.stats).toEqual({ R09: { bestMoves: 3 }, P08: { bestMoves: 4 }, R11: { bestMoves: 4 }, R08: { bestMoves: 5 }, P09: stat });
     expect(moved.road).toBe(ROAD_END);
-    expect(moved.roadEdition).toBe(5);
+    expect(moved.roadEdition).toBe(6);
     // The boards went with their stars: what was R10 is the level P08, and the board of P08 is the piece R08.
     expect(LEVELS.find((level) => level.id === 'P08')!.par).toBe(4);
     expect(pieceOf('R08').par).toBe(5);
     // The levels of the list that did not move are left as they were, and so is one who has passed nothing of the road.
-    expect(toRoadEdition({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 2 })).toEqual({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 5 });
+    expect(toRoadEdition({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 2 })).toEqual({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 6 });
   });
 
   it('of the second edition: stands on the piece of the same role, the first of its block not played as the board it is', () => {
@@ -906,7 +907,7 @@ describe('what was kept of a player of an edition before', () => {
     expect(moved.passed).toEqual(Object.fromEntries([...third.filter((code) => code !== 'R10'), 'P01', 'P08'].map((code) => [code, true])));
     expect(moved.stats).toEqual({ R11: { bestMoves: 3 }, R09: { bestMoves: 4 }, R12: { bestMoves: 3 }, P08: { bestMoves: 4 } });
     expect(moved.road).toBe(ROAD_END);
-    expect(moved.roadEdition).toBe(5);
+    expect(moved.roadEdition).toBe(6);
     // The boards went with their stars.
     expect(pieceOf('R11').solution).toEqual(['3,0,W', '2,0,W', '0,2,N']);
     expect(pieceOf('R09').solution).toEqual(['3,1,W', '2,2,S', '2,3,E']);
@@ -927,10 +928,10 @@ describe('what was kept of a player of an edition before', () => {
     const seven = { bestMoves: 2 };
     const kept = { passed: { R05: true, R06: true, P03: true }, stats: { R05: stat, R06: six, P03: stat }, road: 'R07', roadEdition: 4 };
     // The lesson of the chain, R06 there, is R07 here; the piece after it has not been played, and is the sixth.
-    expect(toRoadEdition(kept)).toEqual({ passed: { R05: true, R07: true, P03: true }, stats: { R05: stat, R07: six, P03: stat }, road: 'R07', roadEdition: 5 });
+    expect(toRoadEdition(kept)).toEqual({ passed: { R05: true, R07: true, P03: true }, stats: { R05: stat, R07: six, P03: stat }, road: 'R07', roadEdition: 6 });
     expect(kept.passed.R06).toBe(true);
     const both = toRoadEdition({ passed: { R06: true, R07: true, R08: true }, stats: { R06: six, R07: seven, R08: stat }, road: 'R09', roadEdition: 4 });
-    expect(both).toEqual({ passed: { R06: true, R07: true, R08: true }, stats: { R06: seven, R07: six, R08: stat }, road: 'R09', roadEdition: 5 });
+    expect(both).toEqual({ passed: { R06: true, R07: true, R08: true }, stats: { R06: seven, R07: six, R08: stat }, road: 'R09', roadEdition: 6 });
     // The boards went with their stars: the two moves are of the 3s, the four of the three 2s.
     expect(pieceOf('R06').par).toBe(2);
     expect(pieceOf('R07').par).toBe(4);
@@ -941,6 +942,26 @@ describe('what was kept of a player of an edition before', () => {
     expect(ROAD_HINTS[place('R06')!]).toEqual({ key: 'roadHintChain', until: 'chain' });
   });
 
+  it('brings a player of the fifth edition to the sixth: R10 passed stays passed, its fewest moves are dropped, every other board keeps its own', () => {
+    const kept = toRoadEdition({ passed: { R10: true, R09: true }, stats: { R10: { bestMoves: 2 }, R09: { bestMoves: 3 } }, road: 'R11', roadEdition: 5 });
+    expect(kept.roadEdition).toBe(6);
+    expect(kept.passed).toEqual({ R10: true, R09: true });
+    expect(kept.stats).toEqual({ R09: { bestMoves: 3 } });
+    expect(kept.road).toBe('R11');
+    // The two boards that changed places in the fifth edition are where they are: nothing is moved a second time.
+    const six = { bestMoves: 2 };
+    const seven = { bestMoves: 4 };
+    const both = toRoadEdition({ passed: { R06: true, R07: true, P03: true }, stats: { R06: six, R07: seven, P03: stat }, road: ROAD_END, roadEdition: 5 });
+    expect(both).toEqual({ passed: { R06: true, R07: true, P03: true }, stats: { R06: six, R07: seven, P03: stat }, road: ROAD_END, roadEdition: 6 });
+    const place = (road: string) => toRoadEdition({ passed: {}, stats: {}, road, roadEdition: 5 }).road;
+    for (const code of Array.from({ length: 16 }, (_, i) => `R${String(i + 1).padStart(2, '0')}`)) expect(place(code), code).toBe(code);
+  });
+
+  it('drops the fewest moves of R10 kept from any edition before: they were counted on the board it was', () => {
+    const fourth = toRoadEdition({ passed: { R10: true }, stats: { R10: { bestMoves: 2 }, R05: stat }, road: 'R12', roadEdition: 4 });
+    expect(fourth).toEqual({ passed: { R10: true }, stats: { R05: stat }, road: 'R12', roadEdition: 6 });
+  });
+
   it('leaves one with no place kept with none: new, or from the build before the road', () => {
     const before: RoadKept = { passed: { F1: true }, stats: {} };
     expect(toRoadEdition(before).road).toBeUndefined();
@@ -949,9 +970,9 @@ describe('what was kept of a player of an edition before', () => {
   });
 
   it('gives back as it is what is of this edition already, the stars of its pieces among it', () => {
-    const kept = { passed: { R01: true, R03: true, P03: true }, stats: { R03: stat }, road: 'R04', roadEdition: 5 };
+    const kept = { passed: { R01: true, R03: true, P03: true }, stats: { R03: stat }, road: 'R04', roadEdition: 6 };
     expect(toRoadEdition(kept)).toBe(kept);
-    const done = { passed: { R16: true }, stats: { R16: stat }, road: ROAD_END, roadEdition: 5 };
+    const done = { passed: { R16: true }, stats: { R16: stat }, road: ROAD_END, roadEdition: 6 };
     expect(toRoadEdition(done)).toBe(done);
   });
 });

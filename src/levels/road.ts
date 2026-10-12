@@ -169,16 +169,18 @@ export const ROAD: readonly LevelSpec[] = [
     },
     par: 3, solution: ['3,1,W', '2,2,S', '2,3,E'],
   },
-  // # # 2 #    C1, the lesson of the way down and up, on a whole board. One roll north makes the 2s,
-  // 2 # s B    with the 2 that waits, and the player stands on a die that is leaving. The die that is
-  // # # # #    to make the other 2s is off to the east, beside no die of the pair: no step over the
-  // A # # #    dice leads to it. Down to the floor, along it to the stair, a die laid as leaving in two
-  //            moves that still stands after the first, up it, a step onto the die, and a roll north.
-  //            The stair goes with that roll. The lesson of the walk of the third edition went: the
-  //            walk is done from the fifth piece on (the owner, 12 October). The cells cut out of it
-  //            were given back by the word of the owner of 12 October, the dice where they were, so
-  //            that it can be lost: the own die rolled about the floor can leave a 2 with no pair.
-  //            The way round without the floor is there now too, six moves against the two by the floor.
+  // # # # #    C1, the lesson of the way down and up, on a whole board. One roll north makes the 2s with
+  // 2 # s B    the 2 that waits, and the player stands on a die that is leaving. The die that is to make
+  // # # # #    the other 2s is off to the east, beside no die of the pair: no step over the dice leads to
+  // A 2 # #    it. Down to the floor, along it to the stair, a die laid as leaving in two moves that
+  //            still stands after the first, up it, a step onto the die, and three rolls, south and
+  //            twice west, bring its 2 up beside the 2 that waits in the south row. The stair goes
+  //            with the first of them. The lesson of the walk of the third edition went: the walk is
+  //            done from the fifth piece on (the owner, 12 October). The cells cut out of it were
+  //            given back by the word of the owner of 12 October, so that it can be lost: the own die
+  //            rolled about the floor can leave a 2 with no pair. Since 12 October 2026 the 2 that
+  //            waits stands at (1,3), not (2,0): there the board has no way round without the floor
+  //            at all (the campaign, docs/superpowers/specs/2026-10-12-vi-campaign-design.md, section 6).
   {
     ...COMMON, id: 'R10', seed: 8110, size: 4, values: [2], faces: [2], norm: 5, floor: true,
     layout: {
@@ -187,11 +189,11 @@ export const ROAD: readonly LevelSpec[] = [
         { x: 0, z: 3, top: 6, north: 5 },
         { x: 0, z: 1, top: 2, north: 1, fixed: true },
         { x: 3, z: 1, top: 4, north: 5 },
-        { x: 2, z: 0, top: 2, north: 1, fixed: true },
+        { x: 1, z: 3, top: 2, north: 1, fixed: true },
         { x: 2, z: 1, top: 6, north: 3 },
       ],
     },
-    par: 2, solution: ['0,3,N', '3,1,N'],
+    par: 4, solution: ['0,3,N', '3,1,S', '3,2,W', '2,2,W'],
   },
   // b # # A    C2, free: the walk as a short cut. Two rolls west bring a 3 up over the column of
   // # c # #    3s. The die that makes the 2s is at the foot of that column: three moves by the walk
@@ -433,7 +435,7 @@ export function roadPlace(road: string | undefined, firstPassed: boolean): numbe
  * chain; `R06` and `R07` of the fourth changed places in the fifth. So what a player of an edition
  * before has kept under those codes is brought over by board (`toRoadEdition`).
  */
-export const ROAD_EDITION = 5;
+export const ROAD_EDITION = 6;
 
 /** What was kept under the codes of the road: the codes of its pieces are `R` and two digits, and no level of the list has such a code. */
 const ROAD_CODE = /^R\d\d$/;
@@ -496,6 +498,14 @@ const THIRD_EDITION_PLACES: Readonly<Record<string, string>> = {
  */
 const FOURTH_EDITION_BOARDS: Readonly<Record<string, string>> = { R06: 'R07', R07: 'R06' };
 
+/**
+ * The boards the sixth edition laid anew under the code they had: the lesson of the way down and
+ * up, whose 2 that waits was moved so that the board has no way round the floor, and is cleared in
+ * four moves where it was two. One who passed it has passed it; the fewest moves kept of it were
+ * counted on the board it was, and are dropped.
+ */
+const SIXTH_EDITION_RELAID: readonly string[] = ['R10'];
+
 /** What is kept of a player that the road reads and writes: see `LevelProgress` in `src/platform/settings.ts`. */
 export interface RoadKept {
   passed: Record<string, boolean>;
@@ -507,6 +517,10 @@ export interface RoadKept {
 /**
  * Brings what is kept of a player to this edition of the road; what is of this edition already
  * is given back as it is.
+ *
+ * From the fifth edition: every board is under the code it has, and the place is the place it
+ * was; only the fewest moves of the board laid anew are dropped (`SIXTH_EDITION_RELAID`), as they
+ * are from every edition before it.
  *
  * From the fourth edition: what was passed and counted on the two boards that changed places goes
  * with each to the code it has now (`FOURTH_EDITION_BOARDS`); the place is the place it was.
@@ -526,7 +540,7 @@ export interface RoadKept {
  */
 export function toRoadEdition<T extends RoadKept>(kept: T): T {
   if (kept.roadEdition === ROAD_EDITION) return kept;
-  const edition = kept.roadEdition === 2 || kept.roadEdition === 3 || kept.roadEdition === 4 ? kept.roadEdition : 1;
+  const edition = kept.roadEdition === 2 || kept.roadEdition === 3 || kept.roadEdition === 4 || kept.roadEdition === 5 ? kept.roadEdition : 1;
   // A board kept under a code it no longer has is moved to the code it has, edition by edition; any other code of the road is dropped.
   const boardOf = (code: string): string | undefined => {
     let at: string | undefined = code;
@@ -534,7 +548,7 @@ export function toRoadEdition<T extends RoadKept>(kept: T): T {
     if (edition === 2) at = SECOND_EDITION_BOARDS[code] ?? (ROAD_CODE.test(code) ? undefined : code);
     if (at === undefined || !ROAD_CODE.test(at)) return at;
     if (edition <= 3) at = THIRD_EDITION_BOARDS[at];
-    return at === undefined ? undefined : (FOURTH_EDITION_BOARDS[at] ?? at);
+    return at === undefined || edition === 5 ? at : (FOURTH_EDITION_BOARDS[at] ?? at);
   };
   const carried = <V>(all: Record<string, V>): Record<string, V> => {
     const out: Record<string, V> = {};
@@ -545,11 +559,12 @@ export function toRoadEdition<T extends RoadKept>(kept: T): T {
     return out;
   };
   const moved: T = { ...kept, passed: carried(kept.passed), stats: carried(kept.stats), roadEdition: ROAD_EDITION };
+  for (const code of SIXTH_EDITION_RELAID) delete moved.stats[code];
   if (kept.road !== undefined) {
     if (edition === 1) {
       const place = ROAD_CODE.test(kept.road) ? Number(kept.road.slice(1)) : 0;
       moved.road = place > FIRST_EDITION_PIECES ? ROAD_END : ROAD[0].id;
-    } else if (edition !== 4) {
+    } else if (edition <= 3) {
       const third = edition === 2 ? SECOND_EDITION_PLACES[kept.road] : kept.road;
       moved.road = (third === undefined ? undefined : THIRD_EDITION_PLACES[third]) ?? ROAD[0].id;
     }
