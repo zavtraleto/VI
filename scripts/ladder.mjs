@@ -15,9 +15,12 @@
 //                                            the ladder has it; recipes=/src/levels/other.ts:NAME takes the places from any list a module exports
 //   node scripts/ladder.mjs place=R03 walk=300   the boards a player can come to are walked for the table up to so many (150 unless said, 0 to leave it out;
 //                                            a place of the ladder that asks nothing of the walk is not walked unless walk= is said)
-//   node scripts/ladder.mjs road             the table of the pieces of the road (src/levels/road.ts): what each is, its board, its fewest moves, the first
+//   node scripts/ladder.mjs road             the table of the pieces of the road (src/levels/road.ts): its number, what each is, its board, its fewest moves,
+//                                            the dice to turn and the rolls away of its way (turns, away), the first
 //                                            moves that keep it in hand, the walk over the boards a player can come to (walk=300 boards unless said;
 //                                            a `+` where it was cut) and the shares of the hasty and the casual persona
+//   node scripts/ladder.mjs campaign         the same table for the whole row of the campaign (src/levels/campaign.ts): the pieces of the road and then
+//                                            the levels of the list, each with its number in the row; the role of a level of the list is `list`
 //   node scripts/ladder.mjs chapter=0        fills every place of a chapter (boards laid every way, seeds 1 to 1000 of each, and
 //                                            the boards laid by hand) and puts the chapter together: for every place one board
 //                                            that is unlike the one before it, with its picture and its line for levels.ts
@@ -79,20 +82,23 @@ if (flag('limit')) {
   const { solverLimit } = await load('/src/levels/limit.ts');
   const say = (row) => console.log(`${row.name}  seed ${row.seed}  moves ${row.par ?? '-'}  ${row.exhausted ? 'counted through' : 'gave up'}  boards ${row.states}  ${row.ms} ms`);
   solverLimit(Number(named.boards ?? 5), Number(named.states ?? 3_000_000), named.only, say);
-} else if (flag('road')) {
+} else if (flag('road') || flag('campaign')) {
+  // The pieces of the road, or the whole row of the campaign: the pieces and then the levels of the list.
   const { ROAD } = await load('/src/levels/road.ts');
+  const { CAMPAIGN } = await load('/src/levels/campaign.ts');
   const { ROAD_PLACES } = await load('/src/levels/roadRecipes.ts');
   const { roadRow, roadTable, ROAD_WALK_LIMIT } = await load('/src/levels/table.ts');
-  const roleOf = (id) => ROAD_PLACES.find((place) => place.id === id)?.role ?? 'lesson';
+  const stops = flag('campaign') ? CAMPAIGN : CAMPAIGN.slice(0, ROAD.length);
+  const roleOf = (stop) => (stop.board.road === undefined ? 'list' : (ROAD_PLACES.find((place) => place.id === stop.spec.id)?.role ?? 'lesson'));
   if (worker) {
-    ROAD.forEach((spec, index) => {
-      if (mine(index)) console.log(JSON.stringify({ index, row: roadRow(spec, roleOf(spec.id), Number(named.walk ?? ROAD_WALK_LIMIT)) }));
+    stops.forEach((stop, index) => {
+      if (mine(index)) console.log(JSON.stringify({ index, row: roadRow(stop.number, stop.spec, roleOf(stop), Number(named.walk ?? ROAD_WALK_LIMIT)) }));
     });
   } else {
     const rows = [];
     await shareOut([], ({ index, row }) => {
       rows[index] = row;
-      console.error(`${rows.filter(Boolean).length} of ${ROAD.length} pieces measured`);
+      console.error(`${rows.filter(Boolean).length} of ${stops.length} boards measured`);
     });
     console.log(roadTable(rows));
   }
