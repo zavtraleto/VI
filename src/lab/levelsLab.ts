@@ -8,12 +8,13 @@ import { moveOf, tryWay } from '../rules/levelSolver';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { BoardEditor, type Overlay } from './boardEditor';
-import { addPlay, listBoards, onBoardChanged, readBoard, writeBoard } from './boardsClient';
-import { boardHash } from './boardsServer';
+import { diffOf } from '../levels/labText';
+import { addPlay, historyOf, listBoards, onBoardChanged, playsOf, readBoard, readVersion, writeBoard } from './boardsClient';
+import { boardHash, type Version } from './boardsServer';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
 import { instantOf, type Ask, type Instant, type Later, type Seconds } from './labFacts';
-import { playRecordOf } from './playLog';
+import { playRecordOf, versionSummary, type PlayRecord } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 
 /** A change is written to its file this long after it is made, and after the last of several made together. */
@@ -63,7 +64,8 @@ function newHead(id: string): LevelSpec {
  * it and is not written over: whoever broke it mends it.
  */
 export function startLevelsLab(game: Game): void {
-  new LevelsLab(game);
+  // The lab in hand, for whoever looks at the page from the console: `window.viLab`.
+  (window as unknown as { viLab: LevelsLab }).viLab = new LevelsLab(game);
 }
 
 class LevelsLab {
@@ -108,6 +110,17 @@ class LevelsLab {
   /** Which views of the solver are drawn over the board, and whether the board is shown blind: nothing said of it until it has been played. */
   private readonly views = { arrows: true, sensitive: false, spare: false, blind: false };
   private viewControls: Controller[] = [];
+  /** The versions of the board in hand that are kept, the oldest first, and the plays written down for it. */
+  private versions: Version[] = [];
+  private plays: PlayRecord[] = [];
+  private readonly versionForm = { pick: '' };
+  private versionControl!: Controller;
+  /** The version the board is held against, side by side, with what is known of it; null where nothing is compared. */
+  private against: { version: Version; spec: LevelSpec; seconds: Seconds | string | null; later: Later | string | null } | null = null;
+  private compareBox!: HTMLElement;
+  private compareEditor!: BoardEditor;
+  private readonly askOtherSeconds = new SolveClient<Question<'seconds'>, Seconds>(solver);
+  private readonly askOtherLater = new SolveClient<Question<'later'>, Later>(solver);
   /** The play in hand, while the board is played. */
   private watched: Watched | null = null;
   /** The status every file says it has, for the list of the files. */
@@ -122,15 +135,23 @@ class LevelsLab {
     facts.style.cssText = `margin:0;padding:12px 14px;overflow:auto;white-space:pre-wrap;border-right:1px solid ${palette.faint};font:inherit;color:${palette.ink}`;
     const stage = document.createElement('div');
     stage.style.cssText = 'display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden';
+    const boards = document.createElement('div');
+    boards.style.cssText = 'display:flex;flex:1;min-height:0';
     const boardBox = document.createElement('div');
-    boardBox.style.cssText = 'position:relative;flex:1;min-height:0';
+    boardBox.style.cssText = 'position:relative;flex:1;min-width:0';
+    // The version the board is held against stands to the left of it, while one is.
+    this.compareBox = document.createElement('div');
+    this.compareBox.style.cssText = `position:relative;flex:1;min-width:0;display:none;border-right:1px solid ${palette.faint}`;
+    boards.append(this.compareBox, boardBox);
     this.ribbon.style.cssText = `display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;min-height:30px;border-top:1px solid ${palette.faint}`;
-    stage.append(boardBox, this.ribbon);
+    stage.append(boards, this.ribbon);
     root.append(facts, stage);
     badge.style.cssText = `position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:900;display:none;padding:2px 10px;background:${palette.bg};color:${palette.dim};border:1px solid ${palette.faint};font:12px ${PROGRAM_FONT};pointer-events:none`;
     badge.textContent = 'E — редактор · R — заново · Z — ход назад · N — снимок положения в новую доску';
     document.body.append(root, badge);
     this.editor = new BoardEditor(boardBox, () => this.edited(true));
+    this.compareEditor = new BoardEditor(this.compareBox, () => undefined);
+    this.compareEditor.locked = true;
     this.buildPanel();
 
     // The keys are the editor's while it is open: the game under it gets none of them.
@@ -217,6 +238,11 @@ class LevelsLab {
     board.add(form, 'status', [...BOARD_STATUSES]).name('статус').onChange(() => this.edited(false));
     this.copyControl = gui.add({ copy: () => void this.copy() }, 'copy').name(COPY_LABEL);
     gui.add({ keep: () => this.keepSolved() }, 'keep').name('записать путь решателя в файл');
+    const versions = gui.addFolder('Версии');
+    this.versionControl = versions.add(this.versionForm, 'pick', []).name('версия');
+    versions.add({ open: () => void this.openVersion() }, 'open').name('открыть как текущую');
+    versions.add({ compare: () => void this.compareWith() }, 'compare').name('сравнить с текущей');
+    versions.add({ stop: () => this.stopCompare() }, 'stop').name('убрать сравнение');
     const views = gui.addFolder('Виды решателя');
     const seen = (): void => this.show();
     this.viewControls = [
@@ -378,7 +404,145 @@ class LevelsLab {
     } catch (error) {
       this.error = (error as Error).message;
     }
+    await this.readVersions();
     this.show();
+  }
+
+  /** Reads the versions kept of the board in hand and the plays written down for it, and lists the versions on the panel, the newest first. */
+  private async readVersions(): Promise<void> {
+    const { name } = this;
+    if (name === '') return;
+    let versions: Version[] = [];
+    let plays: PlayRecord[] = [];
+    let statuses: (BoardStatus | undefined)[] = [];
+    try {
+      versions = await historyOf(name);
+      plays = await playsOf<PlayRecord>(name);
+      statuses = await Promise.all(versions.map(async (version) => readBoardHead(await readVersion(name, version.file)).status));
+    } catch (error) {
+      console.error(error);
+    }
+    if (name !== this.name) return;
+    // A board that has no version yet, one written by a script or by hand, gets its first: the file is written as it is.
+    if (versions.length === 0 && this.spec && this.saved !== '') {
+      try {
+        if ((await writeBoard(name, this.saved)).hash) versions = await historyOf(name);
+      } catch (error) {
+        console.error(error);
+      }
+      if (name !== this.name) return;
+    }
+    this.versions = versions;
+    this.plays = plays;
+    const labelled: Record<string, string> = {};
+    versions.forEach((version, index) => {
+      const played = plays.filter((play) => play.hash === version.hash).length;
+      const label = `${new Date(version.time).toLocaleTimeString()} ${version.hash}${statuses[index] ? ` · ${statuses[index]}` : ''}${played > 0 ? ` · партий ${played}` : ''}`;
+      labelled[label] = version.file;
+    });
+    const newestFirst = Object.fromEntries(Object.entries(labelled).reverse());
+    if (!versions.some((version) => version.file === this.versionForm.pick)) this.versionForm.pick = versions.at(-1)?.file ?? '';
+    this.versionControl = this.versionControl.options(newestFirst).name('версия');
+  }
+
+  /** The version picked on the panel, with its text. */
+  private async picked(): Promise<{ version: Version; text: string } | null> {
+    const version = this.versions.find((kept) => kept.file === this.versionForm.pick);
+    if (!version || this.name === '') return null;
+    try {
+      return { version, text: await readVersion(this.name, version.file) };
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  /** Takes the version picked as the board in hand: it is written to the file, and is the newest version from then on. */
+  private async openVersion(): Promise<void> {
+    if (this.saveTimer !== 0) await this.save();
+    const picked = await this.picked();
+    if (!picked) return;
+    this.stopCompare();
+    this.load(this.name, picked.text);
+    this.saved = '';
+    await this.save();
+  }
+
+  /**
+   * Holds the board in hand against the version picked: the version stands beside it, the cells
+   * the two differ in are framed on both, and the numbers of both are set side by side. The
+   * numbers of the version are asked of workers of their own, so that those of the board in hand
+   * are not stopped for them.
+   */
+  private async compareWith(): Promise<void> {
+    const picked = await this.picked();
+    if (!picked) return;
+    let spec: LevelSpec;
+    try {
+      spec = parseBoard(picked.text, this.name);
+    } catch (error) {
+      this.error = (error as Error).message;
+      this.show();
+      return;
+    }
+    const against: NonNullable<LevelsLab['against']> = { version: picked.version, spec, seconds: null, later: null };
+    this.against = against;
+    this.compareBox.style.display = 'block';
+    this.compareEditor.show(editBoardOf(spec));
+    const told = <T>(set: (facts: T | string) => void) => [
+      (facts: T): void => {
+        if (this.against !== against) return;
+        set(facts);
+        this.show();
+      },
+      (error: Error): void => {
+        if (error.message === CANCELLED || this.against !== against) return;
+        set(error.message);
+        this.show();
+      },
+    ] as const;
+    const { par: _par, exact: _exact, solution: _solution, ...bare } = spec;
+    this.askOtherSeconds.ask({ tier: 'seconds', spec: bare }).then(...told<Seconds>((facts) => (against.seconds = facts)));
+    this.askOtherLater.ask({ tier: 'later', spec: bare }).then(...told<Later>((facts) => (against.later = facts)));
+    this.show();
+  }
+
+  private stopCompare(): void {
+    if (!this.against) return;
+    this.against = null;
+    this.askOtherSeconds.cancel();
+    this.askOtherLater.cancel();
+    this.compareBox.style.display = 'none';
+    this.show();
+  }
+
+  /** The board in hand and the version it is held against, number by number, and the plays of each. */
+  private compareLines(): string[] {
+    const { against, spec } = this;
+    if (!against) return [];
+    const mine = { seconds: this.seconds, later: this.later, plays: this.plays.filter((play) => play.hash === boardHash(this.text(), this.name)) };
+    const theirs = { seconds: against.seconds, later: against.later, plays: this.plays.filter((play) => play.hash === against.version.hash) };
+    type Side = typeof mine;
+    const seconds = (side: Side, read: (facts: Seconds) => string): string => (side.seconds === null ? '…' : typeof side.seconds === 'string' ? '!' : read(side.seconds));
+    const later = (side: Side, read: (facts: Later) => string): string => (side.later === null ? '…' : typeof side.later === 'string' ? '!' : read(side.later));
+    const rows: [string, (side: Side) => string][] = [
+      ['ходов', (side) => seconds(side, (facts) => String(facts.check.par ?? '—'))],
+      ['доказано', (side) => seconds(side, (facts) => (facts.check.exact ? 'да' : 'нет'))],
+      ['первых ходов', (side) => seconds(side, (facts) => String(facts.firsts))],
+      ...(['hasty', 'casual', 'careful', 'planner'] as const).map((name): [string, (side: Side) => string] => [name, (side) => later(side, (facts) => percent(facts.report.personas[name].endings.passed))]),
+      ['партий', (side) => String(versionSummary(side.plays).plays)],
+      ['пройдено', (side) => (side.plays.length === 0 ? '—' : percent(versionSummary(side.plays).passed / side.plays.length))],
+      ['над par, медиана', (side) => String(versionSummary(side.plays).overMedian ?? '—')],
+    ];
+    const diff = spec ? diffOf(against.spec, spec) : null;
+    return [
+      '— сравнение —',
+      `${''.padEnd(18)}${'версия'.padEnd(10)}текущая`,
+      ...rows.map(([label, read]) => `${label.padEnd(18)}${read(theirs).padEnd(10)}${read(mine)}`),
+      `версия слева: ${new Date(against.version.time).toLocaleTimeString()} ${against.version.hash}`,
+      diff ? (diff.cells.length === 0 ? 'клетки те же' : `клеток изменено: ${diff.cells.length} (${diff.cells.map((cell) => `${cell.x},${cell.z}`).join(' ')})`) : '',
+      '',
+    ];
   }
 
   /** Opens a board by the name of its file: what waits to be written of the one in hand is written first. */
@@ -414,6 +578,10 @@ class LevelsLab {
     }
     this.syncForm();
     this.show();
+    if (!sameBoard) {
+      this.stopCompare();
+      void this.readVersions();
+    }
   }
 
   /** The way the board in hand keeps is remembered for the board as it stands. */
@@ -561,11 +729,14 @@ class LevelsLab {
     if (this.name === '') lines.push('нет досок: «новая доска» на панели');
     else lines.push(`boards/${this.name}.txt${this.saveTimer !== 0 ? '  …пишется' : ''}`);
     if (this.error) lines.push('', this.error, ...(this.editor.locked ? ['', 'Файл не читается как доска: править его надо в самом файле. Страница его не перезапишет.'] : []));
-    lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : this.factLines()));
+    lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : [...this.compareLines(), ...this.factLines()]));
     lines.push('', 'щелчок — кость / следующая грань', 'стрелки — прокатить на месте', 'правая кнопка, Del — очистить', 'H — вырез · Shift+щелчок — фикс.', 'P — старт · L — уходящая', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
     this.facts.textContent = lines.join('\n');
     this.showRibbon();
-    this.editor.setOverlay(this.overlayOf());
+    const changed = this.against && this.spec ? diffOf(this.against.spec, this.spec).cells.map(({ x, z }) => ({ x, z })) : [];
+    const overlay = this.overlayOf();
+    this.editor.setOverlay(this.against && !this.views.blind ? { arrows: [], sensitive: [], spare: [], ...overlay, changed } : overlay);
+    if (this.against) this.compareEditor.setOverlay({ arrows: [], sensitive: [], spare: [], changed });
   }
 
   /** The views of the solver that are switched on, for the board itself: a moment of the way and a board shown blind have none. */

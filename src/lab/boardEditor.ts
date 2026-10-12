@@ -16,6 +16,8 @@ export interface Overlay {
   arrows: { x: number; z: number; dir: Dir; push: boolean; keeps: 'par' | 'longer' | 'dead' | 'unknown' }[];
   sensitive: { x: number; z: number; change: 'shorter' | 'longer' | 'unsolved' }[];
   spare: { x: number; z: number }[];
+  /** Cells that differ from the board this one is held against: framed, where two versions are shown side by side. */
+  changed?: { x: number; z: number }[];
 }
 
 /**
@@ -257,6 +259,11 @@ export class BoardEditor {
       ctx.strokeStyle = change === 'unsolved' ? palette.signal : palette.channels[1];
       ctx.lineWidth = change === 'unsolved' ? 4 : 2;
       ctx.strokeRect(left + x * cell + 3, top + z * cell + 3, cell - 6, cell - 6);
+    }
+    for (const { x, z } of overlay.changed ?? []) {
+      ctx.strokeStyle = palette.ink;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(left + x * cell + 2, top + z * cell + 2, cell - 4, cell - 4);
     }
     const colours = { par: palette.ink, longer: palette.dim, dead: palette.signal, unknown: palette.faint } as const;
     for (const { x, z, dir, push, keeps } of overlay.arrows) {
