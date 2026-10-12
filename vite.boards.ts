@@ -1,0 +1,96 @@
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { basename, join, resolve, sep } from 'node:path';
+import type { Plugin } from 'vite';
+import { askOf, boardHash, historyFile, versionOf } from './src/lab/boardsServer';
+
+/**
+ * The files of the lab of the levels for the page `?lab=levels`: the dev server reads and writes
+ * the boards of `boards/`, keeps every version of a board in `boards/.history/` (which git does
+ * not see), writes down the plays, and tells the page when a board is changed on the disk by
+ * anyone else, an agent or an editor. What is asked and what is refused is `askOf` of
+ * src/lab/boardsServer.ts. Of the dev server only: a build has nothing of it.
+ */
+export function viBoards(): Plugin {
+  return {
+    name: 'vi-boards',
+    apply: 'serve',
+    configureServer(server) {
+      const dir = resolve(server.config.root, 'boards');
+      const history = (name: string): string => join(dir, '.history', name);
+      const versions = (name: string) =>
+        existsSync(history(name))
+          ? readdirSync(history(name)).sort().flatMap((file) => versionOf(file) ?? [])
+          : [];
+
+      server.middlewares.use('/__boards', (request, response) => {
+        const send = (status: number, body: string, type = 'application/json'): void => {
+          response.statusCode = status;
+          response.setHeader('Content-Type', `${type}; charset=utf-8`);
+          response.setHeader('Cache-Control', 'no-store');
+          response.end(body);
+        };
+        const body = (): Promise<string> =>
+          new Promise((done, fail) => {
+            const chunks: Buffer[] = [];
+            request.on('data', (chunk: Buffer) => chunks.push(chunk));
+            request.on('end', () => done(Buffer.concat(chunks).toString('utf8')));
+            request.on('error', fail);
+          });
+        const ask = askOf(request.method ?? 'GET', request.url ?? '');
+        void (async () => {
+          if (ask.kind === 'refused') return send(ask.status, JSON.stringify({ error: ask.why }));
+          if (ask.kind === 'list') {
+            const names = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.txt')).map((file) => basename(file, '.txt')).sort() : [];
+            return send(200, JSON.stringify(names));
+          }
+          const file = join(dir, `${ask.name}.txt`);
+          if (ask.kind === 'read') return existsSync(file) ? send(200, readFileSync(file, 'utf8'), 'text/plain') : send(404, JSON.stringify({ error: `no board ${ask.name}` }));
+          if (ask.kind === 'write') {
+            const text = await body();
+            mkdirSync(dir, { recursive: true });
+            writeFileSync(file, text);
+            // A version is kept where the text is a board, and is another board than the version before it.
+            const hash = boardHash(text, ask.name);
+            if (hash === null) return send(200, JSON.stringify({ error: 'the text is no board: written, and no version kept' }));
+            const last = versions(ask.name).at(-1);
+            if (last?.hash !== hash) {
+              mkdirSync(history(ask.name), { recursive: true });
+              writeFileSync(join(history(ask.name), historyFile(hash, new Date())), text);
+            }
+            return send(200, JSON.stringify({ hash }));
+          }
+          if (ask.kind === 'history') return send(200, JSON.stringify(versions(ask.name)));
+          if (ask.kind === 'version') {
+            const kept = join(history(ask.name), ask.file);
+            return existsSync(kept) ? send(200, readFileSync(kept, 'utf8'), 'text/plain') : send(404, JSON.stringify({ error: `no version ${ask.file}` }));
+          }
+          const plays = join(history(ask.name), 'plays.jsonl');
+          if (ask.kind === 'plays') {
+            const lines = existsSync(plays) ? readFileSync(plays, 'utf8').split('\n').filter((line) => line.trim() !== '') : [];
+            return send(200, `[${lines.join(',')}]`);
+          }
+          // A play is written down as it is given, if it is JSON: one line to a play.
+          const play = await body();
+          try {
+            mkdirSync(history(ask.name), { recursive: true });
+            appendFileSync(plays, `${JSON.stringify(JSON.parse(play))}\n`);
+          } catch {
+            return send(400, JSON.stringify({ error: 'a play is a line of JSON' }));
+          }
+          return send(200, '{}');
+        })().catch((error: Error) => send(500, JSON.stringify({ error: error.message })));
+      });
+
+      // A board changed on the disk is told to the page by its name: the files of the history and of boards/out are no boards.
+      server.watcher.add(dir);
+      const told = (path: string): void => {
+        const full = resolve(path);
+        if (!full.startsWith(dir + sep) || full.slice(dir.length + 1).includes(sep) || !full.endsWith('.txt')) return;
+        server.ws.send({ type: 'custom', event: 'vi:boards', data: { name: basename(full, '.txt') } });
+      };
+      server.watcher.on('add', told);
+      server.watcher.on('change', told);
+      server.watcher.on('unlink', told);
+    },
+  };
+}

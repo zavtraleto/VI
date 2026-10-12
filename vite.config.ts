@@ -4,6 +4,7 @@ import playgamaBridge from '@playgama/bridge/vite';
 import JavaScriptObfuscator from 'javascript-obfuscator';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { viBoards } from './vite.boards';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
 
@@ -85,7 +86,8 @@ export default defineConfig({
   base: './',
   define: { 'import.meta.env.VI_VERSION': JSON.stringify(version) },
   // The Bridge SDK of the platform: from its CDN, with the copy of the package as a fallback.
-  plugins: [playgamaBridge({ mode: 'cdn' }), woff2Only(), ...(process.env.VI_OBFUSCATE ? [obfuscate()] : [])],
+  // The boards of the lab of the levels are read and written by the dev server only: `viBoards` takes no part in a build.
+  plugins: [playgamaBridge({ mode: 'cdn' }), woff2Only(), viBoards(), ...(process.env.VI_OBFUSCATE ? [obfuscate()] : [])],
   // The preview tooling passes its own port when 5183 is already taken by another session.
   server: { host: true, port: Number(process.env.PORT) || 5183, strictPort: true },
   build: {
