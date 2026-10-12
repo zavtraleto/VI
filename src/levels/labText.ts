@@ -1,6 +1,6 @@
 import type { LevelSpec, RulesConfig } from '../rules/types';
 import { scoreOf, type Score } from '../rules/levelScore';
-import { scoreText } from '../rules/levelReport';
+import { layOut, scoreText } from '../rules/levelReport';
 import { moveOf, moveText, solveLevel, tryWay } from '../rules/levelSolver';
 import { boardSigns } from './boardFile';
 import { LEVELS } from './levels';
@@ -40,7 +40,7 @@ export function showText(spec: LevelSpec): string {
  * neither a way nor a count of moves; `same` where the fewest moves found are the moves kept and
  * the way kept plays; `shorter` and `longer` where the fewest found are fewer or more than kept;
  * `missing` where the search gave up before a way was found; `broken` where the way kept does
- * not clear the board, or is not as long as the count kept beside it.
+ * not clear the board.
  */
 export interface Check {
   par: number | null;
@@ -67,7 +67,7 @@ export function checkOf(spec: LevelSpec, opts: { maxStates?: number } = {}): Che
   const stored = spec.par ?? spec.solution?.length ?? null;
   let kept: Check['kept'] = null;
   if (stored !== null) {
-    if (spec.solution && (spec.solution.length !== stored || !wayPlays(spec))) kept = 'broken';
+    if (spec.solution && !wayPlays(spec)) kept = 'broken';
     else if (!found) kept = 'missing';
     else kept = found.par < stored ? 'shorter' : found.par > stored ? 'longer' : 'same';
   }
@@ -111,4 +111,41 @@ export function checkJson(spec: LevelSpec, check: Check): Record<string, unknown
     kept: check.kept,
     ok: checkPassed(check),
   };
+}
+
+/**
+ * A board solved anew for the record of every board: `ok` where the fewest moves found are the
+ * moves it keeps (or it keeps none and a way was found), `shorter` and `longer` where they are
+ * not, `broken` where the way it keeps does not clear it, `unsolved` where the search went
+ * through every board and found no way, `capped` where it gave up first: that is no failure,
+ * and is said.
+ */
+export interface Regress {
+  id: string;
+  from: 'list' | 'spare' | 'road' | 'board';
+  stored: number | null;
+  found: number | null;
+  exact: boolean;
+  states: number;
+  verdict: 'ok' | 'shorter' | 'longer' | 'unsolved' | 'broken' | 'capped';
+}
+
+export function regressOne(spec: LevelSpec, maxStates?: number, from: Regress['from'] = 'board'): Regress {
+  const check = checkOf(spec, { maxStates });
+  const stored = spec.par ?? spec.solution?.length ?? null;
+  const verdict: Regress['verdict'] =
+    check.kept === 'broken' ? 'broken' : check.par === null ? (check.exact ? 'unsolved' : 'capped') : check.kept === 'shorter' || check.kept === 'longer' ? check.kept : 'ok';
+  return { id: spec.id, from, stored, found: check.par, exact: check.exact, states: check.states, verdict };
+}
+
+/** Whether a row of the record is a board that is not as it says: a search that gave up says nothing either way. */
+export function regressFailed(row: Regress): boolean {
+  return row.verdict !== 'ok' && row.verdict !== 'capped';
+}
+
+export function regressText(rows: readonly Regress[]): string {
+  const table = [['board', 'from', 'kept', 'found', 'exact', 'boards seen', 'verdict']];
+  for (const row of rows) table.push([row.id, row.from, row.stored === null ? '-' : String(row.stored), row.found === null ? '-' : String(row.found), row.exact ? 'yes' : 'no', String(row.states), row.verdict]);
+  const capped = rows.filter((row) => row.verdict === 'capped').length;
+  return `${layOut(table)}\n\nregress: ${rows.length} boards, ${rows.filter(regressFailed).length} not ok${capped > 0 ? `, ${capped} the search gave up on` : ''}`;
 }

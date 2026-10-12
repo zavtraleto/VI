@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { ROAD } from './road';
-import { boardFrom, checkJson, checkOf, checkText } from './labText';
+import { boardFrom, checkJson, checkOf, checkText, regressOne, regressText } from './labText';
+
+describe('regressOne', () => {
+  it('says ok of a board that is as it says, shorter of one that keeps a move too many, broken of a way that does not play', () => {
+    const R03 = ROAD[2];
+    expect(regressOne(R03, 100_000, 'road')).toMatchObject({ id: 'R03', from: 'road', stored: 2, found: 2, verdict: 'ok' });
+    expect(regressOne({ ...R03, par: 3 }, 100_000).verdict).toBe('shorter');
+    expect(regressOne({ ...R03, solution: ['0,0,N'] }, 100_000).verdict).toBe('broken');
+    expect(regressOne(R03, 1).verdict).toBe('capped');
+  });
+  it('is told as a table with the count of what is not ok', () => {
+    const text = regressText([regressOne(ROAD[2], 100_000, 'road'), regressOne({ ...ROAD[2], solution: ['0,0,N'] }, 100_000)]);
+    expect(text).toContain('regress: 2 boards, 1 not ok');
+  });
+});
 
 const R03 = ROAD[2];
 
