@@ -1,6 +1,6 @@
 # Лаборатория уровней, вторая сборка: 3D-конструктор, заказ по параметрам, оценка, связки
 
-> Вид: план. Статус: выполнен (ветка `claude/exciting-volhard-45442b`, не опубликовано). Дата: 2026-10-12.
+> Вид: план. Статус: выполнен (опубликовано 12 октября 2026). Дата: 2026-10-12.
 > Что заменило: —. Что живёт в коде: src/levels/orders.ts, src/levels/orderSearch.ts, src/levels/sets.ts, src/lab/boardStage.ts, src/lab/orderDesk.ts; как устроено и что вышло иначе — [VI_Levels_Lab.md](../../VI_Levels_Lab.md), разделы 4 и 11–14.
 > Спека — [2026-10-12-vi-levels-lab-2-design.md](../specs/2026-10-12-vi-levels-lab-2-design.md). Что уже есть — [VI_Levels_Lab.md](../../VI_Levels_Lab.md).
 
