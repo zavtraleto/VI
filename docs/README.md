@@ -20,6 +20,7 @@
 | [VI_Levels_Probe_Key.md](VI_Levels_Probe_Key.md) | истина | ключ слепой пробы `P01`–`P30`; **владельцу не показывать и не пересказывать** |
 | [VI_Levels_Playtest_2026-10-12.md](VI_Levels_Playtest_2026-10-12.md) | решение | плейтест пробы 12 октября: слова владельца по `P01`–`P22` дословно, сведение с ключом, порядок списка; решения приняты |
 | [VI_Levels_Lab.md](VI_Levels_Lab.md) | истина | лаборатория уровней: формат файла доски, команды скрипта level, страница `?lab=levels`, история версий |
+| [VI_Levels_Lab.md](VI_Levels_Lab.md) | истина | лаборатория уровней: формат файла доски, команды `scripts/level.mjs`, страница `?lab=levels`, история версий и партии |
 | [VI_Levels_Routes_Brief.md](VI_Levels_Routes_Brief.md) | решение | формы и маршруты уровня, постройка доски от маршрута, слепая оценка |
 | [VI_Levels_Brief.md](VI_Levels_Brief.md) | решение | уровни — основной режим (раздел 1); остальное — материал на 4 октября |
 | [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md) | решение | точка возврата к обучению: слова владельца, голос текста, темп, словарь, где лежит убранное |
@@ -31,6 +32,8 @@
 | [superpowers/plans/2026-10-12-vi-road-fixes-after-third.md](superpowers/plans/2026-10-12-vi-road-fixes-after-third.md) | план | бриф правок дороги после плейтеста третьей редакции: перенос прохода как сокращения, урок спуска и подъёма, ступени вида уходящей кости, урок толчка без вырезов, лаборатория уровней в ROADMAP; выполнен и опубликован 12 октября как 0.2.41 |
 | [superpowers/plans/2026-10-12-vi-levels-lab.md](superpowers/plans/2026-10-12-vi-levels-lab.md) | план | лаборатория уровней: формат файла доски, командный скрипт level, страница `?lab=levels` с игрой по E и тремя ярусами цифр, виды решателя, история версий, обвязка генерации; постановка 12 октября, не начат |
 | [superpowers/plans/2026-10-12-vi-road-fixes-2.md](superpowers/plans/2026-10-12-vi-road-fixes-2.md) | план | бриф второй волны правок дороги: `R10` на целом поле, где можно проиграть, лесенка `R02` из двух ступеней и число вида `stairMiddle`; выполнен 12 октября в ветке `first-level`, не опубликован |
+| [superpowers/plans/2026-10-12-vi-road-fixes-after-third.md](superpowers/plans/2026-10-12-vi-road-fixes-after-third.md) | план | бриф правок дороги после плейтеста третьей редакции: перенос прохода как сокращения, урок спуска и подъёма, ступени вида уходящей кости, урок толчка без вырезов, лаборатория уровней в ROADMAP; выполнен 12 октября в ветке `first-level`, не опубликован |
+| [superpowers/plans/2026-10-12-vi-levels-lab.md](superpowers/plans/2026-10-12-vi-levels-lab.md) | план | лаборатория уровней: формат файла доски, командный скрипт level, страница `?lab=levels` с игрой по E и тремя ярусами цифр, виды решателя, история версий, обвязка генерации; выполнен 12 октября в ветке `claude/exciting-volhard-45442b`, не опубликован |
 | [superpowers/specs/2026-10-07-vi-bots-design.md](superpowers/specs/2026-10-07-vi-bots-design.md) | решение | боты уровней и боты Endless; что вышло иначе — раздел 12 |
 | [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) | исследование | звёзды за ходы, предел ходов (живы), ворота глав (убраны) |
 | [VI_Levels_Onboarding_Research.md](VI_Levels_Onboarding_Research.md) | исследование | как учат в играх-ориентирах; замер прежних уровней |
@@ -41,7 +44,7 @@
 | [VI_TurnBased_Research.md](VI_TurnBased_Research.md) | исследование | пошаговые игры с источниками |
 | [VI_Tutorial_Research.md](VI_Tutorial_Research.md) | исследование | как учат правилам: источники |
 
-Команды: отчёт о досках — `node scripts/bots.mjs` (`level=P06` — один уровень с партитурой, `climb=on`, `edits level=P06`); подбор досок места — `node scripts/ladder.mjs place=P06`, таблица — `node scripts/ladder.mjs levels`; места дороги — `node scripts/ladder.mjs place=R05` (рецепты `ROAD_PLACES` в `src/levels/roadRecipes.ts`), таблица кусков дороги — `node scripts/ladder.mjs road`; звёзды — `node scripts/stars.mjs`. Код: `src/levels/`, `src/rules/level.ts`, `src/rules/levelSolver.ts`.
+Команды: отчёт о досках — `node scripts/bots.mjs` (`level=P06` — один уровень с партитурой, `climb=on`, `edits level=P06`); подбор досок места — `node scripts/ladder.mjs place=P06`, таблица — `node scripts/ladder.mjs levels`; места дороги — `node scripts/ladder.mjs place=R05` (рецепты `ROAD_PLACES` в `src/levels/roadRecipes.ts`), таблица кусков дороги — `node scripts/ladder.mjs road`; звёзды — `node scripts/stars.mjs`; лаборатория уровней — `node scripts/level.mjs check file=P06` (все команды — [VI_Levels_Lab.md](VI_Levels_Lab.md), раздел 2), страница `?lab=levels`. Код: `src/levels/`, `src/rules/level.ts`, `src/rules/levelSolver.ts`.
 
 ## Endless (сессии)
 

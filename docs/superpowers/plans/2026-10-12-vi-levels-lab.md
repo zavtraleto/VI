@@ -1,7 +1,7 @@
 # Лаборатория уровней: формат доски, CLI, страница `?lab=levels`, виды решателя, история
 
-> Вид: план. Статус: не выполнен. Дата: 2026-10-12.
-> Что заменило: —. Что живёт в коде: — (появится: src/levels/boardFile.ts, scripts/level.mjs, src/lab/levelsLab.ts).
+> Вид: план. Статус: выполнен (ветка `claude/exciting-volhard-45442b`, не опубликовано). Дата: 2026-10-12.
+> Что заменило: —. Что живёт в коде: src/levels/boardFile.ts, src/levels/labText.ts, scripts/level.mjs, src/lab/levelsLab.ts; как устроено и что вышло иначе — [VI_Levels_Lab.md](../../VI_Levels_Lab.md).
 > Постановка по слову владельца 12 октября («нужна лаборатория уровней…», [ROADMAP](../../ROADMAP.md), раздел «Лаборатория уровней») и по исследованию [VI_Level_Tool_Research.md](../../VI_Level_Tool_Research.md). Правила генерации (трудность, эмоциональный заряд) — отдельная постановка после этой: здесь только обвязка.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
