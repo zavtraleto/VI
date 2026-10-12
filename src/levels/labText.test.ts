@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest';
+import { ROAD } from './road';
+import { boardFrom, checkJson, checkOf, checkText } from './labText';
+
+const R03 = ROAD[2];
+
+describe('boardFrom', () => {
+  it('finds a level of the list and a piece of the road by their codes', () => {
+    expect(boardFrom('P06')).toMatchObject({ from: 'list', spec: { id: 'P06' } });
+    expect(boardFrom('R03')).toMatchObject({ from: 'road', spec: { id: 'R03' } });
+    expect(() => boardFrom('Z9')).toThrow(/Z9/);
+  });
+});
+
+describe('checkOf', () => {
+  it('solves a board and holds what it finds against what the board keeps', () => {
+    expect(R03.id).toBe('R03');
+    const check = checkOf(R03);
+    expect(check).toMatchObject({ par: 2, exact: true, kept: 'same' });
+    expect(check.way).toHaveLength(2);
+  });
+  it('says nothing of a board that keeps no way', () => {
+    const { solution, par, exact, ...bare } = R03;
+    expect(checkOf(bare).kept).toBeNull();
+    expect(checkOf(bare).par).toBe(2);
+  });
+  it('says shorter where the board keeps a move more, and broken where its way does not play', () => {
+    const { solution, ...noWay } = R03;
+    expect(checkOf({ ...noWay, par: 3 }).kept).toBe('shorter');
+    expect(checkOf({ ...R03, solution: ['0,0,N', '0,0,N'] }).kept).toBe('broken');
+    expect(checkOf({ ...noWay, par: 1 }).kept).toBe('longer');
+  });
+  it('says missing where the search gives up before a way is found', () => {
+    expect(checkOf(R03, { maxStates: 1 })).toMatchObject({ par: null, exact: false, kept: 'missing' });
+  });
+  it('is told as text and as keys that stay', () => {
+    const check = checkOf(R03);
+    const text = checkText(R03, check);
+    expect(text).toContain('moves 2');
+    expect(text).toContain('1. ');
+    expect(text).toContain('kept: same');
+    expect(Object.keys(checkJson(R03, check))).toEqual(['id', 'par', 'exact', 'states', 'way', 'route', 'kind', 'kept', 'ok']);
+  });
+});
