@@ -20,6 +20,9 @@
 //   node scripts/level.mjs svg file=H01 out=boards/out/H01.svg   the board as a picture (cell=48: the side of a cell)
 //   node scripts/level.mjs source file=H01              the board as a line for src/levels/levels.ts or road.ts: it is
 //                                                       put there by hand, and by the word of the owner only
+//   node scripts/level.mjs gen place=R05 out=boards/out/   boards laid for a place and judged by it, the ones that fit
+//                                                       written as files: seeds=200 from=1, mode=random|solution|route|both
+//                                                       (the place's own way unless said), keep=20 the most that are written
 //
 // file= is a path, or the name of a file in boards/ without its .txt, or the code of a board the
 // game has: a level of the list (P06) or a piece of the road (R03). A file of boards/ stands before
@@ -52,6 +55,7 @@ const COMMANDS = {
   diff: { keys: ['a', 'b'], flags: ['json'] },
   svg: { keys: ['file', 'out', 'cell'], flags: [] },
   source: { keys: ['file', 'states'], flags: [] },
+  gen: { keys: ['place', 'seeds', 'from', 'mode', 'keep', 'out', 'states', 'workers', 'share'], flags: ['json'] },
 };
 
 /** Ends the script on what could not be read: said on stderr, code 2. */
@@ -171,6 +175,47 @@ if (command === 'show') {
     kept = { ...spec, par: check.par, exact: check.exact, solution: check.way };
   }
   console.log(levelSource(kept));
+} else if (command === 'gen') {
+  const { PLACES } = await load('/src/levels/recipes.ts');
+  const { ROAD_PLACES } = await load('/src/levels/roadRecipes.ts');
+  const { levelId } = await load('/src/levels/generate.ts');
+  const { judge, gather } = await load('/src/levels/select.ts');
+  const all = [...PLACES, ...ROAD_PLACES];
+  const recipe = all.find((place) => levelId(place) === named.place);
+  if (!recipe) refuse(`gen: ${named.place ? `no place ${named.place}` : 'name a place, as in place=R05'}: the places are ${all.map(levelId).join(' ')}`);
+  if (named.mode !== undefined && !['random', 'solution', 'route', 'both'].includes(named.mode)) refuse(`gen: "mode=${named.mode}" is none of random, solution, route, both`);
+  const from = number('from') ?? 1;
+  const seeds = lab.genSeeds(recipe, { from, to: from + (number('seeds') ?? 200) - 1 }, named.mode);
+  const judging = number('states') === undefined ? {} : { maxStates: number('states') };
+  if (named.share !== undefined) {
+    const [index, of] = named.share.split('/').map(Number);
+    seeds.forEach((seed, at) => {
+      if (at % of === index) console.log(JSON.stringify(judge(recipe, seed, judging)));
+    });
+  } else {
+    if (!named.out) refuse('gen: name the folder to write the boards to, as in out=boards/out/');
+    const verdicts = [];
+    const began = Date.now();
+    await shareOut((verdict) => {
+      verdicts.push(verdict);
+      if (verdicts.length % 50 === 0 || verdicts.length === seeds.length) console.error(`gen ${named.place}: ${verdicts.length} of ${seeds.length} seeds, ${verdicts.filter((v) => v.fit).length} fit, ${Math.round((Date.now() - began) / 1000)} s`);
+    });
+    verdicts.sort((a, b) => a.seed - b.seed);
+    // The boards that fit, the best first, each written as a file: an idea, with a note of its place and seed.
+    const fits = gather(recipe, verdicts).fits.slice(0, number('keep') ?? 20);
+    const dir = resolve(process.cwd(), named.out);
+    mkdirSync(dir, { recursive: true });
+    const written = fits.map((fit) => {
+      const { name, text } = lab.genFile(recipe, fit);
+      writeFileSync(resolve(dir, `${name}.txt`), text);
+      return { file: resolve(dir, `${name}.txt`), seed: fit.seed, par: fit.par, exact: fit.exact, route: fit.route };
+    });
+    print(
+      [...written.map((board) => `${board.file}  moves ${board.par}${board.exact ? '' : '?'}  route ${board.route}`), `gen: ${seeds.length} seeds, ${verdicts.filter((v) => v.fit).length} fit, ${written.length} written`].join('\n'),
+      { place: named.place, seeds: seeds.length, fit: verdicts.filter((v) => v.fit).length, boards: written },
+    );
+    if (written.length === 0) process.exitCode = 1;
+  }
 } else if (command === 'regress') {
   const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
   const { ROAD } = await load('/src/levels/road.ts');

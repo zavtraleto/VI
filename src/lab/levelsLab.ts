@@ -8,12 +8,13 @@ import { moveOf, tryWay } from '../rules/levelSolver';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { BoardEditor, type Overlay } from './boardEditor';
+import { boardSvg } from '../levels/boardSvg';
 import { diffOf } from '../levels/labText';
 import { addPlay, historyOf, listBoards, onBoardChanged, playsOf, readBoard, readVersion, writeBoard } from './boardsClient';
 import { boardHash, type Version } from './boardsServer';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
-import { instantOf, type Ask, type Instant, type Later, type Seconds } from './labFacts';
+import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Instant, type Later, type Offer, type Seconds } from './labFacts';
 import { playRecordOf, versionSummary, type PlayRecord } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 
@@ -24,7 +25,7 @@ const COPY_LABEL = 'копировать текст доски';
 /** A worker that asks boards: one to a tier, so that a quick answer does not wait behind a slow one. */
 const solver = (): WorkerLike => new Worker(new URL('./solve.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike;
 /** A question without its number: the client numbers it. */
-type Question<T extends Ask['tier']> = Omit<Extract<Ask, { tier: T }>, 'id'>;
+type Question<T extends Ask['tier']> = Extract<Ask, { tier: T }> extends infer Q ? (Q extends unknown ? Omit<Q, 'id'> : never) : never;
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
 /** What the lab reaches inside the game. These are private to it: the lab is a tool and looks inside. */
@@ -121,6 +122,10 @@ class LevelsLab {
   private compareEditor!: BoardEditor;
   private readonly askOtherSeconds = new SolveClient<Question<'seconds'>, Seconds>(solver);
   private readonly askOtherLater = new SolveClient<Question<'later'>, Later>(solver);
+  /** The boards offered: laid for a place, or a change away from the board in hand. Shown over the board, a picture to a board. */
+  private readonly gallery = document.createElement('div');
+  private readonly genForm = { place: GEN_PLACES[0] ?? '' };
+  private readonly askGen = new SolveClient<Question<'gen'>, Offer[]>(solver);
   /** The play in hand, while the board is played. */
   private watched: Watched | null = null;
   /** The status every file says it has, for the list of the files. */
@@ -134,7 +139,8 @@ class LevelsLab {
     root.style.cssText = `position:fixed;inset:0;z-index:900;display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:minmax(0,1fr);padding-right:256px;box-sizing:border-box;background:${palette.bg};color:${palette.ink};font:13px/1.45 ${PROGRAM_FONT}`;
     facts.style.cssText = `margin:0;padding:12px 14px;overflow:auto;white-space:pre-wrap;border-right:1px solid ${palette.faint};font:inherit;color:${palette.ink}`;
     const stage = document.createElement('div');
-    stage.style.cssText = 'display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden';
+    stage.style.cssText = 'position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden';
+    this.gallery.style.cssText = `position:absolute;inset:0;z-index:1;display:none;flex-wrap:wrap;align-content:flex-start;gap:10px;padding:12px;overflow:auto;background:${palette.bg}`;
     const boards = document.createElement('div');
     boards.style.cssText = 'display:flex;flex:1;min-height:0';
     const boardBox = document.createElement('div');
@@ -144,7 +150,7 @@ class LevelsLab {
     this.compareBox.style.cssText = `position:relative;flex:1;min-width:0;display:none;border-right:1px solid ${palette.faint}`;
     boards.append(this.compareBox, boardBox);
     this.ribbon.style.cssText = `display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;min-height:30px;border-top:1px solid ${palette.faint}`;
-    stage.append(boards, this.ribbon);
+    stage.append(boards, this.ribbon, this.gallery);
     root.append(facts, stage);
     badge.style.cssText = `position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:900;display:none;padding:2px 10px;background:${palette.bg};color:${palette.dim};border:1px solid ${palette.faint};font:12px ${PROGRAM_FONT};pointer-events:none`;
     badge.textContent = 'E — редактор · R — заново · Z — ход назад · N — снимок положения в новую доску';
@@ -243,6 +249,11 @@ class LevelsLab {
     versions.add({ open: () => void this.openVersion() }, 'open').name('открыть как текущую');
     versions.add({ compare: () => void this.compareWith() }, 'compare').name('сравнить с текущей');
     versions.add({ stop: () => this.stopCompare() }, 'stop').name('убрать сравнение');
+    const gen = gui.addFolder('Генерация');
+    gen.add(this.genForm, 'place', [...GEN_PLACES]).name('место');
+    gen.add({ place: () => this.offer({ tier: 'gen', place: this.genForm.place }, `место ${this.genForm.place}, ${GEN_SEEDS} зёрен`) }, 'place').name(`от места (${GEN_SEEDS} зёрен)`);
+    gen.add({ board: () => this.spec && this.offer({ tier: 'gen', spec: this.spec, name: this.name }, `в одну правку от ${this.name}`) }, 'board').name('от этой доски');
+    gen.add({ close: () => this.closeGallery() }, 'close').name('закрыть галерею');
     const views = gui.addFolder('Виды решателя');
     const seen = (): void => this.show();
     this.viewControls = [
@@ -721,6 +732,61 @@ class LevelsLab {
     await writeBoard(name, text);
     await this.readNames();
     this.load(name, text);
+  }
+
+  /**
+   * Asks for boards and shows them as a gallery over the board: a picture to a board, with what
+   * it is and the moves it is cleared in. A click on one keeps it as a file and opens it. The
+   * work is a worker's, and is stopped when another gallery is asked for or this one is closed.
+   */
+  private offer(question: Question<'gen'>, title: string): void {
+    const { gallery, palette } = this;
+    const say = (text: string): void => {
+      gallery.replaceChildren();
+      const line = document.createElement('div');
+      line.style.cssText = 'flex-basis:100%';
+      line.textContent = text;
+      gallery.append(line);
+    };
+    gallery.style.display = 'flex';
+    say(`${title}: считаю…`);
+    this.askGen.ask(question).then(
+      (offers) => {
+        say(offers.length === 0 ? `${title}: ни одной доски` : `${title}: досок ${offers.length}. Щелчок — открыть как новый файл.`);
+        for (const offer of offers) {
+          const card = document.createElement('button');
+          card.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;cursor:pointer;font:inherit;background:${palette.bg};color:${palette.ink};border:1px solid ${palette.faint}`;
+          const picture = document.createElement('img');
+          picture.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(boardSvg(offer.spec, { cell: 26 }))}`;
+          const caption = document.createElement('span');
+          caption.textContent = `${offer.what} · ходов ${offer.par ?? '—'}${offer.exact ? '' : '?'}`;
+          card.append(picture, caption);
+          card.addEventListener('click', () => void this.keepOffer(offer));
+          gallery.append(card);
+        }
+      },
+      (error: Error) => {
+        if (error.message !== CANCELLED) say(`${title}: ${error.message}`);
+      },
+    );
+  }
+
+  private closeGallery(): void {
+    this.askGen.cancel();
+    this.gallery.style.display = 'none';
+    this.gallery.replaceChildren();
+  }
+
+  /** Keeps a board of the gallery as a file, under its name or the name with a number after it where the name is taken, and opens it. */
+  private async keepOffer(offer: Offer): Promise<void> {
+    if (this.saveTimer !== 0) await this.save();
+    let name = offer.name;
+    for (let number = 2; this.names.includes(name); number++) name = `${offer.name}-${number}`;
+    if (!isBoardName(name)) return;
+    await writeBoard(name, offer.text);
+    await this.readNames();
+    this.closeGallery();
+    this.load(name, offer.text);
   }
 
   /** What the page says of the board in hand, beside it. */

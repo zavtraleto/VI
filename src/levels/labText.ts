@@ -3,11 +3,11 @@ import { scoreOf, type Score } from '../rules/levelScore';
 import { layOut, scoreText } from '../rules/levelReport';
 import { levelDeadEnd, type LevelDeadEnd } from '../rules/level';
 import { moveOf, moveText, movesAt, playMove, solveFrom, solveLevel, tryWay } from '../rules/levelSolver';
-import { boardSigns } from './boardFile';
+import { boardSigns, printBoard } from './boardFile';
 import { editsOf } from './edits';
-import { SKETCH, levelId } from './generate';
+import { FROM_ROUTE, FROM_SOLUTION, SKETCH, levelId } from './generate';
 import type { Recipe } from './recipes';
-import { judge } from './select';
+import { gather, judge, type Fit, type JudgeOptions } from './select';
 import { sameBoard } from './variety';
 import { LEVELS } from './levels';
 import { ROAD } from './road';
@@ -181,22 +181,29 @@ export interface NearFact {
  * refuse, a combo ready at the start and the like, is left out.
  */
 export function nearOf(spec: LevelSpec, opts: { maxStates?: number } = {}): NearFact[] {
+  return nearBoards(spec, opts).map(({ what, par, exact, change }) => ({ what, par, exact, change }));
+}
+
+/** The boards one change away with what each change does, as `nearOf` tells it, and the board itself: a board that is cleared keeps its way. */
+export function nearBoards(spec: LevelSpec, opts: { maxStates?: number } = {}): (NearFact & { spec: LevelSpec })[] {
   const { maxStates = QUICK_MAX_STATES } = opts;
   const before = solveLevel(spec, { maxStates }).solution?.par ?? spec.par ?? null;
-  const facts: NearFact[] = [];
+  const facts: (NearFact & { spec: LevelSpec })[] = [];
   for (const edit of editsOf(spec)) {
     const { leaving, onFloor } = spec.layout!;
     const moved = edit.what.startsWith('start at');
     const layout = { ...edit.spec.layout!, ...(leaving ? { leaving } : {}), ...(onFloor && !moved ? { onFloor } : {}) };
+    const board: LevelSpec = { ...edit.spec, layout };
     let solved;
     try {
-      solved = solveLevel({ ...edit.spec, layout }, { maxStates });
+      solved = solveLevel(board, { maxStates });
     } catch {
       continue;
     }
     const par = solved.solution?.par ?? null;
     const change: NearFact['change'] = par === null ? 'unsolved' : before === null || par === before ? 'same' : par < before ? 'shorter' : 'longer';
-    facts.push({ what: edit.what, par, exact: solved.exhausted, change });
+    const kept: LevelSpec = solved.solution ? { ...board, par: solved.solution.par, exact: true, solution: solved.solution.moves.map(moveText) } : board;
+    facts.push({ what: edit.what, par, exact: solved.exhausted, change, spec: kept });
   }
   return facts;
 }
@@ -281,6 +288,49 @@ export function diffText(a: LevelSpec, b: LevelSpec, diff: Diff): string {
   for (const cell of diff.cells) lines.push(`cell ${cell.x},${cell.z}: ${cell.was || 'off the board'} -> ${cell.now || 'off the board'}`);
   lines.push(diff.cells.length === 0 ? 'diff: the cells are the same' : `diff: ${diff.cells.length} cells differ${diff.same ? '; the same board to a player, turned or mirrored' : ''}`);
   return lines.join('\n');
+}
+
+/** How the boards of a place are laid: at random, from their solution backwards, from the route of the place backwards, or every way. */
+export type GenMode = 'random' | 'solution' | 'route' | 'both';
+
+/**
+ * The seeds a place is asked for boards with: `from` to `to`, counted from 1, in the range of
+ * the way the boards are laid (`generate.ts`: seeds above ten thousand lay a board from its
+ * solution, above thirty thousand from the route of the place). With no mode said, a place that
+ * has a route is built from it and any other is laid at random, as `ladder.mjs` does.
+ */
+export function genSeeds(recipe: Recipe, span: { from: number; to: number }, mode?: GenMode): number[] {
+  const count = Math.max(0, span.to - span.from + 1);
+  const run = (base: number): number[] => Array.from({ length: count }, (_, index) => base + span.from + index);
+  const how = mode ?? (recipe.scenes ? 'route' : 'random');
+  if (how === 'both') return [...run(0), ...run(FROM_SOLUTION), ...(recipe.scenes ? run(FROM_ROUTE) : [])];
+  return run(how === 'solution' ? FROM_SOLUTION : how === 'route' ? FROM_ROUTE : 0);
+}
+
+/**
+ * The boards a place gets from a run of seeds, the best first: every seed lays a candidate, the
+ * judge of the place holds it against what the place asks, and the boards that fit are put in
+ * order (`candidate`, `judge` and `gather` of `select.ts`). It is what `ladder.mjs place=` does,
+ * with the boards given back and not printed. The recipe of the place is the one set of rules
+ * there is: nothing is asked here that the place does not ask.
+ */
+export function genOf(recipe: Recipe, span: { from: number; to: number }, opts: JudgeOptions & { mode?: GenMode; say?: (done: number, of: number, fit: number) => void } = {}): Fit[] {
+  const { mode, say, ...judging } = opts;
+  const seeds = genSeeds(recipe, span, mode);
+  let fit = 0;
+  const verdicts = seeds.map((seed, index) => {
+    const verdict = judge(recipe, seed, judging);
+    if (verdict.fit) fit++;
+    say?.(index + 1, seeds.length, fit);
+    return verdict;
+  });
+  return gather(recipe, verdicts).fits;
+}
+
+/** A board laid for a place as a file of the lab: its name, and its text with the status of an idea and a note of where it is from. */
+export function genFile(recipe: Recipe, fit: Pick<Fit, 'seed' | 'spec'>): { name: string; text: string } {
+  const place = levelId(recipe);
+  return { name: `${place}-${fit.seed}`, text: printBoard(fit.spec, { status: 'idea', note: `место ${place}, зерно ${fit.seed}` }) };
 }
 
 /**

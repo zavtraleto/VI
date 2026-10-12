@@ -7,7 +7,36 @@ import { normalSpec } from './boardFile';
 import { LEVELS } from './levels';
 import { ROAD_PLACES } from './roadRecipes';
 import { levelSource } from './select';
-import { BLIND, boardFrom, checkJson, checkOf, checkText, diffOf, diffText, fitOf, fitText, movesOf, movesText, nearOf, nearText, regressOne, regressText } from './labText';
+import { parseBoard, readBoardHead } from './boardFile';
+import { BLIND, boardFrom, checkJson, checkOf, checkText, diffOf, diffText, fitOf, fitText, genFile, genOf, genSeeds, movesOf, movesText, nearBoards, nearOf, nearText, regressOne, regressText } from './labText';
+
+describe('genOf', () => {
+  const place = ROAD_PLACES.find((recipe) => recipe.id === 'R03')!;
+  it('counts the seeds of a place in the range of the way its boards are laid', () => {
+    expect(genSeeds(place, { from: 1, to: 3 }, 'random')).toEqual([1, 2, 3]);
+    expect(genSeeds(place, { from: 393, to: 394 }, 'solution')).toEqual([10393, 10394]);
+    expect(genSeeds(place, { from: 1, to: 2 }, 'route')).toEqual([30001, 30002]);
+    expect(genSeeds(place, { from: 5, to: 4 })).toEqual([]);
+  });
+  it('gives the boards that fit a place, each a file of the lab with a note of its place and seed', { timeout: 120_000 }, () => {
+    // The board of R03 was laid from the seed 10393: the place takes it still.
+    const said: number[] = [];
+    const fits = genOf(place, { from: 393, to: 393 }, { mode: 'solution', say: (done) => said.push(done) });
+    expect(fits).toHaveLength(1);
+    expect(fits[0].spec.id).toBe('R03');
+    expect(said).toEqual([1]);
+    const { name, text } = genFile(place, fits[0]);
+    expect(name).toBe('R03-10393');
+    expect(readBoardHead(text)).toEqual({ status: 'idea', note: 'место R03, зерно 10393' });
+    expect(parseBoard(text, name).par).toBe(fits[0].par);
+  });
+  it('gives the boards one change away as boards, each with its way where it has one', () => {
+    const boards = nearBoards(ROAD[2]);
+    expect(boards.map(({ spec: _spec, ...fact }) => fact)).toEqual(nearOf(ROAD[2]));
+    const cleared = boards.find((board) => board.par !== null)!;
+    expect(cleared.spec.solution).toHaveLength(cleared.par!);
+  });
+});
 
 describe('fitOf', () => {
   it('holds a board against places, and says what it misses of each by the name of the place alone', { timeout: 120_000 }, () => {
