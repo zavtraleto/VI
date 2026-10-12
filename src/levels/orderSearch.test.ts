@@ -49,7 +49,7 @@ describe('offersFor', () => {
   it('gives the nearest boards where none meets the order, each with what it misses', () => {
     const { offers } = offersFor({ ...SMALL, par: [30, 30] }, { seeds: 20, budgetMs: 60_000, keep: 2 });
     expect(offers.length).toBeGreaterThan(0);
-    expect(offers[0].misses[0]).toMatch(/^moves \d, not 9$/);
+    expect(offers[0].misses[0]).toMatch(/^moves \d+, not 30$/);
   });
   it('leaves out the boards it is told were offered already', () => {
     const first = offersFor(SMALL, { seeds: 40, budgetMs: 60_000, keep: 2 }).offers;
