@@ -8,10 +8,12 @@ import { moveOf, tryWay } from '../rules/levelSolver';
 import type { LevelSpec, RunState } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { BoardEditor } from './boardEditor';
-import { listBoards, onBoardChanged, readBoard, writeBoard } from './boardsClient';
+import { addPlay, listBoards, onBoardChanged, readBoard, writeBoard } from './boardsClient';
+import { boardHash } from './boardsServer';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
 import { instantOf, type Ask, type Instant, type Later, type Seconds } from './labFacts';
+import { playRecordOf } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 
 /** A change is written to its file this long after it is made, and after the last of several made together. */
@@ -27,7 +29,21 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
 /** What the lab reaches inside the game. These are private to it: the lab is a tool and looks inside. */
 interface Inside {
   readonly state: RunState;
+  /** Moves taken back since the board was put on. */
+  readonly undosMade: number;
   readonly audio: { setAway(away: boolean): void };
+}
+
+/** A play of the board that is being watched: the run as it was last seen, when it began, and what it is a play of. */
+interface Watched {
+  state: RunState;
+  undos: number;
+  startedAt: number;
+  name: string;
+  hash: string;
+  par: number | null;
+  /** The play has been written down: one that clears the board is, at once. */
+  told: boolean;
 }
 
 /** The head of a board that has just been begun: a board to clear on the face 2, the floor open. */
@@ -89,6 +105,10 @@ class LevelsLab {
   /** The move of the way the editor shows the board after; null where it shows the board itself, which is then the one kept in `drawn`. */
   private moment: number | null = null;
   private drawn: EditBoard | null = null;
+  /** The play in hand, while the board is played. */
+  private watched: Watched | null = null;
+  /** The status every file says it has, for the list of the files. */
+  private statuses = new Map<string, BoardStatus | undefined>();
   /** What the panel shows of the head: the panel edits this copy and the lab reads it. */
   private readonly form = { file: '', id: '', faces: '2', shut: false, sink: 2, lift: 1, size: 4, note: '', status: 'idea' as BoardStatus };
 
@@ -105,7 +125,7 @@ class LevelsLab {
     stage.append(boardBox, this.ribbon);
     root.append(facts, stage);
     badge.style.cssText = `position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:900;display:none;padding:2px 10px;background:${palette.bg};color:${palette.dim};border:1px solid ${palette.faint};font:12px ${PROGRAM_FONT};pointer-events:none`;
-    badge.textContent = 'E — редактор · R — заново · Z — ход назад';
+    badge.textContent = 'E — редактор · R — заново · Z — ход назад · N — снимок положения в новую доску';
     document.body.append(root, badge);
     this.editor = new BoardEditor(boardBox, () => this.edited(true));
     this.buildPanel();
@@ -123,7 +143,14 @@ class LevelsLab {
         if (!event.repeat) this.togglePlay();
         return;
       }
-      if (this.playing) return;
+      if (this.playing) {
+        // `N` makes a new board of the board as it stands in the play. The other keys are the game's.
+        if (event.code === 'KeyN' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          event.stopImmediatePropagation();
+          if (event.type === 'keydown' && !event.repeat) void this.snapshot();
+        }
+        return;
+      }
       event.stopImmediatePropagation();
       if (event.type === 'keydown' && this.editor.key(event)) event.preventDefault();
     };
@@ -151,7 +178,23 @@ class LevelsLab {
     } catch (error) {
       this.error = (error as Error).message;
     }
-    this.fileControl = this.fileControl.options(this.names).name('файл').onChange((name: string) => void this.open(name));
+    // The status of every file is read from its head, to stand beside its name in the list.
+    await Promise.all(
+      this.names.map(async (name) => {
+        try {
+          this.statuses.set(name, readBoardHead(await readBoard(name)).status);
+        } catch {
+          this.statuses.delete(name);
+        }
+      }),
+    );
+    this.listFiles();
+  }
+
+  /** The list of the files on the panel: every name with the status of its board. */
+  private listFiles(): void {
+    const labelled = Object.fromEntries(this.names.map((name) => [this.statuses.get(name) ? `${name} · ${this.statuses.get(name)}` : name, name]));
+    this.fileControl = this.fileControl.options(labelled).name('файл').onChange((name: string) => void this.open(name));
   }
 
   private buildPanel(): void {
@@ -213,6 +256,10 @@ class LevelsLab {
     }
     const note = this.form.note.trim();
     this.extra = { ...(note ? { note } : {}), status: this.form.status };
+    if (this.statuses.get(this.name) !== this.form.status) {
+      this.statuses.set(this.name, this.form.status);
+      this.listFiles();
+    }
     this.form.size = this.editor.current.size;
     this.read(this.text());
     window.clearTimeout(this.saveTimer);
@@ -407,7 +454,9 @@ class LevelsLab {
       this.badge.style.display = 'block';
       this.inside.audio.setAway(false);
       this.game.playBoard(this.spec);
+      this.watch();
     } else {
+      this.endPlay();
       this.playing = false;
       this.root.style.display = 'grid';
       this.gui.show();
@@ -416,6 +465,74 @@ class LevelsLab {
       this.editor.draw();
       this.editor.canvas.focus();
     }
+  }
+
+  /**
+   * Watches the play of the board, frame by frame, to write it down when it is over. A play is
+   * over when the board is cleared, which is written at once; when the board is started over;
+   * and when the editor is come back to. A move taken back puts another run in the game's hand
+   * and is no new play: the count of moves taken back tells the two apart.
+   */
+  private watch(): void {
+    const seconds = this.seconds && typeof this.seconds !== 'string' ? this.seconds : null;
+    const of = { name: this.name, hash: boardHash(this.text(), this.name) ?? '', par: seconds?.check.par ?? this.spec?.par ?? null };
+    const begin = (): Watched => ({ ...of, state: this.inside.state, undos: this.inside.undosMade, startedAt: Date.now(), told: false });
+    this.watched = null;
+    const frame = (): void => {
+      if (!this.playing) return;
+      window.requestAnimationFrame(frame);
+      const { state, undosMade } = this.inside;
+      // The board is put on when the game has opened: until then the run in hand is no level.
+      if (!state.levelRun) return;
+      const play = this.watched;
+      if (!play) {
+        this.watched = begin();
+        return;
+      }
+      if (state !== play.state && undosMade <= play.undos) {
+        this.endPlay();
+        this.watched = begin();
+        return;
+      }
+      play.state = state;
+      play.undos = undosMade;
+      if (state.endReason === 'passed' && !play.told) this.tellPlay(play);
+    };
+    window.requestAnimationFrame(frame);
+  }
+
+  /** The play in hand is over: it is written down, unless it was already, or nothing was done in it. */
+  private endPlay(): void {
+    const play = this.watched;
+    this.watched = null;
+    if (play && !play.told && (play.state.levelRun?.moves ?? 0) > 0) this.tellPlay(play);
+  }
+
+  private tellPlay(play: Watched): void {
+    play.told = true;
+    void addPlay(play.name, playRecordOf(play.state, play.startedAt, Date.now(), play.undos, play)).catch((error: Error) => console.error(error));
+  }
+
+  /**
+   * `N` in a play: the board as it stands is made a board of its own, under the name of the board
+   * with a number after it, and opened in the editor. The dice that are going are written as
+   * leaving. The world has to stand: in the middle of a move there is no board to write.
+   */
+  private async snapshot(): Promise<void> {
+    const { state } = this.inside;
+    const { spec } = this;
+    if (!spec || !state.levelRun || state.player.action || state.cubes.some((cube) => cube.state === 'moving')) return;
+    let number = 1;
+    const named = (): string => `${this.name}-${number}`;
+    while (this.names.includes(named())) number++;
+    const name = named();
+    if (!isBoardName(name)) return;
+    const taken = { ...specFromState(state, spec), id: name };
+    const text = printBoard(taken, { status: 'idea', note: `снимок ${this.name} после хода ${state.levelRun.moves}` });
+    this.togglePlay();
+    await writeBoard(name, text);
+    await this.readNames();
+    this.load(name, text);
   }
 
   /** What the page says of the board in hand, beside it. */
