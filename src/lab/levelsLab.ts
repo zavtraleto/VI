@@ -1,17 +1,28 @@
 import GUI, { type Controller } from 'lil-gui';
 import { boardNameOf, isBoardName } from '../app/boardProbe';
 import type { Game } from '../app/game';
-import { BOARD_STATUSES, parseBoard, readBoardHead, type BoardHead, type BoardStatus } from '../levels/boardFile';
+import { BOARD_STATUSES, normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardStatus } from '../levels/boardFile';
+import { specFromState } from '../levels/snapshot';
+import { REPORT_PLAYERS, scoreText } from '../rules/levelReport';
+import { moveOf, tryWay } from '../rules/levelSolver';
 import type { LevelSpec, RunState } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { BoardEditor } from './boardEditor';
 import { listBoards, onBoardChanged, readBoard, writeBoard } from './boardsClient';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
+import { instantOf, type Ask, type Instant, type Later, type Seconds } from './labFacts';
+import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 
 /** A change is written to its file this long after it is made, and after the last of several made together. */
 const SAVE_MS = 300;
 const COPY_LABEL = 'копировать текст доски';
+
+/** A worker that asks boards: one to a tier, so that a quick answer does not wait behind a slow one. */
+const solver = (): WorkerLike => new Worker(new URL('./solve.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike;
+/** A question without its number: the client numbers it. */
+type Question<T extends Ask['tier']> = Omit<Extract<Ask, { tier: T }>, 'id'>;
+const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
 /** What the lab reaches inside the game. These are private to it: the lab is a tool and looks inside. */
 interface Inside {
@@ -45,6 +56,7 @@ class LevelsLab {
   private readonly root = document.createElement('div');
   private readonly facts = document.createElement('pre');
   private readonly badge = document.createElement('div');
+  private readonly ribbon = document.createElement('div');
   private readonly editor: BoardEditor;
   private readonly gui = new GUI({ title: 'VI · уровни' });
   private fileControl!: Controller;
@@ -65,6 +77,18 @@ class LevelsLab {
   /** The ways of the boards that were in hand with one, each under its board as text with no way in it. */
   private readonly ways = new Map<string, Pick<LevelSpec, 'par' | 'exact' | 'solution'>>();
   private playing = false;
+
+  /** The board the numbers on the page are of, as text with nothing in it two files of one board could differ by. */
+  private measured = '';
+  private instant: Instant | null = null;
+  /** The answers of the two slower tiers: the facts, `null` while they are counted, or what went wrong. */
+  private seconds: Seconds | string | null = null;
+  private later: Later | string | null = null;
+  private readonly askSeconds = new SolveClient<Question<'seconds'>, Seconds>(solver);
+  private readonly askLater = new SolveClient<Question<'later'>, Later>(solver);
+  /** The move of the way the editor shows the board after; null where it shows the board itself, which is then the one kept in `drawn`. */
+  private moment: number | null = null;
+  private drawn: EditBoard | null = null;
   /** What the panel shows of the head: the panel edits this copy and the lab reads it. */
   private readonly form = { file: '', id: '', faces: '2', shut: false, sink: 2, lift: 1, size: 4, note: '', status: 'idea' as BoardStatus };
 
@@ -74,12 +98,16 @@ class LevelsLab {
     root.style.cssText = `position:fixed;inset:0;z-index:900;display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:minmax(0,1fr);padding-right:256px;box-sizing:border-box;background:${palette.bg};color:${palette.ink};font:13px/1.45 ${PROGRAM_FONT}`;
     facts.style.cssText = `margin:0;padding:12px 14px;overflow:auto;white-space:pre-wrap;border-right:1px solid ${palette.faint};font:inherit;color:${palette.ink}`;
     const stage = document.createElement('div');
-    stage.style.cssText = 'position:relative;min-width:0;min-height:0;overflow:hidden';
+    stage.style.cssText = 'display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden';
+    const boardBox = document.createElement('div');
+    boardBox.style.cssText = 'position:relative;flex:1;min-height:0';
+    this.ribbon.style.cssText = `display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;min-height:30px;border-top:1px solid ${palette.faint}`;
+    stage.append(boardBox, this.ribbon);
     root.append(facts, stage);
     badge.style.cssText = `position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:900;display:none;padding:2px 10px;background:${palette.bg};color:${palette.dim};border:1px solid ${palette.faint};font:12px ${PROGRAM_FONT};pointer-events:none`;
     badge.textContent = 'E — редактор · R — заново · Z — ход назад';
     document.body.append(root, badge);
-    this.editor = new BoardEditor(stage, () => this.edited(true));
+    this.editor = new BoardEditor(boardBox, () => this.edited(true));
     this.buildPanel();
 
     // The keys are the editor's while it is open: the game under it gets none of them.
@@ -142,6 +170,7 @@ class LevelsLab {
     board.add(form, 'note').name('заметка').onFinishChange(() => this.edited(false));
     board.add(form, 'status', [...BOARD_STATUSES]).name('статус').onChange(() => this.edited(false));
     this.copyControl = gui.add({ copy: () => void this.copy() }, 'copy').name(COPY_LABEL);
+    gui.add({ keep: () => this.keepSolved() }, 'keep').name('записать путь решателя в файл');
   }
 
   /** The panel is set to what the board in hand says. */
@@ -205,12 +234,84 @@ class LevelsLab {
       this.spec = null;
       this.error = (error as Error).message;
     }
+    this.measure();
+  }
+
+  /**
+   * Asks the numbers of the board in hand, if it is another board than the one they are of: the
+   * first tier here and now, the other two of the workers. A question that was waiting is of a
+   * board that is gone: its worker is stopped, and what it would have said is never shown.
+   */
+  private measure(): void {
+    const { spec } = this;
+    const key = spec ? printBoard(normalSpec(spec)) : '';
+    if (key === this.measured) return;
+    this.measured = key;
+    this.showBoard();
+    this.askSeconds.cancel();
+    this.askLater.cancel();
+    this.instant = spec ? instantOf(spec) : null;
+    this.seconds = null;
+    this.later = null;
+    if (!spec || this.instant?.error) return;
+    const told = <T>(set: (facts: T | string) => void) => [
+      (facts: T): void => {
+        if (this.measured !== key) return;
+        set(facts);
+        this.show();
+      },
+      (error: Error): void => {
+        if (error.message === CANCELLED || this.measured !== key) return;
+        set(error.message);
+        this.show();
+      },
+    ] as const;
+    this.askSeconds.ask({ tier: 'seconds', spec }).then(...told<Seconds>((facts) => (this.seconds = facts)));
+    this.askLater.ask({ tier: 'later', spec }).then(...told<Later>((facts) => (this.later = facts)));
+  }
+
+  /** Writes what the solver found into the head of the file: the fewest moves, whether they are proved, and the way. */
+  private keepSolved(): void {
+    const { seconds } = this;
+    if (!seconds || typeof seconds === 'string' || seconds.check.par === null || !seconds.check.way || this.editor.locked) return;
+    this.head = { ...this.head, par: seconds.check.par, exact: seconds.check.exact, solution: seconds.check.way };
+    this.keepWay();
+    this.edited(false);
+  }
+
+  /**
+   * Shows the board as it stands after so many moves of the way the solver found: the editor is
+   * shut on it, since it is a moment of a play and not the board. `null` shows the board again.
+   */
+  private async showMoment(moves: number | null): Promise<void> {
+    const { spec, seconds } = this;
+    if (moves === null || moves === 0 || !spec || !seconds || typeof seconds === 'string' || !seconds.check.way) {
+      this.showBoard();
+      this.show();
+      return;
+    }
+    if (this.saveTimer !== 0) await this.save();
+    if (this.moment === null) this.drawn = this.editor.current;
+    const state = tryWay(spec, seconds.check.way.slice(0, moves).map(moveOf)).state;
+    this.moment = moves;
+    this.editor.locked = true;
+    this.editor.show(editBoardOf(specFromState(state, spec)), true);
+    this.show();
+  }
+
+  /** The editor shows the board itself again, and can change it. */
+  private showBoard(): void {
+    if (this.moment === null) return;
+    this.moment = null;
+    this.editor.locked = false;
+    if (this.drawn) this.editor.show(this.drawn, true);
+    this.drawn = null;
   }
 
   private async save(): Promise<void> {
     window.clearTimeout(this.saveTimer);
     this.saveTimer = 0;
-    if (this.name === '' || this.editor.locked) return;
+    if (this.name === '' || this.editor.locked || this.moment !== null) return;
     const text = this.text();
     if (text === this.saved) return;
     this.saved = text;
@@ -235,6 +336,8 @@ class LevelsLab {
 
   /** Takes a text as the board in hand. A text that is no board is shown with what is wrong, and the editor is shut on it. */
   private load(name: string, text: string, sameBoard = false): void {
+    this.moment = null;
+    this.drawn = null;
     this.name = name;
     this.saved = text;
     this.read(text);
@@ -324,13 +427,73 @@ class LevelsLab {
     lines.push('', ...this.factLines());
     lines.push('', 'щелчок — кость / следующая грань', 'стрелки — прокатить на месте', 'правая кнопка, Del — очистить', 'H — вырез · Shift+щелчок — фикс.', 'P — старт · L — уходящая', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
     this.facts.textContent = lines.join('\n');
+    this.showRibbon();
   }
 
-  /** What is known of the board: for now, only that it is one. */
-  protected factLines(): string[] {
-    const { spec } = this;
+  /** The way the solver found, a button to a move: a click shows the board after that move, and the first shows the board itself. */
+  private showRibbon(): void {
+    const { ribbon, seconds, palette } = this;
+    ribbon.replaceChildren();
+    const way = seconds && typeof seconds !== 'string' ? seconds.check.way : null;
+    const score = seconds && typeof seconds !== 'string' ? seconds.check.score : null;
+    if (!way) return;
+    const button = (label: string, moves: number): void => {
+      const made = document.createElement('button');
+      const on = (this.moment ?? 0) === moves;
+      made.textContent = label;
+      made.style.cssText = `padding:2px 8px;font:inherit;cursor:pointer;background:${on ? palette.ink : palette.bg};color:${on ? palette.bg : palette.ink};border:1px solid ${palette.faint}`;
+      made.addEventListener('click', () => void this.showMoment(moves));
+      ribbon.append(made);
+    };
+    button('доска', 0);
+    way.forEach((move, index) => {
+      const event = score?.beats[index]?.event;
+      button(`${index + 1}. ${move}${event && event !== 'none' ? ` ${event}` : ''}`, index + 1);
+    });
+  }
+
+  /** What is known of the board, tier by tier: at once, in a second, later. */
+  private factLines(): string[] {
+    const { spec, instant, seconds, later } = this;
     if (!spec) return [];
-    return [`${spec.id}  ${spec.size}x${spec.size}, костей ${spec.norm}, грани ${(spec.faces ?? spec.values).join(' ')}, пол ${spec.floor === false ? 'закрыт' : 'открыт'}`];
+    const lines = [`${spec.id}  ${spec.size}x${spec.size}, костей ${spec.norm}, грани ${(spec.faces ?? spec.values).join(' ')}, пол ${spec.floor === false ? 'закрыт' : 'открыт'}`];
+    if (this.moment !== null) lines.push(`показана доска после хода ${this.moment}; «доска» под полем — вернуться`);
+    if (instant) {
+      lines.push('', '— сразу —');
+      if (instant.error) lines.push(instant.error);
+      else {
+        lines.push(instant.deadEnd ? `тупик на старте: ${instant.deadEnd}` : 'на старте не тупик');
+        if (instant.groups.length > 0) lines.push(`неполные группы: ${instant.groups.map((group) => `грань ${group.value} — ${group.have} из ${group.need}`).join('; ')}`);
+      }
+      if (instant.error) return lines;
+    }
+    lines.push('', '— секунды —');
+    if (seconds === null) lines.push('считаю…');
+    else if (typeof seconds === 'string') lines.push(seconds);
+    else {
+      const { check, firsts, moves } = seconds;
+      if (check.par === null) lines.push(check.exact ? `пути нет: доска не очищается (досок ${check.states})` : `путь не найден: решатель сдался на ${check.states} досках`);
+      else {
+        lines.push(`ходов ${check.par}${check.exact ? '' : ' (минимум не доказан)'} · досок ${check.states}`);
+        if (check.score) lines.push(`маршрут ${check.score.route}  (${check.score.kind})`);
+        lines.push(`в файле: ${check.kept === null ? 'пути нет' : `par ${spec.par ?? '—'} — ${check.kept}`}`);
+        lines.push(`первых ходов, после которых доска в руках: ${firsts}`);
+        lines.push(`ходы со старта: ${moves.map((fact) => `${fact.move} ${fact.keeps}${fact.par === null ? '' : ` ${fact.par}`}`).join(' · ')}`);
+        if (check.score) lines.push('', scoreText(check.score));
+      }
+    }
+    lines.push('', '— фон —');
+    if (later === null) lines.push('считаю…');
+    else if (typeof later === 'string') lines.push(later);
+    else {
+      const { report, near } = later;
+      lines.push(`прошли: ${REPORT_PLAYERS.map((name) => `${name} ${percent(report.personas[name].endings.passed)}`).join(' · ')}`);
+      lines.push(`ловушки ${percent(report.traps)} жадных партий · случайный игрок ${percent(report.random)}`);
+      if (report.graph) lines.push(`досок в двух ходах над минимумом: ${report.graph.states}; живых ${percent(report.graph.alive)}; кратчайших путей ${report.graph.ways >= 1000 ? '999+' : report.graph.ways}`);
+      const count = (change: string): number => near.filter((fact) => fact.change === change).length;
+      lines.push(`правки в одну кость: ${near.length} — то же ${count('same')}, короче ${count('shorter')}, длиннее ${count('longer')}, без пути ${count('unsolved')}`);
+    }
+    return lines;
   }
 
   /** The board in hand, for whoever looks at the lab from the console: `window.viLab.board()`. */

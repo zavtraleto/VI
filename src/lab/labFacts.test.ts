@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest';
+import { ROAD } from '../levels/road';
+import { answer, instantOf, laterOf, secondsOf } from './labFacts';
+
+const R03 = ROAD[2];
+
+describe('the tiers of the lab', () => {
+  it('says at once that a board is laid and is no dead end', () => {
+    expect(instantOf(R03)).toMatchObject({ error: null, deadEnd: null, dice: 2 });
+  });
+  it('says at once what the rules refuse', () => {
+    const broken = { ...R03, layout: { ...R03.layout!, start: { x: 0, z: 0 } } };
+    expect(instantOf(broken).error).toMatch(/no die to start on/);
+  });
+  it('solves a board in the second tier, with its first moves and what each move does', () => {
+    const seconds = secondsOf(R03);
+    expect(seconds.check.par).toBe(2);
+    expect(seconds.firsts).toBeGreaterThanOrEqual(1);
+    expect(seconds.moves.some((fact) => fact.keeps === 'par')).toBe(true);
+  });
+  it('reports on a board and its neighbours in the third', { timeout: 60_000 }, () => {
+    const later = laterOf(R03, 2);
+    expect(later.report.par).toBe(2);
+    expect(later.near.length).toBeGreaterThan(0);
+  });
+  it('answers a question under its number, and a board that cannot be asked with what went wrong', () => {
+    expect(answer({ id: 7, tier: 'seconds', spec: R03 })).toMatchObject({ id: 7, tier: 'seconds', facts: { firsts: expect.any(Number) } });
+    const broken = { ...R03, layout: { ...R03.layout!, start: { x: 0, z: 0 } } };
+    expect(answer({ id: 8, tier: 'seconds', spec: broken })).toMatchObject({ id: 8, error: expect.stringMatching(/no die to start on/) });
+  });
+});
