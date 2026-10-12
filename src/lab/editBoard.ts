@@ -190,3 +190,87 @@ export function resize(board: EditBoard, size: number): EditBoard {
   for (let z = 0; z < Math.min(side, board.size); z++) for (let x = 0; x < Math.min(side, board.size); x++) next.cells[z][x] = board.cells[z][x];
   return next;
 }
+
+/** A die carried to an empty cell with everything it has: its marks, and the player if they stand on it. A cell that is taken or cut out takes none. */
+export function moveDie(board: EditBoard, from: { x: number; z: number }, to: { x: number; z: number }): EditBoard {
+  const die = cellAt(board, from.x, from.z);
+  const target = cellAt(board, to.x, to.z);
+  if (!die || die.kind !== 'die' || !target || target.kind !== 'empty' || (from.x === to.x && from.z === to.z)) return board;
+  // A die put where the player stood on the floor is the die they stand on, as with a die put there anew.
+  const carried: Cell = target.floorStart ? { ...die, start: true } : die;
+  return withCell(withCell(board, from.x, from.z, { kind: 'empty' }), to.x, to.z, carried);
+}
+
+/** A die with a face on top dropped on a cell: an empty cell gets one, a die is turned to that face and keeps its marks. */
+export function setTop(board: EditBoard, x: number, z: number, top: number): EditBoard {
+  const cell = cellAt(board, x, z);
+  if (!cell || cell.kind === 'hole') return board;
+  if (cell.kind === 'empty') return withCell(board, x, z, { kind: 'die', ...lying(top), ...(cell.floorStart ? { start: true } : {}) });
+  return cell.top === top ? board : withCell(board, x, z, { ...cell, ...lying(top) });
+}
+
+/** A fixed die with a face on top dropped on a cell: as `setTop`, and the die is fixed. */
+export function putFixed(board: EditBoard, x: number, z: number, top: number): EditBoard {
+  const put = setTop(board, x, z, top);
+  const cell = cellAt(put, x, z);
+  return cell && cell.kind === 'die' && !cell.fixed ? withCell(put, x, z, { ...cell, fixed: true }) : put;
+}
+
+/**
+ * A die turned where it stands about the line through its top: the top stays, and the faces of
+ * its sides go round a quarter, the west one to the north with `turns` 1 and the east one with
+ * -1. Four turns one way bring it back.
+ */
+export function spinDie(board: EditBoard, x: number, z: number, turns: 1 | -1): EditBoard {
+  const cell = cellAt(board, x, z);
+  if (!cell || cell.kind !== 'die') return board;
+  const lies = ALL_ORIENTATIONS.find((o) => o.top === cell.top && o.north === cell.north);
+  if (!lies) return board;
+  const north = turns === 1 ? lies.west : lies.east;
+  return withCell(board, x, z, { ...cell, north });
+}
+
+/** Whatever stands on a cell taken off: its die, or the start on its floor. A cell cut out stays cut out. */
+export function removeAt(board: EditBoard, x: number, z: number): EditBoard {
+  const cell = cellAt(board, x, z);
+  if (!cell || cell.kind === 'hole' || (cell.kind === 'empty' && !cell.floorStart)) return board;
+  return withCell(board, x, z, { kind: 'empty' });
+}
+
+/**
+ * The board as the scene of the game can show it. The scene shows only what the rules lay, and
+ * a board being drawn is often none: it has no start yet. So where the board drawn is refused
+ * for want of a start, it is shown with the player lent a place: on the floor of its first free
+ * cell, or, with no cell free, on its first die that rolls. `stand` says which: `own` where the
+ * board is shown as drawn, `lent` where the start is lent, `none` where the rules will lay
+ * nothing of it (a combo standing ready, a board in two parts) and `spec` is null. `error` is
+ * what the rules say of the board as drawn. Nothing of this is written to a file: the file
+ * keeps the board as it is drawn.
+ */
+export function displaySpecOf(board: EditBoard, head: LevelSpec): { spec: LevelSpec | null; stand: 'own' | 'lent' | 'none'; error: string | null } {
+  let error: string;
+  try {
+    return { spec: specOf(board, head), stand: 'own', error: null };
+  } catch (refused) {
+    error = (refused as Error).message;
+  }
+  const started = board.cells.some((row) => row.some((cell) => (cell.kind === 'die' && cell.start) || (cell.kind === 'empty' && cell.floorStart)));
+  if (!started) {
+    const free: { x: number; z: number }[] = [];
+    const rolling: { x: number; z: number }[] = [];
+    board.cells.forEach((row, z) =>
+      row.forEach((cell, x) => {
+        if (cell.kind === 'empty') free.push({ x, z });
+        else if (cell.kind === 'die' && !cell.fixed) rolling.push({ x, z });
+      }),
+    );
+    for (const at of [...free.slice(0, 1), ...rolling.slice(0, 1)]) {
+      try {
+        return { spec: specOf(setStart(board, at.x, at.z), head), stand: 'lent', error };
+      } catch {
+        // Not this place: the next is tried.
+      }
+    }
+  }
+  return { spec: null, stand: 'none', error };
+}

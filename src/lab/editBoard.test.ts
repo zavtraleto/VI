@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { LESSON } from '../levels/boardSamples';
+import { DOWN_AND_UP, LESSON } from '../levels/boardSamples';
 import { normalSpec } from '../levels/boardFile';
 import { LEVELS } from '../levels/levels';
 import { ROAD } from '../levels/road';
 import { ALL_ORIENTATIONS, roll } from '../rules/orientation';
-import { cellAt, clearCell, cycleLeaving, editBoardOf, emptyBoard, putDie, resize, rollDie, setStart, specOf, textOf, toggleFixed, toggleHole } from './editBoard';
+import { cellAt, clearCell, cycleLeaving, displaySpecOf, editBoardOf, emptyBoard, moveDie, putDie, putFixed, removeAt, resize, rollDie, setStart, setTop, specOf, spinDie, textOf, toggleFixed, toggleHole } from './editBoard';
 
 describe('editBoardOf', () => {
   it('holds a board cell for cell: a start on the floor, a fixed die, a die that is leaving', () => {
@@ -72,5 +72,77 @@ describe('the changes of a board', () => {
     const drawn = setStart(putDie(putDie(emptyBoard(3), 1, 1), 1, 2), 1, 2);
     expect(specOf(drawn, head).layout!.dice).toHaveLength(2);
     expect(textOf(drawn, head, { status: 'idea' })).toContain('status: idea');
+  });
+});
+
+describe('the changes a drag makes', () => {
+  it('carries a die to an empty cell with its marks, and to no cell that is taken or cut out', () => {
+    const board = editBoardOf(LESSON);
+    const moved = moveDie(board, { x: 3, z: 4 }, { x: 3, z: 2 });
+    expect(cellAt(moved, 3, 2)).toMatchObject({ kind: 'die', leaving: 1 });
+    expect(cellAt(moved, 3, 4)).toEqual({ kind: 'empty' });
+    expect(moveDie(board, { x: 3, z: 4 }, { x: 3, z: 3 })).toBe(board);
+    expect(moveDie(board, { x: 3, z: 4 }, { x: 0, z: 0 })).toBe(board);
+    // Carried to the cell the player stands on the floor of, it is the die they stand on.
+    expect(cellAt(moveDie(board, { x: 3, z: 3 }, { x: 3, z: 5 }), 3, 5)).toMatchObject({ kind: 'die', start: true });
+    const start = editBoardOf(DOWN_AND_UP);
+    expect(cellAt(moveDie(start, { x: 3, z: 0 }, { x: 0, z: 0 }), 0, 0)).toMatchObject({ start: true });
+  });
+  it('drops a face on a cell: a die on an empty one, another top on a die, and a fixed die', () => {
+    const board = setTop(emptyBoard(3), 1, 1, 4);
+    expect(cellAt(board, 1, 1)).toMatchObject({ kind: 'die', top: 4 });
+    const fixed = toggleFixed(board, 1, 1);
+    expect(cellAt(setTop(fixed, 1, 1, 2), 1, 1)).toMatchObject({ top: 2, fixed: true });
+    expect(setTop(board, 1, 1, 4)).toBe(board);
+    expect(cellAt(putFixed(emptyBoard(3), 0, 0, 3), 0, 0)).toMatchObject({ top: 3, fixed: true });
+  });
+  it('spins a die about its top: four quarters bring it back, and each is a way the die can lie', () => {
+    const board = setTop(emptyBoard(3), 1, 1, 5);
+    let spun = board;
+    const norths = new Set<number>();
+    for (let turn = 0; turn < 4; turn++) {
+      spun = spinDie(spun, 1, 1, 1);
+      const cell = cellAt(spun, 1, 1) as { top: number; north: number };
+      expect(cell.top).toBe(5);
+      expect(ALL_ORIENTATIONS.some((o) => o.top === cell.top && o.north === cell.north)).toBe(true);
+      norths.add(cell.north);
+    }
+    expect(norths.size).toBe(4);
+    expect(spun).toEqual(board);
+    expect(spinDie(spinDie(board, 1, 1, 1), 1, 1, -1)).toEqual(board);
+  });
+  it('takes a die or a start on the floor off a cell', () => {
+    const board = setStart(setTop(emptyBoard(3), 1, 1, 2), 0, 0);
+    expect(cellAt(removeAt(board, 1, 1), 1, 1)).toEqual({ kind: 'empty' });
+    expect(cellAt(removeAt(board, 0, 0), 0, 0)).toEqual({ kind: 'empty' });
+    expect(removeAt(board, 2, 2)).toBe(board);
+  });
+});
+
+describe('displaySpecOf', () => {
+  const head = DOWN_AND_UP;
+  it('shows a board the rules take as it is drawn', () => {
+    const shown = displaySpecOf(editBoardOf(DOWN_AND_UP), head);
+    expect(shown).toMatchObject({ stand: 'own', error: null });
+    expect(normalSpec(shown.spec!)).toEqual(normalSpec(DOWN_AND_UP));
+  });
+  it('lends a board with no start a place on the floor, and says what the board as drawn wants', () => {
+    const empty = displaySpecOf(emptyBoard(4), head);
+    expect(empty.stand).toBe('lent');
+    expect(empty.spec!.layout).toMatchObject({ onFloor: true, start: { x: 0, z: 0 }, dice: [] });
+    expect(empty.error).toMatch(/one start is needed, found 0/);
+    const one = displaySpecOf(setTop(emptyBoard(3), 0, 0, 2), head);
+    expect(one.spec!.layout).toMatchObject({ onFloor: true, start: { x: 1, z: 0 } });
+  });
+  it('lends the first die that rolls where no cell is free, and shows nothing of a board the rules will not lay with any start', () => {
+    let full = emptyBoard(3);
+    // Faces by turns, so that no two alike stand side by side.
+    for (let z = 0; z < 3; z++) for (let x = 0; x < 3; x++) full = setTop(full, x, z, ((x + z * 2) % 3) * 2 + 1);
+    const lent = displaySpecOf(full, { ...head, faces: [2], values: [2] });
+    expect(lent.stand).toBe('lent');
+    expect(lent.spec!.layout!.onFloor).toBeUndefined();
+    // A board in two parts is no board, with a start or without: nothing of it is shown.
+    const apart = toggleHole(toggleHole(toggleHole(setTop(emptyBoard(3), 0, 0, 2), 0, 1), 1, 1), 2, 1);
+    expect(displaySpecOf(apart, head)).toMatchObject({ spec: null, stand: 'none' });
   });
 });
