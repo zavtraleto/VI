@@ -1,6 +1,6 @@
 # Кампания, шаг 1: мерила `turns` и `away`, один ряд уровней, `R10` без обхода
 
-> Вид: план. Статус: выполнен (13 октября 2026 в ветке `campaign-row`, версия 0.2.51, ждёт «ок» на публикацию; что сделано не по плану — раздел «Что вышло иначе» в конце). Дата: 2026-10-12. Проверено: 2026-10-13.
+> Вид: план. Статус: выполнен (опубликовано 13 октября 2026 как 0.2.51; что сделано не по плану — раздел «Что вышло иначе» в конце). Дата: 2026-10-12. Проверено: 2026-10-13.
 > Что заменило: —. Что живёт в коде: src/levels/campaign.ts, src/rules/levelScore.ts, src/app/game.ts, src/app/passage.ts, src/shell/panels.ts, src/shell/screens/menu.ts, src/levels/road.ts, src/levels/progress.ts.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
