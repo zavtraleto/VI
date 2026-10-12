@@ -167,7 +167,7 @@ const RU = {
   howCombo: 'Комбо — столько костей рядом, сколько точек на их верхней грани: две двойки, три тройки, шесть шестёрок.\nСобранное комбо уходит.',
   howChain: 'Комбо уходит не сразу.\nПока оно уходит, докати к нему ещё кость с той же гранью: она уйдёт вместе с ним. Это цепочка.',
   howOnes: 'Единицы в комбо не собираются.\nПодведи единицу к уходящему комбо — и уйдут все остальные единицы на поле.',
-  howLevels: 'УРОВНИ: убери с поля все кости.\nРаботают только грани уровня, остальные помечены крестом.\nХоды ограничены: чем их меньше, тем больше звёзд.\nПравила пола здесь свои: наверх — только по уходящей кости.',
+  howLevels: 'УРОВНИ: убери с поля все кости.\nРаботают только грани уровня, остальные помечены крестом.\nПравила пола здесь свои: наверх — только по уходящей кости.',
   howProtocol: 'ПРОТОКОЛ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — сеанс окончен.',
   // What a player sends out with a link to the game: the score is what was sent to the other side.
   shareScore: 'VI — передано на ту сторону: {score}',
@@ -297,7 +297,7 @@ const EN: typeof RU = {
   howCombo: 'A combo is as many dice side by side as their top face has pips: two 2s, three 3s, six 6s.\nA finished combo leaves.',
   howChain: 'A combo does not leave at once.\nWhile it is leaving, roll one more die with the same face up to it: it leaves with the combo. This is a chain.',
   howOnes: 'Ones make no combo.\nBring a 1 to a leaving combo, and every other 1 on the board leaves.',
-  howLevels: 'LEVELS: clear every die off the board.\nOnly the faces of the level work, the others are marked with a cross.\nMoves are limited: the fewer you make, the more stars.\nThe floor has rules of its own here: the only way up is a leaving die.',
+  howLevels: 'LEVELS: clear every die off the board.\nOnly the faces of the level work, the others are marked with a cross.\nThe floor has rules of its own here: the only way up is a leaving die.',
   howProtocol: 'PROTOCOL: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the session is over.',
   shareScore: 'VI — sent to the other side: {score}',
 };

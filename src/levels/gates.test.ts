@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { LevelSpec } from '../rules/types';
-import { GATE_SHARE, chaptersOf, gateOf, ladderProgress, limitedLevel, moveLimit } from './progress';
+import { GATE_SHARE, chaptersOf, gateOf, ladderProgress } from './progress';
 
 /**
  * The game has one chapter, with no gate and one limit of moves. What a chapter may ask for is
@@ -11,9 +11,9 @@ import { GATE_SHARE, chaptersOf, gateOf, ladderProgress, limitedLevel, moveLimit
 vi.mock('./recipes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./recipes')>()),
   CHAPTERS: [
-    { key: 'open', times: 5, gate: false, floor: true, guard: 'none' },
-    { key: 'gated', times: 4, gate: true, floor: true, guard: 'none' },
-    { key: 'last', times: 3, gate: true, floor: true, guard: 'none' },
+    { key: 'open', gate: false, floor: true, guard: 'none' },
+    { key: 'gated', gate: true, floor: true, guard: 'none' },
+    { key: 'last', gate: true, floor: true, guard: 'none' },
   ],
 }));
 
@@ -31,21 +31,6 @@ const passedTo = (count: number, over: number) => (id: string) => {
   const index = LEVELS.findIndex((other) => other.id === id);
   return index < count ? LEVELS[index].par! + over : null;
 };
-
-describe('the limit of moves of a chapter', () => {
-  it('is as tight as the chapter says: so many times the fewest moves, and ten', () => {
-    expect(moveLimit(4, 0)).toBe(30);
-    expect(moveLimit(4, 1)).toBe(26);
-    expect(moveLimit(4, 2)).toBe(22);
-    // Past the last chapter there is, the limit of the last.
-    expect(moveLimit(4, 99)).toBe(22);
-  });
-
-  it('is laid on a level by the chapter it names, and never cuts short the way the level keeps', () => {
-    expect(LEVELS.map((_, index) => limitedLevel(LEVELS, index).moves)).toEqual([30, 30, 30, 30, 26, 26, 26, 22, 22]);
-    LEVELS.forEach((spec, index) => expect(limitedLevel(LEVELS, index).moves).toBeGreaterThanOrEqual(spec.par! + 10));
-  });
-});
 
 describe('the gates of the chapters', () => {
   const chapters = chaptersOf(LEVELS);

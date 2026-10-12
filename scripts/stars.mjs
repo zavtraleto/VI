@@ -39,7 +39,10 @@ const PERSONAS = PLAYERS.slice(1);
 
 const { LEVELS } = await load('/src/levels/levels.ts');
 const { personaPlay, randomPlay } = await load('/src/rules/levelBot.ts');
-const { THREE_STARS_OVER, TWO_STARS_OVER, chaptersOf, gateOf, levelStars, moveLimit } = await load('/src/levels/progress.ts');
+const { THREE_STARS_OVER, TWO_STARS_OVER, chaptersOf, gateOf, levelStars } = await load('/src/levels/progress.ts');
+// The game has no limit of moves since 12 October 2026. The one it had, five times the fewest moves and ten,
+// is kept here to measure against: what a limit would do to the players.
+const moveLimit = (par) => (par === undefined ? 0 : 5 * par + 10);
 /** Moves over the fewest that still earn three stars, and two. */
 const TOP = THREE_STARS_OVER;
 const TWO = THREE_STARS_OVER + TWO_STARS_OVER;
@@ -117,11 +120,11 @@ const all = LEVELS.map((_, level) => level);
 
 /** The chapters of the ladder, each with its levels, counted from 0, and the stars its gate asks for. */
 const chapters = chaptersOf(LEVELS).map((chapter) => ({ faces: LEVELS[chapter.from].faces.join(''), levels: all.slice(chapter.from, chapter.to), gate: gateOf(chapter) }));
-/** The limit of moves a level is played with. */
-const limitOf = (level) => moveLimit(LEVELS[level].par, LEVELS[level].chapter ?? 0);
+/** The limit of moves a level was played with until 12 October 2026. */
+const limitOf = (level) => moveLimit(LEVELS[level].par);
 
 console.log(`Runs of each player on each level: ${RUNS}. A persona is called off at ${PERSONA_CAP} moves, the random player at ${RANDOM_CAP}.`);
-console.log(`The game: three stars within ${TOP} of the fewest moves, two within ${TWO}, one for a pass; the limits of moves are ${all.map(limitOf).join(' ')}; the gates ask for ${chapters.map(({ gate }) => gate).join(', ')} stars.`);
+console.log(`The game: three stars within ${TOP} of the fewest moves, two within ${TWO}, one for a pass; there is no limit of moves (the one the game had: ${all.map(limitOf).join(' ')}); the gates ask for ${chapters.map(({ gate }) => gate).join(', ')} stars.`);
 
 console.log('\n1. Passes with no limit, and the moves of a pass over the fewest: median / nine in ten');
 console.log(table([

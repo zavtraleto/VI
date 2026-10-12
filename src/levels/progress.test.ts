@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
-import { STAR_POINTS, chaptersOf, gateOf, ladderProgress, levelStars, limitedLevel, moveLimit, starScore, starsHeld } from './progress';
+import { STAR_POINTS, chaptersOf, gateOf, ladderProgress, levelStars, starScore, starsHeld } from './progress';
 
 /** A level as far as its place among the levels goes: its name, its chapter and the fewest moves it is cleared in. */
 const level = (id: string, par: number | undefined, chapter = 0): LevelSpec => ({
@@ -39,33 +39,6 @@ describe('the chapters of a list of levels', () => {
     ]);
     expect(chaptersOf([{}, {}])).toEqual([{ chapter: 0, from: 0, to: 2 }]);
     expect(chaptersOf([])).toEqual([]);
-  });
-});
-
-describe('the limit of moves of a level', () => {
-  it('is generous and grows with the fewest moves: five times them and ten', () => {
-    expect(moveLimit(1, 0)).toBe(15);
-    expect(moveLimit(4, 0)).toBe(30);
-    expect(moveLimit(8, 0)).toBe(50);
-  });
-
-  it('is that of the last chapter there is for a level that names a chapter past it, and of the first for one before it', () => {
-    expect(moveLimit(4, 7)).toBe(30);
-    expect(moveLimit(4, -1)).toBe(30);
-  });
-
-  it('is none for a level whose fewest moves are not known', () => {
-    expect(moveLimit(undefined, 0)).toBe(0);
-  });
-
-  it('is laid on a level as it is started, and leaves the level as it is kept', () => {
-    const levels = [level('A', 3), level('B', 6), level('C', undefined)];
-    const limited = limitedLevel(levels, 1);
-    expect(limited.moves).toBe(40);
-    expect(limited).toEqual({ ...levels[1], moves: 40 });
-    expect(levels[1].moves).toBe(0);
-    // A level with no fewest moves known is played with no limit.
-    expect(limitedLevel(levels, 2).moves).toBe(0);
   });
 });
 

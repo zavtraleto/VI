@@ -24,7 +24,7 @@ describe('the chapters of the levels', () => {
   });
 
   it('is open from its first level, with the floor open, no net under the player and a generous limit of moves', () => {
-    expect(CHAPTERS[0]).toEqual({ key: 'probe', times: 5, gate: false, floor: true, guard: 'none' });
+    expect(CHAPTERS[0]).toEqual({ key: 'probe', gate: false, floor: true, guard: 'none' });
   });
 });
 

@@ -178,13 +178,11 @@ export const LADDER_SINK_MOVES = 2;
 export const LADDER_LIFT_MOVES = 1;
 
 /**
- * A chapter of the levels: how generous the limit of moves of its levels is, whether stars open
- * it, whether its floor is open, and which of its levels are played with a net.
+ * A chapter of the levels: whether stars open it, whether its floor is open, and which of its
+ * levels are played with a net.
  */
 export interface ChapterRule {
   key: string;
-  /** Times the fewest moves of a level its limit gives, before the moves to spare. */
-  times: number;
   /** A share of the stars of the levels before it opens the chapter; without a gate it is open. */
   gate: boolean;
   floor: boolean;
@@ -194,11 +192,10 @@ export interface ChapterRule {
 /**
  * The chapters of the levels, by the number a level names its chapter with. There is one: the
  * probe, a batch of levels made to find what a level of this game is. It is played by one who
- * knows the rules, so it teaches nothing, is open from its first level to its last, and gives a
- * generous limit of moves. The course and the chapters that taught, and the ladder as it was,
+ * knows the rules, so it teaches nothing and is open from its first level to its last. The course and the chapters that taught, and the ladder as it was,
  * are in the history: commit 534b3ea.
  */
-export const CHAPTERS: readonly ChapterRule[] = [{ key: 'probe', times: 5, gate: false, floor: true, guard: 'none' }];
+export const CHAPTERS: readonly ChapterRule[] = [{ key: 'probe', gate: false, floor: true, guard: 'none' }];
 
 /** What every place of the probe asks for besides its form: a way with an end that is not drawn out, no long silence under the count, and a board that is not cleared by fiddling. */
 const PROBE: Pick<Recipe, 'chapter' | 'compact' | 'tail' | 'silence' | 'random'> = { chapter: 0, compact: false, tail: [0, 2], silence: 3, random: [0, 0.1] };

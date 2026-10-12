@@ -39,7 +39,7 @@
 | [superpowers/plans/2026-10-12-vi-road-fixes-after-third.md](superpowers/plans/2026-10-12-vi-road-fixes-after-third.md) | план | бриф правок дороги после плейтеста третьей редакции: перенос прохода как сокращения, урок спуска и подъёма, ступени вида уходящей кости, урок толчка без вырезов, лаборатория уровней в ROADMAP; выполнен 12 октября в ветке `first-level`, не опубликован |
 | [superpowers/plans/2026-10-12-vi-levels-lab.md](superpowers/plans/2026-10-12-vi-levels-lab.md) | план | лаборатория уровней: формат файла доски, командный скрипт level, страница `?lab=levels` с игрой по E и тремя ярусами цифр, виды решателя, история версий, обвязка генерации; выполнен и опубликован 12 октября |
 | [superpowers/specs/2026-10-07-vi-bots-design.md](superpowers/specs/2026-10-07-vi-bots-design.md) | решение | боты уровней и боты Endless; что вышло иначе — раздел 12 |
-| [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) | исследование | звёзды за ходы, предел ходов (живы), ворота глав (убраны) |
+| [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) | исследование | звёзды за ходы (живы), предел ходов (снят 12 октября 2026), ворота глав (убраны) |
 | [VI_Levels_Onboarding_Research.md](VI_Levels_Onboarding_Research.md) | исследование | как учат в играх-ориентирах; замер прежних уровней |
 | [VI_Level_Generation_Deep_Research.md](VI_Level_Generation_Deep_Research.md) | исследование | генерация и режиссура первых уровней |
 | [VI_Level_Tool_Research.md](VI_Level_Tool_Research.md) | исследование | инструмент уровней: редактор, генерация и проверка; прежний опыт авторов головоломок, форма и порядок постройки |

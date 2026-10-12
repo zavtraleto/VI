@@ -7,8 +7,8 @@ import type { LevelSpec } from '../rules/types';
  * strict: a die is rolled from on top and pushed from the floor, and the one way up is a die
  * that is leaving. A level is lost at a dead end: too few dice standing for a combo with nothing
  * going, or the player down on the floor with nothing to push and nothing to go up by, or with
- * too few faces that work. As it is kept here a level has no limit of moves; played, it has the
- * generous one of its chapter, laid on it by `progress.ts`, which also rates a pass with stars.
+ * too few faces that work. A level has no limit of moves: it is played as it is kept.
+ * `progress.ts` rates a pass with stars.
  *
  * The list teaches nothing: no level says a rule or shows a move, and every level is open. What
  * a level is there for is not said here: a level is a place of `recipes.ts`, the place is a

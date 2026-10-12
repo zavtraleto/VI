@@ -126,7 +126,7 @@ export const ES: Texts = {
   howCombo: 'Un combo son tantos dados juntos como puntos tiene su cara de arriba: dos 2, tres 3, seis 6.\nUn combo formado se va.',
   howChain: 'Un combo no se va enseguida.\nMientras se va, acércale otro dado con la misma cara: se irá con el combo. Esto es una cadena.',
   howOnes: 'Los 1 no forman combo.\nLleva un 1 a un combo que se va, y se irán todos los demás 1 del tablero.',
-  howLevels: 'NIVELES: quita todos los dados del tablero.\nSolo funcionan las caras del nivel, las demás están marcadas con una cruz.\nLos movimientos son limitados: cuantos menos hagas, más estrellas.\nEl suelo tiene aquí sus propias reglas: solo se sube por un dado que se va.',
+  howLevels: 'NIVELES: quita todos los dados del tablero.\nSolo funcionan las caras del nivel, las demás están marcadas con una cruz.\nEl suelo tiene aquí sus propias reglas: solo se sube por un dado que se va.',
   howProtocol: 'PROTOCOLO: los dados llegan solos.\nUna cadena multiplica los puntos.\nSi el tablero se llena y sigue lleno, la sesión termina.',
   shareScore: 'VI — enviado al otro lado: {score}',
 };

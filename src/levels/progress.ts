@@ -3,13 +3,13 @@ import { CHAPTERS } from './recipes';
 
 /**
  * What a player has of the ladder, and what the ladder asks of a player beyond clearing a board.
- * Three things, each a plain rule over the fewest moves a level is cleared in, so that a ladder
+ * Two things, each a plain rule over the fewest moves a level is cleared in, so that a ladder
  * of other boards needs nothing set anew:
  *
  * - stars for a pass, by its moves, the top mark a move over the fewest;
- * - a limit of moves, generous, as tight as the chapter of the level says: a board punishes a
- *   wrong group and never a roll made for nothing, so the count of moves is what a roll costs;
  * - gates: a chapter that has one opens for a share of the stars of the levels before it.
+ *
+ * A level has no limit of moves: the one this module laid on it was taken out on 12 October 2026.
  *
  * A level names its chapter; what a chapter asks for is in `recipes.ts`.
  *
@@ -73,23 +73,6 @@ export function chaptersOf(levels: readonly Pick<LevelSpec, 'chapter'>[]): Chapt
 
 /** The rule of a chapter by its number; past the last chapter there is, that of the last. */
 const ruleOf = (chapter: number) => CHAPTERS[Math.min(Math.max(0, chapter), CHAPTERS.length - 1)];
-
-/** Moves a limit gives over the fewest taken so many times, whatever the level. */
-const LIMIT_SPARE = 10;
-
-/**
- * The moves a level of a chapter gives: so many times the fewest it is cleared in, as its
- * chapter says, and some to spare. None (0) where the fewest are not known.
- */
-export function moveLimit(par: number | undefined, chapter: number): number {
-  if (par === undefined) return 0;
-  return ruleOf(chapter).times * par + LIMIT_SPARE;
-}
-
-/** A level of the ladder as it is played: with the limit of its chapter. The level kept stays as it is. */
-export function limitedLevel(levels: readonly LevelSpec[], index: number): LevelSpec {
-  return { ...levels[index], moves: moveLimit(levels[index].par, levels[index].chapter ?? 0) };
-}
 
 /** Share of the stars of the levels before a chapter that open it. */
 export const GATE_SHARE = 0.4;

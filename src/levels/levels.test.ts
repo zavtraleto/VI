@@ -11,7 +11,7 @@ import type { LevelSpec } from '../rules/types';
 import { levelId } from './generate';
 import { LEVELS, PARKED, SPARES } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
-import { chaptersOf, ladderProgress, limitedLevel } from './progress';
+import { chaptersOf, ladderProgress } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
 import { lessonsAt } from './rules';
 import { UNLIKE_BY, sameBoard, traitsOf, unlike } from './variety';
@@ -290,15 +290,13 @@ describe('the levels of the game', () => {
 });
 
 describe('a level as it is played', () => {
-  it('has the limit of its chapter, five times its fewest moves and ten, and is cleared by its way within it', () => {
-    LEVELS.forEach((level, index) => {
-      const limited = limitedLevel(LEVELS, index);
-      expect(limited.moves, level.id).toBe(5 * level.par! + 10);
-      expect(limited, level.id).toEqual({ ...level, moves: limited.moves });
-      const end = wayOf(level).reduce(playMove, createRun({ seed: limited.seed, config: defaultConfig(), level: limited }));
+  it('has no limit of moves: it is played as it is kept, and is cleared by its way', () => {
+    for (const level of LEVELS) {
+      expect(level.moves, level.id).toBe(0);
+      const end = wayOf(level).reduce(playMove, createRun({ seed: level.seed, config: defaultConfig(), level }));
       expect(end.endReason, level.id).toBe('passed');
       expect(end.levelRun!.moves, level.id).toBe(level.par);
-    });
+    }
   });
 
   it('is not kept for later when the page goes away: a level is started over', () => {
