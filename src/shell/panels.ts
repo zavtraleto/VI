@@ -5,7 +5,7 @@ import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
 import { README_SAY_SIZE } from './theme';
-import { COMMANDS, GOAL, LADDER, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { COMMANDS, GOAL, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -339,15 +339,15 @@ export function clearedPanel(
 }
 
 /**
- * Every level, with the stars of the ones passed, out of three: those of its best pass, and
- * one where `stars` is not said. Under them the goal of the level in focus is written as
- * the readings of a level write it, with nothing counted yet. A level of a chapter that is not
- * open is `locked`: it cannot be picked, and what is written under it is the stars the player
- * holds against the stars its chapter asks for.
+ * Every board of the campaign in one list, the pieces of the road first: a cell to a board,
+ * numbered from one, with the stars of the ones passed, out of three: those of its best pass,
+ * and one where `stars` is not said. Under them the faces and the goal of the board in focus
+ * are written as the readings of a level write them, with nothing counted yet. Every cell is
+ * open: there are no gates.
  * `share` sends out what the player did on the levels, as text: the report of the playtest.
  */
 export function levelsPanel(
-  levels: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number; locked?: { have: number; need: number } }[],
+  levels: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number }[],
   current: number,
   actions: { onPick: (index: number) => void; share: { label: () => PanelName; action: () => void }; onBack: () => void },
 ): PanelSpec {
@@ -359,17 +359,14 @@ export function levelsPanel(
       {
         kind: 'levels',
         id: 'level',
-        levels: levels.map((level) => ({ stars: level.locked ? 0 : (level.stars ?? (level.passed ? 1 : 0)), locked: level.locked !== undefined })),
+        levels: levels.map((level) => ({ stars: level.stars ?? (level.passed ? 1 : 0), locked: false })),
         marks: 3,
         current,
-        pick: (index) => {
-          if (!levels[index]?.locked) actions.onPick(index);
-        },
-        // The faces that work on the level come first: they are what its chapter is about.
+        pick: actions.onPick,
+        // The faces that work on the level come first.
         note: (index) => {
           const level = levels[index];
           if (!level) return '';
-          if (level.locked) return `${word(LADDER.locked)} · ${word(LADDER.stars)} ${digits(level.locked.have, 2)}/${digits(level.locked.need, 2)}`;
           return level.faces ? `${GOAL.face} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
         },
         program: true,
@@ -378,49 +375,6 @@ export function levelsPanel(
         kind: 'commands',
         commands: [
           { id: 'share', label: liveLabel(actions.share.label), action: actions.share.action, instant: true },
-          { id: 'back', label: COMMANDS.menu, action: actions.onBack },
-        ],
-      },
-    ],
-  };
-}
-
-/**
- * The pieces of the road, by number, under the name of the file of the menu that says how the
- * game is played: the list of the levels in every way but that all of them are open and that
- * nothing is sent out from it. A cell has the stars of the best pass of its piece, and under
- * the cells the faces and the goal of the piece in focus are written as those of a level are.
- * `RULES` opens what the file held before the list: the rules of the game, to read.
- */
-export function roadPanel(
-  pieces: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number }[],
-  current: number,
-  /** `home` is the line the panel opens on where it is not the cell of `current`: the command come back from. */
-  actions: { onPick: (index: number) => void; onRules: () => void; onBack: () => void; home?: string },
-): PanelSpec {
-  return {
-    title: PANELS.howto,
-    home: actions.home ?? `piece-${current}`,
-    back: actions.onBack,
-    rows: [
-      {
-        kind: 'levels',
-        id: 'piece',
-        levels: pieces.map((piece) => ({ stars: piece.stars ?? (piece.passed ? 1 : 0) })),
-        marks: 3,
-        current,
-        pick: actions.onPick,
-        note: (index) => {
-          const piece = pieces[index];
-          if (!piece) return '';
-          return piece.faces ? `${GOAL.face} ${piece.faces.join(' ')} · ${goalText(piece.goal)}` : goalText(piece.goal);
-        },
-        program: true,
-      },
-      {
-        kind: 'commands',
-        commands: [
-          { id: 'rules', label: COMMANDS.rules, action: actions.onRules },
           { id: 'back', label: COMMANDS.menu, action: actions.onBack },
         ],
       },

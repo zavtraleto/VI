@@ -23,14 +23,13 @@ export interface MenuActions {
 export interface MenuData {
   /** Best score of a session without a limit. */
   bestEndless: number;
-  /** Levels of the game passed, out of how many there are. */
+  /** Boards of the campaign passed, pieces of the road and levels alike, out of how many there are. */
   levelsDone: number;
   levelsTotal: number;
   /** Seconds a session with a limit lasts, as the rules have it: for a line that names the time. */
   limitSec: number;
-  /** Pieces of the road passed, out of how many there are: what the file of how the game is played lists. */
-  roadDone: number;
-  roadTotal: number;
+  /** The rules the file of how the game is played has to read. */
+  rules: number;
   /** Sessions on record. */
   sessions: number;
 }
@@ -356,8 +355,8 @@ export class MenuScreen implements ShellScreen {
         return digits(data.bestEndless, 6);
       case 'levels':
         return `${digits(data.levelsDone, 2)}/${digits(data.levelsTotal, 2)}`;
-      case 'road':
-        return `${digits(data.roadDone, 2)}/${digits(data.roadTotal, 2)}`;
+      case 'rules':
+        return digits(data.rules, 2);
       case 'readme':
         return README_DATE;
       case 'sessions':

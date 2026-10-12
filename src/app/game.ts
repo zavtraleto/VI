@@ -38,7 +38,7 @@ import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { goneShare, type DicePassing } from '../render/passing';
 import { BoardView, type Frame } from '../render/view';
 import { ROAD, ROAD_HINTS, blockOf, placeAfter, type HintUntil, type RoadHintKey } from '../levels/road';
-import { roadCells, roadDone, roadFocus } from '../levels/roadList';
+import { CAMPAIGN, campaignCells, campaignDone, campaignFocus, numberOf } from '../levels/campaign';
 import { LEVELS } from '../levels/levels';
 import { STAR_POINTS, ladderProgress, levelStars, starScore, starsHeld, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -50,7 +50,6 @@ import {
   getCube,
   defaultConfig,
   goalLines,
-  goalOf,
   levelDeadEnd,
   smallestGroup,
   worldRuns,
@@ -81,7 +80,7 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, roadPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, eraDate, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -794,6 +793,12 @@ export class Game {
     return this.levelSpec().id;
   }
 
+  /** The number in the row of the campaign of the board being played, or last played; null for a board of the lab. */
+  private boardNumber(): number | null {
+    if (this.labSpec !== null) return null;
+    return numberOf(this.piece !== null ? { road: this.piece } : { level: this.levelIndex });
+  }
+
   /** The level being played, or last played: a piece of the road, a board of the lab, or the level of the list. */
   private levelSpec(): LevelSpec {
     return this.piece !== null ? ROAD[this.piece] : (this.labSpec ?? LEVELS[this.levelIndex]);
@@ -858,8 +863,11 @@ export class Game {
 
   /** What is being played, as the analytics name it: a kind of session, the exercise, a task with its number, or a level. */
   private step(): EventData {
-    if (this.kind === 'level' && (this.piece !== null || this.labSpec !== null)) return { step_id: `level_${this.levelId()}` };
-    if (this.kind === 'level') return { step_id: `level_${this.levelId()}`, step_index: this.levelIndex + 1 };
+    // A board of the campaign is named by its code and its number in the row; a board of the lab has no number.
+    if (this.kind === 'level') {
+      const number = this.boardNumber();
+      return number === null ? { step_id: `level_${this.levelId()}` } : { step_id: `level_${this.levelId()}`, step_index: number };
+    }
     if (this.kind !== 'puzzle') return { step_id: this.kind };
     return { step_id: 'task', step_index: this.puzzleIndex + 1, level_id: PUZZLE_LEVELS[this.puzzleIndex].id };
   }
@@ -1308,8 +1316,8 @@ export class Game {
   private runLevel(spec: LevelSpec, said = true): void {
     this.kind = 'level';
     this.tryCounted = false;
-    // A piece that teaches a move carries its line from its start; its room is the board's from the first frame it is framed in.
-    const carried = this.piece !== null ? (ROAD_HINTS[spec.id] ?? HINT_PROBE) : null;
+    // A board that teaches a move carries its line from its start, by its code; its room is the board's from the first frame it is framed in.
+    const carried = this.labSpec === null ? (ROAD_HINTS[spec.id] ?? (this.piece !== null ? HINT_PROBE : null)) : null;
     this.hint = carried ? { ...carried, done: false } : null;
     this.fixedShown = false;
     this.deadEnds.begin(spec.id);
@@ -1660,7 +1668,7 @@ export class Game {
     const said = messages[Math.min(Math.max(0, page), messages.length - 1)];
     this.shell.showPanel(
       levelIntroPanel(
-        { number: this.levelIndex + 1, pages: messages.map((message) => message.text), page, still: prefersReducedMotion(this.settings) },
+        { number: this.boardNumber() ?? this.levelIndex + 1, pages: messages.map((message) => message.text), page, still: prefersReducedMotion(this.settings) },
         {
           onPage: (next) => this.showLevelIntro(lesson, next),
           onStart: () => {
@@ -1735,17 +1743,19 @@ export class Game {
     this.hints.reset();
     this.tools?.hide();
     saveSettings(this.settings);
-    const ladder = this.ladder();
-    const levels = LEVELS.map((level, index) => ({
-      passed: this.settings.levels.passed[level.id] === true,
-      goal: goalOf(level),
-      faces: level.faces,
-      stars: ladder.stars[index],
-      locked: ladder.locked[index] ? { have: ladder.total, need: ladder.chapters[ladder.chapterOf(index)].gate } : undefined,
-    }));
+    const { levels } = this.settings;
+    // The list opens where the player is in the row: on the road, the piece that is kept of them, whatever piece
+    // they picked out of turn; past it, the level of the list being played, or the one they go on with.
+    const onward = this.kind === 'level' && this.piece === null && this.labSpec === null ? this.levelIndex : this.nextLevel();
+    const current = campaignFocus(levels, levels.passed[FIRST_ID] === true, onward);
     this.shell.showPanel(
-      levelsPanel(levels, this.kind === 'level' && this.piece === null && this.labSpec === null ? this.levelIndex : this.nextLevel(), {
-        onPick: (index) => this.startLevel(index, true),
+      levelsPanel(campaignCells(levels), current, {
+        // A piece of the road starts as it does by its address, with no screen before it, and the road goes on from it.
+        onPick: (index) => {
+          const { board } = CAMPAIGN[index];
+          if (board.road !== undefined) this.startPiece(board.road);
+          else this.startLevel(board.level ?? 0, true);
+        },
         // What was played, as text to pass on: the report of the playtest.
         share: { label: () => this.shareLabel(), action: () => this.shareLevels() },
         onBack: () => this.showMenu(),
@@ -1955,37 +1965,10 @@ export class Game {
     this.handoff = { x: this.state.player.x, z: this.state.player.z };
   }
 
-  /**
-   * How the game is played, from the menu: the pieces of the road by number, every one open, the
-   * focus on the one the player is on. A piece picked starts as it does by its address, with no
-   * screen before it, and the road goes on from it; the place that is kept moves only as it does
-   * anywhere (`placeAfter`). `home` is the command of the list the player has come back from.
-   */
-  private showRoad(home?: string): void {
-    this.leaveRun('menu');
-    this.inMenu = true;
-    this.paused = false;
-    this.controller.cancel();
-    this.audio.setPaused(true);
-    this.hints.reset();
-    this.tools?.hide();
-    saveSettings(this.settings);
-    const { levels } = this.settings;
-    this.shell.showPanel(
-      roadPanel(roadCells(levels), roadFocus(levels.road, levels.passed[FIRST_ID] === true), {
-        onPick: (index) => this.startPiece(index),
-        onRules: () => this.showHowTo(),
-        onBack: () => this.showMenu('howto'),
-        home,
-      }),
-      true,
-    );
-  }
-
-  /** The rules that hold everywhere, a few to a window: read from the list of the pieces of the road, and back leads to it. */
+  /** The rules that hold everywhere, a few to a window: what the file of the menu that says how the game is played opens. */
   private showHowTo(page = 0): void {
     const lines = HOW_TO_PLAY.map((key) => t(key).replace(/\n/g, ' '));
-    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showHowTo(next), onBack: () => this.showRoad('rules') }, PANELS.howto), true);
+    this.shell.showPanel(levelRulesPanel(lines, page, { onPage: (next) => this.showHowTo(next), onBack: () => this.showMenu('howto') }, PANELS.howto), true);
   }
 
   /** What a file of the menu opens (`FILE_LEADS`). */
@@ -1995,8 +1978,8 @@ export class Game {
         return this.showLevels();
       case 'endless':
         return this.startRun('endless');
-      case 'road':
-        return this.showRoad();
+      case 'rules':
+        return this.showHowTo();
       case 'readme':
         return this.showReadme();
       case 'records':
@@ -2029,8 +2012,8 @@ export class Game {
     this.shell.showMenu(
       {
         onEndless: () => this.open(FILE_LEADS.protocol),
-        // The levels stand in the menu where the session of the day stood: the file opens their list. The
-        // pieces of the road are listed in the file that says how the game is played.
+        // The levels stand in the menu where the session of the day stood: the file opens their list, the
+        // pieces of the road first in it. The file that says how the game is played opens the rules.
         onLevels: () => this.open(FILE_LEADS.levels),
         onHowTo: () => this.open(FILE_LEADS.howto),
         onReadme: () => this.open(FILE_LEADS.readme),
@@ -2039,11 +2022,10 @@ export class Game {
       },
       {
         bestEndless: this.bestScore('endless'),
-        levelsDone: LEVELS.filter((level) => this.settings.levels.passed[level.id] === true).length,
-        levelsTotal: LEVELS.length,
+        levelsDone: campaignDone(this.settings.levels),
+        levelsTotal: CAMPAIGN.length,
         limitSec: (rules.timedTicks * rules.tickMs) / 1000,
-        roadDone: roadDone(this.settings.levels),
-        roadTotal: ROAD.length,
+        rules: HOW_TO_PLAY.length,
         sessions: Object.values(this.settings.runs).reduce((sum, runs) => sum + runs.length, 0),
       },
       home,
@@ -2753,8 +2735,7 @@ export class Game {
         : levelRun
           ? {
               kind: 'level',
-              // A piece of the road has no number: it is not a level of the list.
-              number: this.piece === null && this.labSpec === null ? this.levelIndex + 1 : null,
+              number: this.boardNumber(),
               score: this.starScore(),
               made: levelRun.moves,
               best: levelRun.spec.par ?? null,

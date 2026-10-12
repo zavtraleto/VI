@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import type { Size } from '../display/sizing';
 import { ROAD } from '../levels/road';
-import { roadCells } from '../levels/roadList';
+import { campaignCells } from '../levels/campaign';
+import { LEVELS } from '../levels/levels';
 import { MIN_ZONE, pictureSize, textWidth } from './layout';
-import { LANGUAGES, setLanguage, word } from '../ui/i18n';
+import { LANGUAGES, setLanguage } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
-import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, roadPanel } from './panels';
+import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel } from './panels';
 import type { ShellContext } from './screen';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
 import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
@@ -96,22 +97,18 @@ describe('the list of levels', () => {
     expect(row(starred, 'levels').levels.map((level) => level.stars)).toEqual([3, 2]);
   });
 
-  it('keeps a level of a chapter that is not open shut: it says the stars its chapter asks for, and is not started', () => {
+  it('lists the pieces of the road before the levels, numbered on from one, every one open', () => {
+    const cells = campaignCells({ passed: { R01: true }, stats: { R01: { bestMoves: ROAD[0].par } } });
     const picked: number[] = [];
-    const gated = [
-      { passed: true, goal: SEND, stars: 2 },
-      { passed: false, goal: CLEAR, locked: { have: 7, need: 10 } },
-    ];
-    const cells = row(levelsPanel(gated, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels');
-    expect(cells.levels).toEqual([
-      { stars: 2, locked: false },
-      { stars: 0, locked: true },
-    ]);
-    expect(cells.note(0)).toBe('SEND 12');
-    expect(cells.note(1)).toBe('LOCKED · STARS 07/10');
-    cells.pick(1);
-    cells.pick(0);
-    expect(picked).toEqual([0]);
+    const items = row(levelsPanel(cells, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels');
+    expect(items.levels.length).toBe(ROAD.length + LEVELS.length);
+    expect(items.levels[0]).toMatchObject({ stars: 3, locked: false });
+    expect(items.levels[ROAD.length]).toMatchObject({ stars: 0, locked: false });
+    expect(items.levels.every((cell) => !cell.locked)).toBe(true);
+    expect(items.note(0)).toBe(`FACE ${ROAD[0].faces!.join(' ')} · ${goalText(cells[0].goal)}`);
+    items.pick(ROAD.length);
+    items.pick(2);
+    expect(picked).toEqual([ROAD.length, 2]);
   });
 
   it('writes the goal of the level in focus in the font of the program', () => {
@@ -173,60 +170,16 @@ function context(window: Size, ratio: number): ShellContext {
   };
 }
 
-describe('the list of the pieces of the road', () => {
-  const pieces = roadCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: ROAD[0].par! }, R02: { bestMoves: 99 } } });
-  const actions = { onPick: nothing, onRules: nothing, onBack: nothing };
+describe('the list of the levels on a screen', () => {
+  const share = { label: (): PanelName => COMMANDS.share, action: nothing };
+  const cells = campaignCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: ROAD[0].par! }, R02: { bestMoves: 99 } } });
+  const actions = { onPick: nothing, share, onBack: nothing };
 
-  it('has a cell for each of the sixteen pieces, every one open, with the stars of the ones passed, out of three', () => {
-    const spec = roadPanel(pieces, 2, actions);
-    const cells = row(spec, 'levels');
-    expect(spec.title).toBe(PANELS.howto);
-    expect(cells.levels).toHaveLength(16);
-    expect(cells.levels.slice(0, 3)).toEqual([{ stars: 3 }, { stars: 1 }, { stars: 0 }]);
-    expect(cells.levels.every((cell) => !cell.locked)).toBe(true);
-    expect(cells.marks).toBe(3);
-    expect(cells.current).toBe(2);
-    expect(spec.home).toBe('piece-2');
-  });
-
-  it('writes the faces and the goal of the piece in focus in the font of the program, as the list of the levels does', () => {
-    const cells = row(roadPanel(pieces, 0, actions), 'levels');
-    expect(cells.program).toBe(true);
-    expect(cells.note(0)).toBe(`FACE ${ROAD[0].faces!.join(' ')} · ${goalText(pieces[0].goal)}`);
-    expect(cells.note(15)).toBe(`FACE ${ROAD[15].faces!.join(' ')} · ${goalText(pieces[15].goal)}`);
-    expect(cells.note(16)).toBe('');
-  });
-
-  it('starts the piece picked, whichever it is', () => {
-    const picked: number[] = [];
-    const cells = row(roadPanel(pieces, 0, { ...actions, onPick: (index) => picked.push(index) }), 'levels');
-    cells.pick(17);
-    cells.pick(0);
-    expect(picked).toEqual([17, 0]);
-  });
-
-  it('has the rules to read under the word the program has for them, and leads back to the menu', () => {
-    const run: string[] = [];
-    const spec = roadPanel(pieces, 0, { onPick: nothing, onRules: () => run.push('rules'), onBack: () => run.push('back') });
-    expect(commands(spec)).toEqual(['rules', 'back']);
-    const [rules, menu] = row(spec, 'commands').commands;
-    expect(rules.label).toBe(COMMANDS.rules);
-    expect(menu.label).toBe(COMMANDS.menu);
-    rules.action();
-    menu.action();
-    spec.back?.();
-    expect(run).toEqual(['rules', 'back', 'back']);
-  });
-
-  it('opens on the command the player has come back from', () => {
-    expect(roadPanel(pieces, 4, { ...actions, home: 'rules' }).home).toBe('rules');
-  });
-
-  it.each(SCREENS)('fits the window of a %s: sixteen cells and two commands, each large enough for a finger', (_name, window, ratio) => {
-    const screen = new PanelScreen(context(window, ratio), roadPanel(pieces, 0, actions), true);
+  it.each(SCREENS)('fits the window of a %s: a cell for every board of the campaign and two commands, each large enough for a finger', (_name, window, ratio) => {
+    const screen = new PanelScreen(context(window, ratio), levelsPanel(cells, 0, actions), true);
     const items = screen.items();
-    expect(items.map((item) => item.id)).toEqual([...ROAD.map((_, index) => `piece-${index}`), 'rules', 'back']);
-    expect(screen.home).toBe('piece-0');
+    expect(items.map((item) => item.id)).toEqual([...cells.map((_, index) => `level-${index}`), 'share', 'back']);
+    expect(screen.home).toBe('level-0');
     for (const item of items) {
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
@@ -244,15 +197,6 @@ describe('the list of the pieces of the road', () => {
         expect(apart).toBe(true);
       }
     }
-  });
-
-  it('has commands short enough to stand side by side in the panel of a phone, in every language', () => {
-    for (const code of LANGUAGES) {
-      setLanguage(code);
-      const { commands: pair } = row(roadPanel(pieces, 0, actions), 'commands');
-      for (const command of pair) expect(textWidth(`${command.label.native} ${word(command.label.name)}`)).toBeLessThanOrEqual(118);
-    }
-    setLanguage('en');
   });
 });
 

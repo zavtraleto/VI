@@ -161,9 +161,9 @@ describe('the order of the dice in a passage', () => {
 });
 
 describe('where the files of the menu lead', () => {
-  it('opens the list of the levels from the file of the levels, and the list of the pieces of the road from the file that says how the game is played', () => {
+  it('opens the list of the levels from the file of the levels, and the rules from the file that says how the game is played', () => {
     expect(FILE_LEADS.levels).toBe('levels');
-    expect(FILE_LEADS.howto).toBe('road');
+    expect(FILE_LEADS.howto).toBe('rules');
   });
 
   it('has a place of its own for every file of the menu', () => {

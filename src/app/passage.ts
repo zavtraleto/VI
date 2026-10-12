@@ -171,19 +171,19 @@ export function startBoard(road: string | undefined, firstPassed: boolean, onwar
 }
 
 /** What a file of the menu opens. */
-export type FileLead = 'levels' | 'endless' | 'road' | 'readme' | 'records' | 'system';
+export type FileLead = 'levels' | 'endless' | 'rules' | 'readme' | 'records' | 'system';
 
 /**
  * Where each file of the menu leads, wherever the player stands on the road. The file of the
  * levels opens their list, always: until 10 October 2026 it led back to the piece of the road
- * the player was on while the road was not finished. The way back to the teaching is the file
- * that says how the game is played: it opens the list of the pieces of the road, and its rules
- * are read from a command of that list.
+ * the player was on while the road was not finished. The file that says how the game is played
+ * opens the rules, to read; the pieces of the road are in the list of the levels since
+ * 12 October 2026, the first of its row.
  */
 export const FILE_LEADS = {
   levels: 'levels',
   protocol: 'endless',
-  howto: 'road',
+  howto: 'rules',
   readme: 'readme',
   records: 'records',
   system: 'system',
