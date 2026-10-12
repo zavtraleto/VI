@@ -136,6 +136,6 @@
 | docs/superpowers/plans/2026-10-08-vi-teaching-road.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека teaching-road-design |
 | docs/superpowers/plans/2026-10-08-vi-first-level.md | план, выполнен (ветка `first-level`); достать — `git show e49b5e4:<путь>` | спека first-level-design |
 | docs/superpowers/plans/2026-10-09-vi-road-free-pieces.md | план, выполнен (ветка `first-level`); достать — `git show cb574c3:<путь>` | спека road-free-pieces-design |
-| docs/superpowers/plans/2026-10-12-vi-levels-list-rebuild.md | план пересборки списка уровней, выполнен (v0.2.44), с разделом «что вышло иначе»; достать — `git show ea22017:<путь>` | VI_Levels_Probe_Key.md, абзацы «Список с 12 октября 2026» и «Что вышло иначе» |
+| docs/superpowers/plans/2026-10-12-vi-levels-list-rebuild.md | план пересборки списка уровней, выполнен (v0.2.45), с разделом «что вышло иначе»; достать — `git show df0d8cb:<путь>` | VI_Levels_Probe_Key.md, абзацы «Список с 12 октября 2026» и «Что вышло иначе» |
 
 Убранные из игры уровни (курс, лестница глав) и их слова — коммит `534b3ea`; подробно — [VI_Levels_Onboarding_Decisions.md](VI_Levels_Onboarding_Decisions.md), раздел 8.
