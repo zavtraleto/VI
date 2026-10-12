@@ -1,3 +1,4 @@
+import type { Board } from '../levels/campaign';
 import { roadPlace } from '../levels/road';
 import { riseSpan, stoodBy } from '../render/passing';
 
@@ -155,11 +156,7 @@ export function passageAt(
   return into;
 }
 
-/** A board of the game by its place: a piece of the road or a level of the list. */
-export interface Board {
-  road?: number;
-  level?: number;
-}
+export type { Board };
 
 /**
  * The board the program opens on: the piece of the road the player stopped on, the first for
