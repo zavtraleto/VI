@@ -84,6 +84,8 @@ describe('board params', () => {
       fixedFade: 0.45,
       fixedLight: 0.3,
       fixedEdge: 0.5,
+      leaveFirst: 0.78,
+      leaveLast: 0.12,
       signStar: 4,
       signTrail: 0.6,
       signRunMs: 800,

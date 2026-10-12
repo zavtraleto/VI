@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { DELTA, DIRS, cubeAt, cubeHeight, inChain, isDock, isHeld, isStep, worldRuns, type Cube, type RunState } from '../rules';
+import { DELTA, DIRS, cubeAt, inChain, isDock, isStep, type Cube, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
 import { CUBE_SIZE } from './cubes';
+import { shownHeight } from './leaving';
 import { LIGHT } from './light';
 import { socketTexture } from './textures';
 
@@ -43,11 +44,10 @@ interface Dock {
 }
 
 /**
- * How much of a die is above the floor. A die held by the tutorial stays put between ticks,
- * and so does one on a level whose world stands.
+ * How much of a die is above the floor, as it is shown (`leaving.ts`). A die held by the tutorial
+ * stays put between ticks, and so does one on a level whose world stands.
  */
-const heightOf = (state: RunState, cube: Cube, alpha: number): number =>
-  cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
+const heightOf = (state: RunState, cube: Cube, alpha: number, values: ParamValues): number => shownHeight(cube, state, alpha, values);
 
 /** Where the top face of a die that high is, before the dip a step or a weight makes in it. */
 const faceAt = (height: number): number => height - 0.5 + CUBE_SIZE / 2;
@@ -189,7 +189,7 @@ export class ChainSigns {
         if (!inChain(cube)) continue;
         const value = cube.ori.top;
         // The top face where it is drawn: a die the player weighs on stands lower.
-        const face = faceAt(heightOf(state, cube, alpha)) + dip(cube.id);
+        const face = faceAt(heightOf(state, cube, alpha, this.values)) + dip(cube.id);
         for (const dir of DIRS) {
           const x = cube.x + DELTA[dir].dx;
           const z = cube.z + DELTA[dir].dz;
@@ -270,7 +270,7 @@ export class ChainSigns {
     let lift = 0;
     for (const dir of DIRS) {
       const cube = cubeAt(state, x + DELTA[dir].dx, z + DELTA[dir].dz);
-      if (cube && inChain(cube)) lift = Math.max(lift, faceAt(heightOf(state, cube, alpha)) + dip(cube.id));
+      if (cube && inChain(cube)) lift = Math.max(lift, faceAt(heightOf(state, cube, alpha, this.values)) + dip(cube.id));
     }
     return lift;
   }

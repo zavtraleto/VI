@@ -249,14 +249,14 @@ describe('what the sign stands beside', () => {
     expect(spans(signBody(state))).toEqual({ x: [2.5, 3.5], y: [0, 1], z: [4.5, 5.5] });
   });
 
-  it('is as high as the die stands: half a die on the stair of the second piece', () => {
+  it('is as high as the die is shown: the last step of a die that leaves on the stair of the second piece', () => {
     const state = start(pieceOf('R02'));
     go(state, 'N');
     const { x, y, z } = spans(signBody(state));
     expect(x).toEqual([2.5, 3.5]);
     expect(z).toEqual([3.5, 4.5]);
     expect(y[0]).toBe(0);
-    expect(y[1]).toBeCloseTo(0.5, 1);
+    expect(y[1]).toBeCloseTo(0.12, 2);
   });
 
   it('goes with the figure: after a roll it is the cell the figure has come to', () => {
@@ -274,11 +274,13 @@ describe('how high the sign stands', () => {
     expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02']);
   });
 
-  it('is half a die on the stair of the second piece, which is half down, and a whole die on the die beyond it', () => {
+  it('is the last step of a die that leaves on the stair of the second piece, which has a move left to it, and a whole die on the die beyond it', () => {
     const stair = start(pieceOf('R02'));
     go(stair, 'N');
     expect(stair.player).toMatchObject({ x: 3, z: 4, level: 'top' });
-    expect(signHeight(stair)).toBeCloseTo(0.5, 1);
+    // The rules have the stair half down; it is shown as low as a die with its last move left (src/render/leaving.ts).
+    expect(signHeight(stair)).toBeCloseTo(0.12, 2);
+    expect(signHeight(stair, { leaveLast: 0.2 })).toBeCloseTo(0.2, 2);
     go(stair, 'N');
     expect(signHeight(stair)).toBe(1);
   });

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Layer, Rect } from '../display/layer';
 import { lensTo, type Lens, type LensSides } from '../display/lens';
-import { DELTA, cubeAt, cubeHeight, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
+import { DELTA, cubeAt, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { pictureSize } from '../shell/layout';
 import type { Palette } from '../shell/theme';
 import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
@@ -11,6 +11,7 @@ import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, frameOfPiece, sha
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
 import { gridSegments, waveFrom, type GridSegment } from './gridLines';
 import { laidFace } from './laid';
+import { shownHeight } from './leaving';
 import { LineGrid } from './lineGrid';
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
@@ -204,9 +205,11 @@ export class BoardView {
   private contact: ContactLook | null = null;
   /** The step the player was making on the previous frame, to notice when it ends. */
   private lastStep: MoveKind | null = null;
-  /** Height of every sinking cube on the previous frame, to notice a chain lifting it. */
+  /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. */
   private sinking = new Map<number, number>();
   private sinkingBefore = new Map<number, number>();
+  /** The cubes that were not sinking on the previous frame, to notice one that has just begun to leave a level. */
+  private whole = new Set<number>();
   /** The light a group going down throws on the dice around it. */
   private readonly lamp: CubeGlow['lamp'] = { x: 0, y: 1.5, z: 0, colour: new THREE.Color(), power: 0 };
   private readonly floor: THREE.Mesh;
@@ -896,16 +899,21 @@ export class BoardView {
     if (stepNow === null && steppedOn && under && !reducedMotion) this.springs.kick(under.id, -1.2);
     this.lastStep = stepNow;
 
-    // A chain that is added to brings its cubes back up: they rise instead of jumping.
+    // A chain that is added to brings its cubes back up: they rise instead of jumping. On a level a die that has just
+    // begun to leave stands lower at once, at the first step of its look (`leaving.ts`): it goes down to it in the
+    // same way, and does not jump.
     [this.sinking, this.sinkingBefore] = [this.sinkingBefore, this.sinking];
     this.sinking.clear();
     for (const cube of state.cubes) {
       if (cube.state !== 'sinking') continue;
-      const height = cubeHeight(cube, state.config);
+      const height = shownHeight(cube, state, 0, values);
       const before = this.sinkingBefore.get(cube.id);
       if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
+      else if (before === undefined && state.levelRun && this.whole.has(cube.id) && height < 0.98 && !reducedMotion) this.springs.shift(cube.id, 1 - height);
       this.sinking.set(cube.id, height);
     }
+    this.whole.clear();
+    for (const cube of state.cubes) if (cube.state !== 'sinking') this.whole.add(cube.id);
     if (this.kicks.length > 0) {
       this.kicks = this.kicks.filter((kick) => {
         if (kick.at > timeMs) return true;
@@ -950,13 +958,13 @@ export class BoardView {
       passing,
     );
     this.player.setColor(figureColour(this.palette, values), n('figureGhost'), { body: n('figureBody'), rim: n('figureRim'), shine: n('figureShine') });
-    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip));
+    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip), values);
     // In a passage the figure stands on its die as the passage has it: it comes down to the
     // floor with a die that goes under, and a die that comes up under it lifts it.
     if (passing && player.level === 'top' && !player.action) {
       const own = cubeAt(state, player.x, player.z);
       const rank = own ? passing.ranks.get(own.id) : undefined;
-      if (own && rank !== undefined) this.player.standAt(Math.max(0, passingHeight(passing, rank, cubeHeight(own, state.config)) + dip(own.id)));
+      if (own && rank !== undefined) this.player.standAt(Math.max(0, passingHeight(passing, rank, shownHeight(own, state, 0, values)) + dip(own.id)));
     } else if (passing && player.level === 'ground') {
       // Off the dice it is on the floor of a board that comes, and comes down to the floor of one whose dice go, from a shelf if it stood on one.
       const gone = passing.mode === 'come' ? 1 : Math.min(1, Math.max(0, passing.moveMs / Math.max(1, passing.moveForMs)));

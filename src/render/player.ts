@@ -1,16 +1,17 @@
 import * as THREE from 'three';
-import { cubeAt, cubeHeight, isHeld, worldRuns, type Level, type MoveKind, type RunState } from '../rules';
+import { cubeAt, type Level, type MoveKind, type RunState } from '../rules';
+import type { ParamValues } from '../signal/scene';
 import { FigureBody, figureGeometry, type FigureLook } from './figure';
+import { shownHeight } from './leaving';
 
 /**
- * How high the one who plays stands in a cell: on the die there, or, off the dice, on the upper
- * frame of a cell beside a chain (`frame`), or on the floor.
+ * How high the one who plays stands in a cell: on the die there, as high as the die is shown, or,
+ * off the dice, on the upper frame of a cell beside a chain (`frame`), or on the floor.
  */
-function footing(state: RunState, x: number, z: number, level: Level, alpha: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number): number {
+function footing(state: RunState, x: number, z: number, level: Level, alpha: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number, values?: ParamValues): number {
   if (level === 'ground') return frame(x, z);
   const cube = cubeAt(state, x, z);
-  // The die stays put between ticks while the tutorial holds it or the world of a level stands.
-  return cube ? cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha) + dip(cube.id) : 0;
+  return cube ? shownHeight(cube, state, alpha, values) + dip(cube.id) : 0;
 }
 
 /** Extra lift at the middle of a step, per move kind. */
@@ -75,12 +76,12 @@ export class PlayerFigure {
   /**
    * `frame` is how high the upper frame of a cell beside a chain lies, nought where there is
    * none: off the dice the figure stands on that frame and comes down with it, not on the floor
-   * under it.
+   * under it. `values` is the look, which says how high a die that leaves a level is shown.
    */
-  sync(state: RunState, alpha: number, dt: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number): void {
+  sync(state: RunState, alpha: number, dt: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number, values?: ParamValues): void {
     const { player, config } = state;
 
-    const supportHeight = (x: number, z: number, level: Level): number => footing(state, x, z, level, alpha, dip, frame);
+    const supportHeight = (x: number, z: number, level: Level): number => footing(state, x, z, level, alpha, dip, frame, values);
 
     const toY = supportHeight(player.x, player.z, player.level);
     const action = player.action;

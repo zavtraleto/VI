@@ -305,6 +305,15 @@ export const BOARD_GROUPS = {
     fixedLight: number(0.3, 0, 1, 0.01),
     fixedEdge: number(0.5, 0, 1, 0.01),
     /**
+     * A die that leaves a level is shown by steps, as shares of a whole die, and not as the rules
+     * have it: as low as this the moment it leaves, and as low as this with its last move left to
+     * it, where it can still be stepped up onto; with no move left it is gone. Between the two it
+     * goes down through the move as it always did. Only the look: the rules, and a session, are as
+     * they were (the owner, 12 October: «сразу 75–80%, после первого хода 10–15%»).
+     */
+    leaveFirst: number(0.78, 0.3, 1, 0.01),
+    leaveLast: number(0.12, 0, 0.5, 0.01),
+    /**
      * The swipe sign: a small bright star that runs beside the die of the figure and leaves a
      * thin line behind it. How long the rays of the star are, in pixels of the picture; how much
      * of its run the line behind it stays lit for, 0 to 1; how long a run takes and how long

@@ -1,10 +1,12 @@
 import { ROAD_IDLE, ROAD_SIGNS } from '../levels/road';
 import type { ControlMode } from '../platform/settings';
-import { DELTA, DIRS, cubeAt, cubeHeight } from '../rules/board';
+import { shownHeight } from '../render/leaving';
+import { DELTA, DIRS, cubeAt } from '../rules/board';
 import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
 import { resolveMove } from '../rules/movement';
 import type { Dir, Level, MoveKind, RunState } from '../rules/types';
+import type { ParamValues } from '../signal/scene';
 import { Idle, type IdleRule } from './idle';
 
 /**
@@ -119,26 +121,27 @@ export function wastedMoves(par: number | undefined, made: number, left: number 
  * under the figure, from the floor to as high as the die stands, or of the cell of a figure on
  * the floor, as high as a die. Whoever draws the sign finds where these lie on screen and puts
  * the sign to the right of them: it is by the figure wherever on the board the figure is, and
- * never on its die.
+ * never on its die. `values` is the look of the board, which says how high a die that leaves is shown.
  */
-export function signBody(state: RunState): { x: number; y: number; z: number }[] {
+export function signBody(state: RunState, values?: ParamValues): { x: number; y: number; z: number }[] {
   const { x, z, level } = state.player;
-  const top = level === 'top' ? signHeight(state) : 1;
+  const top = level === 'top' ? signHeight(state, values) : 1;
   const corners: { x: number; y: number; z: number }[] = [];
   for (const dx of [-0.5, 0.5]) for (const dz of [-0.5, 0.5]) for (const y of [0, top]) corners.push({ x: x + dx, y, z: z + dz });
   return corners;
 }
 
 /**
- * How high over the floor the figure stands, in dice: the top of the die under it as that die
- * stands, which is lower than a die for one that is leaving (the stair of a piece is half a die
- * high), and the floor for a player on the floor. The sign stands beside a die as high as this.
+ * How high over the floor the figure stands, in dice: the top of the die under it as that die is
+ * shown (`src/render/leaving.ts`), which is lower than a die for one that is leaving (the stair of
+ * the second piece, with its last move left to it, is shown an eighth of a die high), and the floor
+ * for a player on the floor. The sign stands beside a die as high as this.
  */
-export function signHeight(state: RunState): number {
+export function signHeight(state: RunState, values?: ParamValues): number {
   const { x, z, level } = state.player;
   if (level !== 'top') return 0;
   const under = cubeAt(state, x, z);
-  return under ? cubeHeight(under, state.config) : 0;
+  return under ? shownHeight(under, state, 0, values) : 0;
 }
 
 /**

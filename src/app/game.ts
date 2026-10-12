@@ -2551,7 +2551,7 @@ export class Game {
    * swipe lies there, which its trail runs parallel to.
    */
   private signView(state: RunState, dir: Dir, over: (x: number, y: number, z: number) => { x: number; y: number }): HudSign {
-    const corners = signBody(state).map((corner) => over(corner.x, corner.y, corner.z));
+    const corners = signBody(state, this.look.board).map((corner) => over(corner.x, corner.y, corner.z));
     const left = Math.min(...corners.map((corner) => corner.x));
     const top = Math.min(...corners.map((corner) => corner.y));
     const body = { x: left, y: top, w: Math.max(...corners.map((corner) => corner.x)) - left, h: Math.max(...corners.map((corner) => corner.y)) - top };
