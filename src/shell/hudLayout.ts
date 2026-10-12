@@ -362,17 +362,52 @@ export function hintAlpha(since: number, gone: number | null, reduced: boolean):
   return Math.round(Math.min(coming, going) * HINT_STEPS) / HINT_STEPS;
 }
 
+/** The picture on a button of a level is this many dots a side; what a button keeps around it, between the picture and the word, and between two buttons. */
+export const TOOL_ICON = 9;
+const TOOL_PAD = 6;
+const TOOL_GAP = 6;
+
+/** The two buttons of a level as they are laid out, in pixels of the picture: `dot` is a dot of their pictures, `box` holds both. */
+export interface ToolPlan {
+  tall: number;
+  dot: number;
+  undo: Box;
+  retry: Box;
+  box: Box;
+}
+
 /**
- * The two buttons of a level, UNDO and RESTART, in the top right corner of the stage, in pixels of the
- * picture: a button is `wide` by `tall`, the right one ends at `right`, and `box` holds both.
- * `undoWidth` is the width of the longest word on the left button.
+ * The two buttons of a level, UNDO and RESTART, in pixels of the picture: each a picture and,
+ * right of it, its word, `words` wide (0 leaves the picture alone). High, they stand in the top
+ * right corner of the stage, the one that starts over last. `low`, on a tall screen, they stand
+ * in its bottom left corner, where the thumb is: side by side, or one over the other where the
+ * stage is too narrow for both words. `retryOnly` leaves the one that starts over, in the corner.
  */
-export function toolButtons(stage: Box, zoom: number, undoWidth: number): { tall: number; wide: number; right: number; y: number; box: Box } {
+export function toolButtons(stage: Box, zoom: number, words: { undo: number; retry: number }, low = false, retryOnly = false): ToolPlan {
   const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / zoom));
-  const wide = Math.max(tall, undoWidth + 12);
-  const right = Math.round(stage.x + stage.w - 6);
-  const y = Math.round(stage.y + 6);
-  return { tall, wide, right, y, box: { x: right - wide * 2 - 6, y, w: wide * 2 + 6, h: tall } };
+  const dot = Math.max(1, Math.floor((tall - 6) / TOOL_ICON));
+  const width = (word: number): number => Math.max(tall, word > 0 ? TOOL_PAD + TOOL_ICON * dot + TOOL_GAP + word + TOOL_PAD : 0);
+  let undoWide = width(words.undo);
+  let retryWide = width(words.retry);
+  const around = (undo: Box, retry: Box): ToolPlan => {
+    const x = Math.min(undo.x, retry.x);
+    const y = Math.min(undo.y, retry.y);
+    return { tall, dot, undo, retry, box: { x, y, w: Math.max(undo.x + undo.w, retry.x + retry.w) - x, h: Math.max(undo.y + undo.h, retry.y + retry.h) - y } };
+  };
+  if (!low) {
+    const y = Math.round(stage.y + TOOL_PAD);
+    const retry: Box = { x: Math.round(stage.x + stage.w - TOOL_PAD) - retryWide, y, w: retryWide, h: tall };
+    return around({ x: retry.x - TOOL_GAP - undoWide, y, w: undoWide, h: tall }, retry);
+  }
+  const x = Math.round(stage.x + TOOL_PAD);
+  const y = Math.round(stage.y + stage.h - TOOL_PAD) - tall;
+  if (retryOnly) {
+    const retry: Box = { x, y, w: retryWide, h: tall };
+    return { tall, dot, undo: retry, retry, box: retry };
+  }
+  if (undoWide + TOOL_GAP + retryWide <= stage.w - TOOL_PAD * 2) return around({ x, y, w: undoWide, h: tall }, { x: x + undoWide + TOOL_GAP, y, w: retryWide, h: tall });
+  undoWide = retryWide = Math.max(undoWide, retryWide);
+  return around({ x, y: y - tall - TOOL_GAP, w: undoWide, h: tall }, { x, y, w: retryWide, h: tall });
 }
 
 /**

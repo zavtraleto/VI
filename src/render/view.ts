@@ -4,6 +4,7 @@ import { lensTo, type Lens, type LensSides } from '../display/lens';
 import { DELTA, cubeAt, type Dir, type GameEvent, type MoveKind, type RunState } from '../rules';
 import { pictureSize } from '../shell/layout';
 import type { Palette } from '../shell/theme';
+import { BUMP_QUIET_MS, bumpOffset } from './bump';
 import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
 import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
@@ -203,6 +204,10 @@ export class BoardView {
   private kicks: { id: number; at: number; v: number }[] = [];
   /** The contact as the last frame had it: a beat is answered as far as it has gone. */
   private contact: ContactLook | null = null;
+  /** A step that was stopped: which way, and for how long the die under the figure has been answering it. */
+  private bump: { dir: Dir; ms: number } | null = null;
+  /** How long ago a step was last stopped, and which way: a press that is held is answered once. */
+  private stopped: { dir: Dir; ms: number } | null = null;
   /** The step the player was making on the previous frame, to notice when it ends. */
   private lastStep: MoveKind | null = null;
   /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. */
@@ -765,6 +770,10 @@ export class BoardView {
       } else if (event.type === 'happyOne') {
         this.burst = 1;
         this.sent = 1;
+      } else if (event.type === 'blocked') {
+        const held = this.stopped !== null && this.stopped.dir === event.dir && this.stopped.ms < BUMP_QUIET_MS;
+        if (!held && !this.still) this.bump = { dir: event.dir, ms: 0 };
+        this.stopped = { dir: event.dir, ms: 0 };
       } else if (event.type === 'risen') {
         this.cubes.risen(event.cubeId);
       } else if (event.type === 'removed') {
@@ -830,6 +839,8 @@ export class BoardView {
     this.chroma = 0;
     this.jolt = 0;
     this.kicks = [];
+    this.bump = null;
+    this.stopped = null;
     this.bursts.reset();
     this.sent = 0;
     this.warnings.reset();
@@ -925,6 +936,13 @@ export class BoardView {
     this.bursts.update(dt, this.camera);
     const dip = (cubeId: number) => this.springs.offset(cubeId);
 
+    // A step that was stopped: the die under the figure, and the figure, go a little that way and come back.
+    if (this.stopped) this.stopped.ms += dt;
+    if (this.bump) this.bump.ms += dt;
+    if (this.bump && (reducedMotion || player.action || this.bump.ms >= n('bumpMs'))) this.bump = null;
+    const reach = this.bump ? bumpOffset(this.bump.ms, n('bumpMs'), n('bumpReach')) : 0;
+    const shove = this.bump && reach > 0 ? { id: under?.id ?? -1, x: DELTA[this.bump.dir].dx * reach, z: DELTA[this.bump.dir].dz * reach } : null;
+
     // A group going down lights what stands around it with the colour of its channel.
     const reaction = this.cubes.sinkingCentre(state);
     // A die the board of a level was laid with as leaving has sent nothing here: its light is that of its face all the same.
@@ -956,9 +974,14 @@ export class BoardView {
       },
       dip,
       passing,
+      shove,
     );
     this.player.setColor(figureColour(this.palette, values), n('figureGhost'), { body: n('figureBody'), rim: n('figureRim'), shine: n('figureShine') });
     this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip), values);
+    if (shove) {
+      this.player.group.position.x += shove.x;
+      this.player.group.position.z += shove.z;
+    }
     // In a passage the figure stands on its die as the passage has it: it comes down to the
     // floor with a die that goes under, and a die that comes up under it lifts it.
     if (passing && player.level === 'top' && !player.action) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { boxesMeet, signRoom, signTurn } from './hudLayout';
 import type { Box } from './layout';
-import { SIGN_KEY_MS, paintSign, signReach, type SignKit, type SignLook, type SignPlan } from './swipeSign';
+import { SIGN_KEY_MS, paintSign, signBounds, signReach, type SignKit, type SignLook, type SignPlan } from './swipeSign';
 
 const LOOK: SignLook = { runMs: 900, restMs: 500, trail: 0.45, glow: 1 };
 const TIMES = { runMs: LOOK.runMs, restMs: LOOK.restMs, keyMs: SIGN_KEY_MS };
@@ -133,5 +133,36 @@ describe('what the swipe sign may lie on', () => {
     expect(boxesMeet(room, { x: 10, y: 30, w: 5, h: 5 })).toBe(false);
     expect(boxesMeet(room, { x: 0, y: 0, w: 10, h: 10 })).toBe(false);
     expect(boxesMeet(room, { x: 15, y: 15, w: 2, h: 2 })).toBe(true);
+  });
+});
+
+describe('the swipe sign with a plain stroke', () => {
+  const plan: SignPlan = { mode: 'dot', dir: 'N', from: { x: 100, y: 100 }, trail: { x: 30, y: -17 }, rays: 3, plain: { from: { x: 100, y: 110 }, trail: { x: 0, y: -40 } } };
+  const round = LOOK.runMs + LOOK.restMs;
+  /** The box that holds everything a run of the star lights. */
+  const lit = (startMs: number): Box => {
+    const { kit, drawn } = recorder();
+    for (let timeMs = startMs; timeMs < startMs + LOOK.runMs; timeMs += 30) paintSign(kit, plan, LOOK, timeMs, false);
+    const x = Math.min(...drawn.map((box) => box.x));
+    const y = Math.min(...drawn.map((box) => box.y));
+    return { x, y, w: Math.max(...drawn.map((box) => box.x + box.w)) - x, h: Math.max(...drawn.map((box) => box.y + box.h)) - y };
+  };
+
+  it('runs along the board and straight by turns, first along the board', () => {
+    const along = lit(0);
+    const straight = lit(round);
+    // Along the board the star goes to the right; straight up it does not, and goes higher.
+    expect(along.x + along.w).toBeGreaterThan(125);
+    expect(straight.x + straight.w).toBeLessThan(110);
+    expect(straight.y).toBeLessThan(along.y);
+    expect(lit(round * 2)).toEqual(along);
+    expect(lit(round * 3)).toEqual(straight);
+  });
+
+  it('lights nothing outside its bounds on either stroke', () => {
+    const room = signBounds(plan);
+    expect(inside(lit(0), room)).toBe(true);
+    expect(inside(lit(round), room)).toBe(true);
+    expect(signBounds({ ...plan, plain: null })).toEqual(signRoom(plan.from, plan.trail, signReach(plan)));
   });
 });

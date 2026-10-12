@@ -1,5 +1,5 @@
 import type { Dir } from '../rules';
-import { signKey } from './hudLayout';
+import { signKey, signRoom } from './hudLayout';
 import type { Kit } from './kit';
 import { CELL_H, type Box, type Point } from './layout';
 
@@ -25,6 +25,8 @@ export interface SignPlan {
   trail: Point;
   /** Rays of the star, in dots. */
   rays: number;
+  /** The other stroke of the star, where a plain swipe steps the same way: straight up, down or to a side. The star runs the two by turns. */
+  plain?: { from: Point; trail: Point } | null;
 }
 
 /** The numbers of the look of the board the star is drawn with: the times of its run and of its rest, the share of the run its line stays lit for, the light around it. */
@@ -47,17 +49,29 @@ export function signReach(plan: SignPlan): number {
   return plan.mode === 'key' ? SIGN_KEY / 2 + 1 : plan.rays + 2;
 }
 
+/** The part of the picture the sign can light: its trail, and its plain stroke where it has one, with what it lights around them (`signReach`). */
+export function signBounds(plan: SignPlan): Box {
+  const room = signRoom(plan.from, plan.trail, signReach(plan));
+  if (plan.mode === 'key' || !plan.plain) return room;
+  const other = signRoom(plan.plain.from, plan.plain.trail, signReach(plan));
+  const x = Math.min(room.x, other.x);
+  const y = Math.min(room.y, other.y);
+  return { x, y, w: Math.max(room.x + room.w, other.x + other.w) - x, h: Math.max(room.y + room.h, other.y + other.h) - y };
+}
+
 /**
  * Draws the sign as it is laid out. A star of the bright ink of the program sets off from the
  * start of its trail and runs to the end of it; the thin line it leaves behind goes out towards
  * where it came from; at the end the star goes out, and after a moment of nothing it sets off
- * again. Held still, it stands at the end of its trail with the line behind it. The key stands
- * in the middle of that trail, and is lit and unlit by turns, once a second.
+ * again. Where the sign has a plain stroke the star runs it every other time: once along the
+ * board, once straight. Held still, it stands at the end of its trail with the line behind it.
+ * The key stands in the middle of that trail, and is lit and unlit by turns, once a second.
  */
 export function paintSign(kit: SignKit, plan: SignPlan, look: SignLook, timeMs: number, still: boolean): void {
   const { bg, ink, dim } = kit.palette;
-  const { from, trail, rays } = plan;
+  const { rays } = plan;
   if (plan.mode === 'key') {
+    const { from, trail } = plan;
     const centre = signKey(from, trail);
     const cell: Box = { x: Math.round(centre.x - SIGN_KEY / 2), y: Math.round(centre.y - SIGN_KEY / 2), w: SIGN_KEY, h: SIGN_KEY };
     const lit = still || Math.floor(timeMs / SIGN_KEY_MS) % 2 === 0;
@@ -70,8 +84,10 @@ export function paintSign(kit: SignKit, plan: SignPlan, look: SignLook, timeMs: 
     return;
   }
   const runMs = Math.max(1, look.runMs);
-  const turn = timeMs % (runMs + Math.max(0, look.restMs));
+  const round = runMs + Math.max(0, look.restMs);
+  const turn = timeMs % round;
   if (!still && turn >= runMs) return;
+  const { from, trail } = !still && plan.plain && Math.floor(timeMs / round) % 2 === 1 ? plan.plain : plan;
   const along = still ? 1 : turn / runMs;
   const eased = 1 - (1 - along) * (1 - along);
   // The star goes out over the last of its run, and its line with it.

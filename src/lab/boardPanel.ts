@@ -40,6 +40,8 @@ const LABELS: Record<string, string> = {
   pipDusk: 'сумрак у точки: ширина',
   pipDuskDark: 'сумрак у точки: сила',
   pressDepth: 'кость под игроком ниже',
+  bumpReach: 'упор: ход кости, клеток',
+  bumpMs: 'упор: туда и обратно, мс',
   edgeWidth: 'ребро: толщина линии',
   edgeBright: 'ребро: яркость',
   edgeSide: 'рёбра не у верхней грани, доля',

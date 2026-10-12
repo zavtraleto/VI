@@ -5,7 +5,7 @@ import { Pacer } from '../display/pacer';
 import { quality } from '../display/quality';
 import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
-import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, type ScreenDirs } from '../input/gesture';
+import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, nearestDir, type ScreenDirs } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
 import {
   boardEntries,
@@ -2559,7 +2559,10 @@ export class Game {
     const { player } = state;
     const here = this.view.project(player.x, 0, player.z);
     const there = this.view.project(player.x + DELTA[dir].dx, 0, player.z + DELTA[dir].dz);
-    return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), body, step: { x: there.x - here.x, y: there.y - here.y } };
+    // A swipe straight up, down or to a side that is read as the same step: the sign shows it too, by turns.
+    const straight = CARDINAL_DIRS[dir];
+    const plain = nearestDir(straight.x, straight.y, this.swipeDirs) === dir ? straight : null;
+    return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), body, step: { x: there.x - here.x, y: there.y - here.y }, plain };
   }
 
   /**

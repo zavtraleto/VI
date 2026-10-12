@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, turned, type FloorAxes } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, toolButtons, turned, type FloorAxes } from './hudLayout';
 import { CELL_W, MIN_ZONE } from './layout';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -272,5 +272,43 @@ describe('the plaque of a short combo', () => {
 
   it('stands in the middle of a window too narrow for it', () => {
     expect(counterLeft(10, six, { x: 0, y: 0, w: 60, h: 100 }, 1)).toBe(30 - six / 2);
+  });
+});
+
+describe('the buttons of a level', () => {
+  const stage = { x: 0, y: 55, w: 180, h: 265 };
+  const within = (box: { x: number; y: number; w: number; h: number }): boolean => box.x >= stage.x && box.y >= stage.y && box.x + box.w <= stage.x + stage.w && box.y + box.h <= stage.y + stage.h;
+
+  it('stand in the top right corner of the stage on a wide screen, the one that starts over last', () => {
+    const plan = toolButtons(stage, 2, { undo: 32, retry: 56 });
+    expect(plan.retry.x + plan.retry.w).toBe(stage.x + stage.w - 6);
+    expect(plan.undo.x + plan.undo.w).toBeLessThan(plan.retry.x);
+    expect(plan.undo.y).toBe(stage.y + 6);
+    expect(plan.tall * 2).toBeGreaterThanOrEqual(MIN_ZONE);
+  });
+
+  it('stand side by side in the bottom left corner on a tall screen, each as wide as its picture and its word', () => {
+    const plan = toolButtons(stage, 2, { undo: 32, retry: 56 }, true);
+    expect(plan.undo.x).toBe(stage.x + 6);
+    expect(plan.undo.y + plan.undo.h).toBe(stage.y + stage.h - 6);
+    expect(plan.retry.y).toBe(plan.undo.y);
+    expect(plan.retry.x).toBeGreaterThan(plan.undo.x + plan.undo.w);
+    expect(plan.undo.w).toBeGreaterThanOrEqual(6 + 9 * plan.dot + 6 + 32 + 6);
+    expect(within(plan.box)).toBe(true);
+  });
+
+  it('stand one over the other where the words are too long for a row', () => {
+    const plan = toolButtons(stage, 2, { undo: 56, retry: 112 }, true);
+    expect(plan.undo.x).toBe(plan.retry.x);
+    expect(plan.undo.w).toBe(plan.retry.w);
+    expect(plan.undo.y + plan.undo.h).toBeLessThan(plan.retry.y);
+    expect(plan.retry.y + plan.retry.h).toBe(stage.y + stage.h - 6);
+    expect(within(plan.box)).toBe(true);
+  });
+
+  it('leave the one that starts over in the corner where no move can be taken back', () => {
+    const plan = toolButtons(stage, 2, { undo: 32, retry: 56 }, true, true);
+    expect(plan.retry.x).toBe(stage.x + 6);
+    expect(plan.box).toEqual(plan.retry);
   });
 });

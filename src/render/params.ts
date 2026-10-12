@@ -55,6 +55,9 @@ export const BOARD_GROUPS = {
     pipDuskDark: number(0.3, 0, 1, 0.01),
     /** How far the die the figure stands on is pressed into the surface, in dice. */
     pressDepth: number(0.1, 0, 0.2, 0.005),
+    /** A step that is stopped: how far the die under the figure goes that way, in cells, and how long it takes to go and come back. */
+    bumpReach: number(0.1, 0, 0.3, 0.01),
+    bumpMs: number(140, 40, 400, 10),
   },
   edge: {
     /**

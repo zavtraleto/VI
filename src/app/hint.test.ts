@@ -271,7 +271,7 @@ describe('the line and the buttons of a level', () => {
   const LINE = PHONE * 1.3;
   /** The buttons as the hud puts them, in CSS pixels: the picture is zoomed by `zoom`; the label is some 60 picture pixels wide. */
   const tools = (stage: { x: number; y: number; width: number; height: number }, zoom: number) => {
-    const { box } = toolButtons({ x: stage.x / zoom, y: stage.y / zoom, w: stage.width / zoom, h: stage.height / zoom }, zoom, 60);
+    const { box } = toolButtons({ x: stage.x / zoom, y: stage.y / zoom, w: stage.width / zoom, h: stage.height / zoom }, zoom, { undo: 32, retry: 56 });
     return { x: box.x * zoom, y: box.y * zoom, width: box.w * zoom, height: box.h * zoom };
   };
 

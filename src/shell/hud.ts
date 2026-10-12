@@ -6,12 +6,12 @@ import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hintSaidFor, wordsShown, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signRoom, signTurn, turned, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hintSaidFor, wordsShown, hudLayout, lineSize, toolButtons, netBounds, netCellAt, boxesMeet, signBeside, signClear, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout, type ToolPlan } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
-import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
+import { CELL_H, CELL_W, MIN_ZONE, isWide, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
-import { SIGN_KEY, SIGN_KEY_MS, paintSign, signReach, type SignLook, type SignPlan } from './swipeSign';
-import { HUD, READS, digits, goalLabel, goalProgress } from './text';
+import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
+import { COMMANDS, HUD, READS, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, type Palette } from './theme';
 import { Voice } from './voice';
 
@@ -121,6 +121,8 @@ export interface HudSign {
   body: Box;
   /** A cell of the board the way of the swipe, as it lies on screen, in CSS pixels: the trail is parallel to it. */
   step: Point;
+  /** Where a plain swipe that steps the same way points on screen, a unit; null where no plain swipe is read as this step. */
+  plain?: Point | null;
 }
 
 /** The multiplier of a chain, over its dice. `at` is in CSS pixels of the window. */
@@ -602,9 +604,9 @@ export class GameHud {
     const size = lineSize(stage);
     const zoom = this.kit.zoom;
     const window = { width: this.kit.width * zoom, height: this.kit.height * zoom };
-    // The buttons of a level are in the same corner of the stage.
-    const picture = toolButtons(this.toPicture(stage), zoom, 0).box;
-    const tools: Rect = { x: picture.x * zoom, y: picture.y * zoom, width: picture.w * zoom, height: picture.h * zoom };
+    // On a wide screen the buttons of a level are in the same corner of the stage.
+    const picture = this.toolsLow() ? null : this.toolPlan(this.toPicture(stage)).box;
+    const tools: Rect | null = picture && { x: picture.x * zoom, y: picture.y * zoom, width: picture.w * zoom, height: picture.h * zoom };
     const { box } = hintBox(stage, window, safeInsets(), size, 0, tools);
     return { ...hintBox(stage, window, safeInsets(), size, this.voice.height(text, box.width, size), tools), size };
   }
@@ -729,17 +731,17 @@ export class GameHud {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
       const top = layout.wide ? safe.top : layout.height;
-      // And of the buttons of a level, in the corner of the stage.
-      const tools = view.tools ? toolButtons(stage, zoom, 0).box : null;
-      const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top }, tools);
+      // And of the buttons of a level, where they are in the top corner of the stage: it is moved down from those.
+      const tools = view.tools ? this.toolPlan(stage, view.tools.retryOnly, view.pad ? this.toPicture(view.pad.box) : null).box : null;
+      const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top }, this.toolsLow() ? null : tools);
       // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
-      const room = signRoom(plan.from, plan.trail, signReach(plan));
+      const room = signBounds(plan);
       const covered = (tools !== null && boxesMeet(room, tools)) || (view.pad ? boxesMeet(room, this.toPicture(view.pad.box)) : false);
       if (!still && !covered) this.signKept = { plan, room, under: kit.grab(room) };
       paintSign(kit, plan, this.signLook(), timeMs, still);
     }
     this.signTurned = this.signTurnAt(sign, timeMs, still);
-    if (view.tools) this.drawTools(view.tools, stage, blink);
+    if (view.tools) this.drawTools(view.tools, stage, blink, view.pad ? this.toPicture(view.pad.box) : null);
     if (view.pad) this.drawPad(view.pad, blink);
     if (view.note) {
       const width = Math.min(view.stage.width - 24, 460);
@@ -1435,8 +1437,16 @@ export class GameHud {
     const reach = sign.mode === 'key' ? SIGN_KEY / 2 : rays;
     const run = signBeside(body, { x: sign.step.x / zoom, y: sign.step.y / zoom }, n('signLength'), SIGN_GAP + reach);
     const { trail } = run;
-    const from = signPlace(signClear(run.from, trail, avoid, reach + SIGN_PAD), trail, inside, reach + SIGN_PAD);
-    return { mode: sign.mode, dir: sign.dir, from, trail, rays };
+    const place = (start: Point, way: Point): Point => signPlace(signClear(start, way, avoid, reach + SIGN_PAD), way, inside, reach + SIGN_PAD);
+    const from = place(run.from, trail);
+    // The plain stroke: as long as the one along the board, beside the die as that one is.
+    let plain: SignPlan['plain'] = null;
+    if (sign.mode === 'dot' && sign.plain) {
+      const cell = Math.hypot(sign.step.x, sign.step.y) / zoom;
+      const straight = signBeside(body, { x: sign.plain.x * cell, y: sign.plain.y * cell }, n('signLength'), SIGN_GAP + reach);
+      plain = { from: place(straight.from, straight.trail), trail: straight.trail };
+    }
+    return { mode: sign.mode, dir: sign.dir, from, trail, rays, plain };
   }
 
   /** The numbers of the look the sign is drawn with, as they are now: the owner turns them while the game runs. */
@@ -1548,36 +1558,59 @@ export class GameHud {
     if (lesson.waits) this.zones.push({ id: 'continue', rect: { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }, action: () => this.proceed() });
   }
 
+  /** On a tall screen the buttons of a level stand at the bottom of the stage, on the left. */
+  private toolsLow(): boolean {
+    return !isWide({ width: this.kit.width, height: this.kit.height });
+  }
+
   /**
-   * The two buttons every task needs, in the corner of the board and out of the way of swipes:
-   * each a picture, the arrow that turns back and the arrow that goes round. At a dead end the
-   * one that takes the move back blinks: it is the one to press.
+   * Where the buttons of a level stand (`toolButtons`), with their words in the language of the
+   * player. At the bottom they keep inside what the edges of the screen leave, and over the four
+   * buttons of those who press (`pad`) where those are under them.
    */
-  private drawTools(tools: HudTools, stage: Box, blink: number): void {
+  private toolPlan(stage: Box, retryOnly = false, pad: Box | null = null): ToolPlan {
+    const { kit } = this;
+    const words = { undo: kit.measure(word(COMMANDS.undo.name)), retry: kit.measure(word(COMMANDS.restart.name)) };
+    if (!this.toolsLow()) return toolButtons(stage, kit.zoom, words, false, retryOnly);
+    const css = safeInsets();
+    const left = Math.max(stage.x, css.left / kit.zoom);
+    const bottom = Math.min(stage.y + stage.h, kit.height - css.bottom / kit.zoom);
+    const room: Box = { x: left, y: stage.y, w: stage.x + stage.w - left, h: bottom - stage.y };
+    const plan = toolButtons(room, kit.zoom, words, true, retryOnly);
+    if (!pad || !boxesMeet(plan.box, pad)) return plan;
+    return toolButtons({ ...room, h: pad.y - room.y }, kit.zoom, words, true, retryOnly);
+  }
+
+  /**
+   * The two buttons every task needs, out of the way of swipes: each a picture, the arrow that
+   * turns back and the arrow that goes round, and its word. At a dead end the one that takes the
+   * move back blinks: it is the one to press.
+   */
+  private drawTools(tools: HudTools, stage: Box, blink: number, pad: Box | null): void {
     const { kit } = this;
     const { bg, ink, dim, faint } = kit.palette;
-    const { tall, wide, right } = toolButtons(stage, kit.zoom, 0);
-    const button = (id: string, icon: readonly string[], x: number, on: boolean, urgent: boolean, action: () => void): void => {
-      const box: Box = { x, y: Math.round(stage.y + 6), w: wide, h: tall };
+    const plan = this.toolPlan(stage, tools.retryOnly, pad);
+    const { tall, dot } = plan;
+    const button = (id: string, icon: readonly string[], text: string, box: Box, on: boolean, urgent: boolean, action: () => void): void => {
       const filled = this.held?.zone.id === id || (urgent && blink === 0);
       if (filled) kit.box(box, ink);
       else {
         kit.box(box, bg);
         kit.frame(box, on ? dim : faint);
       }
-      // The picture is drawn in whole dots, as large as the button lets it be.
-      const dot = Math.max(1, Math.floor((Math.min(wide, tall) - 6) / icon.length));
+      // The picture is drawn in whole dots, as large as the button lets it be, and the word stands right of it.
       const colour = filled ? bg : on ? ink : faint;
-      const ix = box.x + Math.round((wide - icon[0].length * dot) / 2);
+      const ix = box.x + 6;
       const iy = box.y + Math.round((tall - icon.length * dot) / 2);
       icon.forEach((row, r) => {
         for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
       });
+      kit.text(text, ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
       if (on) this.zones.push({ id, rect: kit.toWindow(box), action });
     };
-    button('retry', ICON_RETRY, right - wide, true, false, () => this.actions.onRestart());
+    button('retry', ICON_RETRY, word(COMMANDS.restart.name), plan.retry, true, false, () => this.actions.onRestart());
     if (tools.retryOnly) return;
-    button('undo', ICON_UNDO, right - wide * 2 - 6, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
+    button('undo', ICON_UNDO, word(COMMANDS.undo.name), plan.undo, tools.canUndo, tools.urgent && tools.canUndo, () => this.actions.onUndo());
   }
 
   /** Four buttons in a cross: up is north, right is east. */
