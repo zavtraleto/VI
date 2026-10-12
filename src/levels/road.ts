@@ -12,13 +12,14 @@ import type { Dir, LevelSpec } from '../rules/types';
  * played the second and the third. `R01` to `R05` teach the roll, the faces and the combo; `R06`
  * to `R09` the chain; `R10` to `R12` the dice that are leaving; `R13` to `R16` the floor and the push.
  *
- * A lesson is the piece that brings a move, with a line above the board. `R01`, `R02` and `R10`
- * are boards cut to few cells, and none of them can be lost: the dice that wait are fixed, but for
- * the die of the second pair and the stair of `R10`. The lesson of the chain (`R06`) is an open
- * board of three dice that all roll: the first pair is the player's own to find, and the chain
- * missed leaves one die alone, a dead end said at once. The lesson of the push (`R13`) is a whole
- * board too, its one fixed die the 3 the two 3s are pushed to: a push amiss can lose it, and is
- * taken back. The camera sees the south and the east side of a die, and the face of a lesson's combo
+ * A lesson is the piece that brings a move, with a line above the board. `R01` and `R02` are
+ * boards cut to few cells, and neither can be lost: the dice that wait are fixed. The lesson of
+ * the chain (`R06`) is an open board of three dice that all roll: the first pair is the player's
+ * own to find, and the chain missed leaves one die alone, a dead end said at once. The lesson of
+ * the way down and up (`R10`) is a whole board with its two 2s that wait fixed, and can be lost
+ * (the owner, 12 October: «сделай урок R10 таким, в котором можно проиграть»). The lesson of the
+ * push (`R13`) is a whole board too, its one fixed die the 3 the two 3s are pushed to: a push
+ * amiss can lose it, and is taken back. The camera sees the south and the east side of a die, and the face of a lesson's combo
  * is on one of the two before the roll that brings it up.
  *
  * A free piece is a small level: a rectangle with no cell cut out of it, or a square with one
@@ -158,16 +159,18 @@ export const ROAD: readonly LevelSpec[] = [
     },
     par: 3, solution: ['3,1,W', '2,2,S', '2,3,E'],
   },
-  // . . 2 #    C1, the lesson of the way down and up. One roll north makes the 2s, with the 2 that
-  // 2 . s B    waits, and the player stands on a die that is leaving. The die that is to make the
-  // # # # .    other 2s is off to the east, beside no die of the pair: no step over the dice leads to
-  // A . . .    it. Down to the floor, along it to the stair, a die laid as leaving in two moves that
-  //            still stands after the first, up it, a step onto the die, and a roll north. The stair
-  //            goes with that roll. The lesson of the walk of the third edition went: the walk is
-  //            done from the fifth piece on (the owner, 12 October).
+  // # # 2 #    C1, the lesson of the way down and up, on a whole board. One roll north makes the 2s,
+  // 2 # s B    with the 2 that waits, and the player stands on a die that is leaving. The die that is
+  // # # # #    to make the other 2s is off to the east, beside no die of the pair: no step over the
+  // A # # #    dice leads to it. Down to the floor, along it to the stair, a die laid as leaving in two
+  //            moves that still stands after the first, up it, a step onto the die, and a roll north.
+  //            The stair goes with that roll. The lesson of the walk of the third edition went: the
+  //            walk is done from the fifth piece on (the owner, 12 October). The cells cut out of it
+  //            were given back by the word of the owner of 12 October, the dice where they were, so
+  //            that it can be lost: the own die rolled about the floor can leave a 2 with no pair.
+  //            The way round without the floor is there now too, six moves against the two by the floor.
   {
     ...COMMON, id: 'R10', seed: 8110, size: 4, values: [2], faces: [2], norm: 5, floor: true,
-    holes: cutAllBut(4, [[2, 0], [3, 0], [0, 1], [2, 1], [3, 1], [0, 2], [1, 2], [2, 2], [0, 3]]),
     layout: {
       start: { x: 0, z: 3 }, leaving: [{ die: 4, moves: 2 }],
       dice: [
@@ -353,10 +356,11 @@ type Wait = { blinkMs: number | null; signMs: number; wasted: number | null };
 
 /**
  * The lessons whose boards are few, a few dozen each, where the way is cheap to find after every
- * move: only they count the moves that led nowhere. The lesson of the chain (`R06`) and that of
- * the push (`R13`) are not among them: they are open boards, and wait as a free piece does.
+ * move: only they count the moves that led nowhere. The lesson of the chain (`R06`), that of the
+ * way down and up (`R10`) and that of the push (`R13`) are not among them: they are open boards,
+ * and wait as a free piece does.
  */
-export const ROAD_LESSONS: readonly string[] = ['R01', 'R02', 'R10'];
+export const ROAD_LESSONS: readonly string[] = ['R01', 'R02'];
 
 /** The first piece shows its sign from the start, and after a move brings it back in six seconds, or at once after three moves that led nowhere. */
 const FIRST_WAIT: Wait = { blinkMs: null, signMs: 6000, wasted: 3 };
