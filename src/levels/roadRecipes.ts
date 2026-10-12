@@ -18,7 +18,7 @@ import { cutFrom, type Recipe } from './recipes';
  * Seven boards are the ones their places lay from a seed (`ROAD_SEEDS`). A place keeps the number
  * (`slot`) it had in the edition its board was laid in: the seed lays with it. The other four are
  * the `sketch` of their place, judged by `judge` as any board is: `R05` is `R08` of the second
- * edition turned half round, `R07` was laid by hand for the second edition (its `R09`), `R08` is
+ * edition turned half round, `R06` was laid by hand for the second edition (its `R09`), `R08` is
  * the board of `P08` of the list, and `R15` is the lesson of the walk of the second edition
  * opened, with the 2 that waits moved a cell so that two first moves keep it in hand.
  *
@@ -60,7 +60,7 @@ export const ROAD_PLACES: readonly RoadPlace[] = [
     brief: 'two pairs of 2s, or a pair and the two others brought to it: the chain is a gain, not a must',
   },
   {
-    ...FREE, slot: 7, id: 'R07', role: 'free', size: 4, dice: 4, faces: [3], par: [2, 3], floor: false, needs: ['link'], kinds: ['top'], avoid: ['glass'], personas: LATER,
+    ...FREE, slot: 7, id: 'R06', role: 'free', size: 4, dice: 4, faces: [3], par: [2, 3], floor: false, needs: ['link'], kinds: ['top'], avoid: ['glass'], personas: LATER,
     sketch: [{ start: { x: 1, z: 3 }, dice: [{ x: 1, z: 3, top: 2, north: 4 }, { x: 1, z: 0, top: 3, north: 6 }, { x: 1, z: 1, top: 3, north: 6 }, { x: 2, z: 2, top: 2, north: 4 }] }],
     brief: 'three 3s and one more: the board is not cleared without the chain',
   },

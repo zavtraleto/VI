@@ -125,24 +125,27 @@ export const ROAD: readonly LevelSpec[] = [
     layout: { start: { x: 3, z: 2 }, dice: [{ x: 3, z: 2, top: 4, north: 6 }, { x: 2, z: 2, top: 4, north: 6 }, { x: 1, z: 3, top: 2, north: 3 }, { x: 1, z: 1, top: 2, north: 1 }] },
     par: 3, solution: ['3,2,N', '3,1,W', '2,2,W'],
   },
-  // # B # A    B1, the lesson of the chain, on an open board: three 2s, every die one that rolls, and
-  // C # # #    a combo takes two. The 2 of the die under the player is on its south side: south and
-  // # # # #    twice west put it under the 2 that stands, and the pair goes. The third die is then a
-  // # # # #    step away, and one roll north joins it to the pair as it leaves. Two pairs cannot be
-  //            made of three: without the chain one die is left alone, a dead end said at once.
+  // # b # #    B1, the first board of the chain, and the line of it stands over this one: 3s and one
+  // # c # #    over. Two 3s stand in a column, and two dice show 2s with their 3s on the south side.
+  // # # d #    A roll north under the column: the 3s go. The fourth die is a step to the east, and
+  // # A # #    one roll north puts it against them while they leave. Within a few moves nothing
+  //            clears the board but the chain. It was the piece after the lesson until 12 October
+  //            2026, when the owner had the two change places.
   {
-    ...COMMON, id: 'R06', seed: 8106, size: 4, values: [2], faces: [2], norm: 3, floor: false,
-    layout: { start: { x: 3, z: 0 }, dice: [{ x: 3, z: 0, top: 4, north: 5 }, { x: 1, z: 0, top: 2, north: 1 }, { x: 0, z: 1, top: 6, north: 5 }] },
-    par: 4, solution: ['3,0,S', '3,1,W', '2,1,W', '0,1,N'],
-  },
-  // # b # #    B2, free: 3s and one over. Two 3s stand in a column, and two dice show 2s with their
-  // # c # #    3s on the south side. A roll north under the column: the 3s go. The fourth die is a
-  // # # d #    step to the east, and one roll north puts it against them while they leave. Within
-  // # A # #    a few moves nothing clears the board but the chain.
-  {
-    ...COMMON, id: 'R07', seed: 8107, size: 4, values: [3], faces: [3], norm: 4, floor: false,
+    ...COMMON, id: 'R06', seed: 8106, size: 4, values: [3], faces: [3], norm: 4, floor: false,
     layout: { start: { x: 1, z: 3 }, dice: [{ x: 1, z: 3, top: 2, north: 4 }, { x: 1, z: 0, top: 3, north: 6 }, { x: 1, z: 1, top: 3, north: 6 }, { x: 2, z: 2, top: 2, north: 4 }] },
     par: 2, solution: ['1,3,N', '2,2,N'],
+  },
+  // # B # A    B2, the chain again, on an open board and with no line: three 2s, every die one that
+  // C # # #    rolls, and a combo takes two. The 2 of the die under the player is on its south side:
+  // # # # #    south and twice west put it under the 2 that stands, and the pair goes. The third die
+  // # # # #    is then a step away, and one roll north joins it to the pair as it leaves. Two pairs
+  //            cannot be made of three: without the chain one die is left alone, a dead end said at
+  //            once. It was the lesson of the chain, the first of the block, until 12 October 2026.
+  {
+    ...COMMON, id: 'R07', seed: 8107, size: 4, values: [2], faces: [2], norm: 3, floor: false,
+    layout: { start: { x: 3, z: 0 }, dice: [{ x: 3, z: 0, top: 4, north: 5 }, { x: 1, z: 0, top: 2, north: 1 }, { x: 0, z: 1, top: 6, north: 5 }] },
+    par: 4, solution: ['3,0,S', '3,1,W', '2,1,W', '0,1,N'],
   },
   // b # # A    B3, free: the board of P08 of the list, a long chain. Two rolls west bring a 2 up
   // # c # #    beside the 2 that stands. Then one die after another is rolled to the pair while it
@@ -345,8 +348,10 @@ export interface RoadHint {
 
 /**
  * The pieces that teach a move carry a line above the board, a hint and not an instruction (the
- * owner: «они скорее подсказка, а не наставление»): `R06` the chain, `R10` the way down from a
- * die that is leaving and up onto one, `R13` the way down and the push. The line of the walk over
+ * owner: «они скорее подсказка, а не наставление»): `R06` the chain, on the first board that asks
+ * for it (the line stays with the place: the boards of `R06` and `R07` changed places on 12
+ * October 2026), `R10` the way down from a die that is leaving and up onto one, `R13` the way
+ * down and the push. The line of the walk over
  * dice that are leaving (`roadHintWalk`) is no piece's now: its lesson went with the third edition.
  */
 export const ROAD_HINTS: Readonly<Record<string, RoadHint>> = {
@@ -423,12 +428,12 @@ export function roadPlace(road: string | undefined, firstPassed: boolean): numbe
 
 /**
  * The edition of the road. Its pieces were given their codes anew with the second, again with the
- * third, and again with the fourth: `R07` of the second is the lesson of the chain, of the third a
- * free piece; `R09` of the third is the walk as a short cut, of the fourth the mix of the chain. So
- * what a player of an edition before has kept under those codes is brought over by board
- * (`toRoadEdition`).
+ * third, with the fourth, and with the fifth: `R07` of the second is the lesson of the chain, of the
+ * third a free piece; `R09` of the third is the walk as a short cut, of the fourth the mix of the
+ * chain; `R06` and `R07` of the fourth changed places in the fifth. So what a player of an edition
+ * before has kept under those codes is brought over by board (`toRoadEdition`).
  */
-export const ROAD_EDITION = 4;
+export const ROAD_EDITION = 5;
 
 /** What was kept under the codes of the road: the codes of its pieces are `R` and two digits, and no level of the list has such a code. */
 const ROAD_CODE = /^R\d\d$/;
@@ -482,6 +487,15 @@ const THIRD_EDITION_PLACES: Readonly<Record<string, string>> = {
   R09: 'R09', R10: 'R09', R11: 'R10', R12: 'R12', R13: 'R13', R14: 'R14', R15: 'R15', R16: 'R16', R17: 'R17',
 };
 
+/**
+ * The boards of the fourth edition that are not where they were: the first two of the block of
+ * the chain changed places, by the word of the owner of 12 October 2026, so what was passed and
+ * counted on one is kept under the code of the other. Every other board has the code it had, and
+ * every place on the road is the place it was: one who stood on the sixth piece stands on the
+ * sixth, whichever of the two boards they have played.
+ */
+const FOURTH_EDITION_BOARDS: Readonly<Record<string, string>> = { R06: 'R07', R07: 'R06' };
+
 /** What is kept of a player that the road reads and writes: see `LevelProgress` in `src/platform/settings.ts`. */
 export interface RoadKept {
   passed: Record<string, boolean>;
@@ -494,10 +508,13 @@ export interface RoadKept {
  * Brings what is kept of a player to this edition of the road; what is of this edition already
  * is given back as it is.
  *
+ * From the fourth edition: what was passed and counted on the two boards that changed places goes
+ * with each to the code it has now (`FOURTH_EDITION_BOARDS`); the place is the place it was.
+ *
  * From the third edition: what was passed and counted on a board that is still played goes with
- * it to its code here (`THIRD_EDITION_BOARDS`); what was of the pieces that went is dropped, and
- * the levels of the list are left as they were. The place goes by `THIRD_EDITION_PLACES`, one past
- * the road stays past it, any other code leads to the first piece.
+ * it to its code in the fourth (`THIRD_EDITION_BOARDS`), and on from there; what was of the pieces
+ * that went is dropped, and the levels of the list are left as they were. The place goes by
+ * `THIRD_EDITION_PLACES`, one past the road stays past it, any other code leads to the first piece.
  *
  * From the second edition: first to the third as the third brought it (`SECOND_EDITION_BOARDS`,
  * the stars of `P08` and of `R10` each to where its board went; the place to the piece of the same
@@ -509,14 +526,15 @@ export interface RoadKept {
  */
 export function toRoadEdition<T extends RoadKept>(kept: T): T {
   if (kept.roadEdition === ROAD_EDITION) return kept;
-  const edition = kept.roadEdition === 2 || kept.roadEdition === 3 ? kept.roadEdition : 1;
+  const edition = kept.roadEdition === 2 || kept.roadEdition === 3 || kept.roadEdition === 4 ? kept.roadEdition : 1;
   // A board kept under a code it no longer has is moved to the code it has, edition by edition; any other code of the road is dropped.
   const boardOf = (code: string): string | undefined => {
     let at: string | undefined = code;
     if (edition === 1) return ROAD_CODE.test(code) ? undefined : code;
     if (edition === 2) at = SECOND_EDITION_BOARDS[code] ?? (ROAD_CODE.test(code) ? undefined : code);
     if (at === undefined || !ROAD_CODE.test(at)) return at;
-    return THIRD_EDITION_BOARDS[at];
+    if (edition <= 3) at = THIRD_EDITION_BOARDS[at];
+    return at === undefined ? undefined : (FOURTH_EDITION_BOARDS[at] ?? at);
   };
   const carried = <V>(all: Record<string, V>): Record<string, V> => {
     const out: Record<string, V> = {};
@@ -531,7 +549,7 @@ export function toRoadEdition<T extends RoadKept>(kept: T): T {
     if (edition === 1) {
       const place = ROAD_CODE.test(kept.road) ? Number(kept.road.slice(1)) : 0;
       moved.road = place > FIRST_EDITION_PIECES ? ROAD_END : ROAD[0].id;
-    } else {
+    } else if (edition !== 4) {
       const third = edition === 2 ? SECOND_EDITION_PLACES[kept.road] : kept.road;
       moved.road = (third === undefined ? undefined : THIRD_EDITION_PLACES[third]) ?? ROAD[0].id;
     }

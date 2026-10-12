@@ -24,7 +24,7 @@ describe('the plaques of the road', () => {
 
   it('stand over a lone two, one for each, and not over the dice that show no face of the piece', () => {
     expect(places(start('R03'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,1'] }]);
-    expect(places(start('R06'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,0'] }]);
+    expect(places(start('R07'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,0'] }]);
     // Two 2s apart and two dice that show 4s: a plaque over each of the 2s.
     expect(places(start('R05'))).toEqual([
       { value: 2, have: 1, need: 2, cells: ['1,1'] },
