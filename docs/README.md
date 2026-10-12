@@ -31,6 +31,7 @@
 | [VI_Levels_Progression_Research.md](VI_Levels_Progression_Research.md) | исследование | звёзды за ходы, предел ходов (живы), ворота глав (убраны) |
 | [VI_Levels_Onboarding_Research.md](VI_Levels_Onboarding_Research.md) | исследование | как учат в играх-ориентирах; замер прежних уровней |
 | [VI_Level_Generation_Deep_Research.md](VI_Level_Generation_Deep_Research.md) | исследование | генерация и режиссура первых уровней |
+| [VI_Level_Tool_Research.md](VI_Level_Tool_Research.md) | исследование | инструмент уровней: редактор, генерация и проверка; прежний опыт авторов головоломок, форма и порядок постройки |
 | [VI_Levels_Reference_Research.md](VI_Levels_Reference_Research.md) | исследование | разбор Color Sort, Blockudoku, Royal Match |
 | [VI_Levels_Constraints.md](VI_Levels_Constraints.md) | исследование | замер первой пробы 4 октября; вытеснено правилами |
 | [VI_TurnBased_Research.md](VI_TurnBased_Research.md) | исследование | пошаговые игры с источниками |
