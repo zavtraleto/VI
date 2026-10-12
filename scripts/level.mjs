@@ -23,6 +23,8 @@
 //   node scripts/level.mjs order preset=tricky par=4-6 out=boards/out/   boards laid for an order: a preset and the bounds
 //                                                       said after it (size= dice= faces= par= needs= avoid= quiet= events= tail=
 //                                                       ends= firsts= trap= trapdepth= hidden= far= last=); seconds=10, keep=5
+//   node scripts/level.mjs ratings                      what the owner answered after his plays: the boards called fire
+//                                                       beside those called a miss, measure by measure and preset by preset
 //   node scripts/level.mjs gen place=R05 out=boards/out/   boards laid for a place and judged by it, the ones that fit
 //                                                       written as files: seeds=200 from=1, mode=random|solution|route|both
 //                                                       (the place's own way unless said), keep=20 the most that are written
@@ -61,6 +63,7 @@ const COMMANDS = {
   gen: { keys: ['place', 'seeds', 'from', 'mode', 'keep', 'out', 'states', 'workers', 'share'], flags: ['json'] },
   // The keys of `order` are the words of an order, read by `orderOf`: any key is taken here and held against them there.
   order: { keys: null, flags: ['json'] },
+  ratings: { keys: [], flags: ['json'] },
 };
 
 /** Ends the script on what could not be read: said on stderr, code 2. */
@@ -250,6 +253,18 @@ if (command === 'show') {
     { order: orderText(order), tried, boards: written },
   );
   if (!written.some((board) => board.misses.length === 0)) process.exitCode = 1;
+} else if (command === 'ratings') {
+  // The plays written down beside the boards, every board's, with the answers given after them laid over.
+  const { mergePlays, ratingsOf, ratingsText } = await load('/src/lab/playLog.ts');
+  const dir = resolve(root, 'boards', '.history');
+  const plays = [];
+  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
+    const file = resolve(dir, name, 'plays.jsonl');
+    if (!existsSync(file)) continue;
+    plays.push(...mergePlays(readFileSync(file, 'utf8').split('\n').filter((line) => line.trim() !== '').map((line) => JSON.parse(line))));
+  }
+  const ratings = ratingsOf(plays);
+  print(ratingsText(ratings), { plays: plays.length, ...ratings });
 } else if (command === 'regress') {
   const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
   const { ROAD } = await load('/src/levels/road.ts');

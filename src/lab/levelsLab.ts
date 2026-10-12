@@ -19,7 +19,7 @@ import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
 import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Instant, type Later, type Offer, type Seconds } from './labFacts';
 import { OrderDesk } from './orderDesk';
-import { playRecordOf, versionSummary, type PlayRecord } from './playLog';
+import { mergePlays, playRecordOf, ratingsOf, ratingsText, versionSummary, type PlayPatch, type PlayRecord, type Rate } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 
 /** A change is written to its file this long after it is made, and after the last of several made together. */
@@ -50,6 +50,17 @@ interface Watched {
   par: number | null;
   /** The play has been written down: one that clears the board is, at once. */
   told: boolean;
+  /** The order the board was laid for, and what was known of it when the play began. */
+  order?: string;
+  measures: Record<string, number>;
+}
+
+/** The play the owner is asked about: which it was, and what he has said of it so far. */
+interface Asked {
+  name: string;
+  at: string;
+  ordered: boolean;
+  said: PlayPatch['patch'];
 }
 
 /** The head of a board that has just been begun: a board to clear on the face 2, the floor open. */
@@ -143,6 +154,10 @@ class LevelsLab {
   /** What the board on the board misses of the order it was laid for, and whether a board is being waited for. */
   private orderSays: string[] = [];
   private ordering = false;
+  /** The play that was last written down, while its answers are taken; and whether the ratings are shown in place of the facts. */
+  private asked: Asked | null = null;
+  private readonly askBar = document.createElement('div');
+  private showRatings: string | null = null;
   /** The play in hand, while the board is played. */
   private watched: Watched | null = null;
   /** The status every file says it has, for the list of the files. */
@@ -172,7 +187,8 @@ class LevelsLab {
     root.append(facts, stage);
     badge.style.cssText = `position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:900;display:none;padding:2px 10px;background:${palette.bg};color:${palette.dim};border:1px solid ${palette.faint};font:12px ${PROGRAM_FONT};pointer-events:none`;
     badge.textContent = 'E — расстановка · R — заново · Z — ход назад · N — снимок положения в новую доску';
-    document.body.append(root, badge);
+    this.askBar.style.cssText = `position:fixed;left:50%;top:32px;transform:translateX(-50%);z-index:900;display:none;padding:4px 12px;background:${palette.bg};color:${palette.ink};border:1px solid ${palette.ink};font:13px ${PROGRAM_FONT};pointer-events:none;white-space:nowrap`;
+    document.body.append(root, badge, this.askBar);
     this.editor = new BoardStage(boardBox, (x, z, y) => game.cellPoint(x, z, y), () => this.edited(true), (board) => this.present(board));
     this.compareEditor = new BoardEditor(this.compareBox, () => undefined);
     this.compareEditor.locked = true;
@@ -183,6 +199,12 @@ class LevelsLab {
       const typed = event.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName);
       if (typed) {
         event.stopImmediatePropagation();
+        return;
+      }
+      // The answers about the play just ended are taken first, in the editor and in the game alike.
+      if (this.asked && event.type === 'keydown' && !event.ctrlKey && !event.metaKey && !event.altKey && this.answer(event.code)) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
         return;
       }
       if (event.type === 'keydown' && event.code === 'KeyE' && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -265,6 +287,7 @@ class LevelsLab {
     board.add(form, 'note').name('заметка').onFinishChange(() => this.edited(false));
     board.add(form, 'status', [...BOARD_STATUSES]).name('статус').onChange(() => this.edited(false));
     this.copyControl = gui.add({ copy: () => void this.copy() }, 'copy').name(COPY_LABEL);
+    gui.add({ ratings: () => void this.toggleRatings() }, 'ratings').name('оценки: огонь против мимо');
     gui.add({ keep: () => this.keepSolved() }, 'keep').name('записать путь решателя в файл');
     const versions = gui.addFolder('Версии');
     this.versionControl = versions.add(this.versionForm, 'pick', []).name('версия');
@@ -604,7 +627,7 @@ class LevelsLab {
     let statuses: (BoardStatus | undefined)[] = [];
     try {
       versions = await historyOf(name);
-      plays = await playsOf<PlayRecord>(name);
+      plays = mergePlays(await playsOf<PlayRecord | PlayPatch>(name));
       statuses = await Promise.all(versions.map(async (version) => readBoardHead(await readVersion(name, version.file)).status));
     } catch (error) {
       console.error(error);
@@ -869,7 +892,11 @@ class LevelsLab {
    */
   private watch(): void {
     const seconds = this.seconds && typeof this.seconds !== 'string' ? this.seconds : null;
-    const of = { name: this.name, hash: boardHash(this.text(), this.name) ?? '', par: seconds?.check.par ?? this.spec?.par ?? null };
+    const note = this.extra.note ?? '';
+    const measures: Record<string, number> = { size: this.spec?.size ?? 0, dice: this.spec?.norm ?? 0, ...(seconds ? { firsts: seconds.firsts, states: seconds.check.states } : {}) };
+    const of = { name: this.name, hash: boardHash(this.text(), this.name) ?? '', par: seconds?.check.par ?? this.spec?.par ?? null, measures, ...(note.startsWith('заказ ') ? { order: note.slice('заказ '.length) } : {}) };
+    // A new play: what was being asked of the one before is asked no more.
+    this.ask(null);
     const begin = (): Watched => ({ ...of, state: this.inside.state, undos: this.inside.undosMade, startedAt: Date.now(), told: false });
     this.watched = null;
     const frame = (): void => {
@@ -910,7 +937,71 @@ class LevelsLab {
       for (const control of this.viewControls) control.updateDisplay();
       if (!this.playing) this.show();
     }
-    void addPlay(play.name, playRecordOf(play.state, play.startedAt, Date.now(), play.undos, play)).catch((error: Error) => console.error(error));
+    const record = { ...playRecordOf(play.state, play.startedAt, Date.now(), play.undos, play), measures: play.measures, ...(play.order ? { order: play.order } : {}) };
+    void addPlay(play.name, record).catch((error: Error) => console.error(error));
+    this.ask({ name: play.name, at: record.at, ordered: play.order !== undefined, said: {} });
+  }
+
+  /** Begins to ask of a play, or stops asking: the line of the keys is shown over the page while a play is asked of. */
+  private ask(asked: Asked | null): void {
+    this.asked = asked;
+    this.askBar.style.display = asked ? 'block' : 'none';
+    if (!asked) return;
+    const { said } = asked;
+    const mark = (on: boolean, text: string): string => (on ? `[${text}]` : text);
+    this.askBar.textContent = [
+      `${mark(said.rate === 'fire', '1 огонь')} ${mark(said.rate === 'ok', '2 норм')} ${mark(said.rate === 'miss', '3 мимо')}`,
+      ...(asked.ordered ? [`то, что заказано: ${mark(said.asOrdered === true, 'Y да')} ${mark(said.asOrdered === false, 'N нет')}`] : []),
+      mark(said.fresh === true, 'U было новое'),
+      mark(said.more === true, 'M хочу ещё'),
+    ].join('  ·  ');
+  }
+
+  /**
+   * A key pressed while a play is asked of; true where it was an answer. An answer is written
+   * down at once, as a line laid over its play, and may be given again: the last one stands.
+   * The first rate sets the status of the board, where the board is still the one in hand.
+   */
+  private answer(code: string): boolean {
+    const { asked } = this;
+    if (!asked) return false;
+    const rates: Record<string, Rate> = { Digit1: 'fire', Digit2: 'ok', Digit3: 'miss', Numpad1: 'fire', Numpad2: 'ok', Numpad3: 'miss' };
+    let patch: PlayPatch['patch'];
+    if (rates[code]) patch = { rate: rates[code] };
+    else if (asked.ordered && code === 'KeyY') patch = { asOrdered: true };
+    // In a play `N` makes a board of the position; once the play is over there is no position to keep, and it is the answer.
+    else if (asked.ordered && code === 'KeyN' && (!this.playing || this.inside.state.over)) patch = { asOrdered: false };
+    else if (code === 'KeyU') patch = { fresh: !asked.said.fresh };
+    else if (code === 'KeyM') patch = { more: !asked.said.more };
+    else return false;
+    asked.said = { ...asked.said, ...patch };
+    void addPlay(asked.name, { at: asked.at, patch }).catch((error: Error) => console.error(error));
+    this.ask(asked);
+    if (patch.rate && asked.name === this.name && !this.editor.locked && this.moment === null) {
+      this.form.status = patch.rate === 'fire' ? 'fire' : patch.rate === 'ok' ? 'good' : 'miss';
+      for (const control of this.gui.controllersRecursive()) control.updateDisplay();
+      this.edited(false);
+    }
+    return true;
+  }
+
+  /** Shows what the answers come to, over all the boards, in place of the facts; again, and the facts are back. */
+  private async toggleRatings(): Promise<void> {
+    if (this.showRatings !== null) {
+      this.showRatings = null;
+      this.show();
+      return;
+    }
+    const all: PlayRecord[] = [];
+    for (const name of this.names) {
+      try {
+        all.push(...mergePlays(await playsOf<PlayRecord | PlayPatch>(name)));
+      } catch {
+        // A board with no plays written down.
+      }
+    }
+    this.showRatings = ratingsText(ratingsOf(all));
+    this.show();
   }
 
   /**
@@ -1000,7 +1091,8 @@ class LevelsLab {
     else if (this.orderSays.length > 0) lines.push('', ...this.orderSays, desk.searching || desk.waiting > 0 ? `в запасе: ${desk.exact} точных, всего ${desk.waiting}${desk.searching ? ', ищу ещё…' : ''}` : '');
     if (!this.editor.locked && displaySpecOf(this.editor.current, this.head).stand === 'lent') lines.push('', 'Старта нет: фигурка на поле стоит условно.', 'Перетащите ○ из списка на кость или на пол.');
     if (this.error) lines.push('', this.error, ...(this.editor.locked ? ['', 'Файл не читается как доска: править его надо в самом файле. Страница его не перезапишет.'] : []));
-    lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : [...this.compareLines(), ...this.factLines()]));
+    if (this.showRatings !== null) lines.push('', this.showRatings, '', '(кнопка «оценки» ещё раз — назад к доске)');
+    else lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : [...this.compareLines(), ...this.factLines()]));
     lines.push('', 'кость из списка — на клетку', 'кость с поля — на другую клетку,', '  за край поля — убрать', 'стрелки — прокатить выбранную на месте', 'колесо — повернуть вокруг верха', 'F — фикс. · L — уходящая · H — вырез', 'P — старт · Del, правая кнопка — убрать', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
     this.facts.textContent = lines.join('\n');
     this.showRibbon();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ROAD } from '../levels/road';
 import { createRun, defaultConfig } from '../rules';
 import { moveOf, tryWay } from '../rules/levelSolver';
-import { playRecordOf, versionSummary, type PlayRecord } from './playLog';
+import { mergePlays, playRecordOf, ratingsOf, ratingsText, versionSummary, type PlayRecord } from './playLog';
 
 const R03 = ROAD[2];
 const OF = { hash: 'abcd1234', par: 2 };
@@ -36,5 +36,37 @@ describe('versionSummary', () => {
   it('has no middle where nothing cleared the board, or the fewest moves were not known', () => {
     expect(versionSummary([])).toEqual({ plays: 0, passed: 0, overMedian: null });
     expect(versionSummary([play('failed', 3), play('passed', 6, null)])).toEqual({ plays: 2, passed: 1, overMedian: null });
+  });
+});
+
+describe('the answers after a play', () => {
+  const play = (at: string, moves: number, extra: Partial<PlayRecord> = {}): PlayRecord => ({ id: 'H01', hash: 'h', at, result: 'passed', moves, par: 4, undos: 0, deadEnd: null, seconds: 10, ...extra });
+  it('lays an answer given later over its play, the last answer over the first', () => {
+    const plays = mergePlays([play('a', 4), play('b', 6), { at: 'a', patch: { rate: 'ok' } }, { at: 'a', patch: { rate: 'fire', more: true } }, { at: 'nowhere', patch: { rate: 'miss' } }]);
+    expect(plays).toHaveLength(2);
+    expect(plays[0]).toMatchObject({ at: 'a', rate: 'fire', more: true });
+    expect(plays[1].rate).toBeUndefined();
+  });
+  it('sets the boards called fire beside those called a miss, measure by measure', () => {
+    const ratings = ratingsOf([
+      play('a', 4, { rate: 'fire', measures: { dice: 5 } }),
+      play('b', 6, { rate: 'fire', measures: { dice: 4 } }),
+      play('c', 9, { rate: 'miss', measures: { dice: 7 } }),
+      play('d', 5),
+    ]);
+    expect(ratings.rated).toBe(3);
+    expect(ratings.byMeasure.over).toEqual({ fire: { plays: 2, least: 0, middle: 1, most: 2 }, miss: { plays: 1, least: 5, middle: 5, most: 5 } });
+    expect(ratings.byMeasure.dice.fire).toEqual({ plays: 2, least: 4, middle: 4.5, most: 5 });
+    expect(ratingsText(ratings)).toContain('оценённых партий: 3');
+  });
+  it('counts, preset by preset, how often a board was what was ordered', () => {
+    const ratings = ratingsOf([
+      play('a', 4, { order: 'preset=tricky size=4', asOrdered: true, rate: 'fire', more: true }),
+      play('b', 4, { order: 'preset=tricky size=4', asOrdered: false }),
+      play('c', 4, { order: 'preset=tricky size=4', fresh: true }),
+      play('d', 4, { order: 'size=4 dice=5' }),
+    ]);
+    expect(ratings.byPreset).toEqual({ tricky: { plays: 3, asked: 2, yes: 1, fire: 1, more: 1, fresh: 1 } });
+    expect(ratingsText(ratingsOf([]))).toContain('оценок пока нет');
   });
 });
