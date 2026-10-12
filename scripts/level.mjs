@@ -23,6 +23,9 @@
 //   node scripts/level.mjs order preset=tricky par=4-6 out=boards/out/   boards laid for an order: a preset and the bounds
 //                                                       said after it (size= dice= faces= par= needs= avoid= quiet= events= tail=
 //                                                       ends= firsts= trap= trapdepth= hidden= far= last=); seconds=10, keep=5
+//   node scripts/level.mjs complete file=H01 pinned=1.1,3.2 preset=flow   the dice named stay, the rest are laid for the order
+//   node scripts/level.mjs repair file=H01 par=4-4 needs=link   the nearest board that meets the order, by the fewest changes
+//                                                       (both: seconds=10, out=<file> to write the board; pinned= dice left alone)
 //   node scripts/level.mjs ratings                      what the owner answered after his plays: the boards called fire
 //                                                       beside those called a miss, measure by measure and preset by preset
 //   node scripts/level.mjs gen place=R05 out=boards/out/   boards laid for a place and judged by it, the ones that fit
@@ -64,6 +67,8 @@ const COMMANDS = {
   // The keys of `order` are the words of an order, read by `orderOf`: any key is taken here and held against them there.
   order: { keys: null, flags: ['json'] },
   ratings: { keys: [], flags: ['json'] },
+  complete: { keys: null, flags: ['json'] },
+  repair: { keys: null, flags: ['json'] },
 };
 
 /** Ends the script on what could not be read: said on stderr, code 2. */
@@ -253,6 +258,42 @@ if (command === 'show') {
     { order: orderText(order), tried, boards: written },
   );
   if (!written.some((board) => board.misses.length === 0)) process.exitCode = 1;
+} else if (command === 'complete' || command === 'repair') {
+  // The board of file= worked on by an order: the words that are not the script's own are the order's.
+  const own = ['file', 'pinned', 'seconds', 'out'];
+  const { orderOf, orderText } = await load('/src/levels/orders.ts');
+  const { completeFor, repairFor } = await load('/src/levels/orderSearch.ts');
+  const { spec } = loadBoard();
+  let order;
+  try {
+    order = orderOf(Object.entries(named).filter(([key]) => !own.includes(key)).map(([key, value]) => `${key}=${value}`).join(' '));
+  } catch (error) {
+    refuse(error.message);
+  }
+  // pinned=1.1,3.2 names the dice that stay as they are, each by its x and z.
+  const pinned = (named.pinned ?? '').split(',').filter(Boolean).map((cell) => {
+    const [x, z] = cell.split('.').map(Number);
+    if (!Number.isInteger(x) || !Number.isInteger(z)) refuse(`${command}: "pinned=${named.pinned}" is not cells as 1.1,3.2`);
+    return { x, z };
+  });
+  const budgetMs = (number('seconds') ?? 10) * 1000;
+  const found = command === 'complete' ? completeFor(order, spec, pinned, { budgetMs, keep: 1 }).offers : repairFor(order, spec, pinned, { budgetMs, keep: 1 }).mended;
+  const best = found[0];
+  if (!best) {
+    console.error(`${command}: no board found for ${orderText(order)}`);
+    process.exit(1);
+  }
+  const text = printBoard(best.spec, { status: 'idea', note: `заказ ${orderText(order)}` });
+  if (named.out) {
+    const out = resolve(process.cwd(), named.out);
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, text);
+  }
+  print(
+    [named.out ? resolve(process.cwd(), named.out) : text, ...(best.edits ? [`changed: ${best.edits.join('; ') || 'nothing'}`] : []), best.misses.length === 0 ? `${command}: the board meets the order` : `${command}: the board misses: ${best.misses.join('; ')}`].join('\n'),
+    { order: orderText(order), par: best.par, misses: best.misses, edits: best.edits ?? null, text },
+  );
+  if (best.misses.length > 0) process.exitCode = 1;
 } else if (command === 'ratings') {
   // The plays written down beside the boards, every board's, with the answers given after them laid over.
   const { mergePlays, ratingsOf, ratingsText } = await load('/src/lab/playLog.ts');

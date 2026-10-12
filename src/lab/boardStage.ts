@@ -54,6 +54,8 @@ export class BoardStage {
   private carried: Carried | null = null;
   /** A press on a die of the board that may yet become a drag. */
   private pressed: { at: { x: number; z: number }; px: number; py: number } | null = null;
+  /** The dice the owner has pinned, by their cells: what a generator asked to build about them, or to mend the board, leaves as it is. No file keeps them. */
+  private pinned = new Set<string>();
   /** The face a fixed die of the list is put with: the face of the die last taken. */
   private lastTop = 2;
 
@@ -62,6 +64,8 @@ export class BoardStage {
     private readonly project: Project,
     private readonly onChange: (board: EditBoard) => void,
     private readonly present: (board: EditBoard) => void,
+    /** Told when a die is pinned or let go. */
+    private readonly onPin: () => void = () => undefined,
   ) {
     const { canvas, palette } = this;
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;outline:none;cursor:default;touch-action:none';
@@ -169,6 +173,17 @@ export class BoardStage {
     this.onChange(next);
   }
 
+  /** The cells of the dice that are pinned: a pin on a cell with no die any more is no pin. */
+  get pins(): { x: number; z: number }[] {
+    const pins: { x: number; z: number }[] = [];
+    this.board.cells.forEach((row, z) => row.forEach((cell, x) => cell.kind === 'die' && this.pinned.has(`${x},${z}`) && pins.push({ x, z })));
+    return pins;
+  }
+
+  setPins(cells: readonly { x: number; z: number }[]): void {
+    this.pinned = new Set(cells.map(({ x, z }) => `${x},${z}`));
+  }
+
   /** What is drawn over the board of what the solver says; null for nothing. */
   setOverlay(overlay: Overlay | null): void {
     this.overlay = overlay;
@@ -193,7 +208,12 @@ export class BoardStage {
     const picked = this.selected;
     if (ARROWS[event.code] && picked) this.change(rollDie(board, picked.x, picked.z, ARROWS[event.code]));
     else if (!at) return false;
-    else if (event.code === 'KeyH') this.change(toggleHole(board, at.x, at.z));
+    else if (event.code === 'KeyK') {
+      if (cellAt(board, at.x, at.z)?.kind !== 'die') return true;
+      const key = `${at.x},${at.z}`;
+      if (!this.pinned.delete(key)) this.pinned.add(key);
+      this.onPin();
+    } else if (event.code === 'KeyH') this.change(toggleHole(board, at.x, at.z));
     else if (event.code === 'KeyF') this.change(toggleFixed(board, at.x, at.z));
     else if (event.code === 'KeyP') this.change(setStart(board, at.x, at.z));
     else if (event.code === 'KeyL') this.change(cycleLeaving(board, at.x, at.z, this.sink));
@@ -320,12 +340,13 @@ export class BoardStage {
     // What the scene of the game does not say of a board being drawn: the marks of a file.
     board.cells.forEach((row, z) =>
       row.forEach((cell, x) => {
-        if (cell.kind !== 'die' || (!cell.fixed && !cell.leaving)) return;
+        const pin = this.pinned.has(`${x},${z}`);
+        if (cell.kind !== 'die' || (!cell.fixed && !cell.leaving && !pin)) return;
         const at = this.project(x, z, 1.25);
         ctx.fillStyle = cell.leaving ? palette.signal : palette.ink;
         ctx.font = `13px ${PROGRAM_FONT}`;
         ctx.textAlign = 'center';
-        ctx.fillText(`${cell.fixed ? 'F' : ''}${cell.leaving ? `~${cell.leaving}` : ''}`, at.x - box.left, at.y - box.top);
+        ctx.fillText(`${pin ? 'K' : ''}${cell.fixed ? 'F' : ''}${cell.leaving ? `~${cell.leaving}` : ''}`, at.x - box.left, at.y - box.top);
       }),
     );
 

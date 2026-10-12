@@ -16,8 +16,8 @@ import { diffOf } from '../levels/labText';
 import { addPlay, historyOf, listBoards, onBoardChanged, playsOf, readBoard, readVersion, writeBoard } from './boardsClient';
 import { boardHash, type Version } from './boardsServer';
 import { copyText } from './clipboard';
-import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
-import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Instant, type Later, type Offer, type Seconds } from './labFacts';
+import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, rawSpecOf, resize, textOf, type EditBoard } from './editBoard';
+import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Fixed, type Instant, type Later, type Offer, type Seconds } from './labFacts';
 import { OrderDesk } from './orderDesk';
 import { mergePlays, playRecordOf, ratingsOf, ratingsText, versionSummary, type PlayPatch, type PlayRecord, type Rate } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
@@ -154,6 +154,10 @@ class LevelsLab {
   /** What the board on the board misses of the order it was laid for, and whether a board is being waited for. */
   private orderSays: string[] = [];
   private ordering = false;
+  /** The worker that builds a board about pinned dice or mends one; where it begins its next building; the cells its last answer changed. */
+  private readonly askFix = new SolveClient<Question<'complete'> | Question<'repair'>, Fixed>(solver);
+  private completeFrom = 1;
+  private foundMarks: { x: number; z: number }[] = [];
   /** The play that was last written down, while its answers are taken; and whether the ratings are shown in place of the facts. */
   private asked: Asked | null = null;
   private readonly askBar = document.createElement('div');
@@ -189,7 +193,7 @@ class LevelsLab {
     badge.textContent = 'E — расстановка · R — заново · Z — ход назад · N — снимок положения в новую доску';
     this.askBar.style.cssText = `position:fixed;left:50%;top:32px;transform:translateX(-50%);z-index:900;display:none;padding:4px 12px;background:${palette.bg};color:${palette.ink};border:1px solid ${palette.ink};font:13px ${PROGRAM_FONT};pointer-events:none;white-space:nowrap`;
     document.body.append(root, badge, this.askBar);
-    this.editor = new BoardStage(boardBox, (x, z, y) => game.cellPoint(x, z, y), () => this.edited(true), (board) => this.present(board));
+    this.editor = new BoardStage(boardBox, (x, z, y) => game.cellPoint(x, z, y), () => this.edited(true), (board) => this.present(board), () => this.keepPins());
     this.compareEditor = new BoardEditor(this.compareBox, () => undefined);
     this.compareEditor.locked = true;
     this.buildPanel();
@@ -349,6 +353,8 @@ class LevelsLab {
     form.trap = 'any-way';
     folder.add({ lay: () => void this.layOrder() }, 'lay').name('предложить доску');
     folder.add({ more: () => void this.layOrder() }, 'more').name('ещё');
+    folder.add({ complete: () => this.fix('complete') }, 'complete').name('достроить вокруг закреплённых (K)');
+    folder.add({ repair: () => this.fix('repair') }, 'repair').name('починить под заказ');
     for (const control of this.orderControls) control.updateDisplay();
   }
 
@@ -424,6 +430,77 @@ class LevelsLab {
     await this.keepOrdered(order, offer);
   }
 
+  /** The pins of the board in hand are kept by its name, in the page's own store: no file of a board says them. */
+  private keepPins(): void {
+    if (this.name === '') return;
+    try {
+      window.localStorage.setItem(`vi.lab.pins.${this.name}`, JSON.stringify(this.editor.pins));
+    } catch {
+      // No store: the pins live as long as the page.
+    }
+  }
+
+  private readPins(): void {
+    let pins: { x: number; z: number }[] = [];
+    try {
+      pins = JSON.parse(window.localStorage.getItem(`vi.lab.pins.${this.name}`) ?? '[]') as { x: number; z: number }[];
+    } catch {
+      pins = [];
+    }
+    this.editor.setPins(Array.isArray(pins) ? pins : []);
+  }
+
+  /**
+   * Asks the generator to work on the board in hand by the order on the panel: to lay the rest
+   * of its dice about those that are pinned, or to mend it with as few changes as will do. What
+   * comes back is put on the board as a change like any other, one step to take back, and the
+   * cells it changed are framed until the board is changed again. An answer about a board that
+   * has been changed since it was asked is dropped.
+   */
+  private fix(kind: 'complete' | 'repair'): void {
+    if (this.name === '' || this.editor.locked || this.moment !== null) return;
+    let order: Order;
+    try {
+      order = this.orderOfForm();
+    } catch (error) {
+      this.orderSays = [(error as Error).message];
+      this.show();
+      return;
+    }
+    const board = this.editor.current;
+    const { par: _par, exact: _exact, solution: _solution, ...head } = this.head;
+    const spec = rawSpecOf(board, head);
+    const pinned = this.editor.pins;
+    this.orderSays = [kind === 'complete' ? `достраиваю вокруг закреплённых (${pinned.length})…` : 'чиню под заказ…'];
+    this.show();
+    const question = kind === 'complete' ? ({ tier: 'complete', order, spec, pinned, from: this.completeFrom } as const) : ({ tier: 'repair', order, spec, pinned } as const);
+    this.askFix.ask(question).then(
+      (answer) => {
+        if (this.editor.current !== board) return;
+        const best = answer.kind === 'complete' ? answer.offers[0] : answer.mended[0];
+        if (answer.kind === 'complete') this.completeFrom = answer.next;
+        if (!best) {
+          this.orderSays = [`${kind === 'complete' ? 'достроить' : 'починить'}: ни одной доски за ${answer.tried} попыток`];
+          this.show();
+          return;
+        }
+        const found = editBoardOf(best.spec);
+        const marks: { x: number; z: number }[] = [];
+        found.cells.forEach((row, z) => row.forEach((cell, x) => JSON.stringify(cell) !== JSON.stringify(board.cells[z]?.[x]) && marks.push({ x, z })));
+        this.editor.change(found);
+        this.foundMarks = marks;
+        const how = answer.kind === 'repair' ? [`изменено: ${answer.mended[0].edits.join('; ') || 'ничего — доска уже держит заказ'}`] : [`достроено, попыток ${answer.tried}`];
+        this.orderSays = [...how, ...(best.misses.length === 0 ? ['доска держит всё, что заказано'] : ['не держит:', ...best.misses.map((miss) => `  ${miss}`)]), 'Ctrl+Z — вернуть как было'];
+        this.show();
+      },
+      (error: Error) => {
+        if (error.message === CANCELLED) return;
+        this.orderSays = [error.message];
+        this.show();
+      },
+    );
+  }
+
   private async keepOrdered(order: Order, offer: OrderOffer): Promise<void> {
     const stem = order.preset ?? 'order';
     let number = 1;
@@ -493,6 +570,7 @@ class LevelsLab {
   private edited(board: boolean): void {
     if (this.name === '' || this.editor.locked) return;
     if (board) {
+      this.foundMarks = [];
       // A board that is brought back to one whose way is known, by a step taken back or by hand, has its way again.
       const { par: _par, exact: _exact, solution: _solution, ...rest } = this.head;
       this.head = { ...rest, ...this.ways.get(textOf(this.editor.current, rest)) };
@@ -791,6 +869,11 @@ class LevelsLab {
       this.head = shown;
       this.extra = readBoardHead(text);
       this.editor.show(editBoardOf(shown), sameBoard);
+      if (!sameBoard) {
+        this.readPins();
+        this.foundMarks = [];
+        this.completeFrom = 1;
+      }
       this.keepWay();
       // A board laid by the generator and not yet looked at is played before anything is said of it.
       const note = this.extra.note ?? '';
@@ -1093,12 +1176,12 @@ class LevelsLab {
     if (this.error) lines.push('', this.error, ...(this.editor.locked ? ['', 'Файл не читается как доска: править его надо в самом файле. Страница его не перезапишет.'] : []));
     if (this.showRatings !== null) lines.push('', this.showRatings, '', '(кнопка «оценки» ещё раз — назад к доске)');
     else lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : [...this.compareLines(), ...this.factLines()]));
-    lines.push('', 'кость из списка — на клетку', 'кость с поля — на другую клетку,', '  за край поля — убрать', 'стрелки — прокатить выбранную на месте', 'колесо — повернуть вокруг верха', 'F — фикс. · L — уходящая · H — вырез', 'P — старт · Del, правая кнопка — убрать', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
+    lines.push('', 'кость из списка — на клетку', 'кость с поля — на другую клетку,', '  за край поля — убрать', 'стрелки — прокатить выбранную на месте', 'колесо — повернуть вокруг верха', 'F — фикс. · L — уходящая · H — вырез', 'P — старт · Del, правая кнопка — убрать', 'K — закрепить для генератора', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
     this.facts.textContent = lines.join('\n');
     this.showRibbon();
-    const changed = this.against && this.spec ? diffOf(this.against.spec, this.spec).cells.map(({ x, z }) => ({ x, z })) : [];
+    const changed = this.against && this.spec ? diffOf(this.against.spec, this.spec).cells.map(({ x, z }) => ({ x, z })) : this.foundMarks;
     const overlay = this.overlayOf();
-    this.editor.setOverlay(this.against && !this.views.blind ? { arrows: [], sensitive: [], spare: [], ...overlay, changed } : overlay);
+    this.editor.setOverlay((this.against || changed.length > 0) && !this.views.blind ? { arrows: [], sensitive: [], spare: [], ...overlay, changed } : overlay);
     if (this.against) this.compareEditor.setOverlay({ arrows: [], sensitive: [], spare: [], changed });
   }
 
