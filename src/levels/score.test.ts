@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { moveOf, tryWay } from '../rules/levelSolver';
 import { partsOf } from '../rules/levelProof';
 import { scoreOf } from '../rules/levelScore';
-import { LEVELS, SPARES } from './levels';
+import { LEVELS, PARKED, SPARES } from './levels';
 import { silenceOf, tailOf } from './measures';
 
 describe('the score of the levels of the game', () => {
   it('counts the longest pause and the tail as the solver and the measures of a board do', () => {
-    for (const level of [...LEVELS, ...SPARES]) {
+    for (const level of [...LEVELS, ...PARKED, ...SPARES]) {
       const way = level.solution!.map(moveOf);
       const told = tryWay(level, way);
       const score = scoreOf(level, way);
@@ -23,7 +23,7 @@ describe('the score of the levels of the game', () => {
   });
 
   it('gives every level a route in the signs of a route, and ends every way with an event', () => {
-    for (const level of [...LEVELS, ...SPARES]) {
+    for (const level of [...LEVELS, ...PARKED, ...SPARES]) {
       const score = scoreOf(level, level.solution!.map(moveOf));
       expect(score.route, level.id).toMatch(/^[KLOPQUv!^~ ]+$/);
       // The move that clears a board is the one that sends its last dice off.
@@ -34,7 +34,7 @@ describe('the score of the levels of the game', () => {
   });
 
   it('calls a route by its kind as its signs read: on top with no floor in it, a bridge with a walk over a leaving combo, and the floor by what is done from it', () => {
-    for (const level of [...LEVELS, ...SPARES]) {
+    for (const level of [...LEVELS, ...PARKED, ...SPARES]) {
       const score = scoreOf(level, level.solution!.map(moveOf));
       const floor = /[vPQU^]/.test(score.route);
       if (score.kind === 'top') expect(score.route, level.id).toMatch(/^[KLO ]+$/);

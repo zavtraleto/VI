@@ -9,7 +9,7 @@ import { createRun, step } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
 import { levelId } from './generate';
-import { LEVELS, SPARES } from './levels';
+import { LEVELS, PARKED, SPARES } from './levels';
 import { decoyOf, islandsOf, silenceOf, tailOf, underOf } from './measures';
 import { chaptersOf, ladderProgress, limitedLevel } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
@@ -17,9 +17,9 @@ import { lessonsAt } from './rules';
 import { sameBoard } from './variety';
 
 /**
- * The list of the levels, whatever boards it holds: it is the probe, a level for every place and
- * in the order of the places, and every board is what its place asks for as far as that is cheap
- * to ask. What takes a search of its own for every board - the parts of a route with no way
+ * The list of the levels, whatever boards it holds: levels of the probe in the order the owner
+ * gave them on 12 October 2026, the rest of the probe parked beside it, and every board is what
+ * its place asks for as far as that is cheap to ask. What takes a search of its own for every board - the parts of a route with no way
  * round, the trap of order, the count of the faces - is proved when a board is picked
  * (`select.ts`), and not here.
  */
@@ -27,9 +27,13 @@ import { sameBoard } from './variety';
 /** The place a board is for, by the name of its level. */
 const placeOf = (spec: LevelSpec): Recipe | undefined => PLACES.find((place) => levelId(place) === spec.id);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
-const ALL: readonly LevelSpec[] = [...LEVELS, ...SPARES];
+/** The list as the owner ordered it on 12 October 2026 (docs/VI_Levels_Playtest_2026-10-12.md, section 4). */
+const ORDER = ['P13', 'P04', 'P09', 'P02', 'P14', 'P03', 'P20', 'P16', 'P07', 'P01', 'P12', 'P08', 'P06', 'P05', 'P17', 'P15', 'P19'];
+/** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
+const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
+const ALL: readonly LevelSpec[] = [...LEVELS, ...PARKED, ...SPARES];
 /** The level that is a board of the road and not of its place: P08 is R10 of the second edition of the road (levels.ts). */
-const FROM_ROAD = LEVELS[7];
+const FROM_ROAD = LEVELS.find((level) => level.id === 'P08')!;
 /** The levels and the boards in reserve that are boards of their places. */
 const OF_PLACE: readonly LevelSpec[] = ALL.filter((level) => level !== FROM_ROAD);
 
@@ -88,14 +92,14 @@ function offPlace(level: LevelSpec, place: Recipe): string[] {
 }
 
 describe('the levels of the game', () => {
-  it('are the probe: thirty, a level for every place, named as the places are and in their order', () => {
-    expect(LEVELS.map((level) => level.id)).toEqual(PLACES.map(levelId));
-    expect(LEVELS.map((level) => level.id)).toEqual(Array.from({ length: 30 }, (_, index) => `P${String(index + 1).padStart(2, '0')}`));
+  it('are levels of the probe in the order of the owner, each a level of a place', () => {
+    expect(LEVELS.map((level) => level.id)).toEqual(ORDER);
+    for (const level of [...LEVELS, ...PARKED]) expect(placeOf(level), level.id).toBeDefined();
   });
 
-  it('are twenty on square boards, and after them ten on boards with cells cut out', () => {
-    expect(LEVELS.slice(0, 20).filter((level) => level.holes !== undefined).map((level) => level.id)).toEqual([]);
-    expect(LEVELS.slice(20).filter((level) => (level.holes?.length ?? 0) === 0).map((level) => level.id)).toEqual([]);
+  it('keep parked the levels that wait, and have P11 nowhere', () => {
+    expect(PARKED.map((level) => level.id)).toEqual(WAITING);
+    expect(ALL.filter((level) => level.id === 'P11')).toEqual([]);
   });
 
   it('keep in reserve boards of those places, three to a place at the most', () => {
@@ -258,8 +262,9 @@ describe('the levels of the game', () => {
     const boards = ALL.map((level) => JSON.stringify(level.layout));
     expect(new Set(boards).size).toBe(boards.length);
     // Seen from above: the cells of the dice, the faces on top, the die of the start.
-    LEVELS.forEach((level, index) => {
-      for (const other of LEVELS.slice(index + 1)) expect(sameBoard(level, other), `${level.id} and ${other.id}`).toBe(false);
+    const played = [...LEVELS, ...PARKED];
+    played.forEach((level, index) => {
+      for (const other of played.slice(index + 1)) expect(sameBoard(level, other), `${level.id} and ${other.id}`).toBe(false);
     });
   });
 });

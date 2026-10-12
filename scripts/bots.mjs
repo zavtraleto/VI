@@ -5,7 +5,7 @@
 //
 //   node scripts/bots.mjs                    the table of the levels
 //   node scripts/bots.mjs only=P05,P06       some of the levels
-//   node scripts/bots.mjs spares             the boards in reserve as well
+//   node scripts/bots.mjs spares             the levels that are parked and the boards in reserve as well
 //   node scripts/bots.mjs level=P06          one level in full: its board, its score move by move, every player
 //   node scripts/bots.mjs climb=on           the levels played by the rule of the floor as it was, and as a session
 //                                            still has it: a die that cannot be pushed is climbed from the floor.
@@ -38,7 +38,7 @@ for (const arg of args) {
   if (!arg.includes('=') && !['spares', 'edits'].includes(arg)) throw new Error(`cannot read "${arg}": the words are spares and edits`);
 }
 
-const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
+const { LEVELS, PARKED, SPARES } = await load('/src/levels/levels.ts');
 const { report, reportRow, REPORT_HEAD, REPORT_PLAYERS, layOut, scoreText } = await load('/src/rules/levelReport.ts');
 const { boardText } = await load('/src/levels/generate.ts');
 const { moveText } = await load('/src/rules/levelSolver.ts');
@@ -92,7 +92,7 @@ function full(spec) {
   return lines.join('\n');
 }
 
-const all = flag('spares') ? [...LEVELS, ...SPARES] : LEVELS;
+const all = flag('spares') ? [...LEVELS, ...PARKED, ...SPARES] : LEVELS;
 
 if (flag('edits')) {
   const { probeEdits } = await load('/src/levels/edits.ts');
