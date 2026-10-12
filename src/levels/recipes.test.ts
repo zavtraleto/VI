@@ -29,15 +29,16 @@ describe('the chapters of the levels', () => {
 });
 
 describe('the places of the probe', () => {
-  it('are thirty, named and numbered in their order, all of the one chapter: twenty on square boards, then ten on boards with cells cut out', () => {
+  it('are thirty, named and numbered in their order, all of the one chapter: twenty of the first batch, square but for the strip of P02, then ten on boards with cells cut out', () => {
     expect(PLACES).toHaveLength(30);
     expect(PLACES.map(levelId)).toEqual(PLACES.map((_, index) => name(index)));
     expect(PLACES.map((place) => place.slot)).toEqual(PLACES.map((_, index) => index + 1));
     for (const place of PLACES) expect(place.chapter, place.id).toBe(0);
     // The two batches do not mix: the levels that were published keep their numbers.
-    expect(PLACES.slice(0, 20)).toEqual(SQUARE);
-    expect(PLACES.slice(20)).toEqual(UNUSUAL);
-    expect(UNUSUAL).toHaveLength(10);
+    // P02 was narrowed to a strip by the word of the owner of 12 October 2026: the one board of the first batch that is not a square.
+    expect(PLACES.slice(0, 20).filter((place) => !SQUARE.includes(place)).map(levelId)).toEqual(['P02']);
+    expect(PLACES.slice(20, 30).filter((place) => !UNUSUAL.includes(place))).toEqual([]);
+    expect(UNUSUAL).toHaveLength(11);
   });
 
   it('say what the player is to feel, each in its own words', () => {

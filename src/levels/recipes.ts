@@ -204,6 +204,17 @@ const PROBE: Pick<Recipe, 'chapter' | 'compact' | 'tail' | 'silence' | 'random'>
 const ON_TOP: Pick<Recipe, 'avoid'> = { avoid: ['floor', 'ones'] };
 
 /**
+ * The cells cut out of a board, read off its picture: a row of the picture is a row of the
+ * board from the north, `#` is a cell and `.` a cell that is not there.
+ */
+export function cutFrom(picture: readonly string[]): [number, number][] {
+  return picture.flatMap((row, z) => [...row].flatMap((sign, x): [number, number][] => (sign === '#' ? [] : [[x, z]])));
+}
+
+/** A board four cells long and two wide, across the middle of its square: the two pairs of the first bridge have nowhere else to be. */
+const STRIP = cutFrom(['....', '####', '####', '....']);
+
+/**
  * The places of the probe: ten forms, two boards of each that differ in the face or in the
  * board. A form is what the player is to feel; its route is where the player is on the way: up
  * on the dice, down on the floor, on a combo that is leaving. The forms and what tells each
@@ -213,7 +224,8 @@ const ON_TOP: Pick<Recipe, 'avoid'> = { avoid: ['floor', 'ones'] };
  * take turns with those played under the count.
  *
  * `brief` names the form in a word and what the board is to make of it. These twenty are on
- * square boards; the ten after them are on boards of other shapes (`UNUSUAL`).
+ * square boards, but for `P02`, narrowed to a strip by the word of the owner of 12 October 2026;
+ * the ten after them are on boards of other shapes (`UNUSUAL`).
  */
 const SQUARE: readonly Recipe[] = [
   {
@@ -223,7 +235,7 @@ const SQUARE: readonly Recipe[] = [
     brief: 'collapse: three quiet moves and more, then everything goes in the last two',
   },
   {
-    slot: 2, id: 'P02', ...PROBE, ...ON_TOP, size: 4, dice: 4, faces: [2], par: [2, 5],
+    slot: 2, id: 'P02', ...PROBE, ...ON_TOP, size: 4, holes: STRIP, dice: 4, faces: [2], par: [2, 5],
     scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 2, by: 'roll', moves: [1, 2] }],
     kinds: ['bridge'], parts: ['bridge'], islands: 2,
     brief: 'bridge: the second pair is come to over the first while it is leaving',
@@ -337,14 +349,6 @@ const SQUARE: readonly Recipe[] = [
     brief: 'a long chain of 3s: four links',
   },
 ];
-
-/**
- * The cells cut out of a board, read off its picture: a row of the picture is a row of the
- * board from the north, `#` is a cell and `.` a cell that is not there.
- */
-export function cutFrom(picture: readonly string[]): [number, number][] {
-  return picture.flatMap((row, z) => [...row].flatMap((sign, x): [number, number][] => (sign === '#' ? [] : [[x, z]])));
-}
 
 /*
  * A board that is longer than it is wide lies across the middle of its square: the picture of the
