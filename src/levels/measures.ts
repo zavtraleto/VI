@@ -217,6 +217,27 @@ export function trapOf(spec: LevelSpec, maxStates = TRAP_MAX_STATES): 'floor' | 
   return found;
 }
 
+/** Boards a search may see to say that a board cannot be cleared after a first move. */
+const SAFE_FIRST_MAX_STATES = 150_000;
+
+/**
+ * No first move loses the board: after any move the rules offer at the start, the board can
+ * still be cleared, in however many moves. A trap may wait further on, and not at the first
+ * step. A board the search could not settle is taken to be cleared: only a search that saw every
+ * board says a first move loses.
+ */
+export function safeFirstOf(spec: LevelSpec, maxStates = SAFE_FIRST_MAX_STATES): boolean {
+  const start = startOf(spec);
+  for (const move of movesAt(start)) {
+    const after = playMove(start, move);
+    if (after.endReason === 'passed') continue;
+    if (after.over) return false;
+    const { solution, exhausted } = solveFrom(after, { maxStates });
+    if (!solution && exhausted) return false;
+  }
+  return true;
+}
+
 /**
  * Whether the board is cleared within so many moves with one face alone at work. A board the
  * search could not settle is said to be: only a search that saw every board says it is not.

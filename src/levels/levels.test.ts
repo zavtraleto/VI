@@ -10,7 +10,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
 import { levelId } from './generate';
 import { LEVELS, PARKED, SPARES } from './levels';
-import { decoyOf, islandsOf, silenceOf, tailOf, underOf } from './measures';
+import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, underOf } from './measures';
 import { chaptersOf, ladderProgress, limitedLevel } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
 import { lessonsAt } from './rules';
@@ -240,6 +240,16 @@ describe('the levels of the game', () => {
       if (!place) continue;
       expect(offPlace(level, place), `${level.id}, seed ${level.seed}`).toEqual([]);
     }
+  });
+
+  it('lose no board by the first move where the place asks it: the trap of P17 and of P19 waits further on', () => {
+    const asked = LEVELS.filter((level) => placeOf(level)?.safeFirst);
+    expect(asked.map((level) => level.id).sort()).toEqual(['P17', 'P19']);
+    for (const level of asked) expect(safeFirstOf(level), level.id).toBe(true);
+    // The board P19 had before, kept in reserve, is what the owner played on 12 October: lost by a first move.
+    const before = SPARES.filter((spare) => spare.id === 'P19' && spare.seed === 30263);
+    expect(before).toHaveLength(1);
+    for (const spare of before) expect(safeFirstOf(spare), `${spare.id}, seed ${spare.seed}`).toBe(false);
   });
 
   it('hold one board of the road: P08 is R10 of the second edition, played by the rules of the list, and its place is not asked of it', () => {

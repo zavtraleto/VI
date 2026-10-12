@@ -5,7 +5,7 @@ import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec, Technique } from '../rules/types';
 import { FROM_SOLUTION, SKETCH, boardText, builtWay, candidate } from './generate';
-import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, startsUnder, tailOf, trapOf, turnsOf, underOf } from './measures';
+import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, safeFirstOf, silenceOf, startsUnder, tailOf, trapOf, turnsOf, underOf } from './measures';
 import { boundsOf, type Recipe } from './recipes';
 import { walkBoards, type Walk } from './walk';
 
@@ -260,6 +260,7 @@ export function judge(recipe: Recipe, seed: number, opts: JudgeOptions = {}): Ve
     if (trap === null) return no('no combo at hand that loses the board');
     if (recipe.trap === 'floor' && trap !== 'floor') return no('no combo at hand that leaves the player nowhere to step');
   }
+  if (recipe.safeFirst && !safeFirstOf(board)) return no('the first move loses the board');
   if (recipe.bothFaces && recipe.faces.some((face) => oneFaceClears(board, face, par + 2, Math.min(maxStates, PROOF_MAX_STATES)))) return no('one face clears the board alone');
   // The boards the player can come to are walked and solved from: dear, but dearer if the board were not turned away before.
   let walk: Walk | null = null;

@@ -29,8 +29,8 @@ describe('the chapters of the levels', () => {
 });
 
 describe('the places of the probe', () => {
-  it('are thirty, named and numbered in their order, all of the one chapter: twenty of the first batch, square but for the strip of P02, then ten on boards with cells cut out', () => {
-    expect(PLACES).toHaveLength(30);
+  it('are thirty and one, named and numbered in their order, all of the one chapter: twenty of the first batch, square but for the strip of P02, ten on boards with cells cut out, and the breather added since', () => {
+    expect(PLACES).toHaveLength(31);
     expect(PLACES.map(levelId)).toEqual(PLACES.map((_, index) => name(index)));
     expect(PLACES.map((place) => place.slot)).toEqual(PLACES.map((_, index) => index + 1));
     for (const place of PLACES) expect(place.chapter, place.id).toBe(0);
@@ -39,6 +39,10 @@ describe('the places of the probe', () => {
     expect(PLACES.slice(0, 20).filter((place) => !SQUARE.includes(place)).map(levelId)).toEqual(['P02']);
     expect(PLACES.slice(20, 30).filter((place) => !UNUSUAL.includes(place))).toEqual([]);
     expect(UNUSUAL).toHaveLength(11);
+    // P31 is the place of P13 once more: what it asks of a board is the same, and only its name and its line differ.
+    const { slot: _slot, id: _id, brief: _brief, ...breather } = PLACES[30];
+    const { slot: _slot13, id: _id13, brief: _brief13, ...collapse } = PLACES[12];
+    expect(breather).toEqual(collapse);
   });
 
   it('say what the player is to feel, each in its own words', () => {

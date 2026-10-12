@@ -163,6 +163,8 @@ export interface Recipe {
    * `floor`: it does so by leaving the player on it with no die to step to.
    */
   trap?: 'any' | 'floor';
+  /** After any first move the board can still be cleared: a trap of the place is not sprung by the first move. */
+  safeFirst?: boolean;
   /** No one face of the level clears the board alone within two moves over the fewest. */
   bothFaces?: boolean;
   /** At the start a combo of one face lacks a single die, and on the way kept a die of it goes showing another face. */
@@ -327,7 +329,7 @@ const SQUARE: readonly Recipe[] = [
   {
     slot: 17, id: 'P17', ...PROBE, ...ON_TOP, compact: true, size: 4, dice: 7, faces: [3, 4], par: [3, 7],
     scenes: [{ event: 'combo', face: 4, by: 'roll', moves: [1, 2], loose: 1 }, { event: 'combo', face: 3, by: 'roll', moves: [1, 2] }],
-    kinds: ['top', 'bridge'], bothFaces: true, decoy: true,
+    kinds: ['top', 'bridge'], bothFaces: true, decoy: true, safeFirst: true,
     brief: 'the count of channels: seven dice are a four and a three',
   },
   {
@@ -339,7 +341,7 @@ const SQUARE: readonly Recipe[] = [
   {
     slot: 19, id: 'P19', ...PROBE, size: 4, dice: 6, faces: [3], par: [3, 6],
     scenes: [{ event: 'combo', face: 3, by: 'roll', moves: [1, 2] }, { event: 'combo', face: 3, by: 'push', apart: true }],
-    kinds: ['downLast', 'downAndUp', 'other'], trap: 'floor', traps: [0.3, 1],
+    kinds: ['downLast', 'downAndUp', 'other'], trap: 'floor', traps: [0.3, 1], safeFirst: true,
     brief: 'a trap of order by the floor: the three at hand leaves the player with nowhere to step',
   },
   {
@@ -435,8 +437,21 @@ const UNUSUAL: readonly Recipe[] = [
   },
 ];
 
-/** The places of the levels, in the order of the list: the batch on square boards, then the one on boards of other shapes. */
-export const PLACES: readonly Recipe[] = [...SQUARE, ...UNUSUAL];
+/**
+ * Places added to the probe after it was played: a level the list needed and no place of the two
+ * batches gave. `P31` is the place of `P13` once more, for a breather after the hardest levels.
+ */
+const EXTRA: readonly Recipe[] = [
+  {
+    slot: 31, id: 'P31', ...PROBE, ...ON_TOP, compact: true, size: 4, dice: 6, faces: [6], par: [4, 7],
+    scenes: [{ event: 'combo', face: 6, by: 'roll', moves: [2, 3], loose: 1, looseMoves: [1, 2] }],
+    kinds: ['top'], quiet: [3, 6], counted: [1, 1], last: [6, 6], movers: 2,
+    brief: 'a breather after the peak: six dice go in one move, the sixes mostly up',
+  },
+];
+
+/** The places of the levels: the batch on square boards, the one on boards of other shapes, and the places added since. */
+export const PLACES: readonly Recipe[] = [...SQUARE, ...UNUSUAL, ...EXTRA];
 
 /** The bounds of a place as a list: what is measured, and from what to what it may be. */
 export function boundsOf(recipe: Recipe): { what: 'par' | 'depth' | 'traps' | 'random'; from: number; to: number }[] {
