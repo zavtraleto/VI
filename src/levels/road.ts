@@ -12,13 +12,13 @@ import type { Dir, LevelSpec } from '../rules/types';
  * played the second and the third. `R01` to `R05` teach the roll, the faces and the combo; `R06`
  * to `R09` the chain; `R10` to `R12` the dice that are leaving; `R13` to `R16` the floor and the push.
  *
- * A lesson is the piece that brings a move, with a line above the board. `R01`, `R02`, `R10` and
- * `R13` are boards cut to few cells, and none of them can be lost: the dice that wait are fixed,
- * but for the die of the second pair and the stair of `R10`, and the pair of 2s and the two 3s of
- * `R13`, whose fixed 3 is the one they are pushed to.
- * The lesson of the chain (`R06`) is an open board of three dice that all roll: the first pair
- * is the player's own to find, and the chain missed leaves one die alone, a dead end said at
- * once. The camera sees the south and the east side of a die, and the face of a lesson's combo
+ * A lesson is the piece that brings a move, with a line above the board. `R01`, `R02` and `R10`
+ * are boards cut to few cells, and none of them can be lost: the dice that wait are fixed, but for
+ * the die of the second pair and the stair of `R10`. The lesson of the chain (`R06`) is an open
+ * board of three dice that all roll: the first pair is the player's own to find, and the chain
+ * missed leaves one die alone, a dead end said at once. The lesson of the push (`R13`) is a whole
+ * board too, its one fixed die the 3 the two 3s are pushed to: a push amiss can lose it, and is
+ * taken back. The camera sees the south and the east side of a die, and the face of a lesson's combo
  * is on one of the two before the roll that brings it up.
  *
  * A free piece is a small level: a rectangle with no cell cut out of it, or a square with one
@@ -212,14 +212,15 @@ export const ROAD: readonly LevelSpec[] = [
     },
     par: 3, solution: ['2,3,N', '1,1,W', '2,1,W'],
   },
-  // # C # .    D1, the lesson of the way down and of the push. A roll west makes the 2s in the
-  // # # 3 #    corner, and the die under the player is leaving. One empty cell is beside it, the one
-  // # . . D    it came from: a step back is a step down. Two dice show their 3s and are pushed to
-  // B # A #    the 3 that waits, one north and one east, in either order: the one beyond the 2s is
-  //            come to over them while they leave. On the floor there is nothing else to push.
+  // # C # #    D1, the lesson of the way down and of the push, on a whole board. A roll west makes
+  // # # 3 #    the 2s in the corner, and the die under the player is leaving: a step off it is a step
+  // # # # D    down. Two dice show their 3s and are pushed to the 3 that waits, one north and one
+  // B # A #    east, in either order: the one beyond the 2s is come to over them while they leave.
+  //            The cells cut out of it were given back by the word of the owner of 12 October, the
+  //            dice where they were: on the floor there are other pushes now, some of them lead to a
+  //            dead end, and a move taken back undoes it.
   {
     ...COMMON, id: 'R13', seed: 8113, size: 4, values: [2, 3], faces: [2, 3], norm: 5, floor: true,
-    holes: [{ x: 3, z: 0 }, { x: 1, z: 2 }, { x: 2, z: 2 }],
     layout: {
       start: { x: 2, z: 3 },
       dice: [
@@ -352,10 +353,10 @@ type Wait = { blinkMs: number | null; signMs: number; wasted: number | null };
 
 /**
  * The lessons whose boards are few, a few dozen each, where the way is cheap to find after every
- * move: only they count the moves that led nowhere. The lesson of the chain (`R06`) is not among
- * them: it is an open board, and waits as a free piece does.
+ * move: only they count the moves that led nowhere. The lesson of the chain (`R06`) and that of
+ * the push (`R13`) are not among them: they are open boards, and wait as a free piece does.
  */
-export const ROAD_LESSONS: readonly string[] = ['R01', 'R02', 'R10', 'R13'];
+export const ROAD_LESSONS: readonly string[] = ['R01', 'R02', 'R10'];
 
 /** The first piece shows its sign from the start, and after a move brings it back in six seconds, or at once after three moves that led nowhere. */
 const FIRST_WAIT: Wait = { blinkMs: null, signMs: 6000, wasted: 3 };

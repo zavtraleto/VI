@@ -43,7 +43,7 @@ import {
 const DIRS: readonly Dir[] = ['N', 'E', 'S', 'W'];
 const LESSONS = ['R01', 'R02', 'R06', 'R10', 'R13'];
 /** The lessons cut to few cells, whose every board is walked. */
-const CUT_LESSONS = ['R01', 'R02', 'R10', 'R13'];
+const CUT_LESSONS = ['R01', 'R02', 'R10'];
 const FREE = ['R03', 'R04', 'R05', 'R07', 'R08', 'R11', 'R14', 'R15'];
 const MIXES = ['R09', 'R12', 'R16'];
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
@@ -258,9 +258,9 @@ describe('the road', () => {
     expect(cellsOf(pieceOf('R01'))).toEqual(['2,0', '2,1', '2,2', '2,3', '2,4', '2,5']);
     expect(cellsOf(pieceOf('R02'))).toEqual(['1,0', '2,0', '3,0', '1,1', '3,1', '3,2', '3,3', '3,4', '3,5']);
     expect(cellsOf(pieceOf('R10'))).toEqual(['2,0', '3,0', '0,1', '2,1', '3,1', '0,2', '1,2', '2,2', '0,3']);
-    expect(cellsOf(pieceOf('R13'))).toEqual(['0,0', '1,0', '2,0', '0,1', '1,1', '2,1', '3,1', '0,2', '3,2', '0,3', '1,3', '2,3', '3,3']);
-    // The lesson of the chain is an open board.
+    // The lesson of the chain and the lesson of the push are open boards.
     expect(pieceOf('R06').holes).toBeUndefined();
+    expect(pieceOf('R13').holes).toBeUndefined();
     // Three by three, three by four, four by three, and then four by four.
     expect(Object.fromEntries([...FREE, ...MIXES].sort().map((id) => [id, extentOf(pieceOf(id))]))).toEqual({
       R03: [3, 3], R04: [3, 4], R05: [4, 3], R07: [4, 4], R08: [4, 4], R09: [4, 4], R11: [4, 4], R12: [4, 4], R14: [4, 4], R15: [4, 4], R16: [4, 4],
@@ -385,7 +385,7 @@ describe('the lessons of the road', () => {
       seen[id] = [walk.boards, walk.worst, walk.lost];
     }
     // Boards, the most moves from any of them, and the boards that are lost.
-    expect(seen).toEqual({ R01: [5, 4, 0], R02: [10, 6, 0], R10: [21, 6, 0], R13: [33, 5, 0] });
+    expect(seen).toEqual({ R01: [5, 4, 0], R02: [10, 6, 0], R10: [21, 6, 0] });
     expect(ROAD_LESSONS).toEqual(CUT_LESSONS);
   });
 
@@ -480,11 +480,16 @@ describe('the lessons of the road', () => {
     expect(state.cubes.some((cube) => cube.x === 2 && cube.z === 1 && cube.state !== 'sinking')).toBe(false);
   });
 
-  it('R13: the pair of 2s in the corner, one empty cell beside the die under the player, and on the floor two pushes, in either order', () => {
+  it('R13: the pair of 2s in the corner on a whole board, down off it, and two pushes in either order; a push amiss is a dead end that is taken back', { timeout: 240_000 }, () => {
     const spec = pieceOf('R13');
+    // No cell is cut out of it (the owner, 12 October), and the dice are where they were when three were.
+    expect(spec.holes).toBeUndefined();
+    expect(extentOf(spec)).toEqual([4, 4]);
+    expect(spec.layout!.dice.map((die) => `${die.x},${die.z}`)).toEqual(['2,3', '0,3', '1,0', '3,2', '2,1']);
     expect(spec.floor).toBe(true);
     expect(spec.layout!.onFloor).toBeUndefined();
-    expect(parWithout(spec, 'push')).toBeNull();
+    // Without a push it takes ten moves, by the solver let run: the way is the two pushes.
+    expect(parWithout(spec, 'push')).toBe(10);
     // The one fixed die is the 3 the two are pushed to; the 2 in the corner and the two 3s are dice that roll.
     expect(spec.layout!.dice.map((die) => [die.top, die.fixed === true])).toEqual([[6, false], [2, false], [3, false], [3, false], [3, true]]);
     const state = start(spec);
@@ -492,32 +497,21 @@ describe('the lessons of the road', () => {
     go(state, 'W');
     // The die under the player has made the 2s with the one in the corner, and both are leaving.
     expect(state.cubes.filter((cube) => cube.state === 'sinking').map((cube) => `${cube.x},${cube.z}`).sort()).toEqual(['0,3', '1,3']);
-    // Beside the die under the player one cell is empty, the one it came from: a step back is the step down.
-    expect(DIRS.map((dir) => resolveMove(state, dir).kind)).toEqual(['blocked', 'descend', 'blocked', 'hop']);
+    // Beside the die under the player two cells are empty now: the one it came from, and the one to the north.
+    expect(DIRS.map((dir) => resolveMove(state, dir).kind)).toEqual(['descend', 'descend', 'blocked', 'hop']);
     // The other order: the 3 to the north of the floor first, then over the 2s while they leave to the other.
     const other = playKeys(spec, 'W:roll E:descend E:walk N:push S:walk W:walk W:mount W:hop N:descend N:walk N:walk E:push').state;
     expect(other.endReason).toBe('passed');
     expect(other.levelRun!.moves).toBe(3);
-    // Every board the player can come to is walked: the pushes made from the floor are these two and no other.
-    const pushes = new Set<string>();
-    const seen = new Set<string>();
-    const queue: RunState[] = [start(spec)];
-    for (let at = 0; at < queue.length; at++) {
-      const board = queue[at];
-      if (board.over) continue;
-      for (const dir of DIRS) {
-        const intent = resolveMove(board, dir);
-        if (intent.kind === 'blocked') continue;
-        if (intent.kind === 'push') pushes.add(`${board.player.x},${board.player.z},${dir}`);
-        const next = structuredClone(board);
-        go(next, dir);
-        const name = JSON.stringify([next.cubes.map((cube) => [cube.x, cube.z, cube.ori.top, cube.ori.north, cube.state, cube.t]), next.player]);
-        if (seen.has(name)) continue;
-        seen.add(name);
-        queue.push(next);
-      }
-    }
-    expect([...pushes].sort()).toEqual(['0,0,E', '3,3,N']);
+    // Near the start nothing is lost: the boards within two moves, the dead ends said at once, the boards lost and not
+    // said, the most moves from the rest.
+    expect(nearOf(spec)).toEqual([10, 0, 0, 5]);
+    // Further on the floor and the rolls the cells given back let make can lose it. The walk over the boards the player
+    // can come to, cut at 300 as the table of the road cuts it: 15 of them lost, the first four moves in (its own die
+    // rolled north into the cell that was cut out, the die to the east rolled after it, and so on), and all but one
+    // of them not said by the level at once; the most moves from a board not lost is eleven.
+    const walk = walkBoards(spec, 300);
+    expect([walk.boards, walk.lost, walk.capped, walk.unsettled, walk.worst, walk.example]).toEqual([300, 15, true, 0, 11, 'NENWSSW']);
   });
 });
 
@@ -768,7 +762,7 @@ describe('what a piece does when the player waits', () => {
   });
 
   it('blinks the plaque and shows the sign on every piece, and counts the moves wasted on the lessons cut to few cells alone', () => {
-    expect(ROAD_LESSONS).toEqual(['R01', 'R02', 'R10', 'R13']);
+    expect(ROAD_LESSONS).toEqual(['R01', 'R02', 'R10']);
     expect(ROAD_IDLE.R01).toEqual({ blinkMs: null, signMs: 6000, wasted: 3 });
     for (const spec of ROAD.slice(1)) {
       // A free piece, and the lesson of the chain on its open board, ask the solver for no count of wasted moves.
