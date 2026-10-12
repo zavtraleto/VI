@@ -723,8 +723,8 @@ describe('what the rules say', () => {
     const s = createRun({ seed: ROAD[1].seed, config: defaultConfig(), level: ROAD[1] });
     noteLaid(s, memory);
     const heard: Cue[] = [];
-    // Up the stair, over to the die beyond it, and the first roll: the stair goes with that move.
-    for (const dir of ['N', 'N', 'N'] as const) {
+    // Up the stair of two, over to the die beyond it, and two rolls: the lower stair goes with the first, the upper with the second.
+    for (const dir of ['N', 'N', 'N', 'N', 'N'] as const) {
       for (let i = 0; i <= s.config.actionTicks * 2; i++) {
         step(s, i === 0 ? dir : null);
         for (const event of s.events) heard.push(...cuesOfEvent(event, s, memory));
@@ -735,9 +735,9 @@ describe('what the rules say', () => {
 
   it('a die the board was laid with as leaving goes under on the note of its own face, though no group was said', () => {
     const sunk = stairHeard(new ScoreMemory());
-    expect(sunk.length).toBe(1);
-    // The stair of the second piece shows a six.
-    expect(sunk[0]).toMatchObject({ kind: 'sunk', face: 6 });
+    expect(sunk.length).toBe(2);
+    // Both dice of the stair of the second piece show a six.
+    for (const cue of sunk) expect(cue).toMatchObject({ kind: 'sunk', face: 6 });
   });
 
   it('keeps such a die in mind when its move is taken back: it is not forgotten once it has gone', () => {

@@ -314,6 +314,14 @@ export const BOARD_GROUPS = {
     leaveFirst: number(0.78, 0.3, 1, 0.01),
     leaveLast: number(0.12, 0, 0.5, 0.01),
     /**
+     * A stair, a die the board is laid with as leaving, stands this high while it has two moves
+     * left, and goes down to the last step with the first move as any die that leaves; a stair
+     * with one move left stands on the last step. So the stair of the second piece is two steps
+     * up from the floor (the owner, 12 October: «первая ступень — самое низкое положение кости.
+     * вторая ступень — посередине»).
+     */
+    stairMiddle: number(0.5, 0, 1, 0.01),
+    /**
      * The swipe sign: a small bright star that runs beside the die of the figure and leaves a
      * thin line behind it. How long the rays of the star are, in pixels of the picture; how much
      * of its run the line behind it stays lit for, 0 to 1; how long a run takes and how long

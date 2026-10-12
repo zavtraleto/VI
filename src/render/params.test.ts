@@ -86,6 +86,7 @@ describe('board params', () => {
       fixedEdge: 0.5,
       leaveFirst: 0.78,
       leaveLast: 0.12,
+      stairMiddle: 0.5,
       signStar: 4,
       signTrail: 0.6,
       signRunMs: 800,

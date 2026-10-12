@@ -133,9 +133,9 @@ export function signBody(state: RunState, values?: ParamValues): { x: number; y:
 
 /**
  * How high over the floor the figure stands, in dice: the top of the die under it as that die is
- * shown (`src/render/leaving.ts`), which is lower than a die for one that is leaving (the stair of
- * the second piece, with its last move left to it, is shown an eighth of a die high), and the floor
- * for a player on the floor. The sign stands beside a die as high as this.
+ * shown (`src/render/leaving.ts`), which is lower than a die for one that is leaving (the lower
+ * stair of the second piece, with its last move left to it, is shown an eighth of a die high, the
+ * upper half a die), and the floor for a player on the floor. The sign stands beside a die as high as this.
  */
 export function signHeight(state: RunState, values?: ParamValues): number {
   const { x, z, level } = state.player;

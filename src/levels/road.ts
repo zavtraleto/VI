@@ -74,20 +74,27 @@ export const ROAD: readonly LevelSpec[] = [
     layout: { start: { x: 2, z: 5 }, dice: [{ x: 2, z: 5, top: 2, north: 4 }, { x: 2, z: 0, top: 2, north: 1, fixed: true }] },
     par: 4, solution: ['2,5,N', '2,4,N', '2,3,N', '2,2,N'],
   },
-  // . 3 # #    A2, a lesson. The player on the floor, a die half down to the north of them for a
-  // . 3 . #    stair, and their own die beyond it. It rides three cells north with the 3 on its east
-  // . . . #    side all the way, and the turn to the west brings the 3 up beside the two that wait.
-  // . . . A
-  // . . . s
-  // . . . f
+  // . . 3 # # . .    A2, a lesson. The player on the floor, and to the north of them a stair of two
+  // . . 3 . # . .    dice: the lower laid as leaving in one move, near the floor, the upper in two,
+  // . . . . # . .    half way up. Up them to the own die beyond. It rides three cells north with the
+  // . . . . A . .    3 on its east side all the way, and the turn to the west brings the 3 up beside
+  // . . . . t . .    the two that wait. The lower stair goes with the first roll and the upper comes
+  // . . . . s . .    down to where the lower was; with the second it goes too. The stair of two is
+  // . . . . f . .    the owner's of 12 October; the strip is a cell longer for it, on a square of seven.
   {
-    ...COMMON, id: 'R02', seed: 8102, size: 6, values: [3], faces: [3], norm: 4, floor: true,
-    holes: cutAllBut(6, [[1, 0], [2, 0], [3, 0], [1, 1], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5]]),
+    ...COMMON, id: 'R02', seed: 8102, size: 7, values: [3], faces: [3], norm: 5, floor: true,
+    holes: cutAllBut(7, [[2, 0], [3, 0], [4, 0], [2, 1], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6]]),
     layout: {
-      start: { x: 3, z: 5 }, onFloor: true, leaving: [{ die: 0, moves: 1 }],
-      dice: [{ x: 3, z: 4, top: 6, north: 2 }, { x: 3, z: 3, top: 1, north: 2 }, { x: 1, z: 0, top: 3, north: 1, fixed: true }, { x: 1, z: 1, top: 3, north: 1, fixed: true }],
+      start: { x: 4, z: 6 }, onFloor: true, leaving: [{ die: 0, moves: 1 }, { die: 1, moves: 2 }],
+      dice: [
+        { x: 4, z: 5, top: 6, north: 2 },
+        { x: 4, z: 4, top: 6, north: 2 },
+        { x: 4, z: 3, top: 1, north: 2 },
+        { x: 2, z: 0, top: 3, north: 1, fixed: true },
+        { x: 2, z: 1, top: 3, north: 1, fixed: true },
+      ],
     },
-    par: 4, solution: ['3,3,N', '3,2,N', '3,1,N', '3,0,W'],
+    par: 4, solution: ['4,3,N', '4,2,N', '4,1,N', '4,0,W'],
   },
   // # # #      A3, free: the first board with nothing held. Two dice, and a pair of 2s is one combo.
   // # b #      The die under the player has its 2 on the south side, where it is seen: a roll to

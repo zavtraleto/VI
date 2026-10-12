@@ -159,8 +159,9 @@ describe('frameOfPiece', () => {
         const cells = first.map((spec) => frameOfPiece(shapeOf(spec), first, a, w, h, 0).cell);
         const alone = first.map((spec) => frameOfPiece(shapeOf(spec), [], a, w, h, 0).cell);
         for (const cell of cells) expect(cell).toBeCloseTo(Math.min(...alone), 9);
-        // No piece of the block is a square of six, and none is fitted as one.
-        expect(cells[0]).toBeGreaterThanOrEqual(frameOf(board(6), a, w, h, 0).cell - 1e-9);
+        // No piece of the block is a whole square, and none is fitted as one: the second piece is a strip on a square of
+        // seven, a cell longer than the first for its stair of two, and the block is never seen smaller than that square.
+        expect(cells[0]).toBeGreaterThanOrEqual(frameOf(board(7), a, w, h, 0).cell - 1e-9);
       }
     }
     // At a camera that looks from a corner the block is seen larger than the squares of six of its first two pieces made it.

@@ -81,7 +81,7 @@ function extentOf(spec: LevelSpec): [number, number] {
  */
 const KEYS: Readonly<Record<string, string>> = {
   R01: 'N:roll N:roll N:roll N:roll',
-  R02: 'N:mount N:hop N:roll N:roll N:roll W:roll',
+  R02: 'N:mount N:hop N:hop N:roll N:roll N:roll W:roll',
   R03: 'E:roll N:roll',
   R04: 'N:roll W:roll',
   R05: 'N:roll W:roll S:hop W:roll',
@@ -256,7 +256,7 @@ describe('the road', () => {
 
   it('is the boards of the pictures: a lesson is cells cut to its move, a free piece a whole rectangle', () => {
     expect(cellsOf(pieceOf('R01'))).toEqual(['2,0', '2,1', '2,2', '2,3', '2,4', '2,5']);
-    expect(cellsOf(pieceOf('R02'))).toEqual(['1,0', '2,0', '3,0', '1,1', '3,1', '3,2', '3,3', '3,4', '3,5']);
+    expect(cellsOf(pieceOf('R02'))).toEqual(['2,0', '3,0', '4,0', '2,1', '4,1', '4,2', '4,3', '4,4', '4,5', '4,6']);
     // The lesson of the chain, the lesson of the way down and up and the lesson of the push are open boards.
     expect(pieceOf('R06').holes).toBeUndefined();
     expect(pieceOf('R10').holes).toBeUndefined();
@@ -274,7 +274,8 @@ describe('the road', () => {
     }
     expect(pieceOf('R04').holes).toEqual([{ x: 3, z: 0 }, { x: 3, z: 1 }, { x: 3, z: 2 }, { x: 3, z: 3 }]);
     expect(pieceOf('R05').holes).toEqual([{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 2, z: 0 }, { x: 3, z: 0 }]);
-    expect(ROAD.map((spec) => spec.size)).toEqual([6, 6, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]);
+    // The second piece is a cell longer than the first for its stair of two, on a square of seven.
+    expect(ROAD.map((spec) => spec.size)).toEqual([6, 7, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]);
     // The floor is open where a piece starts on it or sends the player down to it.
     expect(ROAD.filter((spec) => spec.floor).map((spec) => spec.id)).toEqual(['R02', 'R10', 'R13', 'R14', 'R15', 'R16']);
   });
@@ -298,15 +299,20 @@ describe('the road', () => {
     }
   });
 
-  it('has a stair on the second piece, a die laid as leaving in one move, and starts the player on the floor there; and one on the lesson of the way up, in two moves', () => {
+  it('has a stair of two on the second piece, dice laid as leaving in one move and in two, and starts the player on the floor there; and one on the lesson of the way up, in two moves', () => {
     expect(ROAD.filter((spec) => spec.layout!.leaving).map((spec) => spec.id)).toEqual(['R02', 'R10']);
     expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02']);
     const { layout } = pieceOf('R02');
-    expect(layout!.leaving).toEqual([{ die: 0, moves: 1 }]);
-    // The stair is the cell to the north of the player, and is no die of the combo.
+    expect(layout!.leaving).toEqual([{ die: 0, moves: 1 }, { die: 1, moves: 2 }]);
+    // The lower stair is the cell to the north of the player, the upper the cell after it, and the own die the one after
+    // that; neither stair is a die of the combo.
     expect(layout!.dice[0]).toMatchObject({ x: layout!.start.x, z: layout!.start.z - 1 });
-    expect(layout!.dice[0].fixed).toBeUndefined();
-    expect(pieceOf('R02').faces).not.toContain(layout!.dice[0].top);
+    expect(layout!.dice[1]).toMatchObject({ x: layout!.start.x, z: layout!.start.z - 2 });
+    expect(layout!.dice[2]).toMatchObject({ x: layout!.start.x, z: layout!.start.z - 3 });
+    for (const stair of layout!.dice.slice(0, 2)) {
+      expect(stair.fixed).toBeUndefined();
+      expect(pieceOf('R02').faces).not.toContain(stair.top);
+    }
   });
 
   it('starts with no combo ready to go, and no die showing a 1 but the one that rides to its 3 on the second piece', () => {
@@ -385,7 +391,7 @@ describe('the lessons of the road', () => {
       seen[id] = [walk.boards, walk.worst, walk.lost];
     }
     // Boards, the most moves from any of them, and the boards that are lost.
-    expect(seen).toEqual({ R01: [5, 4, 0], R02: [10, 6, 0] });
+    expect(seen).toEqual({ R01: [5, 4, 0], R02: [13, 7, 0] });
     expect(ROAD_LESSONS).toEqual(CUT_LESSONS);
   });
 
@@ -403,20 +409,28 @@ describe('the lessons of the road', () => {
     expect(tops).toEqual([2, 3, 5, 4, 2]);
   });
 
-  it('R02: up by the die that is leaving, over, three rolls north with the 3 on the east side and the turn west', () => {
+  it('R02: up the stair of two that is leaving, over, three rolls north with the 3 on the east side and the turn west', () => {
     const spec = pieceOf('R02');
-    expect(spec.solution).toEqual(['3,3,N', '3,2,N', '3,1,N', '3,0,W']);
+    expect(spec.solution).toEqual(['4,3,N', '4,2,N', '4,1,N', '4,0,W']);
     const state = start(spec);
-    expect(state.player).toEqual({ x: 3, z: 5, level: 'ground' });
+    expect(state.player).toEqual({ x: 4, z: 6, level: 'ground' });
     go(state, 'N');
-    expect(state.player).toEqual({ x: 3, z: 4, level: 'top' });
+    expect(state.player).toEqual({ x: 4, z: 5, level: 'top' });
     go(state, 'N');
-    expect(state.player).toEqual({ x: 3, z: 3, level: 'top' });
+    expect(state.player).toEqual({ x: 4, z: 4, level: 'top' });
+    go(state, 'N');
+    expect(state.player).toEqual({ x: 4, z: 3, level: 'top' });
     expect(state.levelRun!.moves).toBe(0);
+    // Both stairs are still there before the first roll; the lower goes with it, the upper with the second.
+    const stairs = () => state.cubes.filter((cube) => cube.state === 'sinking').map((cube) => `${cube.x},${cube.z}`).sort();
+    expect(stairs()).toEqual(['4,4', '4,5']);
+    const left: string[][] = [];
     for (const dir of ['N', 'N', 'N'] as const) {
       go(state, dir);
+      left.push(stairs());
       expect(cubeAt(state, state.player.x, state.player.z)!.ori.east).toBe(3);
     }
+    expect(left).toEqual([['4,4'], [], []]);
     go(state, 'W');
     expect(state.endReason).toBe('passed');
     expect(state.levelRun!.moves).toBe(spec.par);
@@ -942,17 +956,17 @@ describe('the blocks of the road', () => {
 describe('the middle of a piece', () => {
   it('is the middle of the cells that are left of its square, which is what the camera is put over', () => {
     expect(pieceMiddle(pieceOf('R01'))).toEqual({ x: 2, z: 2.5 });
-    expect(pieceMiddle(pieceOf('R02'))).toEqual({ x: 2, z: 2.5 });
+    expect(pieceMiddle(pieceOf('R02'))).toEqual({ x: 3, z: 3 });
     expect(pieceMiddle(pieceOf('R03'))).toEqual({ x: 1, z: 1 });
     expect(pieceMiddle(pieceOf('R04'))).toEqual({ x: 1, z: 1.5 });
     expect(pieceMiddle(pieceOf('R05'))).toEqual({ x: 1.5, z: 2 });
-    expect(pieceMiddle(pieceOf('R10'))).toEqual({ x: 1.5, z: 1.5 });
   });
 
   it('is the middle of the square for a board with nothing cut out', () => {
     expect(pieceMiddle({ size: 5 })).toEqual({ x: 2, z: 2 });
     expect(pieceMiddle({ size: 4, holes: [] })).toEqual({ x: 1.5, z: 1.5 });
     expect(pieceMiddle(pieceOf('R06'))).toEqual({ x: 1.5, z: 1.5 });
+    expect(pieceMiddle(pieceOf('R10'))).toEqual({ x: 1.5, z: 1.5 });
   });
 });
 

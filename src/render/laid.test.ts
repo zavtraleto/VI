@@ -21,13 +21,17 @@ describe('the light of a die laid as leaving', () => {
     expect(laidFace(state)).toBe(6);
   });
 
-  it('is there while the die is: walked over it is still going, and gone with the first roll it is none', () => {
+  it('is there while a die is: walked over the stair of two is still going, with the first roll the upper is, and gone with the second it is none', () => {
     const state = start(ROAD[1]);
+    act(state, 'N');
     act(state, 'N');
     act(state, 'N');
     expect(laidFace(state)).toBe(6);
     act(state, 'N');
-    expect(state.cubes.some((cube) => cube.x === 3 && cube.z === 4)).toBe(false);
+    expect(state.cubes.some((cube) => cube.x === 4 && cube.z === 5)).toBe(false);
+    expect(laidFace(state)).toBe(6);
+    act(state, 'N');
+    expect(state.cubes.some((cube) => cube.x === 4 && cube.z === 4)).toBe(false);
     expect(laidFace(state)).toBe(0);
   });
 
@@ -45,8 +49,7 @@ describe('the light of a die laid as leaving', () => {
 
   it('is none for another die that is going on the cell the laid one stood on', () => {
     const state = start(ROAD[1]);
-    const stair = state.cubes.find((cube) => cube.state === 'sinking')!;
-    stair.ori = ori({ top: 3, north: 1 });
+    for (const stair of state.cubes.filter((cube) => cube.state === 'sinking')) stair.ori = ori({ top: 3, north: 1 });
     expect(laidFace(state)).toBe(0);
   });
 

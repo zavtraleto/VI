@@ -18,7 +18,7 @@ describe('the plaques of the road', () => {
   });
 
   it('stand over the pair of threes on the second piece and on the fourth', () => {
-    expect(places(start('R02'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['1,0', '1,1'] }]);
+    expect(places(start('R02'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['2,0', '2,1'] }]);
     expect(places(start('R04'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['0,1', '1,1'] }]);
   });
 
@@ -49,9 +49,9 @@ describe('the plaques of the road', () => {
 
   it('count a die the player stands beside, and not one that is going', () => {
     const state = start('R02');
-    const cube = state.cubes.find((c) => c.x === 1 && c.z === 1)!;
+    const cube = state.cubes.find((c) => c.x === 2 && c.z === 1)!;
     cube.state = 'sinking';
-    expect(places(state)).toEqual([{ value: 3, have: 1, need: 3, cells: ['1,0'] }]);
+    expect(places(state)).toEqual([{ value: 3, have: 1, need: 3, cells: ['2,0'] }]);
   });
 
   it('give none for a heap as large as its combo', () => {
