@@ -22,7 +22,8 @@
 //                                                       put there by hand, and by the word of the owner only
 //
 // file= is a path, or the name of a file in boards/ without its .txt, or the code of a board the
-// game has: a level of the list (P06) or a piece of the road (R03).
+// game has: a level of the list (P06) or a piece of the road (R03). A file of boards/ stands before
+// a board of the game of the same name: file=game:P06 asks for the board of the game.
 //   json          the answer as JSON with keys that stay, in place of the text
 //   states=N      boards the solver may see before it gives up
 // A word or a key that is not known is a mistake and is said. What is asked for goes to stdout;
@@ -85,6 +86,8 @@ function loadBoard(key = 'file') {
   if (!said) refuse(`${command}: name a board, as in ${key}=boards/H01.txt, ${key}=H01 or ${key}=P06`);
   const path = [resolve(process.cwd(), said), resolve(root, 'boards', `${said}.txt`)].find((candidate) => existsSync(candidate) && /\.txt$/i.test(candidate));
   try {
+    // A file of boards/ stands before a board of the game of the same name; `game:P06` asks for the board of the game.
+    if (said.startsWith('game:')) return { ...lab.boardFrom(said.slice(5)), head: {} };
     if (path) {
       const text = readFileSync(path, 'utf8');
       return { spec: parseBoard(text, said), head: readBoardHead(text), from: 'file', path };

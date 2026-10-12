@@ -35,6 +35,11 @@ if (lab === 'shell') {
   const game = new Game(document.getElementById('app')!);
   (window as unknown as { vi: Game }).vi = game;
   void import('./lab/juiceLab').then(({ startJuiceLab }) => startJuiceLab(game));
+} else if (lab === 'levels') {
+  // The lab of the levels: the game itself, with an editor of boards laid over it and a key that plays the board drawn.
+  const game = new Game(document.getElementById('app')!);
+  (window as unknown as { vi: Game }).vi = game;
+  void import('./lab/levelsLab').then(({ startLevelsLab }) => startLevelsLab(game));
 } else if (lab === 'sound') {
   // The lab for the sound: no game, a button for everything that can be heard and a panel of its parameters.
   void import('./lab/soundLab').then(({ startSoundLab }) => startSoundLab());

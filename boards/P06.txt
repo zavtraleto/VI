@@ -1,4 +1,5 @@
 id: P06
+status: idea
 faces: 2
 seed: 30282
 chapter: 0
