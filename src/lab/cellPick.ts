@@ -17,7 +17,8 @@ export function pickCell(points: readonly CellPoint[], at: { px: number; py: num
   let least = reach * reach;
   for (const point of points) {
     const far = (point.px - at.px) ** 2 + (point.py - at.py) ** 2;
-    if (far <= least) {
+    // The first of two as near is kept: the list is given with what is in front first.
+    if (far < least || (best === null && far <= least)) {
       least = far;
       best = point;
     }

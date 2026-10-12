@@ -8,12 +8,13 @@ import { moveOf, tryWay } from '../rules/levelSolver';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { BoardEditor, type Overlay } from './boardEditor';
+import { BoardStage } from './boardStage';
 import { boardSvg } from '../levels/boardSvg';
 import { diffOf } from '../levels/labText';
 import { addPlay, historyOf, listBoards, onBoardChanged, playsOf, readBoard, readVersion, writeBoard } from './boardsClient';
 import { boardHash, type Version } from './boardsServer';
 import { copyText } from './clipboard';
-import { SIZE_MAX, SIZE_MIN, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
+import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
 import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Instant, type Later, type Offer, type Seconds } from './labFacts';
 import { playRecordOf, versionSummary, type PlayRecord } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
@@ -76,7 +77,9 @@ class LevelsLab {
   private readonly facts = document.createElement('pre');
   private readonly badge = document.createElement('div');
   private readonly ribbon = document.createElement('div');
-  private readonly editor: BoardEditor;
+  private readonly editor: BoardStage;
+  /** The board the scene of the game shows, as text: a board is put on anew only when it is another. */
+  private presented = '';
   private readonly gui = new GUI({ title: 'VI · уровни' });
   private fileControl!: Controller;
   private copyControl!: Controller;
@@ -136,26 +139,27 @@ class LevelsLab {
   constructor(private readonly game: Game) {
     this.inside = game as unknown as Inside;
     const { root, facts, badge, palette } = this;
-    root.style.cssText = `position:fixed;inset:0;z-index:900;display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:minmax(0,1fr);padding-right:256px;box-sizing:border-box;background:${palette.bg};color:${palette.ink};font:13px/1.45 ${PROGRAM_FONT}`;
-    facts.style.cssText = `margin:0;padding:12px 14px;overflow:auto;white-space:pre-wrap;border-right:1px solid ${palette.faint};font:inherit;color:${palette.ink}`;
+    root.style.cssText = `position:fixed;inset:0;z-index:900;display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:minmax(0,1fr);padding-right:256px;box-sizing:border-box;pointer-events:none;color:${palette.ink};font:13px/1.45 ${PROGRAM_FONT}`;
+    // The middle of the page is clear: the board of the game is seen through it, and the stage over it takes the mouse.
+    facts.style.cssText = `margin:0;padding:12px 14px;overflow:auto;white-space:pre-wrap;pointer-events:auto;background:${palette.bg};border-right:1px solid ${palette.faint};font:inherit;color:${palette.ink}`;
     const stage = document.createElement('div');
     stage.style.cssText = 'position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden';
-    this.gallery.style.cssText = `position:absolute;inset:0;z-index:1;display:none;flex-wrap:wrap;align-content:flex-start;gap:10px;padding:12px;overflow:auto;background:${palette.bg}`;
+    this.gallery.style.cssText = `position:absolute;inset:0;z-index:1;pointer-events:auto;display:none;flex-wrap:wrap;align-content:flex-start;gap:10px;padding:12px;overflow:auto;background:${palette.bg}`;
     const boards = document.createElement('div');
     boards.style.cssText = 'display:flex;flex:1;min-height:0';
     const boardBox = document.createElement('div');
-    boardBox.style.cssText = 'position:relative;flex:1;min-width:0';
+    boardBox.style.cssText = 'position:relative;flex:1;min-width:0;pointer-events:auto';
     // The version the board is held against stands to the left of it, while one is.
     this.compareBox = document.createElement('div');
-    this.compareBox.style.cssText = `position:relative;flex:1;min-width:0;display:none;border-right:1px solid ${palette.faint}`;
+    this.compareBox.style.cssText = `position:relative;flex:0 0 38%;min-width:0;display:none;pointer-events:auto;background:${palette.bg};border-right:1px solid ${palette.faint}`;
     boards.append(this.compareBox, boardBox);
-    this.ribbon.style.cssText = `display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;min-height:30px;border-top:1px solid ${palette.faint}`;
+    this.ribbon.style.cssText = `display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;min-height:30px;pointer-events:auto;background:${palette.bg};border-top:1px solid ${palette.faint}`;
     stage.append(boards, this.ribbon, this.gallery);
     root.append(facts, stage);
     badge.style.cssText = `position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:900;display:none;padding:2px 10px;background:${palette.bg};color:${palette.dim};border:1px solid ${palette.faint};font:12px ${PROGRAM_FONT};pointer-events:none`;
-    badge.textContent = 'E — редактор · R — заново · Z — ход назад · N — снимок положения в новую доску';
+    badge.textContent = 'E — расстановка · R — заново · Z — ход назад · N — снимок положения в новую доску';
     document.body.append(root, badge);
-    this.editor = new BoardEditor(boardBox, () => this.edited(true));
+    this.editor = new BoardStage(boardBox, (x, z, y) => game.cellPoint(x, z, y), () => this.edited(true), (board) => this.present(board));
     this.compareEditor = new BoardEditor(this.compareBox, () => undefined);
     this.compareEditor.locked = true;
     this.buildPanel();
@@ -285,6 +289,21 @@ class LevelsLab {
   }
 
   /** The panel has changed something of the head of the level: its id, its faces, its floor, its moves. */
+  /**
+   * Puts a board on the board of the game to be looked at: the board as drawn where the rules
+   * lay it, and with the player lent a place where it has no start yet (`displaySpecOf`). A board
+   * the rules lay nothing of leaves the scene as it was; what is wrong is said beside it.
+   */
+  private present(board: EditBoard): void {
+    if (this.playing) return;
+    const { spec } = displaySpecOf(board, this.head);
+    if (!spec) return;
+    const text = printBoard(normalSpec(spec));
+    if (text === this.presented) return;
+    this.presented = text;
+    this.game.showBoard(spec);
+  }
+
   private headChanged(): void {
     this.showBoard();
     if (this.editor.locked) {
@@ -297,6 +316,7 @@ class LevelsLab {
     this.head = { ...rest, id: form.id.trim(), faces, values: [...faces], sinkMoves: form.sink, liftMoves: form.lift, ...(form.shut ? { floor: false } : {}) };
     this.editor.sink = form.sink;
     this.edited(true);
+    this.present(this.editor.current);
   }
 
   /**
@@ -681,7 +701,9 @@ class LevelsLab {
       this.gui.show();
       this.badge.style.display = 'none';
       this.inside.audio.setAway(true);
-      this.editor.draw();
+      // The board drawn is put back on the board of the game, as it was before it was played.
+      this.presented = '';
+      this.present(this.editor.current);
       this.editor.canvas.focus();
     }
   }
@@ -820,9 +842,10 @@ class LevelsLab {
     const lines: string[] = [];
     if (this.name === '') lines.push('нет досок: «новая доска» на панели');
     else lines.push(`boards/${this.name}.txt${this.saveTimer !== 0 ? '  …пишется' : ''}`);
+    if (!this.editor.locked && displaySpecOf(this.editor.current, this.head).stand === 'lent') lines.push('', 'Старта нет: фигурка на поле стоит условно.', 'Перетащите ○ из списка на кость или на пол.');
     if (this.error) lines.push('', this.error, ...(this.editor.locked ? ['', 'Файл не читается как доска: править его надо в самом файле. Страница его не перезапишет.'] : []));
     lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : [...this.compareLines(), ...this.factLines()]));
-    lines.push('', 'щелчок — кость / следующая грань', 'стрелки — прокатить на месте', 'правая кнопка, Del — очистить', 'H — вырез · Shift+щелчок — фикс.', 'P — старт · L — уходящая', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
+    lines.push('', 'кость из списка — на клетку', 'кость с поля — на другую клетку,', '  за край поля — убрать', 'стрелки — прокатить выбранную на месте', 'колесо — повернуть вокруг верха', 'F — фикс. · L — уходящая · H — вырез', 'P — старт · Del, правая кнопка — убрать', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
     this.facts.textContent = lines.join('\n');
     this.showRibbon();
     const changed = this.against && this.spec ? diffOf(this.against.spec, this.spec).cells.map(({ x, z }) => ({ x, z })) : [];
