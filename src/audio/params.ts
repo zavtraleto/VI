@@ -111,11 +111,11 @@ export const SOUND_GROUPS = {
   },
   lines: {
     /**
-     * The lines of a board as they are drawn and erased: thin tones that run with the points of
-     * light (`trace`), the dry ticks of a plotter (`ticks`), or both; how loud, and the octave
-     * over the root the tones set off from.
+     * The lines of a board as they are drawn and erased, step by step of their wave: a thin tone
+     * that runs with the points of light (`trace`), a dry tick as they come to their corners
+     * (`ticks`), or both; how loud, and the octave over the root the wave sets off from.
      */
-    linesStyle: choice('trace', ['trace', 'ticks', 'both']),
+    linesStyle: choice('both', ['both', 'trace', 'ticks']),
     linesGain: number(1, 0, 3, 0.05),
     linesOctave: number(1, 0, 3, 1),
   },

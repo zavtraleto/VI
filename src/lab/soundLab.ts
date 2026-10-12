@@ -3,7 +3,8 @@ import { chainTier, matchTier } from '../app/juice';
 import { CONTACT_STEPS } from '../app/ritual';
 import { AudioEngine } from '../audio/engine';
 import { SOUND_GROUPS, SOUND_PARAMS, soundChanged } from '../audio/params';
-import type { Cue } from '../audio/score';
+import { lineSteps, type Cue } from '../audio/score';
+import { gridSegments, waveFrom } from '../render/gridLines';
 import type { ParamSpec, ParamValues } from '../signal/scene';
 import { copyText } from './clipboard';
 
@@ -50,9 +51,9 @@ const LABELS: Record<string, string> = {
   toneShelfHz: 'полка: с какой частоты, Гц',
   toneShelfDb: 'полка: глубина, дБ (0 — как было)',
   toneCutHz: 'срез: с какой частоты, Гц',
-  linesStyle: 'чем звучат: росчерк, тики, оба',
+  linesStyle: 'чем звучат: оба, росчерк, тики',
   linesGain: 'громкость',
-  linesOctave: 'октава, с которой начинают',
+  linesOctave: 'октава, с которой начинает волна',
   droneGain: 'громкость (0 — фона нет)',
   droneCut: 'срез верхов фона, Гц',
   droneVerb: 'доля эха',
@@ -130,6 +131,17 @@ export function startSoundLab(): void {
   const halt = (): void => {
     for (const timer of timers) window.clearTimeout(timer);
     timers.length = 0;
+  };
+
+  /** The lines of a board of `size` cells a side with `holes` cut out, drawn (or erased) as a wave from the cell `from` over `ms`: step by step, as a passage plays them. */
+  const wave = (size: number, holes: { x: number; z: number }[], from: { x: number; z: number }, draw = true, ms = 1100): void => {
+    halt();
+    const steps = lineSteps(waveFrom(gridSegments(size, holes), from), size);
+    const of = steps.length - 1;
+    for (let i = 1; i <= of; i++) {
+      const step = draw ? i : of + 1 - i;
+      later(((i - 1) * ms) / of, () => fire({ kind: 'lines', draw, step, of, seconds: ms / 1000 / of, ...steps[step], last: step === of }));
+    }
   };
 
   const group = (face: number, count: number, pan = head.place): Cue => ({ kind: 'group', face, count, tier: matchTier(count), pan });
@@ -247,12 +259,13 @@ export function startSoundLab(): void {
     stars: () => {
       for (let index = 0; index < 3; index++) later(index * 190, () => fire({ kind: 'star', index }));
     },
-    linesIn: () => fire({ kind: 'lines', draw: true, seconds: 1.1 }),
-    lines: () => {
-      // The lines of a board go, and those of the next come, as a passage has them.
-      halt();
-      fire({ kind: 'lines', draw: false, seconds: 0.7 });
-      later(1600, () => fire({ kind: 'lines', draw: true, seconds: 1.1 }));
+    linesMiddle: () => wave(5, [], { x: 2, z: 2 }),
+    linesCorner: () => wave(5, [], { x: 0, z: 4 }),
+    linesLarge: () => wave(7, [], { x: 6, z: 3 }),
+    linesStrip: () => wave(4, [0, 1, 2, 3].flatMap((x) => [{ x, z: 0 }, { x, z: 3 }]), { x: 0, z: 1 }),
+    linesBoth: () => {
+      wave(5, [], { x: 2, z: 2 }, false, 700);
+      later(1600, () => wave(5, [], { x: 1, z: 3 }));
     },
     drone: () => {
       head.drone = !head.drone;
@@ -408,8 +421,11 @@ export function startSoundLab(): void {
   levels.add(actions, 'relaid').name('Рестарт уровня');
   levels.add(actions, 'failed').name('Уровень проигран, тупик');
   levels.add(actions, 'stars').name('Звёзды встали');
-  levels.add(actions, 'linesIn').name('Линии новой доски рисуются');
-  levels.add(actions, 'lines').name('Смена доски: линии уходят и приходят');
+  levels.add(actions, 'linesMiddle').name('Линии: поле 5×5 из центра');
+  levels.add(actions, 'linesCorner').name('Линии: поле 5×5 из угла');
+  levels.add(actions, 'linesLarge').name('Линии: поле 7×7 с правого края');
+  levels.add(actions, 'linesStrip').name('Линии: полоса 4×2 с левого конца');
+  levels.add(actions, 'linesBoth').name('Смена доски: линии уходят и приходят');
   const drone = levels.add(actions, 'drone').name('Фон уровня: включить');
   levels.add(actions, 'droneRolls').name('Фон и игра поверх него');
 

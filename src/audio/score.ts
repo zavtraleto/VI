@@ -1,6 +1,7 @@
 import type { Beat } from '../app/juice';
 import { CONTACT_STEPS } from '../app/ritual';
 import { cubeAt, getCube, type GameEvent, type RunState } from '../rules';
+import type { GridSegment } from '../render/gridLines';
 import type { ParamValues } from '../signal/scene';
 import { soundNumber } from './params';
 import { COMMA, chainDegree, degreeHz, faceDegree, foldUnder, tuning, type Tuning } from './scale';
@@ -77,8 +78,11 @@ export type Cue =
   | { kind: 'undo'; pan: number }
   | { kind: 'relaid' }
   | { kind: 'failed' }
-  // The lines of a board are erased, or drawn (`draw`), over `seconds`: the whole of it, asked for once as it begins.
-  | { kind: 'lines'; draw: boolean; seconds: number }
+  // The lines of a board are drawn, or erased: one step of the wave, `step` of the `of` it has, in
+  // which the points of light run one side of a cell in `seconds`. `left` and `right` are how far
+  // across the picture the points of this step are, `share` how many of them there are against
+  // the step with the most; `last` is the step that closes the board.
+  | { kind: 'lines'; draw: boolean; step: number; of: number; seconds: number; left: number; right: number; share: number; last: boolean }
   // A star of a level that is passed lights up: the first of them is 0.
   | { kind: 'star'; index: number }
   // What comes back from the other side: the notes the player has just played, as their frequencies.
@@ -136,18 +140,39 @@ export const REPLY_MOST = 3;
 const END_SILENCE = 0.9;
 /** The most ones that are heard going one by one. */
 const ONES_MOST = 12;
+/** The wave of the lines climbs an octave at least, and no more than this many, however many steps it has. */
+const LINES_OCTAVES = 2;
+/** Points of a step that are at least this far apart across the picture are heard as two, one on each side. */
+const LINES_APART = 0.3;
+
+/** A step of the wave of the lines as it is heard: where its points are across the picture, and how many of them there are against the step with the most. */
+export interface LineStep {
+  left: number;
+  right: number;
+  share: number;
+}
+
 /**
- * The points of light that draw the lines of a board, as they are heard: the degree each sets off
- * from, where it stands across the picture, and how far into the drawing it sets off.
+ * The wave of the lines of a board, step by step, from the sides as the view draws them
+ * (`waveFrom`): in a step every point of light runs one side, and where those sides end is where
+ * the points are heard. A wave from the middle of a board spreads to both sides; one from an edge
+ * goes across; a board with cells cut out has steps with few points and steps with many.
  */
-const TRACES = [
-  { degree: 0, pan: -0.5, late: 0 },
-  { degree: 3, pan: 0.5, late: 0.1 },
-  { degree: 5, pan: 0, late: 0.2 },
-] as const;
-/** The most ticks the drawing of the lines has, and the time one is given. */
-const TICKS_MOST = 12;
-const TICK_GAP = 0.08;
+export function lineSteps(segments: readonly GridSegment[], size: number): LineStep[] {
+  const steps: { left: number; right: number; count: number }[] = [];
+  for (const { bx, bz, reach } of segments) {
+    // A board of so many cells has one corner more a side.
+    const pan = stereo(bx, bz, size + 1);
+    const at = (steps[reach] ??= { left: pan, right: pan, count: 0 });
+    at.left = Math.min(at.left, pan);
+    at.right = Math.max(at.right, pan);
+    at.count++;
+  }
+  let most = 1;
+  for (const step of steps) if (step) most = Math.max(most, step.count);
+  return Array.from(steps, (step) => (step ? { left: step.left, right: step.right, share: step.count / most } : { left: 0, right: 0, share: 0 }));
+}
+
 /** The degrees the stars of a level light up on: the root, the fourth and the fifth of the mode as it stands. */
 const STAR_DEGREES = [0, 2, 3];
 
@@ -623,40 +648,37 @@ function play(cue: Cue, kit: Kit): Note[] {
         low('failed', degreeHz(tune, 0, -1), { at: 0.16, gain: 0.22 * num('lowGain') * board, decay: num('lowLen') * 1.4, drop: 1.5, fall: 0.06 }),
       ];
     case 'lines': {
-      // The lines of a board are drawn by points of light that run and leave them behind. Each
-      // point is a thin tone that runs up an octave as it goes and has no strike: nothing like a
-      // die. When the last line is closed the program sets the board with one small click. Lines
-      // that are erased run back down, more quietly, and nothing is set.
-      const seconds = clamp(cue.seconds, 0.15, 4);
+      // The lines of a board are drawn by points of light that run and leave them behind, a side of
+      // a cell a step. A step is heard as it is seen: a thin tone that runs up to the next degree
+      // while the points run, where they are across the picture, and a small dry tick as they
+      // come to their corners and part. The wave climbs the mode as it goes out. The step that
+      // closes the board ends on the click that sets it. Lines that are erased run back down,
+      // more quietly, and nothing is set.
+      const of = Math.max(1, Math.round(cue.of));
+      const step = clamp(Math.round(cue.step), 1, of);
+      const seconds = clamp(cue.seconds, 0.04, 2);
       const style = String(kit.values.linesStyle);
       const lineOctave = num('linesOctave');
+      // A short wave climbs an octave all the same: it ends on the root, as a long one does on the root over it.
+      const span = clamp(of, octave, LINES_OCTAVES * octave);
+      const degree = (k: number): number => Math.round((k * span) / of);
+      const far = degreeHz(tune, degree(step), lineOctave);
+      const near = degree(step) === degree(step - 1) ? far / 2 ** (1 / 12) : degreeHz(tune, degree(step - 1), lineOctave);
+      const left = clamp(cue.left, -1, 1);
+      const right = clamp(cue.right, -1, 1);
+      const pans = right - left >= LINES_APART ? [left, right] : [(left + right) / 2];
+      const many = 0.6 + 0.4 * clamp(cue.share, 0, 1);
+      const level = (many * num('linesGain') * program * (cue.draw ? 1 : 0.7)) / Math.sqrt(pans.length);
       const notes: Note[] = [];
-      if (style !== 'ticks') {
-        for (const point of TRACES) {
-          const low = degreeHz(tune, point.degree, lineOctave);
-          const late = seconds * point.late;
-          notes.push(
-            trace('trace', cue.draw ? low * 2 : low, {
-              at: late,
-              gain: (cue.draw ? 0.022 : 0.015) * num('linesGain') * program,
-              pan: point.pan,
-              drop: cue.draw ? 0.5 : 2,
-              fall: seconds - late,
-              decay: seconds - late,
-              bright: 1,
-            }),
-          );
+      for (const pan of pans) {
+        if (style !== 'ticks') {
+          notes.push(trace('trace', cue.draw ? far : near, { gain: 0.03 * level, pan, drop: cue.draw ? near / far : far / near, fall: seconds, decay: seconds, bright: 1 }));
+        }
+        if (style !== 'trace' && !(cue.draw && cue.last)) {
+          notes.push(click('tick', cue.draw ? far * 2 : near * 2, { at: seconds, gain: 0.045 * level, pan, decay: 0.014, bright: 0.6 }));
         }
       }
-      if (style !== 'trace') {
-        // The plotter: a run of small dry ticks, up the mode as the lines come and down it as they go.
-        const count = clamp(Math.round(seconds / TICK_GAP), 3, TICKS_MOST);
-        for (let i = 0; i < count; i++) {
-          const degree = cue.draw ? i : count - 1 - i;
-          notes.push(click('tick', degreeHz(tune, degree, lineOctave), { at: (seconds * i) / count, gain: 0.05 * num('linesGain') * program, pan: ((i % 3) - 1) * 0.4, decay: 0.014, bright: 0.6 }));
-        }
-      }
-      if (cue.draw) notes.push(click('set', degreeHz(tune, 0, lineOctave + 2), { at: seconds, gain: 0.07 * num('linesGain') * program, decay: num('clickLen') }));
+      if (cue.draw && cue.last) notes.push(click('set', degreeHz(tune, 0, lineOctave + 2), { at: seconds, gain: 0.07 * num('linesGain') * program, decay: num('clickLen') }));
       return notes;
     }
     case 'star': {

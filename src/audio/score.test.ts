@@ -3,10 +3,11 @@ import { beatsOf, chainTier, matchTier, peakBeat, stepBeat } from '../app/juice'
 import { CONTACT_STEPS } from '../app/ritual';
 import { ROAD } from '../levels/road';
 import { createRun, defaultConfig, step, type GameEvent } from '../rules';
+import { gridSegments, waveFrom } from '../render/gridLines';
 import { emptyRun, land, place, put } from '../rules/testkit';
 import { soundDefaults } from './params';
 import { COMMA, degreeHz, faceDegree, tuning } from './scale';
-import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
+import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, lineSteps, noteLaid, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
 import { Variety, soundRandom } from './variation';
 
 function setup(contact = 0, seed = 1): Setup {
@@ -57,8 +58,8 @@ const EVERY: Cue[] = [
   { kind: 'undo', pan: 0.2 },
   { kind: 'relaid' },
   { kind: 'failed' },
-  { kind: 'lines', draw: false, seconds: 0.7 },
-  { kind: 'lines', draw: true, seconds: 1.1 },
+  { kind: 'lines', draw: false, step: 2, of: 6, seconds: 0.12, left: -0.5, right: 0.6, share: 0.7, last: false },
+  { kind: 'lines', draw: true, step: 6, of: 6, seconds: 0.18, left: 0.1, right: 0.2, share: 1, last: true },
   { kind: 'star', index: 2 },
   { kind: 'reply', heard: [500, 750, 1000] },
   { kind: 'uiStep', face: 4 },
@@ -374,48 +375,88 @@ describe('a level', () => {
     expect(cuesOfEvent({ type: 'levelFailed' }, emptyRun(), new ScoreMemory())).toEqual([{ kind: 'failed' }]);
   });
 
-  it('has its lines drawn by thin tones that run up as the points of light run, with no strike of a die in them, and set with one click', () => {
-    const notes = notesFor({ kind: 'lines', draw: true, seconds: 1.1 }, setup());
-    const traces = part(notes, 'trace');
-    expect(traces.length).toBeGreaterThanOrEqual(2);
+  const line = (step: number, of: number, draw = true, fields: Partial<Extract<Cue, { kind: 'lines' }>> = {}): Cue => ({ kind: 'lines', draw, step, of, seconds: 0.15, left: 0, right: 0, share: 1, last: step === of, ...fields });
+
+  it('has its lines drawn a step of their wave at a time: a thin tone that runs up while the points of light run, and a dry tick as they come to their corners; nothing of a die in it', () => {
+    const notes = notesFor(line(2, 6), setup());
+    expect(notes.map((note) => note.part)).toEqual(['trace', 'tick']);
     expect(notes.some((note) => note.voice === 'bell' || note.voice === 'knock')).toBe(false);
-    for (const note of traces) {
-      expect(note.voice).toBe('trace');
-      // It sets off under its note and is on it when the last line is closed.
-      expect(note.drop).toBeLessThan(1);
-      expect(note.at + note.fall).toBeCloseTo(1.1, 6);
+    const [run, tick] = notes;
+    expect(run.voice).toBe('trace');
+    // It sets off under its note and is on it as the points come to their corners: there the tick is.
+    expect(run.drop).toBeLessThan(1);
+    expect(run.fall).toBeCloseTo(0.15, 6);
+    expect(tick.at).toBeCloseTo(0.15, 6);
+  });
+
+  it('climbs the mode as the wave goes out, each step from where the last one ended, and no more than two octaves however long the wave', () => {
+    for (const of of [3, 6, 14]) {
+      const runs = Array.from({ length: of }, (_, i) => part(notesFor(line(i + 1, of), setup()), 'trace')[0]);
+      for (let i = 1; i < of; i++) expect(runs[i].hz).toBeGreaterThanOrEqual(runs[i - 1].hz);
+      expect(runs[of - 1].hz / (runs[0].hz * runs[0].drop)).toBeLessThanOrEqual(4.001);
+      expect(runs[of - 1].hz).toBeGreaterThan(runs[0].hz);
     }
-    // The points do not set off together, nor from one place.
-    expect(new Set(traces.map((note) => note.at)).size).toBe(traces.length);
-    expect(new Set(traces.map((note) => note.pan)).size).toBe(traces.length);
-    const set = part(notes, 'set');
-    expect(set).toHaveLength(1);
-    expect(set[0].at).toBeCloseTo(1.1, 6);
+  });
+
+  it('is heard where its points are: on both sides at once when they are far apart, in one place when they are together, louder the more of them there are', () => {
+    const apart = notesFor(line(2, 6, true, { left: -0.7, right: 0.6 }), setup());
+    expect(part(apart, 'trace').map((note) => note.pan)).toEqual(part(apart, 'tick').map((note) => note.pan));
+    expect(part(apart, 'trace')).toHaveLength(2);
+    expect(part(apart, 'trace')[0].pan).toBeLessThan(0);
+    expect(part(apart, 'trace')[1].pan).toBeGreaterThan(0);
+    const together = notesFor(line(2, 6, true, { left: 0.5, right: 0.6 }), setup());
+    expect(part(together, 'trace')).toHaveLength(1);
+    expect(part(together, 'trace')[0].pan).toBeGreaterThan(0);
+    const few = part(notesFor(line(2, 6, true, { share: 0.1 }), setup()), 'trace')[0];
+    const many = part(notesFor(line(2, 6, true, { share: 1 }), setup()), 'trace')[0];
+    expect(many.gain).toBeGreaterThan(few.gain);
+  });
+
+  it('sets the board with one click as its last line is closed, in place of the tick', () => {
+    const notes = notesFor(line(6, 6), setup());
+    expect(part(notes, 'tick')).toHaveLength(0);
+    expect(part(notes, 'set')).toHaveLength(1);
+    expect(part(notes, 'set')[0].at).toBeCloseTo(0.15, 6);
   });
 
   it('has its lines erased by the same tones running back down, more quietly, with nothing set', () => {
-    const out = notesFor({ kind: 'lines', draw: false, seconds: 0.7 }, setup());
-    const back = notesFor({ kind: 'lines', draw: true, seconds: 0.7 }, setup());
+    const out = notesFor(line(6, 6, false), setup());
+    const back = notesFor(line(6, 6, true), setup());
     expect(part(out, 'set')).toHaveLength(0);
-    for (const note of part(out, 'trace')) expect(note.drop).toBeGreaterThan(1);
+    expect(part(out, 'trace')[0].drop).toBeGreaterThan(1);
     expect(part(out, 'trace')[0].gain).toBeLessThan(part(back, 'trace')[0].gain);
   });
 
-  it('can draw its lines with the ticks of a plotter instead, up the mode, or with both', () => {
+  it('can be drawn with the tone alone, or with the ticks alone', () => {
     const s = setup();
+    s.values.linesStyle = 'trace';
+    expect(notesFor(line(2, 6), s).map((note) => note.part)).toEqual(['trace']);
     s.values.linesStyle = 'ticks';
-    const ticks = notesFor({ kind: 'lines', draw: true, seconds: 1.1 }, s);
-    expect(part(ticks, 'trace')).toHaveLength(0);
-    const run = part(ticks, 'tick');
-    expect(run.length).toBeGreaterThan(3);
-    for (let i = 1; i < run.length; i++) {
-      expect(run[i].hz).toBeGreaterThan(run[i - 1].hz);
-      expect(run[i].at).toBeGreaterThan(run[i - 1].at);
+    expect(notesFor(line(2, 6), s).map((note) => note.part)).toEqual(['tick']);
+  });
+
+  it('hears a wave from the middle of a board spread to both sides, and one from a corner go across it; a larger board has more steps', () => {
+    const steps = (size: number, x: number, z: number) => lineSteps(waveFrom(gridSegments(size, []), { x, z }), size);
+    const middle = steps(5, 2, 2);
+    for (const step of middle.slice(1)) {
+      expect(step.left).toBeLessThan(0);
+      expect(step.right).toBeGreaterThan(0);
+      expect(step.left + step.right).toBeCloseTo(0, 6);
     }
-    s.values.linesStyle = 'both';
-    const both = notesFor({ kind: 'lines', draw: true, seconds: 1.1 }, s);
-    expect(part(both, 'trace').length).toBeGreaterThan(0);
-    expect(part(both, 'tick').length).toBeGreaterThan(0);
+    // From the west corner the points end on the east side.
+    const corner = steps(5, 0, 4);
+    const last = corner[corner.length - 1];
+    const first = corner[0];
+    expect((last.left + last.right) / 2).toBeGreaterThan((first.left + first.right) / 2);
+    expect(corner.length).toBeGreaterThan(middle.length);
+    expect(steps(7, 3, 3).length).toBeGreaterThan(middle.length);
+    for (const step of [...middle, ...corner]) {
+      expect(step.share).toBeGreaterThan(0);
+      expect(step.share).toBeLessThanOrEqual(1);
+      expect(Math.abs(step.left)).toBeLessThanOrEqual(1);
+      expect(Math.abs(step.right)).toBeLessThanOrEqual(1);
+    }
+    expect(Math.max(...middle.map((step) => step.share))).toBe(1);
   });
 
   it('lights its stars with bells, each higher than the last', () => {

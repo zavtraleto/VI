@@ -1,5 +1,5 @@
 import { AudioEngine } from '../audio/engine';
-import { stereo } from '../audio/score';
+import { lineSteps, stereo, type LineStep } from '../audio/score';
 import { Display } from '../display/display';
 import { Governor, QUALITY_STEPS } from '../display/governor';
 import { Pacer } from '../display/pacer';
@@ -355,9 +355,9 @@ export class Game {
     risen: number;
     order: number[];
     cell: number;
-    /** The lines that go have been heard, and those that come. */
-    erased: boolean;
-    drawn: boolean;
+    /** The wave of the lines that is on, step by step as it is heard, and the step of it heard last; null until it is asked for. */
+    wave: LineStep[] | null;
+    heard: number;
   } | null = null;
   /** How the dice stand in the passage, die by die: the view reads it on every frame. One object, changed in place. */
   private readonly passing: DicePassing = { mode: 'leave', ranks: new Map(), count: 0, stair: -1, litMs: 0, moveMs: 0, stepMs: 0, moveForMs: 0, flashMs: 0 };
@@ -1408,8 +1408,8 @@ export class Game {
       risen: 0,
       order: order.map((die) => cubes[die].id),
       cell: 0,
-      erased: false,
-      drawn: false,
+      wave: null,
+      heard: 0,
     };
     this.view.setPassing(passing);
     this.awardStars();
@@ -1472,7 +1472,7 @@ export class Game {
           passage.cell = 1 / this.view.gridParts;
         }
         this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, false, player);
-        this.hearLines(passage, false, times.eraseMs);
+        this.hearLines(passage, false, now.lines, times.eraseMs);
         return;
       }
       this.putNext(passage);
@@ -1483,7 +1483,7 @@ export class Game {
     // With motion kept low the dice of the board do not come up: they stand.
     passing.moveMs = reduced ? Infinity : passage.elapsed - marks.rise;
     this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, true, player);
-    this.hearLines(passage, true, times.drawMs);
+    this.hearLines(passage, true, now.lines, times.drawMs);
     // A die that stands is heard as one that has come up in a session, and settles as one. With motion kept low
     // the dice of the board all stand in one frame, and one note is played for the board, not one for each die.
     let heard = false;
@@ -1503,14 +1503,38 @@ export class Game {
   }
 
   /**
-   * The lines of a board are heard as they go and as they come: once, as the points of light set
-   * off, for the `ms` they take. With motion kept low no line is erased or drawn, and nothing is heard.
+   * The lines of a board are heard as they are seen, step by step of their wave: `lines` is how
+   * much of them is there past the cell of the player, 0 to 1, and `ms` how long the whole of it
+   * takes. A step is heard when the points of light set off on it, with where they are across
+   * the picture and how many they are (`lineSteps`). With motion kept low no line is erased or
+   * drawn, and nothing is heard.
    */
-  private hearLines(passage: NonNullable<Game['passage']>, draw: boolean, ms: number): void {
-    if (draw ? passage.drawn : passage.erased) return;
-    if (draw) passage.drawn = true;
-    else passage.erased = true;
-    if (ms > 0 && !prefersReducedMotion(this.settings)) this.audio.play({ kind: 'lines', draw, seconds: ms / 1000 });
+  private hearLines(passage: NonNullable<Game['passage']>, draw: boolean, lines: number, ms: number): void {
+    if (ms <= 0 || prefersReducedMotion(this.settings)) return;
+    if (!passage.wave) {
+      passage.wave = lineSteps(this.view.gridWave, this.state.config.size);
+      // The cell of the player is step 0 and stands all the while: lines that come start past it, lines that go start past the last.
+      passage.heard = draw ? 0 : passage.wave.length;
+    }
+    const of = passage.wave.length - 1;
+    if (of < 1) return;
+    const seconds = ms / 1000 / of;
+    // Where the wave is, in steps: the same share the view is given.
+    const at = (1 + of * Math.min(1, Math.max(0, lines)));
+    const play = (step: number): void => {
+      const { left, right, share } = passage.wave![step];
+      this.audio.play({ kind: 'lines', draw, step, of, seconds, left, right, share, last: step === of });
+    };
+    if (draw) {
+      const due = Math.min(of, Math.floor(at));
+      // A frame that came late does not play the steps it missed all at once: the last of them is enough.
+      if (due - passage.heard > 2) passage.heard = due - 1;
+      while (passage.heard < due) play(++passage.heard);
+    } else {
+      const due = Math.max(1, Math.ceil(at) - 1);
+      if (passage.heard - due > 2) passage.heard = due + 1;
+      while (passage.heard > due) play(--passage.heard);
+    }
   }
 
   /**
@@ -1568,6 +1592,8 @@ export class Game {
     // Putting a board on ends a passage; this one goes on over it, and what the board before came to is still said.
     this.passage = passage;
     passage.swapped = true;
+    // The wave of the lines is the next board's from here.
+    passage.wave = null;
     const { state } = this;
     const { cubes, player } = state;
     const layout = state.levelRun?.spec.layout;

@@ -224,6 +224,8 @@ export class BoardView {
   private readonly frame: FlatMesh;
   /** The sides of the cells of the board that is on, as they are before a wave is sent through them. */
   private sides: GridSegment[] = [];
+  /** The same sides as the last wave sent through them found them; none before a wave. */
+  private waved: GridSegment[] = [];
   /**
    * How much of the lines is drawn, 0 to 1; whether they are being drawn or erased; and the
    * cell the wave starts from, in the cells of the board that is on, null until one is named.
@@ -555,6 +557,7 @@ export class BoardView {
     // The lines of the board that was on are let go, and whatever was drawn of them: these are whole.
     this.sides = gridSegments(size, shape.holes);
     this.grid.set(this.sides);
+    this.waved = [];
     this.wave.share = 1;
     this.wave.drawing = true;
     this.wave.from = null;
@@ -582,10 +585,19 @@ export class BoardView {
     const { wave } = this;
     if (from && (!wave.from || wave.from.x !== from.x || wave.from.z !== from.z)) {
       wave.from = { x: from.x, z: from.z };
-      this.grid.set(waveFrom(this.sides, wave.from));
+      this.waved = waveFrom(this.sides, wave.from);
+      this.grid.set(this.waved);
     }
     wave.share = Math.min(1, Math.max(0, share));
     wave.drawing = drawing;
+  }
+
+  /**
+   * The sides of the board as the wave that is on finds them, each with the step of the wave it
+   * is drawn in: what the sound of the wave is made from. None until a wave has been sent.
+   */
+  get gridWave(): readonly GridSegment[] {
+    return this.waved;
   }
 
   /** How many equal parts the wave of the lines has from the cell it starts from: a side is drawn in one of them. */
