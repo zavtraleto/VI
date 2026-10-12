@@ -324,6 +324,14 @@ export class Game {
   private levelIndex = 0;
   /** The piece of the road on the board, by its place in the road; null on a level of the list. */
   private piece: number | null = null;
+  /**
+   * A board of the lab of the levels on the board: a level that is in no list. It has no number
+   * and no level after it, nothing of it is kept for the player or told to the analytics, and
+   * started over it is the same board. Null on a level of the list and on a piece of the road.
+   */
+  private labSpec: LevelSpec | null = null;
+  /** The program has opened: its boot is over, and a board can be put on at once. */
+  private booted = false;
   /** The board waits under the one command the program opens on: nothing of the session is shown over it. */
   private starting = false;
   /** The level on the board was laid under that command and has not been reported as started: it is, once, with the player's first move or step on it. */
@@ -608,6 +616,13 @@ export class Game {
     this.audio.setPaused(true);
     this.layoutGuide();
     this.shell.boot(() => {
+      this.booted = true;
+      if (this.labSpec !== null) {
+        // A board of the lab was asked for while the program opened: it opens on that board.
+        this.saveWithoutRun();
+        this.runLevel(this.labSpec, false);
+        return;
+      }
       if (LEVELS_PROBE) {
         // The probe opens on its list. A run kept from before is left in storage, for a start without the probe.
         this.saveWithoutRun();
@@ -770,7 +785,23 @@ export class Game {
 
   /** The code of the level being played, or last played: a piece of the road has its own. */
   private levelId(): string {
-    return this.piece !== null ? ROAD[this.piece].id : LEVELS[this.levelIndex].id;
+    return this.levelSpec().id;
+  }
+
+  /** The level being played, or last played: a piece of the road, a board of the lab, or the level of the list. */
+  private levelSpec(): LevelSpec {
+    return this.piece !== null ? ROAD[this.piece] : (this.labSpec ?? LEVELS[this.levelIndex]);
+  }
+
+  /**
+   * Puts a board that is in no list on the board and plays it by the rules as they are: the door
+   * of the lab of the levels (`?board=`, `?lab=levels`). Asked for before the program has opened,
+   * the board is put on when it does.
+   */
+  playBoard(spec: LevelSpec): void {
+    this.labSpec = spec;
+    this.piece = null;
+    if (this.booted) this.runLevel(spec, false);
   }
 
   /** What the platform calls the thing being played: a kind of session, a task, or a level. */
@@ -796,12 +827,13 @@ export class Game {
   /** What is kept of the level on the board, try after try: a piece of the road keeps its own, under its code, as a level of the list does. */
   private levelRecord(): LevelStat | null {
     const run = this.state.levelRun;
-    return run ? levelStat(this.settings, run.spec.id) : null;
+    // A board of the lab keeps nothing: it may bear the code of a level, and that level's record is the player's.
+    return run && this.labSpec === null ? levelStat(this.settings, run.spec.id) : null;
   }
 
   /** What is being played, as the analytics name it: a kind of session, the exercise, a task with its number, or a level. */
   private step(): EventData {
-    if (this.kind === 'level' && this.piece !== null) return { step_id: `level_${this.levelId()}` };
+    if (this.kind === 'level' && (this.piece !== null || this.labSpec !== null)) return { step_id: `level_${this.levelId()}` };
     if (this.kind === 'level') return { step_id: `level_${this.levelId()}`, step_index: this.levelIndex + 1 };
     if (this.kind !== 'puzzle') return { step_id: this.kind };
     return { step_id: 'task', step_index: this.puzzleIndex + 1, level_id: PUZZLE_LEVELS[this.puzzleIndex].id };
@@ -892,6 +924,7 @@ export class Game {
     }
     if (kind === 'level') {
       if (this.piece !== null) this.startPiece(this.piece);
+      else if (this.labSpec !== null) this.runLevel(this.labSpec, false);
       else this.startLevel(this.levelIndex);
       return;
     }
@@ -1225,6 +1258,7 @@ export class Game {
     const spec = LEVELS[index];
     this.levelIndex = index;
     this.piece = null;
+    this.labSpec = null;
     this.runLevel(spec, said);
     if (intro && spec.lesson) this.showLevelIntro(spec.lesson);
   }
@@ -1235,6 +1269,7 @@ export class Game {
    */
   private startPiece(index: number, said = true): void {
     this.piece = index;
+    this.labSpec = null;
     this.runLevel(ROAD[index], said);
   }
 
@@ -1347,7 +1382,8 @@ export class Game {
    */
   private startPassage(): void {
     const { state, passing } = this;
-    const after = boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length, this.nextLevel());
+    // A board of the lab leads nowhere: its window comes when its dice are gone.
+    const after = this.labSpec !== null ? null : boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length, this.nextLevel());
     const next = after && !(after.level !== undefined && this.ladder().locked[after.level]) ? after : null;
     this.frames.flush(this.lastFrame);
     const { cubes } = state;
@@ -1609,6 +1645,7 @@ export class Game {
 
   /** The rules the levels up to the one that waits have said, each in a line: none where no level says a rule. */
   private levelRules(): string[] {
+    if (this.labSpec !== null) return [];
     return lessonsAt(LEVELS, this.levelIndex).flatMap((lesson) => {
       const rule = ruleOf(lesson);
       return rule ? [t(rule)] : [];
@@ -1658,7 +1695,7 @@ export class Game {
       locked: ladder.locked[index] ? { have: ladder.total, need: ladder.chapters[ladder.chapterOf(index)].gate } : undefined,
     }));
     this.shell.showPanel(
-      levelsPanel(levels, this.kind === 'level' && this.piece === null ? this.levelIndex : this.nextLevel(), {
+      levelsPanel(levels, this.kind === 'level' && this.piece === null && this.labSpec === null ? this.levelIndex : this.nextLevel(), {
         onPick: (index) => this.startLevel(index, true),
         // What was played, as text to pass on: the report of the playtest.
         share: { label: () => this.shareLabel(), action: () => this.shareLevels() },
@@ -1676,6 +1713,11 @@ export class Game {
   private countLevel(): void {
     this.later.flush();
     this.levelCounted = true;
+    // A board of the lab is counted by the lab: nothing of it is kept for the player or told to anyone.
+    if (this.labSpec !== null) {
+      this.gained = null;
+      return;
+    }
     const { state } = this;
     const run = state.levelRun!;
     const { spec } = run;
@@ -1743,7 +1785,7 @@ export class Game {
           stars: passed && stat && spec.par !== undefined ? levelStars(run.moves, spec.par) : undefined,
           goal: lines,
           // The level after the last of a chapter is offered once its chapter is open.
-          hasNext: this.piece === null && this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
+          hasNext: this.piece === null && this.labSpec === null && this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
           // A level that is failed says why: at a dead end, the dice that stand against the dice a combo takes.
           reason: passed
             ? undefined
@@ -2576,7 +2618,7 @@ export class Game {
       active,
       pulse,
       marked: own && mark ? (DIRS.find((dir) => SIDE[dir] === mark) ?? null) : null,
-      commits: state.levelRun && this.levelIndex + 1 >= LEVEL_OF_COMMIT ? this.commitSides(state) : [],
+      commits: state.levelRun && this.labSpec === null && this.levelIndex + 1 >= LEVEL_OF_COMMIT ? this.commitSides(state) : [],
     };
   }
 
@@ -2663,7 +2705,7 @@ export class Game {
           ? {
               kind: 'level',
               // A piece of the road has no number: it is not a level of the list.
-              number: this.piece === null ? this.levelIndex + 1 : null,
+              number: this.piece === null && this.labSpec === null ? this.levelIndex + 1 : null,
               score: this.starScore(),
               made: levelRun.moves,
               best: levelRun.spec.par ?? null,

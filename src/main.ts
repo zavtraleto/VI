@@ -46,5 +46,9 @@ if (lab === 'shell') {
   const game = new Game(document.getElementById('app')!);
 
   // Handle for poking at the running game from the console during development.
-  if (import.meta.env.DEV) (window as unknown as { vi: Game }).vi = game;
+  if (import.meta.env.DEV) {
+    (window as unknown as { vi: Game }).vi = game;
+    // A board of the lab of the levels, by the name of its file: `?board=H01` plays boards/H01.txt.
+    void import('./lab/boardProbe').then(({ playBoardOfAddress }) => playBoardOfAddress(game));
+  }
 }
