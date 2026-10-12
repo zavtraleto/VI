@@ -42,10 +42,10 @@ export const SIGN_MAX_STATES = 5000;
  * of boards a player can come to, and thousands the search sees from one of them. The number
  * keeps one search under about 50 ms on a desktop: over the 250 boards nearest the start of each
  * of the six dearest pieces of the second edition of the road (R06, R09, R10, R14, R17, R18 there;
- * of the third, R10, R07, the level P08 of the list, none, R14 and R16) a search takes 7 to 17 ms
+ * of the fourth, R09, R07, the level P08 of the list, none, R14 and R16) a search takes 7 to 17 ms
  * on average and 50 ms at the worst, where 5000 boards took up to 216 ms. Where it is not enough
  * there is no sign for that board: on those boards, a quarter of the first and about two thirds
- * of the rest. The boards new in the third edition were not measured.
+ * of the rest. The boards new in the third and the fourth edition were not measured.
  */
 export const SIGN_FREE_STATES = 1000;
 

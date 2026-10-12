@@ -35,17 +35,17 @@ import {
 } from './road';
 
 /**
- * The pieces of the road in its third edition: five lessons, four of them boards cut to few
+ * The pieces of the road in its fourth edition: five lessons, four of them boards cut to few
  * cells and walked whole, and the lesson of the chain on an open board; and eleven free pieces
  * and mixes, of which is asked what their places ask (`roadRecipes.ts`) and what each is there for.
  */
 
 const DIRS: readonly Dir[] = ['N', 'E', 'S', 'W'];
-const LESSONS = ['R01', 'R02', 'R06', 'R11', 'R13'];
+const LESSONS = ['R01', 'R02', 'R06', 'R10', 'R13'];
 /** The lessons cut to few cells, whose every board is walked. */
-const CUT_LESSONS = ['R01', 'R02', 'R11', 'R13'];
-const FREE = ['R03', 'R04', 'R05', 'R07', 'R08', 'R09', 'R14', 'R15'];
-const MIXES = ['R10', 'R12', 'R16'];
+const CUT_LESSONS = ['R01', 'R02', 'R10', 'R13'];
+const FREE = ['R03', 'R04', 'R05', 'R07', 'R08', 'R11', 'R14', 'R15'];
+const MIXES = ['R09', 'R12', 'R16'];
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 const pieceOf = (id: string): LevelSpec => ROAD.find((spec) => spec.id === id)!;
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
@@ -88,9 +88,9 @@ const KEYS: Readonly<Record<string, string>> = {
   R06: 'S:roll W:roll W:roll W:hop N:roll',
   R07: 'N:roll E:hop N:roll',
   R08: 'W:roll W:roll W:hop S:roll S:hop E:roll E:hop N:roll',
-  R09: 'W:roll W:roll S:hop S:hop W:hop N:roll',
-  R10: 'W:roll S:hop S:roll E:roll',
-  R11: 'N:roll W:hop N:hop W:roll',
+  R09: 'W:roll S:hop S:roll E:roll',
+  R10: 'N:roll W:hop N:hop W:roll',
+  R11: 'W:roll W:roll S:hop S:hop W:hop N:roll',
   R12: 'N:roll N:hop W:hop W:roll S:hop E:hop E:hop N:hop W:roll',
   R13: 'W:roll W:hop N:descend N:walk N:walk E:push W:walk S:walk S:walk S:mount E:hop E:descend E:walk N:push',
   R14: 'W:roll S:descend W:walk S:push S:mount E:hop N:hop W:roll',
@@ -209,10 +209,10 @@ describe('the road', () => {
   it('is sixteen pieces, R01 to R16, in four blocks: a lesson, free pieces and, after the first, a mix', () => {
     expect(ROAD.map((spec) => spec.id)).toEqual(Array.from({ length: 16 }, (_, i) => `R${String(i + 1).padStart(2, '0')}`));
     expect([...LESSONS, ...FREE, ...MIXES].sort()).toEqual(ROAD.map((spec) => spec.id));
-    expect(ROAD_BLOCKS.map((block) => [ROAD[block.from].id, ROAD[block.to].id])).toEqual([['R01', 'R05'], ['R06', 'R10'], ['R11', 'R12'], ['R13', 'R16']]);
+    expect(ROAD_BLOCKS.map((block) => [ROAD[block.from].id, ROAD[block.to].id])).toEqual([['R01', 'R05'], ['R06', 'R09'], ['R10', 'R12'], ['R13', 'R16']]);
     // A block after the first begins with the lesson of its move and ends with its mix; the first has two lessons that lead in, and ends with a free piece.
     expect(ROAD_BLOCKS.slice(1).map((block) => ROAD[block.to].id)).toEqual(MIXES);
-    expect(ROAD_BLOCKS.map((block) => ROAD[block.from].id)).toEqual(['R01', 'R06', 'R11', 'R13']);
+    expect(ROAD_BLOCKS.map((block) => ROAD[block.from].id)).toEqual(['R01', 'R06', 'R10', 'R13']);
     expect(ROAD[ROAD_BLOCKS[0].to].id).toBe('R05');
     expect(FREE).toContain('R05');
     // Every piece that is not a lesson has a place it was picked for, and the place says which of the two it is.
@@ -240,30 +240,30 @@ describe('the road', () => {
   });
 
   it('names the faces that work in the order a piece uses them: 2s and 3s, no 1s, 5s or 6s', { timeout: 60_000 }, () => {
-    expect(ROAD.map((spec) => spec.faces)).toEqual([[2], [3], [2], [3], [2], [2], [3], [2], [3, 2], [3, 2], [2, 3], [3, 2], [2, 3], [2, 3], [3, 2], [3, 2]]);
+    expect(ROAD.map((spec) => spec.faces)).toEqual([[2], [3], [2], [3], [2], [2], [3], [2], [3, 2], [2, 3], [3, 2], [3, 2], [2, 3], [2, 3], [3, 2], [3, 2]]);
     for (const spec of ROAD) {
       expect(spec.values, spec.id).toEqual(spec.faces);
       // The faces of what goes on the way of the piece, in the order it goes.
       expect([...new Set(tryWay(spec, wayOf(spec)).values)], spec.id).toEqual(spec.faces);
     }
     // The faces change from piece to piece, but where the order the owner set puts two alike side by side: the rotated
-    // pair of 2s that ends the first block and the lesson of the chain, the bridge and the mix of the chain, the lesson
+    // pair of 2s that ends the first block and the lesson of the chain, the walk as a short cut and the mix of its block, the lesson
     // of the push and the free piece after it, and the last two pieces.
     const alike: string[][] = [];
     for (let i = 1; i < ROAD.length; i++) if (JSON.stringify(ROAD[i].faces) === JSON.stringify(ROAD[i - 1].faces)) alike.push([ROAD[i - 1].id, ROAD[i].id]);
-    expect(alike).toEqual([['R05', 'R06'], ['R09', 'R10'], ['R13', 'R14'], ['R15', 'R16']]);
+    expect(alike).toEqual([['R05', 'R06'], ['R11', 'R12'], ['R13', 'R14'], ['R15', 'R16']]);
   });
 
   it('is the boards of the pictures: a lesson is cells cut to its move, a free piece a whole rectangle', () => {
     expect(cellsOf(pieceOf('R01'))).toEqual(['2,0', '2,1', '2,2', '2,3', '2,4', '2,5']);
     expect(cellsOf(pieceOf('R02'))).toEqual(['1,0', '2,0', '3,0', '1,1', '3,1', '3,2', '3,3', '3,4', '3,5']);
-    expect(cellsOf(pieceOf('R11'))).toEqual(['0,0', '1,0', '1,1', '2,1', '2,2', '3,2', '3,3']);
+    expect(cellsOf(pieceOf('R10'))).toEqual(['0,0', '1,0', '1,1', '2,1', '2,2', '3,2', '3,3']);
     expect(cellsOf(pieceOf('R13'))).toEqual(['0,0', '1,0', '2,0', '0,1', '1,1', '2,1', '3,1', '0,2', '3,2', '0,3', '1,3', '2,3', '3,3']);
     // The lesson of the chain is an open board.
     expect(pieceOf('R06').holes).toBeUndefined();
     // Three by three, three by four, four by three, and then four by four.
     expect(Object.fromEntries([...FREE, ...MIXES].sort().map((id) => [id, extentOf(pieceOf(id))]))).toEqual({
-      R03: [3, 3], R04: [3, 4], R05: [4, 3], R07: [4, 4], R08: [4, 4], R09: [4, 4], R10: [4, 4], R12: [4, 4], R14: [4, 4], R15: [4, 4], R16: [4, 4],
+      R03: [3, 3], R04: [3, 4], R05: [4, 3], R07: [4, 4], R08: [4, 4], R09: [4, 4], R11: [4, 4], R12: [4, 4], R14: [4, 4], R15: [4, 4], R16: [4, 4],
     });
     for (const id of [...FREE, ...MIXES]) {
       const spec = pieceOf(id);
@@ -281,7 +281,7 @@ describe('the road', () => {
 
   it('has a fixed die on the lessons cut to few cells only, and never under the player', () => {
     const fixed = Object.fromEntries(ROAD.map((spec) => [spec.id, spec.layout!.dice.filter((die) => die.fixed).map((die) => die.top)]).filter(([, tops]) => tops.length > 0));
-    expect(fixed).toEqual({ R01: [2], R02: [3, 3], R11: [2, 3, 3], R13: [3] });
+    expect(fixed).toEqual({ R01: [2], R02: [3, 3], R10: [2, 3, 3], R13: [3] });
     for (const spec of ROAD) {
       const { dice, start: at } = spec.layout!;
       for (const die of dice.filter((die) => die.fixed)) expect(spec.faces, `${spec.id} ${die.x},${die.z}`).toContain(die.top);
@@ -320,7 +320,7 @@ describe('the road', () => {
   });
 
   it('keeps a way that clears each piece in as many moves as the piece says, and the solver finds no shorter one', { timeout: 60_000 }, () => {
-    expect(ROAD.map((spec) => spec.par)).toEqual([4, 4, 2, 2, 3, 4, 2, 5, 3, 3, 2, 3, 3, 3, 3, 4]);
+    expect(ROAD.map((spec) => spec.par)).toEqual([4, 4, 2, 2, 3, 4, 2, 5, 3, 2, 3, 3, 3, 3, 3, 4]);
     for (const spec of ROAD) {
       expect(spec.solution, spec.id).toHaveLength(spec.par!);
       const { state } = tryWay(spec, wayOf(spec));
@@ -347,10 +347,10 @@ describe('the road', () => {
 
 describe('the lessons of the road', () => {
   it('carry the three lines, each on the piece that teaches the move its line speaks of', () => {
-    expect(ROAD_HINTS).toEqual({ R06: { key: 'roadHintChain', until: 'chain' }, R11: { key: 'roadHintWalk', until: 'walk' }, R13: { key: 'roadHintPush', until: 'push' } });
+    expect(ROAD_HINTS).toEqual({ R06: { key: 'roadHintChain', until: 'chain' }, R10: { key: 'roadHintWalk', until: 'walk' }, R13: { key: 'roadHintPush', until: 'push' } });
     for (const id of Object.keys(ROAD_HINTS)) expect(LESSONS, id).toContain(id);
     expect(playKeys(pieceOf('R06')).events).toContain('chain');
-    expect(playKeys(pieceOf('R11')).hops.some((hop) => hop.from && hop.to)).toBe(true);
+    expect(playKeys(pieceOf('R10')).hops.some((hop) => hop.from && hop.to)).toBe(true);
     expect(KEYS.R13).toContain(':descend');
     expect(KEYS.R13).toContain(':push');
   });
@@ -384,7 +384,7 @@ describe('the lessons of the road', () => {
       seen[id] = [walk.boards, walk.worst, walk.lost];
     }
     // Boards, the most moves from any of them, and the boards that are lost.
-    expect(seen).toEqual({ R01: [5, 4, 0], R02: [10, 6, 0], R11: [11, 4, 0], R13: [33, 5, 0] });
+    expect(seen).toEqual({ R01: [5, 4, 0], R02: [10, 6, 0], R10: [11, 4, 0], R13: [33, 5, 0] });
     expect(ROAD_LESSONS).toEqual(CUT_LESSONS);
   });
 
@@ -448,8 +448,8 @@ describe('the lessons of the road', () => {
     expect(nearOf(spec)).toEqual([7, 0, 0, 5]);
   });
 
-  it('R11: the only way to the second die is over the 2 of the combo that is leaving', () => {
-    const spec = pieceOf('R11');
+  it('R10: the only way to the second die is over the 2 of the combo that is leaving', () => {
+    const spec = pieceOf('R10');
     expect(parWithout(spec, 'bridge')).toBeNull();
     expect(tryWay(spec, wayOf(spec)).uses).toEqual([]);
     const { hops, state } = playKeys(spec);
@@ -538,9 +538,9 @@ describe('the free pieces and the mixes', () => {
       // The runs of thirty that clear the board, of the hasty persona and of the casual one.
       runs[place.id] = [Math.round(fit!.shares!.hasty! * 30), Math.round(fit!.shares!.casual! * 30)];
     }
-    expect(firsts).toEqual({ R03: 2, R04: 2, R05: 2, R07: 1, R08: 1, R09: 2, R10: 3, R12: 2, R14: 2, R15: 2, R16: 2 });
+    expect(firsts).toEqual({ R03: 2, R04: 2, R05: 2, R07: 1, R08: 1, R09: 3, R11: 2, R12: 2, R14: 2, R15: 2, R16: 2 });
     expect(runs).toEqual({
-      R03: [24, 29], R04: [26, 30], R05: [14, 28], R07: [29, 30], R08: [16, 23], R09: [28, 29], R10: [24, 29],
+      R03: [24, 29], R04: [26, 30], R05: [14, 28], R07: [29, 30], R08: [16, 23], R09: [24, 29], R11: [28, 29],
       R12: [27, 29], R14: [27, 29], R15: [28, 28], R16: [24, 25],
     });
   });
@@ -581,7 +581,7 @@ describe('the free pieces and the mixes', () => {
     // the walk over the boards of any of them is cut wherever its limit is put (`node scripts/ladder.mjs road`).
     const near = Object.fromEntries([...FREE, ...MIXES].sort().map((id) => [id, nearOf(pieceOf(id))]));
     expect(near).toEqual({
-      R03: [14, 0, 0, 4], R04: [11, 0, 0, 4], R05: [14, 1, 0, 5], R07: [12, 1, 2, 4], R08: [6, 0, 0, 7], R09: [6, 0, 0, 4], R10: [32, 2, 0, 5],
+      R03: [14, 0, 0, 4], R04: [11, 0, 0, 4], R05: [14, 1, 0, 5], R07: [12, 1, 2, 4], R08: [6, 0, 0, 7], R09: [32, 2, 0, 5], R11: [6, 0, 0, 4],
       R12: [19, 0, 0, 6], R14: [6, 0, 0, 4], R15: [18, 0, 0, 4], R16: [13, 0, 1, 10],
     });
     // Two moves astray cost two moves more than the fewest at the most, but on two mixes: R12 and R16 each have a board
@@ -667,16 +667,16 @@ describe('the free pieces and the mixes', () => {
     expect(hops.every((hop) => !(hop.from && hop.to))).toBe(true);
   });
 
-  it('R09: the walk over the 3s as they leave is a short cut, and the way round them is a move longer', { timeout: 60_000 }, () => {
-    const spec = pieceOf('R09');
+  it('R11: the walk over the 3s as they leave is a short cut, and the way round them is a move longer', { timeout: 60_000 }, () => {
+    const spec = pieceOf('R11');
     expect(tryWay(spec, wayOf(spec)).uses).toEqual([]);
     expect(parWithout(spec, 'bridge')).toBe(spec.par! + 1);
     const { hops } = playKeys(spec);
     expect(hops).toEqual([{ from: true, to: true }, { from: true, to: true }, { from: true, to: false }]);
   });
 
-  it('R10: two combos in either order and no chain', { timeout: 60_000 }, () => {
-    const spec = pieceOf('R10');
+  it('R09: two combos in either order and no chain', { timeout: 60_000 }, () => {
+    const spec = pieceOf('R09');
     const report = tryWay(spec, wayOf(spec));
     expect(report.uses).toEqual([]);
     expect(report.cleared).toEqual([true, false, true]);
@@ -757,7 +757,7 @@ describe('what a piece does when the player waits', () => {
   });
 
   it('blinks the plaque and shows the sign on every piece, and counts the moves wasted on the lessons cut to few cells alone', () => {
-    expect(ROAD_LESSONS).toEqual(['R01', 'R02', 'R11', 'R13']);
+    expect(ROAD_LESSONS).toEqual(['R01', 'R02', 'R10', 'R13']);
     expect(ROAD_IDLE.R01).toEqual({ blinkMs: null, signMs: 6000, wasted: 3 });
     for (const spec of ROAD.slice(1)) {
       // A free piece, and the lesson of the chain on its open board, ask the solver for no count of wasted moves.
@@ -809,36 +809,37 @@ describe('what was kept of a player of an edition before', () => {
   const stat = { tries: 1, passes: 1 };
 
   it('is of this edition for one who is new, with nothing changed', () => {
-    expect(ROAD_EDITION).toBe(3);
-    expect(toRoadEdition({ passed: {}, stats: {} })).toEqual({ passed: {}, stats: {}, roadEdition: 3 });
+    expect(ROAD_EDITION).toBe(4);
+    expect(toRoadEdition({ passed: {}, stats: {} })).toEqual({ passed: {}, stats: {}, roadEdition: 4 });
   });
 
   it('of the first edition: loses what was passed and counted under the codes of the road, keeps the levels of the list, and starts the road again', () => {
     const kept = { passed: { R01: true, R02: true, R07: true, P03: true, F1: true }, stats: { R01: stat, R07: stat, P03: stat }, road: 'R08' };
-    expect(toRoadEdition(kept)).toEqual({ passed: { P03: true, F1: true }, stats: { P03: stat }, road: 'R01', roadEdition: 3 });
+    expect(toRoadEdition(kept)).toEqual({ passed: { P03: true, F1: true }, stats: { P03: stat }, road: 'R01', roadEdition: 4 });
     // What was given is not changed.
     expect(kept.passed.R01).toBe(true);
     expect(kept.road).toBe('R08');
     for (const road of ['R01', 'R12', 'R20', 'R19', '', 'X']) expect(toRoadEdition({ passed: {}, stats: {}, road }).road, road).toBe('R01');
     // One who had cleared its twenty pieces is past this road.
     const done = toRoadEdition({ passed: { R20: true, P01: true }, stats: { R20: stat }, road: 'R21' });
-    expect(done).toEqual({ passed: { P01: true }, stats: {}, road: ROAD_END, roadEdition: 3 });
+    expect(done).toEqual({ passed: { P01: true }, stats: {}, road: ROAD_END, roadEdition: 4 });
     expect(roadPlace(done.road, false)).toBeNull();
   });
 
-  it('of the second edition: keeps the stars of every board still played under its code here, P08 and R10 each to where its board went', () => {
+  it('of the second edition: keeps the stars of every board still played under its code here, through the third, P08 and R10 each to where its board went', () => {
     const passed = Object.fromEntries([...Array.from({ length: 18 }, (_, i) => `R${String(i + 1).padStart(2, '0')}`), 'P01', 'P08', 'F1'].map((code) => [code, true]));
     const stats = { R06: { bestMoves: 3 }, R10: { bestMoves: 4 }, R12: { bestMoves: 4 }, P08: { bestMoves: 5 }, P09: stat, R07: stat };
     const moved = toRoadEdition({ passed, stats, road: 'R19', roadEdition: 2 });
-    expect(moved.passed).toEqual({ R01: true, R02: true, R03: true, R04: true, R07: true, R08: true, R09: true, R10: true, R14: true, R16: true, P01: true, P08: true, F1: true });
-    expect(moved.stats).toEqual({ R10: { bestMoves: 3 }, P08: { bestMoves: 4 }, R09: { bestMoves: 4 }, R08: { bestMoves: 5 }, P09: stat });
+    expect(moved.passed).toEqual({ R01: true, R02: true, R03: true, R04: true, R07: true, R08: true, R09: true, R11: true, R14: true, R16: true, P01: true, P08: true, F1: true });
+    // R06 of the second edition was R10 of the third and is R09 here; R12 was R09 and is R11.
+    expect(moved.stats).toEqual({ R09: { bestMoves: 3 }, P08: { bestMoves: 4 }, R11: { bestMoves: 4 }, R08: { bestMoves: 5 }, P09: stat });
     expect(moved.road).toBe(ROAD_END);
-    expect(moved.roadEdition).toBe(3);
+    expect(moved.roadEdition).toBe(4);
     // The boards went with their stars: what was R10 is the level P08, and the board of P08 is the piece R08.
     expect(LEVELS.find((level) => level.id === 'P08')!.par).toBe(4);
     expect(pieceOf('R08').par).toBe(5);
     // The levels of the list that did not move are left as they were, and so is one who has passed nothing of the road.
-    expect(toRoadEdition({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 2 })).toEqual({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 3 });
+    expect(toRoadEdition({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 2 })).toEqual({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 4 });
   });
 
   it('of the second edition: stands on the piece of the same role, the first of its block not played as the board it is', () => {
@@ -847,12 +848,36 @@ describe('what was kept of a player of an edition before', () => {
     expect(Object.fromEntries(second.map((code) => [code, place(code)]))).toEqual({
       R01: 'R01', R02: 'R02', R03: 'R03', R04: 'R04', R05: 'R05', R06: 'R05',
       R07: 'R06', R08: 'R07', R09: 'R07', R10: 'R08',
-      R11: 'R11', R12: 'R12', R13: 'R12', R14: 'R12',
+      R11: 'R10', R12: 'R12', R13: 'R12', R14: 'R12',
       R15: 'R13', R16: 'R14', R17: 'R14', R18: 'R16', R19: ROAD_END,
     });
     // Its lessons are the lessons here.
-    for (const [from, to] of [['R07', 'R06'], ['R11', 'R11'], ['R15', 'R13']]) expect(ROAD_HINTS[place(from)!], from).toEqual(ROAD_HINTS[to]);
+    for (const [from, to] of [['R07', 'R06'], ['R11', 'R10'], ['R15', 'R13']]) expect(ROAD_HINTS[place(from)!], from).toEqual(ROAD_HINTS[to]);
     for (const road of ['R20', '', 'X']) expect(place(road), road).toBe('R01');
+  });
+
+  it('of the third edition: keeps the stars of every board under its code here, and moves the walk as a short cut and the mix of the chain', () => {
+    const third = Array.from({ length: 16 }, (_, i) => `R${String(i + 1).padStart(2, '0')}`);
+    const passed = Object.fromEntries([...third, 'P01', 'P08'].map((code) => [code, true]));
+    const stats = { R09: { bestMoves: 3 }, R10: { bestMoves: 4 }, R11: { bestMoves: 2 }, R12: { bestMoves: 3 }, P08: { bestMoves: 4 } };
+    const moved = toRoadEdition({ passed, stats, road: 'R17', roadEdition: 3 });
+    expect(moved.passed).toEqual(Object.fromEntries([...third, 'P01', 'P08'].map((code) => [code, true])));
+    expect(moved.stats).toEqual({ R11: { bestMoves: 3 }, R09: { bestMoves: 4 }, R10: { bestMoves: 2 }, R12: { bestMoves: 3 }, P08: { bestMoves: 4 } });
+    expect(moved.road).toBe(ROAD_END);
+    expect(moved.roadEdition).toBe(4);
+    // The boards went with their stars.
+    expect(pieceOf('R11').solution).toEqual(['3,0,W', '2,0,W', '0,2,N']);
+    expect(pieceOf('R09').solution).toEqual(['3,1,W', '2,2,S', '2,3,E']);
+  });
+
+  it('of the third edition: stands where its board is, or on the first piece not played that the board went past', () => {
+    const place = (road: string) => toRoadEdition({ passed: {}, stats: {}, road, roadEdition: 3 }).road;
+    const third = Array.from({ length: 17 }, (_, i) => `R${String(i + 1).padStart(2, '0')}`);
+    expect(Object.fromEntries(third.map((code) => [code, place(code)]))).toEqual({
+      R01: 'R01', R02: 'R02', R03: 'R03', R04: 'R04', R05: 'R05', R06: 'R06', R07: 'R07', R08: 'R08',
+      R09: 'R09', R10: 'R09', R11: 'R10', R12: 'R12', R13: 'R13', R14: 'R14', R15: 'R15', R16: 'R16', R17: ROAD_END,
+    });
+    for (const road of ['R18', '', 'X']) expect(place(road), road).toBe('R01');
   });
 
   it('leaves one with no place kept with none: new, or from the build before the road', () => {
@@ -863,9 +888,9 @@ describe('what was kept of a player of an edition before', () => {
   });
 
   it('gives back as it is what is of this edition already, the stars of its pieces among it', () => {
-    const kept = { passed: { R01: true, R03: true, P03: true }, stats: { R03: stat }, road: 'R04', roadEdition: 3 };
+    const kept = { passed: { R01: true, R03: true, P03: true }, stats: { R03: stat }, road: 'R04', roadEdition: 4 };
     expect(toRoadEdition(kept)).toBe(kept);
-    const done = { passed: { R16: true }, stats: { R16: stat }, road: ROAD_END, roadEdition: 3 };
+    const done = { passed: { R16: true }, stats: { R16: stat }, road: ROAD_END, roadEdition: 4 };
     expect(toRoadEdition(done)).toBe(done);
   });
 });
@@ -874,8 +899,8 @@ describe('the blocks of the road', () => {
   it('are four, and only the first is seen at one scale', () => {
     expect(ROAD_BLOCKS).toEqual([
       { from: 0, to: 4, oneScale: true },
-      { from: 5, to: 9, oneScale: false },
-      { from: 10, to: 11, oneScale: false },
+      { from: 5, to: 8, oneScale: false },
+      { from: 9, to: 11, oneScale: false },
       { from: 12, to: 15, oneScale: false },
     ]);
   });
@@ -898,7 +923,7 @@ describe('the middle of a piece', () => {
     expect(pieceMiddle(pieceOf('R03'))).toEqual({ x: 1, z: 1 });
     expect(pieceMiddle(pieceOf('R04'))).toEqual({ x: 1, z: 1.5 });
     expect(pieceMiddle(pieceOf('R05'))).toEqual({ x: 1.5, z: 2 });
-    expect(pieceMiddle(pieceOf('R11'))).toEqual({ x: 1.5, z: 1.5 });
+    expect(pieceMiddle(pieceOf('R10'))).toEqual({ x: 1.5, z: 1.5 });
   });
 
   it('is the middle of the square for a board with nothing cut out', () => {

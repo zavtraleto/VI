@@ -7,12 +7,12 @@ import type { Dir, LevelSpec } from '../rules/types';
  * stood on when the piece before was cleared. They are not in the list of the levels
  * (`levels.ts`).
  *
- * This is the third edition of the road (docs/superpowers/specs/2026-10-09-vi-road-free-pieces-design.md,
- * section 15): sixteen pieces in four blocks (`ROAD_BLOCKS`), set by the owner after he played the
- * second. `R01` to `R05` teach the roll, the faces and the combo; `R06` to `R10` the chain;
- * `R11` and `R12` the walk over dice that are leaving; `R13` to `R16` the floor and the push.
+ * This is the fourth edition of the road (docs/superpowers/specs/2026-10-09-vi-road-free-pieces-design.md,
+ * sections 15 and 16): sixteen pieces in four blocks (`ROAD_BLOCKS`), set by the owner after he
+ * played the second and the third. `R01` to `R05` teach the roll, the faces and the combo; `R06`
+ * to `R09` the chain; `R10` to `R12` the dice that are leaving; `R13` to `R16` the floor and the push.
  *
- * A lesson is the piece that brings a move, with a line above the board. `R01`, `R02`, `R11` and
+ * A lesson is the piece that brings a move, with a line above the board. `R01`, `R02`, `R10` and
  * `R13` are boards cut to few cells, and none of them can be lost: the dice that wait are fixed,
  * but for the pair of 2s and the two 3s of `R13`, whose fixed 3 is the one they are pushed to.
  * The lesson of the chain (`R06`) is an open board of three dice that all roll: the first pair
@@ -145,24 +145,12 @@ export const ROAD: readonly LevelSpec[] = [
     layout: { start: { x: 3, z: 0 }, dice: [{ x: 3, z: 0, top: 5, north: 6 }, { x: 0, z: 0, top: 3, north: 2 }, { x: 1, z: 1, top: 2, north: 1 }, { x: 0, z: 2, top: 3, north: 6 }, { x: 2, z: 2, top: 6, north: 5 }] },
     par: 5, solution: ['3,0,W', '2,0,W', '0,0,S', '0,2,E', '2,2,N'],
   },
-  // b # # A    B4, free: the walk as a short cut. Two rolls west bring a 3 up over the column of
-  // # c # #    3s. The die that makes the 2s is at the foot of that column: three moves by the walk
-  // d e # #    over the 3s as they leave, four by the way round them. Not hurrying pays.
-  // # # # #
-  {
-    ...COMMON, id: 'R09', seed: 8109, size: 4, values: [3, 2], faces: [3, 2], norm: 5, floor: false,
-    layout: {
-      start: { x: 3, z: 0 },
-      dice: [{ x: 3, z: 0, top: 4, north: 6 }, { x: 0, z: 0, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 6 }, { x: 0, z: 2, top: 6, north: 5 }, { x: 1, z: 2, top: 3, north: 5 }],
-    },
-    par: 3, solution: ['3,0,W', '2,0,W', '0,2,N'],
-  },
-  // # # b c    B5, the mix of the block: two faces, two combos, either first. The die under the
+  // # # b c    B4, the mix of the block: two faces, two combos, either first. The die under the
   // # # # A    player has a 3 on its east side: a roll west and the 3s go. The die to the south of
   // # # d e    it then makes the 2s in two rolls, round the 2 that waits.
   // # # # #
   {
-    ...COMMON, id: 'R10', seed: 8110, size: 4, values: [3, 2], faces: [3, 2], norm: 5, floor: false,
+    ...COMMON, id: 'R09', seed: 8109, size: 4, values: [3, 2], faces: [3, 2], norm: 5, floor: false,
     layout: {
       start: { x: 3, z: 1 },
       dice: [{ x: 3, z: 1, top: 6, north: 5 }, { x: 2, z: 0, top: 3, north: 5 }, { x: 3, z: 0, top: 3, north: 5 }, { x: 2, z: 2, top: 6, north: 4 }, { x: 3, z: 2, top: 2, north: 6 }],
@@ -174,7 +162,7 @@ export const ROAD: readonly LevelSpec[] = [
   // . . 2 #    leaves: a step is no move, so the dice wait while the player walks. Then one roll
   // . . . A    west, under the 3s.
   {
-    ...COMMON, id: 'R11', seed: 8111, size: 4, values: [2, 3], faces: [2, 3], norm: 5, floor: false,
+    ...COMMON, id: 'R10', seed: 8110, size: 4, values: [2, 3], faces: [2, 3], norm: 5, floor: false,
     holes: cutAllBut(4, [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2], [3, 2], [3, 3]]),
     layout: {
       start: { x: 3, z: 3 },
@@ -188,7 +176,20 @@ export const ROAD: readonly LevelSpec[] = [
     },
     par: 2, solution: ['3,3,N', '2,1,W'],
   },
-  // b # # #    C2, the mix of the block: a bridge over a long combo. A roll north makes the 3s, a row
+  // b # # A    C2, free: the walk as a short cut. Two rolls west bring a 3 up over the column of
+  // # c # #    3s. The die that makes the 2s is at the foot of that column: three moves by the walk
+  // d e # #    over the 3s as they leave, four by the way round them. Not hurrying pays. It was R09
+  // # # # #    of the third edition, in the block of the chain; it is two combos and the walk, and
+  //            came here, after the lesson of the walk, by the word of the owner of 12 October.
+  {
+    ...COMMON, id: 'R11', seed: 8111, size: 4, values: [3, 2], faces: [3, 2], norm: 5, floor: false,
+    layout: {
+      start: { x: 3, z: 0 },
+      dice: [{ x: 3, z: 0, top: 4, north: 6 }, { x: 0, z: 0, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 6 }, { x: 0, z: 2, top: 6, north: 5 }, { x: 1, z: 2, top: 3, north: 5 }],
+    },
+    par: 3, solution: ['3,0,W', '2,0,W', '0,2,N'],
+  },
+  // b # # #    C3, the mix of the block: a bridge over a long combo. A roll north makes the 3s, a row
   // # c d #    of three. Two steps north and west and a roll west: the 2s at the top. Back over the
   // e f # #    three 3s as they leave, and the last die rolled west joins the 2s: the chain last.
   // # # A #    Without the walk the board takes a move more.
@@ -297,8 +298,8 @@ export interface RoadBlock {
 /** The blocks of the road, in its order. */
 export const ROAD_BLOCKS: readonly RoadBlock[] = [
   { from: 0, to: 4, oneScale: true },
-  { from: 5, to: 9, oneScale: false },
-  { from: 10, to: 11, oneScale: false },
+  { from: 5, to: 8, oneScale: false },
+  { from: 9, to: 11, oneScale: false },
   { from: 12, to: 15, oneScale: false },
 ];
 
@@ -325,12 +326,12 @@ export interface RoadHint {
 
 /**
  * The pieces that teach a move carry a line above the board, a hint and not an instruction (the
- * owner: «они скорее подсказка, а не наставление»): `R06` the chain, `R11` the walk over dice
+ * owner: «они скорее подсказка, а не наставление»): `R06` the chain, `R10` the walk over dice
  * that are leaving, `R13` the way down and the push.
  */
 export const ROAD_HINTS: Readonly<Record<string, RoadHint>> = {
   R06: { key: 'roadHintChain', until: 'chain' },
-  R11: { key: 'roadHintWalk', until: 'walk' },
+  R10: { key: 'roadHintWalk', until: 'walk' },
   R13: { key: 'roadHintPush', until: 'push' },
 };
 
@@ -345,7 +346,7 @@ type Wait = { blinkMs: number | null; signMs: number; wasted: number | null };
  * move: only they count the moves that led nowhere. The lesson of the chain (`R06`) is not among
  * them: it is an open board, and waits as a free piece does.
  */
-export const ROAD_LESSONS: readonly string[] = ['R01', 'R02', 'R11', 'R13'];
+export const ROAD_LESSONS: readonly string[] = ['R01', 'R02', 'R10', 'R13'];
 
 /** The first piece shows its sign from the start, and after a move brings it back in six seconds, or at once after three moves that led nowhere. */
 const FIRST_WAIT: Wait = { blinkMs: null, signMs: 6000, wasted: 3 };
@@ -400,12 +401,13 @@ export function roadPlace(road: string | undefined, firstPassed: boolean): numbe
 }
 
 /**
- * The edition of the road. Its pieces were given their codes anew with the second, and again
- * with the third: `R07` of the second is the lesson of the chain, of the third a free piece, so
+ * The edition of the road. Its pieces were given their codes anew with the second, again with the
+ * third, and again with the fourth: `R07` of the second is the lesson of the chain, of the third a
+ * free piece; `R09` of the third is the walk as a short cut, of the fourth the mix of the chain. So
  * what a player of an edition before has kept under those codes is brought over by board
  * (`toRoadEdition`).
  */
-export const ROAD_EDITION = 3;
+export const ROAD_EDITION = 4;
 
 /** What was kept under the codes of the road: the codes of its pieces are `R` and two digits, and no level of the list has such a code. */
 const ROAD_CODE = /^R\d\d$/;
@@ -413,25 +415,48 @@ const ROAD_CODE = /^R\d\d$/;
 const FIRST_EDITION_PIECES = 20;
 
 /**
- * The boards of the second edition that are in this one, by the code each had there and the code
- * it has here. Two went between the road and the list: `R10` of the second edition is the level
- * `P08` now, and the board of `P08` is the piece `R08`.
+ * The boards of the second edition that are in the third, by the code each had there and the code
+ * it had in the third. Two went between the road and the list: `R10` of the second edition is the
+ * level `P08` now, and the board of `P08` is the piece `R08`.
  */
 const SECOND_EDITION_BOARDS: Readonly<Record<string, string>> = {
   R01: 'R01', R02: 'R02', R03: 'R03', R04: 'R04', R06: 'R10', R09: 'R07', R10: 'P08', R12: 'R09', R17: 'R14', R18: 'R16', P08: 'R08',
 };
 
 /**
- * Where one who stood on a piece of the second edition stands on this one: on the piece of the
- * same role, the first of its block they have not played as the board it is. Its lessons are the
- * lessons here; a piece that went is followed by the one that does its work; one past the end of
- * the second edition (`R19`) is past this one.
+ * Where one who stood on a piece of the second edition stood on the third: on the piece of the
+ * same role, the first of its block they had not played as the board it is. Its lessons were the
+ * lessons there; a piece that went is followed by the one that does its work; one past the end of
+ * the second edition (`R19`) is past the third.
  */
 const SECOND_EDITION_PLACES: Readonly<Record<string, string>> = {
   R01: 'R01', R02: 'R02', R03: 'R03', R04: 'R04', R05: 'R05', R06: 'R05',
   R07: 'R06', R08: 'R07', R09: 'R07', R10: 'R08',
   R11: 'R11', R12: 'R12', R13: 'R12', R14: 'R12',
-  R15: 'R13', R16: 'R14', R17: 'R14', R18: 'R16',
+  R15: 'R13', R16: 'R14', R17: 'R14', R18: 'R16', R19: 'R17',
+};
+
+/**
+ * The boards of the third edition that are in this one, by the code each had there and the code
+ * it has here: the walk as a short cut (`R09`) went from the block of the chain to the block of
+ * the dice that leave, after its lesson, and the mix of the chain (`R10`) came a place nearer.
+ */
+const THIRD_EDITION_BOARDS: Readonly<Record<string, string>> = {
+  R01: 'R01', R02: 'R02', R03: 'R03', R04: 'R04', R05: 'R05', R06: 'R06', R07: 'R07', R08: 'R08',
+  R09: 'R11', R10: 'R09', R11: 'R10', R12: 'R12', R13: 'R13', R14: 'R14', R15: 'R15', R16: 'R16',
+};
+
+/**
+ * Where one who stood on a piece of the third edition stands on this one: where its board is, but
+ * where the board went further along the road, past pieces the player has not played, on the
+ * first of those. One on `R09` (the walk as a short cut, now `R11`) has played neither the mix of
+ * the chain nor the lesson before it, and stands on the mix (`R09`); one on `R10`, the mix, is on
+ * it still; one on the lesson of the walk is on the lesson of its block. One past the end (`R17`)
+ * is past this one.
+ */
+const THIRD_EDITION_PLACES: Readonly<Record<string, string>> = {
+  R01: 'R01', R02: 'R02', R03: 'R03', R04: 'R04', R05: 'R05', R06: 'R06', R07: 'R07', R08: 'R08',
+  R09: 'R09', R10: 'R09', R11: 'R10', R12: 'R12', R13: 'R13', R14: 'R14', R15: 'R15', R16: 'R16', R17: 'R17',
 };
 
 /** What is kept of a player that the road reads and writes: see `LevelProgress` in `src/platform/settings.ts`. */
@@ -446,12 +471,14 @@ export interface RoadKept {
  * Brings what is kept of a player to this edition of the road; what is of this edition already
  * is given back as it is.
  *
- * From the second edition: what was passed and counted on a board that is still played goes
- * with it to its code here (`SECOND_EDITION_BOARDS`), the stars of `P08` and of `R10` among it,
- * each to where its board is now; what was of the pieces that went is dropped, and the other
- * levels of the list are left as they were. The place goes to the piece of the same role
- * (`SECOND_EDITION_PLACES`), one past the road stays past it, any other code leads to the first
- * piece.
+ * From the third edition: what was passed and counted on a board that is still played goes with
+ * it to its code here (`THIRD_EDITION_BOARDS`); what was of the pieces that went is dropped, and
+ * the levels of the list are left as they were. The place goes by `THIRD_EDITION_PLACES`, one past
+ * the road stays past it, any other code leads to the first piece.
+ *
+ * From the second edition: first to the third as the third brought it (`SECOND_EDITION_BOARDS`,
+ * the stars of `P08` and of `R10` each to where its board went; the place to the piece of the same
+ * role, `SECOND_EDITION_PLACES`), and then on from the third.
  *
  * From the first edition, which had no mark: what was passed and counted under the codes of the
  * road is dropped, since the stars were earned on other boards. One who was on the road is put
@@ -459,23 +486,31 @@ export interface RoadKept {
  */
 export function toRoadEdition<T extends RoadKept>(kept: T): T {
   if (kept.roadEdition === ROAD_EDITION) return kept;
-  const second = kept.roadEdition === 2;
-  // A board kept under a code it no longer has is moved to the code it has; any other code of the road is dropped.
+  const edition = kept.roadEdition === 2 || kept.roadEdition === 3 ? kept.roadEdition : 1;
+  // A board kept under a code it no longer has is moved to the code it has, edition by edition; any other code of the road is dropped.
+  const boardOf = (code: string): string | undefined => {
+    let at: string | undefined = code;
+    if (edition === 1) return ROAD_CODE.test(code) ? undefined : code;
+    if (edition === 2) at = SECOND_EDITION_BOARDS[code] ?? (ROAD_CODE.test(code) ? undefined : code);
+    if (at === undefined || !ROAD_CODE.test(at)) return at;
+    return THIRD_EDITION_BOARDS[at];
+  };
   const carried = <V>(all: Record<string, V>): Record<string, V> => {
     const out: Record<string, V> = {};
     for (const [code, value] of Object.entries(all ?? {})) {
-      const to = second ? SECOND_EDITION_BOARDS[code] : undefined;
+      const to = boardOf(code);
       if (to !== undefined) out[to] = value;
-      else if (!ROAD_CODE.test(code)) out[code] = value;
     }
     return out;
   };
   const moved: T = { ...kept, passed: carried(kept.passed), stats: carried(kept.stats), roadEdition: ROAD_EDITION };
   if (kept.road !== undefined) {
-    if (second) moved.road = kept.road === 'R19' ? ROAD_END : (SECOND_EDITION_PLACES[kept.road] ?? ROAD[0].id);
-    else {
+    if (edition === 1) {
       const place = ROAD_CODE.test(kept.road) ? Number(kept.road.slice(1)) : 0;
       moved.road = place > FIRST_EDITION_PIECES ? ROAD_END : ROAD[0].id;
+    } else {
+      const third = edition === 2 ? SECOND_EDITION_PLACES[kept.road] : kept.road;
+      moved.road = (third === undefined ? undefined : THIRD_EDITION_PLACES[third]) ?? ROAD[0].id;
     }
   }
   return moved;

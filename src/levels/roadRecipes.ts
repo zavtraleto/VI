@@ -1,8 +1,8 @@
 import { cutFrom, type Recipe } from './recipes';
 
 /**
- * The places of the road that are not lessons: the free pieces and the mixes of its third
- * edition (docs/superpowers/specs/2026-10-09-vi-road-free-pieces-design.md, sections 4 and 15). A
+ * The places of the road that are not lessons: the free pieces and the mixes of its fourth
+ * edition (docs/superpowers/specs/2026-10-09-vi-road-free-pieces-design.md, sections 4, 15 and 16). A
  * lesson is laid by hand and holds the player to its move; a free piece is a small level on an
  * open board, every die of it a die that rolls, and its board is looked for among the boards
  * laid for its place here (`node scripts/ladder.mjs place=R05`), as the boards of the list are.
@@ -42,7 +42,7 @@ const LATER = { hasty: 0.7, casual: 0.75 } as const;
 const FREE = { chapter: 0, compact: false, firsts: [2, 99] } as const;
 
 /** The seeds the boards of seven pieces were laid from by their places: above ten thousand from a solution, above thirty thousand from a route. */
-export const ROAD_SEEDS: Readonly<Record<string, number>> = { R03: 10393, R04: 261, R09: 11400, R10: 10307, R12: 11118, R14: 30503, R16: 30547 };
+export const ROAD_SEEDS: Readonly<Record<string, number>> = { R03: 10393, R04: 261, R09: 10307, R11: 11400, R12: 11118, R14: 30503, R16: 30547 };
 
 export const ROAD_PLACES: readonly RoadPlace[] = [
   {
@@ -71,12 +71,12 @@ export const ROAD_PLACES: readonly RoadPlace[] = [
     brief: 'a long chain: a pair, and one die after another brought to it while it leaves',
   },
   {
-    ...FREE, slot: 12, id: 'R09', role: 'free', size: 4, dice: 5, faces: [3, 2], par: [3, 3], floor: false, avoid: ['link', 'glass'], kinds: ['bridge'], personas: LATER,
-    brief: 'the bridge as a short cut: the second combo is come to over the first as it leaves, or round it in a move more',
+    ...FREE, slot: 6, id: 'R09', role: 'mix', size: 4, dice: 5, faces: [2, 3], par: [3, 4], floor: false, avoid: ['link', 'glass'], kinds: ['top'], personas: LATER,
+    brief: 'two combos one after the other, in either order, and no chain',
   },
   {
-    ...FREE, slot: 6, id: 'R10', role: 'mix', size: 4, dice: 5, faces: [2, 3], par: [3, 4], floor: false, avoid: ['link', 'glass'], kinds: ['top'], personas: LATER,
-    brief: 'two combos one after the other, in either order, and no chain',
+    ...FREE, slot: 12, id: 'R11', role: 'free', size: 4, dice: 5, faces: [3, 2], par: [3, 3], floor: false, avoid: ['link', 'glass'], kinds: ['bridge'], personas: LATER,
+    brief: 'the bridge as a short cut: the second combo is come to over the first as it leaves, or round it in a move more',
   },
   {
     ...FREE, slot: 12, id: 'R12', role: 'mix', size: 4, dice: 6, faces: [3, 2], par: [3, 4], floor: false, shows: ['link'], ends: { event: 'link' }, kinds: ['bridge'], avoid: ['glass'], personas: LATER,

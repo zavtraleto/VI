@@ -33,7 +33,7 @@ describe('the plaques of the road', () => {
   });
 
   it('stand over each of the two asks of the mix of the second block: the pair of threes and the lone two', () => {
-    expect(places(start('R10'))).toEqual([
+    expect(places(start('R09'))).toEqual([
       { value: 3, have: 2, need: 3, cells: ['2,0', '3,0'] },
       { value: 2, have: 1, need: 2, cells: ['3,2'] },
     ]);
