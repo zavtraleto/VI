@@ -439,13 +439,15 @@ const UNUSUAL: readonly Recipe[] = [
 
 /**
  * Places added to the probe after it was played: a level the list needed and no place of the two
- * batches gave. `P31` is the place of `P13` once more, for a breather after the hardest levels.
+ * batches gave. `P31` is the place of `P13` once more, for a breather after the hardest levels:
+ * what it asks besides is that the casual player clears the board in half the runs.
  */
 const EXTRA: readonly Recipe[] = [
   {
     slot: 31, id: 'P31', ...PROBE, ...ON_TOP, compact: true, size: 4, dice: 6, faces: [6], par: [4, 7],
     scenes: [{ event: 'combo', face: 6, by: 'roll', moves: [2, 3], loose: 1, looseMoves: [1, 2] }],
     kinds: ['top'], quiet: [3, 6], counted: [1, 1], last: [6, 6], movers: 2,
+    casual: [0.5, 1],
     brief: 'a breather after the peak: six dice go in one move, the sixes mostly up',
   },
 ];

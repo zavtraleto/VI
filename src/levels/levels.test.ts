@@ -10,11 +10,11 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
 import { levelId } from './generate';
 import { LEVELS, PARKED, SPARES } from './levels';
-import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, underOf } from './measures';
+import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
 import { chaptersOf, ladderProgress, limitedLevel } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
 import { lessonsAt } from './rules';
-import { sameBoard } from './variety';
+import { UNLIKE_BY, sameBoard, traitsOf, unlike } from './variety';
 
 /**
  * The list of the levels, whatever boards it holds: levels of the probe in the order the owner
@@ -28,7 +28,7 @@ import { sameBoard } from './variety';
 const placeOf = (spec: LevelSpec): Recipe | undefined => PLACES.find((place) => levelId(place) === spec.id);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 /** The list as the owner ordered it on 12 October 2026 (docs/VI_Levels_Playtest_2026-10-12.md, section 4). */
-const ORDER = ['P13', 'P04', 'P09', 'P02', 'P14', 'P03', 'P20', 'P16', 'P07', 'P01', 'P12', 'P08', 'P06', 'P05', 'P17', 'P15', 'P19'];
+const ORDER = ['P13', 'P04', 'P09', 'P02', 'P14', 'P03', 'P20', 'P16', 'P07', 'P01', 'P12', 'P08', 'P06', 'P05', 'P17', 'P15', 'P31', 'P19'];
 /** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
 const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
 const ALL: readonly LevelSpec[] = [...LEVELS, ...PARKED, ...SPARES];
@@ -250,6 +250,16 @@ describe('the levels of the game', () => {
     const before = SPARES.filter((spare) => spare.id === 'P19' && spare.seed === 30263);
     expect(before).toHaveLength(1);
     for (const spare of before) expect(safeFirstOf(spare), `${spare.id}, seed ${spare.seed}`).toBe(false);
+  });
+
+  it('have a breather before the last level: P31 is of the place of P13 once more, and a board unlike it', () => {
+    const breather = LEVELS[16];
+    const collapse = LEVELS[0];
+    expect([breather.id, collapse.id]).toEqual(['P31', 'P13']);
+    expect(unlike(traitsOf({ spec: breather }), traitsOf({ spec: collapse }))).toBeGreaterThanOrEqual(UNLIKE_BY);
+    // Four of its six 6s are up from the start: two dice are turned, and all six go with one move.
+    expect(breather.layout!.dice.filter((die) => die.top === 6)).toHaveLength(4);
+    expect(turnsOf(breather, wayOf(breather))).toBe(2);
   });
 
   it('hold one board of the road: P08 is R10 of the second edition, played by the rules of the list, and its place is not asked of it', () => {

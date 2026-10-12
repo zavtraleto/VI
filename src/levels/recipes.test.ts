@@ -39,8 +39,9 @@ describe('the places of the probe', () => {
     expect(PLACES.slice(0, 20).filter((place) => !SQUARE.includes(place)).map(levelId)).toEqual(['P02']);
     expect(PLACES.slice(20, 30).filter((place) => !UNUSUAL.includes(place))).toEqual([]);
     expect(UNUSUAL).toHaveLength(11);
-    // P31 is the place of P13 once more: what it asks of a board is the same, and only its name and its line differ.
-    const { slot: _slot, id: _id, brief: _brief, ...breather } = PLACES[30];
+    // P31 is the place of P13 once more: what it asks of a board is the same, and besides that the casual player clears it in half the runs.
+    const { slot: _slot, id: _id, brief: _brief, casual, ...breather } = PLACES[30];
+    expect(casual).toEqual([0.5, 1]);
     const { slot: _slot13, id: _id13, brief: _brief13, ...collapse } = PLACES[12];
     expect(breather).toEqual(collapse);
   });
