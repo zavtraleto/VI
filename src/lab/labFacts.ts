@@ -1,5 +1,7 @@
 import { levelId } from '../levels/generate';
 import { QUICK_MAX_STATES, checkOf, genFile, genOf, movesOf, nearBoards, nearOf, type Check, type MoveFact, type NearFact } from '../levels/labText';
+import { offersFor, type OrderOffer } from '../levels/orderSearch';
+import type { Order } from '../levels/orders';
 import { PLACES } from '../levels/recipes';
 import { ROAD_PLACES } from '../levels/roadRecipes';
 import { firstsOf } from '../levels/measures';
@@ -133,13 +135,15 @@ export type Ask =
   | { id: number; tier: 'seconds'; spec: LevelSpec }
   | { id: number; tier: 'later'; spec: LevelSpec }
   | { id: number; tier: 'gen'; place: string }
-  | { id: number; tier: 'gen'; spec: LevelSpec; name: string };
-export type Told = { id: number; tier: 'seconds'; facts: Seconds } | { id: number; tier: 'later'; facts: Later } | { id: number; tier: 'gen'; facts: Offer[] } | { id: number; tier: Ask['tier']; error: string };
+  | { id: number; tier: 'gen'; spec: LevelSpec; name: string }
+  | { id: number; tier: 'order'; order: Order; from: number; budgetMs: number; skip: LevelSpec[] };
+export type Told = { id: number; tier: 'seconds'; facts: Seconds } | { id: number; tier: 'later'; facts: Later } | { id: number; tier: 'gen'; facts: Offer[] } | { id: number; tier: 'order'; facts: { offers: OrderOffer[]; tried: number; next: number } } | { id: number; tier: Ask['tier']; error: string };
 
 /** Answers a question: the work of the worker, kept here so that it can be asked without one. */
 export function answer(ask: Ask): Told {
   try {
     if (ask.tier === 'seconds') return { id: ask.id, tier: 'seconds', facts: secondsOf(ask.spec) };
+    if (ask.tier === 'order') return { id: ask.id, tier: 'order', facts: offersFor(ask.order, { from: ask.from, budgetMs: ask.budgetMs, skip: ask.skip }) };
     if (ask.tier === 'gen') return { id: ask.id, tier: 'gen', facts: 'place' in ask ? offersOfPlace(ask.place) : offersOfBoard(ask.spec, ask.name) };
     return { id: ask.id, tier: 'later', facts: laterOf(ask.spec) };
   } catch (error) {

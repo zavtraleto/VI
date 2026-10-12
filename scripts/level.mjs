@@ -20,6 +20,9 @@
 //   node scripts/level.mjs svg file=H01 out=boards/out/H01.svg   the board as a picture (cell=48: the side of a cell)
 //   node scripts/level.mjs source file=H01              the board as a line for src/levels/levels.ts or road.ts: it is
 //                                                       put there by hand, and by the word of the owner only
+//   node scripts/level.mjs order preset=tricky par=4-6 out=boards/out/   boards laid for an order: a preset and the bounds
+//                                                       said after it (size= dice= faces= par= needs= avoid= quiet= events= tail=
+//                                                       ends= firsts= trap= trapdepth= hidden= far= last=); seconds=10, keep=5
 //   node scripts/level.mjs gen place=R05 out=boards/out/   boards laid for a place and judged by it, the ones that fit
 //                                                       written as files: seeds=200 from=1, mode=random|solution|route|both
 //                                                       (the place's own way unless said), keep=20 the most that are written
@@ -56,6 +59,8 @@ const COMMANDS = {
   svg: { keys: ['file', 'out', 'cell'], flags: [] },
   source: { keys: ['file', 'states'], flags: [] },
   gen: { keys: ['place', 'seeds', 'from', 'mode', 'keep', 'out', 'states', 'workers', 'share'], flags: ['json'] },
+  // The keys of `order` are the words of an order, read by `orderOf`: any key is taken here and held against them there.
+  order: { keys: null, flags: ['json'] },
 };
 
 /** Ends the script on what could not be read: said on stderr, code 2. */
@@ -70,7 +75,7 @@ const { keys, flags } = COMMANDS[command];
 const named = Object.fromEntries(args.filter((arg) => arg.includes('=')).map((arg) => [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)]));
 const flag = (name) => args.includes(name);
 for (const key of Object.keys(named)) {
-  if (!keys.includes(key)) refuse(`${command}: cannot read "${key}=": its keys are ${keys.map((name) => `${name}=`).join(', ') || 'none'}`);
+  if (keys !== null && !keys.includes(key)) refuse(`${command}: cannot read "${key}=": its keys are ${keys.map((name) => `${name}=`).join(', ') || 'none'}`);
 }
 for (const arg of args) {
   if (!arg.includes('=') && !flags.includes(arg)) refuse(`${command}: cannot read "${arg}": its words are ${flags.join(', ') || 'none'}`);
@@ -216,6 +221,35 @@ if (command === 'show') {
     );
     if (written.length === 0) process.exitCode = 1;
   }
+} else if (command === 'order') {
+  // Every word that is not the script's own is a word of the order: preset=tricky par=4-6 dice=5 …
+  const own = ['seconds', 'keep', 'out'];
+  const { orderOf, orderText } = await load('/src/levels/orders.ts');
+  const { offersFor } = await load('/src/levels/orderSearch.ts');
+  let order;
+  try {
+    order = orderOf(Object.entries(named).filter(([key]) => !own.includes(key)).map(([key, value]) => `${key}=${value}`).join(' '));
+  } catch (error) {
+    refuse(error.message);
+  }
+  if (!named.out) refuse('order: name the folder to write the boards to, as in out=boards/out/');
+  const began = Date.now();
+  const { offers, tried } = offersFor(order, { budgetMs: (number('seconds') ?? 10) * 1000, keep: number('keep') ?? 5 });
+  console.error(`order: ${tried} seeds in ${((Date.now() - began) / 1000).toFixed(1)} s`);
+  const dir = resolve(process.cwd(), named.out);
+  mkdirSync(dir, { recursive: true });
+  const stem = order.preset ?? 'order';
+  const written = offers.map((offer, index) => {
+    const name = `${stem}-${index + 1}`;
+    const file = resolve(dir, `${name}.txt`);
+    writeFileSync(file, printBoard({ ...offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(order)}` }));
+    return { file, seed: offer.seed, par: offer.par, route: offer.route, misses: offer.misses };
+  });
+  print(
+    [`order: ${orderText(order)}`, ...written.map((board) => `${board.file}  moves ${board.par}  route ${board.route}  ${board.misses.length === 0 ? 'meets the order' : `misses: ${board.misses.join('; ')}`}`), `order: ${written.filter((board) => board.misses.length === 0).length} of ${written.length} boards meet it`].join('\n'),
+    { order: orderText(order), tried, boards: written },
+  );
+  if (!written.some((board) => board.misses.length === 0)) process.exitCode = 1;
 } else if (command === 'regress') {
   const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
   const { ROAD } = await load('/src/levels/road.ts');

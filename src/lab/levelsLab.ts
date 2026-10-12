@@ -10,12 +10,15 @@ import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { BoardEditor, type Overlay } from './boardEditor';
 import { BoardStage } from './boardStage';
 import { boardSvg } from '../levels/boardSvg';
+import type { OrderOffer } from '../levels/orderSearch';
+import { PRESETS, applyPreset, orderOf, orderText, type Order } from '../levels/orders';
 import { diffOf } from '../levels/labText';
 import { addPlay, historyOf, listBoards, onBoardChanged, playsOf, readBoard, readVersion, writeBoard } from './boardsClient';
 import { boardHash, type Version } from './boardsServer';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
 import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Instant, type Later, type Offer, type Seconds } from './labFacts';
+import { OrderDesk } from './orderDesk';
 import { playRecordOf, versionSummary, type PlayRecord } from './playLog';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 
@@ -129,6 +132,17 @@ class LevelsLab {
   private readonly gallery = document.createElement('div');
   private readonly genForm = { place: GEN_PLACES[0] ?? '' };
   private readonly askGen = new SolveClient<Question<'gen'>, Offer[]>(solver);
+  /** The order on the panel, as the panel has it: every bound as text, empty where it is not asked. */
+  private readonly orderForm = {
+    preset: '', size: 4, dice: 5, more: 0, faces: '2', shut: false, par: '3-6',
+    link: 'any', glass: 'any', floor: 'any', ones: 'any',
+    quiet: '', events: '', tail: '', ends: '', spare: '', firsts: '', trap: 'any', trapDepth: '', hidden: 'any', far: '', last: '',
+  };
+  private orderControls: Controller[] = [];
+  private readonly desk = new OrderDesk(solver, () => this.show());
+  /** What the board on the board misses of the order it was laid for, and whether a board is being waited for. */
+  private orderSays: string[] = [];
+  private ordering = false;
   /** The play in hand, while the board is played. */
   private watched: Watched | null = null;
   /** The status every file says it has, for the list of the files. */
@@ -257,7 +271,8 @@ class LevelsLab {
     versions.add({ open: () => void this.openVersion() }, 'open').name('открыть как текущую');
     versions.add({ compare: () => void this.compareWith() }, 'compare').name('сравнить с текущей');
     versions.add({ stop: () => this.stopCompare() }, 'stop').name('убрать сравнение');
-    const gen = gui.addFolder('Генерация');
+    this.buildOrder();
+    const gen = gui.addFolder('Генерация').close();
     gen.add(this.genForm, 'place', [...GEN_PLACES]).name('место');
     gen.add({ place: () => this.offer({ tier: 'gen', place: this.genForm.place }, `место ${this.genForm.place}, ${GEN_SEEDS} зёрен`) }, 'place').name(`от места (${GEN_SEEDS} зёрен)`);
     gen.add({ board: () => this.spec && this.offer({ tier: 'gen', spec: this.spec, name: this.name }, `в одну правку от ${this.name}`) }, 'board').name('от этой доски');
@@ -270,6 +285,134 @@ class LevelsLab {
       views.add(this.views, 'spare').name('лишние кости').onChange(seen),
       views.add(this.views, 'blind').name('слепой режим').onChange(seen),
     ];
+  }
+
+  /**
+   * The order on the panel: a preset, which sets everything, and the bounds one by one. A bound
+   * is a field of text, `3-6` or `2`, and is not asked where the field is empty; a technique is
+   * asked for, forbidden, or left alone.
+   */
+  private buildOrder(): void {
+    const { gui, orderForm: form } = this;
+    const folder = gui.addFolder('Заказ');
+    const presets = { '—': '', ...Object.fromEntries(Object.entries(PRESETS).map(([key, preset]) => [preset.name, key])) };
+    const three = { 'не важно': 'any', 'обязан быть': 'needs', 'не должен быть': 'avoid' };
+    this.orderControls = [
+      folder.add(form, 'preset', presets).name('заготовка').onChange((key: string) => {
+        if (key) this.setOrder(applyPreset(this.orderOfForm(), key));
+      }),
+      folder.add(form, 'size', SIZE_MIN, SIZE_MAX, 1).name('сторона'),
+      folder.add(form, 'dice', 2, 12, 1).name('костей'),
+      folder.add(form, 'more', 0, 3, 1).name('…или больше на'),
+      folder.add(form, 'faces').name('рабочие грани'),
+      folder.add(form, 'shut').name('пол закрыт'),
+      folder.add(form, 'par').name('ходов (от-до)'),
+      folder.add(form, 'link', three).name('звено цепочки'),
+      folder.add(form, 'glass', three).name('через уходящую'),
+      folder.add(form, 'floor', three).name('пол и толчок'),
+      folder.add(form, 'ones', three).name('единицы'),
+      folder.add(form, 'quiet').name('тихих ходов до события'),
+      folder.add(form, 'events').name('событий'),
+      folder.add(form, 'tail').name('ходов после предпоследнего'),
+      folder.add(form, 'ends', { 'не важно': '', комбо: 'combo', звено: 'link', единицы: 'ones' }).name('кончается на'),
+      folder.add(form, 'spare').name('…с запасом ходов'),
+      folder.add(form, 'last').name('костей на последнем событии'),
+      folder.add(form, 'firsts').name('верных первых ходов'),
+      folder.add(form, 'trap', { 'не важно': 'any-way', 'нет': 'none', 'есть': 'any' }).name('ловушка'),
+      folder.add(form, 'trapDepth').name('…тупик виден через ходов'),
+      folder.add(form, 'hidden', { 'не важно': 'any', 'на виду': 'shown', 'спрятана': 'hidden' }).name('нужная грань'),
+      folder.add(form, 'far').name('до кости первого хода, клеток'),
+    ];
+    form.trap = 'any-way';
+    folder.add({ lay: () => void this.layOrder() }, 'lay').name('предложить доску');
+    folder.add({ more: () => void this.layOrder() }, 'more').name('ещё');
+    for (const control of this.orderControls) control.updateDisplay();
+  }
+
+  /** The order the panel says. What cannot be read is thrown, as the line of an order says it. */
+  private orderOfForm(): Order {
+    const form = this.orderForm;
+    const techniques = (wanted: string): string => (['link', 'glass', 'floor', 'ones'] as const).filter((name) => form[name] === wanted).join(',');
+    const words = [
+      `size=${form.size}`, `dice=${form.dice}`, form.more ? `more=${form.more}` : '', `faces=${form.faces.split(/[\s,]+/).filter(Boolean).join(',')}`, form.shut ? 'floor=shut' : '', `par=${form.par.trim()}`,
+      techniques('needs') && `needs=${techniques('needs')}`, techniques('avoid') && `avoid=${techniques('avoid')}`,
+      form.quiet.trim() && `quiet=${form.quiet.trim()}`, form.events.trim() && `events=${form.events.trim()}`, form.tail.trim() && `tail=${form.tail.trim()}`,
+      form.ends && `ends=${form.ends}${form.spare.trim() ? `.${form.spare.trim()}` : ''}`, form.last.trim() && `last=${form.last.trim()}`, form.firsts.trim() && `firsts=${form.firsts.trim()}`,
+      form.trap !== 'any-way' && `trap=${form.trap}`, form.trapDepth.trim() && `trapdepth=${form.trapDepth.trim()}`,
+      form.hidden !== 'any' && `hidden=${form.hidden === 'hidden' ? 'yes' : 'no'}`, form.far.trim() && `far=${form.far.trim()}`,
+    ];
+    const order = orderOf(words.filter(Boolean).join(' '));
+    // The cells cut out are the board's own: an order is laid on the shape that is drawn.
+    const holes = (this.spec?.size === order.size ? (this.spec.holes ?? []) : []).map(({ x, z }) => [x, z] as const);
+    return { ...order, ...(holes.length > 0 ? { holes } : {}), ...(form.preset ? { preset: form.preset } : {}) };
+  }
+
+  /** The panel is set to an order. */
+  private setOrder(order: Order): void {
+    const form = this.orderForm;
+    const span = (bounds?: readonly [number, number]): string => (bounds ? (bounds[0] === bounds[1] ? String(bounds[0]) : `${bounds[0]}-${bounds[1]}`) : '');
+    form.preset = order.preset ?? '';
+    form.size = order.size;
+    form.dice = order.dice;
+    form.more = order.more ?? 0;
+    form.faces = order.faces.join(' ');
+    form.shut = order.floorShut === true;
+    form.par = span(order.par);
+    for (const name of ['link', 'glass', 'floor', 'ones'] as const) form[name] = order.needs?.includes(name) ? 'needs' : order.avoid?.includes(name) ? 'avoid' : 'any';
+    form.quiet = span(order.quiet);
+    form.events = span(order.events);
+    form.tail = span(order.tail);
+    form.ends = order.endsOn?.event ?? '';
+    form.spare = order.endsOn?.spare === undefined ? '' : String(order.endsOn.spare);
+    form.last = span(order.last);
+    form.firsts = span(order.firsts);
+    form.trap = order.trap ?? 'any-way';
+    form.trapDepth = span(order.trapDepth);
+    form.hidden = order.hidden ?? 'any';
+    form.far = order.far === undefined ? '' : String(order.far);
+    for (const control of this.orderControls) control.updateDisplay();
+  }
+
+  /**
+   * Lays a board for the order on the panel and puts it on the board, blind: the best board the
+   * workers have, at once where one waits in stock. It is kept as a file of its own, an idea with
+   * a note of its order. What it misses of the order is said beside the board, blind or not: that
+   * is the answer to the order, and no number about the board.
+   */
+  private async layOrder(): Promise<void> {
+    let order: Order;
+    try {
+      order = this.orderOfForm();
+    } catch (error) {
+      this.orderSays = [(error as Error).message];
+      this.show();
+      return;
+    }
+    if (this.saveTimer !== 0) await this.save();
+    this.ordering = true;
+    this.show();
+    const offer = await this.desk.next(order);
+    this.ordering = false;
+    if (!offer) {
+      this.orderSays = ['заказ: ни одной доски — правила не кладут такой, или она слишком велика для поиска за секунды'];
+      this.show();
+      return;
+    }
+    await this.keepOrdered(order, offer);
+  }
+
+  private async keepOrdered(order: Order, offer: OrderOffer): Promise<void> {
+    const stem = order.preset ?? 'order';
+    let number = 1;
+    while (this.names.includes(`${stem}-${number}`)) number++;
+    const name = `${stem}-${number}`;
+    if (!isBoardName(name)) return;
+    const text = printBoard({ ...offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(order)}` });
+    await writeBoard(name, text);
+    await this.readNames();
+    this.load(name, text);
+    this.orderSays = offer.misses.length === 0 ? ['заказ: доска держит всё, что заказано'] : ['заказ: точной доски пока нет, это ближайшая. Не держит:', ...offer.misses.map((miss) => `  ${miss}`)];
+    this.show();
   }
 
   /** The panel is set to what the board in hand says. */
@@ -627,7 +770,17 @@ class LevelsLab {
       this.editor.show(editBoardOf(shown), sameBoard);
       this.keepWay();
       // A board laid by the generator and not yet looked at is played before anything is said of it.
-      if (!sameBoard) this.views.blind = this.extra.status === 'idea' && (this.extra.note ?? '').startsWith('место ');
+      const note = this.extra.note ?? '';
+      if (!sameBoard) this.views.blind = this.extra.status === 'idea' && (note.startsWith('место ') || note.startsWith('заказ '));
+      // A board laid for an order brings its order back to the panel.
+      if (!sameBoard) this.orderSays = [];
+      if (!sameBoard && note.startsWith('заказ ')) {
+        try {
+          this.setOrder(orderOf(note.slice('заказ '.length)));
+        } catch {
+          // A note that is no order any more: the panel stays as it is.
+        }
+      }
       for (const control of this.viewControls) control.updateDisplay();
     } else {
       this.editor.show(emptyBoard(SIZE_MIN));
@@ -842,6 +995,9 @@ class LevelsLab {
     const lines: string[] = [];
     if (this.name === '') lines.push('нет досок: «новая доска» на панели');
     else lines.push(`boards/${this.name}.txt${this.saveTimer !== 0 ? '  …пишется' : ''}`);
+    const desk = this.desk.status;
+    if (this.ordering) lines.push('', `заказ: ищу доску… перебрано зёрен ${desk.tried}`);
+    else if (this.orderSays.length > 0) lines.push('', ...this.orderSays, desk.searching || desk.waiting > 0 ? `в запасе: ${desk.exact} точных, всего ${desk.waiting}${desk.searching ? ', ищу ещё…' : ''}` : '');
     if (!this.editor.locked && displaySpecOf(this.editor.current, this.head).stand === 'lent') lines.push('', 'Старта нет: фигурка на поле стоит условно.', 'Перетащите ○ из списка на кость или на пол.');
     if (this.error) lines.push('', this.error, ...(this.editor.locked ? ['', 'Файл не читается как доска: править его надо в самом файле. Страница его не перезапишет.'] : []));
     lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : [...this.compareLines(), ...this.factLines()]));
