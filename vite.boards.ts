@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
-import { askOf, boardHash, historyFile, versionOf } from './src/lab/boardsServer';
+import { askOf, boardHash, historyFile, safeName, versionOf } from './src/lab/boardsServer';
 
 /**
  * The files of the lab of the levels for the page `?lab=levels`: the dev server reads and writes
@@ -40,7 +40,8 @@ export function viBoards(): Plugin {
         void (async () => {
           if (ask.kind === 'refused') return send(ask.status, JSON.stringify({ error: ask.why }));
           if (ask.kind === 'list') {
-            const names = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.txt')).map((file) => basename(file, '.txt')).sort() : [];
+            // A file whose name is no name of a board is left out: the page could not ask for it.
+            const names = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.txt')).map((file) => basename(file, '.txt')).filter((name) => safeName(name) !== null).sort() : [];
             return send(200, JSON.stringify(names));
           }
           const file = join(dir, `${ask.name}.txt`);

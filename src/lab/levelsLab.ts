@@ -239,7 +239,11 @@ class LevelsLab {
     board.add(form, 'shut').name('пол закрыт').onChange(head);
     board.add(form, 'sink', 1, 6, 1).name('sink: ходов до ухода').onFinishChange(head);
     board.add(form, 'lift', 0, 6, 1).name('lift: ходов подъёма').onFinishChange(head);
-    board.add(form, 'size', SIZE_MIN, SIZE_MAX, 1).name('сторона').onFinishChange((size: number) => this.editor.change(resize(this.editor.current, size)));
+    board.add(form, 'size', SIZE_MIN, SIZE_MAX, 1).name('сторона').onFinishChange((size: number) => {
+      this.showBoard();
+      this.editor.change(resize(this.editor.current, size));
+      this.syncForm();
+    });
     board.add(form, 'note').name('заметка').onFinishChange(() => this.edited(false));
     board.add(form, 'status', [...BOARD_STATUSES]).name('статус').onChange(() => this.edited(false));
     this.copyControl = gui.add({ copy: () => void this.copy() }, 'copy').name(COPY_LABEL);
@@ -282,6 +286,11 @@ class LevelsLab {
 
   /** The panel has changed something of the head of the level: its id, its faces, its floor, its moves. */
   private headChanged(): void {
+    this.showBoard();
+    if (this.editor.locked) {
+      this.syncForm();
+      return;
+    }
     const { form } = this;
     const faces = form.faces.split(/[\s,]+/).filter(Boolean).map(Number);
     const { floor: _floor, ...rest } = this.head;
@@ -317,7 +326,8 @@ class LevelsLab {
 
   /** The board in hand as the text of its file. */
   private text(): string {
-    return textOf(this.editor.current, this.head, this.extra);
+    // While a moment of the way is shown, the board is the one kept aside.
+    return textOf(this.drawn ?? this.editor.current, this.head, this.extra);
   }
 
   /** Holds a text against the rules: the level it is, or what is wrong with it. */
@@ -409,10 +419,13 @@ class LevelsLab {
     if (this.name === '' || this.editor.locked || this.moment !== null) return;
     const text = this.text();
     if (text === this.saved) return;
+    const before = this.saved;
     this.saved = text;
     try {
       await writeBoard(this.name, text);
     } catch (error) {
+      // Not written: the next change, or the next try, writes it.
+      if (this.saved === text) this.saved = before;
       this.error = (error as Error).message;
     }
     await this.readVersions();
@@ -437,7 +450,9 @@ class LevelsLab {
     // A board that has no version yet, one written by a script or by hand, gets its first: the file is written as it is.
     if (versions.length === 0 && this.spec && this.saved !== '') {
       try {
-        if ((await writeBoard(name, this.saved)).hash) versions = await historyOf(name);
+        const read = this.saved;
+        // Written back only as it lies: a file changed since it was read is left to whoever changed it.
+        if ((await readBoard(name)) === read && name === this.name && this.saved === read && (await writeBoard(name, read)).hash) versions = await historyOf(name);
       } catch (error) {
         console.error(error);
       }
@@ -471,10 +486,11 @@ class LevelsLab {
   /** Takes the version picked as the board in hand: it is written to the file, and is the newest version from then on. */
   private async openVersion(): Promise<void> {
     if (this.saveTimer !== 0) await this.save();
+    const { name } = this;
     const picked = await this.picked();
-    if (!picked) return;
+    if (!picked || name !== this.name) return;
     this.stopCompare();
-    this.load(this.name, picked.text);
+    this.load(name, picked.text);
     this.saved = '';
     await this.save();
   }
@@ -486,8 +502,9 @@ class LevelsLab {
    * are not stopped for them.
    */
   private async compareWith(): Promise<void> {
+    const { name } = this;
     const picked = await this.picked();
-    if (!picked) return;
+    if (!picked || name !== this.name) return;
     let spec: LevelSpec;
     try {
       spec = parseBoard(picked.text, this.name);
@@ -575,10 +592,19 @@ class LevelsLab {
     this.saved = text;
     this.read(text);
     this.editor.locked = false;
-    if (this.spec) {
-      this.head = this.spec;
+    // A board the rules refuse, one with no start as every new board is, is opened as it is written: only a file that cannot be read is shut.
+    let shown = this.spec;
+    if (!shown) {
+      try {
+        shown = parseBoard(text, name, true);
+      } catch {
+        shown = null;
+      }
+    }
+    if (shown) {
+      this.head = shown;
       this.extra = readBoardHead(text);
-      this.editor.show(editBoardOf(this.spec), sameBoard);
+      this.editor.show(editBoardOf(shown), sameBoard);
       this.keepWay();
       // A board laid by the generator and not yet looked at is played before anything is said of it.
       if (!sameBoard) this.views.blind = this.extra.status === 'idea' && (this.extra.note ?? '').startsWith('место ');

@@ -85,7 +85,14 @@ function partsOf(text: string, name: string): { head: Map<Key, string>; rows: st
   return { head, rows };
 }
 
-export function parseBoard(text: string, name = '?'): LevelSpec {
+/**
+ * Reads a file as a level. With `loose` the file is read as far as its signs go and is not held
+ * against the rules: a board with no start, or with two, with a die that leaves in more moves
+ * than a die can, or one the rules refuse, is given as it is written, the first start taken and
+ * none written as a start off the board. That is how the editor opens a board it can show and
+ * the rules will not play. A sign that cannot be read is refused either way.
+ */
+export function parseBoard(text: string, name = '?', loose = false): LevelSpec {
   const { head, rows } = partsOf(text, name);
   const wrong = (what: string): never => {
     throw new Error(`board ${name}: ${what}`);
@@ -151,15 +158,15 @@ export function parseBoard(text: string, name = '?'): LevelSpec {
         else {
           const moves = Number(mark.slice(1));
           if (moves < 1) wrong(`cell ${x},${z}: "${sign}" leaves in ${mark}, where it is ~1 to ~${sink}`);
-          if (moves > sink) wrong(`cell ${x},${z}: "${sign}" leaves in ${mark}, more moves than sink (${sink})`);
+          if (moves > sink && !loose) wrong(`cell ${x},${z}: "${sign}" leaves in ${mark}, more moves than sink (${sink})`);
           leaving.push({ die: dice.length, moves });
         }
       }
       dice.push(die);
     });
   });
-  if (starts.length !== 1) wrong(`one start is needed, found ${starts.length}`);
-  const [start] = starts;
+  if (starts.length !== 1 && !loose) wrong(`one start is needed, found ${starts.length}`);
+  const start = starts[0] ?? { x: -1, z: -1, onFloor: false };
 
   const layout: LevelLayout = {
     start: { x: start.x, z: start.z },
@@ -194,6 +201,7 @@ export function parseBoard(text: string, name = '?'): LevelSpec {
     ...(exact ? { exact: exact === 'yes' } : {}),
     ...(way ? { solution: way } : {}),
   };
+  if (loose) return spec;
   try {
     levelConfig(defaultConfig(), spec);
   } catch (error) {

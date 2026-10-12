@@ -25,7 +25,8 @@ export async function readBoard(name: string): Promise<string> {
 
 /** Writes the file of a board. The hash of the version kept, where the text is a board; what was wrong, where it is not. */
 export async function writeBoard(name: string, text: string): Promise<{ hash?: string; error?: string }> {
-  return (await (await asked(at(name), { method: 'PUT', body: text })).json()) as { hash?: string; error?: string };
+  // `keepalive`: a write begun as the page is closed is still made.
+  return (await (await asked(at(name), { method: 'PUT', body: text, keepalive: true })).json()) as { hash?: string; error?: string };
 }
 
 /** The versions of a board that are kept, the oldest first. */

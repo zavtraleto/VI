@@ -61,6 +61,26 @@ describe('parseBoard', () => {
   });
 });
 
+describe('parseBoard, loose', () => {
+  it('reads a board the rules refuse as it is written: no start, two starts, a die that leaves too late, a board in two parts', () => {
+    const none = parseBoard(`id: X\nfaces: 2\n---\n 23  65\n  .   .\n`, 'X', true);
+    expect(none.layout!.dice).toHaveLength(2);
+    expect(none.layout!.start).toEqual({ x: -1, z: -1 });
+    // Written again it is the same file, and still a board with no start.
+    expect(printBoard(none)).toContain('23  65');
+    expect(() => parseBoard(printBoard(none), 'X')).toThrow(/one start is needed, found 0/);
+    expect(parseBoard(`id: X\nfaces: 2\n---\n 23* 65*\n  .   .\n`, 'X', true).layout!.start).toEqual({ x: 0, z: 0 });
+    expect(parseBoard(`id: X\nfaces: 2\n---\n 23* 65~3\n  .   .\n`, 'X', true).layout!.leaving).toEqual([{ die: 1, moves: 3 }]);
+    expect(parseBoard(`id: X\nfaces: 2\n---\n 23*  -   .\n  -   -   -\n  .   .   .\n`, 'X', true).holes).toHaveLength(4);
+    expect(parseBoard(`id: X\nfaces: 2\n---\n .   .\n .   .\n`, 'X', true).norm).toBe(0);
+  });
+  it('still refuses what cannot be read', () => {
+    expect(() => parseBoard(`id: X\nfaces: 2\n---\n 22*  .\n  .   .\n`, 'X', true)).toThrow(/22/);
+    expect(() => parseBoard(`id: X\nfaces: 2\n---\n 23*\n  .   .\n`, 'X', true)).toThrow(/row 1/);
+    expect(() => parseBoard(`id: X\nfoo: 1\nfaces: 2\n---\n 23* .\n .   .\n`, 'X', true)).toThrow(/foo/);
+  });
+});
+
 describe('printBoard', () => {
   it.each([...LEVELS, ...SPARES, ...ROAD].map((spec) => [spec.id, spec] as const))('round-trips %s', (_, spec) => {
     const text = printBoard(spec);
