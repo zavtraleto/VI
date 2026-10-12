@@ -55,7 +55,7 @@ export const BOARD_GROUPS = {
     pipDuskDark: number(0.3, 0, 1, 0.01),
     /** How far the die the figure stands on is pressed into the surface, in dice. */
     pressDepth: number(0.1, 0, 0.2, 0.005),
-    /** A step that is stopped: how far the die under the figure goes that way, in cells, and how long it takes to go and come back. */
+    /** A step that is stopped: how far the figure goes that way, in cells, and how long it takes to go and come back. */
     bumpReach: number(0.1, 0, 0.3, 0.01),
     bumpMs: number(140, 40, 400, 10),
   },
@@ -98,6 +98,8 @@ export const BOARD_GROUPS = {
      * how much of it is missing at the start. The size of a dot, in dots of the tube.
      */
     sinkMelt: number(1, 0, 1, 0.01),
+    /** How much of their light the dice of a group that goes throw on what stands around them: 1 is all of it, as it was before 12 October 2026. */
+    glassLight: number(0.2, 0, 1, 0.01),
     riseMelt: number(1, 0, 1, 0.01),
     meshDot: number(0.5, 0.5, 4, 0.25),
     /**

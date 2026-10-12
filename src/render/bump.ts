@@ -4,7 +4,7 @@ const BUMP_OUT = 0.35;
 export const BUMP_QUIET_MS = 400;
 
 /**
- * How far the die under the figure, or the figure on the floor, stands towards a step that was
+ * How far the figure stands towards a step that was
  * stopped, `sinceMs` after it was: out quickly to `reach`, in cells, and back slower, in `forMs`
  * in all. Nought before and after.
  */

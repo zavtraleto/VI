@@ -204,7 +204,7 @@ export class BoardView {
   private kicks: { id: number; at: number; v: number }[] = [];
   /** The contact as the last frame had it: a beat is answered as far as it has gone. */
   private contact: ContactLook | null = null;
-  /** A step that was stopped: which way, and for how long the die under the figure has been answering it. */
+  /** A step that was stopped: which way, and for how long the figure has been answering it. */
   private bump: { dir: Dir; ms: number } | null = null;
   /** How long ago a step was last stopped, and which way: a press that is held is answered once. */
   private stopped: { dir: Dir; ms: number } | null = null;
@@ -905,9 +905,11 @@ export class BoardView {
     const stepNow = player.action?.kind ?? null;
     const riding = player.level === 'top' && (stepNow === null || stepNow === 'roll');
     const under = riding ? cubeAt(state, player.x, player.z) : undefined;
-    this.springs.hold(under?.id ?? null, n('pressDepth'));
+    // A die of glass, one that is coming up or going down, is not pressed: only a whole die gives under the figure.
+    const pressed = under && (under.state === 'idle' || under.state === 'moving') ? under : undefined;
+    this.springs.hold(pressed?.id ?? null, n('pressDepth'));
     const steppedOn = this.lastStep === 'hop' || this.lastStep === 'mount' || this.lastStep === 'climb';
-    if (stepNow === null && steppedOn && under && !reducedMotion) this.springs.kick(under.id, -1.2);
+    if (stepNow === null && steppedOn && pressed && !reducedMotion) this.springs.kick(pressed.id, -1.2);
     this.lastStep = stepNow;
 
     // A chain that is added to brings its cubes back up: they rise instead of jumping. On a level a die that has just
@@ -936,12 +938,12 @@ export class BoardView {
     this.bursts.update(dt, this.camera);
     const dip = (cubeId: number) => this.springs.offset(cubeId);
 
-    // A step that was stopped: the die under the figure, and the figure, go a little that way and come back.
+    // A step that was stopped: the figure goes a little that way and comes back; the die under it stands.
     if (this.stopped) this.stopped.ms += dt;
     if (this.bump) this.bump.ms += dt;
     if (this.bump && (reducedMotion || player.action || this.bump.ms >= n('bumpMs'))) this.bump = null;
     const reach = this.bump ? bumpOffset(this.bump.ms, n('bumpMs'), n('bumpReach')) : 0;
-    const shove = this.bump && reach > 0 ? { id: under?.id ?? -1, x: DELTA[this.bump.dir].dx * reach, z: DELTA[this.bump.dir].dz * reach } : null;
+    const shove = this.bump && reach > 0 ? { x: DELTA[this.bump.dir].dx * reach, z: DELTA[this.bump.dir].dz * reach } : null;
 
     // A group going down lights what stands around it with the colour of its channel.
     const reaction = this.cubes.sinkingCentre(state);
@@ -955,7 +957,7 @@ export class BoardView {
     lamp.colour.copy(sent);
     // The light of a combo that has cleared its board goes out as the first of its dice goes under; a board that comes throws none.
     const left = !passing ? 1 : passing.mode === 'come' ? 0 : 1 - Math.min(1, Math.max(0, passing.moveMs / Math.max(1, passing.moveForMs)));
-    lamp.power = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * left;
+    lamp.power = (reaction.count > 0 ? 5 + Math.min(reaction.count, 8) * 1.6 + this.burst * 10 : 0) * left * n('glassLight');
 
     // Past the last step of the contact every die is lit harder for a moment.
     this.cubes.sync(
@@ -974,7 +976,6 @@ export class BoardView {
       },
       dip,
       passing,
-      shove,
     );
     this.player.setColor(figureColour(this.palette, values), n('figureGhost'), { body: n('figureBody'), rim: n('figureRim'), shine: n('figureShine') });
     this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip), values);

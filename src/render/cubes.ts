@@ -615,10 +615,9 @@ export class CubeMeshes {
    * `passing` is how the dice stand in a passage between two boards, null outside one: a die
    * of a board that is passed stands whole until it is lit and then goes down by its own time,
    * and a die of a board that comes is not there until its turn, comes up as a die comes in a
-   * session, and then stands as the rules have it. `shove` is the die that stands aside of its
-   * cell on this frame, and by how much: the one under the figure, at a step that was stopped.
+   * session, and then stands as the rules have it.
    */
-  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null = null, shove: { id: number; x: number; z: number } | null = null): void {
+  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null = null): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     const { shared } = this;
     // The faces that do not work in the run are crossed out and give no light.
@@ -693,10 +692,6 @@ export class CubeMeshes {
         if (solids >= MAX_DICE) continue;
         this.pose(cube, state, alpha);
         this.at.y += dip(cube.id);
-        if (shove?.id === cube.id) {
-          this.at.x += shove.x;
-          this.at.z += shove.z;
-        }
         // A die that has just come up keeps the light of its channel on its edges and lets it go.
         const settled = this.settling.get(cube.id);
         const own = this.light.copy(this.channels[cube.ori.top - 1]);
@@ -745,8 +740,7 @@ export class CubeMeshes {
       // of its channel: the line it will stand with, before it lets the colour go.
       (glass.uOwn.value as THREE.Color).copy(channel).multiplyScalar(sinking ? 0 : smoothstep(OWN_LINE_FROM, 1, height));
       const y = place - 0.5 + dip(cube.id);
-      const aside = shove?.id === cube.id ? shove : null;
-      die.position.set(cube.x + (aside?.x ?? 0), y, cube.z + (aside?.z ?? 0));
+      die.position.set(cube.x, y, cube.z);
       die.quaternion.copy(quatFor(cube.ori));
       // A die a combo takes blinks once with the light the tube spreads around it: from the
       // light it stood with up to the most of the blink, quickly, and slowly down to none.
