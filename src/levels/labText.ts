@@ -99,6 +99,7 @@ export function checkText(spec: LevelSpec, check: Check): string {
   } else {
     lines.push(`moves ${check.par}${check.exact ? '' : ' (not proved the fewest)'}: ${check.way.join(' ')}`);
     lines.push(`route ${check.score.route}  (${check.score.kind})`);
+    lines.push(`turns ${check.score.turns}  away ${check.score.away}`);
     lines.push(`boards seen ${check.states}`, '', scoreText(check.score));
   }
   lines.push('', `kept: ${check.kept ?? 'nothing to hold against'}${check.kept === null || spec.par === undefined ? '' : ` (the board says ${spec.par})`}`);
@@ -114,6 +115,8 @@ export function checkJson(spec: LevelSpec, check: Check): Record<string, unknown
     way: check.way,
     route: check.score?.route ?? null,
     kind: check.score?.kind ?? null,
+    turns: check.score?.turns ?? null,
+    away: check.score?.away ?? null,
     kept: check.kept,
     ok: checkPassed(check),
   };

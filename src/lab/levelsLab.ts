@@ -1374,7 +1374,7 @@ class LevelsLab {
       if (check.par === null) lines.push(check.exact ? `пути нет: доска не очищается (досок ${check.states})` : `путь не найден: решатель сдался на ${check.states} досках`);
       else {
         lines.push(`ходов ${check.par}${check.exact ? '' : ' (минимум не доказан)'} · досок ${check.states}`);
-        if (check.score) lines.push(`маршрут ${check.score.route}  (${check.score.kind})`);
+        if (check.score) lines.push(`маршрут ${check.score.route}  (${check.score.kind})`, `turns ${check.score.turns} · away ${check.score.away}`);
         lines.push(`в файле: ${check.kept === null ? 'пути нет' : `par ${spec.par ?? '—'} — ${check.kept}`}`);
         lines.push(`первых ходов, после которых доска в руках: ${firsts}`);
         lines.push(`ходы со старта: ${moves.map((fact) => `${fact.move} ${fact.keeps}${fact.par === null ? '' : ` ${fact.par}`}`).join(' · ')}`);

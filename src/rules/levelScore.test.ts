@@ -3,6 +3,8 @@ import { moveOf } from './levelSolver';
 import { scoreOf } from './levelScore';
 import { ALL_ORIENTATIONS, roll } from './orientation';
 import type { Dir, LevelSpec, PuzzleDie } from './types';
+import { ROAD } from '../levels/road';
+import { LEVELS } from '../levels/levels';
 
 /**
  * Boards of the ladder with a strict floor: 2s work, a combo goes in two moves, and from the
@@ -29,6 +31,9 @@ function turns(x: number, z: number, ...ways: Dir[]): PuzzleDie {
 }
 const way = (...moves: string[]) => moves.map(moveOf);
 const two = (x: number, z: number): PuzzleDie => ({ x, z, top: 2, north: 1 });
+const road = (id: string) => ROAD.find((spec) => spec.id === id)!;
+const level = (id: string) => LEVELS.find((spec) => spec.id === id)!;
+const kept = (spec: LevelSpec) => scoreOf(spec, spec.solution!.map(moveOf));
 
 /** The player's die rolled west makes a pair in the corner. */
 const MOVER = turns(2, 0, 'W');
@@ -64,6 +69,19 @@ describe('the score of a way', () => {
     expect(late.beats.map((beat) => beat.spare)).toEqual([null, null, 0]);
     const soon = scoreOf(BRIDGE, way('2,0,W', '0,1,E'));
     expect(soon.beats[1]).toMatchObject({ event: 'link', spare: 1, took: 1 });
+  });
+
+  it('counts the dice turned before the first event: none on R01, whose 2 is up from the start; one on R02, whose die shows a 1', () => {
+    expect(kept(road('R01')).turns).toBe(0);
+    expect(kept(road('R02')).turns).toBe(1);
+  });
+
+  it('counts the rolls away from the last cell of the die: none where every roll comes nearer, one or more on the board where a die is rolled back', () => {
+    expect(kept(road('R01')).away).toBe(0);
+    expect(kept(road('R02')).away).toBe(0);
+    // P03, «Семь вслепую»: the owner's word of its way is «откатить кость в конце обратно».
+    expect(kept(level('P03')).away).toBeGreaterThanOrEqual(1);
+    expect(kept(level('P03')).turns).toBeGreaterThanOrEqual(2);
   });
 
   it('throws at a move that cannot be made', () => {

@@ -58,6 +58,16 @@ export interface Score {
   /** Links of the longest chain. */
   chain: number;
   /**
+   * Dice the way rolls up to and including the first event whose top face at the start is not a
+   * face that works: what the player has to turn in their head before anything goes.
+   */
+  turns: number;
+  /**
+   * Rolls after which the die rolled is farther from the cell its last roll leaves it on than
+   * before the roll: a die rolled away to be brought back with another face up.
+   */
+  away: number;
+  /**
    * The events and the changes of floor in order, quiet moves left out. `K` a combo, `L` a
    * link, `O` the 1s; made by a push they are `P`, `Q` and `U`. `v` stepped down, `!` fell, `^`
    * came up, `~` went on over another die that is leaving.
@@ -68,6 +78,11 @@ export interface Score {
    * does from the floor what ends the level; `downAndUp` comes up again after a push.
    */
   kind: 'top' | 'bridge' | 'downLast' | 'downAndUp' | 'other';
+}
+
+interface Cell {
+  x: number;
+  z: number;
 }
 
 const standingOf = (state: RunState): number => state.cubes.filter((cube) => cube.state !== 'sinking').length;
@@ -118,6 +133,12 @@ export function scoreOf(spec: LevelSpec, way: readonly SolverMove[], config: Rul
   let state = createRun({ seed: spec.seed, config, level: { ...spec, moves: 0 } });
   const beats: Beat[] = [];
   let pushedLast = false;
+  const working = new Set(spec.faces ?? spec.values);
+  const startTop = new Map(state.cubes.map((cube) => [cube.id, cube.ori.top]));
+  // Every roll of the way by the die it moves: the cell it leaves and the cell it comes to, in order.
+  const rolled = new Map<number, { from: Cell; to: Cell }[]>();
+  const rolledBeforeEvent = new Set<number>();
+  let eventSeen = false;
   way.forEach((move, index) => {
     const found = state.over ? undefined : scan(state).moves.find((m) => m.x === move.x && m.z === move.z && m.dir === move.dir && m.push === move.push);
     if (!found) throw new Error(`level ${spec.id}: move ${index + 1} (${moveText(move)}) cannot be made`);
@@ -128,6 +149,12 @@ export function scoreOf(spec: LevelSpec, way: readonly SolverMove[], config: Rul
     const down: Beat['down'] = from === 'floor' ? (pushedLast || index === 0 ? null : 'fell') : found.floor ? 'stepped' : null;
     const up = !move.push && (from === 'floor' || found.floor);
     const bridged = !move.push && !found.floor && from === 'leaving' && !overStanding(state, move.x, move.z);
+    const die = cubeAt(state, move.x, move.z);
+    if (die && !move.push) {
+      const to = { x: move.x + DELTA[move.dir].dx, z: move.z + DELTA[move.dir].dz };
+      rolled.set(die.id, [...(rolled.get(die.id) ?? []), { from: { x: move.x, z: move.z }, to }]);
+      if (!eventSeen) rolledBeforeEvent.add(die.id);
+    }
     const windows = chainWindows(state);
     const stood = standingOf(state);
     const told = tellMove(state, move);
@@ -150,6 +177,7 @@ export function scoreOf(spec: LevelSpec, way: readonly SolverMove[], config: Rul
       leaving: told.state.cubes.length - standing,
       spare: event === 'link' && open.length > 0 ? Math.max(...open) - 1 : null,
     });
+    if (event !== 'none') eventSeen = true;
     pushedLast = move.push;
     state = told.state;
   });
@@ -164,6 +192,13 @@ export function scoreOf(spec: LevelSpec, way: readonly SolverMove[], config: Rul
     since = 0;
   }
   const quiet = events.length > 0 ? events[0] : beats.length;
+  const turns = [...rolledBeforeEvent].filter((id) => !working.has(startTop.get(id) ?? 0)).length;
+  let away = 0;
+  for (const rolls of rolled.values()) {
+    const last = rolls[rolls.length - 1].to;
+    const far = (cell: Cell) => Math.abs(cell.x - last.x) + Math.abs(cell.z - last.z);
+    away += rolls.filter((roll) => far(roll.to) > far(roll.from)).length;
+  }
   return {
     beats,
     quiet,
@@ -173,6 +208,8 @@ export function scoreOf(spec: LevelSpec, way: readonly SolverMove[], config: Rul
     pause: Math.max(pause, since),
     tail: events.length < 2 ? 0 : events[events.length - 1] - events[events.length - 2],
     chain: Math.max(0, state.maxChain - 1),
+    turns,
+    away,
     route: routeOf(beats),
     kind: kindOf(beats),
   };

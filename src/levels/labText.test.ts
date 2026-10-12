@@ -152,6 +152,12 @@ describe('checkOf', () => {
     expect(text).toContain('moves 2');
     expect(text).toContain('1. ');
     expect(text).toContain('kept: same');
-    expect(Object.keys(checkJson(R03, check))).toEqual(['id', 'par', 'exact', 'states', 'way', 'route', 'kind', 'kept', 'ok']);
+    expect(Object.keys(checkJson(R03, check))).toEqual(['id', 'par', 'exact', 'states', 'way', 'route', 'kind', 'turns', 'away', 'kept', 'ok']);
+  });
+  it('tells the dice to turn before the first event and the rolls away, as a line and as keys', () => {
+    const R02 = ROAD[1];
+    const check = checkOf(R02);
+    expect(checkText(R02, check)).toContain('turns 1  away 0');
+    expect(checkJson(R02, check)).toMatchObject({ turns: 1, away: 0 });
   });
 });
