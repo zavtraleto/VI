@@ -54,8 +54,12 @@ export const SOUND_GROUPS = {
     toneCutHz: number(10000, 3000, 20000, 100),
   },
   drone: {
-    /** The air of a level: how loud it is, and where its top is cut. At nothing there is none. */
-    droneGain: number(0.035, 0, 0.3, 0.005),
+    /**
+     * The air of a level: how loud it is, and where its top is cut. At nothing there is none, and
+     * that is how the game has it: the owner had it taken out the day it was made, a drone that
+     * never stops weighs on the one who plays. It was 0.035; the lab can still turn it up to hear it.
+     */
+    droneGain: number(0, 0, 0.3, 0.005),
     droneCut: number(700, 200, 2000, 10),
     /** The share of the echo it takes. */
     droneVerb: number(0.5, 0, 1, 0.01),
