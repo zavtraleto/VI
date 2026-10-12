@@ -109,6 +109,16 @@ export const SOUND_GROUPS = {
     clickOctave: number(3, 1, 4, 1),
     clickLen: number(0.03, 0.01, 0.12, 0.005),
   },
+  lines: {
+    /**
+     * The lines of a board as they are drawn and erased: thin tones that run with the points of
+     * light (`trace`), the dry ticks of a plotter (`ticks`), or both; how loud, and the octave
+     * over the root the tones set off from.
+     */
+    linesStyle: choice('trace', ['trace', 'ticks', 'both']),
+    linesGain: number(1, 0, 3, 0.05),
+    linesOctave: number(1, 0, 3, 1),
+  },
   other: {
     /** The voice of the other side: how slowly it comes, how long it stays, how much echo it takes. */
     otherAttack: number(0.5, 0.02, 1.5, 0.01),

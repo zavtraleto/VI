@@ -3,7 +3,7 @@ import { chainTier, matchTier } from '../app/juice';
 import { CONTACT_STEPS } from '../app/ritual';
 import { AudioEngine } from '../audio/engine';
 import { SOUND_GROUPS, SOUND_PARAMS, soundChanged } from '../audio/params';
-import { LINE_NOTES, type Cue } from '../audio/score';
+import type { Cue } from '../audio/score';
 import type { ParamSpec, ParamValues } from '../signal/scene';
 import { copyText } from './clipboard';
 
@@ -26,6 +26,7 @@ const FOLDERS: Record<keyof typeof SOUND_GROUPS, string> = {
   knock: 'Стук',
   low: 'Низ',
   program: 'Щелчок программы',
+  lines: 'Линии доски',
   other: 'Голос той стороны',
   limits: 'Пределы',
 };
@@ -49,6 +50,9 @@ const LABELS: Record<string, string> = {
   toneShelfHz: 'полка: с какой частоты, Гц',
   toneShelfDb: 'полка: глубина, дБ (0 — как было)',
   toneCutHz: 'срез: с какой частоты, Гц',
+  linesStyle: 'чем звучат: росчерк, тики, оба',
+  linesGain: 'громкость',
+  linesOctave: 'октава, с которой начинают',
   droneGain: 'громкость (0 — фона нет)',
   droneCut: 'срез верхов фона, Гц',
   droneVerb: 'доля эха',
@@ -243,11 +247,12 @@ export function startSoundLab(): void {
     stars: () => {
       for (let index = 0; index < 3; index++) later(index * 190, () => fire({ kind: 'star', index }));
     },
+    linesIn: () => fire({ kind: 'lines', draw: true, seconds: 1.1 }),
     lines: () => {
       // The lines of a board go, and those of the next come, as a passage has them.
       halt();
-      for (let step = 0; step < LINE_NOTES; step++) later(step * 120, () => fire({ kind: 'lines', step, of: LINE_NOTES, draw: false }));
-      for (let step = 0; step < LINE_NOTES; step++) later(900 + step * 120, () => fire({ kind: 'lines', step, of: LINE_NOTES, draw: true }));
+      fire({ kind: 'lines', draw: false, seconds: 0.7 });
+      later(1600, () => fire({ kind: 'lines', draw: true, seconds: 1.1 }));
     },
     drone: () => {
       head.drone = !head.drone;
@@ -403,6 +408,7 @@ export function startSoundLab(): void {
   levels.add(actions, 'relaid').name('Рестарт уровня');
   levels.add(actions, 'failed').name('Уровень проигран, тупик');
   levels.add(actions, 'stars').name('Звёзды встали');
+  levels.add(actions, 'linesIn').name('Линии новой доски рисуются');
   levels.add(actions, 'lines').name('Смена доски: линии уходят и приходят');
   const drone = levels.add(actions, 'drone').name('Фон уровня: включить');
   levels.add(actions, 'droneRolls').name('Фон и игра поверх него');

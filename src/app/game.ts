@@ -1,5 +1,5 @@
 import { AudioEngine } from '../audio/engine';
-import { LINE_NOTES, stereo } from '../audio/score';
+import { stereo } from '../audio/score';
 import { Display } from '../display/display';
 import { Governor, QUALITY_STEPS } from '../display/governor';
 import { Pacer } from '../display/pacer';
@@ -355,9 +355,9 @@ export class Game {
     risen: number;
     order: number[];
     cell: number;
-    /** Notes of the wave of the lines played so far: of those that go, and of those that come. */
-    erased: number;
-    drawn: number;
+    /** The lines that go have been heard, and those that come. */
+    erased: boolean;
+    drawn: boolean;
   } | null = null;
   /** How the dice stand in the passage, die by die: the view reads it on every frame. One object, changed in place. */
   private readonly passing: DicePassing = { mode: 'leave', ranks: new Map(), count: 0, stair: -1, litMs: 0, moveMs: 0, stepMs: 0, moveForMs: 0, flashMs: 0 };
@@ -1408,8 +1408,8 @@ export class Game {
       risen: 0,
       order: order.map((die) => cubes[die].id),
       cell: 0,
-      erased: 0,
-      drawn: 0,
+      erased: false,
+      drawn: false,
     };
     this.view.setPassing(passing);
     this.awardStars();
@@ -1472,7 +1472,7 @@ export class Game {
           passage.cell = 1 / this.view.gridParts;
         }
         this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, false, player);
-        this.hearLines(passage, 1 - now.lines, false);
+        this.hearLines(passage, false, times.eraseMs);
         return;
       }
       this.putNext(passage);
@@ -1483,7 +1483,7 @@ export class Game {
     // With motion kept low the dice of the board do not come up: they stand.
     passing.moveMs = reduced ? Infinity : passage.elapsed - marks.rise;
     this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, true, player);
-    if (!reduced) this.hearLines(passage, now.lines, true);
+    this.hearLines(passage, true, times.drawMs);
     // A die that stands is heard as one that has come up in a session, and settles as one. With motion kept low
     // the dice of the board all stand in one frame, and one note is played for the board, not one for each die.
     let heard = false;
@@ -1503,18 +1503,14 @@ export class Game {
   }
 
   /**
-   * The lines of a board are heard as they go and as they come: a wave of a few notes, each
-   * played when the wave has got `along` that far, 0 to 1. With motion kept low the lines that go
-   * are gone in one frame, and one note is played for them.
+   * The lines of a board are heard as they go and as they come: once, as the points of light set
+   * off, for the `ms` they take. With motion kept low no line is erased or drawn, and nothing is heard.
    */
-  private hearLines(passage: NonNullable<Game['passage']>, along: number, draw: boolean): void {
-    const heard = draw ? passage.drawn : passage.erased;
-    const due = Math.min(LINE_NOTES, Math.floor(Math.min(1, Math.max(0, along)) * LINE_NOTES) + 1);
-    if (due <= heard) return;
-    const first = prefersReducedMotion(this.settings) ? due - 1 : heard;
-    for (let step = first; step < due; step++) this.audio.play({ kind: 'lines', step, of: LINE_NOTES, draw });
-    if (draw) passage.drawn = due;
-    else passage.erased = due;
+  private hearLines(passage: NonNullable<Game['passage']>, draw: boolean, ms: number): void {
+    if (draw ? passage.drawn : passage.erased) return;
+    if (draw) passage.drawn = true;
+    else passage.erased = true;
+    if (ms > 0 && !prefersReducedMotion(this.settings)) this.audio.play({ kind: 'lines', draw, seconds: ms / 1000 });
   }
 
   /**

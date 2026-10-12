@@ -6,7 +6,7 @@ import { createRun, defaultConfig, step, type GameEvent } from '../rules';
 import { emptyRun, land, place, put } from '../rules/testkit';
 import { soundDefaults } from './params';
 import { COMMA, degreeHz, faceDegree, tuning } from './scale';
-import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, LINE_NOTES, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
+import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
 import { Variety, soundRandom } from './variation';
 
 function setup(contact = 0, seed = 1): Setup {
@@ -57,7 +57,8 @@ const EVERY: Cue[] = [
   { kind: 'undo', pan: 0.2 },
   { kind: 'relaid' },
   { kind: 'failed' },
-  { kind: 'lines', step: 2, of: 5, draw: false },
+  { kind: 'lines', draw: false, seconds: 0.7 },
+  { kind: 'lines', draw: true, seconds: 1.1 },
   { kind: 'star', index: 2 },
   { kind: 'reply', heard: [500, 750, 1000] },
   { kind: 'uiStep', face: 4 },
@@ -373,16 +374,48 @@ describe('a level', () => {
     expect(cuesOfEvent({ type: 'levelFailed' }, emptyRun(), new ScoreMemory())).toEqual([{ kind: 'failed' }]);
   });
 
-  it('has its lines erased down the mode and drawn up it, a note at a time', () => {
-    const wave = (draw: boolean): number[] => Array.from({ length: LINE_NOTES }, (_, step) => notesFor({ kind: 'lines', step, of: LINE_NOTES, draw }, setup())[0].hz);
-    const out = wave(false);
-    const back = wave(true);
-    for (let i = 1; i < LINE_NOTES; i++) {
-      expect(out[i]).toBeLessThan(out[i - 1]);
-      expect(back[i]).toBeGreaterThan(back[i - 1]);
+  it('has its lines drawn by thin tones that run up as the points of light run, with no strike of a die in them, and set with one click', () => {
+    const notes = notesFor({ kind: 'lines', draw: true, seconds: 1.1 }, setup());
+    const traces = part(notes, 'trace');
+    expect(traces.length).toBeGreaterThanOrEqual(2);
+    expect(notes.some((note) => note.voice === 'bell' || note.voice === 'knock')).toBe(false);
+    for (const note of traces) {
+      expect(note.voice).toBe('trace');
+      // It sets off under its note and is on it when the last line is closed.
+      expect(note.drop).toBeLessThan(1);
+      expect(note.at + note.fall).toBeCloseTo(1.1, 6);
     }
-    // The wave that goes ends where the wave that comes begins: on the root.
-    expect(out[LINE_NOTES - 1]).toBeCloseTo(back[0], 6);
+    // The points do not set off together, nor from one place.
+    expect(new Set(traces.map((note) => note.at)).size).toBe(traces.length);
+    expect(new Set(traces.map((note) => note.pan)).size).toBe(traces.length);
+    const set = part(notes, 'set');
+    expect(set).toHaveLength(1);
+    expect(set[0].at).toBeCloseTo(1.1, 6);
+  });
+
+  it('has its lines erased by the same tones running back down, more quietly, with nothing set', () => {
+    const out = notesFor({ kind: 'lines', draw: false, seconds: 0.7 }, setup());
+    const back = notesFor({ kind: 'lines', draw: true, seconds: 0.7 }, setup());
+    expect(part(out, 'set')).toHaveLength(0);
+    for (const note of part(out, 'trace')) expect(note.drop).toBeGreaterThan(1);
+    expect(part(out, 'trace')[0].gain).toBeLessThan(part(back, 'trace')[0].gain);
+  });
+
+  it('can draw its lines with the ticks of a plotter instead, up the mode, or with both', () => {
+    const s = setup();
+    s.values.linesStyle = 'ticks';
+    const ticks = notesFor({ kind: 'lines', draw: true, seconds: 1.1 }, s);
+    expect(part(ticks, 'trace')).toHaveLength(0);
+    const run = part(ticks, 'tick');
+    expect(run.length).toBeGreaterThan(3);
+    for (let i = 1; i < run.length; i++) {
+      expect(run[i].hz).toBeGreaterThan(run[i - 1].hz);
+      expect(run[i].at).toBeGreaterThan(run[i - 1].at);
+    }
+    s.values.linesStyle = 'both';
+    const both = notesFor({ kind: 'lines', draw: true, seconds: 1.1 }, s);
+    expect(part(both, 'trace').length).toBeGreaterThan(0);
+    expect(part(both, 'tick').length).toBeGreaterThan(0);
   });
 
   it('lights its stars with bells, each higher than the last', () => {
@@ -888,7 +921,7 @@ describe('the notes that are made once, unheard, when the sound opens', () => {
   it('are one of every voice, a knock on each of its attacks and the muffled ones, off to a side and into the echo', async () => {
     const { warmNotes } = await import('./voices');
     const notes = warmNotes();
-    expect(new Set(notes.map((note) => note.voice))).toEqual(new Set(['bell', 'knock', 'click', 'low', 'other']));
+    expect(new Set(notes.map((note) => note.voice))).toEqual(new Set(['bell', 'knock', 'click', 'low', 'other', 'trace']));
     expect(notes.filter((note) => note.voice === 'knock' && !note.dull).map((note) => note.variant)).toEqual([0, 1, 2, 3]);
     expect(notes.some((note) => note.voice === 'knock' && note.dull)).toBe(true);
     expect(notes.some((note) => note.voice === 'click' && note.dull)).toBe(true);

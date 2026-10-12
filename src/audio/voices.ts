@@ -291,9 +291,39 @@ function otherVoice(b: Build, note: Note, at: number, out: GainNode): number {
   return end;
 }
 
-/** The share of the echo a voice takes. The program has none: it is dry. */
+/**
+ * A trace: a point of light that runs and leaves a line behind. A thin tone with no strike, which
+ * comes in softly, runs from where it sets off to its note for as long as the point runs, and is
+ * gone as the point stops; over it, faintly, its octave: the glint of the point.
+ */
+function traceVoice(b: Build, note: Note, at: number, out: GainNode): number {
+  const run = Math.max(0.05, note.fall);
+  const rise = Math.min(run * 0.3, Math.max(EDGE, note.attack));
+  const amp = b.gain(0);
+  amp.gain.setValueAtTime(0, at);
+  amp.gain.linearRampToValueAtTime(Math.max(note.gain, 0.0001), at + rise);
+  amp.gain.setValueAtTime(Math.max(note.gain, 0.0001), at + Math.max(rise, run * 0.5));
+  amp.gain.linearRampToValueAtTime(0, at + run);
+  const end = at + run + 0.02;
+  const from = note.hz * Math.max(0.05, note.drop);
+  const tone = b.osc('sine', from, at, end);
+  tone.frequency.exponentialRampToValueAtTime(note.hz, at + run);
+  tone.connect(amp);
+  const glint = 0.18 * Math.min(2, Math.max(0, note.bright));
+  if (glint > 0.005) {
+    const upper = b.osc('sine', from * 2, at, end);
+    upper.frequency.exponentialRampToValueAtTime(note.hz * 2, at + run);
+    const level = b.gain(glint);
+    upper.connect(level);
+    level.connect(amp);
+  }
+  amp.connect(out);
+  return end;
+}
+
+/** The share of the echo a voice takes. The program has none: it is dry. A trace is light, not the program: it has some. */
 function echoShare(b: Build, note: Note): number {
-  const own = note.voice === 'bell' ? b.num('bellVerb') : note.voice === 'knock' ? b.num('knockVerb') : note.voice === 'other' ? b.num('otherVerb') : note.voice === 'low' ? 0.05 : 0;
+  const own = note.voice === 'bell' ? b.num('bellVerb') : note.voice === 'knock' ? b.num('knockVerb') : note.voice === 'other' ? b.num('otherVerb') : note.voice === 'low' ? 0.05 : note.voice === 'trace' ? 0.35 : 0;
   return Math.min(1, Math.max(0, own * note.echo));
 }
 
@@ -313,7 +343,9 @@ export function startVoice(port: VoicePort, note: Note, at: number, ended: (voic
           ? clickVoice(b, note, at, out)
           : note.voice === 'low'
             ? lowVoice(b, note, at, out)
-            : otherVoice(b, note, at, out);
+            : note.voice === 'trace'
+              ? traceVoice(b, note, at, out)
+              : otherVoice(b, note, at, out);
 
   if (Math.abs(note.pan) > 0.001 && typeof port.ctx.createStereoPanner === 'function') {
     const pan = port.ctx.createStereoPanner();
@@ -387,5 +419,6 @@ export function warmNotes(): Note[] {
     { ...base, voice: 'click', dull: true },
     { ...base, voice: 'low' },
     { ...base, voice: 'other' },
+    { ...base, voice: 'trace', fall: 0.05 },
   ];
 }

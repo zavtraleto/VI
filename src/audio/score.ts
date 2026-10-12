@@ -15,8 +15,8 @@ import { cents, spread, type Rand, type Variety } from './variation';
  * tail of a note that has been played.
  */
 
-/** The voices there are: a bell, a knock, the dry click of the program, a low, the soft voice of the other side. */
-export type VoiceKind = 'bell' | 'knock' | 'click' | 'low' | 'other';
+/** The voices there are: a bell, a knock, the dry click of the program, a low, the soft voice of the other side, the trace of a point of light. */
+export type VoiceKind = 'bell' | 'knock' | 'click' | 'low' | 'other' | 'trace';
 
 /** One note for a voice to play. Times are in seconds, from the moment of what it answers. */
 export interface Note {
@@ -38,7 +38,7 @@ export interface Note {
   variant: number;
   /** Muffled: its upper part is cut. */
   dull: boolean;
-  /** A low starts this many times above its note and falls to it in `fall` seconds. */
+  /** A low starts this many times above its note and falls to it in `fall` seconds; a trace starts this many times off its note, above or below, and runs to it. */
   drop: number;
   fall: number;
   /** Its share of the echo, against the share its voice has. */
@@ -77,8 +77,8 @@ export type Cue =
   | { kind: 'undo'; pan: number }
   | { kind: 'relaid' }
   | { kind: 'failed' }
-  // The lines of a board are erased, or drawn (`draw`): one note of the `of` the wave has, `step` of them in.
-  | { kind: 'lines'; step: number; of: number; draw: boolean }
+  // The lines of a board are erased, or drawn (`draw`), over `seconds`: the whole of it, asked for once as it begins.
+  | { kind: 'lines'; draw: boolean; seconds: number }
   // A star of a level that is passed lights up: the first of them is 0.
   | { kind: 'star'; index: number }
   // What comes back from the other side: the notes the player has just played, as their frequencies.
@@ -136,8 +136,18 @@ export const REPLY_MOST = 3;
 const END_SILENCE = 0.9;
 /** The most ones that are heard going one by one. */
 const ONES_MOST = 12;
-/** The notes the wave of the lines of a board has, erased or drawn. */
-export const LINE_NOTES = 5;
+/**
+ * The points of light that draw the lines of a board, as they are heard: the degree each sets off
+ * from, where it stands across the picture, and how far into the drawing it sets off.
+ */
+const TRACES = [
+  { degree: 0, pan: -0.5, late: 0 },
+  { degree: 3, pan: 0.5, late: 0.1 },
+  { degree: 5, pan: 0, late: 0.2 },
+] as const;
+/** The most ticks the drawing of the lines has, and the time one is given. */
+const TICKS_MOST = 12;
+const TICK_GAP = 0.08;
 /** The degrees the stars of a level light up on: the root, the fourth and the fifth of the mode as it stands. */
 const STAR_DEGREES = [0, 2, 3];
 
@@ -208,6 +218,7 @@ interface Kit {
   /** Degrees in an octave of the mode. */
   octave: number;
   num(name: string): number;
+  values: ParamValues;
   /** How far the contact has gone, 0 to 1. */
   contact: number;
   rand: Rand;
@@ -226,7 +237,7 @@ function kitOf(setup: Setup): Kit {
   const slip = num('drift') * clamp(setup.contact, 0, 1);
   const drift = (): number => (slip > 0 ? cents(spread(slip, rand)) : 1);
   const bell = (degree: number, ceiling = CEILING): number => degreeHz(tune, foldUnder(tune.steps, degree + octave * num('bellOctave'), ceiling)) * drift();
-  return { tune, octave, num, contact: clamp(setup.contact, 0, 1), rand, variety, drift, bell };
+  return { tune, octave, num, values, contact: clamp(setup.contact, 0, 1), rand, variety, drift, bell };
 }
 
 const BLANK = { at: 0, gain: 0.2, pan: 0, bright: 1, variant: 0, dull: false, drop: 1, fall: 0, echo: 1, wide: 0 };
@@ -245,6 +256,10 @@ function click(part: string, hz: number, fields: Partial<Note>): Note {
 
 function low(part: string, hz: number, fields: Partial<Note>): Note {
   return { voice: 'low', part, hz, ...BLANK, attack: 0.004, decay: 0.2, ...fields };
+}
+
+function trace(part: string, hz: number, fields: Partial<Note>): Note {
+  return { voice: 'trace', part, hz, ...BLANK, attack: 0.04, decay: 1, ...fields };
 }
 
 function other(part: string, hz: number, fields: Partial<Note>): Note {
@@ -608,11 +623,41 @@ function play(cue: Cue, kit: Kit): Note[] {
         low('failed', degreeHz(tune, 0, -1), { at: 0.16, gain: 0.22 * num('lowGain') * board, decay: num('lowLen') * 1.4, drop: 1.5, fall: 0.06 }),
       ];
     case 'lines': {
-      // The lines of a board go, a degree lower with every note of the wave; those of the next come a degree higher.
-      const of = Math.max(1, Math.round(cue.of));
-      const step = clamp(Math.round(cue.step), 0, of - 1);
-      const degree = cue.draw ? step : of - 1 - step;
-      return [bell('lines', kit.bell(degree), { gain: 0.07 * bells, pan: (cue.draw ? 1 : -1) * (step / of - 0.5) * 0.6, decay: num('bellTail') * 0.35, bright: 0.4, echo: 1.3 })];
+      // The lines of a board are drawn by points of light that run and leave them behind. Each
+      // point is a thin tone that runs up an octave as it goes and has no strike: nothing like a
+      // die. When the last line is closed the program sets the board with one small click. Lines
+      // that are erased run back down, more quietly, and nothing is set.
+      const seconds = clamp(cue.seconds, 0.15, 4);
+      const style = String(kit.values.linesStyle);
+      const lineOctave = num('linesOctave');
+      const notes: Note[] = [];
+      if (style !== 'ticks') {
+        for (const point of TRACES) {
+          const low = degreeHz(tune, point.degree, lineOctave);
+          const late = seconds * point.late;
+          notes.push(
+            trace('trace', cue.draw ? low * 2 : low, {
+              at: late,
+              gain: (cue.draw ? 0.022 : 0.015) * num('linesGain') * program,
+              pan: point.pan,
+              drop: cue.draw ? 0.5 : 2,
+              fall: seconds - late,
+              decay: seconds - late,
+              bright: 1,
+            }),
+          );
+        }
+      }
+      if (style !== 'trace') {
+        // The plotter: a run of small dry ticks, up the mode as the lines come and down it as they go.
+        const count = clamp(Math.round(seconds / TICK_GAP), 3, TICKS_MOST);
+        for (let i = 0; i < count; i++) {
+          const degree = cue.draw ? i : count - 1 - i;
+          notes.push(click('tick', degreeHz(tune, degree, lineOctave), { at: (seconds * i) / count, gain: 0.05 * num('linesGain') * program, pan: ((i % 3) - 1) * 0.4, decay: 0.014, bright: 0.6 }));
+        }
+      }
+      if (cue.draw) notes.push(click('set', degreeHz(tune, 0, lineOctave + 2), { at: seconds, gain: 0.07 * num('linesGain') * program, decay: num('clickLen') }));
+      return notes;
     }
     case 'star': {
       const index = clamp(Math.round(cue.index), 0, STAR_DEGREES.length - 1);
