@@ -441,7 +441,9 @@ export function placeReport(filled: Filled, keep = 3, skillRuns = 20, walkLimit 
 /** A level as it is written into the list of the ladder. */
 export function levelSource(spec: LevelSpec): string {
   const { layout } = spec;
-  const dice = layout!.dice.map((die) => `{ x: ${die.x}, z: ${die.z}, top: ${die.top}, north: ${die.north} }`).join(', ');
+  const dice = layout!.dice.map((die) => `{ x: ${die.x}, z: ${die.z}, top: ${die.top}, north: ${die.north}${die.fixed ? ', fixed: true' : ''} }`).join(', ');
+  // What only a board of the road has is written where it is there: a start on the floor, the dice that are leaving.
+  const road = `${layout!.onFloor ? ', onFloor: true' : ''}${layout!.leaving?.length ? `, leaving: [${layout!.leaving.map(({ die, moves }) => `{ die: ${die}, moves: ${moves} }`).join(', ')}]` : ''}`;
   const fields = [
     `id: '${spec.id}'`,
     ...(spec.chapter !== undefined ? [`chapter: ${spec.chapter}`] : []),
@@ -455,6 +457,8 @@ export function levelSource(spec: LevelSpec): string {
     `moves: 0`,
     ...(spec.faces ? [`faces: [${spec.faces.join(', ')}]`, `sinkMoves: ${spec.sinkMoves}`, `liftMoves: ${spec.liftMoves}`] : []),
     ...(spec.floor !== undefined ? [`floor: ${spec.floor}`] : []),
+    ...(spec.climb !== undefined ? [`climb: ${spec.climb}`] : []),
+    ...(spec.undos !== undefined ? [`undos: ${spec.undos}`] : []),
     ...(spec.guard ? [`guard: true`] : []),
     ...(spec.lesson ? [`lesson: '${spec.lesson}'`] : []),
     ...(spec.until ? [`until: '${spec.until}'`] : []),
@@ -463,7 +467,7 @@ export function levelSource(spec: LevelSpec): string {
     `par: ${spec.par}`,
     `exact: ${spec.exact}`,
     `solution: [${spec.solution!.map((move) => `'${move}'`).join(', ')}]`,
-    `layout: { start: { x: ${layout!.start.x}, z: ${layout!.start.z} }, dice: [${dice}] }`,
+    `layout: { start: { x: ${layout!.start.x}, z: ${layout!.start.z} }${road}, dice: [${dice}] }`,
   ];
   return `  { ${fields.join(', ')} },`;
 }

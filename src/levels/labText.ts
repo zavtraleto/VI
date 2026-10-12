@@ -5,6 +5,10 @@ import { levelDeadEnd, type LevelDeadEnd } from '../rules/level';
 import { moveOf, moveText, movesAt, playMove, solveFrom, solveLevel, tryWay } from '../rules/levelSolver';
 import { boardSigns } from './boardFile';
 import { editsOf } from './edits';
+import { SKETCH, levelId } from './generate';
+import type { Recipe } from './recipes';
+import { judge } from './select';
+import { sameBoard } from './variety';
 import { LEVELS } from './levels';
 import { ROAD } from './road';
 
@@ -202,6 +206,81 @@ export function nearText(facts: readonly NearFact[]): string {
   for (const fact of facts) table.push([fact.what, fact.par === null ? '-' : String(fact.par), fact.exact ? 'yes' : 'no', fact.change]);
   const count = (change: NearFact['change']) => facts.filter((fact) => fact.change === change).length;
   return `${layOut(table)}\n\nnear: ${facts.length} changes, ${count('same')} same, ${count('shorter')} shorter, ${count('longer')} longer, ${count('unsolved')} unsolved`;
+}
+
+/** The levels of the probe the owner has not played: what their places are there for is not said, by the page or by the script. */
+export const BLIND: readonly string[] = ['P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
+
+/** What a board does not meet of what a place asks: empty where it fits. Only the name of the place is given, never what it is there for. */
+export interface FitFact {
+  place: string;
+  misses: string[];
+}
+
+/**
+ * A board that is there already held against places: each place is asked as it asks of a board
+ * laid by hand for it (`judge` with the board as its one sketch, the nearest board looked for),
+ * on the square and with the cells of the board, since a board drawn by hand is seldom on the
+ * shape of a place. What a place plays its level with is its own, though, and a board of other
+ * faces, another floor or another count of dice is not judged: it says which of them differs.
+ */
+export function fitOf(spec: LevelSpec, places: readonly Recipe[], opts: { maxStates?: number } = {}): FitFact[] {
+  if (!spec.layout) return [];
+  const facts: FitFact[] = [];
+  for (const place of places) {
+    const faces = [...(place.ones ? [1] : []), ...place.faces].sort((a, b) => a - b);
+    const own = [...(spec.faces ?? spec.values)].sort((a, b) => a - b);
+    const misses: string[] = [];
+    if (String(faces) !== String(own)) misses.push(`faces ${own.join(' ')}, the place has ${faces.join(' ')}`);
+    if ((place.floor ?? true) !== (spec.floor ?? true)) misses.push(`floor ${spec.floor === false ? 'shut' : 'open'}, the place has it ${place.floor === false ? 'shut' : 'open'}`);
+    const dice = spec.layout.dice.length;
+    if (dice < place.dice || dice > place.dice + (place.more ?? 0)) misses.push(`${dice} dice, the place has ${place.dice}${place.more ? `-${place.dice + place.more}` : ''}`);
+    if (misses.length === 0) {
+      const asked: Recipe = { ...place, size: spec.size, holes: (spec.holes ?? []).map(({ x, z }) => [x, z] as const), sketch: [spec.layout] };
+      try {
+        const verdict = judge(asked, SKETCH + 1, { near: true, ...(opts.maxStates === undefined ? {} : { maxStates: opts.maxStates }) });
+        misses.push(...(verdict.fit ? verdict.fit.misses : [verdict.why]));
+      } catch (error) {
+        misses.push((error as Error).message);
+      }
+    }
+    facts.push({ place: levelId(place), misses });
+  }
+  return facts;
+}
+
+export function fitText(facts: readonly FitFact[]): string {
+  const fits = facts.filter((fact) => fact.misses.length === 0);
+  const lines = facts.map((fact) => `${fact.place.padEnd(5)} ${fact.misses.length === 0 ? 'fits' : fact.misses.join('; ')}`);
+  return `${lines.join('\n')}\n\nfit: ${facts.length} places, the board fits ${fits.length === 0 ? 'none' : fits.map((fact) => fact.place).join(' ')}`;
+}
+
+/** The cells two boards differ in, by the signs of their files, and whether they are one board turned or mirrored. */
+export interface Diff {
+  cells: { x: number; z: number; was: string; now: string }[];
+  same: boolean;
+}
+
+export function diffOf(a: LevelSpec, b: LevelSpec): Diff {
+  const was = boardSigns(a);
+  const now = boardSigns(b);
+  const cells: Diff['cells'] = [];
+  for (let z = 0; z < Math.max(a.size, b.size); z++) {
+    for (let x = 0; x < Math.max(a.size, b.size); x++) {
+      const before = was[z]?.[x] ?? '';
+      const after = now[z]?.[x] ?? '';
+      if (before !== after) cells.push({ x, z, was: before, now: after });
+    }
+  }
+  return { cells, same: sameBoard(a, b) };
+}
+
+export function diffText(a: LevelSpec, b: LevelSpec, diff: Diff): string {
+  const head = (spec: LevelSpec): string => `${spec.id} ${spec.size}x${spec.size}, faces ${(spec.faces ?? spec.values).join('')}, floor ${spec.floor === false ? 'shut' : 'open'}, par ${spec.par ?? '-'}`;
+  const lines = [`a: ${head(a)}`, `b: ${head(b)}`, ''];
+  for (const cell of diff.cells) lines.push(`cell ${cell.x},${cell.z}: ${cell.was || 'off the board'} -> ${cell.now || 'off the board'}`);
+  lines.push(diff.cells.length === 0 ? 'diff: the cells are the same' : `diff: ${diff.cells.length} cells differ${diff.same ? '; the same board to a player, turned or mirrored' : ''}`);
+  return lines.join('\n');
 }
 
 /**

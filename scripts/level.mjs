@@ -14,6 +14,12 @@
 //                                                       it keeps the fewest moves, makes the way longer, or is a dead end
 //   node scripts/level.mjs near file=P06                every board one change of a die away, only solved: what the
 //                                                       change does to the fewest moves
+//   node scripts/level.mjs fit file=H01 place=P06,R05   which places the board is a board of, and what it misses of the
+//                                                       others; every place of the list and of the road unless some are named
+//   node scripts/level.mjs diff a=H01 b=boards/H02.txt  the cells two boards differ in
+//   node scripts/level.mjs svg file=H01 out=boards/out/H01.svg   the board as a picture (cell=48: the side of a cell)
+//   node scripts/level.mjs source file=H01              the board as a line for src/levels/levels.ts or road.ts: it is
+//                                                       put there by hand, and by the word of the owner only
 //
 // file= is a path, or the name of a file in boards/ without its .txt, or the code of a board the
 // game has: a level of the list (P06) or a piece of the road (R03).
@@ -41,6 +47,10 @@ const COMMANDS = {
   regress: { keys: ['states', 'workers', 'share'], flags: ['json'] },
   moves: { keys: ['file', 'after', 'states'], flags: ['json'] },
   near: { keys: ['file', 'states'], flags: ['json'] },
+  fit: { keys: ['file', 'place', 'states'], flags: ['json'] },
+  diff: { keys: ['a', 'b'], flags: ['json'] },
+  svg: { keys: ['file', 'out', 'cell'], flags: [] },
+  source: { keys: ['file', 'states'], flags: [] },
 };
 
 /** Ends the script on what could not be read: said on stderr, code 2. */
@@ -120,6 +130,44 @@ if (command === 'show') {
   const facts = lab.nearOf(spec, { maxStates: number('states') });
   console.error(`near: ${facts.length} boards solved in ${((Date.now() - began) / 1000).toFixed(1)} s`);
   print(lab.nearText(facts), { id: spec.id, near: facts });
+} else if (command === 'fit') {
+  const { spec } = loadBoard();
+  const { PLACES } = await load('/src/levels/recipes.ts');
+  const { ROAD_PLACES } = await load('/src/levels/roadRecipes.ts');
+  const { levelId } = await load('/src/levels/generate.ts');
+  const all = [...PLACES, ...ROAD_PLACES];
+  const places = named.place ? all.filter((place) => named.place.split(',').includes(levelId(place))) : all;
+  if (places.length === 0) refuse(`fit: no place ${named.place}: the places are ${all.map(levelId).join(' ')}`);
+  // Only the name of a place is printed and what the board misses of it: what a place is there for is in the key of the probe.
+  const facts = lab.fitOf(spec, places, { maxStates: number('states') });
+  print(lab.fitText(facts), { id: spec.id, fit: facts });
+} else if (command === 'diff') {
+  const a = loadBoard('a').spec;
+  const b = loadBoard('b').spec;
+  const diff = lab.diffOf(a, b);
+  print(lab.diffText(a, b, diff), { a: a.id, b: b.id, ...diff });
+} else if (command === 'svg') {
+  const { spec } = loadBoard();
+  if (!named.out) refuse('svg: name the file to write, as in out=boards/out/H01.svg');
+  const { boardSvg } = await load('/src/levels/boardSvg.ts');
+  const out = resolve(process.cwd(), named.out);
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, boardSvg(spec, { cell: number('cell') }));
+  console.log(out);
+} else if (command === 'source') {
+  const { spec } = loadBoard();
+  const { levelSource } = await load('/src/levels/select.ts');
+  // A line of the list keeps a way: a board that has none is solved for one, and the line says whether it is proved the fewest.
+  let kept = spec;
+  if (spec.par === undefined || !spec.solution) {
+    const check = lab.checkOf(spec, { maxStates: number('states') });
+    if (check.par === null) {
+      console.error(`source: no way found for ${spec.id}: a line of the list keeps one`);
+      process.exit(1);
+    }
+    kept = { ...spec, par: check.par, exact: check.exact, solution: check.way };
+  }
+  console.log(levelSource(kept));
 } else if (command === 'regress') {
   const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
   const { ROAD } = await load('/src/levels/road.ts');

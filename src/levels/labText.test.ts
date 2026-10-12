@@ -2,7 +2,46 @@ import { describe, expect, it } from 'vitest';
 import { ROAD } from './road';
 import { createRun, defaultConfig } from '../rules';
 import { movesAt, moveText } from '../rules/levelSolver';
-import { boardFrom, checkJson, checkOf, checkText, movesOf, movesText, nearOf, nearText, regressOne, regressText } from './labText';
+import type { LevelSpec } from '../rules/types';
+import { normalSpec } from './boardFile';
+import { LEVELS } from './levels';
+import { ROAD_PLACES } from './roadRecipes';
+import { levelSource } from './select';
+import { BLIND, boardFrom, checkJson, checkOf, checkText, diffOf, diffText, fitOf, fitText, movesOf, movesText, nearOf, nearText, regressOne, regressText } from './labText';
+
+describe('fitOf', () => {
+  it('holds a board against places, and says what it misses of each by the name of the place alone', { timeout: 120_000 }, () => {
+    const facts = fitOf(ROAD[2], ROAD_PLACES);
+    expect(facts).toHaveLength(ROAD_PLACES.length);
+    expect(facts.find((fact) => fact.place === 'R03')).toEqual({ place: 'R03', misses: [] });
+    expect(facts.find((fact) => fact.place === 'R04')!.misses[0]).toMatch(/faces 2, the place has 3/);
+    expect(fitText(facts)).toContain('the board fits R03');
+    expect(BLIND).toContain('P23');
+  });
+});
+
+describe('diffOf', () => {
+  const P06 = LEVELS[5];
+  it('finds no cell between a board and itself, and the one cell of a die turned', () => {
+    expect(diffOf(P06, P06)).toEqual({ cells: [], same: true });
+    const dice = P06.layout!.dice.map((die, index) => (index === 1 ? { ...die, top: 1, north: 2 } : die));
+    const turned = { ...P06, layout: { ...P06.layout!, dice } };
+    expect(diffOf(P06, turned)).toEqual({ cells: [{ x: 1, z: 1, was: '21', now: '12' }], same: false });
+    expect(diffText(P06, turned, diffOf(P06, turned))).toContain('diff: 1 cells differ');
+  });
+});
+
+describe('levelSource', () => {
+  it('writes what a board of the road has: fixed dice, a start on the floor, a die that is leaving, the moves taken back', () => {
+    const source = levelSource(ROAD[1]);
+    expect(source).toContain('fixed: true');
+    expect(source).toContain('onFloor: true');
+    expect(source).toContain('leaving: [{ die: 0, moves: 1 }]');
+    expect(source).toContain('undos: 3');
+    const read = new Function(`return [${source}][0]`)() as LevelSpec;
+    expect(normalSpec(read)).toEqual(normalSpec(ROAD[1]));
+  });
+});
 
 describe('movesOf', () => {
   const R03 = ROAD[2];
