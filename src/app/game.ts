@@ -2597,7 +2597,7 @@ export class Game {
       if (cubes.length === 0) continue;
       const cx = cubes.reduce((sum, cube) => sum + cube.x, 0) / cubes.length;
       const cz = cubes.reduce((sum, cube) => sum + cube.z, 0) / cubes.length;
-      labels.push({ id: reaction.id, value: reaction.value, chain: reaction.chain, at: over(cx, 1.2, cz) });
+      labels.push({ id: reaction.id, value: reaction.value, chain: reaction.chain, at: over(cx, 1.2, cz), praise: state.levelRun !== null });
     }
 
     const { puzzle } = state;

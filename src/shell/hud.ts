@@ -10,6 +10,7 @@ import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAl
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, isWide, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
+import { praiseWord } from './praise';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
 import { COMMANDS, HUD, READS, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, type Palette } from './theme';
@@ -131,6 +132,8 @@ export interface HudLabel {
   value: number;
   chain: number;
   at: Point;
+  /** On a level, which has no points to multiply: a word is said over the chain where the multiplier would be (`praiseWord`). */
+  praise?: boolean;
 }
 
 /** A beat as the readings answer it: the points of a group leave it for the score. */
@@ -294,6 +297,8 @@ const LABEL_OUT_MS = 330;
  */
 const SWING_DEG = 12.5;
 const SWING_MOST_DEG = 400;
+/** A word over a chain of a level is pushed no further than this: turned more, it cannot be read. */
+const SWING_WORD_DEG = 24;
 /**
  * No two answers are alike. A push finds the multiplier wherever the swing before has left
  * it, goes one way or the other, and is one of three kinds, never the kind before: a pendulum
@@ -328,6 +333,10 @@ interface Swing {
 /** A multiplier over the board. */
 interface Multiplier {
   chain: number;
+  /** What is written: the multiplier, or on a level a word for the chain. */
+  text: string;
+  /** A word, not a number: it is written no larger than the picture is wide. */
+  praise: boolean;
   value: number;
   at: Point;
   /** When the chain last grew, and until when the multiplier is shown. */
@@ -360,9 +369,11 @@ function pushed(kept: Multiplier | undefined, label: HudLabel, timeMs: number): 
   const way = kept ? (Math.random() < 0.65 ? -kept.swing.way : kept.swing.way) : Math.random() < 0.5 ? -1 : 1;
   const { ms, damp, push } = SWINGS[kind];
   const rate = (Math.PI * 2 * 1000) / between(ms);
-  const most = (Math.min(SWING_MOST_DEG, label.chain * SWING_DEG) * Math.PI) / 180;
+  const most = (Math.min(label.praise ? SWING_WORD_DEG : SWING_MOST_DEG, label.chain * SWING_DEG) * Math.PI) / 180;
   return {
     chain: label.chain,
+    text: label.praise ? praiseWord(label.chain, Math.random(), kept?.praise ? kept.text : null) : `×${label.chain}`,
+    praise: label.praise === true,
     value: label.value,
     at: label.at,
     joined: timeMs,
@@ -371,6 +382,8 @@ function pushed(kept: Multiplier | undefined, label: HudLabel, timeMs: number): 
     hop: { high: (HOP_DOTS + Math.min(label.chain, 16) * HOP_PER_LINK) * (0.6 + Math.random() * 0.8), beat: between(HOP_MS) },
   };
 }
+/** A word over a chain keeps this far from the sides of the picture, in its dots. */
+const LABEL_SIDE = 4;
 /** Half a period of everything that blinks. */
 const BLINK_MS = 250;
 /** A plaque that asks to be looked at is lit and unlit by turns this often. */
@@ -1371,10 +1384,15 @@ export class GameHud {
       const since = timeMs - label.joined;
       // A long chain is written larger; every join makes it jump.
       const base = label.chain >= 4 ? 3 : 2;
-      const scale = since < BUMP_MS ? base + 1 : base;
+      const asked = since < BUMP_MS ? base + 1 : base;
+      // A word is longer than a multiplier: it is written as large as the picture has room for, and stands inside it.
+      const wide = kit.measure(label.text);
+      const scale = label.praise ? Math.max(1, Math.min(asked, Math.floor((kit.width - LABEL_SIDE * 2) / Math.max(1, wide)))) : asked;
+      const half = (wide * scale) / 2 + LABEL_SIDE;
+      const x = label.praise && half * 2 <= kit.width ? Math.min(kit.width - half, Math.max(half, label.at.x / zoom)) : label.at.x / zoom;
       const angle = still ? 0 : swingAt(label.swing, timeMs).angle;
       const hop = still ? 0 : label.hop.high * Math.exp(-since / HOPS_DIE_MS) * Math.abs(Math.sin((since / label.hop.beat) * Math.PI));
-      kit.turned(`×${label.chain}`, label.at.x / zoom, label.at.y / zoom - (CELL_H * scale) / 2 - hop, angle, this.beatColour(label.value), { scale, bold: true });
+      kit.turned(label.text, x, label.at.y / zoom - (CELL_H * scale) / 2 - hop, angle, this.beatColour(label.value), { scale, bold: true });
     }
   }
 
