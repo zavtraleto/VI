@@ -390,7 +390,9 @@ class LevelsLab {
     ];
     const order = orderOf(words.filter(Boolean).join(' '));
     // The cells cut out are the board's own: an order is laid on the shape that is drawn.
-    const holes = (this.spec?.size === order.size ? (this.spec.holes ?? []) : []).map(({ x, z }) => [x, z] as const);
+    const drawn = this.editor.current;
+    const holes: (readonly [number, number])[] = [];
+    if (drawn.size === order.size) drawn.cells.forEach((row, z) => row.forEach((cell, x) => cell.kind === 'hole' && holes.push([x, z])));
     return { ...order, ...(holes.length > 0 ? { holes } : {}), ...(form.preset ? { preset: form.preset } : {}) };
   }
 
@@ -455,7 +457,7 @@ class LevelsLab {
    */
   private laySet(): void {
     const keys = this.setForm.keys.split(' ').join(',').split(',').filter(Boolean);
-    const unknown = keys.filter((key) => !PRESETS[key]);
+    const unknown = keys.filter((key) => !Object.hasOwn(PRESETS, key));
     if (keys.length === 0 || unknown.length > 0) {
       this.orderSays = [`связка: ${unknown.length > 0 ? `нет заготовки ${unknown.join(', ')}` : 'назовите заготовки'}; есть ${Object.keys(PRESETS).join(' ')}`];
       this.show();
@@ -479,6 +481,7 @@ class LevelsLab {
         });
         for (const { name, text } of texts) await writeBoard(name, text);
         await this.readNames();
+        if (this.saveTimer !== 0) await this.save();
         this.load(texts[0].name, texts[0].text);
         const lines = boards.map((board, index) => `  ${index + 1}. ${PRESETS[board.key].name}${board.offer.misses.length === 0 ? '' : ` — ближайшая: ${board.offer.misses.join('; ')}`}`);
         this.orderSays = [`связка set${number}: досок ${boards.length}`, ...lines, ...(missing.length > 0 ? [`не нашлось: ${missing.join(', ')}`] : []), '«играть связку этой доски» — сыграть подряд'];
@@ -574,17 +577,23 @@ class LevelsLab {
     const { par: _par, exact: _exact, solution: _solution, ...head } = this.head;
     const spec = rawSpecOf(board, head);
     const pinned = this.editor.pins;
+    const asked = this.text();
     this.orderSays = [kind === 'complete' ? `достраиваю вокруг закреплённых (${pinned.length})…` : kind === 'repair' ? 'чиню под заказ…' : 'улучшаю под заказ, до десяти секунд…'];
     this.show();
     const question =
       kind === 'complete' ? ({ tier: 'complete', order, spec, pinned, from: this.completeFrom } as const) : kind === 'repair' ? ({ tier: 'repair', order, spec, pinned } as const) : ({ tier: 'improve', order, spec, pinned, seed: this.improveSeed++ } as const);
     this.askFix.ask(question).then(
       (answer) => {
-        if (this.editor.current !== board) return;
+        if (this.editor.current !== board || this.text() !== asked || this.playing || this.editor.locked) return;
         const best = answer.kind === 'complete' ? answer.offers[0] : answer.mended[0];
         if (answer.kind === 'complete') this.completeFrom = answer.next;
         if (!best) {
           this.orderSays = [`${kind === 'complete' ? 'достроить' : kind === 'repair' ? 'починить' : 'улучшить'}: ни одной доски за ${answer.tried} попыток`];
+          this.show();
+          return;
+        }
+        if (answer.kind === 'repair' && answer.mended[0].edits.length === 0) {
+          this.orderSays = best.misses.length === 0 ? ['доска уже держит всё, что заказано'] : [`ближе к заказу ничего не нашлось за ${answer.tried} попыток. Доска не держит:`, ...best.misses.map((miss) => `  ${miss}`)];
           this.show();
           return;
         }
@@ -614,6 +623,7 @@ class LevelsLab {
     const text = printBoard({ ...offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(order)}` });
     await writeBoard(name, text);
     await this.readNames();
+    if (this.saveTimer !== 0) await this.save();
     this.load(name, text);
     this.orderSays = offer.misses.length === 0 ? ['заказ: доска держит всё, что заказано'] : ['заказ: точной доски пока нет, это ближайшая. Не держит:', ...offer.misses.map((miss) => `  ${miss}`)];
     this.show();

@@ -330,7 +330,15 @@ if (command === 'show') {
   for (const name of existsSync(dir) ? readdirSync(dir) : []) {
     const file = resolve(dir, name, 'plays.jsonl');
     if (!existsSync(file)) continue;
-    plays.push(...mergePlays(readFileSync(file, 'utf8').split('\n').filter((line) => line.trim() !== '').map((line) => JSON.parse(line))));
+    plays.push(...mergePlays(readFileSync(file, 'utf8').split('\n').filter((line) => line.trim() !== '').flatMap((line) => {
+      // A line that is torn or was written by hand is passed over, and said.
+      try {
+        return [JSON.parse(line)];
+      } catch {
+        console.error(`ratings: a line of ${file} is no JSON and is passed over`);
+        return [];
+      }
+    })));
   }
   const ratings = ratingsOf(plays);
   print(ratingsText(ratings), { plays: plays.length, ...ratings });

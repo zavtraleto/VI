@@ -70,3 +70,15 @@ describe('the answers after a play', () => {
     expect(ratingsText(ratingsOf([]))).toContain('оценок пока нет');
   });
 });
+
+describe('after the review of the second build', () => {
+  it('passes over a line of the plays that is no play and no answer', () => {
+    const play: PlayRecord = { id: 'H01', hash: 'h', at: 'a', result: 'passed', moves: 4, par: 4, undos: 0, deadEnd: null, seconds: 1 };
+    const lines = [null, 7, play, 'torn', { at: 'a', patch: { rate: 'fire' } }] as unknown as Parameters<typeof mergePlays>[0];
+    expect(mergePlays(lines)).toEqual([{ ...play, rate: 'fire' }]);
+  });
+  it('counts a preset by the name an order keeps of it', () => {
+    const play: PlayRecord = { id: 'H01', hash: 'h', at: 'a', result: 'passed', moves: 4, par: 4, undos: 0, deadEnd: null, seconds: 1, order: 'as=tricky size=4', asOrdered: true };
+    expect(ratingsOf([play]).byPreset.tricky).toMatchObject({ plays: 1, asked: 1, yes: 1 });
+  });
+});

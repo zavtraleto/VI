@@ -52,6 +52,8 @@ export interface PlayPatch {
 export function mergePlays(lines: readonly (PlayRecord | PlayPatch)[]): PlayRecord[] {
   const plays: PlayRecord[] = [];
   for (const line of lines) {
+    // A line that is no play and no answer, torn or written by hand, is passed over.
+    if (line === null || typeof line !== 'object') continue;
     if ('patch' in line) {
       const at = plays.findIndex((play) => play.at === line.at);
       if (at >= 0) plays[at] = { ...plays[at], ...line.patch };
@@ -99,7 +101,7 @@ export function ratingsOf(records: readonly PlayRecord[]): Ratings {
     byMeasure[name] = Object.fromEntries(Object.entries(rates).map(([rate, values]) => [rate, spreadOf(values!)]));
   }
   for (const record of records) {
-    const preset = /(?:^|\s)preset=(\S+)/.exec(record.order ?? '')?.[1];
+    const preset = /(?:^|\s)(?:as|preset)=(\S+)/.exec(record.order ?? '')?.[1];
     if (!preset) continue;
     const kept = (byPreset[preset] ??= { plays: 0, asked: 0, yes: 0, fire: 0, more: 0, fresh: 0 });
     kept.plays++;

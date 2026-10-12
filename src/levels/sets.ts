@@ -61,7 +61,7 @@ export interface SetBoard {
  */
 export function setFor(keys: readonly string[], opts: { budgetMs?: number; base?: Order; now?: () => number; seeds?: number } = {}): { boards: SetBoard[]; missing: string[] } {
   const { budgetMs = 4000, base = BASE_ORDER, now, seeds } = opts;
-  for (const key of keys) if (!PRESETS[key]) throw new Error(`no preset "${key}": the presets are ${Object.keys(PRESETS).join(', ')}`);
+  for (const key of keys) if (!Object.hasOwn(PRESETS, key)) throw new Error(`no preset "${key}": the presets are ${Object.keys(PRESETS).join(', ')}`);
   const boards: SetBoard[] = [];
   const missing: string[] = [];
   const played: Played[] = [];

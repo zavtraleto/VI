@@ -98,6 +98,16 @@ export class BoardStage {
       this.pressed = null;
       if (this.carried) this.drop(event);
     });
+    const dropped = (): void => {
+      this.pressed = null;
+      this.carried = null;
+      this.ghost.style.display = 'none';
+    };
+    canvas.addEventListener('pointercancel', dropped);
+    canvas.addEventListener('lostpointercapture', () => {
+      if (this.carried?.kind === 'move' || this.pressed) dropped();
+    });
+    window.addEventListener('pointercancel', dropped);
     canvas.addEventListener('pointerleave', () => {
       if (!this.carried) this.hover = null;
     });
@@ -136,6 +146,10 @@ export class BoardStage {
 
   /** Puts a board on the stage as the one in hand: it is no change, and nothing before it can be taken back to unless `keepSteps` is said. */
   show(board: EditBoard, keepSteps = false): void {
+    // Whatever was being carried was of the board before.
+    this.pressed = null;
+    this.carried = null;
+    this.ghost.style.display = 'none';
     this.board = board;
     if (!keepSteps) {
       this.before = [];
@@ -151,13 +165,15 @@ export class BoardStage {
     this.before.push(this.board);
     this.after = [];
     this.board = next;
+    this.prunePins();
     this.present(next);
     this.onChange(next);
   }
 
   undo(): void {
+    if (this.locked) return;
     const last = this.before.pop();
-    if (!last || this.locked) return;
+    if (!last) return;
     this.after.push(this.board);
     this.board = last;
     this.present(last);
@@ -165,8 +181,9 @@ export class BoardStage {
   }
 
   redo(): void {
+    if (this.locked) return;
     const next = this.after.pop();
-    if (!next || this.locked) return;
+    if (!next) return;
     this.before.push(this.board);
     this.board = next;
     this.present(next);
@@ -277,7 +294,22 @@ export class BoardStage {
     if (carried.kind === 'die') this.change(setTop(board, cell.x, cell.z, carried.top));
     else if (carried.kind === 'fixed') this.change(putFixed(board, cell.x, cell.z, this.lastTop));
     else if (carried.kind === 'player') this.change(setStart(board, cell.x, cell.z));
-    else this.change(moveDie(board, carried.from, cell));
+    else {
+      const moved = moveDie(board, carried.from, cell);
+      // The pin of a die goes with it.
+      if (moved !== board && this.pinned.delete(`${carried.from.x},${carried.from.z}`)) this.pinned.add(`${cell.x},${cell.z}`);
+      this.change(moved);
+    }
+  }
+
+  /** A pin on a cell that holds no die any more is taken off: a die put there later is not pinned for it. */
+  private prunePins(): void {
+    let changed = false;
+    for (const key of [...this.pinned]) {
+      const [x, z] = key.split(',').map(Number);
+      if (cellAt(this.board, x, z)?.kind !== 'die') changed = this.pinned.delete(key) || changed;
+    }
+    if (changed) this.onPin();
   }
 
   /**

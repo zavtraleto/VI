@@ -144,3 +144,21 @@ describe('improveFor', () => {
     expect(mended[0]).toMatchObject({ edits: [], misses: [] });
   });
 });
+
+describe('after the review of the second build', () => {
+  // An order no board a few changes away meets: nine dice are not five.
+  const beyond: Order = { size: 4, dice: 9, faces: [2], par: [4, 4] };
+  it('gives no board with no way as the nearest, and the board itself where nothing found is nearer', { timeout: 120_000 }, () => {
+    const mended = repairFor(beyond, DOWN_AND_UP, [], { budgetMs: 6000, keep: 3 }).mended;
+    expect(mended.length).toBeGreaterThan(0);
+    for (const board of mended) expect(board.par).not.toBeNull();
+    expect(mended[0].distance).toBeLessThanOrEqual(judgeBoard(beyond, DOWN_AND_UP)!.distance);
+    const improved = improveFor(beyond, DOWN_AND_UP, [], { budgetMs: 100_000, steps: 15 }).mended;
+    for (const board of improved) expect(board.par).not.toBeNull();
+  });
+  it('does not take the player off a die that is pinned', { timeout: 120_000 }, () => {
+    const start = DOWN_AND_UP.layout!.start;
+    const { mended } = repairFor(beyond, DOWN_AND_UP, [start], { budgetMs: 6000, keep: 5 });
+    for (const board of mended) expect(board.spec.layout!.start).toEqual(start);
+  });
+});

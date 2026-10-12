@@ -243,11 +243,14 @@ export function repairFor(order: Order, board: LevelSpec, pinned: readonly { x: 
   let tried = 0;
   const found: Mended[] = [];
   const seen: LevelSpec[] = [board];
-  const sorted = (): Mended[] => found.sort((a, b) => a.misses.length - b.misses.length || a.edits.length - b.edits.length || a.distance - b.distance);
+  // A board with no way is no board to give; among the rest, the one that misses least, then the one nearest, then the one least changed.
+  const sorted = (): Mended[] => found.filter((kept) => kept.par !== null).sort((a, b) => a.misses.length - b.misses.length || a.distance - b.distance || a.edits.length - b.edits.length);
   let front: Mended[] = [];
   const whole = judgeBoard(order, board);
   if (whole && whole.misses.length === 0) return { mended: [{ ...whole, edits: [] }], tried: 0 };
   front.push({ ...(whole ?? { spec: board, par: null, exact: false, route: null, uses: [], misses: ['the rules lay no such board'], distance: 1000 }), edits: [] });
+  // The board as it is stands among what is found: a change that makes it worse is not given in its place.
+  found.push(front[0]);
   search: for (let changes = 1; changes <= 3 && front.length > 0; changes++) {
     const next: Mended[] = [];
     for (const parent of front) {
@@ -256,6 +259,8 @@ export function repairFor(order: Order, board: LevelSpec, pinned: readonly { x: 
         if (now() - began >= budgetMs) break search;
         const named = /(\d+),(\d+)/.exec(edit.what);
         if (named && held.has(`${named[1]},${named[2]}`)) continue;
+        // The player is not taken off a die that is pinned.
+        if (edit.what.startsWith('start at') && held.has(at(parent.spec.layout!.start))) continue;
         // A change keeps what the board says of dice that are leaving and of a start on the floor, where it is not a change of the start.
         const moved = edit.what.startsWith('start at');
         const spec: LevelSpec = { ...edit.spec, layout: { ...edit.spec.layout!, ...(leaving ? { leaving } : {}), ...(onFloor && !moved ? { onFloor } : {}) } };
@@ -305,6 +310,7 @@ export function improveFor(
     const { leaving, onFloor } = parent.spec.layout!;
     const edits = editsOf(parent.spec).filter((edit) => {
       const named = /(\d+),(\d+)/.exec(edit.what);
+      if (edit.what.startsWith('start at') && held.has(at(parent.spec.layout!.start))) return false;
       return !(named && held.has(`${named[1]},${named[2]}`));
     });
     if (edits.length === 0) break;
@@ -320,5 +326,6 @@ export function improveFor(
     if (pool.length > size) pool.length = size;
     onStep?.(pool[0], pool.length);
   }
-  return { mended: pool.slice(0, keep), tried };
+  // A board with no way is kept in the pool to be changed further, and is not given.
+  return { mended: pool.filter((kept) => kept.par !== null).slice(0, keep), tried };
 }

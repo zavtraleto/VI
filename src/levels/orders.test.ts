@@ -57,3 +57,22 @@ describe('what a recipe has no word for', () => {
     }
   });
 });
+
+describe('after the review of the second build', () => {
+  it('keeps a bound taken off a preset off, when the order is written and read back', () => {
+    const { firsts: _firsts, trap: _trap, ...cleared } = applyPreset(BASE_ORDER, 'insight');
+    const line = orderText(cleared);
+    expect(line).toContain('as=insight');
+    expect(line).not.toContain('preset=');
+    expect(orderOf(line)).toEqual(cleared);
+    expect(orderOf(line)).not.toHaveProperty('firsts');
+    expect(() => orderOf('as=nothing size=4')).toThrow(/no preset/);
+    expect(() => orderOf('preset=constructor')).toThrow(/no preset/);
+  });
+  it('holds a board against a trap that was asked for with no depth said', () => {
+    const way = DOWN_AND_UP.solution!;
+    const depth = trapDepthOf(DOWN_AND_UP, way);
+    const misses = orderMisses({ ...BASE_ORDER, trap: 'any' }, DOWN_AND_UP, way);
+    expect(misses).toEqual(depth === null ? ['no trap, where one was asked for'] : []);
+  });
+});

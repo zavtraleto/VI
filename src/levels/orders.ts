@@ -172,9 +172,10 @@ export function orderMisses(order: Order, spec: LevelSpec, way: readonly string[
     const events = scoreOf(spec, way.map(moveOf)).beats.filter((beat) => beat.event !== 'none').length;
     if (outside(events, order.events)) misses.push(`events ${events}, not ${span(order.events)}`);
   }
-  if (order.trap === 'none' || order.trapDepth) {
+  if (order.trap !== undefined || order.trapDepth) {
     const depth = trapDepthOf(spec, way);
     if (order.trap === 'none' && depth !== null) misses.push('a trap in the first two moves, where none was asked for');
+    if (order.trap === 'any' && !order.trapDepth && depth === null) misses.push('no trap, where one was asked for');
     if (order.trapDepth && order.trap !== 'none') {
       if (depth === null) misses.push(`no trap, where one ${span(order.trapDepth)} moves deep was asked for`);
       else if (outside(depth, order.trapDepth)) misses.push(`trap ${depth} moves deep, not ${span(order.trapDepth)}`);
@@ -213,7 +214,7 @@ export const BASE_ORDER: Order = { size: 4, dice: 5, faces: [2], par: [3, 6] };
 
 /** The order a preset is: its own numbers, and nothing of the order that was in hand but the cells cut out by hand. */
 export function applyPreset(order: Order, key: string): Order {
-  const preset = PRESETS[key];
+  const preset = Object.hasOwn(PRESETS, key) ? PRESETS[key] : undefined;
   if (!preset) throw new Error(`no preset "${key}": the presets are ${Object.keys(PRESETS).join(', ')}`);
   return { ...BASE_ORDER, ...(order.holes ? { holes: order.holes } : {}), ...preset.order, preset: key };
 }
@@ -223,7 +224,7 @@ const TECHNIQUES: readonly Technique[] = ['link', 'glass', 'floor', 'ones'];
 /** An order in a line, as a note of a file keeps it and a command takes it: `size=4 dice=5 faces=2 par=3-6 needs=link trap=any`. */
 export function orderText(order: Order): string {
   const said: (string | false | undefined)[] = [
-    order.preset && `preset=${order.preset}`,
+    order.preset && `as=${order.preset}`,
     `size=${order.size}`,
     order.holes && order.holes.length > 0 && `holes=${order.holes.map(([x, z]) => `${x}.${z}`).join(',')}`,
     `dice=${order.dice}`,
@@ -266,10 +267,14 @@ export function orderOf(text: string): Order {
   };
   const techniques = (value: string, key: string): Technique[] =>
     value.split(',').map((name) => (TECHNIQUES.includes(name as Technique) ? (name as Technique) : wrong(`"${key}=${value}": a technique is one of ${TECHNIQUES.join(', ')}`)));
+  // `preset=` begins from the preset and the words after it change it: that is how an order is asked for. `as=` only names
+  // the preset an order was begun from: that is how an order is kept, whole, so that a bound taken off stays off.
   const preset = said.get('preset');
-  let order: Order = preset !== undefined ? applyPreset(BASE_ORDER, preset) : { ...BASE_ORDER };
+  const named = said.get('as');
+  if (named !== undefined && !Object.hasOwn(PRESETS, named)) wrong(`no preset "${named}": the presets are ${Object.keys(PRESETS).join(', ')}`);
+  let order: Order = preset !== undefined ? applyPreset(BASE_ORDER, preset) : { ...BASE_ORDER, ...(named !== undefined ? { preset: named } : {}) };
   for (const [key, value] of said) {
-    if (key === 'preset') continue;
+    if (key === 'preset' || key === 'as') continue;
     else if (key === 'size') order = { ...order, size: whole(value, key) };
     else if (key === 'holes') order = { ...order, holes: value.split(',').map((cell) => cell.split('.').map((part) => whole(part, key)) as [number, number]) };
     else if (key === 'dice') order = { ...order, dice: whole(value, key) };
@@ -292,7 +297,7 @@ export function orderOf(text: string): Order {
     else if (key === 'hidden') order = { ...order, hidden: value === 'yes' ? 'hidden' : value === 'no' ? 'shown' : wrong(`"hidden=${value}" is neither yes nor no`) };
     else if (key === 'far') order = { ...order, far: whole(value, key) };
     else if (key === 'last') order = { ...order, last: range(value, key) };
-    else wrong(`cannot read "${key}=": the words of an order are preset, size, holes, dice, more, faces, floor, par, needs, avoid, quiet, events, tail, ends, firsts, trap, trapdepth, hidden, far, last`);
+    else wrong(`cannot read "${key}=": the words of an order are preset, as, size, holes, dice, more, faces, floor, par, needs, avoid, quiet, events, tail, ends, firsts, trap, trapdepth, hidden, far, last`);
   }
   if (order.floorShut === false) {
     const { floorShut: _open, ...rest } = order;

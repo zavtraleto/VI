@@ -18,9 +18,13 @@ export interface OrderAnswer {
   next: number;
 }
 
-/** Seconds a worker searches before it answers, and the seeds between where one worker begins and the next. */
+/**
+ * Seconds a worker searches before it answers, and the seeds between where one worker begins and
+ * the next. The workers stay under ten thousand between them: above it a seed lays a board
+ * another way (`generate.ts`), and a worker begun there would lay the boards of another again.
+ */
 const BUDGET_MS = 3000;
-const STRIDE = 5000;
+const STRIDE = 2000;
 /** Boards that meet the order kept in stock: with so many waiting, the workers rest. */
 const STOCK = 3;
 
