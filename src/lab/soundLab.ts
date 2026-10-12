@@ -3,7 +3,7 @@ import { chainTier, matchTier } from '../app/juice';
 import { CONTACT_STEPS } from '../app/ritual';
 import { AudioEngine } from '../audio/engine';
 import { SOUND_GROUPS, SOUND_PARAMS, soundChanged } from '../audio/params';
-import type { Cue } from '../audio/score';
+import { LINE_NOTES, type Cue } from '../audio/score';
 import type { ParamSpec, ParamValues } from '../signal/scene';
 import { copyText } from './clipboard';
 
@@ -20,6 +20,8 @@ const FOLDERS: Record<keyof typeof SOUND_GROUPS, string> = {
   tuning: 'Строй',
   volume: 'Громкости',
   space: 'Пространство',
+  tone: 'Верхи',
+  drone: 'Фон уровня',
   bell: 'Колокол',
   knock: 'Стук',
   low: 'Низ',
@@ -44,6 +46,13 @@ const LABELS: Record<string, string> = {
   verbLevel: 'сколько эха',
   verbContact: 'прибавка эха с контактом',
   stereo: 'ширина стерео',
+  toneShelfHz: 'полка: с какой частоты, Гц',
+  toneShelfDb: 'полка: глубина, дБ (0 — как было)',
+  toneCutHz: 'срез: с какой частоты, Гц',
+  droneGain: 'громкость (0 — фона нет)',
+  droneCut: 'срез верхов фона, Гц',
+  droneVerb: 'доля эха',
+  droneMove: 'перемена ступени: раз в сколько секунд',
   bellOctave: 'октава колокола',
   bellRatio: 'отношение модулятора',
   bellBright: 'яркость удара',
@@ -107,6 +116,7 @@ export function startSoundLab(): void {
     contact: 0,
     figure: 1,
     words: 'мы тебя не услышим, пока канал закрыт',
+    drone: false,
   };
   const fire = (cue: Cue): void => engine.play(cue);
   const timers: number[] = [];
@@ -226,6 +236,32 @@ export function startSoundLab(): void {
     deadEnd: () => fire({ kind: 'deadEnd' }),
     fell: () => fire({ kind: 'fell', pan: head.place }),
     begin: () => fire({ kind: 'begin' }),
+    // The levels.
+    undo: () => fire({ kind: 'undo', pan: head.place }),
+    relaid: () => fire({ kind: 'relaid' }),
+    failed: () => fire({ kind: 'failed' }),
+    stars: () => {
+      for (let index = 0; index < 3; index++) later(index * 190, () => fire({ kind: 'star', index }));
+    },
+    lines: () => {
+      // The lines of a board go, and those of the next come, as a passage has them.
+      halt();
+      for (let step = 0; step < LINE_NOTES; step++) later(step * 120, () => fire({ kind: 'lines', step, of: LINE_NOTES, draw: false }));
+      for (let step = 0; step < LINE_NOTES; step++) later(900 + step * 120, () => fire({ kind: 'lines', step, of: LINE_NOTES, draw: true }));
+    },
+    drone: () => {
+      head.drone = !head.drone;
+      engine.setAmbient(head.drone);
+      drone.name(head.drone ? 'Фон уровня: выключить' : 'Фон уровня: включить');
+    },
+    droneRolls: () => {
+      // The air with a level played over it: rolls, a group, a link.
+      halt();
+      if (!head.drone) actions.drone();
+      for (let i = 0; i < 8; i++) later(2500 + i * 600, () => roll(1 + Math.floor(Math.random() * 6), Math.random() * 2 - 1));
+      later(2500 + 8 * 600, () => fire(group(4, 4)));
+      later(2500 + 8 * 600 + 1200, () => fire(link(4, 2, 5)));
+    },
     // The program and the other side.
     boot: () => {
       // The check of the first start as the boot has it: a line, its answer, a wait before the device that is not there.
@@ -361,6 +397,15 @@ export function startSoundLab(): void {
   events.add(actions, 'deadEnd').name('Задача: тупик');
   events.add(actions, 'fell').name('Упал на пол');
   events.add(actions, 'begin').name('Поле после обучения');
+
+  const levels = gui.addFolder('Уровни');
+  levels.add(actions, 'undo').name('Возврат хода');
+  levels.add(actions, 'relaid').name('Рестарт уровня');
+  levels.add(actions, 'failed').name('Уровень проигран, тупик');
+  levels.add(actions, 'stars').name('Звёзды встали');
+  levels.add(actions, 'lines').name('Смена доски: линии уходят и приходят');
+  const drone = levels.add(actions, 'drone').name('Фон уровня: включить');
+  levels.add(actions, 'droneRolls').name('Фон и игра поверх него');
 
   const contact = gui.addFolder('Контакт');
   contact

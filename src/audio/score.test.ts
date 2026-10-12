@@ -6,7 +6,7 @@ import { createRun, defaultConfig, step, type GameEvent } from '../rules';
 import { emptyRun, land, place, put } from '../rules/testkit';
 import { soundDefaults } from './params';
 import { COMMA, degreeHz, faceDegree, tuning } from './scale';
-import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
+import { ARP_MOST, CHORD_MOST, HELD, INTERFACE, LINE_NOTES, REPLY_MOST, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, stereo, type Cue, type Note, type Setup } from './score';
 import { Variety, soundRandom } from './variation';
 
 function setup(contact = 0, seed = 1): Setup {
@@ -54,6 +54,11 @@ const EVERY: Cue[] = [
   { kind: 'deadEnd' },
   { kind: 'end' },
   { kind: 'cleared', faces: [2, 3, 5] },
+  { kind: 'undo', pan: 0.2 },
+  { kind: 'relaid' },
+  { kind: 'failed' },
+  { kind: 'lines', step: 2, of: 5, draw: false },
+  { kind: 'star', index: 2 },
   { kind: 'reply', heard: [500, 750, 1000] },
   { kind: 'uiStep', face: 4 },
   { kind: 'uiStep', face: null },
@@ -342,6 +347,56 @@ describe('the rest of a session', () => {
   it('rings the faces a task was solved with', () => {
     const notes = part(notesFor({ kind: 'cleared', faces: [5, 2, 3, 2] }, setup()), 'face');
     expect(notes.map((note) => note.hz.toFixed(3))).toEqual([2, 3, 5].map((face) => faceHz(face).toFixed(3)));
+  });
+});
+
+describe('a level', () => {
+  it('takes a move back with two soft knocks, the second under the first', () => {
+    const notes = notesFor({ kind: 'undo', pan: 0.3 }, setup());
+    expect(notes.map((note) => note.voice)).toEqual(['knock', 'knock']);
+    expect(notes[1].hz).toBeLessThan(notes[0].hz);
+    expect(notes[1].at).toBeGreaterThan(notes[0].at);
+  });
+
+  it('is laid anew on a low and a quiet bell of the root', () => {
+    const notes = notesFor({ kind: 'relaid' }, setup());
+    expect(notes.map((note) => note.voice)).toEqual(['low', 'bell']);
+    expect(notes[1].hz).toBeCloseTo(faceHz(1), 6);
+  });
+
+  it('is lost on the semitone of the mode downwards, dull, with a low under where it lands, and is said by the rules', () => {
+    const notes = notesFor({ kind: 'failed' }, setup());
+    const clicks = notes.filter((note) => note.voice === 'click');
+    expect(clicks.every((note) => note.dull)).toBe(true);
+    expect(12 * Math.log2(clicks[0].hz / clicks[1].hz)).toBeCloseTo(1, 6);
+    expect(notes.some((note) => note.voice === 'low' && note.at === clicks[1].at)).toBe(true);
+    expect(cuesOfEvent({ type: 'levelFailed' }, emptyRun(), new ScoreMemory())).toEqual([{ kind: 'failed' }]);
+  });
+
+  it('has its lines erased down the mode and drawn up it, a note at a time', () => {
+    const wave = (draw: boolean): number[] => Array.from({ length: LINE_NOTES }, (_, step) => notesFor({ kind: 'lines', step, of: LINE_NOTES, draw }, setup())[0].hz);
+    const out = wave(false);
+    const back = wave(true);
+    for (let i = 1; i < LINE_NOTES; i++) {
+      expect(out[i]).toBeLessThan(out[i - 1]);
+      expect(back[i]).toBeGreaterThan(back[i - 1]);
+    }
+    // The wave that goes ends where the wave that comes begins: on the root.
+    expect(out[LINE_NOTES - 1]).toBeCloseTo(back[0], 6);
+  });
+
+  it('lights its stars with bells, each higher than the last', () => {
+    const stars = [0, 1, 2].map((index) => notesFor({ kind: 'star', index }, setup())[0]);
+    expect(stars.every((note) => note.voice === 'bell')).toBe(true);
+    expect(stars[1].hz).toBeGreaterThan(stars[0].hz);
+    expect(stars[2].hz).toBeGreaterThan(stars[1].hz);
+  });
+
+  it('meets a wall with a dull knock and a low, louder than a step of the interface that cannot be taken', () => {
+    const notes = notesFor({ kind: 'blocked', pan: 0 }, setup());
+    expect(notes.map((note) => note.voice)).toEqual(['knock', 'low']);
+    expect(notes[0].dull).toBe(true);
+    expect(notes[0].gain).toBeGreaterThan(notesFor({ kind: 'uiStuck' }, setup())[0].gain);
   });
 });
 

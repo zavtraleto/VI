@@ -43,6 +43,25 @@ export const SOUND_GROUPS = {
     /** How far apart across the picture sounds are placed: 0 is all in the middle. */
     stereo: number(0.7, 0, 1, 0.01),
   },
+  tone: {
+    /**
+     * The top of everything that goes out is taken down a little: a shelf from `toneShelfHz` up,
+     * `toneShelfDb` decibels deep, and over it a gentle cut from `toneCutHz`. The echo goes
+     * through them with the rest.
+     */
+    toneShelfHz: number(3000, 1500, 10000, 100),
+    toneShelfDb: number(-5, -12, 0, 0.5),
+    toneCutHz: number(10000, 3000, 20000, 100),
+  },
+  drone: {
+    /** The air of a level: how loud it is, and where its top is cut. At nothing there is none. */
+    droneGain: number(0.035, 0, 0.3, 0.005),
+    droneCut: number(700, 200, 2000, 10),
+    /** The share of the echo it takes. */
+    droneVerb: number(0.5, 0, 1, 0.01),
+    /** About how many seconds pass before one of its tones moves to another degree. */
+    droneMove: number(60, 8, 180, 1),
+  },
   bell: {
     /** Octaves between the root and the bell on the note of the one. */
     bellOctave: number(1, 0, 2, 1),

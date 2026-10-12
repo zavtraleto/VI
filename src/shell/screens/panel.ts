@@ -508,7 +508,11 @@ export class PanelScreen implements ShellScreen {
         const count = row.labels().length;
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });
       } else if (row.kind === 'levels') {
-        this.levelCells(row, box).forEach((cell, i) => items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: () => row.pick(i) }));
+        // A level that is not open answers a press as a step that cannot be taken does.
+        this.levelCells(row, box).forEach((cell, i) => {
+          const locked = row.levels[i]?.locked === true;
+          items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: locked ? () => this.context.sound({ kind: 'stuck' }) : () => row.pick(i), quiet: locked, instant: locked });
+        });
       }
     }
     return items;

@@ -242,6 +242,10 @@ export interface HudActions {
   /** Points of a group have reached the score; the score has counted a little further up. */
   onPoints?(points: number, tier: number): void;
   onCount?(): void;
+  /** A star of a level that is passed has lit up: the first of them is 0. */
+  onStar?(index: number): void;
+  /** A button that has nothing to do was pressed. */
+  onRefused?(): void;
   press(dir: Dir): void;
   release(): void;
   cancel(): void;
@@ -490,7 +494,7 @@ export class GameHud {
   /** Where points fly to: the middle of the score, in pixels of the picture. */
   private scoreAt: Point = { x: 0, y: 0 };
   /** The stars of the pass just made: where they stand in pixels of the picture, since when, and how many of the new ones have reached the score. */
-  private passed: (HudAward & { born: number; landed: number }) | null = null;
+  private passed: (HudAward & { born: number; landed: number; lit: number }) | null = null;
   /** Nothing has been shown since the last start: the score of the levels is there at once, and does not run up from nothing. */
   private fresh = true;
   /** Every line the exercise can say: the room kept for them is that of the longest. */
@@ -545,7 +549,7 @@ export class GameHud {
   /** A level is passed: its stars stand over the board, and the new ones fly to the score. */
   award(award: HudAward): void {
     const zoom = this.kit.zoom;
-    this.passed = { ...award, at: { x: award.at.x / zoom, y: award.at.y / zoom }, born: this.lastTime, landed: 0 };
+    this.passed = { ...award, at: { x: award.at.x / zoom, y: award.at.y / zoom }, born: this.lastTime, landed: 0, lit: 0 };
   }
 
   /**
@@ -844,6 +848,9 @@ export class GameHud {
       if (passed) {
         const age = timeMs - passed.born;
         const leave = starsLeave();
+        // A star is heard as it lights up; with motion kept low they all stand at once, and one is heard.
+        const lit = view.reducedMotion ? passed.stars : clamp(Math.floor(age / STAR_STEP_MS) + 1, 0, passed.stars);
+        for (; passed.lit < lit; passed.lit++) if (!view.reducedMotion || passed.lit === passed.stars - 1) this.actions.onStar?.(passed.lit);
         const landed = view.reducedMotion ? passed.fresh : clamp(Math.floor((age - leave - STAR_FLY_MS) / STAR_FLY_STEP_MS) + 1, 0, passed.fresh);
         for (; passed.landed < landed; passed.landed++) {
           this.hit = { at: timeMs, value: passed.value, tier: 1 };
@@ -1610,7 +1617,7 @@ export class GameHud {
     const plan = this.toolPlan(stage, tools.retryOnly, pad);
     const { tall, dot } = plan;
     const button = (id: string, icon: readonly string[], text: string, box: Box, on: boolean, urgent: boolean, action: () => void): void => {
-      const filled = this.held?.zone.id === id || (urgent && blink === 0);
+      const filled = (on && this.held?.zone.id === id) || (urgent && blink === 0);
       if (filled) kit.box(box, ink);
       else {
         kit.box(box, bg);
@@ -1624,7 +1631,7 @@ export class GameHud {
         for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
       });
       kit.text(text, ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
-      if (on) this.zones.push({ id, rect: kit.toWindow(box), action });
+      this.zones.push({ id, rect: kit.toWindow(box), action: on ? action : () => this.actions.onRefused?.() });
     };
     button('retry', ICON_RETRY, word(COMMANDS.restart.name), plan.retry, true, false, () => this.actions.onRestart());
     if (tools.retryOnly) return;

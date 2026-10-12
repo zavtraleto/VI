@@ -73,6 +73,14 @@ export type Cue =
   | { kind: 'deadEnd' }
   | { kind: 'end' }
   | { kind: 'cleared'; faces: number[] }
+  // A level: its last move is taken back; its board is laid anew; it is lost.
+  | { kind: 'undo'; pan: number }
+  | { kind: 'relaid' }
+  | { kind: 'failed' }
+  // The lines of a board are erased, or drawn (`draw`): one note of the `of` the wave has, `step` of them in.
+  | { kind: 'lines'; step: number; of: number; draw: boolean }
+  // A star of a level that is passed lights up: the first of them is 0.
+  | { kind: 'star'; index: number }
   // What comes back from the other side: the notes the player has just played, as their frequencies.
   | { kind: 'reply'; heard: readonly number[] }
   // The interface of the program.
@@ -128,6 +136,10 @@ export const REPLY_MOST = 3;
 const END_SILENCE = 0.9;
 /** The most ones that are heard going one by one. */
 const ONES_MOST = 12;
+/** The notes the wave of the lines of a board has, erased or drawn. */
+export const LINE_NOTES = 5;
+/** The degrees the stars of a level light up on: the root, the fourth and the fifth of the mode as it stands. */
+const STAR_DEGREES = [0, 2, 3];
 
 /**
  * The least time between two sounds of a kind, in seconds: a group of dice goes under on one
@@ -423,7 +435,18 @@ function play(cue: Cue, kit: Kit): Note[] {
         }),
       ];
     case 'blocked':
-      return [click('blocked', degreeHz(tune, 0, 0), { gain: 0.2 * program, pan: cue.pan * 0.5, decay: 0.07, dull: true })];
+      // The figure leans on what does not give: a dull knock under its note, and the weight that met it.
+      return [
+        knock('blocked', degreeHz(tune, 0, knockOctave - 1) * cents(spread(30, rand)), {
+          gain: 0.3 * (1 + spread(0.1, rand)) * board,
+          pan: cue.pan,
+          decay: num('knockLen') * 0.9,
+          variant: variety.pick('blocked', KNOCK_VARIANTS, rand),
+          bright: 0.35,
+          dull: true,
+        }),
+        low('wall', degreeHz(tune, 0, -1), { gain: 0.3 * num('lowGain') * board, pan: cue.pan * 0.3, decay: num('lowLen') * 0.6, drop: 1.6, fall: 0.03 }),
+      ];
     case 'warned':
       return [click('warned', degreeHz(tune, Math.round(clamp(cue.cell, 0, 1) * 7), clickOctave - 1), { gain: 0.14 * program, pan: cue.pan, decay: num('clickLen') })];
     case 'risen':
@@ -558,6 +581,42 @@ function play(cue: Cue, kit: Kit): Note[] {
       );
       notes.push(bell('top', kit.bell(faceDegree(steps, used[0]) + octave), { at: used.length * 0.05, gain: 0.1 * bells, decay: num('bellTail') * 1.5, bright: 1.2, echo: 1.6 }));
       return notes;
+    }
+    case 'undo':
+      // The move goes back the way it came: two soft knocks, the second a degree under the first.
+      return [0, 1].map((i) =>
+        knock('undo', degreeHz(tune, 2 - 2 * i, knockOctave) * cents(spread(7, rand)), {
+          at: i * 0.09,
+          gain: (0.15 - 0.03 * i) * board,
+          pan: cue.pan,
+          decay: num('knockLen') * 0.8,
+          variant: variety.pick('undo', KNOCK_VARIANTS, rand),
+          bright: 0.2,
+        }),
+      );
+    case 'relaid':
+      // The board lies as it lay at first: its weight, and the root over it, quietly.
+      return [
+        low('relaid', degreeHz(tune, 0, -1), { gain: 0.4 * num('lowGain') * board, decay: num('lowLen'), drop: num('lowDrop'), fall: 0.05 }),
+        bell('relaid', kit.bell(0), { at: 0.05, gain: 0.07 * bells, decay: num('bellTail') * 0.6, bright: 0.5, echo: 1.2 }),
+      ];
+    case 'failed':
+      // The semitone of the mode, downwards and dull, and a low under where it lands. Nothing is cut: what rang goes on ringing.
+      return [
+        click('failed', degreeHz(tune, 1, 0), { gain: 0.16 * program, decay: 0.1, dull: true }),
+        click('failed', degreeHz(tune, 0, 0), { at: 0.16, gain: 0.16 * program, decay: 0.14, dull: true }),
+        low('failed', degreeHz(tune, 0, -1), { at: 0.16, gain: 0.22 * num('lowGain') * board, decay: num('lowLen') * 1.4, drop: 1.5, fall: 0.06 }),
+      ];
+    case 'lines': {
+      // The lines of a board go, a degree lower with every note of the wave; those of the next come a degree higher.
+      const of = Math.max(1, Math.round(cue.of));
+      const step = clamp(Math.round(cue.step), 0, of - 1);
+      const degree = cue.draw ? step : of - 1 - step;
+      return [bell('lines', kit.bell(degree), { gain: 0.07 * bells, pan: (cue.draw ? 1 : -1) * (step / of - 0.5) * 0.6, decay: num('bellTail') * 0.35, bright: 0.4, echo: 1.3 })];
+    }
+    case 'star': {
+      const index = clamp(Math.round(cue.index), 0, STAR_DEGREES.length - 1);
+      return [bell('star', kit.bell(STAR_DEGREES[index] + octave), { gain: 0.18 * bells, pan: (index - 1) * 0.3, decay: num('bellTail') * 0.8, bright: 0.9, echo: 1.3, wide: 0.3 })];
     }
     case 'reply': {
       // What the player has just played comes back: later, softly, from far off - and not quite
@@ -912,6 +971,9 @@ export function cuesOfEvent(event: GameEvent, state: RunState, memory: ScoreMemo
       break;
     case 'deadEnd':
       cues.push({ kind: 'deadEnd' });
+      break;
+    case 'levelFailed':
+      cues.push({ kind: 'failed' });
       break;
     case 'cleared':
       cues.push({ kind: 'cleared', faces: [...memory.sent].sort((a, b) => a - b) });

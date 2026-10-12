@@ -3,6 +3,7 @@ import type { GameEvent, RunState } from '../rules';
 import type { ShellSound } from '../shell/screen';
 import type { SignalSound } from '../signal/player';
 import type { ParamValues } from '../signal/scene';
+import { Drone } from './drone';
 import { soundDefaults, soundNumber } from './params';
 import { CUTS, HELD, INTERFACE, REPLY_MOST, SPACING, ScoreMemory, cueOfBeat, cuesOfEvent, leadNote, noteLaid, notesFor, replyCount, silentSign, type Cue, type Note } from './score';
 import { ChainStock, EchoSide, echoLength, fillNoise, noiseLength, type ChainNumbers } from './stock';
@@ -11,7 +12,8 @@ import { FADE, startVoice, warmNotes, type Voice, type VoicePort } from './voice
 
 /**
  * The sound of the game, made entirely in code with WebAudio: no files. Between two sounds
- * there is silence: nothing here hums, loops or runs on. What lasts is the tail of a note.
+ * there is silence: nothing here hums, loops or runs on, and what lasts is the tail of a note.
+ * The one thing that does go on is the air of a level (`Drone`): a few quiet tones of the mode.
  */
 
 /** A note is asked for this far ahead of the clock of the context, so it never falls into its past. */
@@ -71,6 +73,11 @@ function noiseBuffer(ctx: BaseAudioContext, rand: Rand, made?: Float32Array): Au
 export class SoundChain {
   private readonly dry: GainNode;
   private readonly master: GainNode;
+  /** The top of everything is taken down a little on the way out: a shelf, and a gentle cut over it. */
+  private readonly shelf: BiquadFilterNode;
+  private readonly top: BiquadFilterNode;
+  /** The way into the echo for what goes on by itself: it is led to whichever echo there is. */
+  private readonly airWet: GainNode;
   private readonly limiter: DynamicsCompressorNode;
   private readonly noise: AudioBuffer;
   /** The echo: the way into it, the echo itself, the way out of it, and how long it rings. */
@@ -98,11 +105,24 @@ export class SoundChain {
     this.limiter.attack.value = 0.002;
     this.limiter.release.value = 0.15;
     this.master.gain.value = soundNumber(values, 'volMaster');
+    this.shelf = ctx.createBiquadFilter();
+    this.shelf.type = 'highshelf';
+    this.shelf.frequency.value = soundNumber(values, 'toneShelfHz');
+    this.shelf.gain.value = soundNumber(values, 'toneShelfDb');
+    this.top = ctx.createBiquadFilter();
+    this.top.type = 'lowpass';
+    // In decibels, for this kind of filter: no rise before the cut.
+    this.top.Q.value = -3;
+    this.top.frequency.value = soundNumber(values, 'toneCutHz');
     this.dry.connect(this.master);
-    this.master.connect(this.limiter);
+    this.master.connect(this.shelf);
+    this.shelf.connect(this.top);
+    this.top.connect(this.limiter);
     this.limiter.connect(ctx.destination);
     this.noise = noiseBuffer(ctx, rand, made?.noise);
     this.echo = this.makeEcho(made?.echo);
+    this.airWet = ctx.createGain();
+    this.airWet.connect(this.echo.wet);
     this.refresh();
   }
 
@@ -133,11 +153,21 @@ export class SoundChain {
     }
     this.retired.push({ nodes: [wet, node, out], at: now + (ringOut ? seconds + RING_OUT : FADE + 0.05) });
     this.echo = this.makeEcho();
+    this.airWet.disconnect();
+    this.airWet.connect(this.echo.wet);
   }
 
-  /** The values of the panel have changed: the volume, the echo. */
+  /** Where what goes on by itself is sent: the way out with no echo, and the way into the echo. */
+  get air(): { dry: AudioNode; wet: AudioNode } {
+    return { dry: this.dry, wet: this.airWet };
+  }
+
+  /** The values of the panel have changed: the volume, the top, the echo. */
   refresh(): void {
     const now = this.ctx.currentTime;
+    this.shelf.frequency.setTargetAtTime(soundNumber(this.values, 'toneShelfHz'), now, 0.02);
+    this.shelf.gain.setTargetAtTime(soundNumber(this.values, 'toneShelfDb'), now, 0.02);
+    this.top.frequency.setTargetAtTime(soundNumber(this.values, 'toneCutHz'), now, 0.02);
     this.master.gain.setTargetAtTime(this.muted ? 0 : soundNumber(this.values, 'volMaster'), now, 0.02);
     if (soundNumber(this.values, 'verbTail') !== this.echo.seconds) this.retireEcho(now, true);
     this.echo.out.gain.setTargetAtTime(soundNumber(this.values, 'verbLevel'), now, 0.02);
@@ -256,6 +286,10 @@ export class AudioEngine {
   private stock: ChainStock | null = null;
   /** How far the contact has gone, 0 to 1. */
   private contact = 0;
+  /** A level is on the board: its air is wanted, and it waits under a window or does not. */
+  private ambient = false;
+  private ambientHeld = false;
+  private drone: Drone | null = null;
   private lastWarnSecond = -1;
   /** The sound's own chance: it has nothing to do with the rules and never reaches the state of a run. */
   private readonly rand: Rand = soundRandom(Math.floor(Math.random() * 0x7fffffff));
@@ -324,6 +358,7 @@ export class AudioEngine {
     const { owed } = this;
     this.owed = null;
     if (owed) this.play(owed);
+    this.air();
     // A note of every kind, unheard, in a turn of the page of its own right after the press: the first note of a move is then no dearer than the second.
     window.setTimeout(() => {
       const from = performance.now();
@@ -359,6 +394,34 @@ export class AudioEngine {
     else void this.ctx.resume();
   }
 
+  /**
+   * The air of a level: wanted while a level is on the board, `held` while it waits under a
+   * window. It comes and goes slowly; asked for again as it stands, nothing is done.
+   */
+  setAmbient(on: boolean, held = false): void {
+    if (on === this.ambient && held === this.ambientHeld) return;
+    this.ambient = on;
+    this.ambientHeld = held;
+    this.air();
+  }
+
+  /** Brings the air to what is wanted of it. */
+  private air(): void {
+    const { ctx, chain } = this;
+    if (!ctx || !chain) return;
+    const wanted = this.ambient && soundNumber(this.values, 'droneGain') > 0;
+    if (!wanted) {
+      this.drone?.stop();
+      this.drone = null;
+      return;
+    }
+    if (!this.drone) {
+      const { dry, wet } = chain.air;
+      this.drone = new Drone(ctx, dry, wet, this.values, this.rand);
+    }
+    this.drone.setHeld(this.ambientHeld);
+  }
+
   /** How far the contact has gone, 0 to 1. */
   setContact(level: number): void {
     this.contact = Math.min(1, Math.max(0, level));
@@ -381,6 +444,8 @@ export class AudioEngine {
   /** The values of the panel have changed. */
   refresh(): void {
     this.chain?.refresh();
+    this.air();
+    this.drone?.refresh();
   }
 
   /** Cuts off everything that is sounding. */

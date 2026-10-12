@@ -1,4 +1,5 @@
 import { AudioEngine } from '../audio/engine';
+import { LINE_NOTES, stereo } from '../audio/score';
 import { Display } from '../display/display';
 import { Governor, QUALITY_STEPS } from '../display/governor';
 import { Pacer } from '../display/pacer';
@@ -346,6 +347,9 @@ export class Game {
     risen: number;
     order: number[];
     cell: number;
+    /** Notes of the wave of the lines played so far: of those that go, and of those that come. */
+    erased: number;
+    drawn: number;
   } | null = null;
   /** How the dice stand in the passage, die by die: the view reads it on every frame. One object, changed in place. */
   private readonly passing: DicePassing = { mode: 'leave', ranks: new Map(), count: 0, stair: -1, litMs: 0, moveMs: 0, stepMs: 0, moveForMs: 0, flashMs: 0 };
@@ -454,6 +458,8 @@ export class Game {
     onContinue: () => this.outside((state) => tutorialAck(state)),
     onPoints: (points, tier) => this.audio.points(points, tier),
     onCount: () => this.audio.count(),
+    onStar: (index) => this.audio.play({ kind: 'star', index }),
+    onRefused: () => this.audio.ui({ kind: 'stuck' }),
     onSign: (sign) => this.audio.sign(sign),
     // The words over the board come with the click the program types the windows of the levels with.
     onHintWord: (sign) => this.audio.typed(sign),
@@ -1002,13 +1008,18 @@ export class Game {
     if (!this.state.puzzle || this.inMenu) return;
     saveSettings(this.settings);
     this.startPuzzle(this.puzzleIndex);
+    this.audio.play({ kind: 'relaid' });
   }
 
   /** Takes the last roll back, with every step made since. */
   private undoPuzzle(): void {
     if (!this.state.puzzle || this.state.over || this.inMenu || this.paused) return;
     const previous = this.history.pop();
-    if (!previous) return;
+    if (!previous) {
+      this.audio.ui({ kind: 'stuck' });
+      return;
+    }
+    this.audio.play({ kind: 'undo', pan: stereo(this.state.player.x, this.state.player.z, this.state.config.size) });
     puzzleStat(this.settings, PUZZLE_LEVELS[this.puzzleIndex].id).undos++;
     this.runner = new Runner(previous);
     this.beforeCommand = null;
@@ -1045,7 +1056,11 @@ export class Game {
     // A level that is over is taken back only from a dead end that still stands on the board.
     if (over && (this.resultShown || !deadEnd(this.state))) return;
     const previous = this.history.pop();
-    if (!previous) return;
+    if (!previous) {
+      this.audio.ui({ kind: 'stuck' });
+      return;
+    }
+    this.audio.play({ kind: 'undo', pan: stereo(this.state.player.x, this.state.player.z, this.state.config.size) });
     const trail = this.trails.pop() ?? [];
     this.undosMade++;
     const stat = this.levelRecord();
@@ -1357,6 +1372,8 @@ export class Game {
       risen: 0,
       order: order.map((die) => cubes[die].id),
       cell: 0,
+      erased: 0,
+      drawn: 0,
     };
     this.view.setPassing(passing);
     this.awardStars();
@@ -1419,6 +1436,7 @@ export class Game {
           passage.cell = 1 / this.view.gridParts;
         }
         this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, false, player);
+        this.hearLines(passage, 1 - now.lines, false);
         return;
       }
       this.putNext(passage);
@@ -1429,6 +1447,7 @@ export class Game {
     // With motion kept low the dice of the board do not come up: they stand.
     passing.moveMs = reduced ? Infinity : passage.elapsed - marks.rise;
     this.view.drawGrid(passage.cell + (1 - passage.cell) * now.lines, true, player);
+    if (!reduced) this.hearLines(passage, now.lines, true);
     // A die that stands is heard as one that has come up in a session, and settles as one. With motion kept low
     // the dice of the board all stand in one frame, and one note is played for the board, not one for each die.
     let heard = false;
@@ -1445,6 +1464,21 @@ export class Game {
     this.passage = null;
     // What was pressed while the board was coming is not a move on it.
     this.controller.cancel();
+  }
+
+  /**
+   * The lines of a board are heard as they go and as they come: a wave of a few notes, each
+   * played when the wave has got `along` that far, 0 to 1. With motion kept low the lines that go
+   * are gone in one frame, and one note is played for them.
+   */
+  private hearLines(passage: NonNullable<Game['passage']>, along: number, draw: boolean): void {
+    const heard = draw ? passage.drawn : passage.erased;
+    const due = Math.min(LINE_NOTES, Math.floor(Math.min(1, Math.max(0, along)) * LINE_NOTES) + 1);
+    if (due <= heard) return;
+    const first = prefersReducedMotion(this.settings) ? due - 1 : heard;
+    for (let step = first; step < due; step++) this.audio.play({ kind: 'lines', step, of: LINE_NOTES, draw });
+    if (draw) passage.drawn = due;
+    else passage.erased = due;
   }
 
   /**
@@ -1585,6 +1619,7 @@ export class Game {
     if (!this.state.levelRun || this.inMenu || this.passage) return;
     saveSettings(this.settings);
     this.startRun('level');
+    this.audio.play({ kind: 'relaid' });
   }
 
   /** Starts over what is on the board: a task or a level, each its own way. */
@@ -2688,6 +2723,8 @@ export class Game {
     this.lastFrame = time;
     this.tools?.tick(time);
 
+    // A level has its air: while its board is on, and quieter while it waits under a window.
+    this.audio.setAmbient(this.state.levelRun !== null && !this.inMenu, this.paused);
     // The board a passage has put on waits until it is whole: its world stands and it takes no command.
     const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy && !this.passage && !this.rewind;
     if (this.governor?.frame(dt, running && !document.hidden)) this.applySamples();

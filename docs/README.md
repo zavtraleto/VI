@@ -70,6 +70,7 @@
 | [superpowers/specs/2026-10-02-vi-scene-constructor-design.md](superpowers/specs/2026-10-02-vi-scene-constructor-design.md) | решение | конструктор сцен сигнала |
 | [superpowers/specs/2026-10-03-vi-phone-view-design.md](superpowers/specs/2026-10-03-vi-phone-view-design.md) | решение | вид на телефоне: приближение за игроком |
 | [superpowers/specs/2026-10-03-vi-sound-design.md](superpowers/specs/2026-10-03-vi-sound-design.md) | решение | звук |
+| [superpowers/specs/2026-10-12-vi-sound-levels-design.md](superpowers/specs/2026-10-12-vi-sound-levels-design.md) | решение | звук уровней: новые события, срез верхов, фон-дрон |
 | [art/VI_Art_Direction_and_Signal_v01.md](art/VI_Art_Direction_and_Signal_v01.md) | исследование | черновик владельца от 2 октября; при расхождении верна Visual_Language |
 | [art/VI_Signal_Director.md](art/VI_Signal_Director.md) | исследование | сцены сигнала: принятое, построенное, предложения |
 | [art/VI_Shell_Research.md](art/VI_Shell_Research.md) | исследование | оболочка: ориентиры и варианты |
