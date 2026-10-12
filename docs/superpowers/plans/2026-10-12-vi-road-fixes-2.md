@@ -1,5 +1,8 @@
 # Дорога: вторая волна правок 12 октября
 
+> Вид: план. Статус: выполнен (в ветке `first-level` 12 октября 2026, не опубликован). Дата: 2026-10-12. Проверено: 2026-10-12.
+> Что заменило: —. Что живёт в коде: src/levels/road.ts, src/render/leaving.ts, src/render/params.ts. Что собрано и что вышло иначе — [спека второй редакции](../specs/2026-10-09-vi-road-free-pieces-design.md), раздел 16.7.
+
 Дата: 12 октября 2026 · Статус: бриф исполнителю (Opus), слово владельца 12 октября после версии 0.2.41. Работа в worktree `.claude/worktrees/first-level`, ветка `first-level` (на `origin/main` 0.2.41, `541a681`); основную папку `GAMES\VI` не трогать. Считать от [2026-10-12-vi-road-fixes-after-third.md](2026-10-12-vi-road-fixes-after-third.md) и раздела 16 [спеки второй редакции](../specs/2026-10-09-vi-road-free-pieces-design.md); доски — `src/levels/road.ts`.
 
 ## Слова владельца (12 октября)
