@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROAD } from '../levels/road';
-import { answer, instantOf, laterOf, secondsOf } from './labFacts';
+import { answer, instantOf, laterOf, secondsOf, spareOf } from './labFacts';
 
 const R03 = ROAD[2];
 
@@ -22,6 +22,13 @@ describe('the tiers of the lab', () => {
     const later = laterOf(R03, 2);
     expect(later.report.par).toBe(2);
     expect(later.near.length).toBeGreaterThan(0);
+  });
+  it('finds no die to spare on a board of two dice that are a pair, and finds a die that goes along for nothing', () => {
+    expect(spareOf(R03)).toEqual([]);
+    // A third 2 beside the cell the pair is made on goes with it: the board is cleared in the same two moves by the same route.
+    const three = { ...R03, norm: 3, layout: { ...R03.layout!, dice: [...R03.layout!.dice, { x: 2, z: 0, top: 2, north: 3 }] } };
+    expect(spareOf(three)).toContainEqual({ x: 2, z: 0 });
+    expect(spareOf(three)).not.toContainEqual({ x: 1, z: 2 });
   });
   it('answers a question under its number, and a board that cannot be asked with what went wrong', () => {
     expect(answer({ id: 7, tier: 'seconds', spec: R03 })).toMatchObject({ id: 7, tier: 'seconds', facts: { firsts: expect.any(Number) } });

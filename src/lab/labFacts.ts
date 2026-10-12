@@ -1,9 +1,10 @@
-import { checkOf, movesOf, nearOf, type Check, type MoveFact, type NearFact } from '../levels/labText';
+import { QUICK_MAX_STATES, checkOf, movesOf, nearOf, type Check, type MoveFact, type NearFact } from '../levels/labText';
 import { firstsOf } from '../levels/measures';
 import { createRun, defaultConfig } from '../rules';
 import { levelDeadEnd, shortGroups, type LevelDeadEnd, type ShortGroup } from '../rules/level';
 import { report, type LevelReport } from '../rules/levelReport';
-import { SOLVER_MAX_STATES } from '../rules/levelSolver';
+import { scoreOf } from '../rules/levelScore';
+import { SOLVER_MAX_STATES, solveLevel } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 
 /**
@@ -43,16 +44,46 @@ export function secondsOf(spec: LevelSpec, maxStates = SOLVER_MAX_STATES): Secon
   return { check, firsts: check.par === null ? 0 : firstsOf(spec, check.par), moves: check.par === null ? [] : movesOf(spec) };
 }
 
-/** Later, in the background: the report of the players of the levels, and every board one change away. */
+/**
+ * The dice a board does not need: with such a die taken off, the board is cleared in as many
+ * moves and by the same route, sign for sign. It is the test by pruning: a die that changes
+ * nothing when it goes is a red herring, or a die that goes along with a combo for nothing. The
+ * die the player starts on and a fixed die are not tried, and a board the rules refuse without
+ * the die, a combo standing ready or no board at all, says nothing of it.
+ */
+export function spareOf(spec: LevelSpec, maxStates = QUICK_MAX_STATES): { x: number; z: number }[] {
+  const { layout } = spec;
+  if (!layout) return [];
+  const whole = solveLevel(spec, { maxStates }).solution;
+  if (!whole) return [];
+  const route = scoreOf(spec, whole.moves).route;
+  const spare: { x: number; z: number }[] = [];
+  layout.dice.forEach((die, index) => {
+    if (die.fixed || (!layout.onFloor && die.x === layout.start.x && die.z === layout.start.z)) return;
+    const leaving = (layout.leaving ?? []).filter((left) => left.die !== index).map((left) => ({ die: left.die > index ? left.die - 1 : left.die, moves: left.moves }));
+    const { leaving: _leaving, ...rest } = layout;
+    const without: LevelSpec = { ...spec, norm: spec.norm - 1, layout: { ...rest, dice: layout.dice.filter((_, at) => at !== index), ...(leaving.length > 0 ? { leaving } : {}) } };
+    try {
+      const solved = solveLevel(without, { maxStates }).solution;
+      if (solved && solved.par === whole.par && scoreOf(without, solved.moves).route === route) spare.push({ x: die.x, z: die.z });
+    } catch {
+      // No board without the die: nothing is said of it.
+    }
+  });
+  return spare;
+}
+
+/** Later, in the background: the report of the players of the levels, every board one change away, and the dice the board does not need. */
 export interface Later {
   report: LevelReport;
   near: NearFact[];
+  spare: { x: number; z: number }[];
 }
 
 export function laterOf(spec: LevelSpec, runs = 10): Later {
   // The report takes a way a level keeps at its word; here the board is asked, so it is given without one.
   const { par: _par, exact: _exact, solution: _solution, ...bare } = spec;
-  return { report: report(bare, { runs }), near: nearOf(bare) };
+  return { report: report(bare, { runs }), near: nearOf(bare), spare: spareOf(bare) };
 }
 
 /** What the page asks of the worker, and what it is told. An answer bears the number of its question. */

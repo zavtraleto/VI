@@ -3,6 +3,20 @@ import { PROGRAM_FONT, mixHex, paletteAt, shellDefaults, type Palette } from '..
 import { cellAt, clearCell, cycleLeaving, emptyBoard, putDie, rollDie, setStart, toggleFixed, toggleHole, type EditBoard } from './editBoard';
 
 const ARROWS: Readonly<Record<string, Dir>> = { ArrowUp: 'N', ArrowRight: 'E', ArrowDown: 'S', ArrowLeft: 'W' };
+const TOWARDS: Readonly<Record<Dir, { dx: number; dz: number }>> = { N: { dx: 0, dz: -1 }, E: { dx: 1, dz: 0 }, S: { dx: 0, dz: 1 }, W: { dx: -1, dz: 0 } };
+
+/**
+ * What the solver says of a board, drawn over it. An arrow is a move there is from the start:
+ * from the cell of its die to the side it goes, dashed where it is a push, and coloured by what
+ * it does to the fewest moves. A sensitive cell is a die a change of which changes the fewest
+ * moves, or leaves the board with no way. A spare cell is a die the board is cleared as well
+ * without.
+ */
+export interface Overlay {
+  arrows: { x: number; z: number; dir: Dir; push: boolean; keeps: 'par' | 'longer' | 'dead' | 'unknown' }[];
+  sensitive: { x: number; z: number; change: 'shorter' | 'longer' | 'unsolved' }[];
+  spare: { x: number; z: number }[];
+}
 
 /**
  * The board of the lab of the levels as it is drawn and changed: a canvas seen from above, north
@@ -30,6 +44,7 @@ export class BoardEditor {
   private before: EditBoard[] = [];
   private after: EditBoard[] = [];
   private readonly palette: Palette = paletteAt(shellDefaults(), 0);
+  private overlay: Overlay | null = null;
 
   constructor(
     parent: HTMLElement,
@@ -55,6 +70,12 @@ export class BoardEditor {
 
   get current(): EditBoard {
     return this.board;
+  }
+
+  /** What is drawn over the board of what the solver says; null for nothing. */
+  setOverlay(overlay: Overlay | null): void {
+    this.overlay = overlay;
+    this.draw();
   }
 
   /** Puts a board in the editor as the one in hand: it is no change, and nothing before it can be taken back to. */
@@ -204,12 +225,62 @@ export class BoardEditor {
         if (sign.start) this.ring(ctx, cx + cell / 2, cy + cell / 2, cell * 0.46);
       }),
     );
+    if (this.overlay) this.drawOverlay(ctx, this.overlay, left, top, cell);
     if (this.selected) {
       ctx.setLineDash([4, 3]);
       ctx.lineWidth = 1;
       ctx.strokeStyle = palette.ink;
       ctx.strokeRect(left + this.selected.x * cell + 1.5, top + this.selected.z * cell + 1.5, cell - 3, cell - 3);
       ctx.setLineDash([]);
+    }
+  }
+
+  /**
+   * The views of the solver over the board. The colours are the interface's: a move that keeps
+   * the fewest moves is in the tone of the text, a longer one dim, a dead end in the red of the
+   * signal; a die whose change leaves no way is framed in that red, one whose change makes the
+   * way longer or shorter in the yellow of the second channel; a spare die is crossed out, dim.
+   */
+  private drawOverlay(ctx: CanvasRenderingContext2D, overlay: Overlay, left: number, top: number, cell: number): void {
+    const { palette } = this;
+    for (const { x, z } of overlay.spare) {
+      ctx.strokeStyle = palette.dim;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(left + x * cell + cell * 0.12, top + z * cell + cell * 0.12);
+      ctx.lineTo(left + x * cell + cell * 0.88, top + z * cell + cell * 0.88);
+      ctx.moveTo(left + x * cell + cell * 0.88, top + z * cell + cell * 0.12);
+      ctx.lineTo(left + x * cell + cell * 0.12, top + z * cell + cell * 0.88);
+      ctx.stroke();
+    }
+    for (const { x, z, change } of overlay.sensitive) {
+      ctx.strokeStyle = change === 'unsolved' ? palette.signal : palette.channels[1];
+      ctx.lineWidth = change === 'unsolved' ? 4 : 2;
+      ctx.strokeRect(left + x * cell + 3, top + z * cell + 3, cell - 6, cell - 6);
+    }
+    const colours = { par: palette.ink, longer: palette.dim, dead: palette.signal, unknown: palette.faint } as const;
+    for (const { x, z, dir, push, keeps } of overlay.arrows) {
+      const { dx, dz } = TOWARDS[dir];
+      // The arrow lies across the side of the cell the die goes over: half in its own cell, half in the next.
+      const fromX = left + (x + 0.5 + dx * 0.3) * cell;
+      const fromY = top + (z + 0.5 + dz * 0.3) * cell;
+      const toX = left + (x + 0.5 + dx * 0.78) * cell;
+      const toY = top + (z + 0.5 + dz * 0.78) * cell;
+      const head = cell * 0.13;
+      ctx.strokeStyle = ctx.fillStyle = colours[keeps];
+      ctx.lineWidth = keeps === 'par' ? 4 : 3;
+      ctx.setLineDash(push ? [5, 4] : []);
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX - dx * head, toY - dz * head);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - dx * head * 1.6 - dz * head, toY - dz * head * 1.6 - dx * head);
+      ctx.lineTo(toX - dx * head * 1.6 + dz * head, toY - dz * head * 1.6 + dx * head);
+      ctx.closePath();
+      ctx.fill();
     }
   }
 

@@ -3,11 +3,11 @@ import { boardNameOf, isBoardName } from '../app/boardProbe';
 import type { Game } from '../app/game';
 import { BOARD_STATUSES, normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardStatus } from '../levels/boardFile';
 import { specFromState } from '../levels/snapshot';
-import { REPORT_PLAYERS, scoreText } from '../rules/levelReport';
+import { REPORT_PLAYERS } from '../rules/levelReport';
 import { moveOf, tryWay } from '../rules/levelSolver';
-import type { LevelSpec, RunState } from '../rules/types';
+import type { Dir, LevelSpec, RunState } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
-import { BoardEditor } from './boardEditor';
+import { BoardEditor, type Overlay } from './boardEditor';
 import { addPlay, listBoards, onBoardChanged, readBoard, writeBoard } from './boardsClient';
 import { boardHash } from './boardsServer';
 import { copyText } from './clipboard';
@@ -105,6 +105,9 @@ class LevelsLab {
   /** The move of the way the editor shows the board after; null where it shows the board itself, which is then the one kept in `drawn`. */
   private moment: number | null = null;
   private drawn: EditBoard | null = null;
+  /** Which views of the solver are drawn over the board, and whether the board is shown blind: nothing said of it until it has been played. */
+  private readonly views = { arrows: true, sensitive: false, spare: false, blind: false };
+  private viewControls: Controller[] = [];
   /** The play in hand, while the board is played. */
   private watched: Watched | null = null;
   /** The status every file says it has, for the list of the files. */
@@ -214,6 +217,14 @@ class LevelsLab {
     board.add(form, 'status', [...BOARD_STATUSES]).name('статус').onChange(() => this.edited(false));
     this.copyControl = gui.add({ copy: () => void this.copy() }, 'copy').name(COPY_LABEL);
     gui.add({ keep: () => this.keepSolved() }, 'keep').name('записать путь решателя в файл');
+    const views = gui.addFolder('Виды решателя');
+    const seen = (): void => this.show();
+    this.viewControls = [
+      views.add(this.views, 'arrows').name('стрелки ходов').onChange(seen),
+      views.add(this.views, 'sensitive').name('чувствительность к правке').onChange(seen),
+      views.add(this.views, 'spare').name('лишние кости').onChange(seen),
+      views.add(this.views, 'blind').name('слепой режим').onChange(seen),
+    ];
   }
 
   /** The panel is set to what the board in hand says. */
@@ -394,6 +405,9 @@ class LevelsLab {
       this.extra = readBoardHead(text);
       this.editor.show(editBoardOf(this.spec), sameBoard);
       this.keepWay();
+      // A board laid by the generator and not yet looked at is played before anything is said of it.
+      if (!sameBoard) this.views.blind = this.extra.status === 'idea' && (this.extra.note ?? '').startsWith('место ');
+      for (const control of this.viewControls) control.updateDisplay();
     } else {
       this.editor.show(emptyBoard(SIZE_MIN));
       this.editor.locked = true;
@@ -510,6 +524,12 @@ class LevelsLab {
 
   private tellPlay(play: Watched): void {
     play.told = true;
+    // A board that has been played is not blind any more: what is known of it is shown.
+    if (this.views.blind) {
+      this.views.blind = false;
+      for (const control of this.viewControls) control.updateDisplay();
+      if (!this.playing) this.show();
+    }
     void addPlay(play.name, playRecordOf(play.state, play.startedAt, Date.now(), play.undos, play)).catch((error: Error) => console.error(error));
   }
 
@@ -541,16 +561,46 @@ class LevelsLab {
     if (this.name === '') lines.push('нет досок: «новая доска» на панели');
     else lines.push(`boards/${this.name}.txt${this.saveTimer !== 0 ? '  …пишется' : ''}`);
     if (this.error) lines.push('', this.error, ...(this.editor.locked ? ['', 'Файл не читается как доска: править его надо в самом файле. Страница его не перезапишет.'] : []));
-    lines.push('', ...this.factLines());
+    lines.push('', ...(this.views.blind ? ['слепой режим: о доске ничего не сказано,', 'пока она не сыграна (E).'] : this.factLines()));
     lines.push('', 'щелчок — кость / следующая грань', 'стрелки — прокатить на месте', 'правая кнопка, Del — очистить', 'H — вырез · Shift+щелчок — фикс.', 'P — старт · L — уходящая', 'Ctrl+Z / Ctrl+Y — отмена / повтор', 'E — играть');
     this.facts.textContent = lines.join('\n');
     this.showRibbon();
+    this.editor.setOverlay(this.overlayOf());
+  }
+
+  /** The views of the solver that are switched on, for the board itself: a moment of the way and a board shown blind have none. */
+  private overlayOf(): Overlay | null {
+    const { seconds, later, views } = this;
+    if (views.blind || this.moment !== null || this.editor.locked) return null;
+    const overlay: Overlay = { arrows: [], sensitive: [], spare: [] };
+    if (views.arrows && seconds && typeof seconds !== 'string') {
+      overlay.arrows = seconds.moves.map((fact) => {
+        const [x, z, dir, push] = fact.move.split(',');
+        return { x: Number(x), z: Number(z), dir: dir as Dir, push: push === 'p', keeps: fact.keeps };
+      });
+    }
+    if (later && typeof later !== 'string') {
+      if (views.spare) overlay.spare = later.spare;
+      if (views.sensitive) {
+        // A die is as sensitive as the worst a change of it does: no way left stands before a way of another length.
+        const worst = new Map<string, Overlay['sensitive'][number]>();
+        for (const fact of later.near) {
+          const cell = /(\d+),(\d+)/.exec(fact.what);
+          if (!cell || fact.change === 'same') continue;
+          const key = `${cell[1]},${cell[2]}`;
+          if (worst.get(key)?.change !== 'unsolved') worst.set(key, { x: Number(cell[1]), z: Number(cell[2]), change: fact.change });
+        }
+        overlay.sensitive = [...worst.values()];
+      }
+    }
+    return overlay;
   }
 
   /** The way the solver found, a button to a move: a click shows the board after that move, and the first shows the board itself. */
   private showRibbon(): void {
     const { ribbon, seconds, palette } = this;
     ribbon.replaceChildren();
+    if (this.views.blind) return;
     const way = seconds && typeof seconds !== 'string' ? seconds.check.way : null;
     const score = seconds && typeof seconds !== 'string' ? seconds.check.score : null;
     if (!way) return;
@@ -596,7 +646,13 @@ class LevelsLab {
         lines.push(`в файле: ${check.kept === null ? 'пути нет' : `par ${spec.par ?? '—'} — ${check.kept}`}`);
         lines.push(`первых ходов, после которых доска в руках: ${firsts}`);
         lines.push(`ходы со старта: ${moves.map((fact) => `${fact.move} ${fact.keeps}${fact.par === null ? '' : ` ${fact.par}`}`).join(' · ')}`);
-        if (check.score) lines.push('', scoreText(check.score));
+        // The score of the way, a line to a move: the table of the script is too wide for the column.
+        check.score?.beats.forEach((beat, index) => {
+          const floor = [beat.down ? 'вниз' : '', beat.up ? 'вверх' : ''].filter(Boolean).join(' ');
+          const event = beat.event === 'none' ? '' : ` → ${beat.event} грани ${beat.face}, костей ${beat.took}`;
+          if (index === 0) lines.push('');
+          lines.push(`${index + 1}. ${check.way![index]} ${beat.how}${floor ? ` (${floor})` : ''}${event}`);
+        });
       }
     }
     lines.push('', '— фон —');
