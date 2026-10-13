@@ -9,7 +9,7 @@ import { createRun, step } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
 import { levelId } from './generate';
-import { LEVELS, PARKED, SPARES } from './levels';
+import { ACT_1, LEVELS, PARKED, SPARES, TAIL } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
 import { chaptersOf, ladderProgress } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
@@ -27,8 +27,8 @@ import { UNLIKE_BY, sameBoard, traitsOf, unlike } from './variety';
 /** The place a board is for, by the name of its level. */
 const placeOf = (spec: LevelSpec): Recipe | undefined => PLACES.find((place) => levelId(place) === spec.id);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
-/** The list as the owner ordered it on 12 October 2026 (docs/VI_Levels_Playtest_2026-10-12.md, section 4). */
-const ORDER = ['P13', 'P04', 'P09', 'P02', 'P14', 'P03', 'P20', 'P16', 'P07', 'P01', 'P12', 'P08', 'P06', 'P05', 'P17', 'P15', 'P31', 'P19'];
+/** What is left of the list as the owner ordered it on 12 October 2026 (docs/VI_Levels_Playtest_2026-10-12.md, section 4), the levels that went into the acts taken out. */
+const TAIL_ORDER = ['P13', 'P04', 'P02', 'P14', 'P20', 'P07', 'P01', 'P12', 'P08', 'P06', 'P05', 'P17', 'P15', 'P31', 'P19'];
 /** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
 const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
 const ALL: readonly LevelSpec[] = [...LEVELS, ...PARKED, ...SPARES];
@@ -92,8 +92,12 @@ function offPlace(level: LevelSpec, place: Recipe): string[] {
 }
 
 describe('the levels of the game', () => {
-  it('are levels of the probe in the order of the owner, each a level of a place', () => {
-    expect(LEVELS.map((level) => level.id)).toEqual(ORDER);
+  it('are the first act and then the tail, the list of the probe in the order it had', () => {
+    expect(LEVELS).toEqual([...ACT_1, ...TAIL]);
+    expect(TAIL.map((level) => level.id)).toEqual(TAIL_ORDER);
+  });
+
+  it('are each a level of a place', () => {
     for (const level of [...LEVELS, ...PARKED]) expect(placeOf(level), level.id).toBeDefined();
   });
 
@@ -253,8 +257,8 @@ describe('the levels of the game', () => {
   });
 
   it('have a breather before the last level: P31 is of the place of P13 once more, and a board unlike it', () => {
-    const breather = LEVELS[16];
-    const collapse = LEVELS[0];
+    const breather = LEVELS.find((level) => level.id === 'P31')!;
+    const collapse = LEVELS.find((level) => level.id === 'P13')!;
     expect([breather.id, collapse.id]).toEqual(['P31', 'P13']);
     expect(unlike(traitsOf({ spec: breather }), traitsOf({ spec: collapse }))).toBeGreaterThanOrEqual(UNLIKE_BY);
     // Four of its six 6s are up from the start: two dice are turned, and all six go with one move.

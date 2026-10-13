@@ -113,6 +113,7 @@ export const ES: Texts = {
   roadHintPush: 'Baja del dado que se va y empuja.',
   roadHintFixed: 'El dado apagado no rueda. Pasa a otro.',
   roadHintClimb: 'Al dado que se va, bajas y subes.',
+  hintSeven: 'Las caras opuestas suman siete.',
   shellProtocol: 'SESIÓN SIN LÍMITE',
   shellLimited: 'SESIÓN DEL DÍA {time}',
   shellLevels: 'LIMPIEZA DEL CAMPO',

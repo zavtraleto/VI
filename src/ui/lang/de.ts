@@ -113,6 +113,7 @@ export const DE: Texts = {
   roadHintPush: 'Steig vom gehenden Würfel zu Boden und schiebe.',
   roadHintFixed: 'Der matte Würfel steht fest. Geh zum nächsten.',
   roadHintClimb: 'Vom gehenden Würfel steigst du ab und auf.',
+  hintSeven: 'Gegenüber ergibt immer sieben.',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLimited: 'SITZUNG DES TAGES {time}',
   shellLevels: 'FELDRÄUMUNG',

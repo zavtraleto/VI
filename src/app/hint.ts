@@ -1,4 +1,5 @@
-import { DEAD_ENDS_FOR_SIGN, type HintUntil, type RoadHint, type RoadHintKey } from '../levels/road';
+import type { Hint, HintKey } from '../levels/campaign';
+import { DEAD_ENDS_FOR_SIGN, type HintUntil } from '../levels/road';
 import { DELTA, cubeAt, inBounds, isFree } from '../rules/board';
 import type { CubeState, GameEvent, RunState } from '../rules/types';
 
@@ -76,23 +77,32 @@ export function fixedLineOver(events: readonly GameEvent[], shownMs: number): bo
  * (`fixedShown`) and not before. No room waits for a line that may never come: a board with a
  * fixed die and no lesson has the whole stage.
  */
-export function roomLines(lesson: RoadHintKey | null, fixedShown: boolean): (RoadHintKey | 'roadHintFixed')[] {
+export function roomLines(lesson: HintKey | null, fixedShown: boolean): (HintKey | 'roadHintFixed')[] {
   return [...(lesson ? [lesson] : []), ...(fixedShown ? (['roadHintFixed'] as const) : [])];
 }
 
+/**
+ * Whether a board says the line it carries: a piece of the road every time it is played, a level
+ * of an act until the player has passed it (the line of an act is said once).
+ */
+export function saysLine(road: boolean, passed: boolean): boolean {
+  return road || !passed;
+}
+
 /** The lines the address may ask for, by the short name of what they teach. */
-const PROBE: Readonly<Record<string, RoadHint>> = {
+const PROBE: Readonly<Record<string, Hint>> = {
   chain: { key: 'roadHintChain', until: 'chain' },
   walk: { key: 'roadHintWalk', until: 'walk' },
   push: { key: 'roadHintPush', until: 'push' },
   climb: { key: 'roadHintClimb', until: 'climb' },
+  seven: { key: 'hintSeven', until: 'combo' },
 };
 
 /**
  * The line asked for in the address of a development build (`?hint=hintChain`), to see it on
  * whatever piece runs. The name may be `chain`, `hintChain` or `roadHintChain`; null for any other.
  */
-export function probeHint(name: string | null): RoadHint | null {
+export function probeHint(name: string | null): Hint | null {
   if (!name) return null;
   const short = name.replace(/^(road)?hint/i, '').toLowerCase();
   return PROBE[short] ?? null;

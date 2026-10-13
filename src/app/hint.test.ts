@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { HINTS } from '../levels/campaign';
 import { DEAD_ENDS_FOR_SIGN, ROAD, ROAD_HINTS, type HintUntil } from '../levels/road';
 import { defaultConfig } from '../rules/config';
 import { worldRuns } from '../rules/level';
@@ -7,7 +8,7 @@ import type { Dir, GameEvent, LevelSpec, RunState } from '../rules/types';
 import { wrapCaption } from '../signal/caption';
 import { hintAlpha, hintBox, hintResumes, hintSaidFor, HINT_FADE_MS, HINT_WORD_MS, NOTE_SIZE, lineSize, wordsShown } from '../shell/hudLayout';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
-import { DeadEnds, FIXED_LINE_MS, fixedLineOver, fixedStopped, hintOver, probeHint, roomLines, saysFixed } from './hint';
+import { DeadEnds, FIXED_LINE_MS, fixedLineOver, fixedStopped, hintOver, probeHint, roomLines, saysFixed, saysLine } from './hint';
 import { roadWait } from './signWay';
 
 const move = (kind: Extract<GameEvent, { type: 'move' }>['kind']): GameEvent => ({ type: 'move', kind, dir: 'N' });
@@ -71,7 +72,8 @@ describe('when a hint goes out', () => {
 
 describe('the lines of the road', () => {
   // The lines of the lessons, and the one about a dim die, which is of no piece.
-  const pieces: [string, { key: string }][] = [...Object.entries(ROAD_HINTS), ['fixed', { key: 'roadHintFixed' }]];
+  // With them the lines the acts open with: they are written and shown the same way.
+  const pieces: [string, { key: string }][] = [...Object.entries(HINTS), ['fixed', { key: 'roadHintFixed' }]];
 
   it('are three, for the chain, the way down from a leaving die and up onto one, and the push, on the pieces that will teach them', () => {
     expect(Object.keys(ROAD_HINTS)).toEqual(['R06', 'R10', 'R13']);
@@ -124,6 +126,7 @@ describe('the line of the address of development', () => {
     expect(probeHint('roadHintWalk')).toEqual({ key: 'roadHintWalk', until: 'walk' });
     expect(probeHint('push')).toEqual({ key: 'roadHintPush', until: 'push' });
     expect(probeHint('roadHintClimb')).toEqual({ key: 'roadHintClimb', until: 'climb' });
+    expect(probeHint('seven')).toEqual({ key: 'hintSeven', until: 'combo' });
     expect(probeHint('hintOne')).toBeNull();
     expect(probeHint('')).toBeNull();
     expect(probeHint(null)).toBeNull();
@@ -304,7 +307,7 @@ describe('the line and the buttons of a level', () => {
     let longest = '';
     for (const code of LANGUAGES) {
       setLanguage(code);
-      for (const hint of Object.values(ROAD_HINTS)) if (t(hint.key as TextKey).length > longest.length) longest = t(hint.key as TextKey);
+      for (const hint of Object.values(HINTS)) if (t(hint.key as TextKey).length > longest.length) longest = t(hint.key as TextKey);
     }
     setLanguage('en');
     const rows = wrapCaption(longest, box.width, (line) => line.length * PHONE * 0.6);
@@ -368,7 +371,7 @@ describe('the words of a hint', () => {
   it('are always the start of the line as it is written, so each stands where it will in the whole line', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      for (const key of ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintFixed', 'roadHintClimb'] as const) {
+      for (const key of ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintFixed', 'roadHintClimb', 'hintSeven'] as const) {
         const text = t(key);
         const count = text.split(' ').length;
         for (let n = 0; n <= count; n++) expect(text.startsWith(wordsShown(text, n * HINT_WORD_MS)), `${key} ${code}`).toBe(true);
@@ -413,6 +416,12 @@ describe('the room a board keeps for its lines', () => {
   it('is taken when the line is put up, beside the room of a lesson if the piece has one', () => {
     expect(roomLines(null, true)).toEqual(['roadHintFixed']);
     expect(roomLines('roadHintChain', true)).toEqual(['roadHintChain', 'roadHintFixed']);
+  });
+
+  it('is kept for the line of an act until the board is passed: a piece of the road says its line every time, a level only until then', () => {
+    expect(saysLine(true, true)).toBe(true);
+    expect(saysLine(false, false)).toBe(true);
+    expect(saysLine(false, true)).toBe(false);
   });
 });
 

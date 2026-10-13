@@ -37,8 +37,8 @@ import { shiftFor } from '../render/framing';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { goneShare, type DicePassing } from '../render/passing';
 import { BoardView, type Frame } from '../render/view';
-import { ROAD, ROAD_HINTS, blockOf, placeAfter, type HintUntil, type RoadHintKey } from '../levels/road';
-import { CAMPAIGN, campaignCells, campaignDone, campaignFocus, numberOf } from '../levels/campaign';
+import { ROAD, blockOf, placeAfter, type HintUntil } from '../levels/road';
+import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf, type HintKey } from '../levels/campaign';
 import { LEVELS } from '../levels/levels';
 import { STAR_POINTS, ladderProgress, levelStars, starScore, starsHeld, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -104,7 +104,7 @@ import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { FILE_LEADS, boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
-import { DeadEnds, fixedLineOver, hintOver, probeHint, roomLines, saysFixed } from './hint';
+import { DeadEnds, fixedLineOver, hintOver, probeHint, roomLines, saysFixed, saysLine } from './hint';
 import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
 import { roadCounters } from './roadCounters';
 import { roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
@@ -395,7 +395,7 @@ export class Game {
   /** The dead ends of the piece in hand, which a try started over and a move taken back do not forget. */
   private readonly deadEnds = new DeadEnds();
   /** The line above the board of the piece in hand, while it teaches a move: from the start of the piece to the move being made. Null where the piece has none. */
-  private hint: { key: RoadHintKey; until: HintUntil; done: boolean } | null = null;
+  private hint: { key: HintKey; until: HintUntil; done: boolean } | null = null;
   /**
    * The line about a dim die, said once to a player: the time of play it was put up at, null
    * while it is not shown. And whether it has been put up on the board in hand: no room is kept
@@ -1317,7 +1317,9 @@ export class Game {
     this.kind = 'level';
     this.tryCounted = false;
     // A board that teaches a move carries its line from its start, by its code; its room is the board's from the first frame it is framed in.
-    const carried = this.labSpec === null ? (ROAD_HINTS[spec.id] ?? (this.piece !== null ? HINT_PROBE : null)) : null;
+    // A piece of the road says its line every time; the line an act opens with is said until its board is passed.
+    const own = saysLine(this.piece !== null, this.settings.levels.passed[spec.id] === true) ? HINTS[spec.id] : undefined;
+    const carried = this.labSpec === null ? (own ?? (this.piece !== null ? HINT_PROBE : null)) : null;
     this.hint = carried ? { ...carried, done: false } : null;
     this.fixedShown = false;
     this.deadEnds.begin(spec.id);

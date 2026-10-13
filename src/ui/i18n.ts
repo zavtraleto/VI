@@ -152,6 +152,9 @@ const RU = {
   roadHintPush: 'Сойди с уходящей кости на пол и толкни.',
   roadHintFixed: 'Тусклая кость стоит. Шагни на другую.',
   roadHintClimb: 'С уходящей кости сходят и на неё поднимаются.',
+  // The line act I of the campaign opens with (`HINTS` in `src/levels/campaign.ts`): a draft of 13 October 2026, the words
+  // are the implementer's and wait for the owner; said once, on the board that opens the act.
+  hintSeven: 'Напротив всегда семь.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLimited: 'СЕАНС ДНЯ {time}',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
@@ -284,6 +287,7 @@ const EN: typeof RU = {
   roadHintPush: 'Step down from the leaving die and push.',
   roadHintFixed: 'A dim die stays put. Step to another.',
   roadHintClimb: 'Step off a leaving die and back on.',
+  hintSeven: 'Opposite faces make seven.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',
   shellLevels: 'CLEAR THE BOARD',

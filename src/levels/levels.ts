@@ -1,7 +1,11 @@
 import type { LevelSpec } from '../rules/types';
 
 /**
- * The levels of the game: the probe, a first batch made to find what a level of this game is.
+ * The levels of the game: the row of the campaign after its prologue, the road. The row goes act
+ * by act (`ACT_1`, ...), each act five to seven boards on one face or one pair of faces, with the
+ * roles of docs/superpowers/specs/2026-10-12-vi-campaign-design.md, section 5.4; after the acts
+ * comes the tail (`TAIL`), the list of the probe as it was, until the acts to come replace it.
+ * The probe was a first batch made to find what a level of this game is.
  * Every level is a board to clear, given die by die: nothing comes to it. Only the faces a level
  * names work on it, and a die that has joined a combo goes in two moves. The floor is open and
  * strict: a die is rolled from on top and pushed from the floor, and the one way up is a die
@@ -34,15 +38,20 @@ import type { LevelSpec } from '../rules/types';
  * The levels that were here before, the course and the chapters, are in the history: commit
  * 534b3ea.
  */
-export const LEVELS: readonly LevelSpec[] = [
+/** Act I, the reading of the die, on 3s: the places 17 to 22 of the row, in their order. */
+export const ACT_1: readonly LevelSpec[] = [
+  { id: 'P03', chapter: 0, seed: 30042, size: 3, values: [3], norm: 3, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 7, exact: true, solution: ['2,2,N', '2,1,N', '2,0,W', '1,2,E', '2,2,N', '1,0,E', '1,1,N'], layout: { start: { x: 2, z: 2 }, dice: [{ x: 1, z: 1, top: 6, north: 4 }, { x: 1, z: 2, top: 6, north: 4 }, { x: 2, z: 2, top: 4, north: 1 }] } },
+  { id: 'P16', chapter: 0, seed: 31570, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['1,1,S', '2,3,W', '1,2,W', '1,3,N'], layout: { start: { x: 1, z: 1 }, dice: [{ x: 0, z: 1, top: 3, north: 2 }, { x: 1, z: 1, top: 6, north: 5 }, { x: 2, z: 2, top: 3, north: 6 }, { x: 3, z: 2, top: 3, north: 5 }, { x: 0, z: 3, top: 3, north: 2 }, { x: 2, z: 3, top: 6, north: 4 }] } },
+  { id: 'P09', chapter: 0, seed: 30551, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 5, exact: true, solution: ['3,3,W', '1,2,N', '1,0,E', '1,1,S', '1,2,E'], layout: { start: { x: 3, z: 3 }, dice: [{ x: 1, z: 0, top: 2, north: 1 }, { x: 3, z: 0, top: 3, north: 6 }, { x: 2, z: 1, top: 3, north: 6 }, { x: 1, z: 2, top: 6, north: 2 }, { x: 1, z: 3, top: 3, north: 2 }, { x: 3, z: 3, top: 6, north: 5 }] } },
+];
+
+/** The tail: what is left of the list of the probe, in the order it had, until the acts to come take its levels or park them. */
+export const TAIL: readonly LevelSpec[] = [
   { id: 'P13', chapter: 0, seed: 30120, size: 4, values: [6], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [6], sinkMoves: 2, liftMoves: 1, par: 5, exact: true, solution: ['1,0,S', '2,2,E', '3,2,N', '1,2,E', '1,1,N'], layout: { start: { x: 1, z: 2 }, dice: [{ x: 1, z: 0, top: 6, north: 5 }, { x: 2, z: 0, top: 6, north: 3 }, { x: 3, z: 0, top: 6, north: 2 }, { x: 2, z: 1, top: 6, north: 3 }, { x: 1, z: 2, top: 3, north: 5 }, { x: 2, z: 2, top: 3, north: 1 }] } },
   { id: 'P04', chapter: 0, seed: 30787, size: 4, values: [5], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [5], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['0,0,E', '1,0,E', '2,1,S', '2,2,S'], layout: { start: { x: 0, z: 0 }, dice: [{ x: 0, z: 0, top: 2, north: 1 }, { x: 3, z: 0, top: 5, north: 6 }, { x: 2, z: 1, top: 2, north: 6 }, { x: 3, z: 1, top: 5, north: 6 }, { x: 3, z: 2, top: 5, north: 1 }, { x: 3, z: 3, top: 5, north: 6 }] } },
-  { id: 'P09', chapter: 0, seed: 30551, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 5, exact: true, solution: ['3,3,W', '1,2,N', '1,0,E', '1,1,S', '1,2,E'], layout: { start: { x: 3, z: 3 }, dice: [{ x: 1, z: 0, top: 2, north: 1 }, { x: 3, z: 0, top: 3, north: 6 }, { x: 2, z: 1, top: 3, north: 6 }, { x: 1, z: 2, top: 6, north: 2 }, { x: 1, z: 3, top: 3, north: 2 }, { x: 3, z: 3, top: 6, north: 5 }] } },
   { id: 'P02', chapter: 0, seed: 30842, size: 4, holes: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 2, z: 0 }, { x: 3, z: 0 }, { x: 0, z: 3 }, { x: 1, z: 3 }, { x: 2, z: 3 }, { x: 3, z: 3 }], values: [2], norm: 4, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [2], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['1,1,E', '2,1,S', '3,1,W', '2,1,W'], layout: { start: { x: 1, z: 1 }, dice: [{ x: 1, z: 1, top: 6, north: 2 }, { x: 3, z: 1, top: 5, north: 6 }, { x: 1, z: 2, top: 2, north: 3 }, { x: 3, z: 2, top: 2, north: 3 }] } },
   { id: 'P14', chapter: 0, seed: 30627, size: 4, values: [4], norm: 5, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [4], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['1,1,E', '2,1,E', '1,0,E,p', '2,0,E,p'], layout: { start: { x: 1, z: 0 }, dice: [{ x: 1, z: 0, top: 4, north: 5 }, { x: 1, z: 1, top: 3, north: 6 }, { x: 2, z: 2, top: 4, north: 1 }, { x: 3, z: 2, top: 4, north: 2 }, { x: 2, z: 3, top: 4, north: 5 }] } },
-  { id: 'P03', chapter: 0, seed: 30042, size: 3, values: [3], norm: 3, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 7, exact: true, solution: ['2,2,N', '2,1,N', '2,0,W', '1,2,E', '2,2,N', '1,0,E', '1,1,N'], layout: { start: { x: 2, z: 2 }, dice: [{ x: 1, z: 1, top: 6, north: 4 }, { x: 1, z: 2, top: 6, north: 4 }, { x: 2, z: 2, top: 4, north: 1 }] } },
   { id: 'P20', chapter: 0, seed: 30084, size: 4, values: [3], norm: 7, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 6, exact: true, solution: ['2,3,N', '2,2,W', '2,1,S', '0,2,S', '0,1,S', '3,2,W'], layout: { start: { x: 1, z: 3 }, dice: [{ x: 0, z: 1, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 2 }, { x: 2, z: 1, top: 6, north: 3 }, { x: 0, z: 2, top: 5, north: 3 }, { x: 3, z: 2, top: 5, north: 1 }, { x: 1, z: 3, top: 3, north: 5 }, { x: 2, z: 3, top: 5, north: 1 }] } },
-  { id: 'P16', chapter: 0, seed: 31570, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['1,1,S', '2,3,W', '1,2,W', '1,3,N'], layout: { start: { x: 1, z: 1 }, dice: [{ x: 0, z: 1, top: 3, north: 2 }, { x: 1, z: 1, top: 6, north: 5 }, { x: 2, z: 2, top: 3, north: 6 }, { x: 3, z: 2, top: 3, north: 5 }, { x: 0, z: 3, top: 3, north: 2 }, { x: 2, z: 3, top: 6, north: 4 }] } },
   { id: 'P07', chapter: 0, seed: 33100, size: 3, values: [2, 3], norm: 5, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [2, 3], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['2,1,N', '2,0,W', '0,2,E', '0,1,N'], layout: { start: { x: 0, z: 1 }, dice: [{ x: 0, z: 1, top: 2, north: 4 }, { x: 1, z: 1, top: 3, north: 5 }, { x: 2, z: 1, top: 5, north: 1 }, { x: 0, z: 2, top: 3, north: 6 }, { x: 2, z: 2, top: 2, north: 3 }] } },
   { id: 'P01', chapter: 0, seed: 30762, size: 3, values: [3], norm: 4, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 6, exact: true, solution: ['0,1,N', '0,0,E', '1,1,W', '0,2,E', '1,2,N', '0,1,N'], layout: { start: { x: 1, z: 1 }, dice: [{ x: 0, z: 1, top: 5, north: 6 }, { x: 1, z: 1, top: 5, north: 4 }, { x: 2, z: 1, top: 3, north: 2 }, { x: 0, z: 2, top: 6, north: 4 }] } },
   { id: 'P12', chapter: 0, seed: 30544, size: 4, values: [2, 3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [2, 3], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['2,3,W', '1,3,W', '1,2,N,p', '3,0,W'], layout: { start: { x: 2, z: 3 }, dice: [{ x: 3, z: 0, top: 5, north: 1 }, { x: 2, z: 1, top: 3, north: 6 }, { x: 3, z: 1, top: 3, north: 5 }, { x: 0, z: 2, top: 2, north: 6 }, { x: 1, z: 2, top: 3, north: 1 }, { x: 2, z: 3, top: 5, north: 1 }] } },
@@ -55,6 +64,8 @@ export const LEVELS: readonly LevelSpec[] = [
   { id: 'P31', chapter: 0, seed: 30564, size: 4, values: [6], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [6], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['3,0,S', '3,1,W', '0,1,S', '0,2,E'], layout: { start: { x: 3, z: 0 }, dice: [{ x: 0, z: 0, top: 6, north: 3 }, { x: 1, z: 0, top: 6, north: 3 }, { x: 2, z: 0, top: 6, north: 5 }, { x: 3, z: 0, top: 4, north: 5 }, { x: 0, z: 1, top: 3, north: 5 }, { x: 1, z: 1, top: 6, north: 3 }] } },
   { id: 'P19', chapter: 0, seed: 30369, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, par: 4, exact: true, solution: ['0,2,S', '0,3,E', '2,1,S,p', '3,1,S,p'], layout: { start: { x: 0, z: 2 }, dice: [{ x: 2, z: 1, top: 3, north: 5 }, { x: 3, z: 1, top: 3, north: 5 }, { x: 0, z: 2, top: 6, north: 2 }, { x: 1, z: 2, top: 3, north: 1 }, { x: 2, z: 3, top: 3, north: 2 }, { x: 3, z: 3, top: 3, north: 6 }] } },
 ];
+
+export const LEVELS: readonly LevelSpec[] = [...ACT_1, ...TAIL];
 
 /**
  * Levels of the probe that are not in the game for now: the tests play them, the game does not.
