@@ -91,7 +91,7 @@
 | [art/VI_Style_Research.md](art/VI_Style_Research.md) | исследование | стиль шире оболочки |
 | [art/VI_Juice_Research.md](art/VI_Juice_Research.md) | исследование | как делают сок: разбор ориентиров |
 
-Код: `src/render/`, `src/shell/` (цвета и размеры — только `src/shell/theme.ts`), `src/signal/`, `src/audio/`. Лаборатория `?lab=board|shell|juice|sound|frame` — только в dev-сборке.
+Код: `src/render/`, `src/shell/` (цвета и размеры — только `src/shell/theme.ts`), `src/signal/`, `src/audio/`. Лаборатория `?lab=board|shell|juice|sound|frame` — только в dev-сборке. Уход группы смотрят и настраивают на `?lab=board`, папка «Уход»: четыре сцены (группа собрана, ступени до пола, присоединение, финал доски) играются по кнопке на маленьком уровне по настоящим правилам и повторяются, ползунки рядом (`src/lab/leavingScenes.ts`, `BoardLab.playLeaving`); звука на этой странице нет.
 
 ## Лор и текст
 

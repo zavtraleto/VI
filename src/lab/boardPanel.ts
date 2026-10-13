@@ -3,6 +3,7 @@ import { BOARD_GROUPS } from '../render/params';
 import type { ParamSpec, ParamValues } from '../signal/scene';
 import { SHELL_GROUPS } from '../shell/theme';
 import type { BoardLab } from './boardLab';
+import { LEAVING_SCENES, type LeavingScene } from './leavingScenes';
 
 /** Narrower than this, the panel starts folded: on a phone it would cover the picture. */
 const NARROW_PX = 600;
@@ -224,6 +225,12 @@ export class BoardPanel {
         folder.add(head, 'playGrid').name('Сыграть: стереть и нарисовать');
         // Only here: no board of the game has a fixed die yet.
         folder.add(lab, 'fixed').name('две кости фиксированные').onChange((fixed: boolean) => lab.setFixed(fixed));
+      }
+      if (group === 'leaving') {
+        // Only here: the leaving of a group played on a small level by the rules, again and again, while its numbers are turned.
+        for (const [scene, label] of Object.entries(LEAVING_SCENES)) folder.add({ play: () => lab.playLeaving(scene as LeavingScene) }, 'play').name(label);
+        folder.add(lab, 'repeat').name('повторять сцену');
+        folder.add({ back: () => lab.showSample() }, 'back').name('Вернуть образец доски');
       }
       for (const [name, spec] of Object.entries(params)) this.control(folder, lab.look.board, name, spec);
       folder.close();

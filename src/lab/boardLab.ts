@@ -1,23 +1,30 @@
-import { chainTier } from '../app/juice';
+import { beatsOf, chainTier } from '../app/juice';
 import { CONTACT_STEPS, PHASE_SHIFT_MS, lineLevel } from '../app/ritual';
 import { Display } from '../display/display';
 import { quality } from '../display/quality';
 import { loadSettings } from '../platform/settings';
 import { Backdrop } from '../render/backdrop';
 import { LevelScene } from '../render/levelScene';
+import { finaleMs } from '../render/leaving';
 import { BOARD_PARAMS, boardChanged, boardDefaults, parseBoardValue, type BoardLook } from '../render/params';
+import type { DicePassing } from '../render/passing';
 import { BoardView, type CameraAngles } from '../render/view';
 import { createRun, cubeAt, defaultConfig, type PuzzleDie, type RunState } from '../rules';
 import { SHELL_PARAMS, parseShellValue, shellChanged, shellDefaults } from '../shell/theme';
 import { FpsCounter } from '../ui/fps';
 import { BoardPanel } from './boardPanel';
 import { copyText } from './clipboard';
+import { SceneRun, leavingSceneState, type LeavingScene } from './leavingScenes';
 
 const SIZE = 7;
 /** A face that can look north for each face on top. */
 const NORTH: Record<number, number> = { 1: 2, 2: 1, 3: 1, 4: 1, 5: 1, 6: 2 };
 /** How often the time a frame takes is shown anew, in milliseconds. */
 const COST_WINDOW_MS = 500;
+/** A scene of the leaving that has been played stands for this long before it is played again. */
+const SCENE_REST_MS = 700;
+/** The beat the last combo of a board is answered with, as the game has it (`FINALE_TIER` in `src/app/game.ts`). */
+const FINALE_TIER = 3;
 
 /**
  * The sample board: every value, a chain of threes that is open, a five that has all but gone
@@ -85,7 +92,9 @@ function sampleState(full: boolean, fixed: boolean): RunState {
 /**
  * The page where the look of the board is looked at and tuned: `?lab=board`, with `&ui=0` to
  * leave the panel out. Any parameter of the board or of the shell's colours can be set in the
- * address by its name. The board is the real one, with a sample state that does not run.
+ * address by its name. The board is the real one, with a sample state that does not run; the
+ * scenes of the leaving of a group (folder «Уход») are played on a small level by the rules
+ * themselves, over and over, so that their numbers are tuned by eye.
  */
 export class BoardLab {
   readonly display = new Display();
@@ -130,6 +139,16 @@ export class BoardLab {
    */
   private readonly origin: { x: number; z: number };
   private state: RunState;
+  /** A scene of the leaving that is being played instead of the sample board; null while the sample is shown. */
+  private scene: SceneRun | null = null;
+  /** A scene that has been played is played again, until another board is asked for. */
+  repeat = true;
+  /** Milliseconds owed to the rules of the scene, and how long the scene has stood since it was played out. */
+  private owed = 0;
+  private rested = 0;
+  /** The last combo of the scene's board is taking its dice away: how long ago it began, and whether they have been seen under the floor. Null otherwise. */
+  private finale: { ms: number; ringed: boolean; under: boolean; value: number } | null = null;
+  private readonly passing: DicePassing = { mode: 'leave', ranks: new Map(), count: 0, stair: -1, litMs: 0, moveMs: -1, stepMs: 0, moveForMs: 1, flashMs: 0, together: true };
   /** The view has to be built again before the next frame: its pictures are made once. */
   private stale = true;
   private peak = 0;
@@ -189,11 +208,15 @@ export class BoardLab {
       this.view = new BoardView(this.container, this.world, this.look, SIZE, this.camera);
       if (this.origin.x !== 0 || this.origin.z !== 0) this.view.setBoard({ size: SIZE, holes: [], origin: this.origin });
       this.stale = false;
+      // A number of the look was changed while a scene was on: it is played anew, by the new number.
+      if (this.scene) this.playLeaving(this.scene.scene);
     }
     const { view } = this;
+    const alpha = this.runScene(view, dt);
+    const state = this.scene?.state ?? this.state;
     this.runGrid(timeMs);
-    view.drawGrid(this.grid.share, !this.grid.erasing, this.stand);
-    view.draw(this.state, 0, timeMs, {
+    view.drawGrid(this.grid.share, !this.grid.erasing, this.scene ? state.player : this.stand);
+    view.draw(state, alpha, timeMs, {
       overlay: { boardPreview: false, matchHint: false, guide: null },
       contact: {
         grid: lineLevel('grid', this.depth),
@@ -209,9 +232,18 @@ export class BoardLab {
       danger: false,
       reducedMotion: false,
       shake: true,
+      onLeaving: (event) => {
+        if (event.final) {
+          // The dice of the finale are under: the lines of the board go and come, as in a passage.
+          if (this.finale && !this.finale.under) {
+            this.finale.under = true;
+            this.playGrid();
+          }
+        } else if (event.kind === 'gone') view.farewell(event.cells, event.value);
+      },
     });
     this.backdrop.draw(view.background, view.inverted);
-    this.levelScene.frame(timeMs, this.state, { place: Number(this.look.board.backPlace ?? 0), day: Number(this.look.board.backDay ?? 0) }, false);
+    this.levelScene.frame(timeMs, state, { place: Number(this.look.board.backPlace ?? 0), day: Number(this.look.board.backDay ?? 0) }, false);
     this.display.present(timeMs);
     this.viewNow = view.mode;
 
@@ -237,8 +269,97 @@ export class BoardLab {
   setFull(full: boolean): void {
     this.full = full;
     this.state = sampleState(full, this.fixed);
+    this.endScene();
     this.place();
     this.view?.reset();
+  }
+
+  /** Plays a scene of the leaving of a group on its own small level, in place of the sample board. */
+  playLeaving(scene: LeavingScene): void {
+    this.endScene();
+    this.scene = new SceneRun(scene, leavingSceneState(scene));
+    this.view?.reset();
+  }
+
+  /** The sample board again, as it was set. */
+  showSample(): void {
+    this.setFull(this.full);
+  }
+
+  private endScene(): void {
+    this.scene = null;
+    this.finale = null;
+    this.owed = 0;
+    this.rested = 0;
+    this.gridPlay = null;
+    this.grid.share = 1;
+    this.grid.erasing = false;
+    this.view?.setPassing(null);
+  }
+
+  /**
+   * One frame of the scene that is on: the rules are stepped by the time that has gone, the view
+   * is told what they said and answers it as the game does, and the last combo of a board is led
+   * as the passage of the game leads it. Returns how far the picture is into the next tick.
+   */
+  private runScene(view: BoardView, dt: number): number {
+    const { scene } = this;
+    if (!scene) return 0;
+    const { state } = scene;
+    const { tickMs } = state.config;
+    if (!scene.done && !state.over) {
+      this.owed += Math.min(dt, 100);
+      while (this.owed >= tickMs && !scene.done && !state.over) {
+        this.owed -= tickMs;
+        const events = scene.tick();
+        view.notify(events);
+        const passed = state.over && state.endReason === 'passed';
+        if (passed) this.beginFinale(view, state);
+        else for (const beat of beatsOf(state, events)) view.beat(beat, state, false);
+      }
+    }
+    if (this.finale) this.runFinale(view, state, dt);
+    // Played out, and with a finale its lines back: it stands a moment, and is played again.
+    const over = scene.done || state.over;
+    const settled = !this.finale || (this.finale.under && this.gridPlay === null);
+    if (over && settled) {
+      this.rested += dt;
+      if (this.repeat && this.rested >= SCENE_REST_MS) this.playLeaving(scene.scene);
+    }
+    return state.over || scene.done ? 0 : this.owed / tickMs;
+  }
+
+  /** The board of the scene is passed: every die of it flashes at once and the board answers, as `Game.startPassage` has it. */
+  private beginFinale(view: BoardView, state: RunState): void {
+    const { passing } = this;
+    const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
+    const value = last?.ori.top ?? 0;
+    passing.ranks.clear();
+    state.cubes.forEach((cube, rank) => passing.ranks.set(cube.id, rank));
+    passing.count = state.cubes.length;
+    passing.litMs = 0;
+    passing.moveMs = -1;
+    this.finale = { ms: 0, ringed: false, under: false, value };
+    view.setPassing(passing);
+    view.finale(state, false);
+    view.answer(value);
+    view.beat({ kind: 'chain', value, tier: FINALE_TIER, cells: state.cubes.map(({ x, z }) => ({ x, z })) }, state, false);
+  }
+
+  /** One frame of the finale: what the view reads of the dice going, and the wide ring as they begin to go. */
+  private runFinale(view: BoardView, state: RunState, dt: number): void {
+    const { finale, passing } = this;
+    if (!finale) return;
+    finale.ms += dt;
+    const times = finaleMs(this.look.board, false);
+    passing.moveForMs = Math.max(1, times.drop);
+    passing.flashMs = Number(this.look.board.comboHoldMs);
+    passing.litMs = finale.ms;
+    passing.moveMs = finale.under ? passing.moveForMs : finale.ms - times.hang;
+    if (!finale.ringed && finale.ms >= times.hang) {
+      finale.ringed = true;
+      view.farewell(state.cubes.map(({ x, z }) => ({ x, z })), finale.value, 2);
+    }
   }
 
   setFixed(fixed: boolean): void {
