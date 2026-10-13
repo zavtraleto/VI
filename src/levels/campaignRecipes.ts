@@ -16,6 +16,9 @@ export type CampaignPlace = Recipe & { id: string; act: number; role: Role; brie
 /** Four cells wide and three long: the square of four with its north row cut off. */
 const WIDE = cutFrom(['....', '####', '####', '####']);
 
+/** Three cells wide and four long: the square of four with its east column cut out. */
+const LONG = cutFrom(['###.', '###.', '###.', '###.']);
+
 const ACT = { chapter: 0, compact: false } as const;
 
 export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
@@ -41,5 +44,15 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
     ...ACT, slot: 1022, id: 'K22', act: 1, role: 'rest', size: 4, holes: WIDE, dice: 5, more: 1, faces: [3], standing: [{ value: 3, count: 2 }, { value: 3, count: 2 }],
     under: false, par: [1, 2], safeFirst: true, last: [5, 6], kinds: ['top'], personas: { hasty: 0.9, casual: 1 },
     brief: 'the breather: two pairs of 3s a cell apart, the own 3 on the side the player sees; one roll into the gap and all of them go',
+  },
+  {
+    // Four dice and not five, three cells wide: with 2s any two dice left make a pair of their own, so a fifth die gives a way
+    // round the lesson. The far 2 comes over a leaving die (`glass`): laid backwards from its end on a square of four, no board
+    // of this route does without it (0 of 36 000), and the level after it, `P20`, stands on the same roll. One first move keeps
+    // the fewest moves; the hasty persona clears it in 0.30 of its runs.
+    ...ACT, slot: 1023, id: 'K23', act: 2, role: 'opening', size: 4, holes: LONG, dice: 4, faces: [2], standing: [{ value: 2, count: 1 }],
+    shows: ['link', 'glass'], scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 1] }, { event: 'link', face: 2, by: 'roll', moves: [1, 1] }, { event: 'link', face: 2, by: 'roll', moves: [2, 2] }],
+    ends: { event: 'link', spare: 0 }, par: [3, 4], firsts: [1, 99], kinds: ['top'], route: '^K L L$', safeFirst: true, personas: { hasty: 0.25, casual: 0.8 },
+    brief: 'time: the pair of 2s goes; the near link on the first move gives the group two more, and the far 2 makes it; a link on the second move leaves it alone',
   },
 ];

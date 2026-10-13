@@ -247,9 +247,9 @@ describe('the levels of the game', () => {
     }
   });
 
-  it('lose no board by the first move where the place asks it: the trap of P17 and of P19 waits further on, and the boards of act I have none', () => {
+  it('lose no board by the first move where the place asks it: the trap of P17 and of P19 waits further on, and the new boards of the acts have none', () => {
     const asked = LEVELS.filter((level) => placeOf(level)?.safeFirst);
-    expect(asked.map((level) => level.id).sort()).toEqual(['K21', 'K22', 'P17', 'P19']);
+    expect(asked.map((level) => level.id).sort()).toEqual(['K21', 'K22', 'K23', 'P17', 'P19']);
     for (const level of asked) expect(safeFirstOf(level), level.id).toBe(true);
     // The board P19 had before, kept in reserve, is what the owner played on 12 October: lost by a first move.
     const before = SPARES.filter((spare) => spare.id === 'P19' && spare.seed === 30263);
