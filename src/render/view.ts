@@ -494,11 +494,11 @@ export class BoardView {
    * A ring in the water at a cell of the board that is on, as strong as the look has `kind`;
    * `wide` times as wide as a ring is. The water hears the board, and the rules know nothing of it.
    */
-  private drip(x: number, z: number, kind: 'dropSmall' | 'dropMid' | 'dropBig', wide = 1): void {
+  private drip(x: number, z: number, kind: 'dropSmall' | 'dropMid' | 'dropBig', wide = 1, square = true): void {
     const { water } = this;
     if (!water || this.still) return;
     const { origin } = this.board;
-    water.drop(x + origin.x, z + origin.z, Number(this.look.board[kind] ?? 0), Number(this.look.board.dropRadius ?? 0) * wide);
+    water.drop(x + origin.x, z + origin.z, Number(this.look.board[kind] ?? 0), Number(this.look.board.dropRadius ?? 0) * wide, square);
   }
 
   /** The same at the cell a die of the frame drawn last stands in. */
@@ -1031,7 +1031,8 @@ export class BoardView {
     const stepAt = player.action?.t ?? -1;
     if (this.lastStep !== null && (stepNow === null || stepAt < this.lastStepAt)) {
       // The step that has begun already has the figure in the cell it goes to: the one that ended, ended where this one starts.
-      this.drip(player.action?.fromX ?? player.x, player.action?.fromZ ?? player.z, 'dropSmall');
+      // A step onto the floor is the figure's own, and round; onto a die it is the die that is pressed.
+      this.drip(player.action?.fromX ?? player.x, player.action?.fromZ ?? player.z, 'dropSmall', 1, player.level === 'top');
     }
     this.lastStepAt = stepAt;
     this.lastStep = stepNow;

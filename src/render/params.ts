@@ -186,10 +186,10 @@ export const BOARD_GROUPS = {
      * many steps are counted in a second. How wide a ring starts, in cells, and how
      * high: of a step, of a die that stands or is thrown, of a group.
      */
-    rippleDamp: number(0.006, 0, 0.1, 0.001),
+    rippleDamp: number(0.011, 0, 0.1, 0.001),
     rippleSpeed: number(0.55, 0.1, 3, 0.05),
     rippleHz: number(60, 10, 120, 5),
-    dropRadius: number(0.35, 0.1, 1.5, 0.05),
+    dropRadius: number(0.5, 0.1, 1.5, 0.05),
     dropSmall: number(0.04, 0, 1, 0.01),
     dropMid: number(0.1, 0, 2, 0.01),
     dropBig: number(0.3, 0, 4, 0.05),

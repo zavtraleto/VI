@@ -63,8 +63,11 @@ void main() {
   for (int i = 0; i < ${DROPS}; i++) {
     vec4 drop = uDrops[i];
     if (drop.w == 0.0) continue;
-    vec2 from = (vUv - drop.xy) / drop.z;
-    float far = dot(from, from);
+    // A die is square where it stands in the water, and its ring starts square, lying as the die lies; it
+    // rounds off as it runs. What is round, the figure, starts a round one: its width is given under nought.
+    vec2 from = (vUv - drop.xy) / abs(drop.z);
+    vec2 two = from * from;
+    float far = drop.z < 0.0 ? two.x + two.y : mix(two.x + two.y, max(two.x, two.y), 0.85);
     height += drop.w * (1.0 - far) * exp(-far);
   }
   vec2 edge = min(vUv, 1.0 - vUv);
@@ -483,15 +486,15 @@ export class Water {
 
   /**
    * A ring starts at a place of the world, in cells: `strength` is how high it is, `radius` how
-   * wide, in cells. A place the rings are not counted at is left out.
+   * wide, in cells; it starts square, as a die is, or round. A place the rings are not counted at is left out.
    */
-  drop(x: number, z: number, strength: number, radius: number): void {
+  drop(x: number, z: number, strength: number, radius: number, square = true): void {
     if (!this.on || this.pending >= DROPS || strength === 0 || radius <= 0) return;
     const span = this.size + MARGIN * 2;
     const u = (x - this.origin.x + 0.5 + MARGIN) / span;
     const v = (z - this.origin.z + 0.5 + MARGIN) / span;
     if (u < 0 || u > 1 || v < 0 || v > 1) return;
-    this.drops[this.pending++].set(u, v, radius / span, strength);
+    this.drops[this.pending++].set(u, v, (square ? 1 : -1) * (radius / span), strength);
   }
 
   /**
