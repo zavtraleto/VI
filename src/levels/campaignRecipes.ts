@@ -33,8 +33,11 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
     brief: 'eureka on 3s: two hidden faces, one roll away and back, and the five go at once',
   },
   {
+    // The 3 of the own die is on the side that looks at the player, and one roll brings it up: `front` is not asked, it is of a
+    // face that rides, and here nothing rides. Not `lossless`: a player who wanders seven moves and more can join one pair alone
+    // and leave the other; every first move but the one keeps the board cleared in three.
     ...ACT, slot: 1022, id: 'K22', act: 1, role: 'rest', size: 4, holes: WIDE, dice: 5, more: 1, faces: [3], standing: [{ value: 3, count: 2 }, { value: 3, count: 2 }],
-    front: true, par: [1, 2], lossless: true, last: [5, 6], kinds: ['top'], personas: { hasty: 0.9, casual: 1 },
+    under: false, par: [1, 2], safeFirst: true, last: [5, 6], kinds: ['top'], personas: { hasty: 0.9, casual: 1 },
     brief: 'the breather: two pairs of 3s a cell apart, the own 3 on the side the player sees; one roll into the gap and all of them go',
   },
 ];

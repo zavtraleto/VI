@@ -20,7 +20,7 @@
 //                                            moves that keep it in hand, the walk over the boards a player can come to (walk=300 boards unless said;
 //                                            a `+` where it was cut) and the shares of the hasty and the casual persona
 //   node scripts/ladder.mjs campaign         the same table for the whole row of the campaign (src/levels/campaign.ts): the pieces of the road and then
-//                                            the levels of the list, each with its number in the row; the role of a level of the list is `list`
+//                                            the levels, each with its number in the row; a level of an act says its act and its role (`1:opening`), a level of the tail `tail`
 //   node scripts/ladder.mjs chapter=0        fills every place of a chapter (boards laid every way, seeds 1 to 1000 of each, and
 //                                            the boards laid by hand) and puts the chapter together: for every place one board
 //                                            that is unlike the one before it, with its picture and its line for levels.ts
@@ -86,10 +86,10 @@ if (flag('limit')) {
   // The pieces of the road, or the whole row of the campaign: the pieces and then the levels of the list.
   const { ROAD } = await load('/src/levels/road.ts');
   const { CAMPAIGN } = await load('/src/levels/campaign.ts');
-  const { ROAD_PLACES } = await load('/src/levels/roadRecipes.ts');
   const { roadRow, roadTable, ROAD_WALK_LIMIT } = await load('/src/levels/table.ts');
   const stops = flag('campaign') ? CAMPAIGN : CAMPAIGN.slice(0, ROAD.length);
-  const roleOf = (stop) => (stop.board.road === undefined ? 'list' : (ROAD_PLACES.find((place) => place.id === stop.spec.id)?.role ?? 'lesson'));
+  // A piece of the road by its role; a level of an act by its act and its role (`1:opening`); a level of the tail is `tail`.
+  const roleOf = (stop) => (stop.act ? `${stop.act}:${stop.role}` : stop.role);
   if (worker) {
     stops.forEach((stop, index) => {
       if (mine(index)) console.log(JSON.stringify({ index, row: roadRow(stop.number, stop.spec, roleOf(stop), Number(named.walk ?? ROAD_WALK_LIMIT)) }));

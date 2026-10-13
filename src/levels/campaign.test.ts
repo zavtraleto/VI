@@ -63,7 +63,7 @@ describe('the acts of the row', () => {
   it('names the act and the role of every stop: the road is act 0, the levels of the first act are act 1, the tail is none', () => {
     expect(CAMPAIGN[0]).toMatchObject({ act: 0, role: 'lesson' });
     expect(CAMPAIGN[2]).toMatchObject({ act: 0, role: 'free' });
-    expect(CAMPAIGN.slice(ROAD.length, ROAD.length + ACT_1.length).map((stop) => [stop.act, stop.role])).toEqual([[1, 'opening'], [1, 'apply'], [1, 'twist'], [1, 'join']]);
+    expect(CAMPAIGN.slice(ROAD.length, ROAD.length + ACT_1.length).map((stop) => [stop.act, stop.role])).toEqual([[1, 'opening'], [1, 'apply'], [1, 'twist'], [1, 'join'], [1, 'rest']]);
     expect(CAMPAIGN[ROAD.length + ACT_1.length]).toMatchObject({ act: null, role: 'tail' });
     expect(CAMPAIGN.slice(ROAD.length + ACT_1.length).map((stop) => stop.spec.id)).toEqual(TAIL.map((spec) => spec.id));
   });
