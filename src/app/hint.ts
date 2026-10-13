@@ -96,6 +96,7 @@ const PROBE: Readonly<Record<string, Hint>> = {
   push: { key: 'roadHintPush', until: 'push' },
   climb: { key: 'roadHintClimb', until: 'climb' },
   seven: { key: 'hintSeven', until: 'combo' },
+  linkmove: { key: 'hintLinkMove', until: 'chain' },
 };
 
 /**

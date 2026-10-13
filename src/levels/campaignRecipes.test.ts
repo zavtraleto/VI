@@ -6,7 +6,7 @@ import { PLACES } from './recipes';
 import { ROAD_PLACES } from './roadRecipes';
 
 /** The faces an act is on, by its number. */
-const FACES: Readonly<Record<number, readonly number[]>> = { 1: [3] };
+const FACES: Readonly<Record<number, readonly number[]>> = { 1: [3], 2: [2, 3, 4] };
 
 describe('the places of the acts of the campaign', () => {
   it('have codes of their own, none a place of the probe or of the road, and slots of their own', () => {

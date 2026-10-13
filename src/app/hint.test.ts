@@ -127,6 +127,7 @@ describe('the line of the address of development', () => {
     expect(probeHint('push')).toEqual({ key: 'roadHintPush', until: 'push' });
     expect(probeHint('roadHintClimb')).toEqual({ key: 'roadHintClimb', until: 'climb' });
     expect(probeHint('seven')).toEqual({ key: 'hintSeven', until: 'combo' });
+    expect(probeHint('hintLinkMove')).toEqual({ key: 'hintLinkMove', until: 'chain' });
     expect(probeHint('hintOne')).toBeNull();
     expect(probeHint('')).toBeNull();
     expect(probeHint(null)).toBeNull();
@@ -371,7 +372,7 @@ describe('the words of a hint', () => {
   it('are always the start of the line as it is written, so each stands where it will in the whole line', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      for (const key of ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintFixed', 'roadHintClimb', 'hintSeven'] as const) {
+      for (const key of ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintFixed', 'roadHintClimb', 'hintSeven', 'hintLinkMove'] as const) {
         const text = t(key);
         const count = text.split(' ').length;
         for (let n = 0; n <= count; n++) expect(text.startsWith(wordsShown(text, n * HINT_WORD_MS)), `${key} ${code}`).toBe(true);

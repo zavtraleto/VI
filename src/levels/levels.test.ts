@@ -10,7 +10,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN_PLACES } from './campaignRecipes';
 import { levelId } from './generate';
-import { ACT_1, LEVELS, PARKED, SPARES, TAIL } from './levels';
+import { ACT_1, ACT_2, LEVELS, PARKED, SPARES, TAIL } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
 import { chaptersOf, ladderProgress } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
@@ -29,7 +29,7 @@ import { UNLIKE_BY, sameBoard, traitsOf, unlike } from './variety';
 const placeOf = (spec: LevelSpec): Recipe | undefined => [...PLACES, ...CAMPAIGN_PLACES].find((place) => levelId(place) === spec.id);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 /** What is left of the list as the owner ordered it on 12 October 2026 (docs/VI_Levels_Playtest_2026-10-12.md, section 4), the levels that went into the acts taken out. */
-const TAIL_ORDER = ['P13', 'P04', 'P02', 'P14', 'P20', 'P07', 'P01', 'P12', 'P08', 'P06', 'P05', 'P17', 'P15', 'P31', 'P19'];
+const TAIL_ORDER = ['P13', 'P04', 'P02', 'P14', 'P07', 'P01', 'P12', 'P08', 'P17', 'P15', 'P31', 'P19'];
 /** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
 const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
 const ALL: readonly LevelSpec[] = [...LEVELS, ...PARKED, ...SPARES];
@@ -93,8 +93,8 @@ function offPlace(level: LevelSpec, place: Recipe): string[] {
 }
 
 describe('the levels of the game', () => {
-  it('are the first act and then the tail, the list of the probe in the order it had', () => {
-    expect(LEVELS).toEqual([...ACT_1, ...TAIL]);
+  it('are the acts and then the tail, the list of the probe in the order it had', () => {
+    expect(LEVELS).toEqual([...ACT_1, ...ACT_2, ...TAIL]);
     expect(TAIL.map((level) => level.id)).toEqual(TAIL_ORDER);
   });
 

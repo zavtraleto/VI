@@ -114,6 +114,7 @@ export const PT: Texts = {
   roadHintFixed: 'O dado apagado não rola. Passe para outro.',
   roadHintClimb: 'No dado que sai, desça e suba.',
   hintSeven: 'Faces opostas somam sete.',
+  hintLinkMove: 'Um elo dá ao combo mais um lance.',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLimited: 'SESSÃO DO DIA {time}',
   shellLevels: 'LIMPEZA DO CAMPO',

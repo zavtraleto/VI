@@ -39,6 +39,12 @@ const ACT_ROLES: Readonly<Record<string, { act: number; role: Role }>> = {
   P09: { act: 1, role: 'join' },
   K21: { act: 1, role: 'peak' },
   K22: { act: 1, role: 'rest' },
+  K23: { act: 2, role: 'opening' },
+  P20: { act: 2, role: 'apply' },
+  K25: { act: 2, role: 'twist' },
+  P06: { act: 2, role: 'join' },
+  P05: { act: 2, role: 'peak' },
+  K28: { act: 2, role: 'rest' },
 };
 
 /** The act and the role of a board by its code: the pieces of the road by their places, a lesson being a piece of no place. */
@@ -55,7 +61,7 @@ export const CAMPAIGN: readonly Stop[] = [
 ];
 
 /** The lines of the texts (`src/ui/i18n.ts`) that a board can carry above itself: those of the road and those of the acts. */
-export type HintKey = RoadHintKey | 'hintSeven';
+export type HintKey = RoadHintKey | 'hintSeven' | 'hintLinkMove';
 
 export interface Hint {
   key: HintKey;
@@ -67,7 +73,11 @@ export interface Hint {
  * The line a board carries above itself, by its code: the lessons of the road, and the line an
  * act opens with. A line of an act is said once: a board the player has passed does not say it again.
  */
-export const HINTS: Readonly<Record<string, Hint>> = { ...ROAD_HINTS, K17: { key: 'hintSeven', until: 'combo' } };
+export const HINTS: Readonly<Record<string, Hint>> = {
+  ...ROAD_HINTS,
+  K17: { key: 'hintSeven', until: 'combo' },
+  K23: { key: 'hintLinkMove', until: 'chain' },
+};
 
 export function stopOf(board: Board): Stop | undefined {
   if (board.road !== undefined) return CAMPAIGN[board.road];

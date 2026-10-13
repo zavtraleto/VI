@@ -117,6 +117,7 @@ export const FR: Texts = {
   roadHintFixed: 'Le dé terne reste là. Passe au voisin.',
   roadHintClimb: 'Sur le dé qui part, descends et remonte.',
   hintSeven: 'Les faces opposées font sept.',
+  hintLinkMove: 'Un maillon offre un tour au combo.',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLimited: 'SESSION DU JOUR {time}',
   shellLevels: 'NETTOYAGE DU CHAMP',

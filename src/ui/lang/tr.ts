@@ -114,6 +114,7 @@ export const TR: Texts = {
   roadHintFixed: 'Soluk zar yerinde durur. Başka zara geç.',
   roadHintClimb: 'Giden zardan inip yeniden çıkabilirsin.',
   hintSeven: 'Karşı yüzler yedi eder.',
+  hintLinkMove: 'Bir halka komboya bir hamle verir.',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLimited: 'GÜNÜN OTURUMU {time}',
   shellLevels: 'ALAN TEMİZLİĞİ',

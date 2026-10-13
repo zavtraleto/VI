@@ -155,6 +155,8 @@ const RU = {
   // The line act I of the campaign opens with (`HINTS` in `src/levels/campaign.ts`): a draft of 13 October 2026, the words
   // are the implementer's and wait for the owner; said once, on the board that opens the act.
   hintSeven: 'Напротив всегда семь.',
+  // The line act II opens with, a draft of 13 October 2026 as well.
+  hintLinkMove: 'Звено даёт комбо ещё ход.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLimited: 'СЕАНС ДНЯ {time}',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
@@ -288,6 +290,7 @@ const EN: typeof RU = {
   roadHintFixed: 'A dim die stays put. Step to another.',
   roadHintClimb: 'Step off a leaving die and back on.',
   hintSeven: 'Opposite faces make seven.',
+  hintLinkMove: 'A link gives the combo a move.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',
   shellLevels: 'CLEAR THE BOARD',
