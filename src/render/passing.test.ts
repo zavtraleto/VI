@@ -54,6 +54,14 @@ describe('the dice of a board that is passed', () => {
     expect(passingHeight(leaving(770, 0), 0, 1)).toBe(1);
   });
 
+  it('go under all at once where the passage says so: the last combo of a level is one strike', () => {
+    const half = { ...leaving(2000, 75), moveForMs: 150, together: true };
+    expect(goneShare(half, 0)).toBe(0.5);
+    expect(goneShare(half, 2)).toBe(0.5);
+    expect(goneShare({ ...half, moveMs: 150 }, 2)).toBe(1);
+    expect(goneShare({ ...half, moveMs: -1 }, 0)).toBe(0);
+  });
+
   it('go under one after another, slowly at first, and are gone a step apart', () => {
     const half = leaving(2000, 650);
     expect(goneShare(half, 0)).toBe(0.5);

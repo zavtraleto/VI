@@ -70,7 +70,8 @@ interface Ends {
 const ENDS: Ends = { combo: 0, sink: 0, erase: 0, draw: 0, rise: 0 };
 
 function ends(times: PassageTimes, counts: PassageCounts, reduced: boolean): Ends {
-  const apart = Math.max(0, counts.combo - 1) * times.comboStepMs;
+  // Dice that take no time to go under go at once, on the strike of the last combo of a level: nothing is waited for after it.
+  const apart = times.sinkMs > 0 ? Math.max(0, counts.combo - 1) * times.comboStepMs : 0;
   ENDS.combo = counts.combo * times.comboStepMs + times.comboHoldMs;
   ENDS.sink = ENDS.combo + times.sinkMs + apart;
   // With motion kept low there is no point and no wave: the board is changed in one frame, with its dice on it.

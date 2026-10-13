@@ -35,8 +35,8 @@ import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { shiftFor } from '../render/framing';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
-import { goneShare, type DicePassing } from '../render/passing';
-import type { LeavingEvent } from '../render/leaving';
+import type { DicePassing } from '../render/passing';
+import { finaleMs, type LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
 import { ROAD, blockOf, placeAfter, type HintUntil } from '../levels/road';
 import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf, type HintKey } from '../levels/campaign';
@@ -229,6 +229,8 @@ const PASSAGE_STEP_MS = 100;
  * first, the window after.
  */
 const FAIL_HOLD_MS = 900;
+/** The passage waits for the frame the dice of the last combo are drawn going under; past this long after their time it goes on without it (a picture that is not drawn says nothing). */
+const FINALE_WAIT_MS = 250;
 /** How strong the answer of the board to a level that is passed is, as a beat: a tier under the strongest, and the sound of a chain's fourth link. */
 const FINALE_TIER = 3;
 const FINALE_CHAIN = 4;
@@ -349,8 +351,9 @@ export class Game {
   /**
    * The passage from a board that is passed to the next one: how long it has run, which board
    * comes (none where a window does), what is counted of the two boards, whether the next is
-   * on yet and whether the board has answered its dice, how many dice have been heard to light
-   * up, to go under and to stand, the dice of the board that is on in the order of their turns,
+   * on yet, whether the dice of the last combo have been seen to go under (`struck`) and whether
+   * the board has answered them, how many dice have been heard to light up and to stand, the dice
+   * of the board that is on in the order of their turns,
    * how much of the lines of that board the cell of the player alone is, and what the board
    * that is passed came to. While it is on, the board takes no input and its world stands.
    */
@@ -359,9 +362,9 @@ export class Game {
     next: Board | null;
     counts: PassageCounts;
     swapped: boolean;
+    struck: boolean;
     beaten: boolean;
     lit: number;
-    gone: number;
     risen: number;
     order: number[];
     cell: number;
@@ -1415,9 +1418,13 @@ export class Game {
   private readTimes(): PassageTimes {
     const { board } = this.look;
     const { times } = this;
-    times.comboStepMs = Number(board.comboStepMs);
-    times.comboHoldMs = Number(board.comboHoldMs);
-    times.sinkMs = Number(board.sinkMs);
+    // The last combo of the board is one strike (`LeavingShow.finale`): its dice sound one by one while they hang,
+    // go under at once, and the lines are erased from that frame. The passage counts the same time to it.
+    const sounding = this.passage?.counts.combo ?? 0;
+    const finale = finaleMs(sounding, board, prefersReducedMotion(this.settings));
+    times.comboStepMs = Number(board.finaleNoteMs);
+    times.comboHoldMs = Math.max(0, finale.total - sounding * times.comboStepMs);
+    times.sinkMs = 0;
     times.eraseMs = Number(board.eraseMs);
     times.cameraMs = Number(board.cameraMs);
     times.drawMs = Number(board.drawMs);
@@ -1427,9 +1434,11 @@ export class Game {
   }
 
   /**
-   * A level is passed: the passage begins. The dice the last combo took light up one after
-   * another, the nearest to the player first, and then go under; the dice that were going before
-   * it are lit already and go with the last of them. From there the passage leads to the board
+   * A level is passed: the passage begins. Every die of the board lifts; the dice the last combo
+   * took flash and sound one after another, the nearest to the player first, while they hang; and
+   * all of them go under the floor at once, the dice that were going before and the dice that
+   * stood with them (the owner, 13 October: «вспыхнуть и прозвучать по одной, а потом эффектно
+   * уйти все разом»). From there the passage leads to the board
    * after this one with no window: the next piece of the road, after its last the level of the
    * list the player goes on with (the first not passed, or the first when all are), the level
    * after a level of the list. Where it leads nowhere - after the last level, or before a chapter
@@ -1452,14 +1461,15 @@ export class Game {
     passing.stair = -1;
     passing.litMs = 0;
     passing.moveMs = -1;
+    passing.together = true;
     this.passage = {
       elapsed: 0,
       next,
       counts: { combo: passing.count, dice: 0, stair: false },
       swapped: false,
+      struck: false,
       beaten: false,
       lit: 0,
-      gone: 0,
       risen: 0,
       order: order.map((die) => cubes[die].id),
       cell: 0,
@@ -1467,6 +1477,10 @@ export class Game {
       heard: 0,
     };
     this.view.setPassing(passing);
+    const reduced = prefersReducedMotion(this.settings);
+    this.view.finale(state, passing.count, reduced);
+    // The breath held on the combo that passes a board is the longest there is.
+    if (!reduced) this.hold.hold(4);
     this.awardStars();
   }
 
@@ -1487,14 +1501,16 @@ export class Game {
     const reduced = prefersReducedMotion(this.settings);
     const times = this.readTimes();
     passage.elapsed += Math.min(dt, PASSAGE_STEP_MS);
-    const now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
+    let now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
     const marks = passageMarks(times, passage.counts, reduced, this.marksNow);
     if (!passage.swapped) {
+      const finale = finaleMs(passage.counts.combo, this.look.board, reduced);
       passing.stepMs = times.comboStepMs;
-      passing.moveForMs = times.sinkMs;
-      passing.flashMs = times.comboHoldMs;
+      passing.moveForMs = Math.max(1, finale.drop);
+      passing.flashMs = Number(this.look.board.comboHoldMs);
       passing.litMs = passage.elapsed;
-      passing.moveMs = passage.elapsed - marks.sink;
+      // What the view reads of the dice going - their glass, the light of the group, the figure on the floor - goes by the drop of the finale.
+      passing.moveMs = passage.struck ? passing.moveForMs : passage.elapsed - (finale.lift + finale.hang);
       // A die lights up on a note of its face: the first as a combo begins, each one after it a link higher, as a chain climbs.
       for (; passage.lit < now.lit; passage.lit++) {
         const face = getCube(this.state, passage.order[passage.lit])?.ori.top ?? 1;
@@ -1502,17 +1518,18 @@ export class Game {
           passage.lit === 0 ? { kind: 'group', face, count: 1, tier: 0, pan: 0 } : { kind: 'chain', face, chain: passage.lit + 1, count: 1, tier: 0, pan: 0 },
         );
       }
-      if (now.phase === 'combo') return;
+      // The board answers on the frame its dice are drawn going under (`onLeaving`), and the rest of the passage is
+      // counted from that frame: the picture and this clock are a frame apart at most, and the strike is the picture's.
+      if (!passage.struck) {
+        if (now.phase === 'combo' || passage.elapsed < marks.sink + FINALE_WAIT_MS) return;
+        this.finaleStruck();
+      }
       if (!passage.beaten) {
         passage.beaten = true;
-        this.answerPassed();
+        passage.elapsed = marks.sink;
+        now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
       }
-      // A die that has gone under is heard as one that goes under in a session.
-      for (; passage.gone < passage.order.length && goneShare(passing, passage.gone) >= 1; passage.gone++) {
-        const face = getCube(this.state, passage.order[passage.gone])?.ori.top ?? 1;
-        this.audio.play({ kind: 'sunk', face, pan: 0 });
-      }
-      if (now.phase === 'sink') return;
+      if (now.phase === 'combo' || now.phase === 'sink') return;
       if (!passage.next) {
         // The passage leads nowhere: the window of the level, over a board whose dice are gone.
         this.passage = null;
@@ -1622,8 +1639,20 @@ export class Game {
     // The face sent last: that of the die that joined its group latest.
     const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
     const value = last?.ori.top ?? 0;
+    const cells = state.cubes.map(({ x, z }) => ({ x, z }));
     this.view.answer(value);
-    this.beat({ kind: 'chain', value, tier: FINALE_TIER, cells: state.cubes.map(({ x, z }) => ({ x, z })), points: 0, chain: FINALE_CHAIN });
+    this.beat({ kind: 'chain', value, tier: FINALE_TIER, cells, points: 0, chain: FINALE_CHAIN });
+    // They are under: one ring over the floor, twice as wide as that of a group that goes, and one sound of going under for all of them.
+    this.view.farewell(cells, value, 2);
+    this.audio.play({ kind: 'sunk', face: value >= 1 ? value : 1, pan: 0 });
+  }
+
+  /** The dice of the last combo of the board are under the floor: the board answers them, once. */
+  private finaleStruck(): void {
+    const { passage } = this;
+    if (!passage || passage.struck) return;
+    passage.struck = true;
+    this.answerPassed();
   }
 
   /**
@@ -2527,6 +2556,10 @@ export class Game {
 
   /** What the leaving of a group on a level has come to: the beats held for it, a step, or the ring of its going. */
   private onLeaving(event: LeavingEvent): void {
+    if (event.final) {
+      this.finaleStruck();
+      return;
+    }
     if (this.state.over) {
       this.heldBeats.reset();
       return;

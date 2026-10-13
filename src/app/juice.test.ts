@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyRun, put } from '../rules/testkit';
+import { emptyRun, levelRun, put } from '../rules/testkit';
 import { HITSTOP_MS, HeldBeats, Hitstop, beatsOf, chainTier, matchTier, type Beat } from './juice';
 
 describe('tiers', () => {
@@ -44,6 +44,18 @@ describe('beats of a tick', () => {
     const third = beatsOf(state, [{ type: 'chain', reactionId: 2, value: 3, chain: 3, count: 1, points: 36 }])[0];
     expect(third.tier).toBe(2);
     expect(third.cells).toHaveLength(2);
+  });
+
+  it('place a join of a level on the whole chain: it strikes as one body with the die that joined', () => {
+    const state = levelRun();
+    const old = put(state, 1, 1, 3, 'sinking');
+    old.reactionId = 2;
+    old.t = 30;
+    const fresh = put(state, 2, 1, 3, 'sinking');
+    fresh.reactionId = 2;
+    fresh.t = 1;
+    const second = beatsOf(state, [{ type: 'chain', reactionId: 2, value: 3, chain: 2, count: 1, points: 0 }])[0];
+    expect(second.cells).toEqual([{ x: 1, z: 1 }, { x: 2, z: 1 }]);
   });
 
   it('say nothing of a level passed in the exercise', () => {

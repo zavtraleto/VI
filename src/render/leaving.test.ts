@@ -7,7 +7,7 @@ import { levelRun, put } from '../rules/testkit';
 import type { Cube, Dir, LevelSpec, RunState } from '../rules/types';
 import { ROAD } from '../levels/road';
 import { boardDefaults } from './params';
-import { isStair, LeavingShow, leavingHeight, leavingSteps, shownHeight } from './leaving';
+import { finaleMs, isStair, LeavingShow, leavingHeight, leavingSteps, shownHeight, type LeavingEvent } from './leaving';
 
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 const pieceOf = (id: string): LevelSpec => ROAD.find((spec) => spec.id === id)!;
@@ -93,7 +93,9 @@ describe('the height a die that leaves a level is shown at', () => {
 });
 
 describe('the leaving of a group on a level, as one body', () => {
-  const values = boardDefaults();
+  // The way a group gets ready is a number of the look, up or down. These go through it with a lift, which shows every
+  // part of the way; the look as it is set presses the dice down instead, and has its own tests at the end.
+  const values = { ...boardDefaults(), liftHeight: 0.08, finaleLiftHeight: 0.12 };
   const noDip = (): number => 0;
 
   /** The rules send dice: they are going from this tick, with a tick of their window gone, in the group of the board. */
@@ -190,7 +192,7 @@ describe('the leaving of a group on a level, as one body', () => {
     expect(show.ghosts()).toEqual([]);
   });
 
-  it('lets a chain that is added to sigh, and sends the new die by the whole lift and drop', () => {
+  it('lifts the whole chain with the die that joins it, each from where it stands, and strikes with all of it at once', () => {
     const { state, a, b, show } = sentPair();
     show.frame(state, 0, values, false, noDip);
     show.frame(state, 1000, values, false, noDip);
@@ -199,7 +201,7 @@ describe('the leaving of a group on a level, as one body', () => {
     show.frame(state, 1000, values, false, noDip);
     const step1 = shownHeight(a, state, 0);
     expect(show.height(a, state, 0)).toBeCloseTo(step1);
-    // A third 2 joins: held for two moves by the rules, the pair stays where it is.
+    // A third 2 joins: held for two moves by the rules, the pair stays on its step.
     const c = put(state, 3, 1, 2);
     expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
     send(state, c);
@@ -208,18 +210,94 @@ describe('the leaving of a group on a level, as one body', () => {
     const sent = show.frame(state, 0, values, false, noDip);
     expect(sent.map((e) => e.kind)).toEqual(['sent']);
     expect(sent[0].cubeIds).toEqual([c.id]);
-    // Half way through the sigh the pair is up by the sigh; the new die is on its way up.
-    show.frame(state, 80, values, false, noDip);
-    expect(show.height(a, state, 0)).toBeCloseTo(step1 + 0.04);
-    expect(show.height(c, state, 0)).toBeGreaterThan(1);
-    show.frame(state, 80, values, false, noDip);
-    expect(show.height(a, state, 0)).toBeCloseTo(step1);
-    // The new die drops to its own first step, and that is the beat of the chain.
-    const events = [...show.frame(state, 120, values, false, noDip), ...show.frame(state, 70, values, false, noDip)];
+    // One body: the pair is up from its step by as much as the new die is up from its full height.
+    expect(show.frame(state, 90, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(step1 + 0.08);
+    expect(show.height(b, state, 0)).toBeCloseTo(step1 + 0.08);
+    expect(show.height(c, state, 0)).toBeCloseTo(1.08);
+    // They hang together: nothing of the chain goes up and down by itself meanwhile.
+    expect(show.frame(state, 60, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(step1 + 0.08);
+    // And strike together, each on its own step: one beat, with every die of the chain.
+    const events = show.frame(state, 130, values, false, noDip);
     expect(events.map((e) => e.kind)).toEqual(['impact']);
-    expect(events[0].cubeIds).toEqual([c.id]);
-    show.frame(state, 200, values, false, noDip);
+    expect(events[0].cubeIds).toEqual([a.id, b.id, c.id]);
+    expect(events[0].cells).toEqual([{ x: 1, z: 1 }, { x: 2, z: 1 }, { x: 3, z: 1 }]);
+    expect(show.height(a, state, 0)).toBeCloseTo(step1 - 0.015);
+    expect(show.height(c, state, 0)).toBeCloseTo(0.78 - 0.015);
+    expect(show.frame(state, 120, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(step1);
     expect(show.height(c, state, 0)).toBeCloseTo(0.78);
+  });
+
+  it('takes the last combo of a board away as its strongest strike: all the dice lift, hang while they sound, and go under at once', () => {
+    const { state, a, b, show } = sentPair();
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    land(state, a, b);
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    const step1 = show.height(a, state, 0);
+    // The combo that passes the board: two dice more are sent, and a die that stands is left on it.
+    const c = put(state, 3, 1, 2);
+    const d = put(state, 3, 2, 2);
+    const idle = put(state, 0, 4, 4);
+    show.frame(state, 0, values, false, noDip);
+    send(state, c, d);
+    state.over = true;
+    state.endReason = 'passed';
+    expect(finaleMs(2, values, false)).toEqual({ lift: 100, hang: 100, drop: 150, total: 350 });
+    show.finale(state, 2, values, false, (id) => (id === c.id ? -0.1 : 0));
+    // Nothing is sent and nothing strikes by the way of a group: it is the finale's.
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(step1);
+    expect(show.height(c, state, 0)).toBeCloseTo(0.9);
+    expect(show.height(d, state, 0)).toBeCloseTo(1);
+    expect(show.height(idle, state, 0)).toBeCloseTo(1);
+    // The lift, every die by as much from where it stood.
+    expect(show.frame(state, 100, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(step1 + 0.12);
+    expect(show.height(c, state, 0)).toBeCloseTo(0.9 + 0.12);
+    expect(show.height(d, state, 0)).toBeCloseTo(1.12);
+    expect(show.height(idle, state, 0)).toBeCloseTo(1.12);
+    // The hang, while the dice sound one by one.
+    expect(show.frame(state, 100, values, false, noDip)).toEqual([]);
+    expect(show.height(d, state, 0)).toBeCloseTo(1.12);
+    // The drop is late and sudden: half way through its time the dice are still nearly up.
+    expect(show.frame(state, 75, values, false, noDip)).toEqual([]);
+    expect(show.height(d, state, 0)).toBeGreaterThan(1);
+    // Under the floor, all at once: one event with every cell of the board.
+    const events = show.frame(state, 75, values, false, noDip);
+    expect(events.map((e) => [e.kind, e.final])).toEqual([['gone', true]]);
+    expect(events[0].cells).toHaveLength(5);
+    expect(events[0].cubeIds).toEqual([a.id, b.id, c.id, d.id, idle.id]);
+    for (const cube of [a, b, c, d, idle]) expect(show.height(cube, state, 0)).toBeLessThanOrEqual(-0.5);
+    // And nothing after it; the dice stay under until the next board is put on.
+    expect(show.frame(state, 500, values, false, noDip)).toEqual([]);
+    expect(show.height(d, state, 0)).toBeLessThanOrEqual(-0.5);
+    show.reset();
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+  });
+
+  it('hangs a finale for as long as its dice take to sound, and with less motion takes them away with no lift', () => {
+    expect(finaleMs(6, values, false)).toEqual({ lift: 100, hang: 180, drop: 150, total: 430 });
+    expect(finaleMs(6, { ...values, finaleNoteMs: 50, finaleLiftMs: 80, finaleDropMs: 200 }, false).total).toBe(80 + 300 + 200);
+    // With less motion nothing moves, and the dice are gone at the same moment as they would be: they sound for as long.
+    expect(finaleMs(2, values, true)).toEqual({ lift: 0, hang: 350, drop: 0, total: 350 });
+    const { state, a, b, show } = sentPair();
+    state.over = true;
+    state.endReason = 'passed';
+    show.finale(state, 2, values, true, noDip);
+    expect(show.frame(state, 0, values, true, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(1);
+    expect(show.frame(state, 60, values, true, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(1);
+    expect(show.frame(state, 240, values, true, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(1);
+    const events = show.frame(state, 50, values, true, noDip);
+    expect(events.map((e) => [e.kind, e.final])).toEqual([['gone', true]]);
+    expect(events[0].cubeIds).toEqual([a.id, b.id]);
+    expect(show.height(b, state, 0)).toBeLessThanOrEqual(-0.5);
   });
 
   it('keeps a ghost of a die the rules have taken at the end of its way, drives it under the floor and says so', () => {
@@ -358,7 +436,7 @@ describe('the leaving of a group on a level, as one body', () => {
     return start({ ...pieceOf('R10'), id: 'T01', size: 5, values: [2], faces: [2], norm: dice.length, floor: true, holes: undefined, goal: { kind: 'send', count: 999 }, moves: 0, sinkMoves: 6, layout: { start: { x: 2, z: 3 }, dice } });
   }
 
-  it('by the rules a chain that is added to stands where it is on that landing: it sighs, and the die that joined strikes', () => {
+  it('by the rules a chain that is added to stands on its step on that landing: it lifts and strikes with the die that joined', () => {
     const state = chainBoard(4);
     const show = new LeavingShow();
     show.frame(state, 0, values, false, noDip);
@@ -366,6 +444,7 @@ describe('the leaving of a group on a level, as one body', () => {
     show.frame(state, 0, values, false, noDip);
     show.frame(state, 1000, values, false, noDip);
     const pair = cubeAt(state, 2, 2)!;
+    const other = cubeAt(state, 2, 1)!;
     expect(show.height(pair, state, 0)).toBeCloseTo(0.78);
     // Over to the die beside the pair, and north with it: it joins.
     go(state, 'E');
@@ -374,15 +453,14 @@ describe('the leaving of a group on a level, as one body', () => {
     const joined = cubeAt(state, 3, 1)!;
     expect(joined.reactionId).toBe(pair.reactionId);
     expect(show.frame(state, 0, values, false, noDip).map((e) => e.kind)).toEqual(['sent']);
-    // The sigh: up by it half way through, and back.
-    expect(show.frame(state, 80, values, false, noDip)).toEqual([]);
-    expect(show.height(pair, state, 0)).toBeCloseTo(0.78 + 0.04);
-    expect(show.frame(state, 80, values, false, noDip)).toEqual([]);
-    expect(show.height(pair, state, 0)).toBeCloseTo(0.78);
-    // The die that joined strikes 280 ms after it was sent: the beat of the chain, and its own dice only.
-    const struck = show.frame(state, 120, values, false, noDip);
+    expect(show.frame(state, 90, values, false, noDip)).toEqual([]);
+    expect(show.height(pair, state, 0)).toBeCloseTo(0.78 + 0.08);
+    expect(show.height(joined, state, 0)).toBeCloseTo(1.08);
+    expect(show.frame(state, 60, values, false, noDip)).toEqual([]);
+    // 280 ms after it was sent the whole chain strikes: its beat, with its three dice.
+    const struck = show.frame(state, 130, values, false, noDip);
     expect(struck.map((e) => e.kind)).toEqual(['impact']);
-    expect(struck[0].cubeIds).toEqual([joined.id]);
+    expect([...struck[0].cubeIds].sort()).toEqual([pair.id, other.id, joined.id].sort());
     show.frame(state, 200, values, false, noDip);
     expect(show.height(joined, state, 0)).toBeCloseTo(0.78);
     expect(show.height(pair, state, 0)).toBeCloseTo(0.78);
@@ -519,14 +597,15 @@ describe('the leaving of a group on a level, as one body', () => {
       kinds.push(...show.frame(state, 20, values, false, noDip).map((e) => e.kind));
       if (state.cubes.includes(pair)) {
         const height = show.height(pair, state, 0);
-        // Down only, but for the sigh and the settling after a step.
-        expect(height).toBeLessThan(last + 0.045);
+        // Down only, but for the lift of the chain when it is added to and the settling after a step.
+        expect(height).toBeLessThan(last + 0.09);
         last = height;
         lowest = Math.min(lowest, height);
       }
     }
     expect(state.cubes).toEqual([]);
-    expect(kinds.filter((kind) => kind === 'step').length).toBeGreaterThanOrEqual(5);
+    // The first of its landings cuts the lift of the chain short and is its strike; the rest are steps.
+    expect(kinds.filter((kind) => kind === 'step').length).toBeGreaterThanOrEqual(4);
     // The pair came to its last step before the rules took it, and went under from there.
     expect(lowest).toBeLessThan(0.13);
     expect(show.ghosts().length).toBe(3);
@@ -534,5 +613,103 @@ describe('the leaving of a group on a level, as one body', () => {
     // The rules bring the die that joined in step with its chain: the three go under together, as one group.
     expect(kinds.filter((kind) => kind === 'gone').length).toBe(1);
     expect(show.ghosts()).toEqual([]);
+  });
+
+  it('says a strike on the frame the dice are drawn at its end, at sixty frames a second: no frame is lost to the sum of their times', () => {
+    const { state, a, show } = sentPair();
+    state.over = true;
+    state.endReason = 'passed';
+    show.finale(state, 2, values, false, noDip);
+    // 350 ms is twenty-one frames; by the sum of the times a page gives its frames it can be a hair short of that.
+    let events: LeavingEvent[] = [];
+    let frames = 0;
+    while (events.length === 0 && frames < 40) {
+      events = show.frame(state, 350 / 21 - 1e-9, values, false, noDip);
+      frames++;
+    }
+    expect(frames).toBe(21);
+    expect(show.height(a, state, 0)).toBeLessThanOrEqual(-0.5 + 1e-6);
+    expect(events.map((e) => e.kind)).toEqual(['gone']);
+  });
+
+  describe('as the look is set: the dice are pressed down, and none of them ever goes up', () => {
+    const set = boardDefaults();
+
+    it('presses a group that is sent a little under its full height, holds it there, and strikes its step', () => {
+      const state = levelRun();
+      const a = put(state, 1, 1, 2);
+      const b = put(state, 2, 1, 2);
+      const show = new LeavingShow();
+      show.frame(state, 0, set, false, noDip);
+      send(state, a, b);
+      // The die under the figure is pressed already, deeper than the press of the group: it stays where it is.
+      show.frame(state, 0, set, false, (id) => (id === a.id ? -0.1 : 0));
+      expect(show.height(a, state, 0)).toBeCloseTo(0.9);
+      expect(show.height(b, state, 0)).toBeCloseTo(1);
+      let last = { a: show.height(a, state, 0), b: show.height(b, state, 0) };
+      const kinds: string[] = [];
+      for (let ms = 0; ms < 500; ms += 10) {
+        kinds.push(...show.frame(state, 10, set, false, noDip).map((e) => e.kind));
+        const now = { a: show.height(a, state, 0), b: show.height(b, state, 0) };
+        // Down only, but for the settling back from under the step.
+        if (!kinds.includes('impact')) {
+          expect(now.a).toBeLessThanOrEqual(last.a + 1e-9);
+          expect(now.b).toBeLessThanOrEqual(last.b + 1e-9);
+        }
+        expect(now.b).toBeLessThanOrEqual(1);
+        if (ms === 80) expect(now.b).toBeCloseTo(0.94);
+        if (ms === 80) expect(now.a).toBeCloseTo(0.9);
+        last = now;
+      }
+      expect(kinds).toEqual(['impact']);
+      expect(last.a).toBeCloseTo(0.78);
+      expect(last.b).toBeCloseTo(0.78);
+    });
+
+    it('presses the whole chain with the die that joins it, each die from its own step', () => {
+      const { state, a, b, show } = sentPair();
+      show.frame(state, 0, set, false, noDip);
+      show.frame(state, 1000, set, false, noDip);
+      const c = put(state, 3, 1, 2);
+      show.frame(state, 0, set, false, noDip);
+      send(state, c);
+      state.reactions[0].chain = 2;
+      show.frame(state, 0, set, false, noDip);
+      show.frame(state, 90, set, false, noDip);
+      expect(show.height(a, state, 0)).toBeCloseTo(0.78 - 0.06);
+      expect(show.height(b, state, 0)).toBeCloseTo(0.78 - 0.06);
+      expect(show.height(c, state, 0)).toBeCloseTo(0.94);
+      show.frame(state, 60, set, false, noDip);
+      // While the new die drops the chain is held pressed: it is under its step already, and does not come up to be struck.
+      show.frame(state, 65, set, false, noDip);
+      expect(show.height(a, state, 0)).toBeCloseTo(0.78 - 0.06);
+      const struck = show.frame(state, 65, set, false, noDip);
+      expect(struck.map((e) => e.kind)).toEqual(['impact']);
+      expect(struck[0].cubeIds).toEqual([a.id, b.id, c.id]);
+      expect(show.height(a, state, 0)).toBeCloseTo(0.78 - 0.06);
+      // It is let back to its step after the strike, as the die that struck comes back from under its own.
+      show.frame(state, 60, set, false, noDip);
+      expect(show.height(a, state, 0)).toBeGreaterThan(0.78 - 0.06);
+      expect(show.height(a, state, 0)).toBeLessThan(0.78);
+      show.frame(state, 300, set, false, noDip);
+      expect(show.height(a, state, 0)).toBeCloseTo(0.78);
+      expect(show.height(c, state, 0)).toBeCloseTo(0.78);
+    });
+
+    it('presses every die of a board on its last combo while they sound, and takes them under at once', () => {
+      const { state, a, b, show } = sentPair();
+      const idle = put(state, 0, 4, 4);
+      state.over = true;
+      state.endReason = 'passed';
+      show.finale(state, 2, set, false, noDip);
+      show.frame(state, 0, set, false, noDip);
+      show.frame(state, 100, set, false, noDip);
+      for (const cube of [a, b, idle]) expect(show.height(cube, state, 0)).toBeCloseTo(1 - 0.08);
+      show.frame(state, 100, set, false, noDip);
+      expect(show.height(idle, state, 0)).toBeCloseTo(1 - 0.08);
+      const events = show.frame(state, 150, set, false, noDip);
+      expect(events.map((e) => [e.kind, e.final])).toEqual([['gone', true]]);
+      expect(events[0].cubeIds).toEqual([a.id, b.id, idle.id]);
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { cubeHeight, isHeld, worldRuns, type Cube, type Orientation, type RunState } from '../rules';
 import type { ParamSpec, ParamValues } from '../signal/scene';
-import { inCubic, inExpo, inOutSine, inQuart, outCubic, tween, type Curve } from './ease';
+import { inCubic, inExpo, inQuart, outCubic, tween, type Curve } from './ease';
 import { BOARD_GROUPS } from './params';
 
 /**
@@ -85,6 +85,8 @@ export interface LeavingEvent {
   cells: readonly { x: number; z: number }[];
   /** The dice it is about; `sent` is for the view only, to let go of their springs. */
   cubeIds: readonly number[];
+  /** A `gone` that is the last combo of a board gone under, with every die of the board. */
+  final?: boolean;
 }
 
 /** A die the rules have taken away that the show still draws: under the floor it goes. */
@@ -98,7 +100,7 @@ export interface Ghost {
   height: number;
 }
 
-type Phase = 'lift' | 'hang' | 'drop' | 'settle' | 'still' | 'sigh';
+type Phase = 'lift' | 'hang' | 'drop' | 'settle' | 'still';
 
 interface Going {
   id: number;
@@ -110,9 +112,10 @@ interface Going {
   /** `cube.t` as the show last saw it, and the moves of its window it had behind it then: a move more is a landing. */
   t: number;
   moves: number;
-  /** The step it goes to, and where the phase that is on started from. */
+  /** The step it goes to, where the phase that is on started from, and how high its lift takes it. */
   target: number;
   from: number;
+  top: number;
   phase: Phase;
   /** Time into the phase. */
   ms: number;
@@ -131,11 +134,38 @@ const UNDER = -0.5;
 /** The numbers of the look where the values given say nothing of one. */
 const DEFAULTS: Record<string, ParamSpec> = BOARD_GROUPS.leaving;
 
+/** How long the parts of the last combo of a board take, and all of it, to the frame its dice are under. */
+export interface FinaleMs {
+  lift: number;
+  hang: number;
+  drop: number;
+  total: number;
+}
+
 /**
- * The leaving of a group on a level, as one body: a sent group lifts over its full height, hangs,
- * drops onto its first step and settles; every landing of the figure's roll drives it one step
- * down; the last landing drives it under the floor and a ring runs over the floor where it stood
- * (spec: docs/superpowers/specs/2026-10-13-vi-leaving-choreography-design.md). All in the time of
+ * The time of a finale: the lift, the hang - as long as the `sounding` dice of the combo take to
+ * sound one by one, and no shorter than the look says - and the drop under the floor. With less
+ * motion nothing lifts or drops: the dice sound for as long as all of it takes, and are gone. Whoever leads the passage to the
+ * next board counts its parts from the same numbers.
+ */
+export function finaleMs(sounding: number, values: ParamValues | undefined, reducedMotion: boolean): FinaleMs {
+  const n = (name: string): number => Number(values?.[name] ?? DEFAULTS[name]?.value ?? 0);
+  const hang = Math.max(n('finaleHangMs'), Math.max(0, sounding) * n('finaleNoteMs'));
+  // With less motion the dice stand for all of that time, and are gone when they would have gone under.
+  if (reducedMotion) return { lift: 0, hang: n('finaleLiftMs') + hang + n('finaleDropMs'), drop: 0, total: n('finaleLiftMs') + hang + n('finaleDropMs') };
+  const lift = n('finaleLiftMs');
+  const drop = n('finaleDropMs');
+  return { lift, hang, drop, total: lift + hang + drop };
+}
+
+/**
+ * The leaving of a group on a level, as one body: a sent group gets ready - pressed down a little
+ * as the look is set, lifted where it says so - holds, drops onto its first step and settles; a
+ * chain that is added to does so with the die that joins it; every landing of the figure's roll
+ * drives the group one step down; the last landing drives it under the floor and a ring runs over
+ * the floor where it stood; and the last combo of a board takes every die of the board under at
+ * once (`finale`). No spring and no passage moves a die that goes on a level: only this does
+ * (spec: docs/superpowers/specs/2026-10-13-vi-leaving-choreography-design.md, with its section 10). All in the time of
  * the picture: the rules know nothing of it and are read, never written. Outside a level it does
  * nothing and `height` is what `shownHeight` gives.
  */
@@ -144,9 +174,38 @@ export class LeavingShow {
   /** The dice that stood whole on the frame before: one of them found going has just been sent. */
   private whole = new Set<number>();
 
+  /** The last combo of a board is on its way under: how long its parts take, and whether it has gone. Null on a board that is played. */
+  private final: (FinaleMs & { gone: boolean }) | null = null;
+
   /** A new board, or the board put on anew: a die found going on it is not sent again. */
   reset(): void {
     this.going.clear();
+    this.whole.clear();
+    this.final = null;
+  }
+
+  /**
+   * The board is passed: its last combo takes every die of it away, as the strongest strike of
+   * all. Each lifts from where it is drawn - a die of the combo from its full height, a die that
+   * was going from its step, a die that stood from where it stood - hangs while the `sounding`
+   * dice of the combo sound, and goes under the floor with all the others. Called once, on the
+   * frame the board is passed, before `frame`; from then on `frame` drives nothing else and
+   * says one thing, when they are under: `gone`, `final`, with every die of the board.
+   */
+  finale(state: RunState, sounding: number, values: ParamValues, reducedMotion: boolean, dip: (cubeId: number) => number): void {
+    if (!state.levelRun) return;
+    const lift = Number(values.finaleLiftHeight ?? DEFAULTS.finaleLiftHeight.value);
+    this.final = { ...finaleMs(sounding, values, reducedMotion), gone: false };
+    const before = this.going;
+    const going = new Map<number, Going>();
+    for (const cube of state.cubes) {
+      const was = before.get(cube.id);
+      // A die that was going is where the show had it; one the combo has just taken, or one that stands, is whole.
+      const from = was && !was.ghost ? was.height : cube.state === 'sinking' && !this.whole.has(cube.id) ? shownHeight(cube, state, 0, values) : 1 + dip(cube.id);
+      going.set(cube.id, { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, t: cube.t, moves: 0, target: UNDER, from, top: from + lift, phase: reducedMotion ? 'hang' : 'lift', ms: 0, first: false, struck: true, ghost: false, height: from });
+    }
+    this.going.clear();
+    for (const [id, entry] of going) this.going.set(id, entry);
     this.whole.clear();
   }
 
@@ -166,9 +225,23 @@ export class LeavingShow {
     if (!state.levelRun) {
       this.going.clear();
       this.whole.clear();
+      this.final = null;
       return [];
     }
     const n = (name: string): number => Number(values[name] ?? DEFAULTS[name]?.value ?? 0);
+    if (this.final) {
+      // The last combo of the board: every die goes by the one timeline, and they are under together.
+      let under = this.going.size > 0;
+      for (const going of this.going.values()) {
+        going.ms += dtMs;
+        this.advance(going, n);
+        if (going.phase !== 'still') under = false;
+      }
+      if (!under || this.final.gone) return [];
+      this.final.gone = true;
+      const dice = [...this.going.values()];
+      return [{ kind: 'gone', final: true, value: dice[0].value, cells: dice.map((g) => ({ x: g.x, z: g.z })), cubeIds: dice.map((g) => g.id) }];
+    }
     const steps = leavingSteps(values);
     const { sinkingTicks } = state.config;
     const actionTicks = Math.max(1, state.config.actionTicks);
@@ -199,7 +272,12 @@ export class LeavingShow {
         const fresh = this.whole.has(cube.id) && !isStair(cube, state);
         const moves = done(cube.t);
         const target = this.stepOf(cube, state, 1 + moves * actionTicks, steps);
-        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, t: cube.t, moves, target, from: 1 + dip(cube.id), phase: 'still', ms: 0, first: fresh, struck: !fresh, ghost: false, height: target };
+        const from = 1 + dip(cube.id);
+        // How it gets ready: lifted over its full height, or pressed under it. A die the figure has pressed deeper
+        // than that already is not brought up to be pressed: it stays where it is.
+        const ready = n('liftHeight');
+        const top = ready >= 0 ? 1 + ready : Math.min(from, 1 + ready);
+        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, t: cube.t, moves, target, from, top, phase: 'still', ms: 0, first: fresh, struck: !fresh, ghost: false, height: target };
         if (fresh) {
           going.height = going.from;
           going.phase = reducedMotion ? 'still' : 'lift';
@@ -209,10 +287,17 @@ export class LeavingShow {
             going.struck = true;
           }
           sent.push(going);
-          // The chain it joins sighs: the dice already going, which the rules hold where they are on this landing.
+          // The chain it joins is one body with it (the owner, 13 October: a die added must weigh as much as a combo
+          // made): every die of it lifts by as much from where it is, hangs, and strikes its own step with the new one.
           if (!reducedMotion) {
             for (const other of this.going.values()) {
-              if (other.reactionId === cube.reactionId && !other.ghost && other.phase === 'still') this.sigh(other);
+              if (other.reactionId !== cube.reactionId || other.ghost || sent.includes(other)) continue;
+              other.from = other.height;
+              other.top = other.height + n('liftHeight');
+              other.phase = 'lift';
+              other.ms = 0;
+              other.first = true;
+              other.struck = false;
             }
           }
         }
@@ -315,12 +400,6 @@ export class LeavingShow {
     return leavingHeight((sinkingTicks - t) / window, moves, steps, isStair(cube, state));
   }
 
-  private sigh(going: Going): void {
-    going.phase = 'sigh';
-    going.ms = 0;
-    going.from = going.target;
-  }
-
   /** Drives a die from where it is drawn to its target: a drop, or at once with less motion. */
   private drive(going: Going, reducedMotion: boolean): void {
     if (reducedMotion) {
@@ -337,15 +416,13 @@ export class LeavingShow {
   private phaseMs(going: Going, n: (name: string) => number): number {
     switch (going.phase) {
       case 'lift':
-        return n('liftMs');
+        return this.final ? this.final.lift : n('liftMs');
       case 'hang':
-        return n('hangMs');
+        return this.final ? this.final.hang : n('hangMs');
       case 'drop':
-        return going.first ? n('dropMs') : n('stepMs');
+        return this.final ? this.final.drop : going.first ? n('dropMs') : n('stepMs');
       case 'settle':
         return n('leaveSettleMs');
-      case 'sigh':
-        return n('sighMs');
       default:
         return 0;
     }
@@ -367,23 +444,26 @@ export class LeavingShow {
       const share = ms > 0 ? going.ms / ms : 1;
       switch (going.phase) {
         case 'lift':
-          going.height = tween(share, going.from, 1 + n('liftHeight'), outCubic);
+          going.height = tween(share, going.from, going.top, outCubic);
           break;
         case 'drop': {
-          const curve = DROP_CURVES[Math.max(0, Math.min(DROP_CURVES.length - 1, Math.round(n('dropCurve'))))];
-          going.height = tween(share, going.from, going.target - (going.ghost ? 0 : n('settleOver')), curve);
+          const under = going.target <= UNDER;
+          // The last combo of a board goes late and all at once; any other drop by the curve of the look.
+          const curve = this.final ? inExpo : DROP_CURVES[Math.max(0, Math.min(DROP_CURVES.length - 1, Math.round(n('dropCurve'))))];
+          const to = going.target - (under ? 0 : n('settleOver'));
+          // A die of a chain that was pressed under its step with the die that joined is held there through the
+          // drop: it has nowhere down to go, and comes back to its step after the strike with the rest.
+          going.height = going.from < to ? going.from : tween(share, going.from, to, curve);
           break;
         }
         case 'settle':
           going.height = tween(share, going.from, going.target, outCubic);
           break;
-        case 'sigh':
-          going.height = going.target + n('sighHeight') * Math.sin(Math.PI * inOutSine(Math.min(1, share)));
-          break;
         default:
           break;
       }
-      if (going.ms < ms) return hit;
+      // A hair of the sum of the frames is not a frame: a phase that is over in all but that is over.
+      if (going.ms < ms - 1e-6) return hit;
       // The phase has run out: on to the next, with the time left over.
       going.ms -= ms;
       going.from = going.height;
@@ -395,8 +475,8 @@ export class LeavingShow {
           going.phase = 'drop';
           break;
         case 'drop':
-          hit = going.ghost ? 'gone' : 'struck';
-          going.phase = going.ghost ? 'still' : 'settle';
+          hit = going.target <= UNDER ? 'gone' : 'struck';
+          going.phase = going.target <= UNDER ? 'still' : 'settle';
           break;
         default:
           going.phase = 'still';

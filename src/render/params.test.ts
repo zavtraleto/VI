@@ -68,9 +68,7 @@ describe('board params', () => {
     const defaults = boardDefaults();
     const road = Object.fromEntries(Object.keys(BOARD_GROUPS.road).map((name) => [name, defaults[name]]));
     expect(road).toEqual({
-      comboStepMs: 140,
       comboHoldMs: 350,
-      sinkMs: 1300,
       eraseMs: 700,
       cameraMs: 900,
       drawMs: 1100,
@@ -116,7 +114,8 @@ describe('board params', () => {
 
   it('has the numbers of the leaving of a group, as the spec sets them', () => {
     const values = boardDefaults();
-    expect(values.liftHeight).toBe(0.08);
+    // Pressed down, not lifted (the owner, 13 October: «кости не должны прыгать вверх, а должны "проседать"»); above nought it is a lift.
+    expect(values.liftHeight).toBe(-0.06);
     expect(values.liftMs).toBe(90);
     expect(values.hangMs).toBe(60);
     expect(values.dropMs).toBe(130);
@@ -124,8 +123,15 @@ describe('board params', () => {
     expect(values.leaveSettleMs).toBe(120);
     expect(values.settleOver).toBe(0.015);
     expect(values.stepMs).toBe(120);
-    expect(values.sighHeight).toBe(0.04);
-    expect(values.sighMs).toBe(160);
+    // A chain that is added to goes as one body with the die that joins it: it has no numbers of its own.
+    expect(values.sighHeight).toBeUndefined();
+    expect(values.sighMs).toBeUndefined();
+    // The last combo of a board.
+    expect(values.finaleLiftHeight).toBe(-0.08);
+    expect(values.finaleLiftMs).toBe(100);
+    expect(values.finaleHangMs).toBe(100);
+    expect(values.finaleNoteMs).toBe(30);
+    expect(values.finaleDropMs).toBe(150);
     expect(values.endRingReach).toBe(1.6);
     expect(values.endRingMs).toBe(300);
     expect(values.punchAttackMs).toBe(30);
@@ -137,5 +143,6 @@ describe('board params', () => {
   it('takes the leaving of a group from an address too', () => {
     expect(readView('?liftHeight=0.1&dropCurve=2&punchAttackMs=0')).toEqual({ liftHeight: 0.1, dropCurve: 2, punchAttackMs: 0 });
     expect(readView('?liftHeight=3')).toEqual({});
+    expect(readView('?liftHeight=-0.1&finaleLiftHeight=0.12')).toEqual({ liftHeight: -0.1, finaleLiftHeight: 0.12 });
   });
 });

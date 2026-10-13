@@ -216,11 +216,9 @@ export class BoardView {
   private stopped: { dir: Dir; ms: number } | null = null;
   /** The step the player was making on the previous frame, to notice when it ends. */
   private lastStep: MoveKind | null = null;
-  /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. */
+  /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. In a session only. */
   private sinking = new Map<number, number>();
   private sinkingBefore = new Map<number, number>();
-  /** The cubes that were not sinking on the previous frame, to notice one that has just begun to leave with the combo that passes a level. */
-  private whole = new Set<number>();
   /** The leaving of a group on a level, as one body: it drives the height of every die that goes there. */
   private readonly show = new LeavingShow();
   /** The state the frame is drawn from: for `heightOf`, which is handed out to whoever draws a die. */
@@ -827,7 +825,8 @@ export class BoardView {
     }
     if (screen > 1 && tier >= 2) this.jolt = Math.max(this.jolt, Math.min(1, screen - 1));
     if (reducedMotion) return;
-    this.lean(BEAT_PUNCH[tier]);
+    // A chain of a level strikes with all its dice: the camera leans a tier further than for a group made.
+    this.lean(BEAT_PUNCH[beat.kind === 'chain' && state.levelRun ? Math.min(4, tier + 1) : tier]);
     this.bursts.fire(beat);
     if (beat.cells.length === 0) return;
     const cx = beat.cells.reduce((sum, cell) => sum + cell.x, 0) / beat.cells.length;
@@ -852,13 +851,25 @@ export class BoardView {
     this.lean(BEAT_PUNCH[0]);
   }
 
-  /** A group has gone under: a ring runs over the floor where it stood, in the colour of its face. */
-  farewell(cells: readonly { x: number; z: number }[], value: number): void {
+  /**
+   * The last combo of a board begins to take its dice away: the `sounding` dice of it will sound
+   * one by one, and every die of the board lifts, hangs and goes under with them (`LeavingShow.finale`).
+   * Called once, on the frame the board is passed, before it is drawn.
+   */
+  finale(state: RunState, sounding: number, reducedMotion: boolean): void {
+    this.show.finale(state, sounding, this.look.board, reducedMotion, (id) => this.springs.offset(id));
+    // Every die starts from where its spring held it, and no spring is left to move it.
+    for (const cube of state.cubes) this.springs.forget(cube.id);
+    this.drawn = state;
+  }
+
+  /** A group has gone under: a ring runs over the floor where it stood, in the colour of its face, `wide` times as far as the look has it. */
+  farewell(cells: readonly { x: number; z: number }[], value: number, wide = 1): void {
     if (this.still || cells.length === 0 || value < 1) return;
     const n = (name: string): number => Number(this.look.board[name] ?? 0);
     const cx = cells.reduce((sum, cell) => sum + cell.x, 0) / cells.length;
     const cz = cells.reduce((sum, cell) => sum + cell.z, 0) / cells.length;
-    this.bursts.ring(cx, cz, n('endRingReach'), n('endRingMs'), this.lit[value - 1], 0.75);
+    this.bursts.ring(cx, cz, n('endRingReach') * wide, n('endRingMs') * wide, this.lit[value - 1], 0.75);
   }
 
   /** The board answers the dice that have gone: light runs over its lines in the colour of the face sent last. */
@@ -965,21 +976,20 @@ export class BoardView {
       if (event.kind === 'sent') for (const id of event.cubeIds) this.springs.forget(id);
       else params.onLeaving?.(event);
     }
-    // In a session a chain that is added to brings its cubes back up: they rise instead of jumping. On a level the
-    // show drives the dice that go; it is silent once the board is over, and a die of the combo that passes the board
-    // comes down to the first step of its look softly, as it did before the show (the passage is as it was).
+    // In a session a chain that is added to brings its cubes back up: they rise instead of jumping. On a level no
+    // spring moves a die that goes: the show alone drives it, the last combo of a board too (a spring laid over that
+    // threw a die of it up a fifth of a die on the first frame of the passage).
     [this.sinking, this.sinkingBefore] = [this.sinkingBefore, this.sinking];
     this.sinking.clear();
-    for (const cube of state.cubes) {
-      if (cube.state !== 'sinking') continue;
-      const height = shownHeight(cube, state, 0, values);
-      const before = this.sinkingBefore.get(cube.id);
-      if (before !== undefined && !state.levelRun && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
-      else if (before === undefined && state.levelRun && state.over && this.whole.has(cube.id) && height < 0.98 && !reducedMotion) this.springs.shift(cube.id, 1 - height);
-      this.sinking.set(cube.id, height);
+    if (!state.levelRun) {
+      for (const cube of state.cubes) {
+        if (cube.state !== 'sinking') continue;
+        const height = shownHeight(cube, state, 0, values);
+        const before = this.sinkingBefore.get(cube.id);
+        if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
+        this.sinking.set(cube.id, height);
+      }
     }
-    this.whole.clear();
-    for (const cube of state.cubes) if (cube.state !== 'sinking') this.whole.add(cube.id);
     if (this.kicks.length > 0) {
       this.kicks = this.kicks.filter((kick) => {
         if (kick.at > timeMs) return true;
@@ -1043,7 +1053,8 @@ export class BoardView {
     if (passing && player.level === 'top' && !player.action) {
       const own = cubeAt(state, player.x, player.z);
       const rank = own ? passing.ranks.get(own.id) : undefined;
-      if (own && rank !== undefined) this.player.standAt(Math.max(0, passingHeight(passing, rank, this.heightOf(own, 0)) + dip(own.id)));
+      // On a board that goes the die is where the show of its last combo has it, down to the floor; on one that comes, where the passage has it.
+      if (own && rank !== undefined) this.player.standAt(Math.max(0, (passing.mode === 'leave' ? this.heightOf(own, 0) : passingHeight(passing, rank, this.heightOf(own, 0))) + dip(own.id)));
     } else if (passing && player.level === 'ground') {
       // Off the dice it is on the floor of a board that comes, and comes down to the floor of one whose dice go, from a shelf if it stood on one.
       const gone = passing.mode === 'come' ? 1 : Math.min(1, Math.max(0, passing.moveMs / Math.max(1, passing.moveForMs)));

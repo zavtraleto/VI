@@ -271,13 +271,11 @@ export const BOARD_GROUPS = {
   },
   road: {
     /**
-     * The passage from a board that is passed to the next, in the order it goes. A combo that
-     * clears a board: its dice light up one after another, this far apart; then they stand lit
-     * for a moment; then they go under the floor, this slowly, one after another as they lit up.
+     * The passage from a board that is passed to the next, in the order it goes. The combo that
+     * clears a board takes its dice away by the numbers of the group `leaving` (the finale); a
+     * die of it flashes as it sounds, and this is how long that light takes to go down.
      */
-    comboStepMs: number(140, 0, 600, 10),
     comboHoldMs: number(350, 0, 1500, 10),
-    sinkMs: number(1300, 200, 4000, 50),
     /** The lines of the board are erased towards the cell of the player: how long the whole of it takes. */
     eraseMs: number(700, 100, 3000, 50),
     /** The camera comes to the frame of the next board: nine tenths of the way in this time. */
@@ -344,16 +342,20 @@ export const BOARD_GROUPS = {
   },
   leaving: {
     /**
-     * A group that leaves a level goes as one body (the owner, 13 October: «все приподнимаются
-     * как одна плита»): up over its full height by `liftHeight` in `liftMs`, hangs for `hangMs`,
-     * drops onto its first step in `dropMs` along the curve `dropCurve` (0 inCubic, 1 inQuart,
+     * A group that leaves a level goes as one body. It gets ready by `liftHeight`, in `liftMs`:
+     * under nought it is pressed down by that much, as the weight of the die that made it comes
+     * onto it, and no die of it ever goes up (the owner, 13 October, after playing the lift: «кости
+     * не должны прыгать вверх, а должны "проседать"»; «не нравится, что кости, которые игрок не
+     * трогал, подлетают»); above nought it lifts over its full height, as it was first built
+     * («все приподнимаются как одна плита»). It holds there for `hangMs`, drops onto its first step in `dropMs` along the curve `dropCurve` (0 inCubic, 1 inQuart,
      * 2 inExpo), presses `settleOver` of a die below the step and comes back in `leaveSettleMs`
      * (`settleMs` is the edges of a die that has come up). Every landing of the figure's roll
      * drives it one step down in `stepMs`, the last one under the floor; then a ring runs over the
-     * floor from its middle, `endRingReach` cells in `endRingMs`. A chain that is added to on a
-     * level sighs: up `sighHeight` and back in `sighMs`.
+     * floor from its middle, `endRingReach` cells in `endRingMs`. A chain that is added to goes
+     * as one body with the die that joins it: every die of it by `liftHeight` from where it
+     * stands, and down onto its own step with the new one.
      */
-    liftHeight: number(0.08, 0, 0.3, 0.01),
+    liftHeight: number(-0.06, -0.3, 0.3, 0.01),
     liftMs: number(90, 0, 300, 10),
     hangMs: number(60, 0, 300, 10),
     dropMs: number(130, 40, 400, 10),
@@ -361,10 +363,20 @@ export const BOARD_GROUPS = {
     leaveSettleMs: number(120, 0, 400, 10),
     settleOver: number(0.015, 0, 0.1, 0.005),
     stepMs: number(120, 40, 400, 10),
-    sighHeight: number(0.04, 0, 0.2, 0.01),
-    sighMs: number(160, 0, 500, 10),
     endRingReach: number(1.6, 0.5, 4, 0.1),
     endRingMs: number(300, 100, 800, 10),
+    /**
+     * The last combo of a board is the strongest of these strikes (the owner, 13 October: «даже
+     * более сочным, это же прохождение уровня»): every die of the board by `finaleLiftHeight`
+     * in `finaleLiftMs`, pressed down under nought and lifted above it; they hold while the dice of the combo flash and sound one by one,
+     * `finaleNoteMs` apart, and for `finaleHangMs` at the least; then all of them go under the
+     * floor at once in `finaleDropMs`, and the board answers on that frame.
+     */
+    finaleLiftHeight: number(-0.08, -0.3, 0.3, 0.01),
+    finaleLiftMs: number(100, 0, 300, 10),
+    finaleHangMs: number(100, 0, 600, 10),
+    finaleNoteMs: number(30, 0, 200, 5),
+    finaleDropMs: number(150, 40, 400, 10),
     /** The lean of the camera on a beat: up to its peak in `punchAttackMs`, then down with a half-life of `punchDecayMs`. In every mode. */
     punchAttackMs: number(30, 0, 120, 5),
     punchDecayMs: number(120, 30, 400, 10),

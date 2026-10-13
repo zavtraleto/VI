@@ -28,6 +28,8 @@ export interface DicePassing {
   moveForMs: number;
   /** Going: how long the light of a die that has just lit up takes to go down. */
   flashMs: number;
+  /** Going: the dice go under all at once, and not one after another: the last combo of a level, which is one strike. */
+  together?: boolean;
 }
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
@@ -75,6 +77,7 @@ export function litFlash(passing: DicePassing, rank: number): number {
 
 /** How far under the floor a die of the board that is passed has gone, 0 to 1. */
 export function goneShare(passing: DicePassing, rank: number): number {
+  if (passing.together) return dieShare(passing.moveMs, 0, 0, passing.moveForMs);
   return dieShare(passing.moveMs, Math.min(rank, Math.max(0, passing.count - 1)), passing.stepMs, passing.moveForMs);
 }
 

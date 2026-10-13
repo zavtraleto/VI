@@ -58,7 +58,8 @@ export function beatsOf(state: RunState, events: readonly GameEvent[]): Beat[] {
         kind: 'chain',
         value: event.value,
         tier: chainTier(event.chain),
-        cells: event.chain >= 3 || fresh.length === 0 ? all : fresh,
+        // On a level the chain strikes as one body, with the die that joined: the beat is all of it.
+        cells: event.chain >= 3 || fresh.length === 0 || state.levelRun !== null ? all : fresh,
         points: event.points,
         chain: event.chain,
       });

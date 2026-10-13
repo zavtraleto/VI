@@ -661,13 +661,15 @@ export class CubeMeshes {
       let height = look === 'idle' ? 1 : cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
       // Where it stands: on a level a die that leaves stands by the steps of its look and is driven from one to the
       // next (`leaving.ts`); its glass, its dots and its light go by the height the rules give it, as they always did.
-      let place = look === 'idle' ? 1 : heightOf(cube, alpha);
+      // The last combo of a board takes every die of it away, the ones that stand too: all of them are where the show has them.
+      const finale = passing?.mode === 'leave' && passing.ranks.has(cube.id);
+      let place = look === 'idle' && !finale ? 1 : heightOf(cube, alpha);
       // What is left of the light a die of a combo took when it lit up.
       let lit = 0;
       const rank = passing?.ranks.get(cube.id);
       if (passing && rank !== undefined) {
         height = passingHeight(passing, rank, height);
-        place = passingHeight(passing, rank, place);
+        if (passing.mode === 'come') place = passingHeight(passing, rank, place);
         if (passing.mode === 'leave') {
           const gone = goneShare(passing, rank);
           // Gone under: there is nothing of it to draw.
@@ -691,7 +693,7 @@ export class CubeMeshes {
       if (look === 'idle') {
         if (solids >= MAX_DICE) continue;
         this.pose(cube, state, alpha);
-        this.at.y += dip(cube.id);
+        this.at.y += dip(cube.id) + (place - 1);
         // A die that has just come up keeps the light of its channel on its edges and lets it go.
         const settled = this.settling.get(cube.id);
         const own = this.light.copy(this.channels[cube.ori.top - 1]);

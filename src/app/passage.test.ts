@@ -170,4 +170,13 @@ describe('where the files of the menu lead', () => {
     expect(Object.keys(FILE_LEADS).sort()).toEqual(MENU_FILES.map((file) => file.id).sort());
     expect(new Set(Object.values(FILE_LEADS)).size).toBe(MENU_FILES.length);
   });
+
+  it('erases the lines from the frame the dice strike, where they go under at once and take no time of their own', () => {
+    // The finale of a level: three dice sound 30 ms apart, the strike is 350 ms in, and nothing is waited for after it.
+    const finale: PassageTimes = { ...TIMES, comboStepMs: 30, comboHoldMs: 350 - 3 * 30, sinkMs: 0 };
+    expect(passageAt(349, finale, COUNTS, false).phase).toBe('combo');
+    expect(passageAt(60, finale, COUNTS, false).lit).toBe(3);
+    expect(passageAt(350, finale, COUNTS, false).phase).toBe('erase');
+    expect(passageEnd(finale, COUNTS, false)).toBe(350 + 700 + 1100 + 3 * 90 + 600);
+  });
 });
