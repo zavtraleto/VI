@@ -48,7 +48,7 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
   {
     // Four dice and not five, three cells wide: with 2s any two dice left make a pair of their own, so a fifth die gives a way
     // round the lesson. The far 2 comes over a leaving die (`glass`): laid backwards from its end on a square of four, no board
-    // of this route does without it (0 of 36 000), and the level after it, `P20`, stands on the same roll. One first move keeps
+    // of this route does without it (of the 36 000 laid, the 112 whose laid way is the shortest all roll over one), and the level after it, `P20`, stands on the same roll. One first move keeps
     // the fewest moves; the hasty persona clears it in 0.30 of its runs.
     ...ACT, slot: 1023, id: 'K23', act: 2, role: 'opening', size: 4, holes: LONG, dice: 4, faces: [2], standing: [{ value: 2, count: 1 }],
     shows: ['link', 'glass'], scenes: [{ event: 'combo', face: 2, by: 'roll', moves: [1, 1] }, { event: 'link', face: 2, by: 'roll', moves: [1, 1] }, { event: 'link', face: 2, by: 'roll', moves: [2, 2] }],
@@ -59,7 +59,7 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
     // No floors for the hasty and the casual persona: they clear it in a run out of twelve and in none, as they do the twist
     // of act I. The greedy one loses nine runs in ten, and no first move loses the board.
     ...ACT, slot: 1025, id: 'K25', act: 2, role: 'twist', size: 4, holes: WIDE, dice: 5, faces: [3], standing: [{ value: 3, count: 2 }],
-    trap: 'any', traps: [0.8, 1], safeFirst: true, par: [4, 6], firsts: [1, 99], shows: ['link'], avoid: ['glass'], kinds: ['top'], route: '^K L L$', gap: [0.3, 1],
+    trap: 'floor', traps: [0.8, 1], safeFirst: true, par: [4, 6], firsts: [1, 99], shows: ['link'], avoid: ['glass'], kinds: ['top'], route: '^K L L$', gap: [0.3, 1],
     brief: 'greed: the combo of 3s that asks to be made on the second move strands two dice; bring the own die round to make it, then link the two',
   },
   {
