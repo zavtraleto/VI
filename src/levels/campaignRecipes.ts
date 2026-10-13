@@ -20,8 +20,11 @@ const ACT = { chapter: 0, compact: false } as const;
 
 export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
   {
-    ...ACT, slot: 1017, id: 'K17', act: 1, role: 'opening', size: 3, dice: 4, faces: [3], standing: [{ value: 3, count: 2 }],
-    seven: true, under: true, par: [3, 4], firsts: [2, 99], kinds: ['top'], worst: 6, personas: { hasty: 0.7, casual: 0.9 },
+    // Four cells by three and not three by three: on a square of three the fourth die joins only by a roll onto a leaving die
+    // or after a walk over leaving dice, and neither is this board's to ask. One first move keeps the fewest moves (the others
+    // make the way longer, none loses); the walk is not asked of an open board; the hasty persona clears it in 0.57 of its runs.
+    ...ACT, slot: 1017, id: 'K17', act: 1, role: 'opening', size: 4, holes: WIDE, dice: 4, faces: [3], standing: [{ value: 3, count: 2 }],
+    seven: true, under: true, par: [3, 4], firsts: [1, 99], needs: ['link'], avoid: ['glass'], kinds: ['top'], ends: { event: 'link' }, personas: { hasty: 0.5, casual: 0.9 },
     brief: 'the rule of seven: a pair of 3s stands, the own die shows a 4 with its 3 underneath; two rolls one way bring it up; the fourth die joins as a link or is left alone',
   },
   {

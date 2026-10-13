@@ -8,6 +8,7 @@ import { moveOf, moveText, movesAt, playMove, solveLevel, tryWay } from '../rule
 import { createRun, step } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
+import { CAMPAIGN_PLACES } from './campaignRecipes';
 import { levelId } from './generate';
 import { ACT_1, LEVELS, PARKED, SPARES, TAIL } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
@@ -24,8 +25,8 @@ import { UNLIKE_BY, sameBoard, traitsOf, unlike } from './variety';
  * (`select.ts`), and not here.
  */
 
-/** The place a board is for, by the name of its level. */
-const placeOf = (spec: LevelSpec): Recipe | undefined => PLACES.find((place) => levelId(place) === spec.id);
+/** The place a board is for, by the name of its level: a place of the probe, or a place of an act of the campaign. */
+const placeOf = (spec: LevelSpec): Recipe | undefined => [...PLACES, ...CAMPAIGN_PLACES].find((place) => levelId(place) === spec.id);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 /** What is left of the list as the owner ordered it on 12 October 2026 (docs/VI_Levels_Playtest_2026-10-12.md, section 4), the levels that went into the acts taken out. */
 const TAIL_ORDER = ['P13', 'P04', 'P02', 'P14', 'P20', 'P07', 'P01', 'P12', 'P08', 'P06', 'P05', 'P17', 'P15', 'P31', 'P19'];
