@@ -208,8 +208,8 @@ export const BOARD_GROUPS = {
      * how far the slope of a wave moves it; how fast it fades up the die.
      */
     reflectStrength: number(0.18, 0, 1, 0.01),
-    reflectWarp: number(0.05, 0, 0.3, 0.005),
-    reflectFade: number(1.6, 0, 4, 0.05),
+    reflectWarp: number(0.012, 0, 0.3, 0.002),
+    reflectFade: number(3.5, 0, 12, 0.1),
     /**
      * A lamp stands over the water far off, and the water gives it back as a path of glints from
      * the lamp to the eye, dark beside it: how bright the glints are, 0 for none; how tight, the
