@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyRun, put } from '../rules/testkit';
-import { HITSTOP_MS, Hitstop, beatsOf, chainTier, matchTier } from './juice';
+import { HITSTOP_MS, HeldBeats, Hitstop, beatsOf, chainTier, matchTier, type Beat } from './juice';
 
 describe('tiers', () => {
   it('keep a plain group small and make a large one a beat', () => {
@@ -71,5 +71,38 @@ describe('hitstop', () => {
     let held = 0;
     for (let i = 0; i < 20; i++) held += 16 - hold.take(16);
     expect(held).toBe(HITSTOP_MS[4]);
+  });
+});
+
+describe('the beats of a level, held until its dice come down', () => {
+  const beat = (kind: Beat['kind'], value = 2): Beat => ({ kind, value, tier: 0, cells: [{ x: 1, z: 1 }], points: 0, chain: 1 });
+
+  it('keeps a group and a chain of a level, and lets everything else through at once', () => {
+    const held = new HeldBeats();
+    const step = beat('step');
+    expect(held.take([beat('match'), step, beat('chain')], true)).toEqual([step]);
+    expect(held.release().map((b) => b.kind)).toEqual(['match', 'chain']);
+    // Let go of once: the next strike has nothing to give.
+    expect(held.release()).toEqual([]);
+  });
+
+  it('gives every beat it holds on one strike: two groups made on one landing strike together', () => {
+    const held = new HeldBeats();
+    held.take([beat('match', 2), beat('match', 3)], true);
+    expect(held.release().map((b) => b.value)).toEqual([2, 3]);
+  });
+
+  it('holds nothing outside a level', () => {
+    const held = new HeldBeats();
+    const beats = [beat('match'), beat('chain')];
+    expect(held.take(beats, false)).toEqual(beats);
+    expect(held.release()).toEqual([]);
+  });
+
+  it('forgets what it held when the board is over or a new one is put on', () => {
+    const held = new HeldBeats();
+    held.take([beat('match')], true);
+    held.reset();
+    expect(held.release()).toEqual([]);
   });
 });

@@ -81,6 +81,33 @@ export function peakBeat(): Beat {
 }
 
 /**
+ * On a level a group strikes when its dice come down, not when they are sent: the beat of a group
+ * and of a chain waits for the show of their leaving (`LeavingShow` in `src/render/leaving.ts`),
+ * and every beat held is given on its first strike, so that two groups made on one landing strike
+ * together. Everything else, and every beat outside a level, is given at once.
+ */
+export class HeldBeats {
+  private held: Beat[] = [];
+
+  /** Takes the beats of a tick: returns those to answer now, and keeps the rest for the strike. */
+  take(beats: readonly Beat[], level: boolean): Beat[] {
+    if (!level) return [...beats];
+    const now: Beat[] = [];
+    for (const beat of beats) (beat.kind === 'match' || beat.kind === 'chain' ? this.held : now).push(beat);
+    return now;
+  }
+
+  /** The dice have come down: every beat held, to be answered now. */
+  release(): Beat[] {
+    return this.held.splice(0);
+  }
+
+  reset(): void {
+    this.held = [];
+  }
+}
+
+/**
  * The breath the game holds on a beat: for a few hundredths of a second the simulation stands
  * still while the picture goes on. Time held is time the player does not lose: the clock of
  * the rules stops with everything else.

@@ -36,6 +36,7 @@ import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { shiftFor } from '../render/framing';
 import { boardDefaults, readView, type BoardLook } from '../render/params';
 import { goneShare, type DicePassing } from '../render/passing';
+import type { LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
 import { ROAD, blockOf, placeAfter, type HintUntil } from '../levels/road';
 import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf, type HintKey } from '../levels/campaign';
@@ -95,7 +96,7 @@ import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
 import { Hints } from './hints';
 import { levelReport, shortOf } from './levelStats';
 import { puzzleReport, starsFor } from './puzzleStats';
-import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
+import { HeldBeats, Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Later } from './later';
 import { Runner, frameBound } from './runner';
@@ -290,6 +291,8 @@ export class Game {
   private sealLight: { dir: Dir; until: number } | null = null;
   /** The breath the game holds on a beat. */
   private readonly hold = new Hitstop();
+  /** The beats of a group on a level, kept until its dice come down. */
+  private readonly heldBeats = new HeldBeats();
   /** The peak of the contact on the last frame, to notice it begin. */
   private lastPeak = 0;
   /** The way back to the end of a lesson for a player who has left its short way, and the position it is from. */
@@ -1024,6 +1027,7 @@ export class Game {
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
+    this.heldBeats.reset();
     // Only a level carries a line over its board, a piece of the road or the board an act opens with; a run that is no level carries none.
     if (!state.levelRun) this.hint = null;
     // Every start of a board is without the line about a dim die; a board that is no level keeps no room for it.
@@ -2480,7 +2484,9 @@ export class Game {
       track('session_checkpoint', { step_id: this.kind, ...checkpoint(state, state.tick / minute) });
     }
     // The combo that passes a level is answered by the passage: its dice light up one after another, each on its own note.
-    if (!(state.levelRun && state.endReason === 'passed')) for (const beat of beatsOf(state, state.events)) this.beat(beat);
+    // On a level a group strikes when its dice come down, not when they are sent: its beat waits for the show (`onLeaving`).
+    if (!(state.levelRun && state.endReason === 'passed')) for (const beat of this.heldBeats.take(beatsOf(state, state.events), state.levelRun !== null)) this.beat(beat);
+    if (state.over) this.heldBeats.reset();
     const { player } = state;
     // A level says its rules in the window it opens with, and nothing while it is played.
     if (state.levelRun) return;
@@ -2516,6 +2522,20 @@ export class Game {
     }
     // A puzzle and a level are not scored: nothing leaves for the score.
     this.hud.beat({ kind: beat.kind, value: beat.value, chain: beat.chain, points: state.puzzle || state.levelRun ? 0 : beat.points, tier: beat.tier, at });
+  }
+
+  /** What the leaving of a group on a level has come to: the beats held for it, a step, or the ring of its going. */
+  private onLeaving(event: LeavingEvent): void {
+    if (this.state.over) {
+      this.heldBeats.reset();
+      return;
+    }
+    if (event.kind === 'impact' || event.kind === 'step') {
+      for (const beat of this.heldBeats.release()) this.beat(beat);
+      if (event.kind === 'step') this.view.thud();
+    } else if (event.kind === 'gone') {
+      this.view.farewell(event.cells, event.value);
+    }
   }
 
   private onEvent(state: RunState, event: GameEvent): void {
@@ -2911,6 +2931,7 @@ export class Game {
         whole: this.settings.view === 'full',
         // The frame stays for as long as the group the die was of is going.
         ghosts: state.levelRun ? this.ghosts.filter((ghost) => state.reactions.some((reaction) => reaction.id === ghost.reactionId)) : [],
+        onLeaving: (event) => this.onLeaving(event),
       });
       this.backdrop.draw(this.view.background, this.view.inverted);
     } else {
