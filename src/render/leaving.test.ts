@@ -553,11 +553,59 @@ describe('the leaving of a group on a level, as one body', () => {
     expect(show.height(a, state, 0)).toBeLessThan(0.78);
     expect(show.frame(state, 1000, values, false, noDip)).toEqual([]);
     expect(show.height(a, state, 0)).toBeCloseTo(shownHeight(a, state, 0));
-    // A die sent by the move that ends the board is the passage's: the show does not lift it.
+    // A die sent by the move that lost the board goes as any die that is sent, and does not jump to its step: only
+    // its springs are let go of (`sent`), and nothing is said of its strike.
     const c = put(state, 3, 1, 2);
+    show.frame(state, 0, values, false, noDip);
     send(state, c);
+    expect(show.frame(state, 0, values, false, noDip).map((e) => e.kind)).toEqual(['sent']);
+    expect(show.height(c, state, 0)).toBeCloseTo(1);
+    expect(show.frame(state, 90, values, false, noDip)).toEqual([]);
+    expect(show.height(c, state, 0)).toBeCloseTo(1.08);
+    expect(show.frame(state, 1000, values, false, noDip)).toEqual([]);
+    expect(show.height(c, state, 0)).toBeCloseTo(0.78);
+  });
+
+  it('leaves the dice of the combo that passes a board to the finale: until it is called it sends none of them', () => {
+    const { state, show } = sentPair();
+    show.frame(state, 0, values, false, noDip);
+    const c = put(state, 3, 1, 2);
+    show.frame(state, 0, values, false, noDip);
+    send(state, c);
+    state.over = true;
+    state.endReason = 'passed';
     expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
     expect(show.height(c, state, 0)).toBe(shownHeight(c, state, 0));
+  });
+
+  it('presses both chains a die joins at once, though the rules have just made one of the two', () => {
+    const state = levelRun();
+    const a = put(state, 1, 1, 2);
+    const f = put(state, 2, 1, 2);
+    const b = put(state, 3, 1, 2);
+    const show = new LeavingShow();
+    show.frame(state, 0, values, false, noDip);
+    send(state, a);
+    b.state = 'sinking';
+    b.t = 1;
+    b.reactionId = 2;
+    // Each stands for a group of its own, not for a stair, which is a group of one.
+    state.reactions[0].total = 2;
+    state.reactions.push({ id: 2, value: 2, chain: 1, total: 2 });
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    // The die between them joins both: the rules give the second chain the name of the first on that tick.
+    send(state, f);
+    b.reactionId = 1;
+    state.reactions = state.reactions.filter((reaction) => reaction.id === 1);
+    expect(show.frame(state, 0, values, false, noDip).map((e) => e.kind)).toEqual(['sent']);
+    show.frame(state, 90, values, false, noDip);
+    expect(show.height(a, state, 0)).toBeCloseTo(0.78 + 0.08);
+    expect(show.height(b, state, 0)).toBeCloseTo(0.78 + 0.08);
+    show.frame(state, 60, values, false, noDip);
+    const struck = show.frame(state, 130, values, false, noDip);
+    expect(struck.map((e) => e.kind)).toEqual(['impact']);
+    expect([...struck[0].cubeIds].sort()).toEqual([a.id, f.id, b.id].sort());
   });
 
   it('brings a die back up softly when a move is taken back, with no strike', () => {

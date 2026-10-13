@@ -219,7 +219,8 @@ export class LeavingShow {
    * rules take it on the tick the die lands, and the world never stands between two rolls. A die
    * is sent when the show saw it whole on the frame before; a landing is a move of its window
    * done, counted from `cube.t`. On a board that is over the dice that go are still driven to
-   * their steps, and nothing is said: what its last move sent is the passage's to show.
+   * their steps, and nothing is said of their strikes; the combo that passes a board is the
+   * finale's (`finale`).
    */
   frame(state: RunState, dtMs: number, values: ParamValues, reducedMotion: boolean, dip: (cubeId: number) => number): LeavingEvent[] {
     if (!state.levelRun) {
@@ -251,6 +252,12 @@ export class LeavingShow {
     const sent: Going[] = [];
     const seen = new Set<number>();
     const whole = new Set<number>();
+    // The chain every die is of now: a die that joins two chains makes them one on its tick, before the show has
+    // looked at the dice of the second.
+    for (const cube of state.cubes) {
+      const known = this.going.get(cube.id);
+      if (known && cube.state === 'sinking') known.reactionId = cube.reactionId;
+    }
 
     for (const cube of state.cubes) {
       if (cube.state !== 'sinking') {
@@ -263,7 +270,9 @@ export class LeavingShow {
       // A die that was going under and is here again: a move was taken back. It is found anew.
       if (going?.ghost) going = undefined;
       if (!going) {
-        if (over) {
+        // The combo that passes a board is the finale's to take away, whole; a move that lost the board sends its
+        // dice as any move does.
+        if (over && state.endReason === 'passed') {
           this.going.delete(cube.id);
           continue;
         }
@@ -370,7 +379,8 @@ export class LeavingShow {
       }
     }
     for (const going of gone) this.going.delete(going.id);
-    if (over) return [];
+    // A board that is over says nothing of its strikes; what was sent is still said, for the springs of those dice.
+    if (over) return events.filter((event) => event.kind === 'sent');
     events.push(...this.grouped(struck, 'impact'), ...this.grouped(stepped, 'step'), ...this.grouped(gone, 'gone'));
     return events;
   }

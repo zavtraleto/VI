@@ -859,8 +859,14 @@ export class BoardView {
   finale(state: RunState, sounding: number, reducedMotion: boolean): void {
     this.show.finale(state, sounding, this.look.board, reducedMotion, (id) => this.springs.offset(id));
     // Every die starts from where its spring held it, and no spring is left to move it.
-    for (const cube of state.cubes) this.springs.forget(cube.id);
+    this.release(state.cubes.map((cube) => cube.id));
     this.drawn = state;
+  }
+
+  /** The show takes these dice: no spring is left on them, and no wave of a beat that was on its way to them throws them up. */
+  private release(ids: readonly number[]): void {
+    for (const id of ids) this.springs.forget(id);
+    if (this.kicks.length > 0) this.kicks = this.kicks.filter((kick) => !ids.includes(kick.id));
   }
 
   /** A group has gone under: a ring runs over the floor where it stood, in the colour of its face, `wide` times as far as the look has it. */
@@ -973,7 +979,7 @@ export class BoardView {
     // The leaving of a group on a level, as one body: the show drives the height of every die that goes.
     // A die that has just been sent lifts from where its spring held it, and the spring is let go of.
     for (const event of this.show.frame(state, dt, values, reducedMotion, (id) => this.springs.offset(id))) {
-      if (event.kind === 'sent') for (const id of event.cubeIds) this.springs.forget(id);
+      if (event.kind === 'sent') this.release(event.cubeIds);
       else params.onLeaving?.(event);
     }
     // In a session a chain that is added to brings its cubes back up: they rise instead of jumping. On a level no

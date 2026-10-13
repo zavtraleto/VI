@@ -231,6 +231,8 @@ const PASSAGE_STEP_MS = 100;
 const FAIL_HOLD_MS = 900;
 /** The passage waits for the frame the dice of the last combo are drawn going under; past this long after their time it goes on without it (a picture that is not drawn says nothing). */
 const FINALE_WAIT_MS = 250;
+/** Where no board comes after the one that is passed, its window waits this long after the strike of the finale: the ring over the floor runs out first. */
+const FINALE_WINDOW_MS = 600;
 /** How strong the answer of the board to a level that is passed is, as a beat: a tier under the strongest, and the sound of a chain's fourth link. */
 const FINALE_TIER = 3;
 const FINALE_CHAIN = 4;
@@ -1477,10 +1479,7 @@ export class Game {
       heard: 0,
     };
     this.view.setPassing(passing);
-    const reduced = prefersReducedMotion(this.settings);
-    this.view.finale(state, passing.count, reduced);
-    // The breath held on the combo that passes a board is the longest there is.
-    if (!reduced) this.hold.hold(4);
+    this.view.finale(state, passing.count, prefersReducedMotion(this.settings));
     this.awardStars();
   }
 
@@ -1531,7 +1530,8 @@ export class Game {
       }
       if (now.phase === 'combo' || now.phase === 'sink') return;
       if (!passage.next) {
-        // The passage leads nowhere: the window of the level, over a board whose dice are gone.
+        // The passage leads nowhere: the window of the level, over a board whose dice are gone and whose strike has rung out.
+        if (passage.elapsed < marks.sink + FINALE_WINDOW_MS) return;
         this.passage = null;
         this.showLevelResult();
         return;
@@ -1652,6 +1652,8 @@ export class Game {
     const { passage } = this;
     if (!passage || passage.struck) return;
     passage.struck = true;
+    // They are under on this frame: none of them is drawn on it, whatever the clock of the passage says.
+    this.passing.moveMs = this.passing.moveForMs;
     this.answerPassed();
   }
 
