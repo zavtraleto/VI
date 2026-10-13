@@ -312,8 +312,8 @@ export const BOARD_GROUPS = {
     /**
      * A die that leaves a level is shown by steps, as shares of a whole die, and not as the rules
      * have it: as low as this the moment it leaves, and as low as this with its last move left to
-     * it, where it can still be stepped up onto; with no move left it is gone. Between the two it
-     * goes down through the move as it always did. Only the look: the rules, and a session, are as
+     * it, where it can still be stepped up onto; with no move left it is gone. From one to the next
+     * it is driven as the group `leaving` below has it. Only the look: the rules, and a session, are as
      * they were (the owner, 12 October: «сразу 75–80%, после первого хода 10–15%»).
      */
     leaveFirst: number(0.78, 0.3, 1, 0.01),

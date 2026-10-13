@@ -1,7 +1,8 @@
 # Уход группы на уровне: замах, удар, ступени ударом — план
 
-> Вид: план. Статус: не выполнен. Дата: 2026-10-13.
-> Что заменило: —. Что живёт в коде: после постройки — src/render/ease.ts, src/render/leaving.ts, src/render/view.ts, src/render/cubes.ts, src/app/game.ts.
+> Вид: план. Статус: выполнен (в ветке `leaving` 13 октября 2026, не опубликовано). Дата: 2026-10-13. Проверено: 2026-10-13.
+> Что заменило: —. Что живёт в коде: src/render/ease.ts, src/render/leaving.ts, src/render/punch.ts, src/render/view.ts, src/render/cubes.ts, src/app/juice.ts, src/app/game.ts.
+> Где код разошёлся с этим планом — раздел 9 [спеки](../specs/2026-10-13-vi-leaving-choreography-design.md).
 
 > **Исполнителю (Opus):** вести по superpowers:executing-plans (сам, задача за задачей) или superpowers:subagent-driven-development. Шаги — чекбоксы. Субагентов запускать с `model: opus` для реализации и `model: sonnet` для поиска.
 

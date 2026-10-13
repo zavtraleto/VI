@@ -6,9 +6,9 @@ import { BOARD_GROUPS } from './params';
 /**
  * How high a die is shown, which is not always how high the rules have it. On a level a die that
  * leaves is shown by steps (docs/art/VI_Interface_Layer.md): a little lower the moment it leaves,
- * near the floor with its last move left to it, and gone after that; between two steps it goes
- * down through the move as it always did. A die the board is laid with as leaving, a stair, stands
- * half way up instead of a little lower while it has two moves left. The rules do not read this:
+ * near the floor with its last move left to it, and gone after that; from one step to the next it
+ * is driven by the show of its leaving (`LeavingShow`, below). A die the board is laid with as
+ * leaving, a stair, stands half way up instead of a little lower while it has two moves left. The rules do not read this:
  * a die is stepped onto and rolled over by the height the rules give it (`cubeHeight`). A session
  * is shown as the rules are.
  */
