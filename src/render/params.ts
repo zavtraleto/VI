@@ -173,11 +173,11 @@ export const BOARD_GROUPS = {
      * them are, which are some four times as large. How much lighter the water is far off, at
      * the top of the frame.
      */
-    swellHeight: number(0.07, 0, 0.4, 0.005),
+    swellHeight: number(0.045, 0, 0.4, 0.005),
     swellLength: number(0.8, 0.1, 3, 0.01),
-    swellSpeed: number(0.1, 0, 1, 0.01),
-    longSwell: number(0.22, 0, 1.5, 0.01),
-    farLight: number(0.02, 0, 0.3, 0.005),
+    swellSpeed: number(0.03, 0, 1, 0.005),
+    longSwell: number(0.16, 0, 1.5, 0.01),
+    farLight: number(0.01, 0, 0.3, 0.005),
     /** While a board is passed - its dice go, its lines are erased and drawn, the camera travels - the swell goes down by this much. */
     passCalm: number(0.85, 0, 1, 0.01),
     /**
@@ -187,7 +187,7 @@ export const BOARD_GROUPS = {
      * high: of a step, of a die that stands or is thrown, of a group.
      */
     rippleDamp: number(0.006, 0, 0.1, 0.001),
-    rippleSpeed: number(1.2, 0.2, 3, 0.05),
+    rippleSpeed: number(0.55, 0.1, 3, 0.05),
     rippleHz: number(60, 10, 120, 5),
     dropRadius: number(0.35, 0.1, 1.5, 0.05),
     dropSmall: number(0.04, 0, 1, 0.01),
@@ -216,15 +216,15 @@ export const BOARD_GROUPS = {
      * higher the narrower the path and the smaller a glint; and to which side of the frame the
      * path lies, -1 the left and 1 the right.
      */
-    glint: number(0.12, 0, 3, 0.01),
+    glint: number(0.05, 0, 3, 0.01),
     glintTight: number(14, 2, 600, 1),
     lampSide: number(1, -1.5, 1.5, 0.05),
     /** The light of a ring, and how much darker than the dark of the board the water is. */
-    crestLight: number(0.22, 0, 2, 0.01),
+    crestLight: number(0.2, 0, 2, 0.01),
     waterDeep: number(0.15, 0, 0.3, 0.01),
     /** What passes under the water: how much of it shows, how fast it drifts, and how far the slope of a wave moves it. */
-    belowStrength: number(0.12, 0, 1, 0.01),
-    belowSpeed: number(0.004, 0, 0.05, 0.001),
+    belowStrength: number(0.06, 0, 1, 0.01),
+    belowSpeed: number(0.002, 0, 0.05, 0.001),
     refract: number(0.6, 0, 3, 0.05),
   },
   signs: {
