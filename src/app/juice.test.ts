@@ -92,6 +92,19 @@ describe('the beats of a level, held until its dice come down', () => {
     expect(held.release().map((b) => b.value)).toEqual([2, 3]);
   });
 
+  it('says whether a strike is waited for: what is said over a chain waits with it', () => {
+    const held = new HeldBeats();
+    expect(held.waiting).toBe(false);
+    held.take([beat('step')], true);
+    expect(held.waiting).toBe(false);
+    held.take([beat('chain')], true);
+    expect(held.waiting).toBe(true);
+    held.release();
+    expect(held.waiting).toBe(false);
+    held.take([beat('chain')], false);
+    expect(held.waiting).toBe(false);
+  });
+
   it('holds nothing outside a level', () => {
     const held = new HeldBeats();
     const beats = [beat('match'), beat('chain')];

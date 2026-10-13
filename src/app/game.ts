@@ -293,6 +293,8 @@ export class Game {
   private readonly hold = new Hitstop();
   /** The beats of a group on a level, kept until its dice come down. */
   private readonly heldBeats = new HeldBeats();
+  /** How long each chain of a level is said to be over its dice: the word waits for the strike with the beat. */
+  private readonly saidChain = new Map<number, number>();
   /** The peak of the contact on the last frame, to notice it begin. */
   private lastPeak = 0;
   /** The way back to the end of a lesson for a player who has left its short way, and the position it is from. */
@@ -1028,6 +1030,7 @@ export class Game {
     this.levelCounted = false;
     this.ghosts = [];
     this.heldBeats.reset();
+    this.saidChain.clear();
     // Only a level carries a line over its board, a piece of the road or the board an act opens with; a run that is no level carries none.
     if (!state.levelRun) this.hint = null;
     // Every start of a board is without the line about a dim die; a board that is no level keeps no room for it.
@@ -2729,13 +2732,17 @@ export class Game {
     const labels: HudLabel[] = [];
     // A chain of a level that is passed says nothing over its dice once they are being sent under.
     const sent = state.levelRun !== null && state.endReason === 'passed' && this.passage?.beaten !== false;
+    for (const id of this.saidChain.keys()) if (!state.reactions.some((reaction) => reaction.id === id)) this.saidChain.delete(id);
     for (const reaction of state.reactions) {
-      if (reaction.chain < 2 || sent) continue;
+      // On a level the word over a chain comes with the strike of the die that joined, as the beat does, not on the tick it was sent.
+      if (!this.heldBeats.waiting || state.levelRun === null) this.saidChain.set(reaction.id, reaction.chain);
+      const chain = Math.min(reaction.chain, this.saidChain.get(reaction.id) ?? 0);
+      if (chain < 2 || sent) continue;
       const cubes = state.cubes.filter((cube) => cube.reactionId === reaction.id && cube.state === 'sinking');
       if (cubes.length === 0) continue;
       const cx = cubes.reduce((sum, cube) => sum + cube.x, 0) / cubes.length;
       const cz = cubes.reduce((sum, cube) => sum + cube.z, 0) / cubes.length;
-      labels.push({ id: reaction.id, value: reaction.value, chain: reaction.chain, at: over(cx, 1.2, cz), praise: state.levelRun !== null });
+      labels.push({ id: reaction.id, value: reaction.value, chain, at: over(cx, 1.2, cz), praise: state.levelRun !== null });
     }
 
     const { puzzle } = state;

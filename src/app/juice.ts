@@ -97,6 +97,11 @@ export class HeldBeats {
     return now;
   }
 
+  /** A group has been sent and has not struck yet. */
+  get waiting(): boolean {
+    return this.held.length > 0;
+  }
+
   /** The dice have come down: every beat held, to be answered now. */
   release(): Beat[] {
     return this.held.splice(0);
