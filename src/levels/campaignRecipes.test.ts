@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CAMPAIGN } from './campaign';
 import { CAMPAIGN_PLACES } from './campaignRecipes';
 import { levelId } from './generate';
 import { PLACES } from './recipes';
@@ -24,6 +25,14 @@ describe('the places of the acts of the campaign', () => {
       expect(['opening', 'apply', 'twist', 'join', 'peak', 'rest'], place.id).toContain(place.role);
       expect(place.brief.length, place.id).toBeGreaterThan(0);
       for (const face of place.faces) expect(FACES[place.act], place.id).toContain(face);
+    }
+  });
+
+  it('say of a board the act and the role the row says of it', () => {
+    for (const place of CAMPAIGN_PLACES) {
+      const stop = CAMPAIGN.find((one) => one.spec.id === place.id);
+      expect(stop, place.id).toBeDefined();
+      expect([stop!.act, stop!.role], place.id).toEqual([place.act, place.role]);
     }
   });
 

@@ -1024,7 +1024,7 @@ export class Game {
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
-    // Only a piece of the road carries a line over its board; one that begins after it carries none.
+    // Only a level carries a line over its board, a piece of the road or the board an act opens with; a run that is no level carries none.
     if (!state.levelRun) this.hint = null;
     // Every start of a board is without the line about a dim die; a board that is no level keeps no room for it.
     this.fixedLine = null;
