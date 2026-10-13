@@ -3,7 +3,7 @@ import { MAX_PIXEL_RATIO } from './sizing';
 /**
  * How heavy the picture is allowed to be. The defaults are what the game is drawn with. The
  * address can set each of them, in any build, to see on a device what it costs:
- * `?msaa=2&ratio=1.25&video=off&halo=off&leak=off&cap=60&patch=off&auto=off`.
+ * `?msaa=2&ratio=1.25&video=off&halo=off&leak=off&water=off&cap=60&patch=off&auto=off`.
  */
 export interface Quality {
   /**
@@ -21,6 +21,8 @@ export interface Quality {
   halo: boolean;
   /** Things come through behind the board during a session. */
   leak: boolean;
+  /** The board lies on water: a plane of it under the board, with the dice seen in it. A probe. */
+  water: boolean;
   /**
    * Most frames drawn in a second on a screen that refreshes faster; 0 follows the screen.
    * Frames are let pass whole: see `Pacer`.
@@ -33,7 +35,7 @@ export interface Quality {
   patches: boolean;
 }
 
-export const DEFAULT_QUALITY: Quality = { samples: 4, auto: true, maxRatio: MAX_PIXEL_RATIO, video: true, halo: true, leak: true, fpsCap: 60, patches: true };
+export const DEFAULT_QUALITY: Quality = { samples: 4, auto: true, maxRatio: MAX_PIXEL_RATIO, video: true, halo: true, leak: true, water: true, fpsCap: 60, patches: true };
 
 const SAMPLES = [0, 2, 4];
 const OFF = ['off', '0', 'false'];
@@ -60,6 +62,7 @@ export function readQuality(search: string): Quality {
   if (OFF.includes(query.get('video') ?? '')) quality.video = false;
   if (OFF.includes(query.get('halo') ?? '')) quality.halo = false;
   if (OFF.includes(query.get('leak') ?? '')) quality.leak = false;
+  if (OFF.includes(query.get('water') ?? '')) quality.water = false;
   if (OFF.includes(query.get('patch') ?? '')) quality.patches = false;
   return quality;
 }

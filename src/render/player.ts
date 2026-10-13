@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { cubeAt, type Level, type MoveKind, type RunState } from '../rules';
 import { FigureBody, figureGeometry, type FigureLook } from './figure';
 import type { HeightOf } from './leaving';
+import { REFLECT_LAYER } from './water';
 
 /**
  * How high the one who plays stands in a cell: on the die there, as high as the die is shown
@@ -48,6 +49,8 @@ export class PlayerFigure {
   constructor() {
     const through = new THREE.Mesh(this.geometry, this.ghost);
     through.renderOrder = 10;
+    // The body is seen in the water; what shows of it through a die is not.
+    this.body.object.traverse((object) => object.layers.enable(REFLECT_LAYER));
     this.group.add(this.body.object, through);
   }
 

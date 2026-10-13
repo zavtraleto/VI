@@ -6,6 +6,7 @@ import { loadSettings } from '../platform/settings';
 import { Backdrop } from '../render/backdrop';
 import { LevelScene } from '../render/levelScene';
 import { finaleMs } from '../render/leaving';
+import { Water } from '../render/water';
 import { BOARD_PARAMS, boardChanged, boardDefaults, parseBoardValue, type BoardLook } from '../render/params';
 import type { DicePassing } from '../render/passing';
 import { BoardView, type CameraAngles } from '../render/view';
@@ -129,6 +130,8 @@ export class BoardLab {
   private readonly container: HTMLElement;
   private readonly backdrop = new Backdrop(this.display);
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
+  /** The water the board lies on, a probe; `?water=off` leaves it out, and the place behind the board is shown instead. */
+  private readonly water = quality().water ? new Water(this.display, this.world) : null;
   /** The place behind the board of a level: shown here always, to be tuned. */
   private readonly levelScene = new LevelScene(this.display, this.look, this.world);
   private readonly fps = new FpsCounter();
@@ -207,6 +210,7 @@ export class BoardLab {
       this.view?.dispose();
       this.view = new BoardView(this.container, this.world, this.look, SIZE, this.camera);
       if (this.origin.x !== 0 || this.origin.z !== 0) this.view.setBoard({ size: SIZE, holes: [], origin: this.origin });
+      this.view.setWater(this.water);
       this.stale = false;
       // A number of the look was changed while a scene was on: it is played anew, by the new number.
       if (this.scene) this.playLeaving(this.scene.scene);
@@ -214,6 +218,7 @@ export class BoardLab {
     const { view } = this;
     const alpha = this.runScene(view, dt);
     const state = this.scene?.state ?? this.state;
+    if (this.water) this.water.on = true;
     this.runGrid(timeMs);
     view.drawGrid(this.grid.share, !this.grid.erasing, this.scene ? state.player : this.stand);
     view.draw(state, alpha, timeMs, {
@@ -243,7 +248,7 @@ export class BoardLab {
       },
     });
     this.backdrop.draw(view.background, view.inverted);
-    this.levelScene.frame(timeMs, state, { place: Number(this.look.board.backPlace ?? 0), day: Number(this.look.board.backDay ?? 0) }, false);
+    this.levelScene.frame(timeMs, this.water ? null : state, { place: Number(this.look.board.backPlace ?? 0), day: Number(this.look.board.backDay ?? 0) }, false);
     this.display.present(timeMs);
     this.viewNow = view.mode;
 

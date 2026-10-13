@@ -31,6 +31,7 @@ import { SETTINGS_KEY, addRun, bestOf, bestOn, levelStat, loadSettings, noteShor
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { LevelScene } from '../render/levelScene';
+import { Water } from '../render/water';
 import { topTurn } from '../render/orientationQuat';
 import type { BoardGuide, GuideArrow, GuideFrame } from '../render/overlays';
 import { shiftFor } from '../render/framing';
@@ -499,6 +500,8 @@ export class Game {
     release: () => this.controller.release(),
     cancel: () => this.controller.cancel(),
   });
+  /** The water the board lies on, a probe: under the place of a level and under what leaks through, both of which were added after it. `?water=off` leaves it out. */
+  private readonly water = quality().water ? new Water(this.display, this.world) : null;
   /**
    * A place of the other side behind the board of a level, under whatever leaks through in a
    * session. The player turns it on in the settings, and it is off until then; `?bg` in the
@@ -539,6 +542,7 @@ export class Game {
     const enabled = () => this.inputEnabled();
 
     this.view = new BoardView(this.stage, this.world, this.look, defaultConfig().size, this.settings.camera);
+    this.view.setWater(this.water);
     this.hud.setLessonLines(TUTORIAL_LINES.map((line) => t(`tut_${line}` as TextKey)));
     if (import.meta.env.DEV) {
       if (new URLSearchParams(window.location.search).has('debug')) this.settings.debugPanel = true;
@@ -2942,6 +2946,12 @@ export class Game {
     const lit = this.sealLit(time);
     const guide = this.updateGuide(state, stage);
     const drawFrom = performance.now();
+    // The water is there wherever a board is played, and a transmission takes the screen from it.
+    const wet = this.water !== null && !covered && !this.inMenu && !this.signal.busy;
+    if (this.water) {
+      this.water.on = wet;
+      if (!wet) this.water.hide();
+    }
     if (!covered) {
       this.view.draw(state, alpha, time, {
         overlay: {
@@ -2967,7 +2977,8 @@ export class Game {
     // Only a level has a place behind its board, and a transmission takes the screen from it.
     this.levelScene.frame(
       time,
-      (this.settings.backdrop || BG_PROBE) && !covered && state.levelRun !== null && !this.signal.busy ? state : null,
+      // While the board lies on water nothing else is drawn behind it.
+      (this.settings.backdrop || BG_PROBE) && !wet && !covered && state.levelRun !== null && !this.signal.busy ? state : null,
       this.levelIndex,
       reducedMotion,
     );

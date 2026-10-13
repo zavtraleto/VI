@@ -8,6 +8,7 @@ import type { HeightOf } from './leaving';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
 import { comeShare, goneShare, isLit, litFlash, passingHeight, faded, type DicePassing } from './passing';
 import { PIP_STEP } from './textures';
+import { REFLECT_LAYER } from './water';
 
 /**
  * How a cube is drawn. A die at rest or on the move is solid. One that is coming up or going
@@ -27,6 +28,8 @@ export const CUBE_SIZE = 0.94;
  * around it: the dice and the edges of the glass ones are on this layer of the scene as well.
  */
 export const GLOW_LAYER = 1;
+/** The height the dice are cut at when nothing cuts them. */
+const UNCUT = -1e4;
 /** How much of the rounding of a die its lit edges are drawn inside of: they run along the middle of it. */
 const EDGE_INSET = 0.586;
 /** How far the lit edges of the glass are from the colour of the channel towards white. */
@@ -168,7 +171,8 @@ const float MESH[16] = float[16](
   3.0, 11.0, 1.0, 9.0,
   15.0, 7.0, 13.0, 5.0
 );`;
-const THROUGH_DOTS = /* glsl */ `  if (uCover < 1.0) {
+const THROUGH_DOTS = /* glsl */ `  // In the mirror of the water a die that is not all here is thin all over instead: its dots would be lumps in so small a picture.
+  if (uCover < 1.0 && uCut < -1.0) {
     // The mesh stands on the screen, not on the die: the die goes down through it.
     vec2 spot = floor(gl_FragCoord.xy / uDot);
     int at = int(mod(spot.x, 4.0)) + int(mod(spot.y, 4.0)) * 4;
@@ -225,6 +229,10 @@ uniform vec3 uFrost;
 /** The share of the dots of the tube a die that is not all here has, and the size of a dot in pixels of the picture. */
 uniform float uCover;
 uniform float uDot;
+/** Nothing of a die is drawn under this height of the world: the water is there, where the dice are drawn for its mirror. */
+uniform float uCut;
+/** How fast a die fades up from the water in the mirror; nought outside it. */
+uniform float uFade;
 /** The line of the edges of a glass die: the light of its channel, as much of it as there is. */
 uniform vec3 uOwn;
 /** What the edges keep of their light in the picture the tube spreads. */
@@ -246,6 +254,7 @@ const int PIPS[7] = int[7](0, 16, 257, 273, 325, 341, 365);
 ${DOT_MESH}
 
 void main() {
+  if (vWorld.y < uCut) discard;
 #ifdef GLASS
 ${THROUGH_DOTS}
 #endif
@@ -345,7 +354,8 @@ ${THROUGH_DOTS}
     colour = mix(colour, uSignal * min(1.0, power), uCross.z * (1.0 - smoothstep(thick - px, thick + px, gap)));
   }
 #endif
-  gl_FragColor = vec4(colour + uFrost, uOpacity);
+  // For the mirror the die fades up from the water, and has as much of itself as it has dots.
+  gl_FragColor = vec4((colour + uFrost) * exp(-max(vWorld.y, 0.0) * uFade), uCut < -1.0 ? uOpacity : uOpacity * uCover);
 #endif
   #include <colorspace_fragment>
 }
@@ -418,6 +428,8 @@ export class CubeMeshes {
     uEmitEdge: { value: 0 },
     uFixed: { value: new THREE.Vector3(0, 1, 1) },
     uDot: { value: 4 },
+    uCut: { value: UNCUT },
+    uFade: { value: 0 },
   };
   private readonly material: DieMaterial;
   /** The same dice as the light they give off alone. */
@@ -466,6 +478,8 @@ export class CubeMeshes {
   /** The light of the die in hand: that of its channel, or the grey of it. */
   private readonly light = new THREE.Color();
   private readonly tmpVec = new THREE.Vector3();
+  /** The size of a dot of the tube in pixels of the picture, as the last frame had it. */
+  private dot = 4;
 
   constructor(
     palette: Palette,
@@ -486,6 +500,7 @@ export class CubeMeshes {
     this.solids.count = 0;
     this.solids.frustumCulled = false;
     this.solids.layers.enable(GLOW_LAYER);
+    this.solids.layers.enable(REFLECT_LAYER);
 
     this.glowGeometry = this.geometry.clone();
     this.glowShares = new THREE.InstancedBufferAttribute(new Float32Array(MAX_DICE * 4), 4);
@@ -589,6 +604,19 @@ export class CubeMeshes {
     this.solids.material = on ? this.emitted : this.material;
   }
 
+  /**
+   * The dice are drawn for the mirror of the water, or as they are again: for the mirror
+   * nothing of them is drawn under the water, and the dots of a die that is not all here are
+   * as many times smaller as the picture of the mirror is (`shrink`), and the dice fade up from
+   * the water as fast as `fade` says.
+   */
+  mirrored(on: boolean, shrink: number, fade: number): void {
+    const { shared } = this;
+    shared.uCut.value = on ? 0 : UNCUT;
+    shared.uFade.value = on ? fade : 0;
+    shared.uDot.value = on ? Math.max(1, shared.uDot.value / shrink) : this.dot;
+  }
+
   /** The sinking cubes of running reactions, for the reaction light. */
   sinkingCentre(state: RunState): { x: number; z: number; count: number } {
     let x = 0;
@@ -629,7 +657,8 @@ export class CubeMeshes {
     // The dice hang with their group: the light is told where it stands among them.
     shared.uLamp.value.set(glow.lamp.x, glow.lamp.y, glow.lamp.z);
     shared.uLampColour.value.copy(glow.lamp.colour).multiplyScalar(glow.lamp.power);
-    shared.uDot.value = Math.max(1, glow.dot * n('meshDot'));
+    this.dot = Math.max(1, glow.dot * n('meshDot'));
+    shared.uDot.value = this.dot;
     const melt = n('sinkMelt');
     const gather = n('riseMelt');
     // Where every rising die can be stepped onto until it stands, there is no step to show among them.
@@ -845,6 +874,7 @@ export class CubeMeshes {
   private glassDie(): GlassDie {
     const die: GlassDie = new THREE.Mesh(this.geometry, this.dieMaterial('glass'));
     die.visible = false;
+    die.layers.enable(REFLECT_LAYER);
     this.group.add(die);
     return die;
   }

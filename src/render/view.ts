@@ -24,6 +24,7 @@ import { ChainSigns } from './signs';
 import { CubeSprings } from './springs';
 import { figureColour, frameTexture, pipGlow } from './textures';
 import { SpawnWarnings } from './warnings';
+import type { Water, WaterFrame } from './water';
 
 export type { BoardShape, Frame } from './board';
 
@@ -74,6 +75,8 @@ const FOLLOW_CLEAR = 0.7;
  */
 const SHARP_MAX = 2;
 const SHARP_SIDE_PX = 2048;
+/** More than the cells along a side of any board: two numbers of a cell kept as one. */
+const PLACE = 256;
 const VIEWS: readonly string[] = ['auto', 'full', 'follow'];
 /** What of the camera's sight is carried from one frame to another. */
 const GLIDES = ['r', 'u', 'half'] as const;
@@ -205,6 +208,11 @@ export class BoardView {
   private readonly signs: ChainSigns;
   private readonly warnings: SpawnWarnings;
   private readonly springs = new CubeSprings();
+  /** The water the board lies on, where there is any: it is told what happens on the board and drawn before it. */
+  private water: Water | null = null;
+  private readonly waterFrame: WaterFrame;
+  /** How quiet the water is kept, 0 to 1: it goes quiet while a board is passed. */
+  private hush = 0;
   private readonly bursts = new BoardBursts();
   /** Dice that a beat throws up, and when: the answer runs out from the group. */
   private kicks: { id: number; at: number; v: number }[] = [];
@@ -216,6 +224,10 @@ export class BoardView {
   private stopped: { dir: Dir; ms: number } | null = null;
   /** The step the player was making on the previous frame, to notice when it ends. */
   private lastStep: MoveKind | null = null;
+  /** How far that step had gone, in ticks: one that starts anew is another step. */
+  private lastStepAt = -1;
+  /** The cell of every die of the frame drawn last, by cube: `x + z * PLACE`. */
+  private readonly places = new Map<number, number>();
   /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. In a session only. */
   private sinking = new Map<number, number>();
   private sinkingBefore = new Map<number, number>();
@@ -382,6 +394,17 @@ export class BoardView {
     );
     this.scene.add(this.world);
     this.applyPalette();
+    this.waterFrame = {
+      dark: this.background,
+      tone: this.tone,
+      inverted: false,
+      still: false,
+      hush: 0,
+      home: null,
+      scene: this.scene,
+      board: worldLayer,
+      mirrored: (on, shrink, fade) => this.cubes.mirrored(on, shrink, fade),
+    };
 
     this.setCamera(angles);
     this.observer = new ResizeObserver(() => this.resize());
@@ -458,6 +481,30 @@ export class BoardView {
   setBoard(shape: BoardShape): void {
     this.lay(shape);
     this.stand();
+    this.water?.setBoard(this.board);
+  }
+
+  /** The water the board lies on from now on; null for none. It is its owner's to make and to free. */
+  setWater(water: Water | null): void {
+    this.water = water;
+    water?.setBoard(this.board);
+  }
+
+  /**
+   * A ring in the water at a cell of the board that is on, as strong as the look has `kind`;
+   * `wide` times as wide as a ring is. The water hears the board, and the rules know nothing of it.
+   */
+  private drip(x: number, z: number, kind: 'dropSmall' | 'dropMid' | 'dropBig', wide = 1): void {
+    const { water } = this;
+    if (!water || this.still) return;
+    const { origin } = this.board;
+    water.drop(x + origin.x, z + origin.z, Number(this.look.board[kind] ?? 0), Number(this.look.board.dropRadius ?? 0) * wide);
+  }
+
+  /** The same at the cell a die of the frame drawn last stands in. */
+  private dripAt(cubeId: number, kind: 'dropSmall' | 'dropMid' | 'dropBig', wide = 1): void {
+    const cube = this.drawn?.cubes.find((one) => one.id === cubeId);
+    if (cube) this.drip(cube.x, cube.z, kind, wide);
   }
 
   /**
@@ -540,6 +587,7 @@ export class BoardView {
   /** A die of a board that comes stands: it settles as a die that has just come up does. */
   stood(cubeId: number): void {
     this.cubes.risen(cubeId);
+    this.dripAt(cubeId, 'dropSmall');
   }
 
   /** Lays the board in the world: the surface is given its size and its lines, and the group of the rules is moved to it. */
@@ -798,7 +846,11 @@ export class BoardView {
         this.stopped = { dir: event.dir, ms: 0 };
       } else if (event.type === 'risen') {
         this.cubes.risen(event.cubeId);
+        this.dripAt(event.cubeId, 'dropMid');
       } else if (event.type === 'removed') {
+        // In a session a die that has gone under leaves a ring where it stood; on a level the show of its leaving says so.
+        const at = this.places.get(event.cubeId);
+        if (at !== undefined && !this.drawn?.levelRun) this.drip(at % PLACE, Math.floor(at / PLACE), 'dropMid');
         // A die taken away while it was going - rolled over - is not switched off: what was
         // left of it comes apart into the dots it was drawn through.
         const left = this.still ? null : this.cubes.left(event.cubeId);
@@ -831,6 +883,9 @@ export class BoardView {
     const cx = beat.cells.reduce((sum, cell) => sum + cell.x, 0) / beat.cells.length;
     const cz = beat.cells.reduce((sum, cell) => sum + cell.z, 0) / beat.cells.length;
     const reach = 2.5 + tier * 1.2;
+    // A group made in a session, or a chain added to: a ring from every die of it, where the die stands in the water.
+    // On a level the water hears the dice when they strike (`onLeaving`), not when the group is made.
+    if (!state.levelRun) for (const cell of beat.cells) this.drip(cell.x, cell.z, 'dropMid');
     for (const cube of state.cubes) {
       if (cube.state === 'sinking') continue;
       const distance = Math.hypot(cube.x - cx, cube.z - cz);
@@ -925,6 +980,9 @@ export class BoardView {
     this.endless = state.mode === 'endless';
     this.still = params.reducedMotion;
     this.drawn = state;
+    // Where every die stands, for the ring of one the rules take away.
+    this.places.clear();
+    for (const cube of state.cubes) this.places.set(cube.id, cube.x + cube.z * PLACE);
 
     const minute = Math.floor(Date.now() / 60000);
     if (minute !== this.minute) {
@@ -966,7 +1024,16 @@ export class BoardView {
     const pressed = under && (under.state === 'idle' || under.state === 'moving') ? under : undefined;
     this.springs.hold(pressed?.id ?? null, n('pressDepth'));
     const steppedOn = this.lastStep === 'hop' || this.lastStep === 'mount' || this.lastStep === 'climb';
-    if (stepNow === null && steppedOn && pressed && !reducedMotion) this.springs.kick(pressed.id, -1.2);
+    const landed = stepNow === null && steppedOn && pressed !== undefined && !reducedMotion;
+    if (landed) this.springs.kick(pressed.id, -1.2);
+    // A step that ends is heard by the water: a die landed on, more than the floor.
+    // A step taken right after another leaves no frame between them: the count of the step going back says so.
+    const stepAt = player.action?.t ?? -1;
+    if (this.lastStep !== null && (stepNow === null || stepAt < this.lastStepAt)) {
+      // The step that has begun already has the figure in the cell it goes to: the one that ended, ended where this one starts.
+      this.drip(player.action?.fromX ?? player.x, player.action?.fromZ ?? player.z, 'dropSmall');
+    }
+    this.lastStepAt = stepAt;
     this.lastStep = stepNow;
 
     // The leaving of a group on a level: the show says how high every die that goes is drawn.
@@ -974,6 +1041,10 @@ export class BoardView {
     for (const event of this.show.frame(state, dt, reducedMotion, (id) => this.springs.offset(id))) {
       if (event.kind === 'sent') this.release(event.cubeIds);
       else params.onLeaving?.(event);
+      // The water hears every die where it stands, when it moves: pressed as its combo is made,
+      // and gone under. Never the group as one from its middle: it is the dice that are in the water.
+      const kind = event.kind === 'sent' ? 'dropSmall' : 'dropMid';
+      for (const cell of event.cells) this.drip(cell.x, cell.z, kind);
     }
     // In a session a chain that is added to brings its cubes back up: they rise instead of jumping. On a level no
     // spring moves a die that goes: the show alone drives it, the last combo of a board too (a spring laid over that
@@ -992,7 +1063,10 @@ export class BoardView {
     if (this.kicks.length > 0) {
       this.kicks = this.kicks.filter((kick) => {
         if (kick.at > timeMs) return true;
-        if (!reducedMotion) this.springs.kick(kick.id, kick.v);
+        if (!reducedMotion) {
+          this.springs.kick(kick.id, kick.v);
+          this.dripAt(kick.id, 'dropSmall');
+        }
         return false;
       });
     }
@@ -1163,6 +1237,18 @@ export class BoardView {
     const drawn = jolt === 0 ? place : { ...place, x: place.x + jolt };
     // A dot of the tube in cells of the board, for a die that comes apart into them.
     this.dotWorld = (((this.camera.top - this.camera.bottom) / this.camera.zoom / Math.max(1, place.height)) * layer.window.height) / Math.max(1, this.lines);
+    if (this.water) {
+      const from = this.waterFrame;
+      from.inverted = this.inverted;
+      from.still = reducedMotion;
+      // Between two boards, while the dice go, the lines are erased and drawn and the camera travels, the water goes quiet.
+      const passingNow = passing !== null || this.carried || this.wave.share < 1;
+      this.hush += ((passingNow ? 1 : 0) - this.hush) * (1 - Math.exp(-dt / (passingNow ? 350 : 1200)));
+      from.hush = this.hush;
+      // The whole board in view: the water lies still under a board that a beat shakes and leans in on.
+      from.home = follows ? null : this.cameraHome;
+      this.water.frame(dt, timeMs, this.camera, place, values, from);
+    }
     layer.render(this.scene, this.camera, { rect: drawn });
     if (this.bursts.thrown || this.grid.heads.visible) this.loose(drawn);
     // The frame before stays under this one for a moment, as the consoles of the last years of

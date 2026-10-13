@@ -165,6 +165,68 @@ export const BOARD_GROUPS = {
     backPlace: number(0, 0, 1, 1),
     backDay: number(0, 0, 1, 0.01),
   },
+  water: {
+    /**
+     * The water the board lies on, a probe (`water.ts`). Its swell is soft humps, as the water of
+     * Super Mario Sunshine is layers of one soft picture: how high the small ones are and how
+     * large, in cells, how fast they drift, in cells a second, and how high the large ones under
+     * them are, which are some four times as large. How much lighter the water is far off, at
+     * the top of the frame.
+     */
+    swellHeight: number(0.07, 0, 0.4, 0.005),
+    swellLength: number(0.8, 0.1, 3, 0.01),
+    swellSpeed: number(0.1, 0, 1, 0.01),
+    longSwell: number(0.22, 0, 1.5, 0.01),
+    farLight: number(0.02, 0, 0.3, 0.005),
+    /** While a board is passed - its dice go, its lines are erased and drawn, the camera travels - the swell goes down by this much. */
+    passCalm: number(0.85, 0, 1, 0.01),
+    /**
+     * The rings of what happens on the board: what of its speed a ring loses on a step, how
+     * fast it runs, in cells a second (as fast as its picture can carry, at the most), and how
+     * many steps are counted in a second. How wide a ring starts, in cells, and how
+     * high: of a step, of a die that stands or is thrown, of a group.
+     */
+    rippleDamp: number(0.006, 0, 0.1, 0.001),
+    rippleSpeed: number(1.2, 0.2, 3, 0.05),
+    rippleHz: number(60, 10, 120, 5),
+    dropRadius: number(0.35, 0.1, 1.5, 0.05),
+    dropSmall: number(0.04, 0, 1, 0.01),
+    dropMid: number(0.1, 0, 2, 0.01),
+    dropBig: number(0.3, 0, 4, 0.05),
+    /**
+     * The board is a stiff sheet on the water: how still the water is under its cells, what
+     * the mirror loses there, and how still the water is in a cell cut out, 0 as around the
+     * board and 1 as under a cell.
+     */
+    calm: number(0.9, 0, 1, 0.01),
+    calmReflect: number(0.5, 0, 1, 0.01),
+    /** What of the stillness under the cells the rings take: at 1 a ring is as still there as the swell, at 0 it runs under the board as over open water. */
+    ringCalm: number(0.45, 0, 1, 0.01),
+    holeCalm: number(0.3, 0, 1, 0.01),
+    /**
+     * The dice in the water: how strong the mirror is, 0 for none and nothing drawn for it;
+     * how far the slope of a wave moves it; how fast it fades up the die.
+     */
+    reflectStrength: number(0.18, 0, 1, 0.01),
+    reflectWarp: number(0.05, 0, 0.3, 0.005),
+    reflectFade: number(1.6, 0, 4, 0.05),
+    /**
+     * A lamp stands over the water far off, and the water gives it back as a path of glints from
+     * the lamp to the eye, dark beside it: how bright the glints are, 0 for none; how tight, the
+     * higher the narrower the path and the smaller a glint; and to which side of the frame the
+     * path lies, -1 the left and 1 the right.
+     */
+    glint: number(0.12, 0, 3, 0.01),
+    glintTight: number(14, 2, 600, 1),
+    lampSide: number(1, -1.5, 1.5, 0.05),
+    /** The light of a ring, and how much darker than the dark of the board the water is. */
+    crestLight: number(0.22, 0, 2, 0.01),
+    waterDeep: number(0.15, 0, 0.3, 0.01),
+    /** What passes under the water: how much of it shows, how fast it drifts, and how far the slope of a wave moves it. */
+    belowStrength: number(0.12, 0, 1, 0.01),
+    belowSpeed: number(0.004, 0, 0.05, 0.001),
+    refract: number(0.6, 0, 3, 0.05),
+  },
   signs: {
     /**
      * The zone of a combo. On the floor of every free cell beside an open chain, four corners:

@@ -8,13 +8,14 @@ describe('readQuality', () => {
   });
 
   it('takes each setting from the address', () => {
-    expect(readQuality('?msaa=2&ratio=1.25&video=off&halo=off&leak=off&cap=90&patch=off')).toEqual({
+    expect(readQuality('?msaa=2&ratio=1.25&video=off&halo=off&leak=off&water=off&cap=90&patch=off')).toEqual({
       samples: 2,
       auto: false,
       maxRatio: 1.25,
       video: false,
       halo: false,
       leak: false,
+      water: false,
       fpsCap: 90,
       patches: false,
     });
