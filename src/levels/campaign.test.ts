@@ -65,7 +65,7 @@ describe('the acts of the row', () => {
     expect(CAMPAIGN[2]).toMatchObject({ act: 0, role: 'free' });
     expect(CAMPAIGN.slice(ROAD.length, ROAD.length + ACT_1.length).map((stop) => [stop.act, stop.role])).toEqual([[1, 'opening'], [1, 'apply'], [1, 'twist'], [1, 'join'], [1, 'peak'], [1, 'rest']]);
     const second = ROAD.length + ACT_1.length;
-    expect(CAMPAIGN.slice(second, second + ACT_2.length).map((stop) => [stop.act, stop.role])).toEqual([[2, 'opening'], [2, 'apply'], [2, 'join'], [2, 'peak']]);
+    expect(CAMPAIGN.slice(second, second + ACT_2.length).map((stop) => [stop.act, stop.role])).toEqual([[2, 'opening'], [2, 'apply'], [2, 'twist'], [2, 'join'], [2, 'peak'], [2, 'rest']]);
     expect(CAMPAIGN[second + ACT_2.length]).toMatchObject({ act: null, role: 'tail' });
     expect(CAMPAIGN.slice(second + ACT_2.length).map((stop) => stop.spec.id)).toEqual(TAIL.map((spec) => spec.id));
   });

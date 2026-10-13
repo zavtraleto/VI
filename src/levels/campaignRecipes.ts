@@ -55,4 +55,18 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
     ends: { event: 'link', spare: 0 }, par: [3, 4], firsts: [1, 99], kinds: ['top'], route: '^K L L$', safeFirst: true, personas: { hasty: 0.25, casual: 0.8 },
     brief: 'time: the pair of 2s goes; the near link on the first move gives the group two more, and the far 2 makes it; a link on the second move leaves it alone',
   },
+  {
+    // No floors for the hasty and the casual persona: they clear it in a run out of twelve and in none, as they do the twist
+    // of act I. The greedy one loses nine runs in ten, and no first move loses the board.
+    ...ACT, slot: 1025, id: 'K25', act: 2, role: 'twist', size: 4, holes: WIDE, dice: 5, faces: [3], standing: [{ value: 3, count: 2 }],
+    trap: 'any', traps: [0.8, 1], safeFirst: true, par: [4, 6], firsts: [1, 99], shows: ['link'], avoid: ['glass'], kinds: ['top'], route: '^K L L$', gap: [0.3, 1],
+    brief: 'greed: the combo of 3s that asks to be made on the second move strands two dice; bring the own die round to make it, then link the two',
+  },
+  {
+    // Four cells by three, as the breather of act I: its rows are the ones the way and a cell round it take. Not `lossless`,
+    // as `K22` is not: the walk finds a board lost seven commands from the start.
+    ...ACT, slot: 1028, id: 'K28', act: 2, role: 'rest', size: 4, holes: WIDE, dice: 5, faces: [4], standing: [{ value: 4, count: 3 }],
+    under: false, par: [1, 2], safeFirst: true, last: [5, 5], kinds: ['top'], personas: { hasty: 0.9, casual: 0.9 },
+    brief: 'the breather and the first 4s: three stand together, the fourth beside the gap, the own die a roll away with its 4 on the side the player sees; one roll and five go',
+  },
 ];
