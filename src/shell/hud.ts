@@ -493,6 +493,8 @@ export class GameHud {
   private stageFlash = 0;
   /** The multipliers now over the board, by chain: the number, its channel, where it stands, when the chain last grew and until when it is shown. */
   private readonly chains = new Map<number, Multiplier>();
+  /** Chains whose multiplier has gone out while they still stand, and how long each was then: it is not shown again until the chain grows. */
+  private readonly said = new Map<number, number>();
   private nudged = 0;
   /** The words of the exercise now on screen, and the frame they began to come at. */
   private line = '';
@@ -602,6 +604,7 @@ export class GameHud {
     this.levelFlash = 0;
     this.stageFlash = 0;
     this.chains.clear();
+    this.said.clear();
     this.hintText = '';
     this.hintGone = null;
     this.drawn = '';
@@ -891,6 +894,8 @@ export class GameHud {
     for (const label of view.labels) {
       seen.add(label.id);
       const kept = this.chains.get(label.id);
+      // A chain of a level stands until the player moves: what was said over it has gone out, and is said once.
+      if (!kept && this.said.get(label.id) === label.chain) continue;
       // A chain that has grown: its multiplier is shown anew, and swings.
       if (!kept || kept.chain !== label.chain) this.chains.set(label.id, pushed(kept, label, timeMs));
       else kept.at = label.at;
@@ -898,8 +903,12 @@ export class GameHud {
     for (const [id, kept] of this.chains) {
       // A chain that is over: its multiplier goes out where it stood, and is not switched off.
       if (!seen.has(id)) kept.until = Math.min(kept.until, timeMs + LABEL_OUT_MS);
-      if (timeMs >= kept.until) this.chains.delete(id);
+      if (timeMs >= kept.until) {
+        this.chains.delete(id);
+        if (seen.has(id)) this.said.set(id, kept.chain);
+      }
     }
+    for (const id of this.said.keys()) if (!seen.has(id)) this.said.delete(id);
   }
 
   private toPicture(rect: Rect): Box {
