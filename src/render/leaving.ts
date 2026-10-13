@@ -119,6 +119,8 @@ interface Going {
   first: boolean;
   /** The rules have taken it: it goes under the floor and is let go of. */
   ghost: boolean;
+  /** Its chain was added to while it was being driven down: it sighs when it has come to its step. */
+  sighs: boolean;
   height: number;
 }
 
@@ -157,6 +159,9 @@ export class LeavingShow {
     const n = (name: string): number => Number(values[name] ?? DEFAULTS[name]?.value ?? 0);
     const steps = leavingSteps(values);
     const standing = !worldRuns(state) && !state.player.action;
+    // With no die standing the world plays beat after beat by itself and never stands: a beat of it is a move all the same.
+    const alone = !standing && !state.player.action && !state.cubes.some((cube) => cube.state === 'moving');
+    const beats = (t: number): number => Math.floor((t - 1) / Math.max(1, state.config.actionTicks));
     const events: LeavingEvent[] = [];
     const sent: Going[] = [];
     const seen = new Set<number>();
@@ -173,7 +178,7 @@ export class LeavingShow {
         // half way down (the board was put on with it going), stands on its step at once.
         const fresh = cube.t <= 1 && !isStair(cube, state);
         const target = this.stepOf(cube, state, cube.t, steps);
-        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, settledT: cube.t, target, from: 1 + dip(cube.id), phase: 'still', ms: 0, first: fresh, ghost: false, height: target };
+        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, settledT: cube.t, target, from: 1 + dip(cube.id), phase: 'still', ms: 0, first: fresh, ghost: false, sighs: false, height: target };
         if (fresh) {
           going.height = going.from;
           going.phase = reducedMotion ? 'still' : 'lift';
@@ -182,14 +187,13 @@ export class LeavingShow {
             going.first = false;
           }
           sent.push(going);
-          // The chain it joins sighs: the dice already going, held where they are by the rules.
+          // The chain it joins sighs: the dice already going, held where they are by the rules. One that the landing
+          // is driving a step down sighs when it has come to its step.
           if (!reducedMotion) {
             for (const other of this.going.values()) {
-              if (other.reactionId === cube.reactionId && !other.ghost && other.phase === 'still') {
-                other.phase = 'sigh';
-                other.ms = 0;
-                other.from = other.target;
-              }
+              if (other.reactionId !== cube.reactionId || other.ghost || other === going) continue;
+              if (other.phase === 'still') this.sigh(other);
+              else if (!other.first) other.sighs = true;
             }
           }
         }
@@ -200,7 +204,7 @@ export class LeavingShow {
       going.z = cube.z;
       going.ori = cube.ori;
       going.reactionId = cube.reactionId;
-      if (standing && cube.t !== going.settledT) {
+      if (standing ? cube.t !== going.settledT : alone && beats(cube.t) !== beats(going.settledT)) {
         // A landing: the rules have taken the die a move down. It is driven to its new step from where it is.
         going.settledT = cube.t;
         const target = this.stepOf(cube, state, cube.t, steps);
@@ -223,6 +227,7 @@ export class LeavingShow {
         continue;
       }
       going.ghost = true;
+      going.sighs = false;
       going.target = UNDER;
       going.first = false;
       this.drive(going, false);
@@ -272,6 +277,13 @@ export class LeavingShow {
     const window = Math.max(1, sinkingTicks - 1);
     const moves = Math.max(1, Math.round(window / Math.max(1, actionTicks)));
     return leavingHeight((sinkingTicks - t) / window, moves, steps, isStair(cube, state));
+  }
+
+  private sigh(going: Going): void {
+    going.phase = 'sigh';
+    going.ms = 0;
+    going.from = going.target;
+    going.sighs = false;
   }
 
   /** Drives a die from where it is drawn to its target: a drop, or at once with less motion. */
@@ -350,6 +362,10 @@ export class LeavingShow {
         case 'drop':
           hit = going.ghost ? 'gone' : 'struck';
           going.phase = going.ghost ? 'still' : 'settle';
+          break;
+        case 'settle':
+          if (going.sighs) this.sigh(going);
+          else going.phase = 'still';
           break;
         default:
           going.phase = 'still';

@@ -216,9 +216,11 @@ export class BoardView {
   private stopped: { dir: Dir; ms: number } | null = null;
   /** The step the player was making on the previous frame, to notice when it ends. */
   private lastStep: MoveKind | null = null;
-  /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. Not on a level. */
+  /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. */
   private sinking = new Map<number, number>();
   private sinkingBefore = new Map<number, number>();
+  /** The cubes that were not sinking on the previous frame, to notice one that has just begun to leave with the combo that passes a level. */
+  private whole = new Set<number>();
   /** The leaving of a group on a level, as one body: it drives the height of every die that goes there. */
   private readonly show = new LeavingShow();
   /** The state the frame is drawn from: for `heightOf`, which is handed out to whoever draws a die. */
@@ -962,18 +964,21 @@ export class BoardView {
       if (event.kind === 'sent') for (const id of event.cubeIds) this.springs.forget(id);
       else params.onLeaving?.(event);
     }
-    // In a session a chain that is added to brings its cubes back up: they rise instead of jumping.
+    // In a session a chain that is added to brings its cubes back up: they rise instead of jumping. On a level the
+    // show drives the dice that go; it is silent once the board is over, and a die of the combo that passes the board
+    // comes down to the first step of its look softly, as it did before the show (the passage is as it was).
     [this.sinking, this.sinkingBefore] = [this.sinkingBefore, this.sinking];
     this.sinking.clear();
-    if (!state.levelRun) {
-      for (const cube of state.cubes) {
-        if (cube.state !== 'sinking') continue;
-        const height = shownHeight(cube, state, 0, values);
-        const before = this.sinkingBefore.get(cube.id);
-        if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
-        this.sinking.set(cube.id, height);
-      }
+    for (const cube of state.cubes) {
+      if (cube.state !== 'sinking') continue;
+      const height = shownHeight(cube, state, 0, values);
+      const before = this.sinkingBefore.get(cube.id);
+      if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
+      else if (before === undefined && state.levelRun && state.over && this.whole.has(cube.id) && height < 0.98 && !reducedMotion) this.springs.shift(cube.id, 1 - height);
+      this.sinking.set(cube.id, height);
     }
+    this.whole.clear();
+    for (const cube of state.cubes) if (cube.state !== 'sinking') this.whole.add(cube.id);
     if (this.kicks.length > 0) {
       this.kicks = this.kicks.filter((kick) => {
         if (kick.at > timeMs) return true;

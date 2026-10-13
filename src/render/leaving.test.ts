@@ -334,4 +334,84 @@ describe('the leaving of a group on a level, as one body', () => {
     expect(show.height(stair, climb, 0)).toBeCloseTo(0.12);
     expect(show.height(pair, climb, 0)).toBeCloseTo(0.78);
   });
+
+  /**
+   * A board of the road made over for the show: the figure's die rolls north into a pair of 2s; the die east of the
+   * pair, rolled north, joins it. `spare` leaves a die standing far from them, so that the world stands between moves.
+   */
+  function chainBoard(spare: boolean): RunState {
+    const dice = [
+      { x: 2, z: 3, top: 4, north: 5 },
+      { x: 2, z: 1, top: 2, north: 1 },
+      { x: 3, z: 2, top: 4, north: 5 },
+    ];
+    if (spare) dice.push({ x: 0, z: 4, top: 4, north: 5 });
+    return start({ ...pieceOf('R10'), id: 'T01', size: 5, values: [2], faces: [2], norm: dice.length, floor: true, holes: undefined, goal: { kind: 'send', count: 999 }, moves: 0, sinkMoves: 6, layout: { start: { x: 2, z: 3 }, dice } });
+  }
+
+  it('by the rules a chain that is added to has just made a move: it is driven its step down, and sighs after it', () => {
+    const state = chainBoard(true);
+    const show = new LeavingShow();
+    show.frame(state, 0, values, false, noDip);
+    go(state, 'N');
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    const pair = cubeAt(state, 2, 2)!;
+    expect(show.height(pair, state, 0)).toBeCloseTo(0.78);
+    // Over to the die beside the pair, and north with it: it joins.
+    go(state, 'E');
+    show.frame(state, 100, values, false, noDip);
+    go(state, 'N');
+    const joined = cubeAt(state, 3, 1)!;
+    expect(joined.reactionId).toBe(pair.reactionId);
+    const step = shownHeight(pair, state, 0);
+    expect(step).toBeLessThan(0.7);
+    expect(show.frame(state, 0, values, false, noDip).map((e) => e.kind)).toEqual(['sent']);
+    // The step of the landing first: 120 ms down, 120 ms of settling.
+    expect(show.frame(state, 120, values, false, noDip).map((e) => e.kind)).toEqual(['step']);
+    show.frame(state, 120, values, false, noDip);
+    expect(show.height(pair, state, 0)).toBeCloseTo(step);
+    // Then the sigh: up by it half way through, and back.
+    show.frame(state, 80, values, false, noDip);
+    expect(show.height(pair, state, 0)).toBeCloseTo(step + 0.04);
+    show.frame(state, 80, values, false, noDip);
+    expect(show.height(pair, state, 0)).toBeCloseTo(step);
+    expect(show.height(joined, state, 0)).toBeCloseTo(0.78);
+  });
+
+  it('goes by steps too while the world plays by itself, no die standing: a step a beat, and under the floor at the end', () => {
+    const state = chainBoard(false);
+    const show = new LeavingShow();
+    show.frame(state, 0, values, false, noDip);
+    go(state, 'N');
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    go(state, 'E');
+    step(state, 'N');
+    // Every die of the board is going now: the world plays beat after beat with nobody moving.
+    const kinds: string[] = [];
+    const pair = cubeAt(state, 2, 2)!;
+    let last = 1;
+    let lowest = 1;
+    for (let ticks = 0; ticks < 2000 && state.cubes.length > 0; ticks++) {
+      step(state, null);
+      kinds.push(...show.frame(state, 20, values, false, noDip).map((e) => e.kind));
+      if (state.cubes.includes(pair)) {
+        const height = show.height(pair, state, 0);
+        // Down only, but for the sigh and the settling after a step.
+        expect(height).toBeLessThan(last + 0.045);
+        last = height;
+        lowest = Math.min(lowest, height);
+      }
+    }
+    expect(state.cubes).toEqual([]);
+    expect(kinds.filter((kind) => kind === 'step').length).toBeGreaterThanOrEqual(5);
+    // The pair came to its last step before the rules took it, and went under from there.
+    expect(lowest).toBeLessThan(0.13);
+    expect(show.ghosts().length).toBe(3);
+    for (let i = 0; i < 20; i++) kinds.push(...show.frame(state, 20, values, false, noDip).map((e) => e.kind));
+    // The rules bring the die that joined in step with its chain: the three go under together, as one group.
+    expect(kinds.filter((kind) => kind === 'gone').length).toBe(1);
+    expect(show.ghosts()).toEqual([]);
+  });
 });
