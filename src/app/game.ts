@@ -204,6 +204,10 @@ const PIECES_COUNTED = 2;
 /** A move taken back runs backwards this many times as fast as it was made, and never for longer than this. */
 const REWIND_SPEED = 1.2;
 const REWIND_MOST_MS = 700;
+/** Whether the net of the die under the player is shown beside the board. */
+const SEAL_SHOWN: boolean = false;
+/** A try of a level may take this many moves back, and no more (`VI_Levels_Rules.md`, section 7). */
+const UNDO_LIMIT = 3;
 /**
  * The stars of a pass stand in the one place whatever the board is: in the middle of the stage,
  * this share of its height down from its top. It is where they stood over a board of three by
@@ -1116,6 +1120,11 @@ export class Game {
     return this.state.levelRun?.spec.arrival === 'none';
   }
 
+  /** How many moves this try of a level may still take back. */
+  private get undosLeft(): number {
+    return Math.max(0, UNDO_LIMIT - this.undosMade);
+  }
+
   /** The next command, with the board as it stands remembered in case the command is a move that can be taken back. */
   private takeCommand(): Dir | null {
     const cmd = this.controller.take(this.now());
@@ -1128,9 +1137,9 @@ export class Game {
   }
 
   /**
-   * Takes the last move of a level back, with every step made since; a try may take back as
-   * many moves as it has made. A level that has come to a dead end stands on the board with no
-   * window over it, and goes on from before the move that ended it. The board is the one before
+   * Takes the last move of a level back, with every step made since; a try takes back three
+   * moves and no more (`UNDO_LIMIT`). A level that has come to a dead end stands on the board with
+   * no window over it while the try has a move to take back, and goes on from before the move that ended it. The board is the one before
    * the move at once, and what is drawn runs backwards to it: the die rolls back the way it came
    * and the dice that had begun to leave come back up.
    */
@@ -1139,7 +1148,7 @@ export class Game {
     if (!levelRun || !this.undoable || this.inMenu || this.paused || this.passage || this.rewind) return;
     // A level that is over is taken back only from a dead end that still stands on the board.
     if (over && (this.resultShown || !deadEnd(this.state))) return;
-    const previous = this.history.pop();
+    const previous = this.undosLeft > 0 ? this.history.pop() : undefined;
     if (!previous) {
       this.audio.ui({ kind: 'stuck' });
       return;
@@ -2790,7 +2799,8 @@ export class Game {
               steps: CONTACT_STEPS.length,
               next: nextThreshold(state.removed),
             },
-      seal: this.sealView(state, mark, lit, lesson?.dir ?? null),
+      // The net of the die under the player is not shown: it confused the players (word of the owner, 13 October 2026). What drew it is kept.
+      seal: SEAL_SHOWN ? this.sealView(state, mark, lit, lesson?.dir ?? null) : null,
       labels,
       lesson,
       note,
@@ -2811,7 +2821,7 @@ export class Game {
         : levelRun
           ? this.undoable
             ? // A dead end is left by taking the move back: no window comes, and the button is the one to press.
-              { canUndo: this.history.length > 0 && !this.rewind, urgent: this.state.over && deadEnd(this.state), muted: this.settings.muted }
+              { canUndo: this.history.length > 0 && !this.rewind && this.undosLeft > 0, urgent: this.state.over && deadEnd(this.state), left: this.undosLeft, muted: this.settings.muted }
             : { canUndo: false, urgent: false, retryOnly: true, muted: this.settings.muted }
           : null,
       pad:
@@ -2874,7 +2884,8 @@ export class Game {
     if (state.over && !this.resultShown && !this.labFrozen) {
       const lost = state.levelRun !== null && state.endReason !== 'passed';
       // A dead end the last move can be taken back from stands on the board: no window comes over it, and the button that takes the move back is lit.
-      const held = lost && this.undoable && this.history.length > 0 && deadEnd(state);
+      // A try that has spent its moves back has none to take: its window comes.
+      const held = lost && this.undoable && this.history.length > 0 && this.undosLeft > 0 && deadEnd(state);
       if (!held && (!lost || this.failHeld(time))) {
         this.resultShown = true;
         if (state.puzzle) this.showPuzzleResult();

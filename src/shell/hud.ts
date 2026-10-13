@@ -201,6 +201,8 @@ export interface HudTools {
   canUndo: boolean;
   urgent: boolean;
   retryOnly?: boolean;
+  /** How many moves can still be taken back, where they are counted: the number stands after the word of the button. */
+  left?: number;
   /** The player has turned the sound off: the button of the sound is crossed out. */
   muted: boolean;
 }
@@ -759,7 +761,7 @@ export class GameHud {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
       const top = layout.wide ? safe.top : layout.height;
-      const tools = view.tools && !view.tools.retryOnly ? this.undoPlan(stage, view.pad ? this.toPicture(view.pad.box) : null, layout.left).box : null;
+      const tools = view.tools && !view.tools.retryOnly ? this.undoPlan(view.tools, stage, view.pad ? this.toPicture(view.pad.box) : null, layout.left).box : null;
       const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top });
       // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
       const room = signBounds(plan);
@@ -1631,9 +1633,9 @@ export class GameHud {
    * (`left`), inside what the edges of the screen leave, and over the four buttons of those who
    * press (`pad`) where those are under it.
    */
-  private undoPlan(stage: Box, pad: Box | null, left: number): { tall: number; dot: number; box: Box } {
+  private undoPlan(tools: HudTools, stage: Box, pad: Box | null, left: number): { tall: number; dot: number; box: Box } {
     const { kit } = this;
-    const word = kit.measure(this.undoWord());
+    const word = kit.measure(this.undoWord(tools));
     const bottom = Math.min(stage.y + stage.h, kit.height - safeInsets().bottom / kit.zoom);
     const room: Box = { ...stage, h: bottom - stage.y };
     // The picture of the button is 6 dots inside its box: it stands right under the readings.
@@ -1643,19 +1645,22 @@ export class GameHud {
     return undoButton({ ...room, h: pad.y - room.y }, kit.zoom, word, edge);
   }
 
-  private undoWord(): string {
-    return word(COMMANDS.undo.name);
+  /** The word of the button, and after it how many moves are left to take back, where they are counted. */
+  private undoWord(tools: HudTools): string {
+    const name = word(COMMANDS.undo.name);
+    return tools.left === undefined ? name : `${name} ${tools.left}`;
   }
 
   /**
    * The button that takes a move back, out of the way of swipes: the arrow that turns back and
-   * its word, with no frame. Until there is a move to take back it is faint. At a dead end it
-   * blinks, picture and word: it is the one to press.
+   * its word, with no frame, and the number of moves left to take back where a try has only so
+   * many. Until there is a move to take back, and once none is left, it is faint. At a dead end
+   * it blinks, picture and word: it is the one to press.
    */
   private drawUndo(tools: HudTools, stage: Box, blink: number, pad: Box | null, left: number): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
-    const { tall, dot, box } = this.undoPlan(stage, pad, left);
+    const { tall, dot, box } = this.undoPlan(tools, stage, pad, left);
     const held = this.held?.zone.id === 'undo';
     const urgent = tools.urgent && tools.canUndo;
     const colour = !tools.canUndo ? faint : held ? dim : urgent && blink !== 0 ? faint : ink;
@@ -1664,7 +1669,7 @@ export class GameHud {
     ICON_UNDO.forEach((row, r) => {
       for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
     });
-    kit.text(this.undoWord(), ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
+    kit.text(this.undoWord(tools), ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
     if (tools.canUndo) this.zones.push({ id: 'undo', rect: kit.toWindow(box), action: () => this.actions.onUndo() });
   }
 
