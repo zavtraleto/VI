@@ -113,4 +113,29 @@ describe('board params', () => {
     expect(palette.signal).toBe('#ff0000');
     expect(Object.keys(BOARD_PARAMS).some((name) => /^ch\d$/.test(name) || name === 'signal')).toBe(false);
   });
+
+  it('has the numbers of the leaving of a group, as the spec sets them', () => {
+    const values = boardDefaults();
+    expect(values.liftHeight).toBe(0.08);
+    expect(values.liftMs).toBe(90);
+    expect(values.hangMs).toBe(60);
+    expect(values.dropMs).toBe(130);
+    expect(values.dropCurve).toBe(1);
+    expect(values.leaveSettleMs).toBe(120);
+    expect(values.settleOver).toBe(0.015);
+    expect(values.stepMs).toBe(120);
+    expect(values.sighHeight).toBe(0.04);
+    expect(values.sighMs).toBe(160);
+    expect(values.endRingReach).toBe(1.6);
+    expect(values.endRingMs).toBe(300);
+    expect(values.punchAttackMs).toBe(30);
+    expect(values.punchDecayMs).toBe(120);
+    // The edges of a die that has come up settle by a number of their own, which is not this one.
+    expect(values.settleMs).toBe(180);
+  });
+
+  it('takes the leaving of a group from an address too', () => {
+    expect(readView('?liftHeight=0.1&dropCurve=2&punchAttackMs=0')).toEqual({ liftHeight: 0.1, dropCurve: 2, punchAttackMs: 0 });
+    expect(readView('?liftHeight=3')).toEqual({});
+  });
 });

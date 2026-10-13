@@ -342,6 +342,33 @@ export const BOARD_GROUPS = {
     /** The line of a hint over the board is said a word at a time: how long each word waits for the one before it; 0 puts the line up whole. */
     hintWordMs: number(180, 0, 600, 10),
   },
+  leaving: {
+    /**
+     * A group that leaves a level goes as one body (the owner, 13 October: «все приподнимаются
+     * как одна плита»): up over its full height by `liftHeight` in `liftMs`, hangs for `hangMs`,
+     * drops onto its first step in `dropMs` along the curve `dropCurve` (0 inCubic, 1 inQuart,
+     * 2 inExpo), presses `settleOver` of a die below the step and comes back in `leaveSettleMs`
+     * (`settleMs` is the edges of a die that has come up). Every landing of the figure's roll
+     * drives it one step down in `stepMs`, the last one under the floor; then a ring runs over the
+     * floor from its middle, `endRingReach` cells in `endRingMs`. A chain that is added to on a
+     * level sighs: up `sighHeight` and back in `sighMs`.
+     */
+    liftHeight: number(0.08, 0, 0.3, 0.01),
+    liftMs: number(90, 0, 300, 10),
+    hangMs: number(60, 0, 300, 10),
+    dropMs: number(130, 40, 400, 10),
+    dropCurve: number(1, 0, 2, 1),
+    leaveSettleMs: number(120, 0, 400, 10),
+    settleOver: number(0.015, 0, 0.1, 0.005),
+    stepMs: number(120, 40, 400, 10),
+    sighHeight: number(0.04, 0, 0.2, 0.01),
+    sighMs: number(160, 0, 500, 10),
+    endRingReach: number(1.6, 0.5, 4, 0.1),
+    endRingMs: number(300, 100, 800, 10),
+    /** The lean of the camera on a beat: up to its peak in `punchAttackMs`, then down with a half-life of `punchDecayMs`. In every mode. */
+    punchAttackMs: number(30, 0, 120, 5),
+    punchDecayMs: number(120, 30, 400, 10),
+  },
 } satisfies Record<string, Record<string, ParamSpec>>;
 
 export const BOARD_PARAMS: Record<string, ParamSpec> = Object.assign({}, ...Object.values(BOARD_GROUPS));
@@ -379,7 +406,7 @@ export function parseBoardValue(name: string, text: string): number | string | b
 }
 
 /**
- * What an address says of the view and of the passage between boards, in any build, to try on
+ * What an address says of the view, of the passage between boards and of the leaving of a group (`?liftHeight=0.1`), in any build, to try on
  * a device what it is like: `?view=follow&focus=0.6&minCell=64&followMs=250&edge=0.1&lens=0`,
  * `?drawMs=1600&eraseMs=900&headGlow=1.5`. Only what is named and makes sense is returned; the
  * rest stays as it is defined.
@@ -387,7 +414,7 @@ export function parseBoardValue(name: string, text: string): number | string | b
 export function readView(search: string): ParamValues {
   const query = new URLSearchParams(search);
   const values: ParamValues = {};
-  const read: Record<string, ParamSpec> = { ...BOARD_GROUPS.view, ...BOARD_GROUPS.road };
+  const read: Record<string, ParamSpec> = { ...BOARD_GROUPS.view, ...BOARD_GROUPS.road, ...BOARD_GROUPS.leaving };
   for (const [name, spec] of Object.entries(read)) {
     const text = query.get(name);
     if (text === null || text === '') continue;

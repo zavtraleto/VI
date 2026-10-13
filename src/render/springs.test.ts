@@ -36,4 +36,15 @@ describe('cube springs', () => {
     settle(springs);
     expect(springs.offset(3)).toBe(0);
   });
+
+  it('forgets a cube: its offset is nothing at once, with no spring back', () => {
+    const springs = new CubeSprings();
+    springs.hold(7, 0.1);
+    settle(springs);
+    expect(springs.offset(7)).toBeCloseTo(-0.1, 2);
+    springs.forget(7);
+    expect(springs.offset(7)).toBe(0);
+    springs.update(16);
+    expect(springs.offset(7)).toBe(0);
+  });
 });

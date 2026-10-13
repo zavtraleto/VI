@@ -19,6 +19,7 @@ const FOLDERS: Record<keyof typeof BOARD_GROUPS, string> = {
   screen: 'Экран',
   view: 'Вид',
   road: 'Дорога',
+  leaving: 'Уход',
 };
 
 /** What the parameters are called on the panel; one without a name here shows its own. */
@@ -123,6 +124,20 @@ const LABELS: Record<string, string> = {
   fixedEdge: 'фиксированная: свет рёбер',
   signStar: 'знак свайпа: лучи звезды, px',
   hintWordMs: 'строка над полем: мс на слово',
+  liftHeight: 'замах: высота, костей',
+  liftMs: 'замах, мс',
+  hangMs: 'пауза наверху, мс',
+  dropMs: 'удар, мс',
+  dropCurve: 'удар: кривая (0 куб, 1 четвёртая, 2 экспонента)',
+  leaveSettleMs: 'отдача, мс',
+  settleOver: 'отдача: дожим, костей',
+  stepMs: 'ступень, мс',
+  sighHeight: 'вздох цепочки: высота',
+  sighMs: 'вздох цепочки, мс',
+  endRingReach: 'кольцо у пола: клеток',
+  endRingMs: 'кольцо у пола, мс',
+  punchAttackMs: 'толчок камеры: атака, мс',
+  punchDecayMs: 'толчок камеры: спад, мс',
   signTrail: 'знак свайпа: длина следа, доля',
   signRunMs: 'знак свайпа: пробег, мс',
   signRestMs: 'знак свайпа: пауза, мс',

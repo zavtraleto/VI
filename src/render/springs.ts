@@ -34,6 +34,11 @@ export class CubeSprings {
     if (id !== null && depth > 0) this.spring(id).rest = -depth;
   }
 
+  /** Lets go of a cube at once: no spring is left on it, and nothing springs back. */
+  forget(id: number): void {
+    this.springs.delete(id);
+  }
+
   update(dtMs: number): void {
     let remaining = Math.min(dtMs, 100) / 1000;
     while (remaining > 0) {
