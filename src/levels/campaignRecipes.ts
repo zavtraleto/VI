@@ -28,8 +28,10 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
     brief: 'the rule of seven: a pair of 3s stands, the own die shows a 4 with its 3 underneath; two rolls one way bring it up; the fourth die joins as a link or is left alone',
   },
   {
-    ...ACT, slot: 1021, id: 'K21', act: 1, role: 'peak', size: 3, dice: 5, faces: [3], under: true, ride: true, movers: 2,
-    par: [4, 6], firsts: [1, 2], tail: [0, 1], last: [5, 5], kinds: ['top'], personas: { hasty: 0.3, casual: 0.6 }, gap: [0.3, 1],
+    // No `ride` (the way begins with another die, rolled out of the way) and no floors for the hasty and the casual persona:
+    // they clear a board of hidden faces in a run out of thirty and a run out of five, as they do `P03`, `P16` and `P09`.
+    ...ACT, slot: 1021, id: 'K21', act: 1, role: 'peak', size: 3, dice: 5, faces: [3], under: true, movers: 2,
+    par: [4, 6], firsts: [1, 2], tail: [0, 1], last: [5, 5], kinds: ['top'], safeFirst: true, gap: [0.3, 1],
     brief: 'eureka on 3s: two hidden faces, one roll away and back, and the five go at once',
   },
   {
