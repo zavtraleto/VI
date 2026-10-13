@@ -7,12 +7,10 @@ import type { HeightOf } from './leaving';
  * How high the one who plays stands in a cell: on the die there, as high as the die is shown
  * (`height`), or, off the dice, on the upper frame of a cell beside a chain (`frame`), or on the floor.
  */
-function footing(state: RunState, x: number, z: number, level: Level, alpha: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number, height: HeightOf, ghostAt: (x: number, z: number) => number): number {
+function footing(state: RunState, x: number, z: number, level: Level, alpha: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number, height: HeightOf): number {
   if (level === 'ground') return frame(x, z);
   const cube = cubeAt(state, x, z);
-  if (cube) return height(cube, alpha) + dip(cube.id);
-  // The die under the figure is gone from the rules and still going under in the show: the figure rides it down to the floor.
-  return ghostAt(x, z);
+  return cube ? height(cube, alpha) + dip(cube.id) : 0;
 }
 
 /** Extra lift at the middle of a step, per move kind. */
@@ -78,12 +76,12 @@ export class PlayerFigure {
    * `frame` is how high the upper frame of a cell beside a chain lies, nought where there is
    * none: off the dice the figure stands on that frame and comes down with it, not on the floor
    * under it. `height` is how high a die is shown, one that leaves a level among them
-   * (`BoardView.heightOf`); `ghostAt` is how high a die the rules have taken still stands in a cell.
+   * (`BoardView.heightOf`).
    */
-  sync(state: RunState, alpha: number, dt: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number, height: HeightOf, ghostAt: (x: number, z: number) => number): void {
+  sync(state: RunState, alpha: number, dt: number, dip: (cubeId: number) => number, frame: (x: number, z: number) => number, height: HeightOf): void {
     const { player, config } = state;
 
-    const supportHeight = (x: number, z: number, level: Level): number => footing(state, x, z, level, alpha, dip, frame, height, ghostAt);
+    const supportHeight = (x: number, z: number, level: Level): number => footing(state, x, z, level, alpha, dip, frame, height);
 
     const toY = supportHeight(player.x, player.z, player.level);
     const action = player.action;

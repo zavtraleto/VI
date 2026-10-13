@@ -112,37 +112,26 @@ describe('board params', () => {
     expect(Object.keys(BOARD_PARAMS).some((name) => /^ch\d$/.test(name) || name === 'signal')).toBe(false);
   });
 
-  it('has the numbers of the leaving of a group, as the spec sets them', () => {
+  it('has the numbers of the leaving of a group: one soft sinking, a ring, and the finale of a board', () => {
     const values = boardDefaults();
-    // Pressed down, not lifted (the owner, 13 October: «кости не должны прыгать вверх, а должны "проседать"»); above nought it is a lift.
-    expect(values.liftHeight).toBe(-0.06);
-    expect(values.liftMs).toBe(90);
-    expect(values.hangMs).toBe(60);
-    expect(values.dropMs).toBe(130);
-    expect(values.dropCurve).toBe(1);
-    expect(values.leaveSettleMs).toBe(120);
-    expect(values.settleOver).toBe(0.015);
-    expect(values.stepMs).toBe(120);
-    // A chain that is added to goes as one body with the die that joins it: it has no numbers of its own.
-    expect(values.sighHeight).toBeUndefined();
-    expect(values.sighMs).toBeUndefined();
-    // The last combo of a board.
-    expect(values.finaleLiftHeight).toBe(-0.08);
-    expect(values.finaleLiftMs).toBe(100);
-    expect(values.finaleHangMs).toBe(100);
-    expect(values.finaleNoteMs).toBe(30);
-    expect(values.finaleDropMs).toBe(150);
-    expect(values.endRingReach).toBe(1.6);
-    expect(values.endRingMs).toBe(300);
-    expect(values.punchAttackMs).toBe(30);
-    expect(values.punchDecayMs).toBe(120);
-    // The edges of a die that has come up settle by a number of their own, which is not this one.
+    expect(Object.fromEntries(Object.keys(BOARD_GROUPS.leaving).map((name) => [name, values[name]]))).toEqual({
+      dropMs: 300,
+      dropCurve: 0,
+      endRingReach: 1.6,
+      endRingMs: 300,
+      finaleHangMs: 250,
+      finaleDropMs: 450,
+      punchAttackMs: 30,
+      punchDecayMs: 120,
+    });
+    // Nothing lifts, presses, strikes or comes back any more: those numbers are gone with the movements.
+    for (const name of ['liftHeight', 'liftMs', 'hangMs', 'settleOver', 'leaveSettleMs', 'stepMs', 'sighMs', 'finaleLiftHeight', 'finaleNoteMs']) expect(values[name], name).toBeUndefined();
+    // The edges of a die that has come up settle by a number of their own.
     expect(values.settleMs).toBe(180);
   });
 
   it('takes the leaving of a group from an address too', () => {
-    expect(readView('?liftHeight=0.1&dropCurve=2&punchAttackMs=0')).toEqual({ liftHeight: 0.1, dropCurve: 2, punchAttackMs: 0 });
-    expect(readView('?liftHeight=3')).toEqual({});
-    expect(readView('?liftHeight=-0.1&finaleLiftHeight=0.12')).toEqual({ liftHeight: -0.1, finaleLiftHeight: 0.12 });
+    expect(readView('?dropMs=400&dropCurve=1&finaleDropMs=600&punchAttackMs=0')).toEqual({ dropMs: 400, dropCurve: 1, finaleDropMs: 600, punchAttackMs: 0 });
+    expect(readView('?dropMs=3&finaleHangMs=9000')).toEqual({});
   });
 });

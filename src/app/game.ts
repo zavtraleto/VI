@@ -1,5 +1,5 @@
 import { AudioEngine } from '../audio/engine';
-import { lineSteps, stereo, type LineStep } from '../audio/score';
+import { lineSteps, stereo, type Cue, type LineStep } from '../audio/score';
 import { Display } from '../display/display';
 import { Governor, QUALITY_STEPS } from '../display/governor';
 import { Pacer } from '../display/pacer';
@@ -96,7 +96,7 @@ import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
 import { Hints } from './hints';
 import { levelReport, shortOf } from './levelStats';
 import { puzzleReport, starsFor } from './puzzleStats';
-import { HeldBeats, Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
+import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Later } from './later';
 import { Runner, frameBound } from './runner';
@@ -231,8 +231,8 @@ const PASSAGE_STEP_MS = 100;
 const FAIL_HOLD_MS = 900;
 /** The passage waits for the frame the dice of the last combo are drawn going under; past this long after their time it goes on without it (a picture that is not drawn says nothing). */
 const FINALE_WAIT_MS = 250;
-/** Where no board comes after the one that is passed, its window waits this long after the strike of the finale: the ring over the floor runs out first. */
-const FINALE_WINDOW_MS = 600;
+/** Where no board comes after the one that is passed, its window waits this long after the dice of the finale are under: the board is seen empty first. */
+const FINALE_WINDOW_MS = 300;
 /** How strong the answer of the board to a level that is passed is, as a beat: a tier under the strongest, and the sound of a chain's fourth link. */
 const FINALE_TIER = 3;
 const FINALE_CHAIN = 4;
@@ -295,10 +295,6 @@ export class Game {
   private sealLight: { dir: Dir; until: number } | null = null;
   /** The breath the game holds on a beat. */
   private readonly hold = new Hitstop();
-  /** The beats of a group on a level, kept until its dice come down. */
-  private readonly heldBeats = new HeldBeats();
-  /** How long each chain of a level is said to be over its dice: the word waits for the strike with the beat. */
-  private readonly saidChain = new Map<number, number>();
   /** The peak of the contact on the last frame, to notice it begin. */
   private lastPeak = 0;
   /** The way back to the end of a lesson for a player who has left its short way, and the position it is from. */
@@ -365,6 +361,9 @@ export class Game {
     counts: PassageCounts;
     swapped: boolean;
     struck: boolean;
+    /** The clock of the passage has been set to the frame the dice were seen under, and the ring of their going has been sent. */
+    aligned: boolean;
+    ringed: boolean;
     beaten: boolean;
     lit: number;
     risen: number;
@@ -1043,8 +1042,6 @@ export class Game {
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
-    this.heldBeats.reset();
-    this.saidChain.clear();
     // Only a level carries a line over its board, a piece of the road or the board an act opens with; a run that is no level carries none.
     if (!state.levelRun) this.hint = null;
     // Every start of a board is without the line about a dim die; a board that is no level keeps no room for it.
@@ -1164,8 +1161,6 @@ export class Game {
     // What was rolled over after the board that is back is not rolled over on it.
     const made = previous.levelRun?.moves ?? 0;
     this.ghosts = this.ghosts.filter((ghost) => ghost.moves <= made);
-    // The group the move sent is not on the board that is back: its beat is not struck.
-    this.heldBeats.reset();
     this.controller.cancel();
     // With motion kept low the board is put back as it was, with nothing played.
     if (trail.length === 0 || prefersReducedMotion(this.settings)) this.view.reset();
@@ -1420,12 +1415,10 @@ export class Game {
   private readTimes(): PassageTimes {
     const { board } = this.look;
     const { times } = this;
-    // The last combo of the board is one strike (`LeavingShow.finale`): its dice sound one by one while they hang,
-    // go under at once, and the lines are erased from that frame. The passage counts the same time to it.
-    const sounding = this.passage?.counts.combo ?? 0;
-    const finale = finaleMs(sounding, board, prefersReducedMotion(this.settings));
-    times.comboStepMs = Number(board.finaleNoteMs);
-    times.comboHoldMs = Math.max(0, finale.total - sounding * times.comboStepMs);
+    // The last combo of the board takes its dice away together (`LeavingShow.finale`): they are all lit at once,
+    // and the lines are erased from the frame they are under. The passage counts the same time to it.
+    times.comboStepMs = 0;
+    times.comboHoldMs = finaleMs(board, prefersReducedMotion(this.settings)).total;
     times.sinkMs = 0;
     times.eraseMs = Number(board.eraseMs);
     times.cameraMs = Number(board.cameraMs);
@@ -1470,7 +1463,9 @@ export class Game {
       counts: { combo: passing.count, dice: 0, stair: false },
       swapped: false,
       struck: false,
-      beaten: false,
+      aligned: false,
+      ringed: false,
+      beaten: true,
       lit: 0,
       risen: 0,
       order: order.map((die) => cubes[die].id),
@@ -1479,7 +1474,9 @@ export class Game {
       heard: 0,
     };
     this.view.setPassing(passing);
-    this.view.finale(state, passing.count, prefersReducedMotion(this.settings));
+    this.view.finale(state, prefersReducedMotion(this.settings));
+    // The board answers on the frame the combo is made, as it answers any combo: light, ring and one chord.
+    this.answerPassed();
     this.awardStars();
   }
 
@@ -1503,28 +1500,29 @@ export class Game {
     let now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
     const marks = passageMarks(times, passage.counts, reduced, this.marksNow);
     if (!passage.swapped) {
-      const finale = finaleMs(passage.counts.combo, this.look.board, reduced);
-      passing.stepMs = times.comboStepMs;
+      const finale = finaleMs(this.look.board, reduced);
+      // All of them are lit from the first frame, and what the view reads of the dice going - their glass, the light of
+      // the group, the figure on the floor - goes by the time they take to go under.
+      passing.stepMs = 0;
       passing.moveForMs = Math.max(1, finale.drop);
       passing.flashMs = Number(this.look.board.comboHoldMs);
       passing.litMs = passage.elapsed;
-      // What the view reads of the dice going - their glass, the light of the group, the figure on the floor - goes by the drop of the finale.
-      passing.moveMs = passage.struck ? passing.moveForMs : passage.elapsed - (finale.lift + finale.hang);
-      // A die lights up on a note of its face: the first as a combo begins, each one after it a link higher, as a chain climbs.
-      for (; passage.lit < now.lit; passage.lit++) {
-        const face = getCube(this.state, passage.order[passage.lit])?.ori.top ?? 1;
-        this.audio.play(
-          passage.lit === 0 ? { kind: 'group', face, count: 1, tier: 0, pan: 0 } : { kind: 'chain', face, chain: passage.lit + 1, count: 1, tier: 0, pan: 0 },
-        );
+      passing.moveMs = passage.struck ? passing.moveForMs : passage.elapsed - finale.hang;
+      // As they begin to go, a wide ring runs over the floor from the middle of them, and is still running when they are under.
+      if (!passage.ringed && passage.elapsed >= finale.hang) {
+        passage.ringed = true;
+        const { cubes } = this.state;
+        const last = cubes.reduce<(typeof cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
+        this.view.farewell(cubes.map(({ x, z }) => ({ x, z })), last?.ori.top ?? 0, 2);
       }
-      // The board answers on the frame its dice are drawn going under (`onLeaving`), and the rest of the passage is
-      // counted from that frame: the picture and this clock are a frame apart at most, and the strike is the picture's.
+      // The lines are erased from the frame the dice are drawn under the floor (`onLeaving`): the picture and this
+      // clock are a frame apart at most, and that frame is the picture's.
       if (!passage.struck) {
         if (now.phase === 'combo' || passage.elapsed < marks.sink + FINALE_WAIT_MS) return;
         this.finaleStruck();
       }
-      if (!passage.beaten) {
-        passage.beaten = true;
+      if (!passage.aligned) {
+        passage.aligned = true;
         passage.elapsed = marks.sink;
         now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
       }
@@ -1641,20 +1639,16 @@ export class Game {
     const value = last?.ori.top ?? 0;
     const cells = state.cubes.map(({ x, z }) => ({ x, z }));
     this.view.answer(value);
-    this.beat({ kind: 'chain', value, tier: FINALE_TIER, cells, points: 0, chain: FINALE_CHAIN });
-    // They are under: one ring over the floor, twice as wide as that of a group that goes, and one sound of going under for all of them.
-    this.view.farewell(cells, value, 2);
-    this.audio.play({ kind: 'sunk', face: value >= 1 ? value : 1, pan: 0 });
+    // One chord for all of them, and no run of notes: every die of the board flashes on the same frame.
+    this.beat({ kind: 'chain', value, tier: FINALE_TIER, cells, points: 0, chain: FINALE_CHAIN }, { kind: 'chain', face: value >= 1 ? value : 1, chain: FINALE_CHAIN, count: 1, tier: FINALE_TIER, pan: 0 });
   }
 
-  /** The dice of the last combo of the board are under the floor: the board answers them, once. */
+  /** The dice of the last combo of the board are under the floor: none of them is drawn from this frame, and the lines begin to go. */
   private finaleStruck(): void {
     const { passage } = this;
     if (!passage || passage.struck) return;
     passage.struck = true;
-    // They are under on this frame: none of them is drawn on it, whatever the clock of the passage says.
     this.passing.moveMs = this.passing.moveForMs;
-    this.answerPassed();
   }
 
   /**
@@ -2510,15 +2504,8 @@ export class Game {
     if (state.tick % minute === 0 && (state.mode === 'endless' || state.mode === 'timed')) {
       track('session_checkpoint', { step_id: this.kind, ...checkpoint(state, state.tick / minute) });
     }
-    // The combo that passes a level is answered by the passage: its dice light up one after another, each on its own note.
-    // On a level a group strikes when its dice come down, not when they are sent: its beat waits for the show (`onLeaving`).
-    if (!(state.levelRun && state.endReason === 'passed')) for (const beat of this.heldBeats.take(beatsOf(state, state.events), state.levelRun !== null)) this.beat(beat);
-    // A board that ends has no strike to wait for: what a move that lost it has sent is answered at once, as it
-    // was; the combo that passes it is the passage's.
-    if (state.over) {
-      if (state.endReason === 'passed') this.heldBeats.reset();
-      else for (const beat of this.heldBeats.release()) this.beat(beat);
-    }
+    // The combo that passes a level is answered by the passage: every die of the board, on one chord.
+    if (!(state.levelRun && state.endReason === 'passed')) for (const beat of beatsOf(state, state.events)) this.beat(beat);
     const { player } = state;
     // A level says its rules in the window it opens with, and nothing while it is played.
     if (state.levelRun) return;
@@ -2538,11 +2525,13 @@ export class Game {
    * The game answers a beat: the board throws light and shakes, the points of a group leave it
    * for the score, and for a few hundredths of a second everything holds its breath.
    */
-  private beat(beat: Beat): void {
+  private beat(beat: Beat, sound?: Cue): void {
     const { state } = this;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.view.beat(beat, state, reducedMotion);
-    this.audio.beat(beat, state);
+    // A beat sounds as its kind and its dice do, unless it is given a sound of its own.
+    if (sound) this.audio.play(sound);
+    else this.audio.beat(beat, state);
     if (!reducedMotion) this.hold.hold(beat.tier);
     let at: { x: number; y: number } | null = null;
     if (beat.cells.length > 0) {
@@ -2556,23 +2545,11 @@ export class Game {
     this.hud.beat({ kind: beat.kind, value: beat.value, chain: beat.chain, points: state.puzzle || state.levelRun ? 0 : beat.points, tier: beat.tier, at });
   }
 
-  /** What the leaving of a group on a level has come to: the beats held for it, a step, or the ring of its going. */
+  /** What the leaving of a group on a level has come to: it has gone into the floor, or the last combo of the board has taken its dice under. */
   private onLeaving(event: LeavingEvent): void {
-    if (event.final) {
-      this.finaleStruck();
-      return;
-    }
-    if (this.state.over) {
-      this.heldBeats.reset();
-      return;
-    }
-    if (event.kind === 'impact') {
-      for (const beat of this.heldBeats.release()) this.beat(beat);
-    } else if (event.kind === 'step') {
-      this.view.thud();
-    } else if (event.kind === 'gone') {
-      this.view.farewell(event.cells, event.value);
-    }
+    if (event.kind !== 'gone') return;
+    if (event.final) this.finaleStruck();
+    else if (!this.state.over) this.view.farewell(event.cells, event.value);
   }
 
   private onEvent(state: RunState, event: GameEvent): void {
@@ -2758,11 +2735,8 @@ export class Game {
     const labels: HudLabel[] = [];
     // A chain of a level that is passed says nothing over its dice once they are being sent under.
     const sent = state.levelRun !== null && state.endReason === 'passed' && this.passage?.beaten !== false;
-    for (const id of this.saidChain.keys()) if (!state.reactions.some((reaction) => reaction.id === id)) this.saidChain.delete(id);
     for (const reaction of state.reactions) {
-      // On a level the word over a chain comes with the strike of the die that joined, as the beat does, not on the tick it was sent.
-      if (!this.heldBeats.waiting || state.levelRun === null) this.saidChain.set(reaction.id, reaction.chain);
-      const chain = Math.min(reaction.chain, this.saidChain.get(reaction.id) ?? 0);
+      const { chain } = reaction;
       if (chain < 2 || sent) continue;
       const cubes = state.cubes.filter((cube) => cube.reactionId === reaction.id && cube.state === 'sinking');
       if (cubes.length === 0) continue;

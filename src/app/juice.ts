@@ -58,7 +58,7 @@ export function beatsOf(state: RunState, events: readonly GameEvent[]): Beat[] {
         kind: 'chain',
         value: event.value,
         tier: chainTier(event.chain),
-        // On a level the chain strikes as one body, with the die that joined: the beat is all of it.
+        // On a level the whole chain flashes with the die that joined: the beat is all of it.
         cells: event.chain >= 3 || fresh.length === 0 || state.levelRun !== null ? all : fresh,
         points: event.points,
         chain: event.chain,
@@ -79,38 +79,6 @@ export function stepBeat(): Beat {
 
 export function peakBeat(): Beat {
   return { kind: 'peak', value: 0, tier: 4, cells: [], points: 0, chain: 0 };
-}
-
-/**
- * On a level a group strikes when its dice come down, not when they are sent: the beat of a group
- * and of a chain waits for the show of their leaving (`LeavingShow` in `src/render/leaving.ts`),
- * and every beat held is given on the first strike of a group (`impact`), so that two groups made
- * on one landing strike together. Everything else, and every beat outside a level, is given at once.
- */
-export class HeldBeats {
-  private held: Beat[] = [];
-
-  /** Takes the beats of a tick: returns those to answer now, and keeps the rest for the strike. */
-  take(beats: readonly Beat[], level: boolean): Beat[] {
-    if (!level) return [...beats];
-    const now: Beat[] = [];
-    for (const beat of beats) (beat.kind === 'match' || beat.kind === 'chain' ? this.held : now).push(beat);
-    return now;
-  }
-
-  /** A group has been sent and has not struck yet. */
-  get waiting(): boolean {
-    return this.held.length > 0;
-  }
-
-  /** The dice have come down: every beat held, to be answered now. */
-  release(): Beat[] {
-    return this.held.splice(0);
-  }
-
-  reset(): void {
-    this.held = [];
-  }
 }
 
 /**

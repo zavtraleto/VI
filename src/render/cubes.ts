@@ -4,7 +4,7 @@ import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rule
 import type { ParamValues } from '../signal/scene';
 import { mixHex, type Palette } from '../shell/theme';
 import { CROSS_LEAST_PX, CROSS_RIM_LEAST_PX, offMask } from './faces';
-import type { Ghost, HeightOf } from './leaving';
+import type { HeightOf } from './leaving';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
 import { comeShare, goneShare, isLit, litFlash, passingHeight, faded, type DicePassing } from './passing';
 import { PIP_STEP } from './textures';
@@ -616,10 +616,9 @@ export class CubeMeshes {
    * of a board that is passed stands whole until it is lit and then goes down by its own time,
    * and a die of a board that comes is not there until its turn, comes up as a die comes in a
    * session, and then stands as the rules have it. `heightOf` is where a die that goes is drawn
-   * (`BoardView.heightOf`); `ghosts` are the dice the rules have taken that the show of their
-   * leaving still drives under the floor.
+   * (`BoardView.heightOf`).
    */
-  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null, heightOf: HeightOf, ghosts: readonly Ghost[]): void {
+  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null, heightOf: HeightOf): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     const { shared } = this;
     // The faces that do not work in the run are crossed out and give no light.
@@ -766,18 +765,6 @@ export class CubeMeshes {
       const bright = (sinking ? Math.max(1, glow.sinking) : 1) * (faint && (sinking || mounts) ? low : 1) * (dimmed ? n('fixedEdge') : 1);
       this.colour.copy(channel).multiplyScalar(Math.min(1, edge * bright));
       this.outlineAt(glasses++, cube.x, y, cube.z);
-    }
-
-    // The dice the rules have taken that the show still drives under the floor: each keeps the glass it had on its
-    // last frame, its dots and its light as they were, and only goes down.
-    for (const ghost of ghosts) {
-      const die = this.worn.get(ghost.id);
-      if (!die) continue;
-      alive.add(ghost.id);
-      die.position.y = ghost.height - 0.5;
-      if (glasses >= MAX_DICE) continue;
-      this.colour.copy(this.channels[ghost.value - 1]).multiplyScalar(Math.min(1, edge * low));
-      this.outlineAt(glasses++, ghost.x, die.position.y, ghost.z);
     }
 
     this.solids.count = solids;

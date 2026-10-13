@@ -126,8 +126,8 @@ export interface SceneParams {
    */
   ghosts?: readonly { x: number; z: number; value: number }[];
   /**
-   * What the leaving of a group on a level has come to on this frame: the board answers a beat on
-   * `impact`, a step on `step`, and sends a ring over the floor on `gone`.
+   * What the leaving of a group on a level has come to on this frame: it has gone into the floor
+   * (`gone`: a ring over the floor), or the last combo of the board has taken its dice under (`gone`, `final`).
    */
   onLeaving?: (event: LeavingEvent) => void;
 }
@@ -825,8 +825,7 @@ export class BoardView {
     }
     if (screen > 1 && tier >= 2) this.jolt = Math.max(this.jolt, Math.min(1, screen - 1));
     if (reducedMotion) return;
-    // A chain of a level strikes with all its dice: the camera leans a tier further than for a group made.
-    this.lean(BEAT_PUNCH[beat.kind === 'chain' && state.levelRun ? Math.min(4, tier + 1) : tier]);
+    this.lean(BEAT_PUNCH[tier]);
     this.bursts.fire(beat);
     if (beat.cells.length === 0) return;
     const cx = beat.cells.reduce((sum, cell) => sum + cell.x, 0) / beat.cells.length;
@@ -845,19 +844,13 @@ export class BoardView {
     this.punch.lean(peak, Number(this.look.board.punchAttackMs ?? 0), Number(this.look.board.punchDecayMs ?? 0));
   }
 
-  /** A step of a group driven down: the slightest lean of the camera, and nothing else. */
-  thud(): void {
-    if (this.still) return;
-    this.lean(BEAT_PUNCH[0]);
-  }
-
   /**
-   * The last combo of a board begins to take its dice away: the `sounding` dice of it will sound
-   * one by one, and every die of the board lifts, hangs and goes under with them (`LeavingShow.finale`).
-   * Called once, on the frame the board is passed, before it is drawn.
+   * The last combo of a board begins to take its dice away: every die of the board stands lit and
+   * goes under the floor with the others (`LeavingShow.finale`). Called once, on the frame the
+   * board is passed, before it is drawn.
    */
-  finale(state: RunState, sounding: number, reducedMotion: boolean): void {
-    this.show.finale(state, sounding, this.look.board, reducedMotion, (id) => this.springs.offset(id));
+  finale(state: RunState, reducedMotion: boolean): void {
+    this.show.finale(state, this.look.board, reducedMotion, (id) => this.springs.offset(id));
     // Every die starts from where its spring held it, and no spring is left to move it.
     this.release(state.cubes.map((cube) => cube.id));
     this.drawn = state;
@@ -976,9 +969,9 @@ export class BoardView {
     if (stepNow === null && steppedOn && pressed && !reducedMotion) this.springs.kick(pressed.id, -1.2);
     this.lastStep = stepNow;
 
-    // The leaving of a group on a level, as one body: the show drives the height of every die that goes.
-    // A die that has just been sent lifts from where its spring held it, and the spring is let go of.
-    for (const event of this.show.frame(state, dt, values, reducedMotion, (id) => this.springs.offset(id))) {
+    // The leaving of a group on a level: the show says how high every die that goes is drawn.
+    // A die that has just been sent sinks from where its spring held it, and the spring is let go of.
+    for (const event of this.show.frame(state, dt, reducedMotion, (id) => this.springs.offset(id))) {
       if (event.kind === 'sent') this.release(event.cubeIds);
       else params.onLeaving?.(event);
     }
@@ -1046,10 +1039,9 @@ export class BoardView {
       dip,
       passing,
       this.heightOf,
-      this.show.ghosts(),
     );
     this.player.setColor(figureColour(this.palette, values), n('figureGhost'), { body: n('figureBody'), rim: n('figureRim'), shine: n('figureShine') });
-    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip), this.heightOf, (x, z) => this.show.ghostHeight(x, z));
+    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip), this.heightOf);
     if (shove) {
       this.player.group.position.x += shove.x;
       this.player.group.position.z += shove.z;
