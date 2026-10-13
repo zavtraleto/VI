@@ -96,18 +96,29 @@ describe('the leaving of a group on a level, as one body', () => {
   const values = boardDefaults();
   const noDip = (): number => 0;
 
+  /** The rules send dice: they are going from this tick, with a tick of their window gone, in the group of the board. */
+  function send(state: RunState, ...cubes: Cube[]): void {
+    for (const cube of cubes) {
+      cube.state = 'sinking';
+      cube.t = 1;
+      cube.reactionId = 1;
+    }
+    if (state.reactions.length === 0) state.reactions.push({ id: 1, value: 2, chain: 1, total: 0 });
+    state.reactions[0].total += cubes.length;
+  }
+
   /**
-   * A level whose world stands, with a pair of 2s that has just been sent: t 1, as the rules have it
-   * on the frame after the tick of the match (a tick of the window gone), six moves to go.
+   * A level with a pair of 2s that has just been sent, six moves to go, and the show that saw the pair stand on the
+   * frame before: a die is sent when the show has seen it whole, and not by how far its window has gone.
    */
-  function sentPair(): { state: RunState; a: Cube; b: Cube } {
+  function sentPair(): { state: RunState; a: Cube; b: Cube; show: LeavingShow } {
     const state = levelRun();
-    const a = put(state, 1, 1, 2, 'sinking');
-    const b = put(state, 2, 1, 2, 'sinking');
-    a.t = b.t = 1;
-    a.reactionId = b.reactionId = 1;
-    state.reactions.push({ id: 1, value: 2, chain: 1, total: 2 });
-    return { state, a, b };
+    const a = put(state, 1, 1, 2);
+    const b = put(state, 2, 1, 2);
+    const show = new LeavingShow();
+    show.frame(state, 0, values, false, noDip);
+    send(state, a, b);
+    return { state, a, b, show };
   }
 
   /** A landing: the world has run a move and stands again. */
@@ -116,8 +127,7 @@ describe('the leaving of a group on a level, as one body', () => {
   }
 
   it('lifts a sent pair as one body, hangs, drops onto the first step and settles, with the beat on the drop', () => {
-    const { state, a, b } = sentPair();
-    const show = new LeavingShow();
+    const { state, a, b, show } = sentPair();
     const first = show.frame(state, 0, values, false, noDip);
     expect(first.map((e) => e.kind)).toEqual(['sent']);
     expect(first[0].cubeIds).toEqual([a.id, b.id]);
@@ -146,8 +156,7 @@ describe('the leaving of a group on a level, as one body', () => {
   });
 
   it('stands on its step through the roll, and is driven a step down when the roll lands', () => {
-    const { state, a, b } = sentPair();
-    const show = new LeavingShow();
+    const { state, a, b, show } = sentPair();
     show.frame(state, 0, values, false, noDip);
     show.frame(state, 1000, values, false, noDip);
     // The world runs: the figure rolls, and the rules take the dice down through the move.
@@ -182,8 +191,7 @@ describe('the leaving of a group on a level, as one body', () => {
   });
 
   it('lets a chain that is added to sigh, and sends the new die by the whole lift and drop', () => {
-    const { state, a, b } = sentPair();
-    const show = new LeavingShow();
+    const { state, a, b, show } = sentPair();
     show.frame(state, 0, values, false, noDip);
     show.frame(state, 1000, values, false, noDip);
     land(state, a, b);
@@ -192,12 +200,11 @@ describe('the leaving of a group on a level, as one body', () => {
     const step1 = shownHeight(a, state, 0);
     expect(show.height(a, state, 0)).toBeCloseTo(step1);
     // A third 2 joins: held for two moves by the rules, the pair stays where it is.
-    const c = put(state, 3, 1, 2, 'sinking');
-    c.t = 1;
-    c.reactionId = 1;
+    const c = put(state, 3, 1, 2);
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+    send(state, c);
     a.hold = b.hold = 2 * state.config.actionTicks;
     state.reactions[0].chain = 2;
-    state.reactions[0].total = 3;
     const sent = show.frame(state, 0, values, false, noDip);
     expect(sent.map((e) => e.kind)).toEqual(['sent']);
     expect(sent[0].cubeIds).toEqual([c.id]);
@@ -216,8 +223,7 @@ describe('the leaving of a group on a level, as one body', () => {
   });
 
   it('keeps a ghost of a die the rules have taken at the end of its way, drives it under the floor and says so', () => {
-    const { state, a, b } = sentPair();
-    const show = new LeavingShow();
+    const { state, a, b, show } = sentPair();
     show.frame(state, 0, values, false, noDip);
     show.frame(state, 1000, values, false, noDip);
     // Five landings: the last step.
@@ -227,7 +233,9 @@ describe('the leaving of a group on a level, as one body', () => {
       show.frame(state, 1000, values, false, noDip);
     }
     expect(show.height(a, state, 0)).toBeCloseTo(0.12);
-    // The sixth: the rules take the pair away.
+    // The sixth: the roll runs their window out, and the rules take the pair away.
+    a.t = b.t = 60;
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
     state.cubes = state.cubes.filter((cube) => cube.id !== a.id && cube.id !== b.id);
     state.reactions = [];
     expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
@@ -243,8 +251,7 @@ describe('the leaving of a group on a level, as one body', () => {
   });
 
   it('cuts a drop short on a landing that comes early, and drops on from where it is', () => {
-    const { state, a, b } = sentPair();
-    const show = new LeavingShow();
+    const { state, a, b, show } = sentPair();
     show.frame(state, 0, values, false, noDip);
     show.frame(state, 90 + 60 + 65, values, false, noDip);
     const midway = show.height(a, state, 0);
@@ -263,8 +270,7 @@ describe('the leaving of a group on a level, as one body', () => {
   });
 
   it('makes no ghost of a die taken away early, rolled over with moves still left to it', () => {
-    const { state, a, b } = sentPair();
-    const show = new LeavingShow();
+    const { state, a, b, show } = sentPair();
     show.frame(state, 0, values, false, noDip);
     show.frame(state, 1000, values, false, noDip);
     state.cubes = state.cubes.filter((cube) => cube.id !== a.id);
@@ -284,8 +290,7 @@ describe('the leaving of a group on a level, as one body', () => {
   });
 
   it('with less motion puts every die on its step at once, strikes the beat at once and keeps no ghost', () => {
-    const { state, a, b } = sentPair();
-    const show = new LeavingShow();
+    const { state, a, b, show } = sentPair();
     const events = show.frame(state, 0, values, true, noDip);
     expect(events.map((e) => e.kind)).toEqual(['sent', 'impact']);
     expect(show.height(a, state, 0)).toBeCloseTo(0.78);
@@ -298,6 +303,8 @@ describe('the leaving of a group on a level, as one body', () => {
       show.frame(state, 0, values, true, noDip);
     }
     expect(show.height(a, state, 0)).toBeCloseTo(0.12);
+    a.t = b.t = 60;
+    show.frame(state, 0, values, true, noDip);
     state.cubes = [];
     state.reactions = [];
     expect(show.frame(state, 0, values, true, noDip).map((e) => e.kind)).toEqual(['gone']);
@@ -305,10 +312,11 @@ describe('the leaving of a group on a level, as one body', () => {
   });
 
   it('starts the lift from where the die was drawn: a die pressed under the figure does not jump up', () => {
-    const { state, a } = sentPair();
-    const show = new LeavingShow();
-    show.frame(state, 0, values, false, noDip);
+    const state = levelRun();
+    const a = put(state, 1, 1, 2);
     const pressed = new LeavingShow();
+    pressed.frame(state, 0, values, false, noDip);
+    send(state, a, put(state, 2, 1, 2));
     pressed.frame(state, 0, values, false, (id) => (id === a.id ? -0.1 : 0));
     expect(pressed.height(a, state, 0)).toBeCloseTo(0.9);
     pressed.frame(state, 90, values, false, noDip);
@@ -337,20 +345,21 @@ describe('the leaving of a group on a level, as one body', () => {
 
   /**
    * A board of the road made over for the show: the figure's die rolls north into a pair of 2s; the die east of the
-   * pair, rolled north, joins it. `spare` leaves a die standing far from them, so that the world stands between moves.
+   * pair, rolled north, joins it; the fourth die stands far from them, so that the world stands between moves. `count` is
+   * how many of the four are laid.
    */
-  function chainBoard(spare: boolean): RunState {
+  function chainBoard(count: 2 | 3 | 4): RunState {
     const dice = [
       { x: 2, z: 3, top: 4, north: 5 },
       { x: 2, z: 1, top: 2, north: 1 },
       { x: 3, z: 2, top: 4, north: 5 },
-    ];
-    if (spare) dice.push({ x: 0, z: 4, top: 4, north: 5 });
+      { x: 0, z: 4, top: 4, north: 5 },
+    ].slice(0, count);
     return start({ ...pieceOf('R10'), id: 'T01', size: 5, values: [2], faces: [2], norm: dice.length, floor: true, holes: undefined, goal: { kind: 'send', count: 999 }, moves: 0, sinkMoves: 6, layout: { start: { x: 2, z: 3 }, dice } });
   }
 
-  it('by the rules a chain that is added to has just made a move: it is driven its step down, and sighs after it', () => {
-    const state = chainBoard(true);
+  it('by the rules a chain that is added to stands where it is on that landing: it sighs, and the die that joined strikes', () => {
+    const state = chainBoard(4);
     const show = new LeavingShow();
     show.frame(state, 0, values, false, noDip);
     go(state, 'N');
@@ -364,29 +373,135 @@ describe('the leaving of a group on a level, as one body', () => {
     go(state, 'N');
     const joined = cubeAt(state, 3, 1)!;
     expect(joined.reactionId).toBe(pair.reactionId);
-    const step = shownHeight(pair, state, 0);
-    expect(step).toBeLessThan(0.7);
     expect(show.frame(state, 0, values, false, noDip).map((e) => e.kind)).toEqual(['sent']);
-    // The step of the landing first: 120 ms down, 120 ms of settling. It is a step, and not the beat of the chain.
-    const stepped = show.frame(state, 120, values, false, noDip);
-    expect(stepped.map((e) => e.kind)).toEqual(['step']);
-    expect(stepped[0].cubeIds).not.toContain(joined.id);
-    show.frame(state, 120, values, false, noDip);
-    expect(show.height(pair, state, 0)).toBeCloseTo(step);
-    // Then the sigh: up by it half way through, and back. The die that joined strikes meanwhile, 280 ms after it
-    // was sent: the beat of the chain.
-    const struck = show.frame(state, 80, values, false, noDip);
-    expect(show.height(pair, state, 0)).toBeCloseTo(step + 0.04);
+    // The sigh: up by it half way through, and back.
     expect(show.frame(state, 80, values, false, noDip)).toEqual([]);
+    expect(show.height(pair, state, 0)).toBeCloseTo(0.78 + 0.04);
+    expect(show.frame(state, 80, values, false, noDip)).toEqual([]);
+    expect(show.height(pair, state, 0)).toBeCloseTo(0.78);
+    // The die that joined strikes 280 ms after it was sent: the beat of the chain, and its own dice only.
+    const struck = show.frame(state, 120, values, false, noDip);
     expect(struck.map((e) => e.kind)).toEqual(['impact']);
     expect(struck[0].cubeIds).toEqual([joined.id]);
-    expect(show.height(pair, state, 0)).toBeCloseTo(step);
     show.frame(state, 200, values, false, noDip);
     expect(show.height(joined, state, 0)).toBeCloseTo(0.78);
+    expect(show.height(pair, state, 0)).toBeCloseTo(0.78);
+  });
+
+  /** Plays the moves pressed ahead: each is taken on the first tick the rules accept it, with `ticks` of the rules to a frame of 20 ms. */
+  function playAhead(state: RunState, show: LeavingShow, moves: Dir[], ticks = 1): string[] {
+    const kinds: string[] = [];
+    const queue = [...moves];
+    for (let i = 0; i < 4000 && (queue.length > 0 || state.player.action || worldRuns(state)) && !state.over; i++) {
+      for (let k = 0; k < ticks; k++) if (step(state, queue[0] ?? null)) queue.shift();
+      kinds.push(...show.frame(state, 20, values, false, noDip).map((e) => e.kind));
+    }
+    for (let i = 0; i < 30; i++) kinds.push(...show.frame(state, 20, values, false, noDip).map((e) => e.kind));
+    return kinds;
+  }
+
+  it('sees every landing of a player who presses the next move ahead, where the world never stands between two rolls', () => {
+    const state = chainBoard(4);
+    const show = new LeavingShow();
+    show.frame(state, 0, values, false, noDip);
+    // The pair, over to the die beside it, and six rolls of that die to and fro: the window of the pair.
+    const kinds = playAhead(state, show, ['N', 'E', 'E', 'W', 'E', 'W', 'E', 'W']);
+    expect(state.cubes.filter((cube) => cube.state === 'sinking')).toEqual([]);
+    expect(kinds.filter((kind) => kind === 'sent')).toHaveLength(1);
+    expect(kinds.filter((kind) => kind === 'impact')).toHaveLength(1);
+    // The first landing may cut the first strike short; every one after it is a step, and the last takes the pair under.
+    expect(kinds.filter((kind) => kind === 'step').length).toBeGreaterThanOrEqual(4);
+    expect(kinds.filter((kind) => kind === 'gone')).toHaveLength(1);
+    expect(show.ghosts()).toEqual([]);
+  });
+
+  it('sends a group whatever the frame: with two ticks of the rules to one, and where the match leaves no die standing', () => {
+    for (const count of [4, 2] as const) {
+      for (const ticks of [1, 2, 3]) {
+        const state = chainBoard(count);
+        const show = new LeavingShow();
+        show.frame(state, 0, values, false, noDip);
+        const queue: Dir[] = ['N'];
+        const kinds: string[] = [];
+        for (let i = 0; i < 30; i++) {
+          for (let k = 0; k < ticks; k++) if (step(state, queue[0] ?? null)) queue.shift();
+          kinds.push(...show.frame(state, 40, values, false, noDip).map((e) => e.kind));
+        }
+        expect(kinds.filter((kind) => kind === 'sent'), `${count} dice, ${ticks} ticks`).toHaveLength(1);
+        expect(kinds.filter((kind) => kind === 'impact'), `${count} dice, ${ticks} ticks`).toHaveLength(1);
+      }
+    }
+  });
+
+  it('does not send again a group it finds going after a reset: a move taken back puts the board on anew', () => {
+    const { state, a, show } = sentPair();
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    show.reset();
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(0.78);
+    expect(show.frame(state, 500, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(0.78);
+  });
+
+  it('makes no ghost of a die rolled over on its last step, with its last move still left to it', () => {
+    const { state, a, b, show } = sentPair();
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    for (let i = 0; i < 5; i++) {
+      land(state, a, b);
+      show.frame(state, 0, values, false, noDip);
+      show.frame(state, 1000, values, false, noDip);
+    }
+    expect(show.height(a, state, 0)).toBeCloseTo(0.12);
+    // A die is rolled onto it: the rules take it at the start of that roll, with its window where the landing left it.
+    state.cubes = state.cubes.filter((cube) => cube.id !== a.id);
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+    expect(show.ghosts()).toEqual([]);
+    expect(show.frame(state, 200, values, false, noDip)).toEqual([]);
+  });
+
+  it('drives the dice to their step on the landing that ends a board too, and says nothing of it', () => {
+    const { state, a, b, show } = sentPair();
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    land(state, a, b);
+    state.over = true;
+    state.endReason = 'failed';
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+    // No jump on the frame the board ends: it is driven from where it stood.
+    expect(show.height(a, state, 0)).toBeCloseTo(0.78);
+    expect(show.frame(state, 60, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeLessThan(0.78);
+    expect(show.frame(state, 1000, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(shownHeight(a, state, 0));
+    // A die sent by the move that ends the board is the passage's: the show does not lift it.
+    const c = put(state, 3, 1, 2);
+    send(state, c);
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+    expect(show.height(c, state, 0)).toBe(shownHeight(c, state, 0));
+  });
+
+  it('brings a die back up softly when a move is taken back, with no strike', () => {
+    const { state, a, b, show } = sentPair();
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    land(state, a, b);
+    show.frame(state, 0, values, false, noDip);
+    show.frame(state, 1000, values, false, noDip);
+    const low = show.height(a, state, 0);
+    a.t = b.t = 1;
+    expect(show.frame(state, 0, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(low);
+    expect(show.frame(state, 60, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeGreaterThan(low);
+    expect(show.height(a, state, 0)).toBeLessThanOrEqual(0.78);
+    expect(show.frame(state, 1000, values, false, noDip)).toEqual([]);
+    expect(show.height(a, state, 0)).toBeCloseTo(0.78);
   });
 
   it('goes by steps too while the world plays by itself, no die standing: a step a beat, and under the floor at the end', () => {
-    const state = chainBoard(false);
+    const state = chainBoard(3);
     const show = new LeavingShow();
     show.frame(state, 0, values, false, noDip);
     go(state, 'N');

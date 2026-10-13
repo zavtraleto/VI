@@ -107,8 +107,9 @@ interface Going {
   ori: Orientation;
   value: number;
   reactionId: number;
-  /** `cube.t` as it was when the world last stood: with the world standing, a change of it is a landing. */
-  settledT: number;
+  /** `cube.t` as the show last saw it, and the moves of its window it had behind it then: a move more is a landing. */
+  t: number;
+  moves: number;
   /** The step it goes to, and where the phase that is on started from. */
   target: number;
   from: number;
@@ -121,8 +122,6 @@ interface Going {
   struck: boolean;
   /** The rules have taken it: it goes under the floor and is let go of. */
   ghost: boolean;
-  /** Its chain was added to while it was being driven down: it sighs when it has come to its step. */
-  sighs: boolean;
   height: number;
 }
 
@@ -142,9 +141,13 @@ const DEFAULTS: Record<string, ParamSpec> = BOARD_GROUPS.leaving;
  */
 export class LeavingShow {
   private readonly going = new Map<number, Going>();
+  /** The dice that stood whole on the frame before: one of them found going has just been sent. */
+  private whole = new Set<number>();
 
+  /** A new board, or the board put on anew: a die found going on it is not sent again. */
   reset(): void {
     this.going.clear();
+    this.whole.clear();
   }
 
   /**
@@ -152,35 +155,51 @@ export class LeavingShow {
    * landings and the dice the rules have taken; moves every timeline on by `dtMs`. Returns what
    * fell due on this frame. `dip` is where the spring of a die holds it, so that a die pressed
    * under the figure lifts from where it is drawn.
+   *
+   * Nothing here waits for the world to stand: a player who presses the next move ahead has the
+   * rules take it on the tick the die lands, and the world never stands between two rolls. A die
+   * is sent when the show saw it whole on the frame before; a landing is a move of its window
+   * done, counted from `cube.t`. On a board that is over the dice that go are still driven to
+   * their steps, and nothing is said: what its last move sent is the passage's to show.
    */
   frame(state: RunState, dtMs: number, values: ParamValues, reducedMotion: boolean, dip: (cubeId: number) => number): LeavingEvent[] {
-    if (!state.levelRun || state.over) {
+    if (!state.levelRun) {
       this.going.clear();
+      this.whole.clear();
       return [];
     }
     const n = (name: string): number => Number(values[name] ?? DEFAULTS[name]?.value ?? 0);
     const steps = leavingSteps(values);
-    const standing = !worldRuns(state) && !state.player.action;
-    // With no die standing the world plays beat after beat by itself and never stands: a beat of it is a move all the same.
-    const alone = !standing && !state.player.action && !state.cubes.some((cube) => cube.state === 'moving');
-    const beats = (t: number): number => Math.floor((t - 1) / Math.max(1, state.config.actionTicks));
-    const events: LeavingEvent[] = [];
+    const { sinkingTicks } = state.config;
+    const actionTicks = Math.max(1, state.config.actionTicks);
+    /** The moves of its window a die has behind it; a move is done on the tick its window passes a whole move. */
+    const done = (t: number): number => Math.floor((t - 1) / actionTicks);
+    const { over } = state;
     const sent: Going[] = [];
     const seen = new Set<number>();
+    const whole = new Set<number>();
 
     for (const cube of state.cubes) {
       if (cube.state !== 'sinking') {
         this.going.delete(cube.id);
+        whole.add(cube.id);
         continue;
       }
       seen.add(cube.id);
       let going = this.going.get(cube.id);
+      // A die that was going under and is here again: a move was taken back. It is found anew.
+      if (going?.ghost) going = undefined;
       if (!going) {
-        // Just sent, with its whole window before it: it lifts. A stair the board was laid with, or a die found
-        // half way down (the board was put on with it going), stands on its step at once.
-        const fresh = cube.t <= 1 && !isStair(cube, state);
-        const target = this.stepOf(cube, state, cube.t, steps);
-        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, settledT: cube.t, target, from: 1 + dip(cube.id), phase: 'still', ms: 0, first: fresh, struck: !fresh, ghost: false, sighs: false, height: target };
+        if (over) {
+          this.going.delete(cube.id);
+          continue;
+        }
+        // Whole a frame ago: just sent, it lifts. A stair the board was laid with, or a die found going (the board
+        // was put on with it so, or a move was taken back), stands on its step at once.
+        const fresh = this.whole.has(cube.id) && !isStair(cube, state);
+        const moves = done(cube.t);
+        const target = this.stepOf(cube, state, 1 + moves * actionTicks, steps);
+        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, t: cube.t, moves, target, from: 1 + dip(cube.id), phase: 'still', ms: 0, first: fresh, struck: !fresh, ghost: false, height: target };
         if (fresh) {
           going.height = going.from;
           going.phase = reducedMotion ? 'still' : 'lift';
@@ -190,13 +209,10 @@ export class LeavingShow {
             going.struck = true;
           }
           sent.push(going);
-          // The chain it joins sighs: the dice already going, held where they are by the rules. One that the landing
-          // is driving a step down sighs when it has come to its step.
+          // The chain it joins sighs: the dice already going, which the rules hold where they are on this landing.
           if (!reducedMotion) {
             for (const other of this.going.values()) {
-              if (other.reactionId !== cube.reactionId || other.ghost || other === going) continue;
-              if (other.phase === 'still') this.sigh(other);
-              else if (!other.first) other.sighs = true;
+              if (other.reactionId === cube.reactionId && !other.ghost && other.phase === 'still') this.sigh(other);
             }
           }
         }
@@ -207,35 +223,50 @@ export class LeavingShow {
       going.z = cube.z;
       going.ori = cube.ori;
       going.reactionId = cube.reactionId;
-      if (standing ? cube.t !== going.settledT : alone && beats(cube.t) !== beats(going.settledT)) {
+      going.t = cube.t;
+      const moves = done(cube.t);
+      if (moves === going.moves) continue;
+      const back = moves < going.moves;
+      going.moves = moves;
+      const target = this.stepOf(cube, state, 1 + moves * actionTicks, steps);
+      if (target === going.target) continue;
+      going.target = target;
+      going.first = false;
+      if (back && !reducedMotion) {
+        // A move taken back: the die comes up to the step it stood on, softly, and strikes nothing.
+        going.from = going.height;
+        going.phase = 'settle';
+        going.ms = 0;
+      } else {
         // A landing: the rules have taken the die a move down. It is driven to its new step from where it is.
-        going.settledT = cube.t;
-        const target = this.stepOf(cube, state, cube.t, steps);
-        if (target !== going.target) {
-          going.target = target;
-          going.first = false;
-          this.drive(going, reducedMotion);
-        }
+        this.drive(going, reducedMotion);
       }
     }
+    this.whole = whole;
 
-    // The rules have taken a die: at the end of its way it is driven under the floor as a ghost; one taken early
-    // (rolled over, with moves left to it) comes apart as it always did and is let go of here at once.
+    // The rules have taken a die. With its window run out it is driven under the floor as a ghost; one taken with
+    // a move still left to it (rolled over) comes apart as it always did and is let go of here at once.
     const gone: Going[] = [];
     for (const going of this.going.values()) {
-      if (seen.has(going.id) || going.ghost) continue;
-      if (going.target > steps.last + 1e-6 || reducedMotion) {
-        if (going.target <= steps.last + 1e-6) gone.push(going);
+      if (seen.has(going.id)) continue;
+      if (going.ghost && !over) continue;
+      const ranOut = going.t >= sinkingTicks - actionTicks / 2;
+      if (going.ghost || over || !ranOut) {
+        this.going.delete(going.id);
+        continue;
+      }
+      if (reducedMotion) {
+        gone.push(going);
         this.going.delete(going.id);
         continue;
       }
       going.ghost = true;
-      going.sighs = false;
       going.target = UNDER;
       going.first = false;
       this.drive(going, false);
     }
 
+    const events: LeavingEvent[] = [];
     if (sent.length > 0) {
       events.push({ kind: 'sent', value: sent[0].value, cells: sent.map((g) => ({ x: g.x, z: g.z })), cubeIds: sent.map((g) => g.id) });
       if (reducedMotion) events.push(...this.grouped(sent, 'impact'));
@@ -254,6 +285,7 @@ export class LeavingShow {
       }
     }
     for (const going of gone) this.going.delete(going.id);
+    if (over) return [];
     events.push(...this.grouped(struck, 'impact'), ...this.grouped(stepped, 'step'), ...this.grouped(gone, 'gone'));
     return events;
   }
@@ -287,7 +319,6 @@ export class LeavingShow {
     going.phase = 'sigh';
     going.ms = 0;
     going.from = going.target;
-    going.sighs = false;
   }
 
   /** Drives a die from where it is drawn to its target: a drop, or at once with less motion. */
@@ -366,10 +397,6 @@ export class LeavingShow {
         case 'drop':
           hit = going.ghost ? 'gone' : 'struck';
           going.phase = going.ghost ? 'still' : 'settle';
-          break;
-        case 'settle':
-          if (going.sighs) this.sigh(going);
-          else going.phase = 'still';
           break;
         default:
           going.phase = 'still';

@@ -843,7 +843,7 @@ export class BoardView {
 
   /** The camera leans in: up to `peak` in the attack of the look, then back. */
   private lean(peak: number): void {
-    this.punch.lean(peak, Number(this.look.board.punchAttackMs ?? 0), Number(this.look.board.punchDecayMs ?? 90));
+    this.punch.lean(peak, Number(this.look.board.punchAttackMs ?? 0), Number(this.look.board.punchDecayMs ?? 0));
   }
 
   /** A step of a group driven down: the slightest lean of the camera, and nothing else. */
@@ -881,6 +881,7 @@ export class BoardView {
     this.tremor = 0;
     this.punch.reset();
     this.show.reset();
+    this.drawn = null;
     this.chroma = 0;
     this.jolt = 0;
     this.kicks = [];
@@ -973,7 +974,7 @@ export class BoardView {
       if (cube.state !== 'sinking') continue;
       const height = shownHeight(cube, state, 0, values);
       const before = this.sinkingBefore.get(cube.id);
-      if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
+      if (before !== undefined && !state.levelRun && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
       else if (before === undefined && state.levelRun && state.over && this.whole.has(cube.id) && height < 0.98 && !reducedMotion) this.springs.shift(cube.id, 1 - height);
       this.sinking.set(cube.id, height);
     }

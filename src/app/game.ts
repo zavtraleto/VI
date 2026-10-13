@@ -1147,6 +1147,8 @@ export class Game {
     // What was rolled over after the board that is back is not rolled over on it.
     const made = previous.levelRun?.moves ?? 0;
     this.ghosts = this.ghosts.filter((ghost) => ghost.moves <= made);
+    // The group the move sent is not on the board that is back: its beat is not struck.
+    this.heldBeats.reset();
     this.controller.cancel();
     // With motion kept low the board is put back as it was, with nothing played.
     if (trail.length === 0 || prefersReducedMotion(this.settings)) this.view.reset();
@@ -2486,7 +2488,12 @@ export class Game {
     // The combo that passes a level is answered by the passage: its dice light up one after another, each on its own note.
     // On a level a group strikes when its dice come down, not when they are sent: its beat waits for the show (`onLeaving`).
     if (!(state.levelRun && state.endReason === 'passed')) for (const beat of this.heldBeats.take(beatsOf(state, state.events), state.levelRun !== null)) this.beat(beat);
-    if (state.over) this.heldBeats.reset();
+    // A board that ends has no strike to wait for: what a move that lost it has sent is answered at once, as it
+    // was; the combo that passes it is the passage's.
+    if (state.over) {
+      if (state.endReason === 'passed') this.heldBeats.reset();
+      else for (const beat of this.heldBeats.release()) this.beat(beat);
+    }
     const { player } = state;
     // A level says its rules in the window it opens with, and nothing while it is played.
     if (state.levelRun) return;
