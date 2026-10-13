@@ -83,8 +83,8 @@ export function peakBeat(): Beat {
 /**
  * On a level a group strikes when its dice come down, not when they are sent: the beat of a group
  * and of a chain waits for the show of their leaving (`LeavingShow` in `src/render/leaving.ts`),
- * and every beat held is given on its first strike, so that two groups made on one landing strike
- * together. Everything else, and every beat outside a level, is given at once.
+ * and every beat held is given on the first strike of a group (`impact`), so that two groups made
+ * on one landing strike together. Everything else, and every beat outside a level, is given at once.
  */
 export class HeldBeats {
   private held: Beat[] = [];

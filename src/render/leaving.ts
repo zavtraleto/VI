@@ -115,8 +115,10 @@ interface Going {
   phase: Phase;
   /** Time into the phase. */
   ms: number;
-  /** The first drop is the beat of the group; every other is a step. */
+  /** It is on the way it was sent by, the lift and the long drop; a landing that comes meanwhile cuts that short. */
   first: boolean;
+  /** It has struck: its first strike is the beat of its group, wherever it comes down; every other is a step. */
+  struck: boolean;
   /** The rules have taken it: it goes under the floor and is let go of. */
   ghost: boolean;
   /** Its chain was added to while it was being driven down: it sighs when it has come to its step. */
@@ -178,13 +180,14 @@ export class LeavingShow {
         // half way down (the board was put on with it going), stands on its step at once.
         const fresh = cube.t <= 1 && !isStair(cube, state);
         const target = this.stepOf(cube, state, cube.t, steps);
-        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, settledT: cube.t, target, from: 1 + dip(cube.id), phase: 'still', ms: 0, first: fresh, ghost: false, sighs: false, height: target };
+        going = { id: cube.id, x: cube.x, z: cube.z, ori: cube.ori, value: cube.ori.top, reactionId: cube.reactionId, settledT: cube.t, target, from: 1 + dip(cube.id), phase: 'still', ms: 0, first: fresh, struck: !fresh, ghost: false, sighs: false, height: target };
         if (fresh) {
           going.height = going.from;
           going.phase = reducedMotion ? 'still' : 'lift';
           if (reducedMotion) {
             going.height = target;
             going.first = false;
+            going.struck = true;
           }
           sent.push(going);
           // The chain it joins sighs: the dice already going, held where they are by the rules. One that the landing
@@ -245,8 +248,9 @@ export class LeavingShow {
       const hit = this.advance(going, n);
       if (hit === 'gone') gone.push(going);
       else if (hit === 'struck') {
-        (going.first ? struck : stepped).push(going);
+        (going.struck ? stepped : struck).push(going);
         going.first = false;
+        going.struck = true;
       }
     }
     for (const going of gone) this.going.delete(going.id);

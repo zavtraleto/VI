@@ -2530,9 +2530,10 @@ export class Game {
       this.heldBeats.reset();
       return;
     }
-    if (event.kind === 'impact' || event.kind === 'step') {
+    if (event.kind === 'impact') {
       for (const beat of this.heldBeats.release()) this.beat(beat);
-      if (event.kind === 'step') this.view.thud();
+    } else if (event.kind === 'step') {
+      this.view.thud();
     } else if (event.kind === 'gone') {
       this.view.farewell(event.cells, event.value);
     }

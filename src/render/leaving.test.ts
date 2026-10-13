@@ -257,8 +257,8 @@ describe('the leaving of a group on a level, as one body', () => {
     expect(show.height(a, state, 0)).toBeLessThanOrEqual(midway);
     expect(show.height(a, state, 0)).toBeGreaterThan(step1);
     const events = [...show.frame(state, 112, values, false, noDip), ...show.frame(state, 200, values, false, noDip)];
-    // The first beat was never struck: the landing's step is what sounds, and the game lets its held beats go on it.
-    expect(events.map((e) => e.kind)).toEqual(['step']);
+    // The first strike of the pair is its beat all the same, though it comes down a step lower and in a step's time.
+    expect(events.map((e) => e.kind)).toEqual(['impact']);
     expect(show.height(a, state, 0)).toBeCloseTo(step1);
   });
 
@@ -367,15 +367,21 @@ describe('the leaving of a group on a level, as one body', () => {
     const step = shownHeight(pair, state, 0);
     expect(step).toBeLessThan(0.7);
     expect(show.frame(state, 0, values, false, noDip).map((e) => e.kind)).toEqual(['sent']);
-    // The step of the landing first: 120 ms down, 120 ms of settling.
-    expect(show.frame(state, 120, values, false, noDip).map((e) => e.kind)).toEqual(['step']);
+    // The step of the landing first: 120 ms down, 120 ms of settling. It is a step, and not the beat of the chain.
+    const stepped = show.frame(state, 120, values, false, noDip);
+    expect(stepped.map((e) => e.kind)).toEqual(['step']);
+    expect(stepped[0].cubeIds).not.toContain(joined.id);
     show.frame(state, 120, values, false, noDip);
     expect(show.height(pair, state, 0)).toBeCloseTo(step);
-    // Then the sigh: up by it half way through, and back.
-    show.frame(state, 80, values, false, noDip);
+    // Then the sigh: up by it half way through, and back. The die that joined strikes meanwhile, 280 ms after it
+    // was sent: the beat of the chain.
+    const struck = show.frame(state, 80, values, false, noDip);
     expect(show.height(pair, state, 0)).toBeCloseTo(step + 0.04);
-    show.frame(state, 80, values, false, noDip);
+    expect(show.frame(state, 80, values, false, noDip)).toEqual([]);
+    expect(struck.map((e) => e.kind)).toEqual(['impact']);
+    expect(struck[0].cubeIds).toEqual([joined.id]);
     expect(show.height(pair, state, 0)).toBeCloseTo(step);
+    show.frame(state, 200, values, false, noDip);
     expect(show.height(joined, state, 0)).toBeCloseTo(0.78);
   });
 
