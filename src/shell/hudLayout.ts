@@ -43,6 +43,10 @@ export interface HudLayout {
   pause: Box;
   /** The zone that starts a level over, beside the one that pauses and of its size; null where nothing is started over. */
   restart: Box | null;
+  /** The zone that turns the sound off and on, left of the one that starts over and of its size; null where there is none, or no room for it. */
+  sound: Box | null;
+  /** Where the number of a level stands on a tall picture: after the score, or under it where the buttons leave it no room there. */
+  tag: Point;
   /** Tops of the two small readings of a level, the moves made and the fewest: under its two buttons. */
   moves: readonly [number, number];
   /** Where the readings end below; what comes apart with the contact is cut here. */
@@ -52,6 +56,8 @@ export interface HudLayout {
 /** What the readings are of: a level has its small readings under its buttons, and whatever can be started over has a button for it. */
 export interface HeaderNeeds {
   restart?: boolean;
+  /** The button of the sound, beside the one that starts over. */
+  sound?: boolean;
   level?: boolean;
   /** A level that counts something towards its goal has a line for it. */
   goal?: boolean;
@@ -77,11 +83,16 @@ export function hudLayout(picture: Size, safe: Insets, zoom: number, needs: Head
   const pause: Box = { x: right - side, y: top, w: side, h: side };
   const restart: Box | null = needs.restart ? { x: pause.x - BUTTON_GAP - side, y: top, w: side, h: side } : null;
   const mid = left + SCORE_PLACES * CELL_W * 2 + MARGIN;
-  const end = (restart ?? pause).x - MARGIN;
+  // The button of the sound stands left of the one that starts over, where it does not reach the large number.
+  const soundAt = restart ? restart.x - BUTTON_GAP - side : 0;
+  const sound: Box | null = needs.sound && restart && soundAt >= mid - MARGIN + BUTTON_GAP ? { x: soundAt, y: top, w: side, h: side } : null;
+  const end = (sound ?? restart ?? pause).x - MARGIN;
   // The small readings of a level stand under its buttons, and the board starts below them.
   const under = pause.y + side + BUTTON_GAP;
   const moves: readonly [number, number] = needs.level ? [under, under + CELL_H] : [rowB, rowC];
   const height = Math.max(rule + 4, needs.level ? moves[1] + CELL_H + 2 : 0);
+  // Three buttons leave the number of a level no room after the score: it stands under the score then, at the left edge, as in the column of a wide picture.
+  const tag: Point = needs.level && end - mid < MID_PLACES * CELL_W ? { x: left, y: moves[1] } : { x: mid, y: rowA };
   return {
     wide: false,
     height,
@@ -99,6 +110,8 @@ export function hudLayout(picture: Size, safe: Insets, zoom: number, needs: Head
     tight: end - SCORE_PLACES * CELL_W < mid + MID_PLACES * CELL_W + CELL_W / 2,
     pause,
     restart,
+    sound,
+    tag,
     moves,
     rule,
   };
@@ -115,11 +128,15 @@ function columnLayout(left: number, top: number, zoom: number, needs: HeaderNeed
   const label = top;
   const big = label + CELL_H - 2;
   const tag = big + CELL_H * 2 + 4;
-  const side = Math.max(CELL_H + 4, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
+  const withSound = Boolean(needs.sound && needs.restart);
+  const finger = Math.max(CELL_H + 4, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
+  // Three buttons side by side are no wider than the column.
+  const side = withSound ? Math.min(finger, Math.floor((width - 2 * BUTTON_GAP) / 3)) : finger;
   // A square, as on a tall screen: the two bars of the pause stand in it as tall as they are there.
-  const buttons = (y: number): { pause: Box; restart: Box | null } =>
-    needs.restart ? { restart: { x: left, y, w: side, h: side }, pause: { x: left + side + BUTTON_GAP, y, w: side, h: side } } : { restart: null, pause: { x: left, y, w: side, h: side } };
-  const shared = { wide: true, height: 0, column: right + MARGIN, left, right, big, mid: left, end: right, tight: false };
+  const square = (place: number, y: number): Box => ({ x: left + place * (side + BUTTON_GAP), y, w: side, h: side });
+  const buttons = (y: number): { pause: Box; restart: Box | null; sound: Box | null } =>
+    withSound ? { sound: square(0, y), restart: square(1, y), pause: square(2, y) } : needs.restart ? { sound: null, restart: square(0, y), pause: square(1, y) } : { sound: null, restart: null, pause: square(0, y) };
+  const shared = { wide: true, height: 0, column: right + MARGIN, left, right, big, mid: left, end: right, tight: false, tag: { x: left, y: tag } };
   if (needs.level) {
     const goal = tag + CELL_H + 2;
     const y = (needs.goal ? goal : tag) + CELL_H + 8;
@@ -388,14 +405,14 @@ const TOOL_GAP = 6;
 
 /**
  * The button that takes a move back, in pixels of the picture: its picture and, right of it,
- * its word, `word` wide, with no frame around them, in the middle of the bottom of the stage,
- * where either thumb reaches. `dot` is a dot of its picture; `box` is what a finger presses.
+ * its word, `word` wide, with no frame around them, in the bottom left corner: at the bottom of
+ * the stage, its left edge at `left`. `dot` is a dot of its picture; `box` is what a finger presses.
  */
-export function undoButton(stage: Box, zoom: number, word: number): { tall: number; dot: number; box: Box } {
+export function undoButton(stage: Box, zoom: number, word: number, left: number): { tall: number; dot: number; box: Box } {
   const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / zoom));
   const dot = Math.max(1, Math.floor((tall - 6) / TOOL_ICON));
   const wide = Math.max(tall, TOOL_PAD + TOOL_ICON * dot + TOOL_GAP + word + TOOL_PAD);
-  return { tall, dot, box: { x: Math.round(stage.x + (stage.w - wide) / 2), y: Math.round(stage.y + stage.h - TOOL_PAD) - tall, w: wide, h: tall } };
+  return { tall, dot, box: { x: Math.round(left), y: Math.round(stage.y + stage.h - TOOL_PAD) - tall, w: wide, h: tall } };
 }
 
 /** How large a dot of the picture on the button that starts over is, for a button `side` on a side: the picture takes about half of the button, as the two bars of the pause do. */

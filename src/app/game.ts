@@ -205,11 +205,11 @@ const PIECES_COUNTED = 2;
 const REWIND_SPEED = 1.2;
 const REWIND_MOST_MS = 700;
 /**
- * The stars of a pass stand over the board and not on it: above every corner of the board taken
- * at the height of a plaque over a die, in cells, and this many CSS pixels higher still.
+ * The stars of a pass stand in the one place whatever the board is: in the middle of the stage,
+ * this share of its height down from its top. It is where they stood over a board of three by
+ * three, on a tall screen and on a wide one.
  */
-const STARS_LIFT = 1.6;
-const STARS_CLEAR = 44;
+const STARS_DOWN = { tall: 0.138, wide: 0.08 };
 /** How long the side of the seal that a swipe pointed at stays lit after the finger has let go. */
 const SEAL_LINGER_MS = 280;
 /**
@@ -472,6 +472,7 @@ export class Game {
     onPause: () => this.togglePause(),
     onUndo: () => this.undoTask(),
     onRestart: () => this.restartTask(),
+    onSound: () => this.toggleSound(),
     onSkip: () => this.skipTutorial(),
     onContinue: () => this.outside((state) => tutorialAck(state)),
     onPoints: (points, tier) => this.audio.points(points, tier),
@@ -678,6 +679,14 @@ export class Game {
   /** The sound is on when the player has it on and the platform allows it. */
   private applySound(): void {
     this.audio.setMuted(this.settings.muted || !this.platformSound);
+  }
+
+  /** The player turns the sound off, or back on, with the button beside the board: the same switch as in the settings. */
+  private toggleSound(): void {
+    this.settings.muted = !this.settings.muted;
+    this.applySound();
+    saveSettings(this.settings);
+    track('settings_changed', { setting: 'muted', value: String(this.settings.muted) });
   }
 
   /**
@@ -1592,10 +1601,8 @@ export class Game {
     this.gained = null;
     if (!gained) return;
     const stage = this.stageRect();
-    // Over the board and clear of it: above the highest point of its dice and of the figure on screen, in the middle of its width.
-    const far = state.config.size - 0.5;
-    const corners = [this.view.project(-0.5, STARS_LIFT, -0.5), this.view.project(far, STARS_LIFT, -0.5), this.view.project(-0.5, STARS_LIFT, far), this.view.project(far, STARS_LIFT, far)];
-    const p = { x: (Math.min(...corners.map((c) => c.x)) + Math.max(...corners.map((c) => c.x))) / 2, y: Math.min(...corners.map((c) => c.y)) - STARS_CLEAR };
+    // Always in the one place, whatever the board is: in the middle of the width of the stage, a set share of its height down from its top.
+    const p = { x: stage.width / 2, y: stage.height * (stage.height > stage.width ? STARS_DOWN.tall : STARS_DOWN.wide) };
     const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
     this.hud.award({ stars: gained.stars, fresh: gained.fresh, points: STAR_POINTS, value: last?.ori.top ?? 0, at: { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) } });
   }
@@ -2071,23 +2078,7 @@ export class Game {
   }
 
   private showPause(): void {
-    // A task and a level have no log of sessions: from their pause the way leads back to their list.
-    const level = Boolean(this.state.levelRun);
-    this.shell.showPanel(
-      pausePanel({
-        task: this.state.puzzle !== null || level,
-        list: level ? COMMANDS.levels : undefined,
-        onResume: () => this.resume(),
-        onRestart: () => this.startRun(),
-        // A level has its rules to read again only where the levels up to it have said some; a piece of the road has none.
-        onRules: level && this.piece === null && this.levelRules().length > 0 ? () => this.showLevelRules() : undefined,
-        onRecords: () => this.showRecords(() => this.showPause()),
-        onTasks: () => (level ? this.showLevels() : this.showPuzzleLevels()),
-        onSystem: () => this.showSystem(() => this.showPause()),
-        onMenu: () => this.showMenu(),
-      }),
-      false,
-    );
+    this.shell.showPanel(pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu() }), false);
   }
 
   /** Asks the platform for its tables of players. The log is drawn again when they come. */
@@ -2807,12 +2798,12 @@ export class Game {
               ? { text: t('roadHintFixed') }
               : null,
       tools: puzzle
-        ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null }
+        ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null, muted: this.settings.muted }
         : levelRun
           ? this.undoable
             ? // A dead end is left by taking the move back: no window comes, and the button is the one to press.
-              { canUndo: this.history.length > 0 && !this.rewind, urgent: this.state.over && deadEnd(this.state) }
-            : { canUndo: false, urgent: false, retryOnly: true }
+              { canUndo: this.history.length > 0 && !this.rewind, urgent: this.state.over && deadEnd(this.state), muted: this.settings.muted }
+            : { canUndo: false, urgent: false, retryOnly: true, muted: this.settings.muted }
           : null,
       pad:
         this.settings.controlMode === 'dpad' && padBox.width > 0

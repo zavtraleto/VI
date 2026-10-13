@@ -324,17 +324,72 @@ describe('the buttons and the small readings of a level', () => {
   });
 });
 
+describe('the button of the sound', () => {
+  const NEEDS = { restart: true, sound: true, level: true };
+
+  it('stands left of the one that starts over on a tall picture, of its size, clear of the large number', () => {
+    for (const [width, height, zoom] of [
+      [240, 520, 1.33],
+      [270, 480, 1.33],
+      [320, 693, 1.33],
+    ]) {
+      const layout = hudLayout({ width, height }, NO_INSETS, zoom, NEEDS);
+      const sound = layout.sound!;
+      const restart = layout.restart!;
+      expect([sound.w, sound.h, sound.y]).toEqual([restart.w, restart.h, restart.y]);
+      expect(sound.x + sound.w).toBeLessThan(restart.x);
+      expect(sound.x).toBeGreaterThan(layout.left + 96);
+      expect(layout.end).toBeLessThan(sound.x);
+    }
+  });
+
+  it('sends the number of the level under the score where three buttons leave it no room', () => {
+    const narrow = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, NEEDS);
+    expect(narrow.tag).toEqual({ x: narrow.left, y: narrow.moves[1] });
+    expect(narrow.height).toBeGreaterThanOrEqual(narrow.tag.y + 16);
+    const roomy = hudLayout({ width: 400, height: 700 }, NO_INSETS, 1.33, NEEDS);
+    expect(roomy.tag).toEqual({ x: roomy.mid, y: roomy.rowA });
+    // Without the button the number stays where it was.
+    const plain = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, { restart: true, level: true });
+    expect(plain.sound).toBeNull();
+    expect(plain.tag).toEqual({ x: plain.mid, y: plain.rowA });
+  });
+
+  it('is left out where it would lie on the large number', () => {
+    expect(hudLayout({ width: 180, height: 295 }, NO_INSETS, 2, NEEDS).sound).toBeNull();
+  });
+
+  it('is the first of three in the column of a wide picture, and the three are no wider than the column', () => {
+    for (const [width, height, zoom] of [
+      [640, 360, 2],
+      [640, 360, 3],
+      [609, 281, 1.33],
+    ]) {
+      const layout = hudLayout({ width, height }, NO_INSETS, zoom, NEEDS);
+      const sound = layout.sound!;
+      const restart = layout.restart!;
+      expect(sound.x).toBe(layout.left);
+      expect(restart.x).toBeGreaterThan(sound.x + sound.w);
+      expect(layout.pause.x).toBeGreaterThan(restart.x + restart.w);
+      expect(layout.pause.x + layout.pause.w).toBeLessThanOrEqual(layout.right);
+      expect([sound.y, restart.y]).toEqual([layout.pause.y, layout.pause.y]);
+    }
+  });
+});
+
 describe('the button that takes a move back', () => {
   const stage = { x: 0, y: 60, w: 180, h: 235 };
 
-  it('stands in the middle of the bottom of the stage, as tall as a finger needs', () => {
-    const { box, tall, dot } = undoButton(stage, 2, 32);
-    expect(box.x + box.w / 2).toBeCloseTo(stage.x + stage.w / 2, 0);
+  it('stands in the bottom left corner of the stage, as tall as a finger needs', () => {
+    const { box, tall, dot } = undoButton(stage, 2, 32, 2);
+    expect(box.x).toBe(2);
     expect(box.y + box.h).toBe(stage.y + stage.h - 6);
     expect(tall * 2).toBeGreaterThanOrEqual(MIN_ZONE);
     expect(box.w).toBeGreaterThanOrEqual(6 + 9 * dot + 6 + 32 + 6);
-    const wide = undoButton({ x: 120, y: 0, w: 520, h: 360 }, 2, 80).box;
-    expect(wide.x + wide.w / 2).toBeCloseTo(380, 0);
+    // On a wide picture it is under the column of the readings, not at the left of the board.
+    const wide = undoButton({ x: 120, y: 0, w: 520, h: 360 }, 2, 80, 2).box;
+    expect(wide.x).toBe(2);
+    expect(wide.y + wide.h).toBe(360 - 6);
   });
 
   it('has a picture on the button that starts over that takes about half of it', () => {

@@ -13,23 +13,8 @@ function clock(ticks: number, tickMs: number): string {
   return `${digits(Math.floor(seconds / 60), 2)}:${digits(seconds % 60, 2)}`;
 }
 
-/**
- * The session waits. In a task the log of sessions gives way to the list of tasks; `list` names
- * that list where it is another one, the levels. A level has its rules to read again as well.
- */
-export function pausePanel(actions: {
-  task: boolean;
-  list?: PanelName;
-  onResume: () => void;
-  onRestart: () => void;
-  /** The rules of what is paused, to read again: a level has them, the rest do not. */
-  onRules?: () => void;
-  onRecords: () => void;
-  onTasks: () => void;
-  onSystem: () => void;
-  onMenu: () => void;
-}): PanelSpec {
-  const { onRules } = actions;
+/** The session waits: it goes on, starts over, or is left for the menu. Nothing else is in this window. */
+export function pausePanel(actions: { onResume: () => void; onRestart: () => void; onMenu: () => void }): PanelSpec {
   return {
     title: PANELS.pause,
     home: 'resume',
@@ -37,11 +22,6 @@ export function pausePanel(actions: {
     rows: [
       { kind: 'command', id: 'resume', label: COMMANDS.resume, action: actions.onResume },
       { kind: 'command', id: 'restart', label: COMMANDS.restart, action: actions.onRestart },
-      ...(onRules ? [{ kind: 'command' as const, id: 'rules', label: COMMANDS.rules, action: onRules }] : []),
-      actions.task
-        ? { kind: 'command', id: 'tasks', label: actions.list ?? COMMANDS.tasks, action: actions.onTasks }
-        : { kind: 'command', id: 'records', label: COMMANDS.records, action: actions.onRecords },
-      { kind: 'command', id: 'system', label: COMMANDS.system, action: actions.onSystem },
       { kind: 'command', id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
     ],
   };

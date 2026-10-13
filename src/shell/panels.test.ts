@@ -25,12 +25,12 @@ function pressed(spec: PanelSpec): string[] {
   );
 }
 
-const PAUSE = { onResume: nothing, onRestart: nothing, onRecords: nothing, onTasks: nothing, onSystem: nothing, onMenu: nothing };
+const PAUSE = { onResume: nothing, onRestart: nothing, onMenu: nothing };
 
 describe('the panels of the program', () => {
   it('open with the focus on something that can be pressed', () => {
     const specs = [
-      pausePanel({ task: false, ...PAUSE }),
+      pausePanel(PAUSE),
       systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture', view: 'auto', language: 'en' }), onToggle: nothing, onLanguage: nothing, onBack: nothing }),
       languagePanel({ languages: LANGUAGES, current: 'pt', onPick: nothing, onBack: nothing }),
       resultPanel({ timeUp: false, score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
@@ -43,15 +43,13 @@ describe('the panels of the program', () => {
   });
 
   it('have commands short enough for the panel of a phone', () => {
-    for (const candidate of pausePanel({ task: false, ...PAUSE }).rows) {
+    for (const candidate of pausePanel(PAUSE).rows) {
       if (candidate.kind === 'command') expect(textWidth(`${candidate.label.native} ${candidate.label.name}`)).toBeLessThanOrEqual(200);
     }
   });
 
-  it('lead from the pause of a task to the tasks, and from the pause of a session to its log', () => {
-    expect(pressed(pausePanel({ task: true, ...PAUSE }))).toContain('tasks');
-    expect(pressed(pausePanel({ task: true, ...PAUSE }))).not.toContain('records');
-    expect(pressed(pausePanel({ task: false, ...PAUSE }))).toContain('records');
+  it('have three commands in the pause and no more: go on, start over, the menu', () => {
+    expect(pressed(pausePanel(PAUSE))).toEqual(['resume', 'restart', 'menu']);
   });
 
   it('show a setting as it stands now', () => {

@@ -443,29 +443,13 @@ describe('the rules of the levels, read again', () => {
 });
 
 describe('the pause of a level', () => {
-  const PAUSE = { onResume: nothing, onRestart: nothing, onRecords: nothing, onTasks: nothing, onSystem: nothing, onMenu: nothing };
-
-  it('leads back to the levels under their own name', () => {
-    const spec = pausePanel({ task: true, list: COMMANDS.levels, ...PAUSE });
-    const back = spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'tasks');
-    expect(back).toMatchObject({ label: COMMANDS.levels });
-    expect(commands(spec)).not.toContain('records');
-  });
-
-  it('leaves the pause of a task as it was', () => {
-    const spec = pausePanel({ task: true, ...PAUSE });
-    expect(spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'tasks')).toMatchObject({ label: COMMANDS.tasks });
-    expect(commands(spec)).toEqual(['resume', 'restart', 'tasks', 'system', 'menu']);
-  });
-
-  it('has the rules to read again, between starting over and the list', () => {
-    let read = 0;
-    const spec = pausePanel({ task: true, list: COMMANDS.levels, onRules: () => read++, ...PAUSE });
-    expect(commands(spec)).toEqual(['resume', 'restart', 'rules', 'tasks', 'system', 'menu']);
-    const rules = spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'rules');
-    expect(rules).toMatchObject({ label: COMMANDS.rules });
-    if (rules?.kind === 'command') rules.action();
-    expect(read).toBe(1);
+  it('has the three commands of every pause: no list, no rules, no settings', () => {
+    let left = 0;
+    const spec = pausePanel({ onResume: nothing, onRestart: nothing, onMenu: () => left++ });
+    expect(commands(spec)).toEqual(['resume', 'restart', 'menu']);
+    const menu = spec.rows.find((candidate) => candidate.kind === 'command' && candidate.id === 'menu');
+    if (menu?.kind === 'command') menu.action();
+    expect(left).toBe(1);
   });
 });
 

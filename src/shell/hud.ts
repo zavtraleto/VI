@@ -201,6 +201,8 @@ export interface HudTools {
   canUndo: boolean;
   urgent: boolean;
   retryOnly?: boolean;
+  /** The player has turned the sound off: the button of the sound is crossed out. */
+  muted: boolean;
 }
 
 /** What the contact does to the readings at one moment. */
@@ -233,6 +235,8 @@ export interface HudActions {
   onPause(): void;
   onUndo(): void;
   onRestart(): void;
+  /** The button of the sound was pressed: the sound goes off, or comes back. */
+  onSound(): void;
   onSkip(): void;
   /** The words of the exercise have been read. */
   onContinue(): void;
@@ -289,6 +293,10 @@ const STAR_FLY_MS = 460;
  * the last move back, the arrow that goes round starts the level over.
  */
 const ICON_UNDO = ['.........', '..#......', '.##......', '#######..', '.##....#.', '..#.....#', '........#', '.......#.', '..#####..'];
+/** The button of the sound: a loudspeaker and what comes out of it; with the sound off, the loudspeaker alone and a cross over it. */
+const ICON_SOUND = ['....#....', '...##..#.', '#####...#', '#####.#.#', '#####.#.#', '#####.#.#', '#####...#', '...##..#.', '....#....'];
+const ICON_MUTE = ['....#....', '...##....', '#####....', '#####....', '#####....', '#####....', '#####....', '...##....', '....#....'];
+const ICON_CROSS = ['#.......#', '.#.....#.', '..#...#..', '...#.#...', '....#....', '...#.#...', '..#...#..', '.#.....#.', '#.......#'];
 const ICON_RETRY = ['..####.#.', '.#....##.', '#....###.', '#........', '#.......#', '#.......#', '.#.....#.', '..#####..', '.........'];
 /** How long a reading that has just changed keeps flashing, and a multiplier stays large, in milliseconds. */
 const FLASH_MS = 1200;
@@ -661,7 +669,7 @@ export class GameHud {
     const css = safeInsets();
     const safe = { top: css.top / zoom, right: css.right / zoom, bottom: css.bottom / zoom, left: css.left / zoom };
     const header = view.header;
-    const layout = hudLayout({ width: kit.width, height: kit.height }, safe, zoom, { restart: view.tools !== null, level: header.kind === 'level', goal: header.kind === 'level' && header.goal.length > 0 });
+    const layout = hudLayout({ width: kit.width, height: kit.height }, safe, zoom, { restart: view.tools !== null, sound: view.tools !== null && header.kind === 'level', level: header.kind === 'level', goal: header.kind === 'level' && header.goal.length > 0 });
     this.lastTime = timeMs;
     const words = view.lesson?.line ?? '';
     if (words !== this.line) {
@@ -751,7 +759,7 @@ export class GameHud {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
       const top = layout.wide ? safe.top : layout.height;
-      const tools = view.tools && !view.tools.retryOnly ? this.undoPlan(stage, view.pad ? this.toPicture(view.pad.box) : null).box : null;
+      const tools = view.tools && !view.tools.retryOnly ? this.undoPlan(stage, view.pad ? this.toPicture(view.pad.box) : null, layout.left).box : null;
       const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top });
       // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
       const room = signBounds(plan);
@@ -761,7 +769,8 @@ export class GameHud {
     }
     this.signTurned = this.signTurnAt(sign, timeMs, still);
     if (view.tools) this.drawRestart(layout);
-    if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, view.pad ? this.toPicture(view.pad.box) : null);
+    if (view.tools) this.drawSound(layout, view.tools.muted);
+    if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, view.pad ? this.toPicture(view.pad.box) : null, layout.left);
     if (view.pad) this.drawPad(view.pad, blink);
     if (view.note) {
       const width = Math.min(view.stage.width - 24, 460);
@@ -1267,10 +1276,10 @@ export class GameHud {
   private drawLevel(level: HudLevel, layout: HudLayout, timeMs: number): void {
     const { kit } = this;
     const { ink, dim } = kit.palette;
-    const { left, end, mid, rowA, big } = layout;
+    const { left, end, rowA, big } = layout;
     kit.text(HUD.score, left, rowA, dim);
     this.score(left, big, timeMs, WHOLE);
-    if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, mid, rowA, ink);
+    if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, layout.tag.x, layout.tag.y, ink);
     // A line of the goal, where there is one, stands before the buttons; the two small readings under them, one under the other.
     if (level.goal.length > 0) this.goalLine(level.goal[0], end, rowA);
     this.levelReads(level, layout.right, layout.moves);
@@ -1309,6 +1318,34 @@ export class GameHud {
       for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
     });
     this.zones.push({ id: 'retry', rect: kit.toWindow(box), action: () => this.actions.onRestart() });
+  }
+
+  /**
+   * The button of the sound: left of the one that starts over, of its size and drawn as it is,
+   * with a loudspeaker in it. With the sound off the loudspeaker is dim and a cross lies over it.
+   */
+  private drawSound(layout: HudLayout, muted: boolean): void {
+    const { kit } = this;
+    const { ink, dim, faint, bg } = kit.palette;
+    const box = layout.sound;
+    if (!box) return;
+    const pressed = this.held?.zone.id === 'sound';
+    if (pressed) kit.box(box, ink);
+    else kit.frame(box, faint);
+    const dot = restartDot(box.w);
+    const ix = box.x + Math.round((box.w - TOOL_ICON * dot) / 2);
+    const iy = box.y + Math.round((box.h - TOOL_ICON * dot) / 2);
+    const paint = (icon: readonly string[], colour: string): void =>
+      icon.forEach((row, r) => {
+        for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
+      });
+    if (muted) {
+      paint(ICON_MUTE, pressed ? faint : dim);
+      paint(ICON_CROSS, pressed ? bg : ink);
+    } else {
+      paint(ICON_SOUND, pressed ? bg : ink);
+    }
+    this.zones.push({ id: 'sound', rect: kit.toWindow(box), action: () => this.actions.onSound() });
   }
 
   /**
@@ -1590,17 +1627,20 @@ export class GameHud {
 
   /**
    * Where the button that takes a move back stands (`undoButton`), with its word in the language
-   * of the player: inside what the edges of the screen leave, and over the four buttons of those
-   * who press (`pad`) where those are under it.
+   * of the player: in the bottom left corner, its picture under the left edge of the readings
+   * (`left`), inside what the edges of the screen leave, and over the four buttons of those who
+   * press (`pad`) where those are under it.
    */
-  private undoPlan(stage: Box, pad: Box | null): { tall: number; dot: number; box: Box } {
+  private undoPlan(stage: Box, pad: Box | null, left: number): { tall: number; dot: number; box: Box } {
     const { kit } = this;
     const word = kit.measure(this.undoWord());
     const bottom = Math.min(stage.y + stage.h, kit.height - safeInsets().bottom / kit.zoom);
     const room: Box = { ...stage, h: bottom - stage.y };
-    const plan = undoButton(room, kit.zoom, word);
+    // The picture of the button is 6 dots inside its box: it stands right under the readings.
+    const edge = Math.max(0, left - 6);
+    const plan = undoButton(room, kit.zoom, word, edge);
     if (!pad || !boxesMeet(plan.box, pad)) return plan;
-    return undoButton({ ...room, h: pad.y - room.y }, kit.zoom, word);
+    return undoButton({ ...room, h: pad.y - room.y }, kit.zoom, word, edge);
   }
 
   private undoWord(): string {
@@ -1612,10 +1652,10 @@ export class GameHud {
    * its word, with no frame. Until there is a move to take back it is faint. At a dead end it
    * blinks, picture and word: it is the one to press.
    */
-  private drawUndo(tools: HudTools, stage: Box, blink: number, pad: Box | null): void {
+  private drawUndo(tools: HudTools, stage: Box, blink: number, pad: Box | null, left: number): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
-    const { tall, dot, box } = this.undoPlan(stage, pad);
+    const { tall, dot, box } = this.undoPlan(stage, pad, left);
     const held = this.held?.zone.id === 'undo';
     const urgent = tools.urgent && tools.canUndo;
     const colour = !tools.canUndo ? faint : held ? dim : urgent && blink !== 0 ? faint : ink;

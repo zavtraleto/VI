@@ -170,7 +170,7 @@ export class ShellLab {
     const values = { muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture' as const, view: 'auto' as const, language: 'en' as const };
     switch (screen) {
       case 'pause':
-        return pausePanel({ task: false, onResume: nothing, onRestart: nothing, onRecords: nothing, onTasks: nothing, onSystem: nothing, onMenu: nothing });
+        return pausePanel({ onResume: nothing, onRestart: nothing, onMenu: nothing });
       case 'system':
         return systemPanel({ values: () => values, onToggle: nothing, onLanguage: nothing, onBack: nothing });
       case 'result':
