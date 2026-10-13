@@ -42,40 +42,54 @@ void main() {
 const RIPPLE_FRAGMENT = /* glsl */ `
 uniform sampler2D uWas;
 uniform vec2 uTexel;
-/** How hard a point is drawn to its neighbours, and what of its speed it loses on a step. */
-uniform vec2 uStep;
-/** Rings that start on this step: where, in the picture; how wide; how strong. */
+/** How hard a point is drawn to its neighbours; what of its speed a ring of a step loses on a step of the count, and a ring of a die. */
+uniform vec3 uStep;
+/** Rings that start on this step: where, in the picture (two further to the right for a ring of a die); how wide; how strong. */
 uniform vec4 uDrops[${DROPS}];
 
 varying vec2 vUv;
 
 #ifdef BYTES
-vec2 read(vec2 at) { return texture2D(uWas, at).rg * 2.0 - 1.0; }
+vec4 read(vec2 at) { return texture2D(uWas, at) * 2.0 - 1.0; }
 #else
-vec2 read(vec2 at) { return texture2D(uWas, at).rg; }
+vec4 read(vec2 at) { return texture2D(uWas, at); }
 #endif
 
 void main() {
-  vec2 here = read(vUv);
-  float around = read(vUv + vec2(uTexel.x, 0.0)).r + read(vUv - vec2(uTexel.x, 0.0)).r + read(vUv + vec2(0.0, uTexel.y)).r + read(vUv - vec2(0.0, uTexel.y)).r;
-  float speed = (here.g + uStep.x * (around - 4.0 * here.r)) * (1.0 - uStep.y);
-  float height = (here.r + speed) * 0.998;
+  // Two waters in one picture: the rings of the figure's steps, which last, and the rings of
+  // the dice, which are gone sooner. A height and its speed for each.
+  vec4 here = read(vUv);
+  vec2 dx = vec2(uTexel.x, 0.0);
+  vec2 dy = vec2(0.0, uTexel.y);
+  vec2 beside = (read(vUv + dx) + read(vUv - dx) + read(vUv + dy) + read(vUv - dy)).rb;
+  vec2 across = (read(vUv + dx + dy) + read(vUv + dx - dy) + read(vUv - dx + dy) + read(vUv - dx - dy)).rb;
+  // The eight neighbours, not four: counted by four a ring runs faster cornerwise than along
+  // the lines of the picture, and a square one turns into a diamond as it goes.
+  vec2 pull = (4.0 * beside + across - 20.0 * here.rb) / 6.0;
+  vec2 speed = (here.ga + uStep.x * pull) * (1.0 - uStep.yz);
+  vec2 height = (here.rb + speed) * 0.998;
   for (int i = 0; i < ${DROPS}; i++) {
     vec4 drop = uDrops[i];
     if (drop.w == 0.0) continue;
+    float die = step(1.5, drop.x);
     // A die is square where it stands in the water, and its ring starts square, lying as the die lies; it
     // rounds off as it runs. What is round, the figure, starts a round one: its width is given under nought.
-    vec2 from = (vUv - drop.xy) / abs(drop.z);
-    vec2 two = from * from;
-    float far = drop.z < 0.0 ? two.x + two.y : mix(two.x + two.y, max(two.x, two.y), 0.85);
-    height += drop.w * (1.0 - far) * exp(-far);
+    vec2 from = (vUv - vec2(drop.x - 2.0 * die, drop.y)) / abs(drop.z);
+    float far = dot(from, from);
+    // The round one is a hump with a trough around it that holds as much. The square one is the foot of the die
+    // pressed flat into the water: a hump with a trough would send its ring off cornerwise, as a diamond,
+    // the hump and the trough of each flat side cancelling straight ahead of it.
+    vec2 foot = 1.0 - smoothstep(0.65, 1.1, abs(from));
+    float lift = drop.z < 0.0 ? (1.0 - far) * exp(-far) : foot.x * foot.y * 0.6;
+    height += drop.w * lift * vec2(1.0 - die, die);
   }
   vec2 edge = min(vUv, 1.0 - vUv);
   float kept = smoothstep(0.0, 0.05, min(edge.x, edge.y));
+  vec4 next = vec4(height.x, speed.x, height.y, speed.y) * kept;
 #ifdef BYTES
-  gl_FragColor = vec4(clamp(vec2(height, speed) * kept, -1.0, 1.0) * 0.5 + 0.5, 0.0, 1.0);
+  gl_FragColor = clamp(next, -1.0, 1.0) * 0.5 + 0.5;
 #else
-  gl_FragColor = vec4(vec2(height, speed) * kept, 0.0, 1.0);
+  gl_FragColor = next;
 #endif
 }
 `;
@@ -94,9 +108,9 @@ void main() {
   vec2 edge = min(vUv, 1.0 - vUv);
   float kept = inside.x * inside.y * smoothstep(0.0, 0.05, min(edge.x, edge.y));
 #ifdef BYTES
-  gl_FragColor = vec4((texture2D(uWas, at).rg * 2.0 - 1.0) * kept * 0.5 + 0.5, 0.0, 1.0);
+  gl_FragColor = (texture2D(uWas, at) * 2.0 - 1.0) * kept * 0.5 + 0.5;
 #else
-  gl_FragColor = vec4(texture2D(uWas, at).rg * kept, 0.0, 1.0);
+  gl_FragColor = texture2D(uWas, at) * kept;
 #endif
 }
 `;
@@ -151,10 +165,12 @@ uniform sampler2D uBelow;
 varying vec3 vWorld;
 
 float rings(vec2 at) {
+  // The rings of the steps and the rings of the dice are one water to the eye.
+  vec4 both = texture2D(uRipple, at);
 #ifdef BYTES
-  return texture2D(uRipple, at).r * 2.0 - 1.0;
+  return (both.r + both.b) * 2.0 - 2.0;
 #else
-  return texture2D(uRipple, at).r;
+  return both.r + both.b;
 #endif
 }
 
@@ -379,7 +395,7 @@ export class Water {
       uniforms: {
         uWas: { value: null },
         uTexel: { value: new THREE.Vector2(1 / RIPPLE_SIDE, 1 / RIPPLE_SIDE) },
-        uStep: { value: new THREE.Vector2() },
+        uStep: { value: new THREE.Vector3() },
         uDrops: { value: this.drops },
       },
       vertexShader: FULL_VERTEX,
@@ -486,15 +502,16 @@ export class Water {
 
   /**
    * A ring starts at a place of the world, in cells: `strength` is how high it is, `radius` how
-   * wide, in cells; it starts square, as a die is, or round. A place the rings are not counted at is left out.
+   * wide, in cells; it starts square, as a die is, or round;
+   * and it is a ring of a die, soon gone, or of a step, which lasts. A place the rings are not counted at is left out.
    */
-  drop(x: number, z: number, strength: number, radius: number, square = true): void {
+  drop(x: number, z: number, strength: number, radius: number, square = true, die = true): void {
     if (!this.on || this.pending >= DROPS || strength === 0 || radius <= 0) return;
     const span = this.size + MARGIN * 2;
     const u = (x - this.origin.x + 0.5 + MARGIN) / span;
     const v = (z - this.origin.z + 0.5 + MARGIN) / span;
     if (u < 0 || u > 1 || v < 0 || v > 1) return;
-    this.drops[this.pending++].set(u, v, (square ? 1 : -1) * (radius / span), strength);
+    this.drops[this.pending++].set(die ? u + 2 : u, v, (square ? 1 : -1) * (radius / span), strength);
   }
 
   /**
@@ -676,7 +693,7 @@ export class Water {
     const { uniforms } = this.stepMaterial;
     // A ring runs as many cells in a second on a large board as on a small one: a point of the picture is larger there.
     const reach = (n('rippleSpeed') * RIPPLE_SIDE) / (hz * (this.size + MARGIN * 2));
-    (uniforms.uStep.value as THREE.Vector2).set(Math.min(0.5, reach * reach), Math.min(1, Math.max(0, n('rippleDamp'))));
+    (uniforms.uStep.value as THREE.Vector3).set(Math.min(0.5, reach * reach), Math.min(1, Math.max(0, n('rippleDamp'))), Math.min(1, Math.max(0, n('dieDamp'))));
     while (this.owed >= 1) {
       this.owed -= 1;
       this.ripples.reverse();
@@ -696,7 +713,7 @@ export class Water {
     const level = this.bytes ? 0.5 : 0;
     for (const picture of this.ripples) {
       renderer.setRenderTarget(picture);
-      renderer.setClearColor(new THREE.Color(level, level, 0), 1);
+      renderer.setClearColor(new THREE.Color(level, level, level), level);
       renderer.clear(true, false, false);
     }
     renderer.setRenderTarget(null);
