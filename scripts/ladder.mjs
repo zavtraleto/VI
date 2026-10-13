@@ -160,8 +160,8 @@ if (flag('limit')) {
   const { levelId, SKETCH } = await load('/src/levels/generate.ts');
   const { neededBy } = await load('/src/rules/levelBot.ts');
   // A place is asked for by the name of its level: among the places of the ladder, or in the list a module is named for
-  // (recipes=/src/levels/roadRecipes.ts:ROAD_PLACES), or, failing both, among the places of the road if that list is written.
-  const ROAD_LIST = ['/src/levels/roadRecipes.ts', 'ROAD_PLACES'];
+  // (recipes=/src/levels/roadRecipes.ts:ROAD_PLACES), or, failing both, among the places of the road and of the acts of the campaign.
+  const OTHER_LISTS = [['/src/levels/roadRecipes.ts', 'ROAD_PLACES'], ['/src/levels/campaignRecipes.ts', 'CAMPAIGN_PLACES']];
   const lists = [];
   if (named.recipes) {
     const [path, name] = named.recipes.split(':');
@@ -169,7 +169,7 @@ if (flag('limit')) {
     lists.push([path, name]);
   }
   const recipes = [PLACES];
-  for (const [path, name] of lists.length > 0 ? lists : existsSync(resolve(root, `.${ROAD_LIST[0]}`)) ? [ROAD_LIST] : []) {
+  for (const [path, name] of lists.length > 0 ? lists : OTHER_LISTS.filter(([file]) => existsSync(resolve(root, `.${file}`)))) {
     const list = (await load(path))[name];
     if (!Array.isArray(list)) throw new Error(`${path} has no list ${name}`);
     recipes.push(list);

@@ -159,8 +159,9 @@ if (command === 'show') {
   const { spec } = loadBoard();
   const { PLACES } = await load('/src/levels/recipes.ts');
   const { ROAD_PLACES } = await load('/src/levels/roadRecipes.ts');
+  const { CAMPAIGN_PLACES } = await load('/src/levels/campaignRecipes.ts');
   const { levelId } = await load('/src/levels/generate.ts');
-  const all = [...PLACES, ...ROAD_PLACES];
+  const all = [...PLACES, ...ROAD_PLACES, ...CAMPAIGN_PLACES];
   const places = named.place ? all.filter((place) => named.place.split(',').includes(levelId(place))) : all;
   if (places.length === 0) refuse(`fit: no place ${named.place}: the places are ${all.map(levelId).join(' ')}`);
   // Only the name of a place is printed and what the board misses of it: what a place is there for is in the key of the probe.
@@ -196,9 +197,10 @@ if (command === 'show') {
 } else if (command === 'gen') {
   const { PLACES } = await load('/src/levels/recipes.ts');
   const { ROAD_PLACES } = await load('/src/levels/roadRecipes.ts');
+  const { CAMPAIGN_PLACES } = await load('/src/levels/campaignRecipes.ts');
   const { levelId } = await load('/src/levels/generate.ts');
   const { judge, gather } = await load('/src/levels/select.ts');
-  const all = [...PLACES, ...ROAD_PLACES];
+  const all = [...PLACES, ...ROAD_PLACES, ...CAMPAIGN_PLACES];
   const recipe = all.find((place) => levelId(place) === named.place);
   if (!recipe) refuse(`gen: ${named.place ? `no place ${named.place}` : 'name a place, as in place=R05'}: the places are ${all.map(levelId).join(' ')}`);
   if (named.mode !== undefined && !['random', 'solution', 'route', 'both'].includes(named.mode)) refuse(`gen: "mode=${named.mode}" is none of random, solution, route, both`);

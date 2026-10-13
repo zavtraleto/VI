@@ -3,8 +3,9 @@ import { QUICK_MAX_STATES, checkOf, genFile, genOf, movesOf, nearBoards, nearOf,
 import { completeFor, improveFor, offersFor, repairFor, type Mended, type OrderOffer } from '../levels/orderSearch';
 import type { Order } from '../levels/orders';
 import { setFor, type SetBoard } from '../levels/sets';
-import { PLACES } from '../levels/recipes';
+import { PLACES, type Recipe } from '../levels/recipes';
 import { ROAD_PLACES } from '../levels/roadRecipes';
+import { CAMPAIGN_PLACES } from '../levels/campaignRecipes';
 import { firstsOf } from '../levels/measures';
 import { createRun, defaultConfig } from '../rules';
 import { levelDeadEnd, shortGroups, type LevelDeadEnd, type ShortGroup } from '../rules/level';
@@ -105,15 +106,18 @@ export interface Offer {
   exact: boolean;
 }
 
-/** The places boards are laid for, by the names of their levels: the places of the list and of the road. */
-export const GEN_PLACES: readonly string[] = [...PLACES, ...ROAD_PLACES].map(levelId);
+/** The places boards are laid for: the places of the list, of the road and of the acts of the campaign. */
+const ALL_PLACES: readonly Recipe[] = [...PLACES, ...ROAD_PLACES, ...CAMPAIGN_PLACES];
+
+/** Those places by the names of their levels. */
+export const GEN_PLACES: readonly string[] = ALL_PLACES.map(levelId);
 
 /** Seeds a place is asked for boards with from the page. */
 export const GEN_SEEDS = 200;
 
 /** The boards a place gets from its first seeds, the best first. */
 export function offersOfPlace(place: string, seeds = GEN_SEEDS): Offer[] {
-  const recipe = [...PLACES, ...ROAD_PLACES].find((candidate) => levelId(candidate) === place);
+  const recipe = ALL_PLACES.find((candidate) => levelId(candidate) === place);
   if (!recipe) throw new Error(`no place ${place}`);
   return genOf(recipe, { from: 1, to: seeds }).map((fit) => ({ ...genFile(recipe, fit), what: `зерно ${fit.seed}`, spec: fit.spec, par: fit.par, exact: fit.exact }));
 }
