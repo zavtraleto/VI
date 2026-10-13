@@ -12,13 +12,14 @@ import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, frameOfPiece, sha
 import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
 import { gridSegments, waveFrom, type GridSegment } from './gridLines';
 import { laidFace } from './laid';
-import { shownHeight } from './leaving';
+import { LeavingShow, shownHeight, type HeightOf, type LeavingEvent } from './leaving';
 import { LineGrid } from './lineGrid';
 import { ChainMarks } from './marks';
 import { FloorOverlays, type OverlayOptions } from './overlays';
 import { boardPalette, type BoardLook } from './params';
 import { passingHeight, type DicePassing } from './passing';
 import { PlayerFigure } from './player';
+import { CameraPunch } from './punch';
 import { ChainSigns } from './signs';
 import { CubeSprings } from './springs';
 import { figureColour, frameTexture, pipGlow } from './textures';
@@ -124,6 +125,11 @@ export interface SceneParams {
    * going, and the cell keeps the frame of the group.
    */
   ghosts?: readonly { x: number; z: number; value: number }[];
+  /**
+   * What the leaving of a group on a level has come to on this frame: the board answers a beat on
+   * `impact`, a step on `step`, and sends a ring over the floor on `gone`.
+   */
+  onLeaving?: (event: LeavingEvent) => void;
 }
 
 type FlatMesh = THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -210,11 +216,15 @@ export class BoardView {
   private stopped: { dir: Dir; ms: number } | null = null;
   /** The step the player was making on the previous frame, to notice when it ends. */
   private lastStep: MoveKind | null = null;
-  /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. */
+  /** Height of every sinking cube on the previous frame, as it is shown, to notice a chain lifting it. Not on a level. */
   private sinking = new Map<number, number>();
   private sinkingBefore = new Map<number, number>();
-  /** The cubes that were not sinking on the previous frame, to notice one that has just begun to leave a level. */
-  private whole = new Set<number>();
+  /** The leaving of a group on a level, as one body: it drives the height of every die that goes there. */
+  private readonly show = new LeavingShow();
+  /** The state the frame is drawn from: for `heightOf`, which is handed out to whoever draws a die. */
+  private drawn: RunState | null = null;
+  /** How high a die is drawn: by the show of its leaving on a level, by the rules elsewhere. */
+  readonly heightOf: HeightOf = (cube, alpha) => (this.drawn ? this.show.height(cube, this.drawn, alpha, this.look.board) : 1);
   /** The light a group going down throws on the dice around it. */
   private readonly lamp: CubeGlow['lamp'] = { x: 0, y: 1.5, z: 0, colour: new THREE.Color(), power: 0 };
   private readonly floor: THREE.Mesh;
@@ -265,7 +275,7 @@ export class BoardView {
   private burst = 0;
   private tremor = 0;
   /** The camera leaning in, the colours parting, the picture jolting: what a beat does to the screen. */
-  private punch = 0;
+  private readonly punch = new CameraPunch();
   private chroma = 0;
   private jolt = 0;
   private readonly red = new THREE.Color();
@@ -815,7 +825,7 @@ export class BoardView {
     }
     if (screen > 1 && tier >= 2) this.jolt = Math.max(this.jolt, Math.min(1, screen - 1));
     if (reducedMotion) return;
-    this.punch = Math.max(this.punch, BEAT_PUNCH[tier]);
+    this.lean(BEAT_PUNCH[tier]);
     this.bursts.fire(beat);
     if (beat.cells.length === 0) return;
     const cx = beat.cells.reduce((sum, cell) => sum + cell.x, 0) / beat.cells.length;
@@ -827,6 +837,26 @@ export class BoardView {
       const v = BEAT_THROW[tier] * (1 - distance / reach);
       if (v > 0.1) this.kicks.push({ id: cube.id, at: this.lastTime + distance * WAVE_MS_PER_CELL, v });
     }
+  }
+
+  /** The camera leans in: up to `peak` in the attack of the look, then back. */
+  private lean(peak: number): void {
+    this.punch.lean(peak, Number(this.look.board.punchAttackMs ?? 0), Number(this.look.board.punchDecayMs ?? 90));
+  }
+
+  /** A step of a group driven down: the slightest lean of the camera, and nothing else. */
+  thud(): void {
+    if (this.still) return;
+    this.lean(BEAT_PUNCH[0]);
+  }
+
+  /** A group has gone under: a ring runs over the floor where it stood, in the colour of its face. */
+  farewell(cells: readonly { x: number; z: number }[], value: number): void {
+    if (this.still || cells.length === 0 || value < 1) return;
+    const n = (name: string): number => Number(this.look.board[name] ?? 0);
+    const cx = cells.reduce((sum, cell) => sum + cell.x, 0) / cells.length;
+    const cz = cells.reduce((sum, cell) => sum + cell.z, 0) / cells.length;
+    this.bursts.ring(cx, cz, n('endRingReach'), n('endRingMs'), this.lit[value - 1], 0.75);
   }
 
   /** The board answers the dice that have gone: light runs over its lines in the colour of the face sent last. */
@@ -847,7 +877,8 @@ export class BoardView {
     this.flash = 0;
     this.burst = 0;
     this.tremor = 0;
-    this.punch = 0;
+    this.punch.reset();
+    this.show.reset();
     this.chroma = 0;
     this.jolt = 0;
     this.kicks = [];
@@ -874,12 +905,13 @@ export class BoardView {
     this.flash = Math.max(0, this.flash - dt / 450);
     this.burst = Math.max(0, this.burst - dt / 350);
     this.tremor = Math.max(0, this.tremor - dt / 260);
-    this.punch *= Math.exp(-dt / 90);
+    this.punch.update(dt);
     this.chroma = Math.max(0, this.chroma - dt / 240);
     this.jolt = Math.max(0, this.jolt - dt / 160);
     this.contact = params.contact;
     this.endless = state.mode === 'endless';
     this.still = params.reducedMotion;
+    this.drawn = state;
 
     const minute = Math.floor(Date.now() / 60000);
     if (minute !== this.minute) {
@@ -924,21 +956,24 @@ export class BoardView {
     if (stepNow === null && steppedOn && pressed && !reducedMotion) this.springs.kick(pressed.id, -1.2);
     this.lastStep = stepNow;
 
-    // A chain that is added to brings its cubes back up: they rise instead of jumping. On a level a die that has just
-    // begun to leave stands lower at once, at the first step of its look (`leaving.ts`): it goes down to it in the
-    // same way, and does not jump.
+    // The leaving of a group on a level, as one body: the show drives the height of every die that goes.
+    // A die that has just been sent lifts from where its spring held it, and the spring is let go of.
+    for (const event of this.show.frame(state, dt, values, reducedMotion, (id) => this.springs.offset(id))) {
+      if (event.kind === 'sent') for (const id of event.cubeIds) this.springs.forget(id);
+      else params.onLeaving?.(event);
+    }
+    // In a session a chain that is added to brings its cubes back up: they rise instead of jumping.
     [this.sinking, this.sinkingBefore] = [this.sinkingBefore, this.sinking];
     this.sinking.clear();
-    for (const cube of state.cubes) {
-      if (cube.state !== 'sinking') continue;
-      const height = shownHeight(cube, state, 0, values);
-      const before = this.sinkingBefore.get(cube.id);
-      if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
-      else if (before === undefined && state.levelRun && this.whole.has(cube.id) && height < 0.98 && !reducedMotion) this.springs.shift(cube.id, 1 - height);
-      this.sinking.set(cube.id, height);
+    if (!state.levelRun) {
+      for (const cube of state.cubes) {
+        if (cube.state !== 'sinking') continue;
+        const height = shownHeight(cube, state, 0, values);
+        const before = this.sinkingBefore.get(cube.id);
+        if (before !== undefined && height > before + 0.02 && !reducedMotion) this.springs.shift(cube.id, before - height);
+        this.sinking.set(cube.id, height);
+      }
     }
-    this.whole.clear();
-    for (const cube of state.cubes) if (cube.state !== 'sinking') this.whole.add(cube.id);
     if (this.kicks.length > 0) {
       this.kicks = this.kicks.filter((kick) => {
         if (kick.at > timeMs) return true;
@@ -988,9 +1023,11 @@ export class BoardView {
       },
       dip,
       passing,
+      this.heightOf,
+      this.show.ghosts(),
     );
     this.player.setColor(figureColour(this.palette, values), n('figureGhost'), { body: n('figureBody'), rim: n('figureRim'), shine: n('figureShine') });
-    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip), values);
+    this.player.sync(state, alpha, dt, dip, (x, z) => this.signs.lift(state, x, z, alpha, dip), this.heightOf, (x, z) => this.show.ghostHeight(x, z));
     if (shove) {
       this.player.group.position.x += shove.x;
       this.player.group.position.z += shove.z;
@@ -1000,7 +1037,7 @@ export class BoardView {
     if (passing && player.level === 'top' && !player.action) {
       const own = cubeAt(state, player.x, player.z);
       const rank = own ? passing.ranks.get(own.id) : undefined;
-      if (own && rank !== undefined) this.player.standAt(Math.max(0, passingHeight(passing, rank, shownHeight(own, state, 0, values)) + dip(own.id)));
+      if (own && rank !== undefined) this.player.standAt(Math.max(0, passingHeight(passing, rank, this.heightOf(own, 0)) + dip(own.id)));
     } else if (passing && player.level === 'ground') {
       // Off the dice it is on the floor of a board that comes, and comes down to the floor of one whose dice go, from a shelf if it stood on one.
       const gone = passing.mode === 'come' ? 1 : Math.min(1, Math.max(0, passing.moveMs / Math.max(1, passing.moveForMs)));
@@ -1013,7 +1050,7 @@ export class BoardView {
     this.signs.group.visible = !passing;
     this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
     this.marks.sync(state, timeMs, reducedMotion);
-    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, this.worldLayer.height / Math.max(1, this.lines), params.ghosts);
+    this.signs.sync(state, alpha, timeMs, reducedMotion, dip, this.worldLayer.height / Math.max(1, this.lines), params.ghosts, this.heightOf);
     this.warnings.sync(state, dt, timeMs, reducedMotion);
 
     // The surface: a group sent runs over the lines, then the lines pulse by themselves, then
@@ -1044,7 +1081,7 @@ export class BoardView {
 
     this.camera.position.copy(this.cameraHome);
     // A beat leans the camera in for a moment.
-    const zoom = params.shake && !reducedMotion ? 1 + this.punch : 1;
+    const zoom = params.shake && !reducedMotion ? 1 + this.punch.value(n('punchDecayMs')) : 1;
     if (this.mode === 'full' && Math.abs(zoom - this.camera.zoom) > 1e-5) {
       this.camera.zoom = zoom;
       this.camera.updateProjectionMatrix();

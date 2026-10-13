@@ -154,13 +154,18 @@ export class BoardBursts {
         this.hue[slot].copy(tint);
       }
     }
+    this.ring(cx / beat.cells.length, cz / beat.cells.length, RING_REACH[tier], RING_MS[tier], tint, 0.75 + tier * 0.06);
+  }
+
+  /** A ring runs over the surface from (cx, cz): `reach` cells in `ms`, in `tint`, as strong as `strength`. */
+  ring(cx: number, cz: number, reach: number, ms: number, tint: THREE.Color, strength: number): void {
     const ring = this.rings.reduce((oldest, candidate) => (candidate.age / candidate.life > oldest.age / oldest.life ? candidate : oldest));
     ring.age = 0;
-    ring.life = RING_MS[tier] / 1000;
-    ring.reach = RING_REACH[tier];
-    ring.strength = 0.75 + tier * 0.06;
+    ring.life = ms / 1000;
+    ring.reach = reach;
+    ring.strength = strength;
     ring.mesh.material.color.copy(tint);
-    ring.mesh.position.set(cx / beat.cells.length, 0.006, cz / beat.cells.length);
+    ring.mesh.position.set(cx, 0.006, cz);
     ring.mesh.visible = true;
   }
 

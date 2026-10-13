@@ -4,7 +4,7 @@ import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rule
 import type { ParamValues } from '../signal/scene';
 import { mixHex, type Palette } from '../shell/theme';
 import { CROSS_LEAST_PX, CROSS_RIM_LEAST_PX, offMask } from './faces';
-import { shownHeight } from './leaving';
+import type { Ghost, HeightOf } from './leaving';
 import { CANONICAL_FACE_VALUES, ROLL_AXIS, quatFor } from './orientationQuat';
 import { comeShare, goneShare, isLit, litFlash, passingHeight, faded, type DicePassing } from './passing';
 import { PIP_STEP } from './textures';
@@ -615,9 +615,11 @@ export class CubeMeshes {
    * `passing` is how the dice stand in a passage between two boards, null outside one: a die
    * of a board that is passed stands whole until it is lit and then goes down by its own time,
    * and a die of a board that comes is not there until its turn, comes up as a die comes in a
-   * session, and then stands as the rules have it.
+   * session, and then stands as the rules have it. `heightOf` is where a die that goes is drawn
+   * (`BoardView.heightOf`); `ghosts` are the dice the rules have taken that the show of their
+   * leaving still drives under the floor.
    */
-  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null = null): void {
+  sync(state: RunState, alpha: number, glow: CubeGlow, dip: (cubeId: number) => number, passing: DicePassing | null, heightOf: HeightOf, ghosts: readonly Ghost[]): void {
     const n = (name: string): number => Number(this.values[name] ?? 0);
     const { shared } = this;
     // The faces that do not work in the run are crossed out and give no light.
@@ -649,8 +651,6 @@ export class CubeMeshes {
     const frost = n('glassFrost');
     const edge = n('glassEdge');
     const { alive, outline } = this;
-    const places = this.edgePlaces.array as Float32Array;
-    const colours = this.edgeColours.array as Float32Array;
 
     alive.clear();
     let solids = 0;
@@ -659,9 +659,9 @@ export class CubeMeshes {
       let look = this.look(cube, state);
       // A die held by the tutorial stays put between ticks, and so does one on a level whose world stands.
       let height = look === 'idle' ? 1 : cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
-      // Where it stands: on a level a die that leaves stands by the steps of its look (`leaving.ts`); its glass, its
-      // dots and its light go by the height the rules give it, as they always did.
-      let place = look === 'idle' ? 1 : shownHeight(cube, state, alpha, this.values);
+      // Where it stands: on a level a die that leaves stands by the steps of its look and is driven from one to the
+      // next (`leaving.ts`); its glass, its dots and its light go by the height the rules give it, as they always did.
+      let place = look === 'idle' ? 1 : heightOf(cube, alpha);
       // What is left of the light a die of a combo took when it lit up.
       let lit = 0;
       const rank = passing?.ranks.get(cube.id);
@@ -763,15 +763,19 @@ export class CubeMeshes {
       // A fixed die that comes has the fainter line of a fixed die, as it will stand with.
       const bright = (sinking ? Math.max(1, glow.sinking) : 1) * (faint && (sinking || mounts) ? low : 1) * (dimmed ? n('fixedEdge') : 1);
       this.colour.copy(channel).multiplyScalar(Math.min(1, edge * bright));
-      const from = glasses++ * outline.length;
-      for (let i = 0; i < outline.length; i += 3) {
-        places[from + i] = outline[i] + cube.x;
-        places[from + i + 1] = outline[i + 1] + y;
-        places[from + i + 2] = outline[i + 2] + cube.z;
-        colours[from + i] = this.colour.r;
-        colours[from + i + 1] = this.colour.g;
-        colours[from + i + 2] = this.colour.b;
-      }
+      this.outlineAt(glasses++, cube.x, y, cube.z);
+    }
+
+    // The dice the rules have taken that the show still drives under the floor: each keeps the glass it had on its
+    // last frame, its dots and its light as they were, and only goes down.
+    for (const ghost of ghosts) {
+      const die = this.worn.get(ghost.id);
+      if (!die) continue;
+      alive.add(ghost.id);
+      die.position.y = ghost.height - 0.5;
+      if (glasses >= MAX_DICE) continue;
+      this.colour.copy(this.channels[ghost.value - 1]).multiplyScalar(Math.min(1, edge * low));
+      this.outlineAt(glasses++, ghost.x, die.position.y, ghost.z);
     }
 
     this.solids.count = solids;
@@ -800,6 +804,22 @@ export class CubeMeshes {
       this.worn.delete(id);
       this.shown.delete(id);
       this.taken.delete(id);
+    }
+  }
+
+  /** Writes the lit edges of a glass die that stands at (x, y, z) into place `slot`, in `this.colour`. */
+  private outlineAt(slot: number, x: number, y: number, z: number): void {
+    const { outline } = this;
+    const places = this.edgePlaces.array as Float32Array;
+    const colours = this.edgeColours.array as Float32Array;
+    const from = slot * outline.length;
+    for (let i = 0; i < outline.length; i += 3) {
+      places[from + i] = outline[i] + x;
+      places[from + i + 1] = outline[i + 1] + y;
+      places[from + i + 2] = outline[i + 2] + z;
+      colours[from + i] = this.colour.r;
+      colours[from + i + 1] = this.colour.g;
+      colours[from + i + 2] = this.colour.b;
     }
   }
 

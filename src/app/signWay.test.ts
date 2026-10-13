@@ -6,6 +6,7 @@ import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
+import { shownHeight } from '../render/leaving';
 import { SIGN_FREE_STATES, SIGN_MAX_STATES, roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
 
 // The solver as it is, with its calls counted.
@@ -284,12 +285,12 @@ describe('how high the sign stands', () => {
     expect(stair.player).toMatchObject({ x: 4, z: 5, level: 'top' });
     // The rules have the stair half down; it is shown as low as a die with its last move left (src/render/leaving.ts).
     expect(signHeight(stair)).toBeCloseTo(0.12, 2);
-    expect(signHeight(stair, { leaveLast: 0.2 })).toBeCloseTo(0.2, 2);
+    expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { leaveLast: 0.2 }))).toBeCloseTo(0.2, 2);
     go(stair, 'N');
     // The rules have the upper stair nearly whole; it is shown half way up.
     expect(stair.player).toMatchObject({ x: 4, z: 4, level: 'top' });
     expect(signHeight(stair)).toBeCloseTo(0.5, 2);
-    expect(signHeight(stair, { stairMiddle: 0.4 })).toBeCloseTo(0.4, 2);
+    expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { stairMiddle: 0.4 }))).toBeCloseTo(0.4, 2);
     go(stair, 'N');
     expect(signHeight(stair)).toBe(1);
   });

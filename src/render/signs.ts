@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { DELTA, DIRS, cubeAt, inChain, isDock, isStep, type Cube, type RunState } from '../rules';
+import { DELTA, DIRS, cubeAt, inChain, isDock, isStep, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
 import { CUBE_SIZE } from './cubes';
-import { shownHeight } from './leaving';
+import type { HeightOf } from './leaving';
 import { LIGHT } from './light';
 import { socketTexture } from './textures';
 
@@ -47,7 +47,6 @@ interface Dock {
  * How much of a die is above the floor, as it is shown (`leaving.ts`). A die held by the tutorial
  * stays put between ticks, and so does one on a level whose world stands.
  */
-const heightOf = (state: RunState, cube: Cube, alpha: number, values: ParamValues): number => shownHeight(cube, state, alpha, values);
 
 /** Where the top face of a die that high is, before the dip a step or a weight makes in it. */
 const faceAt = (height: number): number => height - 0.5 + CUBE_SIZE / 2;
@@ -125,6 +124,8 @@ export class ChainSigns {
   /** The signs now on the board, those going out among them, by cell. */
   private readonly held = new Map<number, Dock>();
   private lastTime = 0;
+  /** How high a die is shown, as the view has it (`BoardView.heightOf`). */
+  private height: HeightOf = () => 1;
   private readonly matrix = new THREE.Matrix4();
   private readonly at = new THREE.Vector3();
   private readonly whole = new THREE.Vector3(1, 1, 1);
@@ -175,7 +176,9 @@ export class ChainSigns {
     dip: (cubeId: number) => number,
     dot: number,
     ghosts: readonly { x: number; z: number; value: number }[] = [],
+    height: HeightOf = this.height,
   ): void {
+    this.height = height;
     const n = (name: string): number => Number(this.values[name] ?? 0);
     const { size } = state.config;
     const dt = this.lastTime === 0 ? 0 : Math.min(100, Math.max(0, timeMs - this.lastTime));
@@ -189,7 +192,7 @@ export class ChainSigns {
         if (!inChain(cube)) continue;
         const value = cube.ori.top;
         // The top face where it is drawn: a die the player weighs on stands lower.
-        const face = faceAt(heightOf(state, cube, alpha, this.values)) + dip(cube.id);
+        const face = faceAt(height(cube, alpha)) + dip(cube.id);
         for (const dir of DIRS) {
           const x = cube.x + DELTA[dir].dx;
           const z = cube.z + DELTA[dir].dz;
@@ -270,7 +273,7 @@ export class ChainSigns {
     let lift = 0;
     for (const dir of DIRS) {
       const cube = cubeAt(state, x + DELTA[dir].dx, z + DELTA[dir].dz);
-      if (cube && inChain(cube)) lift = Math.max(lift, faceAt(heightOf(state, cube, alpha, this.values)) + dip(cube.id));
+      if (cube && inChain(cube)) lift = Math.max(lift, faceAt(this.height(cube, alpha)) + dip(cube.id));
     }
     return lift;
   }

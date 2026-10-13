@@ -46,4 +46,21 @@ describe('the light a group throws', () => {
     expect(bursts.flying).toBe(false);
     expect(bursts.thrown).toBe(true);
   });
+
+  it('runs a ring of its own from a point, as far and as long as it is told, with no sparks', () => {
+    const bursts = new BoardBursts();
+    const rings = (): THREE.Mesh[] => seenOn(bursts, FX_LAYER).filter((object) => (object as THREE.Mesh).geometry instanceof THREE.RingGeometry) as THREE.Mesh[];
+    bursts.ring(2, 3, 1.6, 300, new THREE.Color(1, 0, 0), 0.75);
+    bursts.update(16, camera);
+    expect(rings()).toHaveLength(1);
+    expect(rings()[0].position.x).toBe(2);
+    expect(rings()[0].position.z).toBe(3);
+    expect(bursts.flying).toBe(false);
+    for (let ms = 0; ms < 250; ms += 50) bursts.update(50, camera);
+    expect(rings()).toHaveLength(1);
+    // Never wider than it was told to run, from the die it starts around.
+    expect(rings()[0].scale.x).toBeLessThanOrEqual(0.4 + 1.6);
+    bursts.update(50, camera);
+    expect(rings()).toEqual([]);
+  });
 });

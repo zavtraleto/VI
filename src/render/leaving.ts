@@ -89,6 +89,8 @@ export interface LeavingEvent {
 
 /** A die the rules have taken away that the show still draws: under the floor it goes. */
 export interface Ghost {
+  /** The die it was: whoever draws it keeps the glass that die had. */
+  id: number;
   x: number;
   z: number;
   ori: Orientation;
@@ -255,7 +257,7 @@ export class LeavingShow {
 
   ghosts(): readonly Ghost[] {
     const ghosts: Ghost[] = [];
-    for (const going of this.going.values()) if (going.ghost) ghosts.push({ x: going.x, z: going.z, ori: going.ori, value: going.value, height: going.height });
+    for (const going of this.going.values()) if (going.ghost) ghosts.push({ id: going.id, x: going.x, z: going.z, ori: going.ori, value: going.value, height: going.height });
     return ghosts;
   }
 
