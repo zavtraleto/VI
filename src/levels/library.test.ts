@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { normalSpec, parseBoard, readBoardHead } from './boardFile';
+import { CAMPAIGN } from './campaign';
 import { CHAPTERS } from './chapters';
-import { PARKED, SPARES } from './levels';
+import { LEVELS, PARKED, SPARES } from './levels';
 import {
   asInRow,
   checkLibrary,
@@ -18,7 +19,7 @@ import {
   statusFor,
   type RowChapter,
 } from './library';
-import { ROAD } from './road';
+import { ROAD, ROAD_SPARES } from './road';
 
 const ROW: readonly RowChapter[] = [
   { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02'] },
@@ -163,8 +164,24 @@ describe('the text given out', () => {
   });
 });
 
-describe('the row of today', () => {
-  it('has a place for every stop of the chapters', () => {
-    expect(placeOf(CHAPTERS[1].stops[0], CHAPTERS)?.chapter).toBe(1);
+describe('the files of boards/ and the code', () => {
+  // The files as they lie on the disk, read by the bundler: every `boards/*.txt` as text.
+  const texts = import.meta.glob<string>('../../boards/*.txt', { query: '?raw', import: 'default', eager: true });
+  const files = Object.entries(texts).map(([path, text]) => ({ name: path.slice(path.lastIndexOf('/') + 1, -'.txt'.length), text }));
+  const row = CAMPAIGN.map((stop) => stop.spec);
+  const rowCodes = new Set(row.map((spec) => spec.id));
+  it('every board of the row has a file with status R, and every R file is in the row', () => {
+    const faults = checkLibrary(files, { row, others: [] }, CHAPTERS);
+    expect(faults).toEqual([]);
+    expect(files.filter((file) => readBoardHead(file.text).status === 'R').map((file) => file.name).sort()).toEqual([...rowCodes].sort());
+  });
+  it('every board of the code has a file with the same dice and way', () => {
+    expect(checkLibrary(files, { row: [], others: [...ROAD, ...ROAD_SPARES, ...LEVELS, ...PARKED, ...SPARES] }, [])).toEqual(
+      // With no row given, an R file is said to be out of it: that is the other test's.
+      files.filter((file) => readBoardHead(file.text).status === 'R').map((file) => `${file.name}: status R, and it is not in the row`),
+    );
+  });
+  it('places every stop of the chapters', () => {
+    for (const stop of CAMPAIGN) expect(placeOf(stop.spec.id, CHAPTERS)?.number).toBe(stop.number);
   });
 });
