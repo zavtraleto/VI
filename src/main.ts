@@ -1,6 +1,7 @@
 import { Game } from './app/game';
 import { quality } from './display/quality';
 import { initPlatform, platformLanguage } from './platform/bridge';
+import { holdTelegramBrowser } from './platform/telegram';
 import { RUN_KEY } from './app/savedRun';
 import { SETTINGS_KEY, loadSettings } from './platform/settings';
 import { openStorage } from './platform/storage';
@@ -13,6 +14,7 @@ import './ui/styles.css';
 // The platform comes first: what it keeps for the player and the language it names are read
 // before anything of the game is built. The language the player has picked comes before the
 // platform's, and the platform's before the browser's.
+holdTelegramBrowser();
 await initPlatform();
 await openStorage([SETTINGS_KEY, RUN_KEY]);
 const language = loadSettings().language ?? platformLanguage();
