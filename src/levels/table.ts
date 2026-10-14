@@ -99,14 +99,14 @@ const BAN_OF: Partial<Record<Technique, readonly Ban[]>> = { link: ['link'], wal
 /**
  * What the slow rules of the grammar ask of a board (`slowGrammar`): whether the walk over the
  * boards the player can come to finds one lost, the share of the planner's runs that clear it, and,
- * for a board that teaches, whether it is cleared within a move over its fewest without that move.
+ * for a board that teaches, the fewest moves it is cleared in without that move (up to two over its own).
  */
 export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): SlowFacts {
   let cleared = 0;
   for (let run = 1; run <= runs; run++) if (personaPlay(spec, 'planner', run).endReason === 'passed') cleared++;
   const ban = teaches ? BAN_OF[teaches] : undefined;
-  const shortWithout = ban === undefined ? undefined : solveLevel(spec, { ban: [...ban], maxMoves: (spec.par ?? 0) + 1 }).solution !== null;
-  return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, ...(shortWithout === undefined ? {} : { shortWithout }) };
+  const without = ban === undefined ? undefined : (solveLevel(spec, { ban: [...ban], maxMoves: (spec.par ?? 0) + 2 }).solution?.par ?? null);
+  return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, ...(without === undefined ? {} : { without }) };
 }
 
 /** The rules of the grammar broken, one to a line under the table of the campaign, or that none is. */

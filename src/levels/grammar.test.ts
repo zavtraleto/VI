@@ -83,19 +83,48 @@ describe('the grammar of the row', () => {
 });
 
 describe('the slow part of the grammar', () => {
-  const easy = { lost: true, planner: 1, shortWithout: false };
+  const easy = { lost: true, planner: 1, without: null };
 
   it('asks of a board that teaches that it can be lost and that its move is the short way: rule 2, past the first three places', () => {
     const row = rowOf(['R01', 'R02', 'R03', 'R04', 'R05', 'R07', 'R08']);
-    const facts = (stop: Stop) => (stop.spec.id === 'R07' ? { lost: false, planner: 1, shortWithout: true } : easy);
+    // R07 is cleared in 4; without the link in 5 here, a move longer, where a link has to save two.
+    const facts = (stop: Stop) => (stop.spec.id === 'R07' ? { lost: false, planner: 1, without: 5 } : easy);
     expect(slowGrammar(row, facts).filter((one) => one.rule === 2).map((one) => one.text)).toEqual([
       'место 6 (R07) учит link, а проиграть на нём нельзя',
-      'место 6 (R07) учит link, а без него решение не длиннее чем на ход',
+      'место 6 (R07) учит link, а без него решение длиннее только на 1 ход',
     ]);
     expect(slowGrammar(row, () => easy)).toEqual([]);
   });
 
-  it('asks the planner to do as well after a meeting, and the hardest board of a chapter to stand fourth or later: rule 5', () => {
+  it('asks of the walk that it save a move, and of the other moves that they save two (уточнено 14 октября по шагу 1)', () => {
+    const row = rowOf(['R01', 'R02', 'R03', 'R11', 'P02', 'R15']);
+    // R11 is cleared in 3: without the walk in 4 it keeps the rule, in 3 it breaks it.
+    const ruleTwo = (without: number) => slowGrammar(row, (stop) => (stop.spec.id === 'R11' ? { ...easy, without } : easy)).filter((one) => one.rule === 2);
+    expect(ruleTwo(4)).toEqual([]);
+    expect(ruleTwo(3).map((one) => one.text)).toEqual([
+      'место 4 (R11) учит walk, а без него решение не длиннее',
+    ]);
+  });
+
+  it('leaves a board that teaches a move with no ban to the solver out of rule 2: two faces at once', () => {
+    const row = rowOf(['R01', 'R02', 'R03', ['R09', { chapter: 2, role: 'meet', teaches: 'twoFaces', archetype: 'two heaps' }], 'R12', 'P07']);
+    expect(slowGrammar(row, (stop) => (stop.spec.id === 'R09' ? { lost: false, planner: 1, without: 3 } : easy)).filter((one) => one.rule === 2)).toEqual([]);
+  });
+
+  it('holds on the row of step 1 with the facts ladder campaign measured on 14 October 2026', () => {
+    // lost, the planner's share of thirty runs, and for a board that teaches the fewest moves without its move.
+    const measured: Record<string, { lost: boolean; planner: number; without: number | null }> = {
+      R01: { lost: false, planner: 1, without: null }, R02: { lost: false, planner: 1, without: null }, R03: { lost: false, planner: 1, without: null },
+      R04: { lost: false, planner: 1, without: null }, R05: { lost: true, planner: 1, without: null }, R07: { lost: true, planner: 1, without: 11 },
+      R08: { lost: true, planner: 28 / 30, without: null }, R11: { lost: true, planner: 1, without: 4 }, P02: { lost: true, planner: 28 / 30, without: null },
+      R15: { lost: true, planner: 1, without: null }, 'C1-04': { lost: true, planner: 1, without: 8 }, 'C1-05': { lost: true, planner: 1, without: null },
+      'C1-06': { lost: true, planner: 28 / 30, without: null }, K22: { lost: true, planner: 1, without: null },
+    };
+    const row = rowOf(Object.keys(measured));
+    expect(slowGrammar(row, (stop) => measured[stop.spec.id])).toEqual([]);
+  });
+
+  it('asks the planner to do as well after a meeting, but for two runs of thirty, and the hardest board of a chapter to stand fourth or later: rule 5', () => {
     const row = rowOf(['R11', 'P02', 'R15', 'K22']);
     const shares: Record<string, number> = { R11: 0.9, P02: 0.5, R15: 0.8, K22: 1 };
     const facts = (stop: Stop) => ({ ...easy, planner: shares[stop.spec.id] });
@@ -103,5 +132,14 @@ describe('the slow part of the grammar', () => {
       'место 2 (P02) после встречи на месте 1: планирующий 50%, а на встрече — 90%',
       'самая трудная доска главы 1 — место 2 (P02), 2-я в главе, а должна стоять не раньше 4-й',
     ]);
+    // Two runs of thirty under the meeting are not a step down; three are.
+    const near = (p02: number) => slowGrammar(row, (stop) => ({ ...easy, planner: stop.spec.id === 'P02' ? p02 : stop.spec.id === 'K22' ? 0.5 : 1 })).filter((one) => one.rule === 5);
+    expect(near(28 / 30)).toEqual([]);
+    expect(near(27 / 30)).toHaveLength(1);
+  });
+
+  it('does not hold the meeting of a chapter to the rest that ends the chapter before it', () => {
+    const row = rowOf(['R01', 'R02', 'R03', 'K22', ['R09', { chapter: 2, role: 'meet', teaches: 'twoFaces', archetype: 'two heaps' }], 'R12']);
+    expect(slowGrammar(row, (stop) => ({ ...easy, planner: stop.spec.id === 'R09' ? 0.6 : 1 })).filter((one) => one.rule === 5 && one.text.includes('после встречи'))).toEqual([]);
   });
 });

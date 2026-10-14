@@ -30,9 +30,22 @@ export interface SlowFacts {
   lost: boolean;
   /** The share of the runs of the planning persona that clear the board. */
   planner: number;
-  /** For a board that teaches: it is cleared within a move over its fewest without the move it teaches. */
-  shortWithout?: boolean;
+  /**
+   * For a board that teaches a move the solver can be barred from: the fewest moves it is cleared in
+   * without that move, looked for up to two over its own; null where it is not cleared so.
+   */
+  without?: number | null;
 }
+
+/**
+ * Rule 2, how many moves the move taught has to save (уточнено 14 октября по шагу 1): the walk over
+ * leaving dice one, as the meeting of the walk (`R11`) is laid in the spec; every other move two.
+ * A move the solver cannot be barred from (two faces, the seven, time) is not held to rule 2 at all.
+ */
+export const SAVES: Partial<Record<Technique, number>> = { walk: 1, link: 2, glass: 2, lift: 2, push: 2, ones: 2 };
+
+/** Rule 5: the planner after a meeting may clear its board this much less often than on the meeting, two runs of thirty (уточнено 14 октября по шагу 1). */
+export const PLANNER_SLACK = 2 / 30;
 
 /**
  * The moves a board asks for, read off the score of the way it keeps (`scoreOf`): a link (`L`, `Q`),
@@ -126,8 +139,8 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
 /**
  * The rules that ask what the walk and the personas found (`facts`): rule 2, a board that teaches
- * can be lost and its move is the short way, past the first three places of the row; and rule 5,
- * the planner does as well after a meeting as on it, and the hardest board of a chapter (the lowest
+ * can be lost and its move is the short way (`SAVES`), past the first three places of the row; and rule 5,
+ * the planner does as well after a meeting as on it (but for `PLANNER_SLACK`), and the hardest board of a chapter (the lowest
  * share of the planner, the latest of those alike) stands fourth in it or later. The prologue is
  * held to the first and not to the second: its order is the owner's.
  */
@@ -135,16 +148,21 @@ export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFac
   const out: Violation[] = [];
   const known = new Map(row.map((stop) => [stop, facts(stop)]));
   for (const stop of row) {
-    if (!stop.teaches || stop.number <= 3) continue;
+    const saves = stop.teaches ? SAVES[stop.teaches] : undefined;
+    if (saves === undefined || stop.number <= 3) continue;
     const fact = known.get(stop)!;
     if (!fact.lost) out.push({ rule: 2, at: stop.number, text: `${placeOf(stop)} учит ${stop.teaches}, а проиграть на нём нельзя` });
-    if (fact.shortWithout) out.push({ rule: 2, at: stop.number, text: `${placeOf(stop)} учит ${stop.teaches}, а без него решение не длиннее чем на ход` });
+    const saved = fact.without === null || fact.without === undefined ? Infinity : fact.without - (stop.spec.par ?? 0);
+    if (saved < saves) {
+      const text = saved <= 0 ? 'а без него решение не длиннее' : `а без него решение длиннее только на ${saved} ход`;
+      out.push({ rule: 2, at: stop.number, text: `${placeOf(stop)} учит ${stop.teaches}, ${text}` });
+    }
   }
   row.forEach((stop, index) => {
     const next = row[index + 1];
     if (stop.role !== 'meet' || !next) return;
     const [met, after] = [known.get(stop)!.planner, known.get(next)!.planner];
-    if (after < met) out.push({ rule: 5, at: next.number, text: `${placeOf(next)} после встречи на месте ${stop.number}: планирующий ${percent(after)}, а на встрече — ${percent(met)}` });
+    if (after < met - PLANNER_SLACK - 1e-9) out.push({ rule: 5, at: next.number, text: `${placeOf(next)} после встречи на месте ${stop.number}: планирующий ${percent(after)}, а на встрече — ${percent(met)}` });
   });
   for (const chapter of new Set(row.map((stop) => stop.chapter))) {
     if (chapter === 0) continue;
