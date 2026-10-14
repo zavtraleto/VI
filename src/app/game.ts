@@ -202,6 +202,8 @@ const DEAD_END_LINE: Record<Exclude<LevelDeadEnd, 'count'>, TextKey> = { strande
  * whose combo can be made within two moves with the board still one that can be cleared.
  */
 const PIECES_COUNTED = 2;
+/** The plaques over heaps are shown on the boards of the row up to this number, and on none after it: there they only get in the way (word of the owner, 14 October 2026). */
+const COUNTERS_UNTIL = 10;
 /** A move taken back runs backwards this many times as fast as it was made, and never for longer than this. */
 const REWIND_SPEED = 1.2;
 const REWIND_MOST_MS = 700;
@@ -2755,8 +2757,10 @@ export class Game {
     // The first pieces of the road have a plaque over every die and heap of the working face from the start; a board after
     // them has one only over a heap that is a good next combo. On a piece they blink when the player has waited.
     const first = levelRun !== null && this.piece !== null && this.piece < PIECES_COUNTED;
-    // No plaque stands over dice that are still coming.
-    const short = !levelRun || state.over || this.passage ? [] : first ? roadCounters(state) : this.hintedGroups(state);
+    // No plaque stands over dice that are still coming, nor on a board of the row past the tenth. A board of the lab has no number, and has them.
+    const number = levelRun ? this.boardNumber() : null;
+    const late = number !== null && number > COUNTERS_UNTIL;
+    const short = !levelRun || state.over || this.passage || late ? [] : first ? roadCounters(state) : this.hintedGroups(state);
     const counters: HudCounter[] = short.map((group) => {
       const cx = group.cells.reduce((sum, cell) => sum + cell.x, 0) / group.cells.length;
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;
