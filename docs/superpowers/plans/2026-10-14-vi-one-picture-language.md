@@ -1,6 +1,6 @@
 # Единый язык картинки — план сборки
 
-> Вид: план. Статус: не начат. Дата: 2026-10-14.
+> Вид: план. Статус: не выполнен. Дата: 2026-10-14.
 > Спека: [2026-10-14-vi-one-picture-language-design.md](../specs/2026-10-14-vi-one-picture-language-design.md). Исследование: [VI_PS2_Effects_Research.md](../../art/VI_PS2_Effects_Research.md).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
