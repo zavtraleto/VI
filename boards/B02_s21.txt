@@ -1,0 +1,14 @@
+id: B02_s21
+status: D
+origin: курс 6 октября, резерв (B02)
+faces: 3
+seed: 21
+chapter: 5
+lesson: lessonStep
+par: 2
+exact: yes
+way: 1,2,E 2,2,N
+---
+ .  32*  .
+ .  32   .
+ .  54   .

@@ -1,0 +1,16 @@
+id: T08_s10335
+status: D
+origin: курс 6 октября, резерв (T08)
+faces: 3
+floor: shut
+seed: 10335
+chapter: 0
+guard: on
+par: 2
+exact: yes
+way: 2,2,E 1,3,N
+---
+ .   .   .   .
+ .   .   .   .
+32   .  56   .
+31  64  35  31*

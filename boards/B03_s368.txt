@@ -1,0 +1,14 @@
+id: B03_s368
+status: D
+origin: курс 6 октября, резерв (B03)
+faces: 3
+seed: 368
+chapter: 5
+lesson: lessonLink
+par: 3
+exact: yes
+way: 0,0,S 2,0,S 1,0,W
+---
+23  65  23*
+ .  31   .
+ .   .   .

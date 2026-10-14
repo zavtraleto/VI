@@ -1,0 +1,14 @@
+id: B18_s5
+status: D
+origin: курс 6 октября, резерв (B18)
+faces: 5
+seed: 5
+chapter: 7
+par: 4
+exact: yes
+way: 3,1,N 3,0,W 2,0,S 2,1,E
+---
+ .   .   .   .
+ .   .   .  42*
+ .   .  56  51
+ .   .  54  53

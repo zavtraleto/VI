@@ -1,0 +1,16 @@
+id: R05e1
+status: D
+origin: дорога, редакция 1 (R05)
+faces: 2
+floor: shut
+undos: 3
+seed: 8105
+chapter: 0
+par: 3
+exact: yes
+way: 0,2,E 1,2,E 2,2,N
+---
+ -   -  21+  -
+ -   -   .   -
+65*  .   .   .
+ -   -   -   -

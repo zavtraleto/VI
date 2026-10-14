@@ -1,0 +1,14 @@
+id: B09_s10088
+status: D
+origin: курс 6 октября, резерв (B09)
+faces: 2 3
+seed: 10088
+chapter: 6
+lesson: lessonTwos
+par: 3
+exact: yes
+way: 2,1,W 2,2,N 1,2,E
+---
+ .  31  35
+ .   .  65*
+ .  62  24

@@ -1,0 +1,18 @@
+id: R03
+status: R
+origin: дорога, редакции 2–6; пролог, дорога редакции 7
+mark: норм
+words: 2026-10-11: ок
+words: 2026-10-14: ок
+faces: 2
+floor: shut
+undos: 3
+seed: 8103
+chapter: 0
+par: 2
+exact: yes
+way: 1,2,E 2,2,N
+---
+ .   .   .
+ .  23   .
+ .  65*  .

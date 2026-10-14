@@ -1,0 +1,18 @@
+id: T07_s10046
+status: D
+origin: курс 6 октября, резерв (T07)
+faces: 2
+floor: shut
+seed: 10046
+chapter: 0
+lesson: lineWalk
+until: end
+guard: on
+guide: on
+par: 2
+exact: yes
+way: 1,1,E 1,2,W
+---
+ .   .   .
+26  36*  .
+ .  63  23

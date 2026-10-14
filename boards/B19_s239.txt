@@ -1,0 +1,14 @@
+id: B19_s239
+status: D
+origin: курс 6 октября, резерв (B19)
+faces: 5
+seed: 239
+chapter: 7
+par: 4
+exact: yes
+way: 1,0,W 0,0,S 0,1,E 2,0,S
+---
+ .  53* 65   .
+ .   .  51  56
+ .   .  53  54
+ .   .   .   .

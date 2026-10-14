@@ -1,0 +1,14 @@
+id: P11_s30154
+status: D
+origin: проба 7 октября, резерв (P11)
+faces: 2
+seed: 30154
+chapter: 0
+par: 4
+exact: yes
+way: 1,3,N 1,2,N 1,0,E 2,0,S
+---
+ .  62   .   .
+ .   .   .   .
+ .   .   .   .
+ .  51*  .   .

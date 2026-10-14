@@ -1,0 +1,14 @@
+id: B19
+status: D
+origin: курс 6 октября
+faces: 5
+seed: 176
+chapter: 7
+par: 4
+exact: yes
+way: 1,1,N 1,0,E 2,0,E 2,3,E
+---
+ .   .   .   .
+ .  65* 51  53
+ .   .   .  54
+ .   .  31  56

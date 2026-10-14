@@ -1,0 +1,13 @@
+id: P03_s30146
+status: D
+origin: проба 7 октября, резерв (P03)
+faces: 3
+seed: 30146
+chapter: 0
+par: 7
+exact: yes
+way: 0,0,E 1,0,E 2,0,S 0,1,N 0,0,E 2,1,N 1,1,E
+---
+42   .   .
+21* 62   .
+ .   .   .

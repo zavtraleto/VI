@@ -1,0 +1,17 @@
+id: T04
+status: D
+origin: курс 6 октября
+faces: 3
+floor: shut
+seed: 85
+chapter: 0
+lesson: lineStep
+guard: on
+guide: on
+par: 1
+exact: yes
+way: 0,1,S
+---
+ .   .   .
+53  31*  .
+ .  36   .

@@ -1,0 +1,14 @@
+id: P13_s30460
+status: D
+origin: проба 7 октября, резерв (P13)
+faces: 6
+seed: 30460
+chapter: 0
+par: 5
+exact: yes
+way: 0,1,N 0,0,E 1,0,S 2,2,S 2,3,W
+---
+ .   .   .   .
+65   .  65   .
+62  63* 32   .
+65   .   .   .

@@ -1,0 +1,16 @@
+id: T08_s10053
+status: D
+origin: курс 6 октября, резерв (T08)
+faces: 3
+floor: shut
+seed: 10053
+chapter: 0
+guard: on
+par: 2
+exact: yes
+way: 3,0,S 2,1,W
+---
+ .  35  32  23
+ .   .  26   .
+ .   .  35  35*
+ .   .   .   .

@@ -1,0 +1,13 @@
+id: P05_s30236
+status: D
+origin: проба 7 октября, резерв (P05)
+faces: 3
+seed: 30236
+chapter: 0
+par: 6
+exact: yes
+way: 1,1,E 2,1,N 0,1,E 0,0,S 1,2,N 1,1,E
+---
+63  36*  .
+56  54   .
+ .  21  35

@@ -1,0 +1,15 @@
+id: T06
+status: D
+origin: курс 6 октября
+faces: 3
+floor: shut
+seed: 1086
+chapter: 0
+guard: on
+par: 2
+exact: yes
+way: 0,1,E 0,2,N
+---
+ .   .   .
+62   .   .
+54  32*  .

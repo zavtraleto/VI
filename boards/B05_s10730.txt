@@ -1,0 +1,14 @@
+id: B05_s10730
+status: D
+origin: курс 6 октября, резерв (B05)
+faces: 3
+seed: 10730
+chapter: 5
+par: 4
+exact: yes
+way: 1,0,S 0,0,E 0,1,N 3,1,W
+---
+56  23* 32  36
+54   .   .  51
+ .   .   .   .
+ .   .   .   .

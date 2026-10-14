@@ -1,0 +1,14 @@
+id: B01_s290
+status: D
+origin: курс 6 октября, резерв (B01)
+faces: 3
+seed: 290
+chapter: 5
+lesson: lessonThrees
+par: 1
+exact: yes
+way: 1,2,N
+---
+ .   .   .
+ .   .  32
+ .  24* 32

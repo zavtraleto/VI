@@ -1,0 +1,16 @@
+id: T09_s10973
+status: D
+origin: курс 6 октября, резерв (T09)
+faces: 2
+floor: shut
+seed: 10973
+chapter: 0
+guard: on
+par: 4
+exact: yes
+way: 2,2,S 0,1,N 0,0,E 1,2,E
+---
+ .   .   .   .
+36  21   .   .
+ .  36* 62  23
+ .  21   .   .

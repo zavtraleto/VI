@@ -1,0 +1,14 @@
+id: P12_s30002
+status: D
+origin: проба 7 октября, резерв (P12)
+faces: 2 3
+seed: 30002
+chapter: 0
+par: 5
+exact: yes
+way: 3,1,W 3,2,S,p 0,2,S,p 3,3,W 2,3,W
+---
+ .   .   .   .
+ .  24   .  31*
+36   .   .  42
+ .  31  36   .

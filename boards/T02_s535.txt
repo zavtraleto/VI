@@ -1,0 +1,15 @@
+id: T02_s535
+status: D
+origin: курс 6 октября, резерв (T02)
+faces: 2
+floor: shut
+seed: 535
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 1,2,N
+---
+ .   .   .
+23   .   .
+ .  65*  .

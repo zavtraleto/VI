@@ -1,0 +1,14 @@
+id: P18_s30105
+status: D
+origin: проба 7 октября, резерв (P18)
+faces: 1 4
+seed: 30105
+chapter: 0
+par: 5
+exact: yes
+way: 0,0,E 1,0,S 2,0,W 0,3,E 2,1,S,p
+---
+24*  .  42   .
+ .   .  12   .
+45  42   .   .
+26   .   .   .

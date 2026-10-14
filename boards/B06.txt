@@ -1,0 +1,14 @@
+id: B06
+status: D
+origin: курс 6 октября
+faces: 3
+seed: 10148
+chapter: 5
+par: 6
+exact: yes
+way: 2,1,W 2,3,W 2,2,S 1,2,E 3,3,N 3,1,W
+---
+ .   .   .   .
+ .   .  65  51
+ .  56  23*  .
+ .   .  65  64

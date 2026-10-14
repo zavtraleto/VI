@@ -1,0 +1,14 @@
+id: P06_s30377
+status: D
+origin: проба 7 октября, резерв (P06)
+faces: 2
+seed: 30377
+chapter: 0
+par: 4
+exact: yes
+way: 2,1,W 1,1,N 0,2,S,p 1,2,W
+---
+23   .   .   .
+ .   .  45*  .
+24  31   .   .
+ .  23   .   .

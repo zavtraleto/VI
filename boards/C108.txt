@@ -1,0 +1,16 @@
+id: C108
+status: D
+origin: курс 6 октября
+faces: 2
+floor: shut
+seed: 18
+chapter: 1
+guard: on
+par: 4
+exact: yes
+way: 3,0,S 3,1,S 2,1,E 3,1,N
+---
+ .   .  24* 51
+ .   .  65   .
+ .   .  26   .
+ .   .   .   .

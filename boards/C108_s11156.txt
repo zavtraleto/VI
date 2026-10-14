@@ -1,0 +1,16 @@
+id: C108_s11156
+status: D
+origin: курс 6 октября, резерв (C108)
+faces: 2
+floor: shut
+seed: 11156
+chapter: 1
+guard: on
+par: 4
+exact: yes
+way: 1,0,E 2,0,E 2,1,N 2,0,W
+---
+ .  51   .   .
+ .  26* 31  23
+ .   .   .   .
+ .   .   .   .

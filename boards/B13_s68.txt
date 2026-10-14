@@ -1,0 +1,15 @@
+id: B13_s68
+status: D
+origin: курс 6 октября, резерв (B13)
+faces: 2 3
+seed: 68
+chapter: 6
+lesson: lessonFloor
+par: 5
+exact: yes
+way: 3,1,W 3,2,N,p 0,2,N,p 2,2,N,p 2,1,W,p
+---
+31   .  26   .
+ .   .   .  31*
+32   .  35  24
+ .   .   .   .

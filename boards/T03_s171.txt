@@ -1,0 +1,15 @@
+id: T03_s171
+status: D
+origin: курс 6 октября, резерв (T03)
+faces: 4
+floor: shut
+seed: 171
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 1,2,W
+---
+42   .   .
+42  46   .
+ .  56*  .

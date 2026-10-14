@@ -9,6 +9,7 @@
 //   node scripts/level.mjs export file=P06 out=boards/P06.txt   a board written as a file
 //   node scripts/level.mjs regress                      every board there is solved anew, and what it keeps held
 //                                                       against it: the list, its reserve, the road, the files of boards/
+//                                                       (not the drafts the library laid from the history, nor those taken off)
 //                                                       (workers=6: the processes the boards are shared among)
 //   node scripts/level.mjs moves file=P06 after=3,0,W   every move there is, after the moves named if any are: whether
 //                                                       it keeps the fewest moves, makes the way longer, or is a dead end
@@ -348,7 +349,12 @@ if (command === 'show') {
   const { LEVELS, PARKED, SPARES } = await load('/src/levels/levels.ts');
   const { ROAD, ROAD_SPARES } = await load('/src/levels/road.ts');
   const dir = resolve(root, 'boards');
-  const files = existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.txt')).sort() : [];
+  // A board the library laid from the history and nobody took up again (a draft from there, or one taken off) is history, not work in hand: it is not held here.
+  const history = (name) => {
+    const head = readBoardHead(readFileSync(resolve(dir, name), 'utf8'));
+    return head.status === 'X' || (head.status === 'D' && head.origin !== undefined && !head.origin.includes('лаборатория'));
+  };
+  const files = existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.txt') && !history(name)).sort() : [];
   // Every board with where it is from; a file that cannot be read is a board that is broken, and says why.
   const boards = [
     ...LEVELS.map((spec) => ({ from: 'list', spec })),

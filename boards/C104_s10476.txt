@@ -1,0 +1,16 @@
+id: C104_s10476
+status: D
+origin: курс 6 октября, резерв (C104)
+faces: 3
+floor: shut
+seed: 10476
+chapter: 1
+guard: on
+par: 3
+exact: yes
+way: 1,0,E 2,0,S 2,2,S
+---
+ .  23   .   .
+ .  31   .   .
+ .  32  23  31*
+ .   .   .  36

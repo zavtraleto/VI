@@ -1,0 +1,15 @@
+id: B05
+status: D
+origin: курс 6 октября
+faces: 3
+seed: 10588
+chapter: 5
+lesson: lineLink
+par: 4
+exact: yes
+way: 3,1,W 1,0,W 3,0,S 2,0,W
+---
+ .  51* 65  23
+35  31   .  51
+ .   .   .   .
+ .   .   .   .

@@ -1,0 +1,15 @@
+id: T05_s748
+status: D
+origin: курс 6 октября, резерв (T05)
+faces: 4
+floor: shut
+seed: 748
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 0,1,E
+---
+ .   .   .
+65   .   .
+42  42* 42

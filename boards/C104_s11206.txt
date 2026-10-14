@@ -1,0 +1,16 @@
+id: C104_s11206
+status: D
+origin: курс 6 октября, резерв (C104)
+faces: 3
+floor: shut
+seed: 11206
+chapter: 1
+guard: on
+par: 3
+exact: yes
+way: 3,2,N 3,1,W 1,1,N
+---
+31   .   .   .
+32  64   .   .
+ .  31  35* 51
+ .   .   .   .

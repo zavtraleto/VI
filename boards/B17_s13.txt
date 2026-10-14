@@ -1,0 +1,15 @@
+id: B17_s13
+status: D
+origin: курс 6 октября, резерв (B17)
+faces: 5
+seed: 13
+chapter: 7
+lesson: lessonFives
+par: 2
+exact: yes
+way: 1,2,N 1,1,N
+---
+ .   .  51   .
+ .   .  53   .
+ .  21* 54  56
+ .   .   .   .

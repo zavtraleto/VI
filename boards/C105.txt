@@ -1,0 +1,18 @@
+id: C105
+status: D
+origin: курс 6 октября; курс 6 октября, резерв
+faces: 3
+floor: shut
+seed: 105
+chapter: 1
+lesson: lineSeven
+until: combo
+guard: on
+guide: on
+par: 2
+exact: yes
+way: 0,2,N 0,1,N
+---
+ .  35   .
+ .  36   .
+46*  .   .

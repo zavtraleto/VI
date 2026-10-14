@@ -1,0 +1,14 @@
+id: B21_s58
+status: D
+origin: курс 6 октября, резерв (B21)
+faces: 5
+seed: 58
+chapter: 7
+par: 7
+exact: yes
+way: 0,3,N 1,3,W 3,3,W 2,3,W 0,2,S 2,1,S,p 2,2,N
+---
+ .   .   .   .
+ .   .  62  56
+ .  53  54  56
+54  36   .  21*

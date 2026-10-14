@@ -1,0 +1,15 @@
+id: B11_s10055
+status: D
+origin: курс 6 октября, резерв (B11)
+faces: 2 3
+seed: 10055
+chapter: 6
+lesson: lessonGlass
+par: 4
+exact: yes
+way: 3,3,N 3,2,W 0,2,S 1,1,S
+---
+ .   .   .   .
+ .  63   .   .
+63* 26   .   .
+ .  35  36  46

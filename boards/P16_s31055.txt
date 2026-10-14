@@ -1,0 +1,14 @@
+id: P16_s31055
+status: D
+origin: проба 7 октября, резерв (P16)
+faces: 3
+seed: 31055
+chapter: 0
+par: 4
+exact: yes
+way: 1,0,E 2,0,S 3,0,W 2,0,W
+---
+ .  63*  .  42
+36  31   .  31
+ .   .   .  35
+ .   .   .   .

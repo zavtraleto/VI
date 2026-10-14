@@ -1,0 +1,16 @@
+id: C109_s11013
+status: D
+origin: курс 6 октября, резерв (C109)
+faces: 3
+floor: shut
+seed: 11013
+chapter: 1
+guard: on
+par: 4
+exact: yes
+way: 1,2,N 2,2,E 1,1,S 1,2,S
+---
+ .   .   .   .
+ .   .  32  36*
+31  53  56   .
+35   .   .   .

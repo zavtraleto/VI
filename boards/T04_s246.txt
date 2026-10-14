@@ -1,0 +1,17 @@
+id: T04_s246
+status: D
+origin: курс 6 октября, резерв (T04)
+faces: 3
+floor: shut
+seed: 246
+chapter: 0
+lesson: lineStep
+guard: on
+guide: on
+par: 1
+exact: yes
+way: 1,0,S
+---
+32  23   .
+32*  .   .
+ .   .   .

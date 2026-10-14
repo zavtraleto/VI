@@ -1,0 +1,16 @@
+id: T09_s10607
+status: D
+origin: курс 6 октября, резерв (T09)
+faces: 2
+floor: shut
+seed: 10607
+chapter: 0
+guard: on
+par: 4
+exact: yes
+way: 0,2,N 2,3,E 3,3,N 1,2,W
+---
+ .   .   .   .
+ .  26   .   .
+65* 31  21   .
+21   .  65   .

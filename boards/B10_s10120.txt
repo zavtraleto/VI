@@ -1,0 +1,13 @@
+id: B10_s10120
+status: D
+origin: курс 6 октября, резерв (B10)
+faces: 2 3
+seed: 10120
+chapter: 6
+par: 5
+exact: yes
+way: 1,2,E 1,1,S 1,2,W 0,2,N 0,1,E
+---
+ .  21  31
+ .  42  36
+ .  62*  .

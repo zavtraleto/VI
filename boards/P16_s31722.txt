@@ -1,0 +1,14 @@
+id: P16_s31722
+status: D
+origin: проба 7 октября, резерв (P16)
+faces: 3
+seed: 31722
+chapter: 0
+par: 4
+exact: yes
+way: 3,1,S 3,2,W 3,3,N 3,2,N
+---
+ .   .   .  35*
+ .   .  32  51
+ .   .   .   .
+ .  35  35  45

@@ -1,0 +1,13 @@
+id: B07_s10031
+status: D
+origin: курс 6 октября, резерв (B07)
+faces: 3
+seed: 10031
+chapter: 5
+par: 7
+exact: yes
+way: 1,1,W 1,0,S 1,2,W 1,1,S 0,0,S 0,1,S 2,0,S
+---
+45  46  63
+ .  65* 31
+ .  51  31

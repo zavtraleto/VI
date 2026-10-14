@@ -1,0 +1,16 @@
+id: C107_s440
+status: D
+origin: курс 6 октября, резерв (C107); курс 6 октября, резерв (B17)
+faces: 5
+floor: shut
+seed: 440
+chapter: 1
+guard: on
+par: 1
+exact: yes
+way: 2,2,E
+---
+ .   .   .   .
+ .   .   .   .
+ .  56  31   .
+ .  56* 53  51

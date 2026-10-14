@@ -1,0 +1,14 @@
+id: P09_s30848
+status: D
+origin: проба 7 октября, резерв (P09)
+faces: 3
+seed: 30848
+chapter: 0
+par: 4
+exact: yes
+way: 0,1,E 0,2,E 1,2,E 2,3,N
+---
+ .   .  36   .
+56   .  35   .
+46* 31   .   .
+ .   .  64   .

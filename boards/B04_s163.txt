@@ -1,0 +1,14 @@
+id: B04_s163
+status: D
+origin: курс 6 октября, резерв (B04)
+faces: 3
+seed: 163
+chapter: 5
+lesson: lessonSeven
+par: 4
+exact: yes
+way: 1,2,E 2,2,N 0,2,E 0,1,S
+---
+ .   .   .
+23* 36   .
+56  64   .

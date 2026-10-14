@@ -1,0 +1,15 @@
+id: R17
+status: D
+origin: дорога, редакция 1
+faces: 2 3
+undos: 3
+seed: 8117
+chapter: 0
+par: 2
+exact: yes
+way: 3,3,N 1,2,W,p
+---
+31+  -   -   -
+31+  -   -  21+
+ .  31   .   .
+ -   -   -  45*

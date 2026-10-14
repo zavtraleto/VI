@@ -1,0 +1,16 @@
+id: R11e1
+status: D
+origin: дорога, редакция 1 (R11)
+faces: 3
+floor: shut
+undos: 3
+seed: 8111
+chapter: 0
+par: 3
+exact: yes
+way: 2,3,N 2,2,N 1,1,N
+---
+ -   .  31+ 31+
+ -  54   .   -
+ -   -   .   -
+ -   -  45*  -

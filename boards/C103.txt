@@ -1,0 +1,16 @@
+id: C103
+status: D
+origin: курс 6 октября; курс 6 октября, резерв
+faces: 4
+floor: shut
+seed: 10598
+chapter: 1
+guard: on
+par: 3
+exact: yes
+way: 0,1,E 1,1,E 2,1,N
+---
+ .   .   .  46
+53*  .   .  45
+ .   .   .  46
+ .   .   .   .

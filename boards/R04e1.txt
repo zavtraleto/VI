@@ -1,0 +1,15 @@
+id: R04e1
+status: D
+origin: дорога, редакция 1 (R04)
+faces: 3
+floor: shut
+undos: 3
+seed: 8104
+chapter: 0
+par: 2
+exact: yes
+way: 2,2,W 1,2,N
+---
+ -  31+ 31+
+ -   .   -
+ .   .  54*

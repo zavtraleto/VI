@@ -1,0 +1,14 @@
+id: P04_s30207
+status: D
+origin: проба 7 октября, резерв (P04)
+faces: 5
+seed: 30207
+chapter: 0
+par: 4
+exact: yes
+way: 3,1,W 2,1,W 0,1,S 0,2,S
+---
+ .   .   .   .
+26   .   .  21*
+ .  56   .   .
+ .  56  56  51

@@ -1,0 +1,14 @@
+id: P21_s30392
+status: D
+origin: проба 7 октября, резерв (P21)
+faces: 4
+seed: 30392
+chapter: 0
+par: 5
+exact: yes
+way: 2,0,E 3,0,S 0,1,N 0,0,E 1,0,E
+---
+ .   .  64   .
+24* 41  45   .
+ .   .   -   -
+ .   .   -   -

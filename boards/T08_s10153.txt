@@ -1,0 +1,16 @@
+id: T08_s10153
+status: D
+origin: курс 6 октября, резерв (T08)
+faces: 3
+floor: shut
+seed: 10153
+chapter: 0
+guard: on
+par: 2
+exact: yes
+way: 1,2,W 2,3,N
+---
+ .   .   .   .
+ .   .   .   .
+ .  51   .  36*
+31  32  64  31

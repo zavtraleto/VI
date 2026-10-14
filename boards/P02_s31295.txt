@@ -1,0 +1,14 @@
+id: P02_s31295
+status: D
+origin: проба 7 октября, резерв (P02)
+faces: 2
+seed: 31295
+chapter: 0
+par: 3
+exact: yes
+way: 1,2,E 2,2,N 3,2,N
+---
+ -   -   -   -
+ .  26   .  23
+ .  35*  .  35
+ -   -   -   -

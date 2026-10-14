@@ -1,0 +1,14 @@
+id: B04_s755
+status: D
+origin: курс 6 октября, резерв (B04)
+faces: 3
+seed: 755
+chapter: 5
+lesson: lessonSeven
+par: 4
+exact: yes
+way: 1,2,W 0,2,N 0,1,E 2,2,W
+---
+ .   .  32*
+ .   .  32
+ .  36  65

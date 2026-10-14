@@ -1,0 +1,16 @@
+id: C107_s481
+status: D
+origin: курс 6 октября, резерв (C107)
+faces: 5
+floor: shut
+seed: 481
+chapter: 1
+guard: on
+par: 1
+exact: yes
+way: 2,2,S
+---
+ .   .   .   .
+ .  56  54   .
+ .  51  35*  .
+ .  54   .   .

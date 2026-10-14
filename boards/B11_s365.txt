@@ -1,0 +1,15 @@
+id: B11_s365
+status: D
+origin: курс 6 октября, резерв (B11)
+faces: 2 3
+seed: 365
+chapter: 6
+lesson: lessonGlass
+par: 4
+exact: yes
+way: 1,2,E 2,2,N 3,1,N 3,0,W
+---
+ .  23  36  36
+ .  36*  .  46
+ .  24   .   .
+ .   .   .   .

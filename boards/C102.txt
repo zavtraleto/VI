@@ -1,0 +1,15 @@
+id: C102
+status: D
+origin: курс 6 октября; курс 6 октября, резерв
+faces: 2
+floor: shut
+seed: 174
+chapter: 1
+guard: on
+par: 2
+exact: yes
+way: 2,2,N 2,1,W
+---
+ .  26   .
+ .   .   .
+ .   .  46*

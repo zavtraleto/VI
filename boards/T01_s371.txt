@@ -1,0 +1,17 @@
+id: T01_s371
+status: D
+origin: курс 6 октября, резерв (T01)
+faces: 3
+floor: shut
+seed: 371
+chapter: 0
+lesson: lineCombo
+guard: on
+guide: on
+par: 1
+exact: yes
+way: 1,2,W
+---
+ .   .   .
+31  35   .
+ .  65*  .

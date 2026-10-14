@@ -1,0 +1,14 @@
+id: P14_s30615
+status: D
+origin: проба 7 октября, резерв (P14)
+faces: 4
+seed: 30615
+chapter: 0
+par: 4
+exact: yes
+way: 2,2,W 1,2,W 2,0,W,p 1,0,W,p
+---
+ .   .  42   .
+42   .   .   .
+ .   .  35*  .
+41  42   .   .

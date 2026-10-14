@@ -1,0 +1,16 @@
+id: T08
+status: D
+origin: курс 6 октября
+faces: 3
+floor: shut
+seed: 10013
+chapter: 0
+guard: on
+par: 2
+exact: yes
+way: 2,2,E 1,3,N
+---
+ .   .   .   .
+ .   .   .   .
+32   .  21   .
+32  24* 35  31

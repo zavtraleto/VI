@@ -1,0 +1,14 @@
+id: B03_s10004
+status: D
+origin: курс 6 октября, резерв (B03)
+faces: 3
+seed: 10004
+chapter: 5
+lesson: lessonLink
+par: 2
+exact: yes
+way: 2,1,S 1,1,E
+---
+ .   .   .
+ .  56* 63
+31  35   .

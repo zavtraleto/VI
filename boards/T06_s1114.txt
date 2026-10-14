@@ -1,0 +1,15 @@
+id: T06_s1114
+status: D
+origin: курс 6 октября, резерв (T06)
+faces: 3
+floor: shut
+seed: 1114
+chapter: 0
+guard: on
+par: 2
+exact: yes
+way: 2,1,W 2,2,N
+---
+ .   .   .
+ .   .  51
+ .  36* 54

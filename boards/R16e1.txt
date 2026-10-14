@@ -1,0 +1,16 @@
+id: R16e1
+status: D
+origin: дорога, редакция 1 (R16)
+faces: 3 2
+floor: shut
+undos: 3
+seed: 8116
+chapter: 0
+par: 3
+exact: yes
+way: 0,3,N 3,2,N 3,0,W
+---
+ -   -   .  63
+ -   -  21+  .
+ .  31+ 31+ 45
+54*  -   -   -

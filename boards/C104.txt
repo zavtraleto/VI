@@ -1,0 +1,16 @@
+id: C104
+status: D
+origin: курс 6 октября
+faces: 3
+floor: shut
+seed: 10299
+chapter: 1
+guard: on
+par: 3
+exact: yes
+way: 2,3,E 3,3,N 1,1,W
+---
+35  31*  .   .
+ .  51  36   .
+ .   .  36   .
+ .   .  54   .

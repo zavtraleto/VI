@@ -1,0 +1,13 @@
+id: P07_s31151
+status: D
+origin: проба 7 октября, резерв (P07)
+faces: 2 3
+seed: 31151
+chapter: 0
+par: 4
+exact: yes
+way: 1,1,S 2,1,N 2,0,W 0,1,E
+---
+24   .   .
+56* 23  63
+ .   .  32
