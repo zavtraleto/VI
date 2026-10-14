@@ -12,7 +12,11 @@ import type { LevelLayout, LevelSpec, PuzzleDie } from '../rules/types';
  *   # строки с # — комментарии, пропускаются
  *   id: H01
  *   note: третья кость подъезжает толчком      (свободный текст, не входит в LevelSpec)
- *   status: idea                              (idea | work | good | fire | miss)
+ *   status: D                                 (D | RC | R | X: черновик, кандидат, в ряду, снята)
+ *   origin: проба 7 октября                   (откуда доска; свободная строка)
+ *   mark: огонь                               (огонь | норм | мимо: последняя оценка владельца)
+ *   words: 2026-10-14: слова                  (слова владельца с датой; ключ повторяется)
+ *   tags: мост накат                          (свободные метки через пробел)
  *   faces: 3 5                                (рабочие грани через пробел; обязательно)
  *   sink: 2                                   (sinkMoves; по умолчанию 2)
  *   lift: 1                                   (liftMoves; по умолчанию 1)
@@ -43,15 +47,41 @@ import type { LevelLayout, LevelSpec, PuzzleDie } from '../rules/types';
  * `levelConfig`, and what they refuse is said with the name of the board before it.
  */
 
-export type BoardStatus = 'idea' | 'work' | 'good' | 'fire' | 'miss';
-export const BOARD_STATUSES: readonly BoardStatus[] = ['idea', 'work', 'good', 'fire', 'miss'];
+/**
+ * Where a board stands (the library of the boards, docs/superpowers/specs/2026-10-14-vi-board-library-design.md):
+ * `D` a draft, `RC` a candidate for the row, `R` in the row, `X` taken off. Not a part of its code.
+ */
+export type BoardStatus = 'D' | 'RC' | 'R' | 'X';
+export const BOARD_STATUSES: readonly BoardStatus[] = ['D', 'RC', 'R', 'X'];
+/** The last word of the owner on a board after playing it. */
+export type BoardMark = 'огонь' | 'норм' | 'мимо';
+export const BOARD_MARKS: readonly BoardMark[] = ['огонь', 'норм', 'мимо'];
+/** The statuses of a file before the library, and what each is read as: a place and a mark. */
+const OLD_STATUSES: Readonly<Record<string, { status: BoardStatus; mark?: BoardMark }>> = {
+  idea: { status: 'D' },
+  work: { status: 'D' },
+  good: { status: 'RC', mark: 'норм' },
+  fire: { status: 'RC', mark: 'огонь' },
+  miss: { status: 'X', mark: 'мимо' },
+};
+/** A word of the owner on a board, with the day it was said. */
+export interface BoardWords {
+  date: string;
+  text: string;
+}
 /** What a file says that a level does not keep. */
 export interface BoardHead {
   note?: string;
   status?: BoardStatus;
+  origin?: string;
+  mark?: BoardMark;
+  words?: BoardWords[];
+  tags?: string[];
+  /** The file said a status of the old words (`idea`, `fire`…), read here as the new; written again, it says the new. */
+  migrated?: boolean;
 }
 
-const KEYS = ['id', 'note', 'status', 'faces', 'sink', 'lift', 'floor', 'climb', 'undos', 'seed', 'chapter', 'lesson', 'story', 'until', 'guard', 'guide', 'par', 'exact', 'way'] as const;
+const KEYS = ['id', 'note', 'status', 'origin', 'mark', 'words', 'tags', 'faces', 'sink', 'lift', 'floor', 'climb', 'undos', 'seed', 'chapter', 'lesson', 'story', 'until', 'guard', 'guide', 'par', 'exact', 'way'] as const;
 type Key = (typeof KEYS)[number];
 const DIE = /^([1-6])([1-6])((?:[*+]|~\d+)*)$/;
 const UNTIL: readonly NonNullable<LevelSpec['until']>[] = ['move', 'combo', 'chain', 'push', 'climb', 'end'];
@@ -59,9 +89,14 @@ const UNTIL: readonly NonNullable<LevelSpec['until']>[] = ['move', 'combo', 'cha
 const SINK = 2;
 const LIFT = 1;
 
+/** A key that may be said more than once, a line to each: the words of the owner. */
+const MANY: readonly Key[] = ['words'];
+const WORDS = /^(\d{4}-\d{2}-\d{2}):\s*(.*)$/;
+
 /** Splits a file into its head lines and the rows of its grid; `---` stands between them. */
-function partsOf(text: string, name: string): { head: Map<Key, string>; rows: string[][] } {
+function partsOf(text: string, name: string): { head: Map<Key, string>; many: Map<Key, string[]>; rows: string[][] } {
   const head = new Map<Key, string>();
+  const many = new Map<Key, string[]>();
   const rows: string[][] = [];
   let grid = false;
   for (const raw of text.split(/\r?\n/)) {
@@ -78,11 +113,15 @@ function partsOf(text: string, name: string): { head: Map<Key, string>; rows: st
     const at = line.indexOf(':');
     const key = at < 0 ? '' : line.slice(0, at).trim();
     if (!(KEYS as readonly string[]).includes(key)) throw new Error(`board ${name}: cannot read the line "${line}"`);
+    if (MANY.includes(key as Key)) {
+      many.set(key as Key, [...(many.get(key as Key) ?? []), line.slice(at + 1).trim()]);
+      continue;
+    }
     if (head.has(key as Key)) throw new Error(`board ${name}: "${key}" is said twice`);
     head.set(key as Key, line.slice(at + 1).trim());
   }
   if (!grid) throw new Error(`board ${name}: no "---" before the rows of the board`);
-  return { head, rows };
+  return { head, many, rows };
 }
 
 /**
@@ -93,7 +132,7 @@ function partsOf(text: string, name: string): { head: Map<Key, string>; rows: st
  * the rules will not play. A sign that cannot be read is refused either way.
  */
 export function parseBoard(text: string, name = '?', loose = false): LevelSpec {
-  const { head, rows } = partsOf(text, name);
+  const { head, many, rows } = partsOf(text, name);
   const wrong = (what: string): never => {
     throw new Error(`board ${name}: ${what}`);
   };
@@ -117,7 +156,10 @@ export function parseBoard(text: string, name = '?', loose = false): LevelSpec {
   const faces = said.split(/\s+/).filter((face) => face !== '');
   if (faces.length === 0) wrong('no "faces:" line');
   if (faces.some((face) => !/^[1-6]$/.test(face)) || new Set(faces).size !== faces.length) wrong(`"faces: ${said}" is not faces of a die, each once`);
-  one('status', BOARD_STATUSES);
+  const status = head.get('status');
+  if (status !== undefined && !(BOARD_STATUSES as readonly string[]).includes(status) && !(status in OLD_STATUSES)) wrong(`"status: ${status}" is none of ${BOARD_STATUSES.join(' ')}`);
+  one('mark', BOARD_MARKS);
+  for (const said of many.get('words') ?? []) if (!WORDS.test(said)) wrong(`"words: ${said}" has no date: words are "YYYY-MM-DD: text"`);
   const sink = whole('sink', 1) ?? SINK;
   const lift = whole('lift', 0) ?? LIFT;
   const par = whole('par', 1);
@@ -210,17 +252,39 @@ export function parseBoard(text: string, name = '?', loose = false): LevelSpec {
   return spec;
 }
 
-/** The lines of a file that are about the board and not of it: the note and the status. Reads no more of the file. */
+/**
+ * The lines of a file that are about the board and not of it: the note, the status, where it is
+ * from, the mark and the words of the owner, the tags. Reads no more of the file, and takes what
+ * it can of a file that is no board. A status of the old words is read as the new one, with the
+ * mark it said, and the head says it was (`migrated`).
+ */
 export function readBoardHead(text: string): BoardHead {
   const head: BoardHead = {};
+  let oldMark: BoardMark | undefined;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (/^-{3,}$/.test(line)) break;
-    const note = /^note:\s*(.*)$/.exec(line);
-    if (note && note[1] !== '') head.note = note[1];
-    const status = /^status:\s*(\S+)$/.exec(line);
-    if (status && (BOARD_STATUSES as readonly string[]).includes(status[1])) head.status = status[1] as BoardStatus;
+    const read = /^(note|status|origin|mark|words|tags):\s*(.*)$/.exec(line);
+    if (!read || read[2] === '') continue;
+    const [, key, value] = read;
+    if (key === 'note') head.note = value;
+    else if (key === 'origin') head.origin = value;
+    else if (key === 'mark' && (BOARD_MARKS as readonly string[]).includes(value)) head.mark = value as BoardMark;
+    else if (key === 'tags') head.tags = value.split(/\s+/);
+    else if (key === 'words') {
+      const words = WORDS.exec(value);
+      if (words) head.words = [...(head.words ?? []), { date: words[1], text: words[2] }];
+    } else if (key === 'status') {
+      if ((BOARD_STATUSES as readonly string[]).includes(value)) head.status = value as BoardStatus;
+      else if (value in OLD_STATUSES) {
+        head.status = OLD_STATUSES[value].status;
+        oldMark = OLD_STATUSES[value].mark;
+        head.migrated = true;
+      }
+    }
   }
+  // The mark the file says stands before the one its old status meant.
+  if (oldMark && !head.mark) head.mark = oldMark;
   return head;
 }
 
@@ -258,6 +322,10 @@ export function printBoard(spec: LevelSpec, extra: BoardHead = {}): string {
     id: spec.id,
     note: extra.note,
     status: extra.status,
+    origin: extra.origin,
+    mark: extra.mark,
+    words: undefined,
+    tags: extra.tags && extra.tags.length > 0 ? extra.tags.join(' ') : undefined,
     faces: (spec.faces ?? spec.values).join(' '),
     sink: spec.sinkMoves === SINK ? undefined : String(spec.sinkMoves ?? LEVEL_SINK_MOVES),
     lift: spec.liftMoves === LIFT ? undefined : String(spec.liftMoves ?? LEVEL_LIFT_MOVES),
@@ -275,7 +343,9 @@ export function printBoard(spec: LevelSpec, extra: BoardHead = {}): string {
     exact: spec.par === undefined || spec.exact === undefined ? undefined : spec.exact ? 'yes' : 'no',
     way: spec.solution?.join(' '),
   };
-  const lines = KEYS.filter((key) => said[key] !== undefined).map((key) => `${key}: ${said[key]}`);
+  const lines = KEYS.flatMap((key) =>
+    key === 'words' ? (extra.words ?? []).map((words) => `words: ${words.date}: ${words.text}`) : said[key] === undefined ? [] : [`${key}: ${said[key]}`],
+  );
   const signs = boardSigns(spec);
   const wide = Math.max(3, ...signs.flat().map((sign) => sign.length));
   const rows = signs.map((row) => row.map((sign) => (sign.length === 1 ? ` ${sign}` : sign).padEnd(wide)).join(' ').trimEnd());

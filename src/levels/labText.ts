@@ -341,7 +341,7 @@ export function genOf(recipe: Recipe, span: { from: number; to: number }, opts: 
 /** A board laid for a place as a file of the lab: its name, and its text with the status of an idea and a note of where it is from. */
 export function genFile(recipe: Recipe, fit: Pick<Fit, 'seed' | 'spec'>): { name: string; text: string } {
   const place = levelId(recipe);
-  return { name: `${place}-${fit.seed}`, text: printBoard(fit.spec, { status: 'idea', note: `место ${place}, зерно ${fit.seed}` }) };
+  return { name: `${place}-${fit.seed}`, text: printBoard(fit.spec, { status: 'D', note: `место ${place}, зерно ${fit.seed}` }) };
 }
 
 /**

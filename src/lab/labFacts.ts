@@ -131,7 +131,7 @@ export function offersOfBoard(spec: LevelSpec, name: string): Offer[] {
     .map((board, index) => {
       const id = `${name}-e${index + 1}`;
       const kept = { ...board.spec, id };
-      return { name: id, text: printBoard(kept, { status: 'idea', note: `от ${name}: ${board.what}` }), what: board.what, spec: kept, par: board.par, exact: board.exact };
+      return { name: id, text: printBoard(kept, { status: 'D', note: `от ${name}: ${board.what}` }), what: board.what, spec: kept, par: board.par, exact: board.exact };
     });
 }
 

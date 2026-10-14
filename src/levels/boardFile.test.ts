@@ -5,7 +5,7 @@ import { normalSpec, parseBoard, printBoard, readBoardHead } from './boardFile';
 
 const SAMPLE = `id: H01
 note: третья кость подъезжает толчком
-status: idea
+status: D
 faces: 3
 floor: open
 par: 2
@@ -30,7 +30,7 @@ describe('parseBoard', () => {
     expect(spec.exact).toBe(true);
     expect(spec.solution).toEqual(['1,2,E', '2,2,N']);
     expect(spec.floor).toBeUndefined();
-    expect(readBoardHead(SAMPLE)).toEqual({ note: 'третья кость подъезжает толчком', status: 'idea' });
+    expect(readBoardHead(SAMPLE)).toEqual({ note: 'третья кость подъезжает толчком', status: 'D' });
   });
   it('reads fixed, leaving and a floor start', () => {
     const spec = parseBoard(`id: L\nfaces: 3\nfloor: shut\n---\n 31+ 31+ 12~1\n  .   .  f\n  .   .   .\n`, 'L');
@@ -88,6 +88,61 @@ describe('printBoard', () => {
   });
   it('keeps note and status', () => {
     const spec = parseBoard(SAMPLE, 'H01');
-    expect(readBoardHead(printBoard(spec, readBoardHead(SAMPLE)))).toEqual({ note: 'третья кость подъезжает толчком', status: 'idea' });
+    expect(readBoardHead(printBoard(spec, readBoardHead(SAMPLE)))).toEqual({ note: 'третья кость подъезжает толчком', status: 'D' });
+  });
+});
+
+describe('the head of the library', () => {
+  const HEAD = `id: Q1
+status: RC
+origin: проба 7 октября
+mark: огонь
+words: 2026-10-12: изи катка, хитрость
+words: 2026-10-14: всё ещё хороша
+tags: мост накат
+faces: 3
+---
+ -   .   .
+ .  23   .
+ .  65*  -
+`;
+  it('reads the status, where the board is from, the mark, the words by their days and the tags', () => {
+    expect(readBoardHead(HEAD)).toEqual({
+      status: 'RC',
+      origin: 'проба 7 октября',
+      mark: 'огонь',
+      words: [
+        { date: '2026-10-12', text: 'изи катка, хитрость' },
+        { date: '2026-10-14', text: 'всё ещё хороша' },
+      ],
+      tags: ['мост', 'накат'],
+    });
+    expect(parseBoard(HEAD, 'Q1').id).toBe('Q1');
+  });
+  it('writes them back in the same order', () => {
+    expect(printBoard(parseBoard(HEAD, 'Q1'), readBoardHead(HEAD))).toBe(HEAD);
+  });
+  it.each([
+    ['fire', 'RC', 'огонь'],
+    ['good', 'RC', 'норм'],
+    ['miss', 'X', 'мимо'],
+    ['idea', 'D', undefined],
+    ['work', 'D', undefined],
+  ] as const)('reads the old status %s as %s with the mark %s, and writes it new', (old, status, mark) => {
+    const text = HEAD.replace('status: RC', `status: ${old}`).replace('mark: огонь\n', '');
+    const head = readBoardHead(text);
+    expect(head).toMatchObject({ status, migrated: true });
+    expect(head.mark).toBe(mark);
+    const again = printBoard(parseBoard(text, 'Q1'), head);
+    expect(again).toContain(`status: ${status}\n`);
+    expect(readBoardHead(again).migrated).toBeUndefined();
+  });
+  it('keeps the mark a file says over the one its old status meant', () => {
+    expect(readBoardHead(HEAD.replace('status: RC', 'status: fire').replace('mark: огонь', 'mark: мимо')).mark).toBe('мимо');
+  });
+  it('refuses a status that is none, a mark that is none and words with no date', () => {
+    expect(() => parseBoard(HEAD.replace('status: RC', 'status: maybe'), 'Q1')).toThrow(/"status: maybe" is none of D RC R X/);
+    expect(() => parseBoard(HEAD.replace('mark: огонь', 'mark: класс'), 'Q1')).toThrow(/mark: класс/);
+    expect(() => parseBoard(HEAD.replace('words: 2026-10-14: ', 'words: '), 'Q1')).toThrow(/has no date/);
   });
 });

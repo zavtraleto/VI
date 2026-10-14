@@ -1,7 +1,7 @@
 import GUI, { type Controller } from 'lil-gui';
 import { boardNameOf, isBoardName } from '../app/boardProbe';
 import type { Game } from '../app/game';
-import { BOARD_STATUSES, normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardStatus } from '../levels/boardFile';
+import { BOARD_STATUSES, normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardMark, type BoardStatus } from '../levels/boardFile';
 import { specFromState } from '../levels/snapshot';
 import { REPORT_PLAYERS } from '../rules/levelReport';
 import { moveOf, tryWay } from '../rules/levelSolver';
@@ -26,6 +26,8 @@ import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 /** A change is written to its file this long after it is made, and after the last of several made together. */
 const SAVE_MS = 300;
 const COPY_LABEL = 'копировать текст доски';
+/** The mark a rate after a play writes into the head of the file. */
+export const MARK_OF_RATE: Readonly<Record<Rate, BoardMark>> = { fire: 'огонь', ok: 'норм', miss: 'мимо' };
 
 /** A worker that asks boards: one to a tier, so that a quick answer does not wait behind a slow one. */
 const solver = (): WorkerLike => new Worker(new URL('./solve.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike;
@@ -173,7 +175,7 @@ class LevelsLab {
   /** The status every file says it has, for the list of the files. */
   private statuses = new Map<string, BoardStatus | undefined>();
   /** What the panel shows of the head: the panel edits this copy and the lab reads it. */
-  private readonly form = { file: '', id: '', faces: '2', shut: false, sink: 2, lift: 1, size: 4, note: '', status: 'idea' as BoardStatus };
+  private readonly form = { file: '', id: '', faces: '2', shut: false, sink: 2, lift: 1, size: 4, note: '', status: 'D' as BoardStatus };
 
   constructor(private readonly game: Game) {
     this.inside = game as unknown as Inside;
@@ -477,7 +479,7 @@ class LevelsLab {
         while (this.names.some((name) => name.startsWith(`set${number}-`))) number++;
         const texts = boards.map((board, index) => {
           const name = `set${number}-${index + 1}`;
-          return { name, text: printBoard({ ...board.offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(board.order)}` }) };
+          return { name, text: printBoard({ ...board.offer.spec, id: name }, { status: 'D', note: `заказ ${orderText(board.order)}` }) };
         });
         for (const { name, text } of texts) await writeBoard(name, text);
         await this.readNames();
@@ -620,7 +622,7 @@ class LevelsLab {
     while (this.names.includes(`${stem}-${number}`)) number++;
     const name = `${stem}-${number}`;
     if (!isBoardName(name)) return;
-    const text = printBoard({ ...offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(order)}` });
+    const text = printBoard({ ...offer.spec, id: name }, { status: 'D', note: `заказ ${orderText(order)}` });
     await writeBoard(name, text);
     await this.readNames();
     if (this.saveTimer !== 0) await this.save();
@@ -640,7 +642,7 @@ class LevelsLab {
     form.lift = head.liftMoves ?? 1;
     form.size = this.editor.current.size;
     form.note = extra.note ?? '';
-    form.status = extra.status ?? 'idea';
+    form.status = extra.status ?? 'D';
     this.editor.sink = form.sink;
     for (const control of this.gui.controllersRecursive()) control.updateDisplay();
   }
@@ -690,7 +692,9 @@ class LevelsLab {
       this.head = { ...rest, ...this.ways.get(textOf(this.editor.current, rest)) };
     }
     const note = this.form.note.trim();
-    this.extra = { ...(note ? { note } : {}), status: this.form.status };
+    // The rest of the head, where the board is from, the mark and the words of the owner, stays as the file says it.
+    const { note: _note, migrated: _migrated, ...kept } = this.extra;
+    this.extra = { ...kept, ...(note ? { note } : {}), status: this.form.status };
     if (this.statuses.get(this.name) !== this.form.status) {
       this.statuses.set(this.name, this.form.status);
       this.listFiles();
@@ -991,7 +995,7 @@ class LevelsLab {
       this.keepWay();
       // A board laid by the generator and not yet looked at is played before anything is said of it.
       const note = this.extra.note ?? '';
-      if (!sameBoard) this.views.blind = this.extra.status === 'idea' && (note.startsWith('место ') || note.startsWith('заказ '));
+      if (!sameBoard) this.views.blind = this.extra.status === 'D' && (note.startsWith('место ') || note.startsWith('заказ '));
       // A board laid for an order brings its order back to the panel.
       if (!sameBoard) this.orderSays = [];
       if (!sameBoard && note.startsWith('заказ ')) {
@@ -1044,7 +1048,7 @@ class LevelsLab {
     const name = named();
     if (!isBoardName(name)) return;
     const head = newHead(name);
-    const text = textOf(emptyBoard(head.size), head, { status: 'idea' });
+    const text = textOf(emptyBoard(head.size), head, { status: 'D' });
     await writeBoard(name, text);
     await this.readNames();
     this.load(name, text);
@@ -1158,7 +1162,7 @@ class LevelsLab {
   /**
    * A key pressed while a play is asked of; true where it was an answer. An answer is written
    * down at once, as a line laid over its play, and may be given again: the last one stands.
-   * The first rate sets the status of the board, where the board is still the one in hand.
+   * A rate sets the mark of the board, where the board is still the one in hand.
    */
   private answer(code: string): boolean {
     const { asked } = this;
@@ -1176,8 +1180,7 @@ class LevelsLab {
     void addPlay(asked.name, { at: asked.at, patch }).catch((error: Error) => console.error(error));
     this.ask(asked);
     if (patch.rate && asked.name === this.name && !this.editor.locked && this.moment === null) {
-      this.form.status = patch.rate === 'fire' ? 'fire' : patch.rate === 'ok' ? 'good' : 'miss';
-      for (const control of this.gui.controllersRecursive()) control.updateDisplay();
+      this.extra = { ...this.extra, mark: MARK_OF_RATE[patch.rate] };
       this.edited(false);
     }
     return true;
@@ -1217,7 +1220,7 @@ class LevelsLab {
     const name = named();
     if (!isBoardName(name)) return;
     const taken = { ...specFromState(state, spec), id: name };
-    const text = printBoard(taken, { status: 'idea', note: `снимок ${this.name} после хода ${state.levelRun.moves}` });
+    const text = printBoard(taken, { status: 'D', note: `снимок ${this.name} после хода ${state.levelRun.moves}` });
     this.togglePlay();
     await writeBoard(name, text);
     await this.readNames();

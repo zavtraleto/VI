@@ -257,7 +257,7 @@ if (command === 'show') {
   const written = offers.map((offer, index) => {
     const name = `${stem}-${index + 1}`;
     const file = resolve(dir, `${name}.txt`);
-    writeFileSync(file, printBoard({ ...offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(order)}` }));
+    writeFileSync(file, printBoard({ ...offer.spec, id: name }, { status: 'D', note: `заказ ${orderText(order)}` }));
     return { file, seed: offer.seed, par: offer.par, route: offer.route, misses: offer.misses };
   });
   print(
@@ -290,7 +290,7 @@ if (command === 'show') {
     console.error(`${command}: no board found for ${orderText(order)}`);
     process.exit(1);
   }
-  const text = printBoard(best.spec, { status: 'idea', note: `заказ ${orderText(order)}` });
+  const text = printBoard(best.spec, { status: 'D', note: `заказ ${orderText(order)}` });
   if (named.out) {
     const out = resolve(process.cwd(), named.out);
     mkdirSync(dirname(out), { recursive: true });
@@ -316,7 +316,7 @@ if (command === 'show') {
   mkdirSync(dir, { recursive: true });
   const written = laid.boards.map((board, index) => {
     const name = `${named.name}-${index + 1}`;
-    writeFileSync(resolve(dir, `${name}.txt`), printBoard({ ...board.offer.spec, id: name }, { status: 'idea', note: `заказ ${orderText(board.order)}` }));
+    writeFileSync(resolve(dir, `${name}.txt`), printBoard({ ...board.offer.spec, id: name }, { status: 'D', note: `заказ ${orderText(board.order)}` }));
     return { name, preset: board.key, par: board.offer.par, route: board.offer.route, misses: board.offer.misses };
   });
   print(

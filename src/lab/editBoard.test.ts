@@ -71,7 +71,7 @@ describe('the changes of a board', () => {
     expect(() => specOf(emptyBoard(3), head)).toThrow(/one start is needed, found 0/);
     const drawn = setStart(putDie(putDie(emptyBoard(3), 1, 1), 1, 2), 1, 2);
     expect(specOf(drawn, head).layout!.dice).toHaveLength(2);
-    expect(textOf(drawn, head, { status: 'idea' })).toContain('status: idea');
+    expect(textOf(drawn, head, { status: 'D' })).toContain('status: D');
   });
 });
 

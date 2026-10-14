@@ -27,7 +27,7 @@ describe('genOf', () => {
     expect(said).toEqual([1]);
     const { name, text } = genFile(place, fits[0]);
     expect(name).toBe('R03-10393');
-    expect(readBoardHead(text)).toEqual({ status: 'idea', note: 'место R03, зерно 10393' });
+    expect(readBoardHead(text)).toEqual({ status: 'D', note: 'место R03, зерно 10393' });
     expect(parseBoard(text, name).par).toBe(fits[0].par);
   });
   it('gives the boards one change away as boards, each with its way where it has one', () => {

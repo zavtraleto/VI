@@ -24,7 +24,7 @@ describe('the history', () => {
   it('knows a board by its dice and its head, not by its note', () => {
     const text = printBoard(ROAD[2]);
     expect(boardHash(text)).toMatch(/^[0-9a-f]{8}$/);
-    expect(boardHash(printBoard(ROAD[2], { note: 'another word', status: 'good' }))).toBe(boardHash(text));
+    expect(boardHash(printBoard(ROAD[2], { note: 'another word', status: 'RC', mark: 'огонь', words: [{ date: '2026-10-14', text: 'слово' }] }))).toBe(boardHash(text));
     expect(boardHash(printBoard(ROAD[3]))).not.toBe(boardHash(text));
     expect(boardHash('no board at all')).toBeNull();
   });
