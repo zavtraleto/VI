@@ -238,8 +238,8 @@ describe('the road', () => {
       for (const key of ['lesson', 'guide', 'story'] as const) expect(spec[key], `${spec.id} ${key}`).toBeUndefined();
       expect(start(spec).cubes, spec.id).toHaveLength(spec.norm);
     }
-    // No piece has the code of a level of the list.
-    for (const spec of BOARDS) expect(LEVELS.some((level) => level.id === spec.id), spec.id).toBe(false);
+    // No piece of the prologue has the code of a level of the list: the spares a chapter takes are levels there.
+    for (const spec of ROAD) expect(LEVELS.some((level) => level.id === spec.id), spec.id).toBe(false);
   });
 
   it('names the faces that work in the order a piece uses them: 2s and 3s, no 1s, 5s or 6s', { timeout: 60_000 }, () => {

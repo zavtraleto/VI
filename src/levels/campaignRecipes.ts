@@ -1,4 +1,4 @@
-import type { Role } from './campaign';
+import type { Role } from './chapters';
 import { cutFrom, type Recipe } from './recipes';
 
 /**
@@ -11,7 +11,18 @@ import { cutFrom, type Recipe } from './recipes';
  *
  * The floor is open on every board after the prologue, and a board is cut only by its outline.
  */
-export type CampaignPlace = Recipe & { id: string; act: number; role: Role; brief: string };
+export type CampaignPlace = Recipe & {
+  id: string;
+  /** The edition of the campaign the place was laid for: 1, the acts of 12 October 2026; 2, the chapters of 14 October. */
+  edition: 1 | 2;
+  /** The act (edition 1) or the chapter (edition 2) the place was laid for. */
+  act: number;
+  role: ActRole | Role;
+  brief: string;
+};
+
+/** The six roles of an act of the first edition (its section 5.4). */
+export type ActRole = 'opening' | 'apply' | 'twist' | 'join' | 'peak' | 'rest';
 
 /** Four cells wide and three long: the square of four with its north row cut off. */
 const WIDE = cutFrom(['....', '####', '####', '####']);
@@ -19,7 +30,7 @@ const WIDE = cutFrom(['....', '####', '####', '####']);
 /** Three cells wide and four long: the square of four with its east column cut out. */
 const LONG = cutFrom(['###.', '###.', '###.', '###.']);
 
-const ACT = { chapter: 0, compact: false } as const;
+const ACT = { chapter: 0, compact: false, edition: 1 } as const;
 
 export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
   {

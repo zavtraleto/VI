@@ -5,8 +5,13 @@ import { levelId } from './generate';
 import { PLACES } from './recipes';
 import { ROAD_PLACES } from './roadRecipes';
 
-/** The faces an act is on, by its number. */
-const FACES: Readonly<Record<number, readonly number[]>> = { 1: [3], 2: [2, 3, 4] };
+/** The faces an act of the first edition or a chapter of the second is on, by the edition and its number. */
+const FACES: Readonly<Record<string, readonly number[]>> = { '1:1': [3], '1:2': [2, 3, 4], '2:1': [2, 3] };
+/** The roles of a place, by the edition it was laid for. */
+const ROLES: Readonly<Record<number, readonly string[]>> = {
+  1: ['opening', 'apply', 'twist', 'join', 'peak', 'rest'],
+  2: ['meet', 'learn', 'apply', 'event', 'twist', 'peak', 'rest'],
+};
 
 describe('the places of the acts of the campaign', () => {
   it('have codes of their own, none a place of the probe or of the road, and slots of their own', () => {
@@ -22,17 +27,17 @@ describe('the places of the acts of the campaign', () => {
   it('name their act, their role and what the board is to show, and are on the faces of their act', () => {
     for (const place of CAMPAIGN_PLACES) {
       expect(place.act, place.id).toBeGreaterThan(0);
-      expect(['opening', 'apply', 'twist', 'join', 'peak', 'rest'], place.id).toContain(place.role);
+      expect(ROLES[place.edition], place.id).toContain(place.role);
       expect(place.brief.length, place.id).toBeGreaterThan(0);
-      for (const face of place.faces) expect(FACES[place.act], place.id).toContain(face);
+      for (const face of place.faces) expect(FACES[`${place.edition}:${place.act}`], place.id).toContain(face);
     }
   });
 
-  it('say of a board the act and the role the row says of it', () => {
-    for (const place of CAMPAIGN_PLACES) {
+  it('say of a board of a chapter the chapter and the role the row says of it', () => {
+    for (const place of CAMPAIGN_PLACES.filter((one) => one.edition === 2)) {
       const stop = CAMPAIGN.find((one) => one.spec.id === place.id);
       expect(stop, place.id).toBeDefined();
-      expect([stop!.act, stop!.role], place.id).toEqual([place.act, place.role]);
+      expect([stop!.chapter, stop!.role], place.id).toEqual([place.act, place.role]);
     }
   });
 

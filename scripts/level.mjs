@@ -345,8 +345,8 @@ if (command === 'show') {
   const ratings = ratingsOf(plays);
   print(ratingsText(ratings), { plays: plays.length, ...ratings });
 } else if (command === 'regress') {
-  const { LEVELS, SPARES } = await load('/src/levels/levels.ts');
-  const { ROAD } = await load('/src/levels/road.ts');
+  const { LEVELS, PARKED, SPARES } = await load('/src/levels/levels.ts');
+  const { ROAD, ROAD_SPARES } = await load('/src/levels/road.ts');
   const dir = resolve(root, 'boards');
   const files = existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.txt')).sort() : [];
   // Every board with where it is from; a file that cannot be read is a board that is broken, and says why.
@@ -354,6 +354,9 @@ if (command === 'show') {
     ...LEVELS.map((spec) => ({ from: 'list', spec })),
     ...SPARES.map((spec) => ({ from: 'spare', spec })),
     ...ROAD.map((spec) => ({ from: 'road', spec })),
+    // The levels parked and the spares of the road: boards a chapter can take, held to what they keep as the rest are.
+    ...PARKED.map((spec) => ({ from: 'parked', spec })),
+    ...ROAD_SPARES.map((spec) => ({ from: 'road', spec })),
     ...files.map((name) => {
       try {
         return { from: 'board', spec: parseBoard(readFileSync(resolve(dir, name), 'utf8'), name) };

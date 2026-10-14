@@ -88,8 +88,8 @@ if (flag('limit')) {
   const { CAMPAIGN } = await load('/src/levels/campaign.ts');
   const { roadRow, roadTable, ROAD_WALK_LIMIT } = await load('/src/levels/table.ts');
   const stops = flag('campaign') ? CAMPAIGN : CAMPAIGN.slice(0, ROAD.length);
-  // A piece of the road by its role; a level of an act by its act and its role (`1:opening`); a level of the tail is `tail`.
-  const roleOf = (stop) => (stop.act ? `${stop.act}:${stop.role}` : stop.role);
+  // A board by its chapter and its role: `0:meet` is the first piece of the prologue, `1:meet` the first board of chapter 1.
+  const roleOf = (stop) => `${stop.chapter}:${stop.role}`;
   if (worker) {
     stops.forEach((stop, index) => {
       if (mine(index)) console.log(JSON.stringify({ index, row: roadRow(stop.number, stop.spec, roleOf(stop), Number(named.walk ?? ROAD_WALK_LIMIT)) }));

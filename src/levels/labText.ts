@@ -9,8 +9,8 @@ import { FROM_ROUTE, FROM_SOLUTION, SKETCH, levelId } from './generate';
 import type { Recipe } from './recipes';
 import { gather, judge, type Fit, type JudgeOptions } from './select';
 import { sameBoard } from './variety';
-import { LEVELS } from './levels';
-import { ROAD } from './road';
+import { LEVELS, PARKED } from './levels';
+import { ROAD, ROAD_SPARES } from './road';
 
 /**
  * What the lab of the levels says of a board, as facts and as text: the script
@@ -18,13 +18,21 @@ import { ROAD } from './road';
  * asks the same functions. Nothing here reads a disk or knows of a process.
  */
 
-/** A board the game has, by its code: a level of the list (`P06`) or a piece of the road (`R03`). */
+/**
+ * A board the game has, by its code: a level of the list (`P02`, on the faces of its chapter), a
+ * piece of the road (`R03`), a level parked (`P06`) or a board in spare of the road (`R12`). A
+ * board of the road that a chapter took (`R11`) is found as the level it is in the list.
+ */
 export function boardFrom(code: string): { spec: LevelSpec; from: 'list' | 'road' } {
   const level = LEVELS.find((spec) => spec.id === code);
   if (level) return { spec: level, from: 'list' };
   const piece = ROAD.find((spec) => spec.id === code);
   if (piece) return { spec: piece, from: 'road' };
-  throw new Error(`no board "${code}": it is no file, no level of the list (P01…) and no piece of the road (R01…)`);
+  const parked = PARKED.find((spec) => spec.id === code);
+  if (parked) return { spec: parked, from: 'list' };
+  const spare = ROAD_SPARES.find((spec) => spec.id === code);
+  if (spare) return { spec: spare, from: 'road' };
+  throw new Error(`no board "${code}": it is no file, no level of the list or parked (P01…) and no piece of the road (R01…)`);
 }
 
 /** The cells of a board as its file has them, the digits in columns. */
@@ -345,7 +353,7 @@ export function genFile(recipe: Recipe, fit: Pick<Fit, 'seed' | 'spec'>): { name
  */
 export interface Regress {
   id: string;
-  from: 'list' | 'spare' | 'road' | 'board';
+  from: 'list' | 'parked' | 'spare' | 'road' | 'board';
   stored: number | null;
   found: number | null;
   exact: boolean;

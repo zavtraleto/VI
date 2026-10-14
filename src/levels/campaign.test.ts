@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf, stopOf } from './campaign';
-import { ACT_1, ACT_2, LEVELS } from './levels';
+import { CAMPAIGN, CHAPTERS, HINTS, STOPS, campaignCells, campaignDone, campaignFocus, numberOf, stopOf, withChapterFaces } from './campaign';
+import { CHAPTER_1, LEVELS } from './levels';
 import { ROAD, ROAD_END } from './road';
 
 const none = { passed: {}, stats: {} };
@@ -59,40 +59,48 @@ describe('where the list opens', () => {
   });
 });
 
-describe('the acts of the row', () => {
-  it('names the act and the role of every stop: the road is act 0, the levels of the first act are act 1', () => {
-    expect(CAMPAIGN[0]).toMatchObject({ act: 0, role: 'lesson' });
-    expect(CAMPAIGN[2]).toMatchObject({ act: 0, role: 'free' });
-    expect(CAMPAIGN.slice(ROAD.length, ROAD.length + ACT_1.length).map((stop) => [stop.act, stop.role])).toEqual([[1, 'opening'], [1, 'apply'], [1, 'twist'], [1, 'join'], [1, 'peak'], [1, 'rest']]);
-    const second = ROAD.length + ACT_1.length;
-    expect(CAMPAIGN.slice(second, second + ACT_2.length).map((stop) => [stop.act, stop.role])).toEqual([[2, 'opening'], [2, 'apply'], [2, 'twist'], [2, 'join'], [2, 'peak'], [2, 'rest']]);
-    expect(CAMPAIGN).toHaveLength(ROAD.length + ACT_1.length + ACT_2.length);
-    expect(CAMPAIGN.some((stop) => stop.role === 'tail')).toBe(false);
+describe('the chapters of the row', () => {
+  it('is the prologue and the chapters, in the order of CHAPTERS, numbered from one', () => {
+    expect(CAMPAIGN.map((stop) => stop.spec.id)).toEqual(CHAPTERS.flatMap((chapter) => chapter.stops));
+    // Eleven until the three new boards of chapter 1 are laid (task 4 of the plan of 14 October 2026), then fourteen.
+    expect(CAMPAIGN.length).toBe(11);
+    expect(CAMPAIGN[0]).toMatchObject({ chapter: 0, role: 'meet' });
+    expect(CAMPAIGN[7]).toMatchObject({ chapter: 1, role: 'meet', teaches: 'walk' });
+    expect(CHAPTERS.map((chapter) => [chapter.id, chapter.faces])).toEqual([[0, null], [1, [2, 3]]]);
+    expect(CHAPTERS[0].stops).toEqual(ROAD.map((spec) => spec.id));
+    expect(CHAPTER_1.map((spec) => spec.id)).toEqual(CHAPTERS[1].stops);
   });
 
-  it('carries the lines of the road and of the acts by the code of the board', () => {
-    expect(HINTS.R07).toEqual({ key: 'roadHintChain', until: 'chain' });
-    expect(HINTS[ACT_1[0].id]).toEqual({ key: 'hintSeven', until: 'combo' });
-    expect(HINTS[ACT_1[1].id]).toBeUndefined();
-    expect(HINTS.K23).toEqual({ key: 'hintLinkMove', until: 'chain' });
+  it('gives every board of a chapter the faces of the chapter, and leaves the prologue its own', () => {
+    for (const stop of CAMPAIGN.slice(7)) expect(stop.spec.faces, stop.spec.id).toEqual([2, 3]);
+    for (const stop of CAMPAIGN.slice(7)) expect(stop.spec.values, stop.spec.id).toEqual([2, 3]);
+    expect(CAMPAIGN[0].spec.faces).toEqual([2]);
+    expect(CAMPAIGN[1].spec.faces).toEqual([3]);
+    const spec = ROAD[0];
+    expect(withChapterFaces(spec, [2, 3])).toEqual({ ...spec, faces: [2, 3], values: [2, 3] });
   });
 
-  it('keeps the stars of a level that moved into an act: they are kept by its code', () => {
-    const cells = campaignCells({ passed: { P03: true }, stats: { P03: { bestMoves: 99 } } });
-    const at = CAMPAIGN.findIndex((stop) => stop.spec.id === 'P03');
-    expect(CAMPAIGN[at].act).toBe(1);
+  it('knows what every stop teaches and what it is about', () => {
+    expect(STOPS.R07).toMatchObject({ chapter: 0, role: 'meet', teaches: 'link' });
+    expect(STOPS['C1-04']).toMatchObject({ chapter: 1, role: 'meet', teaches: 'glass' });
+    for (const stop of CAMPAIGN) expect(stop.archetype, stop.spec.id).toBeTruthy();
+    for (const stop of CAMPAIGN) expect(STOPS[stop.spec.id].chapter, stop.spec.id).toBe(stop.chapter);
+  });
+
+  it('carries the line of the chain on R07 and no other line yet', () => {
+    expect(HINTS).toEqual({ R07: { key: 'roadHintChain', until: 'chain' } });
+  });
+
+  it('keeps the stars of a board that came to a chapter: they are kept by its code', () => {
+    const cells = campaignCells({ passed: { K22: true }, stats: { K22: { bestMoves: 99 } } });
+    const at = CAMPAIGN.findIndex((stop) => stop.spec.id === 'K22');
+    expect(CAMPAIGN[at].chapter).toBe(1);
     expect(cells[at]).toMatchObject({ passed: true, stars: 1 });
   });
 
-  it('keeps the stars of a level that moved into the second act', () => {
-    const cells = campaignCells({ passed: { P05: true }, stats: { P05: { bestMoves: 6 } } });
-    const at = CAMPAIGN.findIndex((stop) => stop.spec.id === 'P05');
-    expect(CAMPAIGN[at].act).toBe(2);
-    expect(cells[at]).toMatchObject({ passed: true, stars: 3 });
-  });
-
-  it('opens the list on the first level of the act not yet passed', () => {
-    // nextLevel of the game is the first index of LEVELS not passed: with three of the act passed, 3.
-    expect(campaignFocus({ passed: Object.fromEntries(ACT_1.slice(0, 3).map((spec) => [spec.id, true])), stats: {}, road: ROAD_END }, false, 3)).toBe(ROAD.length + 3);
+  it('opens the list on the first board of the chapter not yet passed', () => {
+    // nextLevel of the game is the first index of LEVELS not passed: with three of the chapter passed, 3.
+    expect(campaignFocus({ passed: Object.fromEntries(CHAPTER_1.slice(0, 3).map((spec) => [spec.id, true])), stats: {}, road: ROAD_END }, false, 3)).toBe(ROAD.length + 3);
+    expect(campaignFocus({ ...none, road: ROAD_END }, false, 0)).toBe(7);
   });
 });
