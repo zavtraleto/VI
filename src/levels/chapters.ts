@@ -60,7 +60,8 @@ export const STOPS: Readonly<Record<string, StopMeta>> = {
   R10: { chapter: 3, role: 'meet', teaches: 'lift', archetype: 'lift by a laid stair', event: 'first step down and up' },
   R14: { chapter: 3, role: 'apply', archetype: 'down and back' },
   P06: { chapter: 3, role: 'apply', archetype: 'down and back' },
-  P09: { chapter: 3, role: 'apply', archetype: 'push sends the last die' },
+  // Its kept way is a bridge with a link (K ~ L), no floor and no push: the name of its probe place said otherwise.
+  P09: { chapter: 3, role: 'apply', archetype: 'bridge with a link' },
   R16: { chapter: 3, role: 'twist', archetype: 'everything at once' },
   P12: { chapter: 3, role: 'peak', archetype: 'down and back with two faces' },
 };

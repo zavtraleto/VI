@@ -76,10 +76,10 @@ function chapterBoard(id: string, faces: readonly number[]): LevelSpec {
   return open;
 }
 
-/** Chapter 1, the road over leaving dice, on 2s and 3s: the places 8 to 14 of the row, in their order. */
+/** Chapter 1, the road over leaving dice, on 2s and 3s: the places 8 to 12 of the row, in their order. */
 export const CHAPTER_1: readonly LevelSpec[] = CHAPTERS[1].stops.map((id) => chapterBoard(id, CHAPTERS[1].faces!));
 
-/** Chapter 2, which first, on 2s and 3s: the places 15 to 21 of the row, in their order. */
+/** Chapter 2, which first, on 2s and 3s: the places 13 to 17 of the row, in their order. */
 export const CHAPTER_2: readonly LevelSpec[] = CHAPTERS[2].stops.map((id) => chapterBoard(id, CHAPTERS[2].faces!));
 
 /** Chapter 3, the floor and the push, on 2s and 3s: the places 18 to 24 of the row, in their order. */

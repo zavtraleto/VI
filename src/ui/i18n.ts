@@ -152,7 +152,7 @@ const RU = {
   roadHintPush: 'Сойди с уходящей кости на пол и толкни.',
   roadHintFixed: 'Тусклая кость стоит. Шагни на другую.',
   roadHintClimb: 'С уходящей кости сходят и на неё поднимаются.',
-  // The line of the seven (`HINTS` in `src/levels/campaign.ts`), on the twelfth place of the row, where a die is laid by
+  // The line of the seven (`HINTS` in `src/levels/campaign.ts`), on the tenth place of the row (C1-05), where a die is laid by
   // its hidden face: the owner's words of 14 October 2026, «ты видишь три грани — значит знаешь все шесть», cut to eight
   // words at most; said once, until the board is passed.
   hintSeven: 'Три грани видно — все шесть известны.',

@@ -51,7 +51,7 @@ export interface Hint {
 
 /**
  * The line a board carries above itself, by its code: the lesson of the chain of the prologue, the
- * walk over leaving dice on the meeting of chapter 1 and the seven on its twelfth place, by the word
+ * walk over leaving dice on the meeting of chapter 1 and the seven on its third (the tenth of the row), by the word
  * of the owner of 14 October 2026. The line of time (`hintLinkMove`) keeps its text and comes back
  * with the chapter that uses it. A line of a chapter is said once: a board the player has passed
  * does not say it again.
