@@ -112,12 +112,13 @@ describe('the slow part of the grammar', () => {
   });
 
   it('holds on the row of step 1 with the facts ladder campaign measured on 14 October 2026', () => {
-    // lost, the planner's share of thirty runs, and for a board that teaches the fewest moves without its move.
+    // lost, the planner's share of thirty runs, and for a board that teaches the fewest moves without its move, looked for up
+    // to two over its own: R07 (11 without the link) and C1-04 (8 without the roll onto a leaving die) are past that, null.
     const measured: Record<string, { lost: boolean; planner: number; without: number | null }> = {
       R01: { lost: false, planner: 1, without: null }, R02: { lost: false, planner: 1, without: null }, R03: { lost: false, planner: 1, without: null },
-      R04: { lost: false, planner: 1, without: null }, R05: { lost: true, planner: 1, without: null }, R07: { lost: true, planner: 1, without: 11 },
+      R04: { lost: false, planner: 1, without: null }, R05: { lost: true, planner: 1, without: null }, R07: { lost: true, planner: 1, without: null },
       R08: { lost: true, planner: 28 / 30, without: null }, R11: { lost: true, planner: 1, without: 4 }, P02: { lost: true, planner: 28 / 30, without: null },
-      R15: { lost: true, planner: 1, without: null }, 'C1-04': { lost: true, planner: 1, without: 8 }, 'C1-05': { lost: true, planner: 1, without: null },
+      R15: { lost: true, planner: 1, without: null }, 'C1-04': { lost: true, planner: 1, without: null }, 'C1-05': { lost: true, planner: 1, without: null },
       'C1-06': { lost: true, planner: 28 / 30, without: null }, K22: { lost: true, planner: 1, without: null },
     };
     const row = rowOf(Object.keys(measured));
