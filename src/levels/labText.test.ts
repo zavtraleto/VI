@@ -124,7 +124,7 @@ describe('boardFrom', () => {
     // A board of the road a chapter took is the level of the list, on the faces of the chapter; a spare and a parked level are found too.
     expect(boardFrom('R11')).toMatchObject({ from: 'list', spec: { id: 'R11', faces: [2, 3] } });
     expect(boardFrom('K22')).toMatchObject({ from: 'list', spec: { id: 'K22', faces: [2, 3] } });
-    expect(boardFrom('R12')).toMatchObject({ from: 'road', spec: { id: 'R12' } });
+    expect(boardFrom('R13')).toMatchObject({ from: 'road', spec: { id: 'R13' } });
     expect(boardFrom('K23')).toMatchObject({ from: 'list', spec: { id: 'K23' } });
     expect(() => boardFrom('Z9')).toThrow(/Z9/);
   });
