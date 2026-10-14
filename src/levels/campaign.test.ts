@@ -62,9 +62,9 @@ describe('where the list opens', () => {
 describe('the chapters of the row', () => {
   it('is the prologue and the chapters, in the order of CHAPTERS, numbered from one', () => {
     expect(CAMPAIGN.map((stop) => stop.spec.id)).toEqual(CHAPTERS.flatMap((chapter) => chapter.stops));
-    // Sixteen until the rest of chapter 1 is laid (task 2 of the plan of step 3), seventeen with it, and then chapter 3.
-    expect(CAMPAIGN.length).toBe(16);
-    expect(CAMPAIGN[11]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
+    // Seventeen until chapter 3 is laid (task 3 of the plan of step 3).
+    expect(CAMPAIGN.length).toBe(17);
+    expect(CAMPAIGN[12]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
     // The boards the owner called a repeat on 14 October are out of the row.
     for (const id of ['R15', 'C1-04', 'K22', 'R12', 'P15']) expect(CAMPAIGN.some((stop) => stop.spec.id === id), id).toBe(false);
     expect(CHAPTER_2.map((spec) => spec.id)).toEqual(CHAPTERS[2].stops);

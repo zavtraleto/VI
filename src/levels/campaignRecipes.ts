@@ -96,6 +96,13 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
     ...CHAPTER, slot: 2106, id: 'C1-06', act: 1, role: 'twist', size: 4, dice: 6, faces: [2, 3], route: '~', shows: ['glass'], par: [4, 6],
     brief: 'the road both ways, briefly: over a leaving combo to a die beyond it, a move there, and back over the same combo, or by a roll onto its last die, to the third heap before it goes; a move late leaves the player cut off',
   },
+  {
+    // The rest of chapter 1 with a way of its own (the owner, 14 October 2026: a one-move board in its place, K22, was «нелепый»):
+    // a few quiet moves that read, and the last roll takes four dice and more.
+    ...CHAPTER, slot: 2107, id: 'C1-07', act: 1, role: 'rest', size: 4, dice: 6, faces: [2, 3], par: [3, 4], last: [4, 6], firsts: [2, 99],
+    personas: { hasty: 0.6, casual: 0.9 },
+    brief: 'the rest with a way: two or three quiet moves that read, and the last roll takes four dice and more, two heaps that meet in one or a link that closes',
+  },
   // Chapter 2 of the second edition, which first, on 2s and 3s (the spec, section 4.1).
   {
     ...CHAPTER, slot: 2205, id: 'C2-05', act: 2, role: 'twist', size: 4, dice: 5, more: 1, faces: [2, 3], standing: [{ value: 3, count: 2 }],

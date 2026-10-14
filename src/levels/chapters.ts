@@ -24,7 +24,7 @@ export interface Chapter {
 /** The chapters of the row, in its order: the prologue is chapter 0. */
 export const CHAPTERS: readonly Chapter[] = [
   { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02', 'R03', 'R04', 'R05', 'R07', 'R08'] },
-  { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'C1-05', 'C1-06'] },
+  { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'C1-05', 'C1-06', 'C1-07'] },
   { id: 2, title: 'order', faces: [2, 3], stops: ['R09', 'P07', 'P08', 'C2-05', 'P24'] },
 ];
 
@@ -49,6 +49,7 @@ export const STOPS: Readonly<Record<string, StopMeta>> = {
   P02: { chapter: 1, role: 'apply', archetype: 'bridge' },
   'C1-05': { chapter: 1, role: 'apply', archetype: 'roll onto leaving', event: 'the rule of seven' },
   'C1-06': { chapter: 1, role: 'twist', archetype: 'bridge both ways', event: 'the road goes both ways, briefly' },
+  'C1-07': { chapter: 1, role: 'rest', archetype: 'collapse', event: 'first big clearing, with a way to it' },
   R09: { chapter: 2, role: 'meet', teaches: 'twoFaces', archetype: 'two heaps at once', event: 'heaps of both faces on one board' },
   P07: { chapter: 2, role: 'apply', archetype: 'two combos from one die' },
   P08: { chapter: 2, role: 'apply', archetype: 'two combos in any order' },
