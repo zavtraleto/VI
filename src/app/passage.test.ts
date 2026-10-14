@@ -36,27 +36,24 @@ describe('the board the program opens on', () => {
 
 describe('the board that comes after a board', () => {
   it('is the next piece of the road, wherever the player stands in the list', () => {
-    expect(boardAfter({ road: 3 }, 20, 30, 0)).toEqual({ road: 4 });
-    expect(boardAfter({ road: 0 }, 4, 30, 0)).toEqual({ road: 1 });
-    expect(boardAfter({ road: 2 }, 4, 30, 7)).toEqual({ road: 3 });
+    expect(boardAfter({ road: 3 }, 20, 30)).toEqual({ road: 4 });
+    expect(boardAfter({ road: 0 }, 4, 30)).toEqual({ road: 1 });
+    expect(boardAfter({ road: 2 }, 4, 30)).toEqual({ road: 3 });
   });
 
-  it('after the last piece is the level of the list the player goes on with', () => {
-    expect(boardAfter({ road: 19 }, 20, 30, 0)).toEqual({ level: 0 });
-    // One who has passed levels of the list is not walked through them again.
-    expect(boardAfter({ road: 3 }, 4, 30, 7)).toEqual({ level: 7 });
-    expect(boardAfter({ road: 3 }, 4, 30, 29)).toEqual({ level: 29 });
+  it('after the last piece is the first level of the list, whatever has been passed', () => {
+    expect(boardAfter({ road: 19 }, 20, 30)).toEqual({ level: 0 });
+    expect(boardAfter({ road: 3 }, 4, 30)).toEqual({ level: 0 });
   });
 
   it('goes down the list in its order, from whichever level was passed, skipping none', () => {
-    expect(boardAfter({ level: 0 }, 20, 30, 0)).toEqual({ level: 1 });
-    expect(boardAfter({ level: 17 }, 20, 30, 3)).toEqual({ level: 18 });
+    expect(boardAfter({ level: 0 }, 20, 30)).toEqual({ level: 1 });
+    expect(boardAfter({ level: 17 }, 20, 30)).toEqual({ level: 18 });
   });
 
   it('is none after the last level of the list, and after the road where the list has no level', () => {
-    expect(boardAfter({ level: 29 }, 20, 30, 0)).toBeNull();
-    expect(boardAfter({ level: 29 }, 20, 30, 5)).toBeNull();
-    expect(boardAfter({ road: 3 }, 4, 0, 0)).toBeNull();
+    expect(boardAfter({ level: 29 }, 20, 30)).toBeNull();
+    expect(boardAfter({ road: 3 }, 4, 0)).toBeNull();
   });
 
   it('walks one who is new through the whole of it: the road, then every level, then nothing', () => {
@@ -64,7 +61,7 @@ describe('the board that comes after a board', () => {
     let board: { road?: number; level?: number } | null = startBoard(undefined, false, 0);
     while (board) {
       seen.push(board.road !== undefined ? `R${board.road}` : `L${board.level}`);
-      board = boardAfter(board, 4, 3, 0);
+      board = boardAfter(board, 4, 3);
     }
     expect(seen).toEqual(['R0', 'R1', 'R2', 'R3', 'L0', 'L1', 'L2']);
   });

@@ -191,13 +191,14 @@ export const FILE_LEADS = {
 } as const satisfies Record<string, FileLead>;
 
 /**
- * Which board comes after this one: the next piece of the road; after its last `onward`, the
- * level of the list the player goes on with, so that one who has passed levels of the list is
- * not walked through them again; the next level after a level of the list; null after the last.
+ * Which board comes after this one, in the row of the campaign: after the piece N of the road the
+ * piece N + 1, after the last piece the first level of the list; after a level of the list the
+ * next one; null after the last. Always N + 1, whatever the player has passed: the first board not
+ * passed is the way in of the START file only (`startBoard`), not of a walk along the row.
  */
-export function boardAfter(current: Board, road: number, levels: number, onward: number): Board | null {
+export function boardAfter(current: Board, road: number, levels: number): Board | null {
   if (current.road !== undefined && current.road + 1 < road) return { road: current.road + 1 };
-  const level = current.road !== undefined ? onward : (current.level ?? 0) + 1;
+  const level = current.road !== undefined ? 0 : (current.level ?? 0) + 1;
   return level < levels ? { level } : null;
 }
 

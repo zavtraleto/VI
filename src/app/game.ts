@@ -1455,7 +1455,7 @@ export class Game {
   private startPassage(): void {
     const { state, passing } = this;
     // A board of the lab leads nowhere: its window comes when its dice are gone.
-    const after = this.labSpec !== null ? null : boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length, this.nextLevel());
+    const after = this.labSpec !== null ? null : boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length);
     const next = after && !(after.level !== undefined && this.ladder().locked[after.level]) ? after : null;
     this.frames.flush(this.lastFrame);
     const { cubes } = state;
