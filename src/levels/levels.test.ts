@@ -38,7 +38,7 @@ const TAIL_ORDER = ['P13', 'P04', 'P14', 'P01', 'P12', 'P17', 'P31', 'P19'];
 /** The boards of the acts of the first edition that no chapter has taken yet, in the order of the acts. */
 const ACTS_WAITING = ['K17', 'P03', 'P16', 'P09', 'K21', 'K23', 'P20', 'K25', 'P06', 'P05', 'K28'];
 /** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
-const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
+const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
 const ALL: readonly LevelSpec[] = [...LEVELS, ...PARKED, ...SPARES];
 /** The level that is a board of the road and not of its place: P08 is R10 of the second edition of the road (levels.ts). */
 const FROM_ROAD = LEVELS.find((level) => level.id === 'P08')!;
@@ -268,7 +268,7 @@ describe('the levels of the game', () => {
 
   it('lose no board by the first move where the place asks it: the trap of P17 and of P19 waits further on, and the new boards of the acts have none', () => {
     const asked = [...LEVELS, ...PARKED].filter((level) => placeOf(level)?.safeFirst);
-    expect(asked.map((level) => level.id).sort()).toEqual(['K21', 'K22', 'K23', 'K25', 'K28', 'P17', 'P19']);
+    expect(asked.map((level) => level.id).sort()).toEqual(['C2-05', 'K21', 'K22', 'K23', 'K25', 'K28', 'P17', 'P19']);
     for (const level of asked) expect(safeFirstOf(level), level.id).toBe(true);
     // The board P19 had before, kept in reserve, is what the owner played on 12 October: lost by a first move.
     const before = SPARES.filter((spare) => spare.id === 'P19' && spare.seed === 30263);

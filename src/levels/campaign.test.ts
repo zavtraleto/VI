@@ -62,8 +62,7 @@ describe('where the list opens', () => {
 describe('the chapters of the row', () => {
   it('is the prologue and the chapters, in the order of CHAPTERS, numbered from one', () => {
     expect(CAMPAIGN.map((stop) => stop.spec.id)).toEqual(CHAPTERS.flatMap((chapter) => chapter.stops));
-    // Nineteen until the twist and the rest of chapter 2 are laid (task 3 of the plan of step 2), then twenty-one.
-    expect(CAMPAIGN.length).toBe(19);
+    expect(CAMPAIGN.length).toBe(21);
     expect(CAMPAIGN[14]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
     expect(CHAPTER_2.map((spec) => spec.id)).toEqual(CHAPTERS[2].stops);
     expect(CAMPAIGN[0]).toMatchObject({ chapter: 0, role: 'meet' });

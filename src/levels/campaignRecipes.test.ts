@@ -6,7 +6,7 @@ import { PLACES } from './recipes';
 import { ROAD_PLACES } from './roadRecipes';
 
 /** The faces an act of the first edition or a chapter of the second is on, by the edition and its number. */
-const FACES: Readonly<Record<string, readonly number[]>> = { '1:1': [3], '1:2': [2, 3, 4], '2:1': [2, 3] };
+const FACES: Readonly<Record<string, readonly number[]>> = { '1:1': [3], '1:2': [2, 3, 4], '2:1': [2, 3], '2:2': [2, 3] };
 /** The roles of a place, by the edition it was laid for. */
 const ROLES: Readonly<Record<number, readonly string[]>> = {
   1: ['opening', 'apply', 'twist', 'join', 'peak', 'rest'],
