@@ -152,9 +152,10 @@ const RU = {
   roadHintPush: 'Сойди с уходящей кости на пол и толкни.',
   roadHintFixed: 'Тусклая кость стоит. Шагни на другую.',
   roadHintClimb: 'С уходящей кости сходят и на неё поднимаются.',
-  // The line act I of the campaign opens with (`HINTS` in `src/levels/campaign.ts`): a draft of 13 October 2026, the words
-  // are the implementer's and wait for the owner; said once, on the board that opens the act.
-  hintSeven: 'Напротив всегда семь.',
+  // The line of the seven (`HINTS` in `src/levels/campaign.ts`), on the twelfth place of the row, where a die is laid by
+  // its hidden face: the owner's words of 14 October 2026, «ты видишь три грани — значит знаешь все шесть», cut to eight
+  // words at most; said once, until the board is passed.
+  hintSeven: 'Три грани видно — все шесть известны.',
   // The line act II opens with, a draft of 13 October 2026 as well.
   hintLinkMove: 'Звено даёт комбо ещё ход.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
@@ -289,7 +290,7 @@ const EN: typeof RU = {
   roadHintPush: 'Step down from the leaving die and push.',
   roadHintFixed: 'A dim die stays put. Step to another.',
   roadHintClimb: 'Step off a leaving die and back on.',
-  hintSeven: 'Opposite faces make seven.',
+  hintSeven: 'See three faces, know all six.',
   hintLinkMove: 'A link gives the combo a move.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',

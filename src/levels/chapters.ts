@@ -24,8 +24,8 @@ export interface Chapter {
 /** The chapters of the row, in its order: the prologue is chapter 0. */
 export const CHAPTERS: readonly Chapter[] = [
   { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02', 'R03', 'R04', 'R05', 'R07', 'R08'] },
-  { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'R15', 'C1-04', 'C1-05', 'C1-06', 'K22'] },
-  { id: 2, title: 'order', faces: [2, 3], stops: ['R09', 'R12', 'P07', 'P08', 'C2-05', 'P15', 'P24'] },
+  { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'C1-05', 'C1-06'] },
+  { id: 2, title: 'order', faces: [2, 3], stops: ['R09', 'P07', 'P08', 'C2-05', 'P24'] },
 ];
 
 /** What a board is in the row, by its code: its chapter, its role, the move it brings in, what it is about (its archetype) and what is seen on it first. */
@@ -47,17 +47,12 @@ export const STOPS: Readonly<Record<string, StopMeta>> = {
   R08: { chapter: 0, role: 'rest', archetype: 'domino', event: 'domino' },
   R11: { chapter: 1, role: 'meet', teaches: 'walk', archetype: 'bridge', event: 'first walk over leaving dice' },
   P02: { chapter: 1, role: 'apply', archetype: 'bridge' },
-  R15: { chapter: 1, role: 'apply', archetype: 'bridge' },
-  'C1-04': { chapter: 1, role: 'meet', teaches: 'glass', archetype: 'roll onto leaving', event: 'a leaving die is a cell' },
-  'C1-05': { chapter: 1, role: 'apply', archetype: 'roll onto leaving' },
+  'C1-05': { chapter: 1, role: 'apply', archetype: 'roll onto leaving', event: 'the rule of seven' },
   'C1-06': { chapter: 1, role: 'twist', archetype: 'bridge both ways', event: 'the road goes both ways, briefly' },
-  K22: { chapter: 1, role: 'rest', archetype: 'collapse', event: 'first big clearing' },
   R09: { chapter: 2, role: 'meet', teaches: 'twoFaces', archetype: 'two heaps at once', event: 'heaps of both faces on one board' },
-  R12: { chapter: 2, role: 'apply', archetype: 'order with a chain last' },
   P07: { chapter: 2, role: 'apply', archetype: 'two combos from one die' },
   P08: { chapter: 2, role: 'apply', archetype: 'two combos in any order' },
   'C2-05': { chapter: 2, role: 'twist', archetype: 'decoy of the wrong channel', event: 'first trap' },
-  P15: { chapter: 2, role: 'peak', archetype: 'tight room with two faces' },
   P24: { chapter: 2, role: 'rest', archetype: 'domino', event: 'first corridor' },
 };
 

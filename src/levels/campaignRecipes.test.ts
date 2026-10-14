@@ -34,7 +34,8 @@ describe('the places of the acts of the campaign', () => {
   });
 
   it('say of a board of a chapter the chapter and the role the row says of it', () => {
-    for (const place of CAMPAIGN_PLACES.filter((one) => one.edition === 2)) {
+    // A board of the second edition the owner sent back to the spares keeps its place, and the row says nothing of it.
+    for (const place of CAMPAIGN_PLACES.filter((one) => one.edition === 2 && CAMPAIGN.some((stop) => stop.spec.id === one.id))) {
       const stop = CAMPAIGN.find((one) => one.spec.id === place.id);
       expect(stop, place.id).toBeDefined();
       expect([stop!.chapter, stop!.role], place.id).toEqual([place.act, place.role]);

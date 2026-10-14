@@ -37,6 +37,8 @@ const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 const TAIL_ORDER = ['P13', 'P04', 'P14', 'P01', 'P12', 'P17', 'P31', 'P19'];
 /** The boards of the acts of the first edition that no chapter has taken yet, in the order of the acts. */
 const ACTS_WAITING = ['K17', 'P03', 'P16', 'P09', 'K21', 'K23', 'P20', 'K25', 'P06', 'P05', 'K28'];
+/** The boards of the chapters the owner called a repeat after playing them on 14 October 2026. */
+const REPEATS = ['C1-04', 'K22', 'P15'];
 /** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
 const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
 const ALL: readonly LevelSpec[] = [...LEVELS, ...PARKED, ...SPARES];
@@ -104,7 +106,7 @@ describe('the levels of the game', () => {
     expect(LEVELS).toEqual([...CHAPTER_1, ...CHAPTER_2]);
     expect(LEVELS.map((level) => level.id)).toEqual([...CHAPTERS[1].stops, ...CHAPTERS[2].stops]);
     // The boards chapter 2 took from the spares of the road and from the parked levels are no longer parked.
-    for (const id of ['R09', 'R12', 'P07', 'P08', 'P15']) expect(PARKED.some((level) => level.id === id), id).toBe(false);
+    for (const id of ['R09', 'P07', 'P08']) expect(PARKED.some((level) => level.id === id), id).toBe(false);
   });
 
   it('are each a level of a place', () => {
@@ -120,7 +122,7 @@ describe('the levels of the game', () => {
   });
 
   it('keep parked the levels that wait and the boards of the acts no chapter has taken, and have P11 nowhere', () => {
-    expect(PARKED.map((level) => level.id)).toEqual([...WAITING, ...TAIL_ORDER, ...ACTS_WAITING]);
+    expect(PARKED.map((level) => level.id)).toEqual([...WAITING, ...TAIL_ORDER, ...ACTS_WAITING, ...REPEATS]);
     for (const level of LEVELS) expect(PARKED.some((parked) => parked.id === level.id), level.id).toBe(false);
     expect(ALL.filter((level) => level.id === 'P11')).toEqual([]);
   });

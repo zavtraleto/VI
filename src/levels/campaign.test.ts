@@ -62,8 +62,11 @@ describe('where the list opens', () => {
 describe('the chapters of the row', () => {
   it('is the prologue and the chapters, in the order of CHAPTERS, numbered from one', () => {
     expect(CAMPAIGN.map((stop) => stop.spec.id)).toEqual(CHAPTERS.flatMap((chapter) => chapter.stops));
-    expect(CAMPAIGN.length).toBe(21);
-    expect(CAMPAIGN[14]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
+    // Sixteen until the rest of chapter 1 is laid (task 2 of the plan of step 3), seventeen with it, and then chapter 3.
+    expect(CAMPAIGN.length).toBe(16);
+    expect(CAMPAIGN[11]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
+    // The boards the owner called a repeat on 14 October are out of the row.
+    for (const id of ['R15', 'C1-04', 'K22', 'R12', 'P15']) expect(CAMPAIGN.some((stop) => stop.spec.id === id), id).toBe(false);
     expect(CHAPTER_2.map((spec) => spec.id)).toEqual(CHAPTERS[2].stops);
     expect(CAMPAIGN[0]).toMatchObject({ chapter: 0, role: 'meet' });
     expect(CAMPAIGN[7]).toMatchObject({ chapter: 1, role: 'meet', teaches: 'walk' });
@@ -83,18 +86,24 @@ describe('the chapters of the row', () => {
 
   it('knows what every stop teaches and what it is about', () => {
     expect(STOPS.R07).toMatchObject({ chapter: 0, role: 'meet', teaches: 'link' });
-    expect(STOPS['C1-04']).toMatchObject({ chapter: 1, role: 'meet', teaches: 'glass' });
+    expect(STOPS.R11).toMatchObject({ chapter: 1, role: 'meet', teaches: 'walk' });
     for (const stop of CAMPAIGN) expect(stop.archetype, stop.spec.id).toBeTruthy();
     for (const stop of CAMPAIGN) expect(STOPS[stop.spec.id].chapter, stop.spec.id).toBe(stop.chapter);
   });
 
-  it('carries the line of the chain on R07 and no other line yet', () => {
-    expect(HINTS).toEqual({ R07: { key: 'roadHintChain', until: 'chain' } });
+  it('carries the line of the chain on R07, of the walk over leaving dice on R11 and of the seven on C1-05', () => {
+    expect(HINTS).toEqual({
+      R07: { key: 'roadHintChain', until: 'chain' },
+      R11: { key: 'roadHintWalk', until: 'walk' },
+      'C1-05': { key: 'hintSeven', until: 'combo' },
+    });
+    expect(STOPS.R11.teaches).toBe('walk');
+    expect(STOPS['C1-05']).toMatchObject({ role: 'apply', event: 'the rule of seven' });
   });
 
   it('keeps the stars of a board that came to a chapter: they are kept by its code', () => {
-    const cells = campaignCells({ passed: { K22: true }, stats: { K22: { bestMoves: 99 } } });
-    const at = CAMPAIGN.findIndex((stop) => stop.spec.id === 'K22');
+    const cells = campaignCells({ passed: { P02: true }, stats: { P02: { bestMoves: 99 } } });
+    const at = CAMPAIGN.findIndex((stop) => stop.spec.id === 'P02');
     expect(CAMPAIGN[at].chapter).toBe(1);
     expect(cells[at]).toMatchObject({ passed: true, stars: 1 });
   });

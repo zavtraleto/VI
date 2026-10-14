@@ -35,6 +35,8 @@ export interface SlowFacts {
    * without that move, looked for up to two over its own; null where it is not cleared so.
    */
   without?: number | null;
+  /** How many moves a push saves on the board: 0 where it is cleared in its fewest moves without one. */
+  pushSaves?: number;
 }
 
 /**
@@ -87,15 +89,23 @@ function taughtAndUsed(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** Rule 3: one archetype no more than three times in a row, and no two boards of the row one figure, turned, mirrored or on other faces. */
+/**
+ * Rule 3 (ужесточено 14 октября по плейтесту): one archetype no more than twice in a row, a meeting
+ * and one use; an archetype of a chapter comes back in the next chapter only as its twist; and no
+ * two boards of the row one figure, turned, mirrored or on other faces.
+ */
 function oneThought(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   let from = 0;
   row.forEach((stop, index) => {
     if (index > 0 && stop.archetype !== row[index - 1].archetype) from = index;
-    const run = index - from + 1;
-    if (run === 4) out.push({ rule: 3, at: stop.number, text: `места ${row[from].number}–${stop.number} — архетип ${stop.archetype} ${run} раза подряд` });
+    if (index - from + 1 === 3) out.push({ rule: 3, at: stop.number, text: `места ${row[from].number}–${stop.number} — три доски архетипа ${stop.archetype} подряд` });
   });
+  for (const stop of row) {
+    if (stop.role === 'twist') continue;
+    const before = row.some((other) => other.chapter === stop.chapter - 1 && other.archetype === stop.archetype);
+    if (before) out.push({ rule: 3, at: stop.number, text: `${placeOf(stop)} — архетип ${stop.archetype} был в главе ${stop.chapter - 1}, а здесь не поворот` });
+  }
   // Boards on other faces are held side by side on the same: a figure is a figure, whatever face its dice show.
   const plain = (spec: LevelSpec): LevelSpec => ({ ...spec, faces: [0], values: [0] });
   row.forEach((stop, index) => {
@@ -130,9 +140,25 @@ function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   return out;
 }
 
+/** The places of the row before the first meeting of the push: all of it where there is none. */
+function beforePush(row: readonly Stop[]): readonly Stop[] {
+  const lesson = row.findIndex((stop) => stop.teaches === 'push');
+  return lesson < 0 ? row : row.slice(0, lesson);
+}
+
+/**
+ * Rule 1, the push (the owner, 14 October 2026: «главное, что у нас нет полей, которые решаются
+ * толканием»): no board before the meeting of the push keeps a way that pushes.
+ */
+function noPushBeforeLesson(row: readonly Stop[]): Violation[] {
+  return beforePush(row)
+    .filter((stop) => needsOf(stop.spec).has('push'))
+    .map((stop) => ({ rule: 1 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
+}
+
 /** The rules that ask nothing of a search: 1, 3, 4 and the count of moves of 5. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...oneThought(row), ...facesOfChapter(row), ...easyAfterMeeting(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesOfChapter(row), ...easyAfterMeeting(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
@@ -147,6 +173,10 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
 export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFacts): Violation[] {
   const out: Violation[] = [];
   const known = new Map(row.map((stop) => [stop, facts(stop)]));
+  for (const stop of beforePush(row)) {
+    const saves = known.get(stop)!.pushSaves ?? 0;
+    if (saves > 0) out.push({ rule: 1, at: stop.number, text: `${placeOf(stop)} толчком короче на ${saves} ${saves === 1 ? 'ход' : 'хода'}, а толкать ещё не учили` });
+  }
   for (const stop of row) {
     const saves = stop.teaches ? SAVES[stop.teaches] : undefined;
     if (saves === undefined || stop.number <= 3) continue;

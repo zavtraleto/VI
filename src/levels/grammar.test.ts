@@ -58,16 +58,31 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(row).filter((one) => one.rule === 1).map((one) => one.text)).toContain('место 2 (R08) учит сразу после места 1 (R07)');
   });
 
-  it('says where one archetype runs longer than three, and where a board is another turned: rule 3', () => {
+  it('says where one archetype runs longer than two, and where a board is another turned: rule 3 (ужесточено 14 октября по плейтесту)', () => {
+    const at = (stop: Stop, number: number): Stop => ({ ...stop, number });
     const bridges = rowOf([
       ['R11', { teaches: undefined }],
       ['P02', { archetype: 'bridge' }],
       ['R15', { archetype: 'bridge' }],
-      ['R12', { archetype: 'bridge' }],
-    ]);
-    expect(fastGrammar(bridges).filter((one) => one.rule === 3)).toEqual([{ rule: 3, at: 4, text: 'места 1–4 — архетип bridge 4 раза подряд' }]);
+    ]).map((stop, index) => at(stop, index + 9));
+    expect(fastGrammar(bridges).filter((one) => one.rule === 3)).toEqual([{ rule: 3, at: 11, text: 'места 9–11 — три доски архетипа bridge подряд' }]);
+    // Two in a row are a meeting and its use: no word.
+    expect(fastGrammar(bridges.slice(0, 2)).filter((one) => one.rule === 3)).toEqual([]);
     const twice = rowOf([['R11', { teaches: undefined, archetype: 'a' }], ['R11', { teaches: undefined, archetype: 'b' }]]);
     expect(fastGrammar(twice).filter((one) => one.rule === 3).map((one) => one.text)).toEqual(['места 1 (R11) и 2 (R11) — одна фигура']);
+  });
+
+  it('says where an archetype of a chapter comes back in the next one but as its twist: rule 3', () => {
+    const row = rowOf([
+      ['R11', { chapter: 1, role: 'meet', teaches: undefined, archetype: 'bridge' }],
+      ['P02', { chapter: 1, role: 'apply', archetype: 'collapse' }],
+      ['R09', { chapter: 2, role: 'meet', teaches: undefined, archetype: 'two heaps' }],
+      ['R12', { chapter: 2, role: 'apply', archetype: 'bridge' }],
+    ]);
+    expect(fastGrammar(row).filter((one) => one.rule === 3).map((one) => one.text)).toEqual(['место 4 (R12) — архетип bridge был в главе 1, а здесь не поворот']);
+    // As the twist of the next chapter it is a way back, and it is let be.
+    const twist = row.map((stop) => (stop.spec.id === 'R12' ? { ...stop, role: 'twist' as const } : stop));
+    expect(fastGrammar(twist).filter((one) => one.rule === 3)).toEqual([]);
   });
 
   it('says where a board of a chapter has faces not of its chapter: rule 4', () => {
@@ -79,6 +94,26 @@ describe('the grammar of the row', () => {
   it('says where the board after a meeting is more than a move longer: rule 5', () => {
     const row = rowOf([['R03', { role: 'meet', archetype: 'x' }], ['R08', { archetype: 'y' }]]);
     expect(fastGrammar(row).filter((one) => one.rule === 5)).toEqual([{ rule: 5, at: 2, text: 'место 2 (R08) после встречи на месте 1: 5 ходов, а встреча — 2' }]);
+  });
+});
+
+describe('no push before its lesson (the owner, 14 October 2026)', () => {
+  it('finds no board before the meeting of the push whose way pushes', () => {
+    expect(fastGrammar(CAMPAIGN).filter((one) => one.text.includes('толк'))).toEqual([]);
+    const row = rowOf(['R01', 'R02', 'R03', ['P06', { chapter: 1, role: 'apply', archetype: 'down and back' }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 1).map((one) => one.text)).toEqual(['место 4 (P06) толкает, а толкать ещё не учили']);
+    // After a meeting of the push a board may push.
+    const after = rowOf(['R01', 'R02', ['R13', { chapter: 1, role: 'meet', teaches: 'push', archetype: 'push' }], ['P06', { chapter: 1, role: 'apply', archetype: 'down and back' }]]);
+    expect(fastGrammar(after).filter((one) => one.text.includes('толкать ещё не учили'))).toEqual([]);
+  });
+
+  it('finds no board before the meeting of the push that a push makes shorter, by what the solver found', () => {
+    const row = rowOf(['R01', 'R02', 'R03', 'R04']);
+    const easy = { lost: true, planner: 1, without: null, pushSaves: 0 };
+    expect(slowGrammar(row, () => easy).filter((one) => one.rule === 1)).toEqual([]);
+    expect(slowGrammar(row, (stop) => (stop.spec.id === 'R04' ? { ...easy, pushSaves: 2 } : easy)).map((one) => one.text)).toContain(
+      'место 4 (R04) толчком короче на 2 хода, а толкать ещё не учили',
+    );
   });
 });
 
