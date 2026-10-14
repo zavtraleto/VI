@@ -102,8 +102,8 @@ describe('the list of levels', () => {
     const picked: number[] = [];
     const items = row(levelsPanel(cells, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels');
     expect(items.levels.length).toBe(ROAD.length + LEVELS.length);
-    // The row of the second edition: the prologue of seven and chapter 1 (eleven until its three new boards are laid, then fourteen).
-    expect(items.levels.length).toBe(11);
+    // The row of the second edition: the prologue of seven and chapter 1.
+    expect(items.levels.length).toBe(14);
     expect(items.levels[0]).toMatchObject({ stars: 3, locked: false });
     expect(items.levels[ROAD.length]).toMatchObject({ stars: 0, locked: false });
     expect(items.levels.every((cell) => !cell.locked)).toBe(true);

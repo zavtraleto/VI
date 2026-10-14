@@ -62,8 +62,7 @@ describe('where the list opens', () => {
 describe('the chapters of the row', () => {
   it('is the prologue and the chapters, in the order of CHAPTERS, numbered from one', () => {
     expect(CAMPAIGN.map((stop) => stop.spec.id)).toEqual(CHAPTERS.flatMap((chapter) => chapter.stops));
-    // Eleven until the three new boards of chapter 1 are laid (task 4 of the plan of 14 October 2026), then fourteen.
-    expect(CAMPAIGN.length).toBe(11);
+    expect(CAMPAIGN.length).toBe(14);
     expect(CAMPAIGN[0]).toMatchObject({ chapter: 0, role: 'meet' });
     expect(CAMPAIGN[7]).toMatchObject({ chapter: 1, role: 'meet', teaches: 'walk' });
     expect(CHAPTERS.map((chapter) => [chapter.id, chapter.faces])).toEqual([[0, null], [1, [2, 3]]]);

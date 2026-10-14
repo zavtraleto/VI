@@ -89,8 +89,12 @@ export function roadTable(rows: readonly string[][]): string {
   return layOutRows([[...ROAD_HEAD], ...rows]);
 }
 
-/** The ban of the solver that takes away a move a board can teach; none for a move the solver cannot do without. */
-const BAN_OF: Partial<Record<Technique, Ban>> = { link: 'link', walk: 'bridge', glass: 'glass', lift: 'floor', push: 'push', ones: 'ones' };
+/**
+ * The bans of the solver that take away a move a board can teach; none for a move the solver cannot do
+ * without. The walk over leaving dice is taken with the way up onto one: on an open floor a step down
+ * and up onto the leaving combo is the same road over it.
+ */
+const BAN_OF: Partial<Record<Technique, readonly Ban[]>> = { link: ['link'], walk: ['bridge', 'up'], glass: ['glass'], lift: ['floor'], push: ['push'], ones: ['ones'] };
 
 /**
  * What the slow rules of the grammar ask of a board (`slowGrammar`): whether the walk over the
@@ -101,7 +105,7 @@ export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, wal
   let cleared = 0;
   for (let run = 1; run <= runs; run++) if (personaPlay(spec, 'planner', run).endReason === 'passed') cleared++;
   const ban = teaches ? BAN_OF[teaches] : undefined;
-  const shortWithout = ban === undefined ? undefined : solveLevel(spec, { ban: [ban], maxMoves: (spec.par ?? 0) + 1 }).solution !== null;
+  const shortWithout = ban === undefined ? undefined : solveLevel(spec, { ban: [...ban], maxMoves: (spec.par ?? 0) + 1 }).solution !== null;
   return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, ...(shortWithout === undefined ? {} : { shortWithout }) };
 }
 

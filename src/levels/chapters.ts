@@ -24,7 +24,7 @@ export interface Chapter {
 /** The chapters of the row, in its order: the prologue is chapter 0. */
 export const CHAPTERS: readonly Chapter[] = [
   { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02', 'R03', 'R04', 'R05', 'R07', 'R08'] },
-  { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'R15', 'K22'] },
+  { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'R15', 'C1-04', 'C1-05', 'C1-06', 'K22'] },
 ];
 
 /** What a board is in the row, by its code: its chapter, its role, the move it brings in, what it is about (its archetype) and what is seen on it first. */

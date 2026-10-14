@@ -31,6 +31,7 @@ const WIDE = cutFrom(['....', '####', '####', '####']);
 const LONG = cutFrom(['###.', '###.', '###.', '###.']);
 
 const ACT = { chapter: 0, compact: false, edition: 1 } as const;
+const CHAPTER = { chapter: 0, compact: false, edition: 2 } as const;
 
 export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
   {
@@ -79,5 +80,20 @@ export const CAMPAIGN_PLACES: readonly CampaignPlace[] = [
     ...ACT, slot: 1028, id: 'K28', act: 2, role: 'rest', size: 4, holes: WIDE, dice: 5, faces: [4], standing: [{ value: 4, count: 3 }],
     under: false, par: [1, 2], safeFirst: true, last: [5, 5], kinds: ['top'], personas: { hasty: 0.9, casual: 0.9 },
     brief: 'the breather and the first 4s: three stand together, the fourth beside the gap, the own die a roll away with its 4 on the side the player sees; one roll and five go',
+  },
+  // Chapter 1 of the second edition, the road over leaving dice, on 2s and 3s (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 4.1).
+  {
+    ...CHAPTER, slot: 2104, id: 'C1-04', act: 1, role: 'meet', size: 4, holes: LONG, dice: 3, more: 1, faces: [2, 3], standing: [{ value: 2, count: 1 }],
+    needs: ['glass'], par: [3, 4], firsts: [1, 99],
+    brief: 'a leaving die is a cell: a pair of 2s goes, and the own die comes to the cell it needs only by a roll onto a leaving die, which goes from under it; round it is two moves longer or no way at all',
+  },
+  {
+    ...CHAPTER, slot: 2105, id: 'C1-05', act: 1, role: 'apply', size: 4, dice: 5, faces: [2, 3], standing: [{ value: 3, count: 2 }],
+    needs: ['glass'], par: [3, 5],
+    brief: 'the roll onto a leaving die again, another figure, on 3s: rolled onto a die of the link and not of the pair',
+  },
+  {
+    ...CHAPTER, slot: 2106, id: 'C1-06', act: 1, role: 'twist', size: 4, dice: 6, faces: [2, 3], route: '~', shows: ['glass'], par: [4, 6],
+    brief: 'the road both ways, briefly: over a leaving combo to a die beyond it, a move there, and back over the same combo, or by a roll onto its last die, to the third heap before it goes; a move late leaves the player cut off',
   },
 ];
