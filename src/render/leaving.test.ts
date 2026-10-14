@@ -5,12 +5,12 @@ import { worldRuns } from '../rules/level';
 import { createRun, step } from '../rules/sim';
 import { levelRun, put } from '../rules/testkit';
 import type { Cube, Dir, LevelSpec, RunState } from '../rules/types';
-import { ROAD } from '../levels/road';
+import { ROAD, ROAD_SPARES } from '../levels/road';
 import { boardDefaults } from './params';
 import { finaleMs, isStair, LeavingShow, leavingHeight, leavingSteps, restHeight, shownHeight, type LeavingEvent } from './leaving';
 
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
-const pieceOf = (id: string): LevelSpec => ROAD.find((spec) => spec.id === id)!;
+const pieceOf = (id: string): LevelSpec => [...ROAD, ...ROAD_SPARES].find((spec) => spec.id === id)!;
 
 function go(state: RunState, dir: Dir): void {
   step(state, dir);

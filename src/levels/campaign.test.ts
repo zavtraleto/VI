@@ -44,7 +44,7 @@ describe('the cells of the list', () => {
 
 describe('where the list opens', () => {
   it('is the piece the player is on, by the place kept of them', () => {
-    expect(campaignFocus({ ...none, road: 'R07' }, false, 0)).toBe(6);
+    expect(campaignFocus({ ...none, road: 'R08' }, false, 0)).toBe(6);
   });
   it('is the first piece for one who is new, whatever they passed of the list', () => {
     expect(campaignFocus({ passed: { [LEVELS[0].id]: true }, stats: {} }, false, 1)).toBe(0);
@@ -71,7 +71,7 @@ describe('the acts of the row', () => {
   });
 
   it('carries the lines of the road and of the acts by the code of the board', () => {
-    expect(HINTS.R06).toEqual({ key: 'roadHintChain', until: 'chain' });
+    expect(HINTS.R07).toEqual({ key: 'roadHintChain', until: 'chain' });
     expect(HINTS[ACT_1[0].id]).toEqual({ key: 'hintSeven', until: 'combo' });
     expect(HINTS[ACT_1[1].id]).toBeUndefined();
     expect(HINTS.K23).toEqual({ key: 'hintLinkMove', until: 'chain' });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LEVELS, PARKED } from '../levels/levels';
-import { ROAD, ROAD_IDLE, ROAD_LESSONS } from '../levels/road';
+import { ROAD, ROAD_IDLE, ROAD_LESSONS, ROAD_SPARES } from '../levels/road';
 import { defaultConfig } from '../rules/config';
 import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
@@ -65,7 +65,7 @@ const SMALL: Readonly<Record<string, LevelSpec>> = {
   },
 };
 
-const pieceOf = (id: string): LevelSpec => SMALL[id] ?? ROAD.find((spec) => spec.id === id)!;
+const pieceOf = (id: string): LevelSpec => SMALL[id] ?? [...ROAD, ...ROAD_SPARES].find((spec) => spec.id === id)!;
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 
 /** Gives a command and runs the level until the world stands and the player is free, as a move is made. */
@@ -442,7 +442,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('asks the solver nothing for a move or a step on a free piece, until the sign is due, and then once', () => {
     const asked = vi.mocked(solveFrom);
-    const spec = ROAD.find((piece) => piece.id === 'R06')!;
+    const spec = ROAD.find((piece) => piece.id === 'R05')!;
     expect(ROAD_LESSONS).not.toContain(spec.id);
     const state = start(spec);
     const wait = roadWait(spec.id)!;

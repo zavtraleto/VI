@@ -54,9 +54,11 @@ export const ROAD_PLACES: readonly RoadPlace[] = [
     brief: 'three 3s of dice that all roll: two stand side by side, the own one is off to a side',
   },
   {
-    ...FREE, slot: 5, id: 'R05', role: 'free', size: 4, holes: WIDE, dice: 4, faces: [2], par: [2, 3], floor: false, shows: ['link'], kinds: ['top'], avoid: ['glass'], personas: BLOCK_A,
-    // R08 of the second edition turned half round, the 2 of the own die on its east side, and the row no way used cut off.
-    sketch: [{ start: { x: 3, z: 2 }, dice: [{ x: 3, z: 2, top: 4, north: 6 }, { x: 2, z: 2, top: 4, north: 6 }, { x: 1, z: 3, top: 2, north: 3 }, { x: 1, z: 1, top: 2, north: 1 }] }],
+    ...FREE, slot: 5, id: 'R05', role: 'free', size: 4, holes: WIDE, dice: 4, faces: [2], par: [2, 3], floor: false, shows: ['link'], kinds: ['top'], avoid: ['glass'], walk: true, personas: BLOCK_A,
+    // R08 of the second edition turned half round, the 2 of the die beside the player on its east side, and the row no way
+    // used cut off. The player stands a cell west of the edge since 14 October 2026 (the owner): the first move is made
+    // with the die they step to.
+    sketch: [{ start: { x: 2, z: 2 }, dice: [{ x: 2, z: 2, top: 4, north: 6 }, { x: 3, z: 2, top: 4, north: 6 }, { x: 1, z: 3, top: 2, north: 3 }, { x: 1, z: 1, top: 2, north: 1 }] }],
     brief: 'two pairs of 2s, or a pair and the two others brought to it: the chain is a gain, not a must',
   },
   {

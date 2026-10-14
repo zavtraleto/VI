@@ -17,7 +17,7 @@ describe('the board the program opens on', () => {
   it('is the piece the player stopped on', () => {
     expect(startBoard('R01', false, 0)).toEqual({ road: 0 });
     expect(startBoard('R04', false, 0)).toEqual({ road: 3 });
-    expect(startBoard('R07', false, 5)).toEqual({ road: 6 });
+    expect(startBoard('R08', false, 5)).toEqual({ road: 6 });
     // A code that is kept is read before what was passed in the build before.
     expect(startBoard('R02', true, 5)).toEqual({ road: 1 });
   });

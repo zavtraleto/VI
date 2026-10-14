@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec, RunState } from '../rules/types';
-import { ROAD } from '../levels/road';
+import { ROAD, ROAD_SPARES } from '../levels/road';
 import { roadCounters } from './roadCounters';
 
-const pieceOf = (id: string): LevelSpec => ROAD.find((spec) => spec.id === id)!;
+const pieceOf = (id: string): LevelSpec => [...ROAD, ...ROAD_SPARES].find((spec) => spec.id === id)!;
 const start = (id: string): RunState => {
   const spec = pieceOf(id);
   return createRun({ seed: spec.seed, config: defaultConfig(), level: spec });

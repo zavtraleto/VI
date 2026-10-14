@@ -75,10 +75,10 @@ describe('the lines of the road', () => {
   // With them the lines the acts open with: they are written and shown the same way.
   const pieces: [string, { key: string }][] = [...Object.entries(HINTS), ['fixed', { key: 'roadHintFixed' }]];
 
-  it('are three, for the chain, the way down from a leaving die and up onto one, and the push, on the pieces that will teach them', () => {
-    expect(Object.keys(ROAD_HINTS)).toEqual(['R06', 'R10', 'R13']);
+  it('are one in the prologue, for the chain, on its lesson: the lines of the way down and up and of the push come with the chapter of the push', () => {
+    expect(Object.keys(ROAD_HINTS)).toEqual(['R07']);
     const untils: HintUntil[] = Object.values(ROAD_HINTS).map((hint) => hint.until);
-    expect(untils).toEqual(['chain', 'climb', 'push']);
+    expect(untils).toEqual(['chain']);
   });
 
   it('have their text in every one of the seven languages, in at most eight words, with no exclamation mark', () => {
@@ -403,7 +403,7 @@ describe('the words of a hint that goes out', () => {
 describe('the room a board keeps for its lines', () => {
   it('is none for the line about a dim die until that line has come: a board with a fixed die and no lesson has the whole stage', () => {
     const fixed = ROAD.filter((spec) => spec.layout!.dice.some((die) => die.fixed));
-    expect(fixed.map((spec) => spec.id)).toEqual(['R01', 'R02', 'R10', 'R13']);
+    expect(fixed.map((spec) => spec.id)).toEqual(['R01', 'R02']);
     for (const spec of fixed) {
       const lesson = ROAD_HINTS[spec.id]?.key ?? null;
       // Whether the line has been said to the player or not is not asked: only whether it stands on this board.
