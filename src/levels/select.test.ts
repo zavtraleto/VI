@@ -4,7 +4,7 @@ import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
 import { ori } from '../rules/testkit';
 import type { LevelLayout, Orientation, PuzzleDie } from '../rules/types';
 import { FROM_ROUTE, SKETCH, levelId } from './generate';
-import { LEVELS } from './levels';
+import { LEVELS, PARKED } from './levels';
 import type { Recipe } from './recipes';
 import { layFromRoute } from './route';
 import { MEASURE_HEAD, gather, judge, levelSource, measureRow, placeReport, REPORT_WALK_LIMIT } from './select';
@@ -76,7 +76,7 @@ describe('a place judged', () => {
 
   it('walks the boards the player can come to where the place asks, and turns away one that loses the board', () => {
     // P04 of the list, laid by hand into a place: four moves clear it, and after four commands it cannot be cleared.
-    const p04 = LEVELS.find((spec) => spec.id === 'P04')!;
+    const p04 = [...LEVELS, ...PARKED].find((spec) => spec.id === 'P04')!;
     const lossy: Recipe = { slot: 903, id: 'X04', chapter: 0, size: 4, dice: 6, faces: [5], compact: false, par: [1, 6], sketch: [p04.layout!] };
     expect(judge(lossy, first).fit!.walk).toBeNull();
     const verdict = judge({ ...lossy, lossless: true }, first);

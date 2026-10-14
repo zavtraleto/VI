@@ -10,7 +10,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { Ban } from '../rules/reach';
 import type { Dir, LevelSpec, MoveKind, Orientation, RunState } from '../rules/types';
 import { SKETCH, candidate } from './generate';
-import { LEVELS } from './levels';
+import { LEVELS, PARKED } from './levels';
 import { ROAD_PLACES, ROAD_SEEDS } from './roadRecipes';
 import { firstsOf } from './measures';
 import { judge } from './select';
@@ -694,7 +694,7 @@ describe('the free pieces and the mixes', () => {
   it('R08: the board of P08 of the list, a long chain: a pair and three dice joined to it one after another', { timeout: 60_000 }, () => {
     const spec = pieceOf('R08');
     // The level P08 is now R10 of the second edition (levels.ts), and the board that was P08 is this piece.
-    const probe = LEVELS.find((level) => level.id === 'P08')!;
+    const probe = [...LEVELS, ...PARKED].find((level) => level.id === 'P08')!;
     expect(probe.layout!.dice).toHaveLength(6);
     expect(probe.solution).toEqual(['2,2,S', '3,3,N', '3,2,W', '2,1,E']);
     const report = tryWay(spec, wayOf(spec));
@@ -878,7 +878,7 @@ describe('what was kept of a player of an edition before', () => {
     expect(moved.road).toBe(ROAD_END);
     expect(moved.roadEdition).toBe(6);
     // The boards went with their stars: what was R10 is the level P08, and the board of P08 is the piece R08.
-    expect(LEVELS.find((level) => level.id === 'P08')!.par).toBe(4);
+    expect([...LEVELS, ...PARKED].find((level) => level.id === 'P08')!.par).toBe(4);
     expect(pieceOf('R08').par).toBe(5);
     // The levels of the list that did not move are left as they were, and so is one who has passed nothing of the road.
     expect(toRoadEdition({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 2 })).toEqual({ passed: { P03: true }, stats: { P03: stat }, roadEdition: 6 });

@@ -10,7 +10,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN_PLACES } from './campaignRecipes';
 import { levelId } from './generate';
-import { ACT_1, ACT_2, LEVELS, PARKED, SPARES, TAIL } from './levels';
+import { ACT_1, ACT_2, LEVELS, PARKED, SPARES } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
 import { chaptersOf, ladderProgress } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
@@ -28,13 +28,13 @@ import { UNLIKE_BY, sameBoard, traitsOf, unlike } from './variety';
 /** The place a board is for, by the name of its level: a place of the probe, or a place of an act of the campaign. */
 const placeOf = (spec: LevelSpec): Recipe | undefined => [...PLACES, ...CAMPAIGN_PLACES].find((place) => levelId(place) === spec.id);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
-/** What is left of the list as the owner ordered it on 12 October 2026 (docs/VI_Levels_Playtest_2026-10-12.md, section 4), the levels that went into the acts taken out. */
+/** The tail of the row of the probe list, parked on 14 October 2026, in the order it had. */
 const TAIL_ORDER = ['P13', 'P04', 'P02', 'P14', 'P07', 'P01', 'P12', 'P08', 'P17', 'P15', 'P31', 'P19'];
 /** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
 const WAITING = ['P10', 'P18', 'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30'];
 const ALL: readonly LevelSpec[] = [...LEVELS, ...PARKED, ...SPARES];
 /** The level that is a board of the road and not of its place: P08 is R10 of the second edition of the road (levels.ts). */
-const FROM_ROAD = LEVELS.find((level) => level.id === 'P08')!;
+const FROM_ROAD = PARKED.find((level) => level.id === 'P08')!;
 /** The levels and the boards in reserve that are boards of their places. */
 const OF_PLACE: readonly LevelSpec[] = ALL.filter((level) => level !== FROM_ROAD);
 
@@ -93,9 +93,9 @@ function offPlace(level: LevelSpec, place: Recipe): string[] {
 }
 
 describe('the levels of the game', () => {
-  it('are the acts and then the tail, the list of the probe in the order it had', () => {
-    expect(LEVELS).toEqual([...ACT_1, ...ACT_2, ...TAIL]);
-    expect(TAIL.map((level) => level.id)).toEqual(TAIL_ORDER);
+  it('are the acts, and nothing after them', () => {
+    expect(LEVELS).toEqual([...ACT_1, ...ACT_2]);
+    expect(LEVELS).toHaveLength(12);
   });
 
   it('are each a level of a place', () => {
@@ -103,7 +103,7 @@ describe('the levels of the game', () => {
   });
 
   it('keep parked the levels that wait, and have P11 nowhere', () => {
-    expect(PARKED.map((level) => level.id)).toEqual(WAITING);
+    expect(PARKED.map((level) => level.id)).toEqual([...WAITING, ...TAIL_ORDER]);
     expect(ALL.filter((level) => level.id === 'P11')).toEqual([]);
   });
 
@@ -248,7 +248,7 @@ describe('the levels of the game', () => {
   });
 
   it('lose no board by the first move where the place asks it: the trap of P17 and of P19 waits further on, and the new boards of the acts have none', () => {
-    const asked = LEVELS.filter((level) => placeOf(level)?.safeFirst);
+    const asked = [...LEVELS, ...PARKED].filter((level) => placeOf(level)?.safeFirst);
     expect(asked.map((level) => level.id).sort()).toEqual(['K21', 'K22', 'K23', 'K25', 'K28', 'P17', 'P19']);
     for (const level of asked) expect(safeFirstOf(level), level.id).toBe(true);
     // The board P19 had before, kept in reserve, is what the owner played on 12 October: lost by a first move.
@@ -257,9 +257,9 @@ describe('the levels of the game', () => {
     for (const spare of before) expect(safeFirstOf(spare), `${spare.id}, seed ${spare.seed}`).toBe(false);
   });
 
-  it('have a breather before the last level: P31 is of the place of P13 once more, and a board unlike it', () => {
-    const breather = LEVELS.find((level) => level.id === 'P31')!;
-    const collapse = LEVELS.find((level) => level.id === 'P13')!;
+  it('keep parked the breather of the tail: P31 is of the place of P13 once more, and a board unlike it', () => {
+    const breather = PARKED.find((level) => level.id === 'P31')!;
+    const collapse = PARKED.find((level) => level.id === 'P13')!;
     expect([breather.id, collapse.id]).toEqual(['P31', 'P13']);
     expect(unlike(traitsOf({ spec: breather }), traitsOf({ spec: collapse }))).toBeGreaterThanOrEqual(UNLIKE_BY);
     // Four of its six 6s are up from the start: two dice are turned, and all six go with one move.

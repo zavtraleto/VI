@@ -4,7 +4,7 @@ import { moveOf, movesAt, solveLevel, tryWay } from '../rules/levelSolver';
 import { createRun } from '../rules/sim';
 import { ori } from '../rules/testkit';
 import type { LevelSpec, Orientation, PuzzleDie } from '../rules/types';
-import { LEVELS } from './levels';
+import { LEVELS, PARKED } from './levels';
 import { decoyOf, farOf, firstsOf, islandsOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf } from './measures';
 
 /** A die of a board, lying as the faces given say. */
@@ -272,7 +272,7 @@ describe('a combo nearly made that is not what it looks', () => {
 
 describe('the dice turned before anything goes', () => {
   it('are those that start with a face that does not work and show one that does at the first event', () => {
-    const p13 = LEVELS.find((spec) => spec.id === 'P13')!;
+    const p13 = [...LEVELS, ...PARKED].find((spec) => spec.id === 'P13')!;
     // Six dice go with one move, and four of them show their 6 from the start.
     expect(turnsOf(p13, p13.solution!.map(moveOf))).toBe(2);
     // The dice of the first event alone are counted: what is turned after it is turned under the count.

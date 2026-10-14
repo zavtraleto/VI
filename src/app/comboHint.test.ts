@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS } from '../levels/levels';
+import { LEVELS, PARKED } from '../levels/levels';
 import { defaultConfig } from '../rules/config';
 import { moveOf, movesAt, playMove, solveFrom } from '../rules/levelSolver';
 import { createRun } from '../rules/sim';
@@ -7,7 +7,7 @@ import type { LevelSpec, RunState } from '../rules/types';
 import { comboHints } from './comboHint';
 import { boardKey, stillShort } from './comboHintWork';
 
-const levelOf = (id: string): LevelSpec => LEVELS.find((spec) => spec.id === id)!;
+const levelOf = (id: string): LevelSpec => [...LEVELS, ...PARKED].find((spec) => spec.id === id)!;
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 const along = (spec: LevelSpec, moves: readonly string[]): RunState => moves.reduce((state, move) => playMove(state, moveOf(move)), start(spec));
 

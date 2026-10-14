@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf, stopOf } from './campaign';
-import { ACT_1, ACT_2, LEVELS, TAIL } from './levels';
+import { ACT_1, ACT_2, LEVELS } from './levels';
 import { ROAD, ROAD_END } from './road';
 
 const none = { passed: {}, stats: {} };
@@ -60,14 +60,14 @@ describe('where the list opens', () => {
 });
 
 describe('the acts of the row', () => {
-  it('names the act and the role of every stop: the road is act 0, the levels of the first act are act 1, the tail is none', () => {
+  it('names the act and the role of every stop: the road is act 0, the levels of the first act are act 1', () => {
     expect(CAMPAIGN[0]).toMatchObject({ act: 0, role: 'lesson' });
     expect(CAMPAIGN[2]).toMatchObject({ act: 0, role: 'free' });
     expect(CAMPAIGN.slice(ROAD.length, ROAD.length + ACT_1.length).map((stop) => [stop.act, stop.role])).toEqual([[1, 'opening'], [1, 'apply'], [1, 'twist'], [1, 'join'], [1, 'peak'], [1, 'rest']]);
     const second = ROAD.length + ACT_1.length;
     expect(CAMPAIGN.slice(second, second + ACT_2.length).map((stop) => [stop.act, stop.role])).toEqual([[2, 'opening'], [2, 'apply'], [2, 'twist'], [2, 'join'], [2, 'peak'], [2, 'rest']]);
-    expect(CAMPAIGN[second + ACT_2.length]).toMatchObject({ act: null, role: 'tail' });
-    expect(CAMPAIGN.slice(second + ACT_2.length).map((stop) => stop.spec.id)).toEqual(TAIL.map((spec) => spec.id));
+    expect(CAMPAIGN).toHaveLength(ROAD.length + ACT_1.length + ACT_2.length);
+    expect(CAMPAIGN.some((stop) => stop.role === 'tail')).toBe(false);
   });
 
   it('carries the lines of the road and of the acts by the code of the board', () => {

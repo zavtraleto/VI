@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LEVELS } from '../levels/levels';
+import { LEVELS, PARKED } from '../levels/levels';
 import { ROAD, ROAD_IDLE, ROAD_LESSONS } from '../levels/road';
 import { defaultConfig } from '../rules/config';
 import { worldRuns } from '../rules/level';
@@ -154,7 +154,7 @@ describe('the way the swipe sign points', () => {
   });
 
   it('is none where the search is not let to find a way', () => {
-    expect(signAt(start(LEVELS[LEVELS.length - 1]), 1)).toEqual({ dir: null, left: null });
+    expect(signAt(start(PARKED.find((level) => level.id === 'P19')!), 1)).toEqual({ dir: null, left: null });
   });
 
   it('is a way or none from the start of every piece, with the boards its kind of piece is given, and never hangs', () => {
