@@ -244,7 +244,7 @@ export class BoardLab {
             this.finale.under = true;
             this.playGrid();
           }
-        } else if (event.kind === 'gone') view.farewell(event.cells, event.value);
+        }
       },
     });
     this.backdrop.draw(view.background, view.inverted);

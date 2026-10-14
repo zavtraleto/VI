@@ -2561,8 +2561,8 @@ export class Game {
   /** What the leaving of a group on a level has come to: it has gone into the floor, or the last combo of the board has taken its dice under. */
   private onLeaving(event: LeavingEvent): void {
     if (event.kind !== 'gone') return;
+    // The ring over the floor runs once, when the combo is made (`beat`); a group that goes under is silent.
     if (event.final) this.finaleStruck();
-    else if (!this.state.over) this.view.farewell(event.cells, event.value);
   }
 
   private onEvent(state: RunState, event: GameEvent): void {

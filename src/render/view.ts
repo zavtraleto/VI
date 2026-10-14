@@ -917,7 +917,7 @@ export class BoardView {
     if (this.kicks.length > 0) this.kicks = this.kicks.filter((kick) => !ids.includes(kick.id));
   }
 
-  /** A group has gone under: a ring runs over the floor where it stood, in the colour of its face, `wide` times as far as the look has it. */
+  /** The last combo of a board: the wide ring of the finale runs over the floor where it stood, in the colour of its face, `wide` times as far as the look has it. */
   farewell(cells: readonly { x: number; z: number }[], value: number, wide = 1): void {
     if (this.still || cells.length === 0 || value < 1) return;
     const n = (name: string): number => Number(this.look.board[name] ?? 0);
