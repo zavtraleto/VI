@@ -8,8 +8,8 @@ import { riseSpan, stoodBy } from '../render/passing';
  * combo that cleared a board light up one after another, stand lit for a moment and go under the
  * floor one after another; the lines of the board are erased towards the cell of the player; the
  * next board is put on with its starting cell on that cell, the camera travels to it while its
- * lines are drawn from the cell; then its dice come up out of the floor, the nearest first and a
- * stair last, and the board is the player's. Nothing here reads a clock or draws: whoever owns
+ * lines are drawn from the cell; then its dice come up out of the floor, the nearest first (the
+ * ones laid as leaving among them), and the board is the player's. Nothing here reads a clock or draws: whoever owns
  * the frame says how long the passage has run, and draws what this says.
  */
 
@@ -46,15 +46,14 @@ export interface PassageView {
   camera: number;
   /** Lines of the shown board, 0..1. */
   lines: number;
-  /** Dice of the next board that stand so far, the stair last. */
+  /** Dice of the next board that stand so far. */
   risen: number;
 }
 
-/** What a passage is counted from: the dice that light up, the dice of the next board, and whether one of those is a stair. */
+/** What a passage is counted from: the dice that light up, and the dice of the next board. */
 export interface PassageCounts {
   combo: number;
   dice: number;
-  stair: boolean;
 }
 
 /** When each part of the passage ends, in milliseconds from its start. */
@@ -77,7 +76,7 @@ function ends(times: PassageTimes, counts: PassageCounts, reduced: boolean): End
   // With motion kept low there is no point and no wave: the board is changed in one frame, with its dice on it.
   ENDS.erase = ENDS.sink + (reduced ? 0 : times.eraseMs);
   ENDS.draw = ENDS.erase + (reduced ? 0 : times.drawMs);
-  ENDS.rise = ENDS.draw + (reduced ? 0 : riseSpan(counts.dice, counts.stair, times.riseStepMs, times.riseMs));
+  ENDS.rise = ENDS.draw + (reduced ? 0 : riseSpan(counts.dice, false, times.riseStepMs, times.riseMs));
   return ENDS;
 }
 
@@ -148,7 +147,7 @@ export function passageAt(
   } else if (t < end.rise) {
     into.phase = 'rise';
     into.at = share(t, end.draw, end.rise);
-    into.risen = stoodBy(t - end.draw, counts.dice, counts.stair, times.riseStepMs, times.riseMs);
+    into.risen = stoodBy(t - end.draw, counts.dice, false, times.riseStepMs, times.riseMs);
   } else {
     into.phase = 'done';
     into.at = 1;
@@ -206,7 +205,7 @@ export function boardAfter(current: Board, road: number, levels: number): Board 
  * The order the dice of a board light up and go in, or come in: the nearest to the cell `from`
  * first, by steps along the board; of two as near, the one in the lower row, then in the lower
  * column, so that the order is the same every time. Dice named as `late` come after all the
- * others: those that were going before the combo, or a stair. Gives the places of `dice` in
+ * others: those that were going before the combo. Gives the places of `dice` in
  * that order.
  */
 export function orderOf(dice: readonly { x: number; z: number; late?: boolean }[], from: { x: number; z: number }): number[] {

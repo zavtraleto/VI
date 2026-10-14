@@ -5,7 +5,7 @@ import { FILE_LEADS, boardAfter, orderOf, passageAt, passageEnd, startBoard, typ
 
 /** The numbers the look has for the passage as it is first laid out. */
 const TIMES: PassageTimes = { comboStepMs: 140, comboHoldMs: 350, sinkMs: 1300, eraseMs: 700, cameraMs: 900, drawMs: 1100, riseMs: 600, riseStepMs: 90 };
-const COUNTS = { combo: 3, dice: 4, stair: false };
+const COUNTS = { combo: 3, dice: 4 };
 const at = (ms: number, reduced = false, counts = COUNTS) => passageAt(ms, TIMES, counts, reduced);
 
 describe('the board the program opens on', () => {
@@ -107,13 +107,12 @@ describe('the passage between two boards', () => {
     expect(passageEnd(TIMES, COUNTS, false)).toBe(5020);
   });
 
-  it('brings a stair after the other dice stand', () => {
-    const stair = { combo: 3, dice: 4, stair: true };
-    // The three others stand a step apart; the stair has not begun.
-    expect(at(4150 + 600 + 180, false, stair).risen).toBe(3);
-    expect(at(5020, false, stair)).toMatchObject({ phase: 'rise', risen: 3 });
-    expect(at(4150 + 180 + 600 + 599, false, stair).risen).toBe(3);
-    expect(at(4150 + 180 + 600 + 600, false, stair)).toMatchObject({ phase: 'done', risen: 4 });
+  it('stairs rise with the other dice: a die laid as leaving has no turn of its own after them', () => {
+    // The dice are counted alike, the stair among them: the last stands when the fourth step has run, not a rise later.
+    expect(at(4150 + 600 + 180, false).risen).toBe(3);
+    expect(at(5019, false)).toMatchObject({ phase: 'rise', risen: 3 });
+    expect(at(5020, false)).toMatchObject({ phase: 'done', risen: 4 });
+    expect(passageEnd(TIMES, COUNTS, false)).toBe(5020);
   });
 
   it('with motion kept low changes the board at once when the dice are gone', () => {
@@ -125,7 +124,7 @@ describe('the passage between two boards', () => {
   });
 
   it('where no die lights up, waits the pause and sends what there is under together', () => {
-    const none = { combo: 0, dice: 2, stair: false };
+    const none = { combo: 0, dice: 2 };
     expect(at(0, false, none)).toMatchObject({ phase: 'combo', lit: 0 });
     expect(at(350, false, none).phase).toBe('sink');
     expect(at(350 + 1300, false, none).phase).toBe('erase');

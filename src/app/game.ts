@@ -1474,7 +1474,7 @@ export class Game {
     this.passage = {
       elapsed: 0,
       next,
-      counts: { combo: passing.count, dice: 0, stair: false },
+      counts: { combo: passing.count, dice: 0 },
       swapped: false,
       struck: false,
       aligned: false,
@@ -1661,8 +1661,8 @@ export class Game {
    * The next board of the passage is put on, once: laid with its starting cell on the cell the
    * player stands on, so that the figure does not move, with the camera given its time to come
    * to it. Its dice are under the floor and its lines are the cell of the player alone; they
-   * come in the order of their turns, the nearest to the player first and a stair, a die laid
-   * as leaving, last.
+   * come in the order of their turns, the nearest to the player first, the dice laid as leaving
+   * (a stair) among them: all rise together.
    */
   private putNext(passage: NonNullable<Game['passage']>): void {
     const { passing } = this;
@@ -1680,20 +1680,16 @@ export class Game {
     passage.wave = null;
     const { state } = this;
     const { cubes, player } = state;
-    const layout = state.levelRun?.spec.layout;
-    const laid = layout?.leaving?.[0];
-    const stair = laid ? cubeAt(state, layout!.dice[laid.die].x, layout!.dice[laid.die].z) : undefined;
-    const order = orderOf(cubes.map((cube) => ({ x: cube.x, z: cube.z, late: cube === stair })), player);
+    const order = orderOf(cubes.map((cube) => ({ x: cube.x, z: cube.z })), player);
     passing.mode = 'come';
     passing.ranks.clear();
     order.forEach((die, rank) => passing.ranks.set(cubes[die].id, rank));
     passing.count = cubes.length;
-    passing.stair = stair?.id ?? -1;
+    passing.stair = -1;
     passing.litMs = 0;
     passing.flashMs = 0;
     passing.moveMs = -1;
     passage.counts.dice = cubes.length;
-    passage.counts.stair = stair !== undefined;
     passage.order = order.map((die) => cubes[die].id);
     this.view.setPassing(passing);
     // The wave of its lines starts from the cell of the player, which is there from the first.
