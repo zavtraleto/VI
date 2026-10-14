@@ -917,15 +917,6 @@ export class BoardView {
     if (this.kicks.length > 0) this.kicks = this.kicks.filter((kick) => !ids.includes(kick.id));
   }
 
-  /** The last combo of a board: the wide ring of the finale runs over the floor where it stood, in the colour of its face, `wide` times as far as the look has it. */
-  farewell(cells: readonly { x: number; z: number }[], value: number, wide = 1): void {
-    if (this.still || cells.length === 0 || value < 1) return;
-    const n = (name: string): number => Number(this.look.board[name] ?? 0);
-    const cx = cells.reduce((sum, cell) => sum + cell.x, 0) / cells.length;
-    const cz = cells.reduce((sum, cell) => sum + cell.z, 0) / cells.length;
-    this.bursts.ring(cx, cz, n('endRingReach') * wide, n('endRingMs') * wide, this.lit[value - 1], 0.75);
-  }
-
   /** The board answers the dice that have gone: light runs over its lines in the colour of the face sent last. */
   answer(value: number): void {
     this.flash = 1;

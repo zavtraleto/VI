@@ -366,9 +366,8 @@ export class Game {
     counts: PassageCounts;
     swapped: boolean;
     struck: boolean;
-    /** The clock of the passage has been set to the frame the dice were seen under, and the ring of their going has been sent. */
+    /** The clock of the passage has been set to the frame the dice were seen under. */
     aligned: boolean;
-    ringed: boolean;
     beaten: boolean;
     lit: number;
     risen: number;
@@ -1477,7 +1476,6 @@ export class Game {
       swapped: false,
       struck: false,
       aligned: false,
-      ringed: false,
       beaten: true,
       lit: 0,
       risen: 0,
@@ -1521,13 +1519,6 @@ export class Game {
       passing.flashMs = Number(this.look.board.comboHoldMs);
       passing.litMs = passage.elapsed;
       passing.moveMs = passage.struck ? passing.moveForMs : passage.elapsed - finale.hang;
-      // As they begin to go, a wide ring runs over the floor from the middle of them, and is still running when they are under.
-      if (!passage.ringed && passage.elapsed >= finale.hang) {
-        passage.ringed = true;
-        const { cubes } = this.state;
-        const last = cubes.reduce<(typeof cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
-        this.view.farewell(cubes.map(({ x, z }) => ({ x, z })), last?.ori.top ?? 0, 2);
-      }
       // The lines are erased from the frame the dice are drawn under the floor (`onLeaving`): the picture and this
       // clock are a frame apart at most, and that frame is the picture's.
       if (!passage.struck) {

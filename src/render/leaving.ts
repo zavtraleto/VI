@@ -159,7 +159,7 @@ interface Going {
  * section 11). Gentle, and with one accent: the board answers a combo on the tick it is made, and
  * from there the dice only settle. A group that is sent sinks to its first step in one soft
  * movement, all its dice together; with every roll of the figure it comes a step down with the
- * roll (`restHeight`); with the last it goes into the floor, and a ring runs over the floor. The
+ * roll (`restHeight`); with the last it goes into the floor, silent. The
  * last combo of a board takes every die of the board under together (`finale`). Nothing here
  * strikes, lifts or comes back: a die that goes only goes down. All in the time of the picture;
  * the rules are read, never written. Outside a level it does nothing.

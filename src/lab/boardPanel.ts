@@ -158,8 +158,6 @@ const LABELS: Record<string, string> = {
   dropCurve: 'спуск: кривая (0 мягкий конец, 1 синус, 2 квадрат)',
   finaleHangMs: 'финал: кости стоят в свете, мс',
   finaleDropMs: 'финал: уход под пол, мс',
-  endRingReach: 'кольцо у пола: клеток',
-  endRingMs: 'кольцо у пола, мс',
   punchAttackMs: 'толчок камеры: атака, мс',
   punchDecayMs: 'толчок камеры: спад, мс',
   signTrail: 'знак свайпа: длина следа, доля',

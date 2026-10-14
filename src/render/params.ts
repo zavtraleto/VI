@@ -412,17 +412,15 @@ export const BOARD_GROUPS = {
      * «приятной, эффектной и радовать игрока», «нежная и приятная», not sluggish). A group that is
      * sent sinks to its first step in `dropMs`, all its dice together, along `dropCurve` (0
      * outCubic, 1 inOutSine, 2 outQuad): quick off the mark, soft at the end. With every roll of
-     * the figure it comes a step down with the roll; with the last it goes into the floor, and a
-     * ring runs over the floor from its middle, `endRingReach` cells in `endRingMs`.
+     * the figure it comes a step down with the roll; with the last it goes into the floor, and it
+     * goes silent: the one ring of the combo runs when it is made.
      */
     dropMs: number(300, 80, 800, 10),
     dropCurve: number(0, 0, 2, 1),
-    endRingReach: number(1.6, 0.5, 4, 0.1),
-    endRingMs: number(300, 100, 800, 10),
     /**
      * The last combo of a board: every die of the board flashes at once, on one chord; they stand
      * lit for `finaleHangMs`, and go under the floor together in `finaleDropMs`, slowly at first,
-     * while a wide ring runs over the floor.
+     * with the one ring of the combo, made when it flashes.
      */
     finaleHangMs: number(250, 0, 800, 10),
     finaleDropMs: number(450, 100, 1200, 10),

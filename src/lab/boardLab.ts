@@ -150,7 +150,7 @@ export class BoardLab {
   private owed = 0;
   private rested = 0;
   /** The last combo of the scene's board is taking its dice away: how long ago it began, and whether they have been seen under the floor. Null otherwise. */
-  private finale: { ms: number; ringed: boolean; under: boolean; value: number } | null = null;
+  private finale: { ms: number; under: boolean } | null = null;
   private readonly passing: DicePassing = { mode: 'leave', ranks: new Map(), count: 0, stair: -1, litMs: 0, moveMs: -1, stepMs: 0, moveForMs: 1, flashMs: 0, together: true };
   /** The view has to be built again before the next frame: its pictures are made once. */
   private stale = true;
@@ -323,7 +323,7 @@ export class BoardLab {
         else for (const beat of beatsOf(state, events)) view.beat(beat, state, false);
       }
     }
-    if (this.finale) this.runFinale(view, state, dt);
+    if (this.finale) this.runFinale(dt);
     // Played out, and with a finale its lines back: it stands a moment, and is played again.
     const over = scene.done || state.over;
     const settled = !this.finale || (this.finale.under && this.gridPlay === null);
@@ -344,15 +344,15 @@ export class BoardLab {
     passing.count = state.cubes.length;
     passing.litMs = 0;
     passing.moveMs = -1;
-    this.finale = { ms: 0, ringed: false, under: false, value };
+    this.finale = { ms: 0, under: false };
     view.setPassing(passing);
     view.finale(state, false);
     view.answer(value);
     view.beat({ kind: 'chain', value, tier: FINALE_TIER, cells: state.cubes.map(({ x, z }) => ({ x, z })) }, state, false);
   }
 
-  /** One frame of the finale: what the view reads of the dice going, and the wide ring as they begin to go. */
-  private runFinale(view: BoardView, state: RunState, dt: number): void {
+  /** One frame of the finale: what the view reads of the dice going. */
+  private runFinale(dt: number): void {
     const { finale, passing } = this;
     if (!finale) return;
     finale.ms += dt;
@@ -361,10 +361,6 @@ export class BoardLab {
     passing.flashMs = Number(this.look.board.comboHoldMs);
     passing.litMs = finale.ms;
     passing.moveMs = finale.under ? passing.moveForMs : finale.ms - times.hang;
-    if (!finale.ringed && finale.ms >= times.hang) {
-      finale.ringed = true;
-      view.farewell(state.cubes.map(({ x, z }) => ({ x, z })), finale.value, 2);
-    }
   }
 
   setFixed(fixed: boolean): void {
