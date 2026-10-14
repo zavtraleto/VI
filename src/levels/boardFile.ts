@@ -288,6 +288,26 @@ export function readBoardHead(text: string): BoardHead {
   return head;
 }
 
+/** The keys of the head that are the library's (docs/superpowers/specs/2026-10-14-vi-board-library-design.md): said anew by `withHead`, the rest of a file left as it is. */
+const LIBRARY_KEYS = /^(status|origin|mark|words|tags):/;
+
+/**
+ * A file with the lines of the library in its head said anew — status, origin, mark, words,
+ * tags — and every other line, the board itself, its way and its comments, as they were. The
+ * new lines stand after the id and the note, where `printBoard` puts them.
+ */
+export function withHead(text: string, head: BoardHead): string {
+  const lines = text.split(/\r?\n/);
+  const end = lines.findIndex((line) => /^-{3,}$/.test(line.trim()));
+  if (end < 0) throw new Error('a file of a board has "---" before its rows');
+  const kept = lines.slice(0, end).filter((line) => !LIBRARY_KEYS.test(line.trim()));
+  const said = printBoard(parseBoard(text, 'x', true), head)
+    .split('\n')
+    .filter((line) => LIBRARY_KEYS.test(line));
+  const at = Math.max(kept.findIndex((line) => /^note:/.test(line.trim())), kept.findIndex((line) => /^id:/.test(line.trim()))) + 1;
+  return [...kept.slice(0, at), ...said, ...kept.slice(at), ...lines.slice(end)].join('\n');
+}
+
 /** The sign of every cell of a board, row by row from the north: what `printBoard` writes and `parseBoard` reads. */
 export function boardSigns(spec: LevelSpec): string[][] {
   const { size, layout } = spec;

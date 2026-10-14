@@ -1,5 +1,7 @@
 import type { LevelSpec } from '../rules/types';
 import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardMark, type BoardStatus, type BoardWords } from './boardFile';
+
+export { withHead } from './boardFile';
 import { sameBoard } from './variety';
 
 /**

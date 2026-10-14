@@ -1,4 +1,4 @@
-import type { Version } from './boardsServer';
+import type { HeadPatch, Version } from './boardsServer';
 
 /**
  * The files of the lab of the levels as the page asks for them: every call is an address of the
@@ -45,6 +45,21 @@ export async function playsOf<T>(name: string): Promise<T[]> {
 
 export async function addPlay(name: string, play: unknown): Promise<void> {
   await asked(at(name, '/plays'), { method: 'POST', body: JSON.stringify(play) });
+}
+
+/** Every board with its text and the hash of its version, for the library. */
+export async function listHeads(): Promise<{ name: string; text: string; hash: string | null }[]> {
+  return (await (await asked('/__boards?heads')).json()) as { name: string; text: string; hash: string | null }[];
+}
+
+/** Lays a mark and words into the head of a board's file; no version is kept, the board being the same. */
+export async function writeHead(name: string, patch: HeadPatch): Promise<void> {
+  await asked(at(name, '/head'), { method: 'PUT', body: JSON.stringify(patch) });
+}
+
+/** Keeps the text a session of the library gave out, in `boards/.history/export-<date>.md`; the path it is kept at. */
+export async function writeExport(date: string, text: string): Promise<string> {
+  return ((await (await asked(`/__boards?export=${encodeURIComponent(date)}`, { method: 'POST', body: text })).json()) as { file: string }).file;
 }
 
 /** Calls `told` with the name of a board whenever its file is changed on the disk, by this page or by anyone else. */

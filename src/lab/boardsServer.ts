@@ -1,5 +1,5 @@
 import { isBoardName } from '../app/boardProbe';
-import { normalSpec, parseBoard, printBoard } from '../levels/boardFile';
+import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, withHead, type BoardMark, type BoardWords } from '../levels/boardFile';
 
 /**
  * What the dev server does for the lab of the levels, as far as it can be said without a disk:
@@ -14,6 +14,9 @@ import { normalSpec, parseBoard, printBoard } from '../levels/boardFile';
  *   GET  /__boards/<name>/history/<file>   the text of one of them
  *   GET  /__boards/<name>/plays            the plays written down, as JSON
  *   POST /__boards/<name>/plays            writes a play down: a line of JSON
+ *   GET  /__boards?heads                   every board with its text and hash: [{ name, text, hash }], for the library
+ *   PUT  /__boards/<name>/head             a mark and words laid into the head of the file (`patchHead`); no version is kept
+ *   POST /__boards?export=<date>           a text given out by the library, kept in boards/.history/export-<date>.md
  *
  * A name is the name of a board and nothing more: letters, digits, `-` and `_`. A name with a
  * dot or a slash in it would be a path, and the page would write wherever it liked.
@@ -79,7 +82,9 @@ export function versionOf(file: string): Version | null {
 
 /** What an address of the plugin asks for. */
 export type BoardsAsk =
-  | { kind: 'list' }
+  | { kind: 'list' | 'heads' }
+  | { kind: 'export'; date: string }
+  | { kind: 'head'; name: string }
   | { kind: 'read' | 'write' | 'history' | 'plays' | 'play'; name: string }
   | { kind: 'version'; name: string; file: string }
   | { kind: 'refused'; status: 400 | 404 | 405; why: string };
@@ -91,10 +96,17 @@ export type BoardsAsk =
 export function askOf(method: string, path: string): BoardsAsk {
   const refused = (status: 400 | 404 | 405, why: string): BoardsAsk => ({ kind: 'refused', status, why });
   let parts: string[];
+  const query = new URLSearchParams(path.split('?')[1] ?? '');
   try {
     parts = path.split('?')[0].split('/').filter((part) => part !== '').map(decodeURIComponent);
   } catch {
     return refused(400, 'an address that cannot be read');
+  }
+  if (parts.length === 0 && query.has('heads')) return method === 'GET' ? { kind: 'heads' } : refused(405, 'the heads are only read');
+  if (parts.length === 0 && query.has('export')) {
+    const date = query.get('export') ?? '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return refused(400, `"${date}" is no date: YYYY-MM-DD`);
+    return method === 'POST' ? { kind: 'export', date } : refused(405, 'an export is written with POST');
   }
   if (parts.length === 0) return method === 'GET' ? { kind: 'list' } : refused(405, 'the list is only read');
   const name = safeName(parts[0]);
@@ -105,6 +117,48 @@ export function askOf(method: string, path: string): BoardsAsk {
     if (versionOf(parts[2]) === null) return refused(400, `"${parts[2]}" is no file of the history`);
     return method === 'GET' ? { kind: 'version', name, file: parts[2] } : refused(405, 'a version is only read');
   }
+  if (parts[1] === 'head' && parts.length === 2) return method === 'PUT' ? { kind: 'head', name } : refused(405, 'a head is written with PUT');
   if (parts[1] === 'plays' && parts.length === 2) return method === 'GET' ? { kind: 'plays', name } : method === 'POST' ? { kind: 'play', name } : refused(405, 'the plays are read with GET and added to with POST');
   return refused(404, 'no such address');
+}
+
+/** What the page of the library lays into the head of a file: the mark, and words to add, each with its day. */
+export interface HeadPatch {
+  mark?: BoardMark;
+  words?: BoardWords[];
+}
+
+/** The patch a body of `PUT …/head` says, or null where it says no such thing. */
+export function headPatchOf(body: string): HeadPatch | null {
+  let said: unknown;
+  try {
+    said = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (said === null || typeof said !== 'object') return null;
+  const { mark, words } = said as { mark?: unknown; words?: unknown };
+  if (mark !== undefined && !(BOARD_MARKS as readonly unknown[]).includes(mark)) return null;
+  if (words !== undefined && (!Array.isArray(words) || !words.every((word) => word && typeof word.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(word.date) && typeof word.text === 'string' && word.text.trim() !== '' && !/[\r\n]/.test(word.text)))) return null;
+  return { ...(mark !== undefined ? { mark: mark as BoardMark } : {}), ...(words !== undefined ? { words: (words as BoardWords[]).map(({ date, text }) => ({ date, text: text.trim() })) } : {}) };
+}
+
+/**
+ * A file with a mark and words laid into its head: the mark stands for the one there was, the
+ * words go after those there are, and nothing else of the file changes. The board is the same,
+ * so its hash is: the plugin keeps no version for it.
+ */
+export function patchHead(text: string, patch: HeadPatch): string {
+  const head = readBoardHead(text);
+  const { migrated: _migrated, ...rest } = head;
+  return withHead(text, {
+    ...rest,
+    ...(patch.mark ? { mark: patch.mark } : {}),
+    ...(patch.words && patch.words.length > 0 ? { words: [...(head.words ?? []), ...patch.words] } : {}),
+  });
+}
+
+/** The file of the history an export of a day is kept in. */
+export function exportFile(date: string): string {
+  return `export-${date}.md`;
 }

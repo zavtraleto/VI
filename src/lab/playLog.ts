@@ -30,6 +30,8 @@ export interface PlayRecord {
   fresh?: boolean;
   /** He wanted another at once, which is not the same as liking this one. */
   more?: boolean;
+  /** What he wrote of the board after the play, on the page of the library. */
+  words?: string;
   /** The order the board was laid for, as its line; and what was known of the board when it was played. */
   order?: string;
   measures?: Record<string, number>;
@@ -41,7 +43,7 @@ export type Rate = 'fire' | 'ok' | 'miss';
 /** An answer given after its play was written down: the play is named by when it ended, and the answer is laid over it when the plays are read. */
 export interface PlayPatch {
   at: string;
-  patch: Pick<PlayRecord, 'rate' | 'asOrdered' | 'fresh' | 'more'>;
+  patch: Pick<PlayRecord, 'rate' | 'asOrdered' | 'fresh' | 'more' | 'words'>;
 }
 
 /**

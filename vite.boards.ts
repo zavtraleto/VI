@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
-import { askOf, boardHash, historyFile, safeName, versionOf } from './src/lab/boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, safeName, versionOf } from './src/lab/boardsServer';
 
 /**
  * The files of the lab of the levels for the page `?lab=levels`: the dev server reads and writes
@@ -44,7 +44,36 @@ export function viBoards(): Plugin {
             const names = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.txt')).map((file) => basename(file, '.txt')).filter((name) => safeName(name) !== null).sort() : [];
             return send(200, JSON.stringify(names));
           }
+          if (ask.kind === 'heads') {
+            // Every board with its text and the hash of its version, for the table of the library.
+            const names = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.txt')).map((file) => basename(file, '.txt')).filter((name) => safeName(name) !== null).sort() : [];
+            return send(200, JSON.stringify(names.map((name) => {
+              const text = readFileSync(join(dir, `${name}.txt`), 'utf8');
+              return { name, text, hash: boardHash(text, name) };
+            })));
+          }
+          if (ask.kind === 'export') {
+            // The text a session of the library gave out, kept beside the history: said once, however often it is given.
+            const text = await body();
+            const kept = join(dir, '.history', exportFile(ask.date));
+            mkdirSync(join(dir, '.history'), { recursive: true });
+            const there = existsSync(kept) ? readFileSync(kept, 'utf8') : '';
+            if (!there.includes(text)) writeFileSync(kept, there === '' ? text : `${there}\n${text}`);
+            return send(200, JSON.stringify({ file: `boards/.history/${exportFile(ask.date)}` }));
+          }
           const file = join(dir, `${ask.name}.txt`);
+          if (ask.kind === 'head') {
+            // A mark and words laid into the head: the board is the same, so no version is kept.
+            const patch = headPatchOf(await body());
+            if (!patch) return send(400, JSON.stringify({ error: 'a head is { mark?, words?: [{ date, text }] }' }));
+            if (!existsSync(file)) return send(404, JSON.stringify({ error: `no board ${ask.name}` }));
+            try {
+              writeFileSync(file, patchHead(readFileSync(file, 'utf8'), patch));
+            } catch (error) {
+              return send(400, JSON.stringify({ error: (error as Error).message }));
+            }
+            return send(200, '{}');
+          }
           if (ask.kind === 'read') return existsSync(file) ? send(200, readFileSync(file, 'utf8'), 'text/plain') : send(404, JSON.stringify({ error: `no board ${ask.name}` }));
           if (ask.kind === 'write') {
             const text = await body();

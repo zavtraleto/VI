@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { printBoard } from '../levels/boardFile';
+import { printBoard, readBoardHead } from '../levels/boardFile';
 import { ROAD } from '../levels/road';
-import { askOf, boardHash, historyPath, safeName, versionOf } from './boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyPath, patchHead, safeName, versionOf } from './boardsServer';
 
 describe('safeName', () => {
   it('takes the name of a board and nothing that could be a path', () => {
@@ -30,6 +30,25 @@ describe('the history', () => {
   });
 });
 
+describe('a head laid into a file', () => {
+  const text = `id: H01\nnote: заметка\nstatus: RC\norigin: проба 7 октября\nwords: 2026-10-12: было\n# своя строка\nfaces: 2\n---\n 23* 65\n  .   .\n`;
+  it('sets the mark and adds the words, and leaves the rest of the file as it was', () => {
+    const patched = patchHead(text, { mark: 'огонь', words: [{ date: '2026-10-14', text: 'стало' }] });
+    expect(patched).toBe(`id: H01\nnote: заметка\nstatus: RC\norigin: проба 7 октября\nmark: огонь\nwords: 2026-10-12: было\nwords: 2026-10-14: стало\n# своя строка\nfaces: 2\n---\n 23* 65\n  .   .\n`);
+    expect(readBoardHead(patchHead(patched, { mark: 'мимо' })).mark).toBe('мимо');
+  });
+  it('is the same board, so no version of it is kept', () => {
+    expect(boardHash(patchHead(text, { mark: 'норм', words: [{ date: '2026-10-14', text: 'а' }] }))).toBe(boardHash(text));
+  });
+  it('reads a patch from a body, and refuses what is none', () => {
+    expect(headPatchOf('{"mark":"огонь","words":[{"date":"2026-10-14","text":" да "}]}')).toEqual({ mark: 'огонь', words: [{ date: '2026-10-14', text: 'да' }] });
+    expect(headPatchOf('{"mark":"класс"}')).toBeNull();
+    expect(headPatchOf('{"words":[{"date":"14 октября","text":"да"}]}')).toBeNull();
+    expect(headPatchOf('{"words":[{"date":"2026-10-14","text":"две\\nстроки"}]}')).toBeNull();
+    expect(headPatchOf('torn')).toBeNull();
+  });
+});
+
 describe('askOf', () => {
   it('reads what an address asks for', () => {
     expect(askOf('GET', '/')).toEqual({ kind: 'list' });
@@ -48,6 +67,16 @@ describe('askOf', () => {
     expect(askOf('GET', '/H01/history/..%2F..%2Fx.txt')).toMatchObject({ kind: 'refused', status: 400 });
     expect(askOf('GET', '/H01/history/plays.jsonl')).toMatchObject({ kind: 'refused', status: 400 });
     expect(askOf('GET', '/%E0%A4%A')).toMatchObject({ kind: 'refused', status: 400 });
+  });
+  it('reads the addresses of the library: the heads, a head, an export of a day', () => {
+    expect(askOf('GET', '/?heads')).toEqual({ kind: 'heads' });
+    expect(askOf('GET', '?heads')).toEqual({ kind: 'heads' });
+    expect(askOf('PUT', '/H01/head')).toEqual({ kind: 'head', name: 'H01' });
+    expect(askOf('POST', '?export=2026-10-14')).toEqual({ kind: 'export', date: '2026-10-14' });
+    expect(askOf('POST', '?export=../x')).toMatchObject({ kind: 'refused', status: 400 });
+    expect(askOf('GET', '/H01/head')).toMatchObject({ kind: 'refused', status: 405 });
+    expect(askOf('PUT', '?heads')).toMatchObject({ kind: 'refused', status: 405 });
+    expect(exportFile('2026-10-14')).toBe('export-2026-10-14.md');
   });
   it('refuses a method an address does not take, and an address there is none of', () => {
     expect(askOf('DELETE', '/H01')).toMatchObject({ kind: 'refused', status: 405 });

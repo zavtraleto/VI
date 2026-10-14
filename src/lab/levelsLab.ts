@@ -5,7 +5,7 @@ import { BOARD_STATUSES, normalSpec, parseBoard, printBoard, readBoardHead, type
 import { specFromState } from '../levels/snapshot';
 import { REPORT_PLAYERS } from '../rules/levelReport';
 import { moveOf, tryWay } from '../rules/levelSolver';
-import type { Dir, LevelSpec, RunState } from '../rules/types';
+import type { Dir, LevelSpec } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { BoardEditor, type Overlay } from './boardEditor';
 import { BoardStage } from './boardStage';
@@ -20,7 +20,8 @@ import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, rawSpecOf, 
 import { GEN_PLACES, GEN_SEEDS, instantOf, type Ask, type Fixed, type Instant, type Later, type Offer, type Seconds } from './labFacts';
 import type { SetBoard } from '../levels/sets';
 import { OrderDesk } from './orderDesk';
-import { mergePlays, playRecordOf, ratingsOf, ratingsText, versionSummary, type PlayPatch, type PlayRecord, type Rate } from './playLog';
+import { mergePlays, ratingsOf, ratingsText, versionSummary, type PlayPatch, type PlayRecord, type Rate } from './playLog';
+import { PlayWatch, type Inside, type ToldPlay } from './playWatch';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 
 /** A change is written to its file this long after it is made, and after the last of several made together. */
@@ -34,29 +35,6 @@ const solver = (): WorkerLike => new Worker(new URL('./solve.worker.ts', import.
 /** A question without its number: the client numbers it. */
 type Question<T extends Ask['tier']> = Extract<Ask, { tier: T }> extends infer Q ? (Q extends unknown ? Omit<Q, 'id'> : never) : never;
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
-
-/** What the lab reaches inside the game. These are private to it: the lab is a tool and looks inside. */
-interface Inside {
-  readonly state: RunState;
-  /** Moves taken back since the board was put on. */
-  readonly undosMade: number;
-  readonly audio: { setAway(away: boolean): void };
-}
-
-/** A play of the board that is being watched: the run as it was last seen, when it began, and what it is a play of. */
-interface Watched {
-  state: RunState;
-  undos: number;
-  startedAt: number;
-  name: string;
-  hash: string;
-  par: number | null;
-  /** The play has been written down: one that clears the board is, at once. */
-  told: boolean;
-  /** The order the board was laid for, and what was known of it when the play began. */
-  order?: string;
-  measures: Record<string, number>;
-}
 
 /** The play the owner is asked about: which it was, and what he has said of it so far. */
 interface Asked {
@@ -170,8 +148,8 @@ class LevelsLab {
   private asked: Asked | null = null;
   private readonly askBar = document.createElement('div');
   private showRatings: string | null = null;
-  /** The play in hand, while the board is played. */
-  private watched: Watched | null = null;
+  /** The plays of the board, watched while it is played. */
+  private readonly watcher: PlayWatch;
   /** The status every file says it has, for the list of the files. */
   private statuses = new Map<string, BoardStatus | undefined>();
   /** What the panel shows of the head: the panel edits this copy and the lab reads it. */
@@ -179,6 +157,7 @@ class LevelsLab {
 
   constructor(private readonly game: Game) {
     this.inside = game as unknown as Inside;
+    this.watcher = new PlayWatch(this.inside, (record, of) => this.tellPlay(record, of.name));
     const { root, facts, badge, palette } = this;
     root.style.cssText = `position:fixed;inset:0;z-index:900;display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:minmax(0,1fr);padding-right:256px;box-sizing:border-box;pointer-events:none;color:${palette.ink};font:13px/1.45 ${PROGRAM_FONT}`;
     // The middle of the page is clear: the board of the game is seen through it, and the stage over it takes the mouse.
@@ -1072,7 +1051,7 @@ class LevelsLab {
       this.game.playBoard(this.spec);
       this.watch();
     } else {
-      this.endPlay();
+      this.watcher.stop();
       this.setRun = null;
       this.playing = false;
       this.root.style.display = 'grid';
@@ -1086,62 +1065,25 @@ class LevelsLab {
     }
   }
 
-  /**
-   * Watches the play of the board, frame by frame, to write it down when it is over. A play is
-   * over when the board is cleared, which is written at once; when the board is started over;
-   * and when the editor is come back to. A move taken back puts another run in the game's hand
-   * and is no new play: the count of moves taken back tells the two apart.
-   */
+  /** The plays of the board as it stands are watched, to be written down as each is over (`PlayWatch`). */
   private watch(): void {
     const seconds = this.seconds && typeof this.seconds !== 'string' ? this.seconds : null;
     const note = this.extra.note ?? '';
     const measures: Record<string, number> = { size: this.spec?.size ?? 0, dice: this.spec?.norm ?? 0, ...(seconds ? { firsts: seconds.firsts, states: seconds.check.states } : {}) };
-    const of = { name: this.name, hash: boardHash(this.text(), this.name) ?? '', par: seconds?.check.par ?? this.spec?.par ?? null, measures, ...(note.startsWith('заказ ') ? { order: note.slice('заказ '.length) } : {}) };
     // A new play: what was being asked of the one before is asked no more.
     this.ask(null);
-    const begin = (): Watched => ({ ...of, state: this.inside.state, undos: this.inside.undosMade, startedAt: Date.now(), told: false });
-    this.watched = null;
-    const frame = (): void => {
-      if (!this.playing) return;
-      window.requestAnimationFrame(frame);
-      const { state, undosMade } = this.inside;
-      // The board is put on when the game has opened: until then the run in hand is no level.
-      if (!state.levelRun) return;
-      const play = this.watched;
-      if (!play) {
-        this.watched = begin();
-        return;
-      }
-      if (state !== play.state && undosMade <= play.undos) {
-        this.endPlay();
-        this.watched = begin();
-        return;
-      }
-      play.state = state;
-      play.undos = undosMade;
-      if (state.endReason === 'passed' && !play.told) this.tellPlay(play);
-    };
-    window.requestAnimationFrame(frame);
+    this.watcher.start({ name: this.name, hash: boardHash(this.text(), this.name) ?? '', par: seconds?.check.par ?? this.spec?.par ?? null, measures, ...(note.startsWith('заказ ') ? { order: note.slice('заказ '.length) } : {}) });
   }
 
-  /** The play in hand is over: it is written down, unless it was already, or nothing was done in it. */
-  private endPlay(): void {
-    const play = this.watched;
-    this.watched = null;
-    if (play && !play.told && (play.state.levelRun?.moves ?? 0) > 0) this.tellPlay(play);
-  }
-
-  private tellPlay(play: Watched): void {
-    play.told = true;
+  private tellPlay(record: ToldPlay, name: string): void {
     // A board that has been played is not blind any more: what is known of it is shown.
     if (this.views.blind) {
       this.views.blind = false;
       for (const control of this.viewControls) control.updateDisplay();
       if (!this.playing) this.show();
     }
-    const record = { ...playRecordOf(play.state, play.startedAt, Date.now(), play.undos, play), measures: play.measures, ...(play.order ? { order: play.order } : {}) };
-    void addPlay(play.name, record).catch((error: Error) => console.error(error));
-    this.ask({ name: play.name, at: record.at, ordered: play.order !== undefined, said: {} });
+    void addPlay(name, record).catch((error: Error) => console.error(error));
+    this.ask({ name, at: record.at, ordered: record.order !== undefined, said: {} });
   }
 
   /** Begins to ask of a play, or stops asking: the line of the keys is shown over the page while a play is asked of. */

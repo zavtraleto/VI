@@ -42,6 +42,11 @@ if (lab === 'shell') {
   const game = new Game(document.getElementById('app')!);
   (window as unknown as { vi: Game }).vi = game;
   void import('./lab/levelsLab').then(({ startLevelsLab }) => startLevelsLab(game));
+} else if (lab === 'library') {
+  // The library of the boards: every file of boards/ in a table, the game beside it to play one, mark it and say a word of it.
+  const game = new Game(document.getElementById('app')!);
+  (window as unknown as { vi: Game }).vi = game;
+  void import('./lab/libraryLab').then(({ startLibraryLab }) => startLibraryLab(game));
 } else if (lab === 'sound') {
   // The lab for the sound: no game, a button for everything that can be heard and a panel of its parameters.
   void import('./lab/soundLab').then(({ startSoundLab }) => startSoundLab());

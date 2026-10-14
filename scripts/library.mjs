@@ -207,23 +207,12 @@ async function lay() {
     const stood = file.head.migrated && file.head.status === 'D' ? undefined : file.head.status;
     const head = { ...merged, status: library.statusFor(file.name, stood, merged.mark, CHAPTERS) };
     // A file there was keeps its board and its other lines as they are: only the head of the library is said anew.
-    const text = file.before ? withHead(file.text, head) : printBoard(file.spec, head);
+    const text = file.before ? library.withHead(file.text, head) : printBoard(file.spec, head);
     if (file.before && text === file.text) continue;
     writeFileSync(resolve(boardsDir, `${file.name}.txt`), text);
     written++;
   }
   return { files: files.length, written, counts, before: files.filter((file) => file.before).length };
-}
-
-/** The text of a file with its head lines of the library said anew, the board and its other lines as they were. */
-function withHead(text, head) {
-  const lines = text.split(/\r?\n/);
-  const end = lines.findIndex((line) => /^-{3,}$/.test(line.trim()));
-  const keep = lines.slice(0, end).filter((line) => !/^(status|origin|mark|words|tags):/.test(line.trim()));
-  const said = printBoard(parseBoard(text, 'x', true), head).split('\n').filter((line) => /^(status|origin|mark|words|tags):/.test(line));
-  // The new lines stand where the old head had its status, or after the id and the note.
-  const at = Math.max(keep.findIndex((line) => /^note:/.test(line.trim())), keep.findIndex((line) => /^id:/.test(line.trim()))) + 1;
-  return [...keep.slice(0, at), ...said, ...keep.slice(at), ...lines.slice(end)].join('\n');
 }
 
 /** The row and the other boards of the code, as `checkLibrary` takes them. */
