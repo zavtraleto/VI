@@ -86,21 +86,30 @@ if (flag('limit')) {
   // The pieces of the road, or the whole row of the campaign: the pieces and then the levels of the list.
   const { ROAD } = await load('/src/levels/road.ts');
   const { CAMPAIGN } = await load('/src/levels/campaign.ts');
-  const { roadRow, roadTable, ROAD_WALK_LIMIT } = await load('/src/levels/table.ts');
+  const { roadRow, roadTable, ROAD_WALK_LIMIT, slowFactsOf, grammarText } = await load('/src/levels/table.ts');
+  const { fastGrammar, slowGrammar } = await load('/src/levels/grammar.ts');
   const stops = flag('campaign') ? CAMPAIGN : CAMPAIGN.slice(0, ROAD.length);
   // A board by its chapter and its role: `0:meet` is the first piece of the prologue, `1:meet` the first board of chapter 1.
   const roleOf = (stop) => `${stop.chapter}:${stop.role}`;
   if (worker) {
     stops.forEach((stop, index) => {
-      if (mine(index)) console.log(JSON.stringify({ index, row: roadRow(stop.number, stop.spec, roleOf(stop), Number(named.walk ?? ROAD_WALK_LIMIT)) }));
+      if (!mine(index)) return;
+      const walk = Number(named.walk ?? ROAD_WALK_LIMIT);
+      // The row of the table, and for the whole row of the campaign what the slow rules of the grammar ask of the board.
+      const facts = flag('campaign') ? slowFactsOf(stop.spec, stop.teaches, walk) : null;
+      console.log(JSON.stringify({ index, row: roadRow(stop.number, stop.spec, roleOf(stop), walk), facts }));
     });
   } else {
     const rows = [];
-    await shareOut([], ({ index, row }) => {
+    const facts = [];
+    await shareOut([], ({ index, row, facts: found }) => {
       rows[index] = row;
+      facts[index] = found;
       console.error(`${rows.filter(Boolean).length} of ${stops.length} boards measured`);
     });
     console.log(roadTable(rows));
+    // Under the table of the campaign, the rules of the grammar it breaks (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 3).
+    if (flag('campaign')) console.log('\n' + grammarText([...fastGrammar(stops), ...slowGrammar(stops, (stop) => facts[stops.indexOf(stop)])].sort((a, b) => a.at - b.at || a.rule - b.rule)));
   }
 } else if (named.chapter !== undefined) {
   const { PLACES } = await load('/src/levels/recipes.ts');
