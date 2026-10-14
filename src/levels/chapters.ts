@@ -26,6 +26,7 @@ export const CHAPTERS: readonly Chapter[] = [
   { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02', 'R03', 'R04', 'R05', 'R07', 'R08'] },
   { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'C1-05', 'C1-06', 'C1-07'] },
   { id: 2, title: 'order', faces: [2, 3], stops: ['R09', 'P07', 'P08', 'C2-05', 'P24'] },
+  { id: 3, title: 'floor', faces: [2, 3], stops: ['R13', 'R10', 'R14', 'P06', 'P09', 'R16', 'P12'] },
 ];
 
 /** What a board is in the row, by its code: its chapter, its role, the move it brings in, what it is about (its archetype) and what is seen on it first. */
@@ -55,6 +56,13 @@ export const STOPS: Readonly<Record<string, StopMeta>> = {
   P08: { chapter: 2, role: 'apply', archetype: 'two combos in any order' },
   'C2-05': { chapter: 2, role: 'twist', archetype: 'decoy of the wrong channel', event: 'first trap' },
   P24: { chapter: 2, role: 'rest', archetype: 'domino', event: 'first corridor' },
+  R13: { chapter: 3, role: 'meet', teaches: 'push', archetype: 'push to a waiting die', event: 'first push' },
+  R10: { chapter: 3, role: 'meet', teaches: 'lift', archetype: 'lift by a laid stair', event: 'first step down and up' },
+  R14: { chapter: 3, role: 'apply', archetype: 'down and back' },
+  P06: { chapter: 3, role: 'apply', archetype: 'down and back' },
+  P09: { chapter: 3, role: 'apply', archetype: 'push sends the last die' },
+  R16: { chapter: 3, role: 'twist', archetype: 'everything at once' },
+  P12: { chapter: 3, role: 'peak', archetype: 'down and back with two faces' },
 };
 
 /** A board on the faces of its chapter: the faces that work and the values it is counted on are the chapter's. */

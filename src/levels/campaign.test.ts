@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CAMPAIGN, CHAPTERS, HINTS, STOPS, campaignCells, campaignDone, campaignFocus, numberOf, stopOf, withChapterFaces } from './campaign';
-import { CHAPTER_1, CHAPTER_2, LEVELS } from './levels';
+import { CHAPTER_1, CHAPTER_2, CHAPTER_3, LEVELS } from './levels';
 import { ROAD, ROAD_END } from './road';
 
 const none = { passed: {}, stats: {} };
@@ -62,15 +62,20 @@ describe('where the list opens', () => {
 describe('the chapters of the row', () => {
   it('is the prologue and the chapters, in the order of CHAPTERS, numbered from one', () => {
     expect(CAMPAIGN.map((stop) => stop.spec.id)).toEqual(CHAPTERS.flatMap((chapter) => chapter.stops));
-    // Seventeen until chapter 3 is laid (task 3 of the plan of step 3).
-    expect(CAMPAIGN.length).toBe(17);
+    expect(CAMPAIGN.length).toBe(24);
+    expect(CAMPAIGN[17]).toMatchObject({ chapter: 3, role: 'meet', teaches: 'push' });
+    expect(CAMPAIGN[18]).toMatchObject({ chapter: 3, role: 'meet', teaches: 'lift' });
+    expect(CHAPTER_3.map((spec) => spec.id)).toEqual(CHAPTERS[3].stops);
+    // The lessons of the floor keep their fixed dice, and the floor is open.
+    for (const spec of CHAPTER_3.slice(0, 2)) expect(spec.layout!.dice.some((die) => die.fixed), spec.id).toBe(true);
+    for (const spec of CHAPTER_3) expect(spec.floor, spec.id).toBeUndefined();
     expect(CAMPAIGN[12]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
     // The boards the owner called a repeat on 14 October are out of the row.
     for (const id of ['R15', 'C1-04', 'K22', 'R12', 'P15']) expect(CAMPAIGN.some((stop) => stop.spec.id === id), id).toBe(false);
     expect(CHAPTER_2.map((spec) => spec.id)).toEqual(CHAPTERS[2].stops);
     expect(CAMPAIGN[0]).toMatchObject({ chapter: 0, role: 'meet' });
     expect(CAMPAIGN[7]).toMatchObject({ chapter: 1, role: 'meet', teaches: 'walk' });
-    expect(CHAPTERS.map((chapter) => [chapter.id, chapter.faces])).toEqual([[0, null], [1, [2, 3]], [2, [2, 3]]]);
+    expect(CHAPTERS.map((chapter) => [chapter.id, chapter.faces])).toEqual([[0, null], [1, [2, 3]], [2, [2, 3]], [3, [2, 3]]]);
     expect(CHAPTERS[0].stops).toEqual(ROAD.map((spec) => spec.id));
     expect(CHAPTER_1.map((spec) => spec.id)).toEqual(CHAPTERS[1].stops);
   });
@@ -96,6 +101,8 @@ describe('the chapters of the row', () => {
       R07: { key: 'roadHintChain', until: 'chain' },
       R11: { key: 'roadHintWalk', until: 'walk' },
       'C1-05': { key: 'hintSeven', until: 'combo' },
+      R13: { key: 'roadHintPush', until: 'push' },
+      R10: { key: 'roadHintClimb', until: 'climb' },
     });
     expect(STOPS.R11.teaches).toBe('walk');
     expect(STOPS['C1-05']).toMatchObject({ role: 'apply', event: 'the rule of seven' });

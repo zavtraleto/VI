@@ -61,6 +61,9 @@ export const HINTS: Readonly<Record<string, Hint>> = {
   // The walk over leaving dice on its meeting, and the seven where a die has to be laid by its hidden face (the owner, 14 October 2026).
   R11: { key: 'roadHintWalk', until: 'walk' },
   'C1-05': { key: 'hintSeven', until: 'combo' },
+  // The two lessons of chapter 3, the floor and the push: their lines come back from the road (the owner: «точно нужно где-то одной строкой»).
+  R13: { key: 'roadHintPush', until: 'push' },
+  R10: { key: 'roadHintClimb', until: 'climb' },
 };
 
 export function stopOf(board: Board): Stop | undefined {

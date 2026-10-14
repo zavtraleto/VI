@@ -11,7 +11,7 @@ import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN_PLACES } from './campaignRecipes';
 import { levelId } from './generate';
 import { CHAPTERS } from './campaign';
-import { CHAPTER_1, CHAPTER_2, LEVELS, PARKED, SPARES } from './levels';
+import { CHAPTER_1, CHAPTER_2, CHAPTER_3, LEVELS, PARKED, SPARES } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
 import { chaptersOf, ladderProgress } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
@@ -32,11 +32,13 @@ import { UNLIKE_BY, sameBoard, traitsOf, unlike } from './variety';
 const placeOf = (spec: LevelSpec): Recipe | undefined => [...PLACES, ...ROAD_PLACES, ...CAMPAIGN_PLACES].find((place) => levelId(place) === spec.id);
 /** The boards of the row that came from the spares of the road: their places are of the road, and lay them on its faces and its floor. */
 const OF_ROAD = new Set(ROAD_SPARES.map((spec) => spec.id));
+/** The lessons of the road a chapter took: laid by hand for their move, with no place (`road.ts`). */
+const ROAD_LESSONS = new Set(['R10', 'R13']);
 const wayOf = (spec: LevelSpec) => (spec.solution ?? []).map(moveOf);
 /** The tail of the row of the probe list, parked on 14 October 2026, in the order it had; P02 went to chapter 1, P07, P08 and P15 to chapter 2. */
-const TAIL_ORDER = ['P13', 'P04', 'P14', 'P01', 'P12', 'P17', 'P31', 'P19'];
+const TAIL_ORDER = ['P13', 'P04', 'P14', 'P01', 'P17', 'P31', 'P19'];
 /** The boards of the acts of the first edition that no chapter has taken yet, in the order of the acts. */
-const ACTS_WAITING = ['K17', 'P03', 'P16', 'P09', 'K21', 'K23', 'P20', 'K25', 'P06', 'P05', 'K28'];
+const ACTS_WAITING = ['K17', 'P03', 'P16', 'K21', 'K23', 'P20', 'K25', 'P05', 'K28'];
 /** The boards of the chapters the owner called a repeat after playing them on 14 October 2026. */
 const REPEATS = ['C1-04', 'K22', 'P15'];
 /** The levels that wait: for a lesson of the 1s, and for the look of the cells cut out. */
@@ -103,21 +105,22 @@ function offPlace(level: LevelSpec, place: Recipe): string[] {
 
 describe('the levels of the game', () => {
   it('are the chapters after the prologue, in order', () => {
-    expect(LEVELS).toEqual([...CHAPTER_1, ...CHAPTER_2]);
-    expect(LEVELS.map((level) => level.id)).toEqual([...CHAPTERS[1].stops, ...CHAPTERS[2].stops]);
+    expect(LEVELS).toEqual([...CHAPTER_1, ...CHAPTER_2, ...CHAPTER_3]);
+    expect(LEVELS.map((level) => level.id)).toEqual([...CHAPTERS[1].stops, ...CHAPTERS[2].stops, ...CHAPTERS[3].stops]);
     // The boards chapter 2 took from the spares of the road and from the parked levels are no longer parked.
     for (const id of ['R09', 'P07', 'P08']) expect(PARKED.some((level) => level.id === id), id).toBe(false);
   });
 
-  it('are each a level of a place', () => {
-    for (const level of [...LEVELS, ...PARKED]) expect(placeOf(level), level.id).toBeDefined();
+  it('are each a level of a place, but the lessons of the road laid by hand', () => {
+    for (const level of [...LEVELS, ...PARKED]) if (!ROAD_LESSONS.has(level.id)) expect(placeOf(level), level.id).toBeDefined();
+    expect(LEVELS.filter((level) => ROAD_LESSONS.has(level.id)).map((level) => level.id)).toEqual(['R13', 'R10']);
   });
 
   it('let the faces of their chapter work, and those of their place are among them', () => {
     for (const level of LEVELS) {
       expect(level.faces, level.id).toEqual([2, 3]);
       expect(level.values, level.id).toEqual([2, 3]);
-      for (const face of placeOf(level)!.faces) expect(level.faces, level.id).toContain(face);
+      for (const face of placeOf(level)?.faces ?? []) expect(level.faces, level.id).toContain(face);
     }
   });
 

@@ -70,7 +70,10 @@ export function needsOf(spec: LevelSpec): ReadonlySet<Technique> {
 
 const placeOf = (stop: Stop): string => `место ${stop.number} (${stop.spec.id})`;
 
-/** Rule 1: a move taught at N is asked for by at least two of N+1…N+3, and the next board that teaches is not before N+2. */
+/**
+ * Rule 1: a move taught at N is asked for by at least two of N+1…N+3, and the next board that teaches
+ * is not before N+2, but where the board at N already asked for the move that board brings in.
+ */
 function taughtAndUsed(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   row.forEach((stop, index) => {
@@ -84,7 +87,9 @@ function taughtAndUsed(row: readonly Stop[]): Violation[] {
       }
     }
     const next = row[index + 1];
-    if (next?.teaches) out.push({ rule: 1, at: next.number, text: `${placeOf(next)} учит сразу после места ${stop.number} (${stop.spec.id})` });
+    // Two meetings side by side are let be where the first already asked for the move the second names (spec, section 3).
+    const named = next?.teaches !== undefined && needsOf(stop.spec).has(next.teaches);
+    if (next?.teaches && !named) out.push({ rule: 1, at: next.number, text: `${placeOf(next)} учит сразу после места ${stop.number} (${stop.spec.id})` });
   });
   return out;
 }

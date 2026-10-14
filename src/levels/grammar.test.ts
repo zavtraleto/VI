@@ -72,6 +72,20 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(twice).filter((one) => one.rule === 3).map((one) => one.text)).toEqual(['места 1 (R11) и 2 (R11) — одна фигура']);
   });
 
+  it('lets two meetings stand side by side where the first already asked for the move the second brings in: rule 1', () => {
+    // R13 pushes after a step down (K v P), so the way down is asked for before R10 names it.
+    const row = rowOf([
+      ['R13', { chapter: 3, role: 'meet', teaches: 'push', archetype: 'push' }],
+      ['R10', { chapter: 3, role: 'meet', teaches: 'lift', archetype: 'lift' }],
+      ['R14', { chapter: 3, role: 'apply', archetype: 'a' }],
+      ['P06', { chapter: 3, role: 'apply', archetype: 'b' }],
+    ]);
+    expect(fastGrammar(row).filter((one) => one.rule === 1)).toEqual([]);
+    // The other way round R10 does not push, and R13 right after it is a second new move.
+    const swapped = [row[1], row[0], row[2], row[3]].map((stop, index) => ({ ...stop, number: index + 1 }));
+    expect(fastGrammar(swapped).filter((one) => one.rule === 1).map((one) => one.text)).toContain('место 2 (R13) учит сразу после места 1 (R10)');
+  });
+
   it('says where an archetype of a chapter comes back in the next one but as its twist: rule 3', () => {
     const row = rowOf([
       ['R11', { chapter: 1, role: 'meet', teaches: undefined, archetype: 'bridge' }],
