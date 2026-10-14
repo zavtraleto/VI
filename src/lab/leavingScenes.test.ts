@@ -27,6 +27,13 @@ describe('the scenes of the leaving the board lab plays', () => {
     }
   });
 
+  it('plays every scene by the rules of a board of the game: nothing comes, the floor is strict, a die that leaves is climbed in one move', () => {
+    for (const scene of Object.keys(LEAVING_SCENES) as LeavingScene[]) {
+      const { levelRun } = leavingSceneState(scene);
+      expect(levelRun!.spec, scene).toMatchObject({ arrival: 'none', liftMoves: 1, exact: true });
+    }
+  });
+
   it('makes a pair, and leaves it on its first step with the board still played', () => {
     const { run } = played('pair');
     expect(going(run)).toHaveLength(2);
