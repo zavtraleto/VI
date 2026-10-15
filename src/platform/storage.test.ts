@@ -6,12 +6,19 @@ const platform = vi.hoisted(() => ({
   writes: [] as { keys: string[]; values: string[] }[],
 }));
 
-vi.mock('./bridge', () => ({
-  platformLive: () => platform.live,
-  platformRead: async (keys: readonly string[]) => keys.map((key) => platform.kept.get(key) ?? null),
-  platformWrite: async (keys: readonly string[], values: readonly string[]) => {
-    platform.writes.push({ keys: [...keys], values: [...values] });
-    keys.forEach((key, i) => platform.kept.set(key, values[i]));
+vi.mock('@platform', () => ({
+  platform: {
+    get storage() {
+      return platform.live
+        ? {
+            read: async (keys: readonly string[]) => keys.map((key) => platform.kept.get(key) ?? null),
+            write: async (keys: readonly string[], values: readonly string[]) => {
+              platform.writes.push({ keys: [...keys], values: [...values] });
+              keys.forEach((key, i) => platform.kept.set(key, values[i]));
+            },
+          }
+        : null;
+    },
   },
 }));
 

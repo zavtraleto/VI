@@ -1,4 +1,5 @@
-import { platformLive, platformRead, platformWrite } from './bridge';
+import { platform } from '@platform';
+import type { PlatformStorage } from './platform';
 
 /**
  * The only place that talks to persistent storage. On a platform the data is kept by its SDK,
@@ -9,13 +10,17 @@ import { platformLive, platformRead, platformWrite } from './bridge';
 let available = true;
 /** What the platform kept at the start, and what has been saved since; null without a platform. */
 let kept: Map<string, string> | null = null;
+/** Where it goes on a platform: what `kept` was read from. */
+let store: PlatformStorage | null = null;
 
 /** Reads everything the game keeps, in one call, before anything asks for it. */
 export async function openStorage(keys: readonly string[]): Promise<void> {
-  if (!platformLive()) return;
+  const platformStore = platform.storage;
+  if (!platformStore) return;
   try {
-    const values = await platformRead(keys);
+    const values = await platformStore.read(keys);
     kept = new Map();
+    store = platformStore;
     keys.forEach((key, i) => {
       // What an earlier version left in the browser itself is taken over once.
       const value = values[i] ?? local(key);
@@ -24,6 +29,7 @@ export async function openStorage(keys: readonly string[]): Promise<void> {
   } catch {
     // The platform cannot be read: the browser's own storage is used.
     kept = null;
+    store = null;
   }
 }
 
@@ -53,10 +59,10 @@ export function saveAll(entries: readonly (readonly [key: string, value: unknown
   try {
     const keys = entries.map(([key]) => key);
     const raws = entries.map(([, value]) => JSON.stringify(value));
-    if (kept) {
+    if (kept && store) {
       keys.forEach((key, i) => kept!.set(key, raws[i]));
       // The platform answers later; a save it refuses shows in `storageAvailable`.
-      platformWrite(keys, raws).then(
+      store.write(keys, raws).then(
         () => (available = true),
         () => (available = false),
       );

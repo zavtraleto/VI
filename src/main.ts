@@ -1,6 +1,6 @@
 import { Game } from './app/game';
 import { quality } from './display/quality';
-import { initPlatform, platformLanguage } from './platform/bridge';
+import { platform } from '@platform';
 import { holdTelegramBrowser } from './platform/telegram';
 import { RUN_KEY } from './app/savedRun';
 import { SETTINGS_KEY, loadSettings } from './platform/settings';
@@ -15,9 +15,9 @@ import './ui/styles.css';
 // before anything of the game is built. The language the player has picked comes before the
 // platform's, and the platform's before the browser's.
 holdTelegramBrowser();
-await initPlatform();
+await platform.init();
 await openStorage([SETTINGS_KEY, RUN_KEY]);
-const language = loadSettings().language ?? platformLanguage();
+const language = loadSettings().language ?? platform.language();
 if (language) setLanguage(language);
 
 // Lines of measurements over the game, in any build: `?perf` in the address. They stand
