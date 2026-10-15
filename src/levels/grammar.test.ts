@@ -19,7 +19,7 @@ function rowOf(entries: readonly (string | [string, Partial<Stop>])[]): Stop[] {
   return entries.map((entry, index) => {
     const [id, over] = typeof entry === 'string' ? [entry, {}] : entry;
     const meta = STOPS[id] ?? { chapter: 1, role: 'apply' as const, archetype: id };
-    return { spec: boardOf(id), number: index + 1, board: { level: index }, ...meta, ...over };
+    return { spec: boardOf(id), code: id, number: index + 1, help: {}, ...meta, ...over };
   });
 }
 

@@ -1,5 +1,5 @@
-import type { Board } from '../levels/campaign';
-import { roadPlace } from '../levels/road';
+import { campaignFocus } from '../levels/campaign';
+import type { Place } from '../levels/row';
 import { riseSpan, stoodBy } from '../render/passing';
 
 /**
@@ -156,18 +156,12 @@ export function passageAt(
   return into;
 }
 
-export type { Board };
-
 /**
- * The board the program opens on: the piece of the road the player stopped on, the first for
- * one who is new, and for one who is past the road `onward`, the level of the list the player
- * goes on with. `road` is the code that is kept of the player's place on the road, and
- * `firstPassed` whether they passed the first level of the build before, which was what the
- * first block of the road is (`roadPlace`).
+ * The place the program opens on: the one whose code is kept (`at`); for a code the row has not, the
+ * first place not passed, or the first when all are passed.
  */
-export function startBoard(road: string | undefined, firstPassed: boolean, onward: number): Board {
-  const place = roadPlace(road, firstPassed);
-  return place === null ? { level: onward } : { road: place };
+export function startPlace(at: string | undefined, passed: Readonly<Record<string, boolean | undefined>>, row: readonly Place[]): number {
+  return campaignFocus({ passed, stats: {}, at }, row);
 }
 
 /** What a file of the menu opens. */
@@ -190,15 +184,23 @@ export const FILE_LEADS = {
 } as const satisfies Record<string, FileLead>;
 
 /**
- * Which board comes after this one, in the row of the campaign: after the piece N of the road the
- * piece N + 1, after the last piece the first level of the list; after a level of the list the
- * next one; null after the last. Always N + 1, whatever the player has passed: the first board not
- * passed is the way in of the START file only (`startBoard`), not of a walk along the row.
+ * The place after this one in the row, through its chapters; null after the last. Always the next,
+ * whatever the player has passed: the first place not passed is the way in of the START file only
+ * (`startPlace`), not of a walk along the row.
  */
-export function boardAfter(current: Board, road: number, levels: number): Board | null {
-  if (current.road !== undefined && current.road + 1 < road) return { road: current.road + 1 };
-  const level = current.road !== undefined ? 0 : (current.level ?? 0) + 1;
-  return level < levels ? { level } : null;
+export function placeAfterIndex(place: number, count: number): number | null {
+  return place + 1 < count ? place + 1 : null;
+}
+
+/**
+ * What is kept of where the player stands once the place `passedPlace` is passed: the code of the place
+ * after it, when the player stood on it (or stood nowhere yet and it is the place the game opens on);
+ * the last place keeps its own code. A place played out of turn, further on or behind, moves nothing.
+ * Asked before the place is written as passed.
+ */
+export function atAfter(at: string | undefined, passedPlace: number, row: readonly Place[], passed: Readonly<Record<string, boolean | undefined>>): string | undefined {
+  if (startPlace(at, passed, row) !== passedPlace) return at;
+  return row[Math.min(passedPlace + 1, row.length - 1)].code;
 }
 
 /**

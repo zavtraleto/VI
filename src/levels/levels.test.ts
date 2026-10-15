@@ -10,7 +10,7 @@ import { hasReadyGroup } from '../rules/spawn';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN_PLACES } from './campaignRecipes';
 import { levelId } from './generate';
-import { CHAPTERS } from './campaign';
+import { CHAPTERS } from './chapters';
 import { CHAPTER_1, CHAPTER_2, CHAPTER_3, LEVELS, PARKED, SPARES } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';

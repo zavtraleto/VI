@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
-import { SETTINGS_KEY, bestOf, joinRuns, loadSettings } from './settings';
+import { FIXTURE } from '../levels/rowFixture';
+import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, loadSettings, toRowEdition, type RowKept } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -78,50 +79,74 @@ describe('the windows a player has closed', () => {
   it('are none in a new save nor in one from before them, and are kept once they are', () => {
     saved(null);
     expect(loadSettings().levels.told).toEqual([]);
-    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 7 } });
+    saved({ levels: { passed: { R01: true }, stats: {}, at: 'R02', rowEdition: ROW_EDITION } });
     expect(loadSettings().levels.told).toEqual([]);
-    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 7, told: ['R07', 'end:24'] } });
+    saved({ levels: { passed: { R01: true }, stats: {}, at: 'R02', rowEdition: ROW_EDITION, told: ['R07', 'end:24'] } });
     expect(loadSettings().levels.told).toEqual(['R07', 'end:24']);
-    // A save of an earlier edition starts again and keeps what the player has been told.
+    // A save of an earlier edition of the road starts again and keeps what the player has been told.
     saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', told: ['R07'] } });
     expect(loadSettings().levels.told).toEqual(['R07']);
   });
 
   it('leave nothing of the line about a dim die, which is said no more', () => {
-    saved({ levels: { passed: {}, stats: {}, roadEdition: 7, fixedSaid: true } });
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, fixedSaid: true } });
     expect('fixedSaid' in loadSettings().levels).toBe(false);
   });
 });
 
-describe('the place on the road a player has saved', () => {
+describe('the place in the row a player has saved', () => {
   it('is none where nothing was saved, and none in a save from before the road, whose levels are of other boards', () => {
     saved(null);
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], roadEdition: 7 });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], rowEdition: ROW_EDITION });
     saved({ levels: { passed: { F1: true, P01: true }, stats: {} } });
     const { levels } = loadSettings();
-    expect(levels.road).toBeUndefined();
-    // From the seventh edition the progress starts again (the owner, 14 October 2026): what the build before kept is dropped.
+    expect(levels.at).toBeUndefined();
     expect(levels.passed).toEqual({});
   });
 
-  it('comes back as it was saved, with what was passed, when it is of this edition of the road', () => {
+  it('comes back as it was saved, with what was passed, when it is of the row', () => {
+    saved({ levels: { passed: { R01: true, R02: true }, stats: {}, at: 'R03', rowEdition: ROW_EDITION } });
+    const { levels } = loadSettings();
+    expect(levels.at).toBe('R03');
+    expect(levels.passed).toEqual({ R01: true, R02: true });
+    expect(JSON.parse(JSON.stringify(levels)).at).toBe('R03');
+  });
+
+  it('is the piece a save of the seventh edition of the road stood on, with all it passed', () => {
     saved({ levels: { passed: { R01: true, R02: true }, stats: {}, road: 'R03', roadEdition: 7 } });
     const { levels } = loadSettings();
-    expect(levels.road).toBe('R03');
-    expect(levels.passed).toEqual({ R01: true, R02: true });
-    // A save goes out as it was read: the place is a field of what is kept.
-    expect(JSON.parse(JSON.stringify(levels)).road).toBe('R03');
+    expect(levels).toEqual({ passed: { R01: true, R02: true }, stats: {}, told: [], at: 'R03', rowEdition: ROW_EDITION });
   });
 
   it('starts again in a save of any edition before the seventh: the stars and the place dropped, what the player was told kept', () => {
     const stat = { tries: 2, passes: 1, fails: 0, firstPassTry: 1, bestLeft: null, bestMoves: 3, undos: 0, stuck: 0, short: [], playMs: 100 };
-    // A save of v0.2.27, of the first edition: on the ninth piece of twenty, with two levels of the list passed.
     saved({ levels: { passed: { R01: true, R08: true, P01: true, P02: true }, stats: { R01: stat, R08: stat, P01: stat }, road: 'R09' } });
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], roadEdition: 7 });
-    // A save of the sixth edition, in the middle of the road of sixteen and with levels of the acts passed.
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], rowEdition: ROW_EDITION });
     saved({ levels: { passed: { R01: true, P13: true, K17: true }, stats: { R01: stat, K17: stat }, road: 'R12', roadEdition: 6, told: ['R07'] } });
-    const { levels } = loadSettings();
-    expect(levels).toEqual({ passed: {}, stats: {}, told: ['R07'], roadEdition: 7 });
-    expect(levels.road).toBeUndefined();
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: ['R07'], rowEdition: ROW_EDITION });
+  });
+});
+
+describe('what a save of the road becomes in the row', () => {
+  const row = FIXTURE.places;
+
+  it('keeps the place of the piece the player stood on, and all that was passed', () => {
+    const kept = toRowEdition({ passed: { F1: true }, stats: { F1: { bestMoves: 1 } }, road: 'F2', roadEdition: 7 }, row);
+    expect(kept).toEqual({ passed: { F1: true }, stats: { F1: { bestMoves: 1 } }, at: 'F2', rowEdition: ROW_EDITION });
+  });
+
+  it('puts one past the road on the first place not passed after the prologue, and on its first when all are', () => {
+    expect(toRowEdition<RowKept>({ passed: { F1: true, F2: true, F3: true, G1: true }, stats: {}, road: 'R00', roadEdition: 7 }, row).at).toBe('G2');
+    expect(toRowEdition<RowKept>({ passed: Object.fromEntries(row.map((place) => [place.code, true])), stats: {}, road: 'R00', roadEdition: 7 }, row).at).toBe('G1');
+  });
+
+  it('leaves one of the seventh edition with no place kept with none', () => {
+    expect(toRowEdition({ passed: {}, stats: {}, roadEdition: 7 }, row)).toEqual({ passed: {}, stats: {}, at: undefined, rowEdition: ROW_EDITION });
+  });
+
+  it('drops what an edition before the seventh kept, and gives a save of the row back as it is', () => {
+    expect(toRowEdition({ passed: { F1: true }, stats: {}, road: 'F2', roadEdition: 6 }, row)).toEqual({ passed: {}, stats: {}, at: undefined, rowEdition: ROW_EDITION });
+    const fresh = { passed: { F1: true }, stats: {}, at: 'F2', rowEdition: ROW_EDITION };
+    expect(toRowEdition(fresh, row)).toBe(fresh);
   });
 });

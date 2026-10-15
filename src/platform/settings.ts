@@ -1,5 +1,6 @@
 import { RULES_VERSION, defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
-import { toRoadEdition } from '../levels/road';
+import { CAMPAIGN, placeOfCode } from '../levels/campaign';
+import type { Place } from '../levels/row';
 import { loadJson, saveJson } from './storage';
 
 export type ControlMode = 'gesture' | 'dpad';
@@ -45,16 +46,12 @@ export interface LevelProgress {
   passed: Record<string, boolean>;
   stats: Record<string, LevelStat>;
   /**
-   * The player's place on the road that leads to the levels: the code of the piece they are on,
-   * which is the piece after the last they cleared. Absent for one who has cleared none; a code
-   * after its last is past its end (`roadPlace` in `src/levels/road.ts`).
+   * The code of the place of the row the player stands on: the one after the last they passed in turn
+   * (`atAfter` in `src/app/passage.ts`). Absent for one who has passed none.
    */
-  road?: string;
-  /**
-   * The edition of the road `road` and the codes of its pieces in `passed` and `stats` are of
-   * (`ROAD_EDITION`); absent in what was saved before the second, which is brought to it on load.
-   */
-  roadEdition?: number;
+  at?: string;
+  /** The edition of what is kept here (`ROW_EDITION`): absent in a save of the road, which `toRowEdition` brings over on load. */
+  rowEdition?: number;
   /**
    * The windows this player has closed and is not shown again: the hints of boards by their codes
    * (`tellsHint` in `src/app/hint.ts`), and the end of the row by its length (`endKey`).
@@ -136,10 +133,10 @@ export function loadSettings(): Settings {
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   // The tasks are gone from the game (the owner, 15 October 2026): what was kept of them goes.
   delete (loaded as Partial<{ puzzle: unknown }>).puzzle;
-  // What was kept under the codes of an earlier edition of the road is of other boards (`toRoadEdition`).
+  // What was kept under the codes of an earlier edition of the road is of other boards, and a save of the last road is the row's (`toRowEdition`).
   // A save from before the windows of hints has closed none: it takes `told` of the fallback. The line about a dim
   // die is said no more (the owner, 15 October 2026), and what was kept of it goes.
-  loaded.levels = toRoadEdition({ ...fallback.levels, ...loaded.levels });
+  loaded.levels = toRowEdition({ ...fallback.levels, ...loaded.levels });
   delete (loaded.levels as Partial<{ fixedSaid: boolean }>).fixedSaid;
   // The exercise of Endless is gone from the game (the owner, 15 October 2026): what was kept of it goes.
   delete (loaded as Partial<{ tutorialDone: boolean }>).tutorialDone;
@@ -150,6 +147,44 @@ export function loadSettings(): Settings {
     loaded.camera = { ...DEFAULT_CAMERA };
   }
   return loaded;
+}
+
+/** The edition of what is kept of the levels: the row of row.json (docs/superpowers/specs/2026-10-15-vi-row-json-design.md, section 5.2). */
+export const ROW_EDITION = 1;
+/** The edition of the road whose codes the row took over as they were. */
+const LAST_ROAD_EDITION = 7;
+/** The code a save of the road kept for one past its last piece. */
+const PAST_ROAD = 'R00';
+
+/** What is kept of a player that the row reads and writes, with the fields a save of the road had. */
+export interface RowKept {
+  passed: Record<string, boolean>;
+  stats: Record<string, unknown>;
+  at?: string;
+  rowEdition?: number;
+  road?: string;
+  roadEdition?: number;
+}
+
+/**
+ * Brings what is kept of a player to the row of row.json. A save of the seventh edition of the road
+ * keeps all it passed: the piece it stood on is the place of that code; one past the road stands on
+ * the first place not passed after the prologue (the first of the chapter after it when all are),
+ * which is where the game opened for them. Before the seventh nothing is brought over, as the road
+ * had it, and what the player was told stays. A save of the row is given back as it is.
+ */
+export function toRowEdition<T extends RowKept>(kept: T, row: readonly Place[] = CAMPAIGN): T {
+  if (kept.rowEdition === ROW_EDITION) return kept;
+  const { road, roadEdition, ...rest } = kept;
+  if (roadEdition !== LAST_ROAD_EDITION) return { ...rest, passed: {}, stats: {}, at: undefined, rowEdition: ROW_EDITION } as T;
+  const prologueEnd = row.findIndex((place) => place.chapter > 0);
+  const after = prologueEnd < 0 ? row.length - 1 : prologueEnd;
+  let at: string | undefined;
+  if (road === PAST_ROAD) {
+    const open = row.findIndex((place, i) => i >= after && rest.passed[place.code] !== true);
+    at = row[open >= 0 ? open : after].code;
+  } else if (road !== undefined && placeOfCode(road, row) >= 0) at = road;
+  return { ...rest, at, rowEdition: ROW_EDITION } as T;
 }
 
 /**

@@ -1,69 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { FIRST_PASSED, ROAD, pieceAfter } from '../levels/road';
+import { FIXTURE } from '../levels/rowFixture';
 import { MENU_FILES } from '../shell/text';
-import { FILE_LEADS, boardAfter, orderOf, passageAt, passageEnd, startBoard, type PassageTimes } from './passage';
+import { FILE_LEADS, atAfter, orderOf, passageAt, passageEnd, placeAfterIndex, startPlace, type PassageTimes } from './passage';
 
 /** The numbers the look has for the passage as it is first laid out. */
 const TIMES: PassageTimes = { comboStepMs: 140, comboHoldMs: 350, sinkMs: 1300, eraseMs: 700, cameraMs: 900, drawMs: 1100, riseMs: 600, riseStepMs: 90 };
 const COUNTS = { combo: 3, dice: 4 };
 const at = (ms: number, reduced = false, counts = COUNTS) => passageAt(ms, TIMES, counts, reduced);
 
-describe('the board the program opens on', () => {
-  it('is the first piece of the road for one who is new, whatever they have passed of the list', () => {
-    expect(startBoard(undefined, false, 0)).toEqual({ road: 0 });
-    expect(startBoard(undefined, false, 7)).toEqual({ road: 0 });
+const row = FIXTURE.places;
+
+describe('the place the program opens on', () => {
+  it('is the first for one who is new', () => {
+    expect(startPlace(undefined, {}, row)).toBe(0);
   });
 
-  it('is the piece the player stopped on', () => {
-    expect(startBoard('R01', false, 0)).toEqual({ road: 0 });
-    expect(startBoard('R04', false, 0)).toEqual({ road: 3 });
-    expect(startBoard('R08', false, 5)).toEqual({ road: 7 });
-    // A code that is kept is read before what was passed in the build before.
-    expect(startBoard('R02', true, 5)).toEqual({ road: 1 });
+  it('is the place whose code is kept, whatever was passed', () => {
+    expect(startPlace('G1', {}, row)).toBe(3);
+    expect(startPlace('F2', { F1: true, F2: true, F3: true }, row)).toBe(1);
   });
 
-  it('is the level of the list the player goes on with for one who is past the road', () => {
-    expect(startBoard(pieceAfter(ROAD.length - 1), false, 0)).toEqual({ level: 0 });
-    expect(startBoard(pieceAfter(ROAD.length - 1), false, 7)).toEqual({ level: 7 });
-  });
-
-  it('is past the first block for one who passed the first level of the build before and has no piece kept', () => {
-    expect(startBoard(undefined, true, 0)).toEqual(startBoard(FIRST_PASSED, false, 0));
-    // Past the block is the first piece of the second block, whatever level of the list they would go on with.
-    expect(startBoard(undefined, true, 3)).toEqual({ road: 6 });
+  it('is the first not passed for a code the row has not, and the first when all are', () => {
+    expect(startPlace('R99', { F1: true, F2: true }, row)).toBe(2);
+    expect(startPlace('R99', Object.fromEntries(row.map((place) => [place.code, true])), row)).toBe(0);
   });
 });
 
-describe('the board that comes after a board', () => {
-  it('is the next piece of the road, wherever the player stands in the list', () => {
-    expect(boardAfter({ road: 3 }, 20, 30)).toEqual({ road: 4 });
-    expect(boardAfter({ road: 0 }, 4, 30)).toEqual({ road: 1 });
-    expect(boardAfter({ road: 2 }, 4, 30)).toEqual({ road: 3 });
+describe('the place after a place', () => {
+  it('is the next of the row, through its chapters, and none after the last', () => {
+    expect(placeAfterIndex(0, row.length)).toBe(1);
+    expect(placeAfterIndex(2, row.length)).toBe(3);
+    expect(placeAfterIndex(4, row.length)).toBeNull();
   });
 
-  it('after the last piece is the first level of the list, whatever has been passed', () => {
-    expect(boardAfter({ road: 19 }, 20, 30)).toEqual({ level: 0 });
-    expect(boardAfter({ road: 3 }, 4, 30)).toEqual({ level: 0 });
-  });
-
-  it('goes down the list in its order, from whichever level was passed, skipping none', () => {
-    expect(boardAfter({ level: 0 }, 20, 30)).toEqual({ level: 1 });
-    expect(boardAfter({ level: 17 }, 20, 30)).toEqual({ level: 18 });
-  });
-
-  it('is none after the last level of the list, and after the road where the list has no level', () => {
-    expect(boardAfter({ level: 29 }, 20, 30)).toBeNull();
-    expect(boardAfter({ road: 3 }, 4, 0)).toBeNull();
-  });
-
-  it('walks one who is new through the whole of it: the road, then every level, then nothing', () => {
+  it('walks one who is new through the whole row, and then nothing', () => {
     const seen: string[] = [];
-    let board: { road?: number; level?: number } | null = startBoard(undefined, false, 0);
-    while (board) {
-      seen.push(board.road !== undefined ? `R${board.road}` : `L${board.level}`);
-      board = boardAfter(board, 4, 3);
-    }
-    expect(seen).toEqual(['R0', 'R1', 'R2', 'R3', 'L0', 'L1', 'L2']);
+    for (let place: number | null = startPlace(undefined, {}, row); place !== null; place = placeAfterIndex(place, row.length)) seen.push(row[place].code);
+    expect(seen).toEqual(['F1', 'F2', 'F3', 'G1', 'G2']);
+  });
+});
+
+describe('where the player stands once a place is passed', () => {
+  it('is the place after it, when the player stood on it, through the chapters', () => {
+    expect(atAfter(undefined, 0, row, {})).toBe('F2');
+    expect(atAfter('F3', 2, row, {})).toBe('G1');
+  });
+
+  it('is where it was when the place passed was played out of turn', () => {
+    expect(atAfter('F3', 4, row, {})).toBe('F3');
+    expect(atAfter('F3', 0, row, {})).toBe('F3');
+  });
+
+  it('is the last place still once the last is passed', () => {
+    expect(atAfter('G2', 4, row, {})).toBe('G2');
   });
 });
 

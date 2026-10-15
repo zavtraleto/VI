@@ -1,10 +1,17 @@
-import type { Hint } from '../levels/campaign';
-import { DEAD_ENDS_FOR_SIGN } from '../levels/road';
+import type { HintKey } from '../levels/row';
 
 /**
  * The hint a board shows before it starts, the end of the row, and the mistake that is repeated.
  * Nothing here draws, reads a clock or changes a board.
  */
+
+/** A hint a place shows before its board, in the seven languages (`src/ui/i18n.ts`). */
+export interface Hint {
+  key: HintKey;
+}
+
+/** A place that has come to a dead end this many times shows the sign of the way at once: the second time is a mistake that is repeated. */
+export const DEAD_ENDS_FOR_SIGN = 2;
 
 /** Whether a board shows its hint: once for a player, `told` being the boards whose window has been closed. */
 export function tellsHint(id: string, told: readonly string[]): boolean {

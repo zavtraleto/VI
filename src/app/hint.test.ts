@@ -1,26 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { CAMPAIGN, HINTS } from '../levels/campaign';
-import { DEAD_ENDS_FOR_SIGN, ROAD, ROAD_HINTS } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
+import { CAMPAIGN } from '../levels/campaign';
 import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec } from '../rules/types';
 import { HINT_WORD_MS, captionWords, plainCaption, wordsShown } from '../signal/caption';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
-import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
+import { DEAD_ENDS_FOR_SIGN, DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { roadWait } from './signWay';
 
 describe('the hints of the boards', () => {
   // The hints of the boards that teach a move, shown in a window before the board starts.
-  const pieces: [string, { key: string }][] = Object.entries(HINTS);
-
-  it('are one in the prologue, for the chain, on its lesson: the others come with the chapters', () => {
-    expect(ROAD_HINTS).toEqual({ R07: { key: 'roadHintChain' } });
-  });
-
-  it('stand on boards of the row', () => {
-    const ids = new Set(CAMPAIGN.map(({ spec }) => spec.id));
-    for (const id of Object.keys(HINTS)) expect(ids.has(id), id).toBe(true);
-  });
+  const pieces: [string, { key: string }][] = CAMPAIGN.flatMap((place) => (place.help.hint ? [[place.code, { key: place.help.hint }] as [string, { key: string }]] : []));
 
   it('have their text in every one of the seven languages, in at most ten words, with no exclamation mark', () => {
     for (const code of LANGUAGES) {
@@ -132,11 +123,11 @@ describe('the dead ends of a piece', () => {
   });
 
   it('bring the sign at once to a piece that begins again, and not to one that has had none', () => {
-    const spec = ROAD.find((piece) => piece.id === 'R03') as LevelSpec;
+    const spec: LevelSpec = fileBoard('R03');
     const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
-    expect(roadWait('R03', false)!.frame(state, 0, true)).toEqual({ dir: null, blink: false });
+    expect(roadWait({ wait: 'free' }, false)!.frame(state, 0, true)).toEqual({ dir: null, blink: false });
     // Standing on the board the first moment, with no wait at all.
-    expect(roadWait('R03', true)!.frame(state, 0, true)).toEqual({ dir: 'E', blink: false });
+    expect(roadWait({ wait: 'free' }, true)!.frame(state, 0, true)).toEqual({ dir: 'E', blink: false });
   });
 });
 

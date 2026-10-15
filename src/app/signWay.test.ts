@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LEVELS, PARKED } from '../levels/levels';
-import { ROAD, ROAD_IDLE, ROAD_LESSONS, ROAD_SPARES } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
+import { CAMPAIGN } from '../levels/campaign';
+import type { Help } from '../levels/row';
 import { defaultConfig } from '../rules/config';
 import { worldRuns } from '../rules/level';
 import { solveFrom } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
 import { shownHeight } from '../render/leaving';
-import { SIGN_FREE_STATES, SIGN_MAX_STATES, roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
+import { IDLE_RULES, SIGN_FREE_STATES, SIGN_MAX_STATES, roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
 
 // The solver as it is, with its calls counted.
 vi.mock('../rules/levelSolver', async (original) => {
@@ -28,7 +29,7 @@ const COMMON = { arrival: 'none', goal: { kind: 'clear' }, moves: 0, undos: 3, s
  * Three pieces of the first edition of the road, kept here as the small boards the sign is
  * tried on: each is a few boards in all, so what the sign says on every one of them is known.
  * They go by the codes they had, which name pieces of the road still, all three of which wait as
- * a free piece does (`ROAD_IDLE`). The first and the second piece are those of the road itself.
+ * a free piece does (`IDLE_RULES.free`). The first and the second piece are those of the road itself.
  *
  *   2 #      . . 2 .      3 3 . .
  *   # A      . . # .      # # . .
@@ -65,7 +66,15 @@ const SMALL: Readonly<Record<string, LevelSpec>> = {
   },
 };
 
-const pieceOf = (id: string): LevelSpec => SMALL[id] ?? [...ROAD, ...ROAD_SPARES].find((spec) => spec.id === id)!;
+const pieceOf = (id: string): LevelSpec => SMALL[id] ?? fileBoard(id);
+/** The places of the row that wait with the player: those whose help says how. */
+const WAITING = CAMPAIGN.filter((place) => place.help.wait !== undefined);
+/** Whether a place counts the moves wasted, and so is searched whole for its sign. */
+const counts = (help: Help): boolean => help.wait !== undefined && IDLE_RULES[help.wait].wasted !== null;
+/** The waits as the first piece, a lesson and a free piece have them. */
+const FIRST: Help = { sign: 'N', wait: 'first' };
+const LESSON: Help = { wait: 'lesson' };
+const FREE: Help = { wait: 'free' };
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 
 /** Gives a command and runs the level until the world stands and the player is free, as a move is made. */
@@ -118,7 +127,7 @@ describe('the way the swipe sign points', () => {
   });
 
   it('clears every piece in its fewest moves when it is followed from the start', () => {
-    for (const spec of ROAD) {
+    for (const { spec } of WAITING) {
       const { state } = follow(spec);
       expect(state.endReason, spec.id).toBe('passed');
       expect(state.levelRun!.moves, spec.id).toBe(spec.par);
@@ -154,15 +163,15 @@ describe('the way the swipe sign points', () => {
   });
 
   it('is none where the search is not let to find a way', () => {
-    expect(signAt(start(PARKED.find((level) => level.id === 'P19')!), 1)).toEqual({ dir: null, left: null });
+    expect(signAt(start(fileBoard('P19')), 1)).toEqual({ dir: null, left: null });
   });
 
   it('is a way or none from the start of every piece, with the boards its kind of piece is given, and never hangs', () => {
     expect(SIGN_FREE_STATES).toBeLessThanOrEqual(SIGN_MAX_STATES);
-    for (const spec of ROAD) {
+    for (const { spec, help } of WAITING) {
       const state = start(spec);
       const began = performance.now();
-      const way = signAt(state, ROAD_LESSONS.includes(spec.id) ? SIGN_MAX_STATES : SIGN_FREE_STATES);
+      const way = signAt(state, counts(help) ? SIGN_MAX_STATES : SIGN_FREE_STATES);
       // Loose: a search of this size takes tens of milliseconds, and a machine that is busy takes more.
       expect(performance.now() - began, spec.id).toBeLessThan(3000);
       expect([null, 'N', 'E', 'S', 'W'], spec.id).toContain(way.dir);
@@ -170,7 +179,7 @@ describe('the way the swipe sign points', () => {
       if (way.dir !== null) expect(way.left, spec.id).toBeGreaterThan(0);
     }
     // A lesson is searched whole: its sign is there from the start.
-    for (const id of ROAD_LESSONS) expect(signAt(start(pieceOf(id))).dir, id).not.toBeNull();
+    for (const { spec, help } of WAITING) if (counts(help)) expect(signAt(start(spec)).dir, spec.id).not.toBeNull();
   });
 });
 
@@ -275,8 +284,7 @@ describe('how high the sign stands', () => {
   it('is the height the figure stands at: the top of the die under it, the floor for one on the floor', () => {
     const stair = start(pieceOf('R02'));
     expect(signHeight(stair)).toBe(0);
-    for (const spec of ROAD) expect(signHeight(start(spec)), spec.id).toBe(spec.layout!.onFloor ? 0 : 1);
-    expect(ROAD.filter((spec) => spec.layout!.onFloor).map((spec) => spec.id)).toEqual(['R02']);
+    for (const { spec } of CAMPAIGN) expect(signHeight(start(spec)), spec.id).toBe(spec.layout!.onFloor ? 0 : 1);
   });
 
   it('is the last step on the lower stair of the second piece, which has a move left to it, the middle step on the upper, which has two, and a whole die on the die beyond them', () => {
@@ -317,16 +325,15 @@ describe('the form of the sign', () => {
 describe('what a piece shows while the player waits, frame by frame', () => {
   const NOTHING = { dir: null, blink: false };
 
-  it('is kept for the pieces of the road only', () => {
-    for (const spec of ROAD) expect(roadWait(spec.id), spec.id).not.toBeNull();
-    for (const spec of LEVELS) expect(roadWait(spec.id), spec.id).toBeNull();
-    expect(roadWait('F1')).toBeNull();
-    expect(roadWait('F1a')).toBeNull();
+  it('is kept for a place whose help says how it waits, and for none other', () => {
+    for (const { spec, help } of CAMPAIGN) expect(roadWait(help) === null, spec.id).toBe(help.wait === undefined);
+    expect(roadWait({})).toBeNull();
+    expect(roadWait({ sign: 'N' })).toBeNull();
   });
 
   it('opens the first piece with its sign, takes it away with the first roll, and brings the sign of the way after six seconds', () => {
     const state = start(pieceOf('R01'));
-    const wait = roadWait('R01')!;
+    const wait = roadWait(FIRST)!;
     expect(wait.frame(state, 100, true)).toEqual({ dir: 'N', blink: false });
     expect(wait.frame(state, 60_000, true)).toEqual({ dir: 'N', blink: false });
     go(state, 'N');
@@ -343,7 +350,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('opens the other pieces with nothing, blinks the plaque from four seconds and shows the way from eight', () => {
     const state = start(pieceOf('R02'));
-    const wait = roadWait('R02')!;
+    const wait = roadWait(LESSON)!;
     expect(wait.frame(state, 1000, true)).toEqual(NOTHING);
     expect(wait.frame(state, 4999, true)).toEqual(NOTHING);
     expect(wait.frame(state, 5000, true)).toEqual({ dir: null, blink: true });
@@ -357,7 +364,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows nothing and asks nothing of a board that moves, and counts the wait from when it stands', () => {
     const state = start(pieceOf('R03'));
-    const wait = roadWait('R03')!;
+    const wait = roadWait(FREE)!;
     expect(wait.frame(state, 0, true)).toEqual(NOTHING);
     expect(wait.frame(state, 9000, true)).toEqual({ dir: 'W', blink: false });
     step(state, 'N');
@@ -377,7 +384,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows nothing under a panel, and does not count its time', () => {
     const state = start(pieceOf('R03'));
-    const wait = roadWait('R03')!;
+    const wait = roadWait(FREE)!;
     expect(wait.frame(state, 0, true)).toEqual(NOTHING);
     expect(wait.frame(state, 3000, false)).toEqual(NOTHING);
     expect(wait.frame(state, 90_000, false)).toEqual(NOTHING);
@@ -392,16 +399,16 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('keeps the opening sign of the first piece out from under a panel', () => {
     const state = start(pieceOf('R01'));
-    const wait = roadWait('R01')!;
+    const wait = roadWait(FIRST)!;
     expect(wait.frame(state, 0, false)).toEqual(NOTHING);
     expect(wait.frame(state, 16, true)).toEqual({ dir: 'N', blink: false });
   });
 
   it('shows the way at once when three moves have been wasted, on a lesson', () => {
     // The small board, waited on as a lesson waits: only a lesson counts the moves wasted.
-    expect(ROAD_IDLE.R02.wasted).toBe(3);
+    expect(IDLE_RULES.lesson.wasted).toBe(3);
     const state = start(pieceOf('R03'));
-    const wait = roadWait('R02')!;
+    const wait = roadWait(LESSON)!;
     let time = 0;
     const seen: (Dir | null)[] = [];
     // To the north and back, and to the north again: three rolls, and the board no nearer.
@@ -417,9 +424,9 @@ describe('what a piece shows while the player waits, frame by frame', () => {
   });
 
   it('counts no wasted moves on a free piece: its sign waits its seconds however the board is rolled about', () => {
-    expect(ROAD_IDLE.R03.wasted).toBeNull();
+    expect(IDLE_RULES.free.wasted).toBeNull();
     const state = start(pieceOf('R03'));
-    const wait = roadWait('R03')!;
+    const wait = roadWait(FREE)!;
     let time = 0;
     for (const dir of ['N', 'S', 'N', 'S', 'N'] as const) {
       expect(wait.frame(state, time, true)).toEqual(NOTHING);
@@ -433,7 +440,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows nothing of a level that is over', () => {
     const state = start(pieceOf('R03'));
-    const wait = roadWait('R03')!;
+    const wait = roadWait(FREE)!;
     wait.frame(state, 0, true);
     go(state, 'W');
     expect(state.endReason).toBe('passed');
@@ -442,10 +449,9 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('asks the solver nothing for a move or a step on a free piece, until the sign is due, and then once', () => {
     const asked = vi.mocked(solveFrom);
-    const spec = ROAD.find((piece) => piece.id === 'R05')!;
-    expect(ROAD_LESSONS).not.toContain(spec.id);
+    const spec = fileBoard('R05');
     const state = start(spec);
-    const wait = roadWait(spec.id)!;
+    const wait = roadWait(FREE)!;
     asked.mockClear();
     for (let time = 0; time < 8000; time += 16) wait.frame(state, time, true);
     expect(asked).not.toHaveBeenCalled();
@@ -462,7 +468,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     expect(wait.frame(state, 20_000, true).dir).toBe(signAt(state, SIGN_FREE_STATES).dir);
     // A piece in a hurry is due at once on every board: one asking for each.
     asked.mockClear();
-    const hurried = roadWait(spec.id, true)!;
+    const hurried = roadWait(FREE, true)!;
     for (let time = 0; time < 1000; time += 16) hurried.frame(state, time, true);
     expect(asked).toHaveBeenCalledTimes(1);
   });
@@ -470,7 +476,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
   it('asks the solver once for a board, not on every frame', () => {
     const asked = vi.mocked(solveFrom);
     const state = start(pieceOf('R02'));
-    const wait = roadWait('R02')!;
+    const wait = roadWait(LESSON)!;
     asked.mockClear();
     for (let time = 0; time <= 9000; time += 16) wait.frame(state, time, true);
     expect(asked).toHaveBeenCalledTimes(1);
@@ -485,14 +491,14 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows the way at once to a piece that is in a hurry, on every board of it, and to no other', () => {
     const state = start(pieceOf('R03'));
-    const hurried = roadWait('R03', true)!;
+    const hurried = roadWait(FREE, true)!;
     expect(hurried.frame(state, 0, true)).toEqual({ dir: 'W', blink: false });
     go(state, 'N');
     // The board after a roll is asked anew and shows its way with no wait.
     expect(hurried.frame(state, 100, true)).toEqual({ dir: signAt(state).dir, blink: false });
     expect(hurried.frame(state, 100, true).dir).not.toBeNull();
     // The count of the dead ends outlives the wait: it is told to the one that is on the board.
-    const calm = roadWait('R03')!;
+    const calm = roadWait(FREE)!;
     expect(calm.frame(state, 0, true)).toEqual(NOTHING);
     calm.hurry = true;
     go(state, 'S');
@@ -503,7 +509,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('keeps the dead-end window as it is: a board that is over shows no sign, hurried or not', () => {
     const state = start(pieceOf('R03'));
-    const hurried = roadWait('R03', true)!;
+    const hurried = roadWait(FREE, true)!;
     go(state, 'W');
     expect(state.over).toBe(true);
     expect(hurried.frame(state, 1000, true)).toEqual(NOTHING);

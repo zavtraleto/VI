@@ -1,85 +1,27 @@
 import { goalOf } from '../rules/level';
-import type { GoalLine, LevelSpec } from '../rules/types';
-import { STOPS, type StopMeta } from './chapters';
-import { LEVELS } from './levels';
+import type { GoalLine } from '../rules/types';
 import { starsHeld } from './progress';
-import { ROAD, ROAD_HINTS, roadPlace, type RoadHintKey } from './road';
+import type { Help, Place } from './row';
+import { ROW } from './row.gen';
 
 /**
- * The campaign: every board the player is led through, in one row with one number each — the
- * prologue, the pieces of the road, and then the chapters (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md).
- * A chapter is one thought about what the dice and the floor can do, and one set of faces: every
- * board of it works on the faces of the chapter, whatever faces it had where it was laid. The row
- * is read, never kept: what the player has passed is kept by the codes of the boards, as it was.
+ * The campaign: every board the player is led through, in one row with one number each
+ * (docs/superpowers/specs/2026-10-15-vi-row-json-design.md). The row is `boards/row.json` laid into
+ * `row.gen.ts`; a chapter is one thought about what the dice and the floor can do, and the prologue is
+ * its first chapter, whose places help the player more. What the player has passed is kept by the
+ * codes of the boards, and where they stand by the code of the place (`at`).
  */
 
-/** A board of the game by its place: a piece of the road or a level of the list. */
-export interface Board {
-  road?: number;
-  level?: number;
-}
+/** A stop of the row is a place of it. */
+export type Stop = Place;
 
-export { CHAPTERS, STOPS, withChapterFaces, type Chapter, type Role, type StopMeta, type Technique } from './chapters';
-
-export interface Stop extends StopMeta {
-  spec: LevelSpec;
-  /** The number of the board in the row, from 1. */
-  number: number;
-  board: Board;
-}
-
-/** What the row says of a board; a board with no thought written for it is not let into the row. */
-function metaOf(spec: LevelSpec): StopMeta {
-  const meta = STOPS[spec.id];
-  if (!meta) throw new Error(`${spec.id} is in the row with no thought: write it in STOPS`);
-  return meta;
-}
-
-export const CAMPAIGN: readonly Stop[] = [
-  ...ROAD.map((spec, road) => ({ spec, number: road + 1, board: { road }, ...metaOf(spec) })),
-  ...LEVELS.map((spec, level) => ({ spec, number: ROAD.length + level + 1, board: { level }, ...metaOf(spec) })),
-];
-
-/** The hints of the texts (`src/ui/i18n.ts`) that a board can show before it starts: those of the road and those of the chapters. */
-export type HintKey = RoadHintKey | 'hintSeven' | 'hintLinkMove';
-
-export interface Hint {
-  key: HintKey;
-}
-
-/**
- * The hint a board shows before it starts, by its code, in a window of a transmission, once for a
- * player (the owner, 15 October 2026): the chain of the prologue, the walk over leaving dice on the
- * meeting of chapter 1, the seven on its third (the eleventh of the row), the push and the way down
- * and up of chapter 3. The hint of time (`hintLinkMove`) keeps its text and comes back with the
- * chapter that uses it.
- */
-export const HINTS: Readonly<Record<string, Hint>> = {
-  ...ROAD_HINTS,
-  // The walk over leaving dice on its meeting, and the seven where a die has to be laid by its hidden face (the owner, 14 October 2026).
-  R11: { key: 'roadHintWalk' },
-  'C1-05': { key: 'hintSeven' },
-  // The two lessons of chapter 3, the floor and the push: their lines come back from the road (the owner: «точно нужно где-то одной строкой»).
-  R13: { key: 'roadHintPush' },
-  R10: { key: 'roadHintClimb' },
-};
-
-export function stopOf(board: Board): Stop | undefined {
-  if (board.road !== undefined) return CAMPAIGN[board.road];
-  if (board.level !== undefined) return CAMPAIGN[ROAD.length + board.level];
-  return undefined;
-}
-
-/** The number of a board in the row; null for a board that is not of it, as a board of the lab. */
-export function numberOf(board: Board): number | null {
-  return stopOf(board)?.number ?? null;
-}
+export const CAMPAIGN: readonly Place[] = ROW.places;
 
 /** What is kept of the player that the row is read against. */
 export interface CampaignKept {
   passed: Readonly<Record<string, boolean | undefined>>;
   stats: Readonly<Record<string, { bestMoves?: number | null } | undefined>>;
-  road?: string;
+  at?: string;
 }
 
 /** A cell of the list of the levels: a board of the row with what the player holds on it. */
@@ -91,8 +33,8 @@ export interface CampaignCell {
   faces?: readonly number[];
 }
 
-export function campaignCells(kept: CampaignKept): CampaignCell[] {
-  return CAMPAIGN.map(({ spec, number }) => {
+export function campaignCells(kept: CampaignKept, row: readonly Place[] = CAMPAIGN): CampaignCell[] {
+  return row.map(({ spec, number }) => {
     const passed = kept.passed[spec.id] === true;
     // A board passed with no fewest moves kept holds the one star of having passed it.
     const stars = passed ? starsHeld(kept.stats[spec.id]?.bestMoves ?? null, spec.par) || 1 : 0;
@@ -100,12 +42,28 @@ export function campaignCells(kept: CampaignKept): CampaignCell[] {
   });
 }
 
-/** The stop the list opens on: the piece the player is on; for one past the road, the level they go on with. */
-export function campaignFocus(kept: CampaignKept, firstPassed: boolean, nextLevel: number): number {
-  const place = roadPlace(kept.road, firstPassed);
-  return place === null ? ROAD.length + nextLevel : place;
+/** The index of the place with this code; -1 for a code that is not in the row. */
+export function placeOfCode(code: string, row: readonly Place[] = CAMPAIGN): number {
+  return row.findIndex((place) => place.code === code);
 }
 
-export function campaignDone(kept: Pick<CampaignKept, 'passed'>): number {
-  return CAMPAIGN.filter(({ spec }) => kept.passed[spec.id] === true).length;
+/**
+ * The place the player stands on, which the list opens on and the program starts from: the place of
+ * the code kept of them; for no code, or one the row has not, the first place not passed, and the
+ * first when all are.
+ */
+export function campaignFocus(kept: CampaignKept, row: readonly Place[] = CAMPAIGN): number {
+  const at = kept.at === undefined ? -1 : placeOfCode(kept.at, row);
+  if (at >= 0) return at;
+  const open = row.findIndex((place) => kept.passed[place.code] !== true);
+  return open < 0 ? 0 : open;
+}
+
+export function campaignDone(kept: Pick<CampaignKept, 'passed'>, row: readonly Place[] = CAMPAIGN): number {
+  return row.filter(({ spec }) => kept.passed[spec.id] === true).length;
+}
+
+/** The plaques a place shows over its dice: over every die from the start, over a heap whose combo is near, or none. */
+export function plaquesOf(help: Help): 'all' | 'near' | null {
+  return help.plaques ?? null;
 }

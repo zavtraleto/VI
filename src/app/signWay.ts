@@ -1,4 +1,4 @@
-import { ROAD_IDLE, ROAD_SIGNS } from '../levels/road';
+import type { Help } from '../levels/row';
 import type { ControlMode } from '../platform/settings';
 import { shownHeight, type HeightOf } from '../render/leaving';
 import { DELTA, DIRS, cubeAt } from '../rules/board';
@@ -223,13 +223,23 @@ export class RoadWait {
 }
 
 /**
- * The wait of the level with this id, new for every start of it: for a piece of the road, by
- * what the piece opens with and by its thresholds. The thresholds are a first guess of the one
- * who built them and the owner has not named them. `hurry` is a piece that has come to a dead end
- * twice: its sign is shown at once. Null for every other level: the levels of
- * the list show no sign for waiting.
+ * What a place does while the player waits, by the word its help says: the first piece shows its sign
+ * from the start and brings it back in six seconds or after three moves that led nowhere; a lesson
+ * blinks its plaque from four seconds, shows the sign from eight, and counts the moves wasted; a free
+ * piece does as a lesson and counts none (that count asks the solver after every move, and on an open
+ * board the answer costs a frame that hangs). The thresholds are a first guess; the owner has not named them.
  */
-export function roadWait(id: string, hurry = false): RoadWait | null {
-  const rule = ROAD_IDLE[id];
-  return rule ? new RoadWait(ROAD_SIGNS[id], rule, hurry) : null;
+export const IDLE_RULES: Readonly<Record<'first' | 'lesson' | 'free', IdleRule>> = {
+  first: { blinkMs: null, signMs: 6000, wasted: 3 },
+  lesson: { blinkMs: 4000, signMs: 8000, wasted: 3 },
+  free: { blinkMs: 4000, signMs: 8000, wasted: null },
+};
+
+/**
+ * The wait of a place, new for every start of it, by what its help says it opens with and how it
+ * waits. `hurry` is a place that has come to a dead end twice: its sign is shown at once. Null for a
+ * place whose help says no wait: it shows no sign for waiting.
+ */
+export function roadWait(help: Help, hurry = false): RoadWait | null {
+  return help.wait ? new RoadWait(help.sign, IDLE_RULES[help.wait], hurry) : null;
 }

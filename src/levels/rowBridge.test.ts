@@ -1,18 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { normalSpec } from './boardFile';
-import { CAMPAIGN, HINTS } from './campaign';
-import { ROAD, ROAD_BLOCKS, ROAD_IDLE, ROAD_LESSONS, ROAD_SIGNS } from './road';
+import { STOPS } from './chapters';
+import { LEVELS } from './levels';
+import { CAMPAIGN } from './campaign';
+import { ROAD, ROAD_BLOCKS, ROAD_HINTS, ROAD_IDLE, ROAD_LESSONS, ROAD_SIGNS } from './road';
+
+/** The hints the code had: those of the road and those of the chapters, as `HINTS` of campaign.ts held them. */
+const HINTS: Readonly<Record<string, { key: string }>> = { ...ROAD_HINTS, R11: { key: 'roadHintWalk' }, 'C1-05': { key: 'hintSeven' }, R13: { key: 'roadHintPush' }, R10: { key: 'roadHintClimb' } };
 import { ROW } from './row.gen';
 
 /** While the old row and the new one stand side by side: they are one row, board by board and help by help. */
 describe('the row of row.json against the row of the code', () => {
   it('has the same boards in the same places, played the same', () => {
-    expect(ROW.places.map((place) => place.code)).toEqual(CAMPAIGN.map((stop) => stop.spec.id));
+    const OLD = [...ROAD, ...LEVELS];
+    expect(ROW.places.map((place) => place.code)).toEqual(OLD.map((spec) => spec.id));
     ROW.places.forEach((place, i) => {
-      const old = CAMPAIGN[i].spec;
+      const old = OLD[i];
       const played = (spec: typeof old) => ({ ...normalSpec(spec), id: spec.id, seed: undefined, chapter: undefined, undos: undefined, faces: spec.faces, values: [...spec.values].sort() });
       expect(played(place.spec), place.code).toEqual(played(old));
-      expect([place.role, place.teaches, place.archetype, place.event], place.code).toEqual([CAMPAIGN[i].role, CAMPAIGN[i].teaches, CAMPAIGN[i].archetype, CAMPAIGN[i].event]);
+      const meta = STOPS[place.code];
+      expect([place.role, place.teaches, place.archetype, place.event], place.code).toEqual([meta.role, meta.teaches, meta.archetype, meta.event]);
+      expect(CAMPAIGN[i]).toBe(place);
     });
   });
 
