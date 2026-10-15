@@ -69,7 +69,7 @@ export interface Platform {
   /** The time it is now, by the clock of the platform where it has one, else by the device. */
   now(): number;
   readonly storage: PlatformStorage | null;
-  /** `level` is the name of what is being played: a kind of session, or a task. */
+  /** `level` is the name of what is being played: the session, or a level. */
   tell(message: PlatformMessage, level?: string): void;
   /** The platform asks the game to stop and to go on. Told at once how it stands now, if it knows. */
   onPause(listener: (paused: boolean) => void): void;

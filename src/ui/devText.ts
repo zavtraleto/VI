@@ -1,6 +1,6 @@
 /**
- * The words of the development tools: the panel of the playtest, the report of the tasks, the
- * debug panel. Loaded with those tools, in development only.
+ * The words of the development tools: the panel of the playtest and the debug panel. Loaded
+ * with those tools, in development only.
  */
 const RU = {
   score: 'SCORE',
@@ -103,15 +103,6 @@ const RU = {
   cam_yaw: 'Поворот поля, °',
   cam_pitch: 'Высота камеры, °',
   cam_swipeTilt: 'Наклон свайпов к доске (0 — прямые)',
-  puzzle: 'Пазл',
-  undo: 'Отменить ход',
-  cleared: 'Поле очищено',
-  next: 'Дальше',
-  puzzleStats: 'Статистика',
-  share: 'Отправить',
-  statsEmpty: 'Пока пусто: сыграй хотя бы один уровень',
-  statsNote: 'Отправь этот текст автору игры: по нему настраивается сложность',
-  play: 'Играть',
 };
 
 const EN: typeof RU = {
@@ -215,15 +206,6 @@ const EN: typeof RU = {
   cam_yaw: 'Board turn, deg',
   cam_pitch: 'Camera height, deg',
   cam_swipeTilt: 'Swipes lean towards the board (0 is plain)',
-  puzzle: 'Puzzle',
-  undo: 'Undo move',
-  cleared: 'Board cleared',
-  next: 'Next',
-  puzzleStats: 'Statistics',
-  share: 'Send',
-  statsEmpty: 'Nothing yet: play at least one level',
-  statsNote: 'Send this text to the author of the game: the difficulty is tuned from it',
-  play: 'Play',
 };
 
 export type DevKey = keyof typeof RU;

@@ -5,7 +5,7 @@ import { Display } from '../display/display';
 import { loadSettings, type Settings } from '../platform/settings';
 import type { ParamValues } from '../signal/scene';
 import { Climb } from '../shell/climb';
-import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel } from '../shell/panels';
+import { pausePanel, recordsPanel, resultPanel, systemPanel } from '../shell/panels';
 import type { PanelSpec } from '../shell/screens/panel';
 import { Shell, type MenuActions } from '../shell/shell';
 import { COMMANDS, RECORDS } from '../shell/text';
@@ -14,7 +14,7 @@ import { FpsCounter } from '../ui/fps';
 import { t } from '../ui/i18n';
 import { ShellPanel } from './shellPanel';
 
-export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'climb', 'records', 'rules', 'tasks', 'cleared'] as const;
+export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'climb', 'records'] as const;
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
@@ -209,16 +209,6 @@ export class ShellLab {
           },
         });
       }
-      case 'rules':
-        return rulesPanel([t('puzzleRule1'), t('puzzleRule2'), t('puzzleRule3'), t('puzzleRule4'), t('puzzleRule5')], { onStart: nothing, onBack: nothing });
-      case 'tasks':
-        return tasksPanel(
-          Array.from({ length: 30 }, (_, i) => ({ stars: i < 7 ? 3 - (i % 3) : 0, tier: t(i < 6 ? 'tier_intro' : 'tier_path') })),
-          7,
-          { onPick: nothing, onRules: nothing, onBack: nothing },
-        );
-      case 'cleared':
-        return clearedPanel({ stars: 2, moves: 6, target: 4, hasNext: true }, { onNext: nothing, onAgain: nothing, onTasks: nothing });
     }
   }
 

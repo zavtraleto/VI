@@ -16,7 +16,7 @@ export interface DevActions {
 
 /**
  * Everything on the page that is a tool of development and not a part of the program the
- * player sees: the panel of the playtest, the report of the tasks, the debug panel with its
+ * player sees: the panel of the playtest, the debug panel with its
  * button, the frame counter. This module is loaded in development only; a production build
  * does not carry it.
  */
@@ -55,10 +55,6 @@ export class DevTools {
   showDebugButton(show: boolean): void {
     this.button.hidden = !show;
     if (!show) this.debug.toggle(false);
-  }
-
-  showPuzzleStats(report: string, onBack: () => void): void {
-    this.screens.showPuzzleStats(report, onBack);
   }
 
   showPlaytest(

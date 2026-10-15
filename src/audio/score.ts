@@ -69,9 +69,7 @@ export type Cue =
   | { kind: 'contact'; stage: number }
   | { kind: 'peak' }
   | { kind: 'danger'; secondsLeft: number }
-  | { kind: 'deadEnd' }
   | { kind: 'end' }
-  | { kind: 'cleared'; faces: number[] }
   // A level: its last move is taken back; its board is laid anew; it is lost.
   | { kind: 'undo'; pan: number }
   | { kind: 'relaid' }
@@ -584,11 +582,6 @@ function play(cue: Cue, kit: Kit): Note[] {
       const degree = cue.secondsLeft <= 1 ? 2 : cue.secondsLeft <= 3 ? 1 : 0;
       return [low('danger', degreeHz(tune, degree, -1), { gain: num('lowGain') * 0.75 * board, decay: num('lowLen') * 1.3, drop: num('lowDrop'), fall: 0.05 })];
     }
-    case 'deadEnd':
-      return [
-        click('deadEnd', degreeHz(tune, 1, 0), { gain: 0.2 * program, decay: 0.09, dull: true }),
-        click('deadEnd', degreeHz(tune, 0, 0), { at: 0.13, gain: 0.2 * program, decay: 0.09, dull: true }),
-      ];
     case 'end': {
       // After the cut and the silence: a low note, and the semitone over it. Each has its octave
       // with it, quietly, so that a small speaker carries them.
@@ -601,16 +594,6 @@ function play(cue: Cue, kit: Kit): Note[] {
         other('over', over, { at: END_SILENCE + 0.7, gain: 0.14 * far, attack: 0.2, decay: tail }),
         other('body', over * 2, { at: END_SILENCE + 0.7, gain: 0.05 * far, attack: 0.2, decay: tail }),
       ];
-    }
-    case 'cleared': {
-      // The faces the task was solved with, together: its own chord.
-      const faces = [...new Set(cue.faces.map((face) => clamp(Math.round(face), 1, 6)))].sort((a, b) => a - b);
-      const used = faces.length > 0 ? faces : [1, 4];
-      const notes = used.map((face, i) =>
-        bell('face', kit.bell(faceDegree(steps, face)), { at: i * 0.05, gain: 0.15 * bells, pan: i % 2 === 0 ? -0.4 : 0.4, decay: num('bellTail') * 1.5, bright: 0.9, echo: 1.4 }),
-      );
-      notes.push(bell('top', kit.bell(faceDegree(steps, used[0]) + octave), { at: used.length * 0.05, gain: 0.1 * bells, decay: num('bellTail') * 1.5, bright: 1.2, echo: 1.6 }));
-      return notes;
     }
     case 'undo':
       // The move goes back the way it came: two soft knocks, the second a degree under the first.
@@ -888,15 +871,13 @@ export function notesFor(cue: Cue, setup: Setup): Note[] {
 
 /**
  * What the sound keeps of a run between its events: the chains that are open, the faces of the
- * dice that are going down, the faces sent so far. It is the sound's own: the rules never see it.
+ * dice that are going down. It is the sound's own: the rules never see it.
  */
 export class ScoreMemory {
   /** Open chains by the id of their reaction: the face they go by and how many links they have. */
   readonly open = new Map<number, { face: number; chain: number }>();
   /** The face of every die that is going down, by its id. */
   readonly sinking = new Map<number, number>();
-  /** The faces sent since the run began. */
-  readonly sent = new Set<number>();
   /**
    * Dice that are on their way and have not come down yet, in the order they set off, each with
    * the tick it set off at: one the player rolls, with the face that will lie up, or one that
@@ -914,7 +895,6 @@ export class ScoreMemory {
     this.open.clear();
     this.sinking.clear();
     this.laid.clear();
-    this.sent.clear();
     this.moving.length = 0;
   }
 }
@@ -1006,16 +986,13 @@ export function cuesOfEvent(event: GameEvent, state: RunState, memory: ScoreMemo
     }
     case 'match':
       memory.open.set(event.reactionId, { face: event.value, chain: 1 });
-      memory.sent.add(event.value);
       going((cube) => cube.reactionId === event.reactionId, event.value);
       break;
     case 'chain':
       memory.open.set(event.reactionId, { face: event.value, chain: event.chain });
-      memory.sent.add(event.value);
       going((cube) => cube.reactionId === event.reactionId, event.value);
       break;
     case 'happyOne':
-      memory.sent.add(1);
       going((cube) => cube.ori.top === 1 && cube.reactionId === 0, 1);
       break;
     case 'removed':
@@ -1026,14 +1003,8 @@ export function cuesOfEvent(event: GameEvent, state: RunState, memory: ScoreMemo
     case 'fell':
       cues.push({ kind: 'fell', pan: here });
       break;
-    case 'deadEnd':
-      cues.push({ kind: 'deadEnd' });
-      break;
     case 'levelFailed':
       cues.push({ kind: 'failed' });
-      break;
-    case 'cleared':
-      cues.push({ kind: 'cleared', faces: [...memory.sent].sort((a, b) => a - b) });
       break;
     case 'gameOver':
       cues.push({ kind: 'end' });

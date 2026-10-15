@@ -44,7 +44,7 @@ export type PanelRow =
    */
   | { kind: 'climb'; rows: (count: number) => readonly (ClimbRow | null)[]; lines: number }
   /**
-   * The tasks, as numbered cells with what each has earned; `note` is said under them for the cell
+   * The boards of the levels, as numbered cells with what each has earned; `note` is said under them for the cell
    * in focus. `marks` is how many a cell can earn, three when left out. With `program` the note
    * is the program's own text and is written in its font, not said in the voice. A cell that is
    * `locked` is drawn faint and without marks: it can be looked at, and what picking it does is
@@ -60,7 +60,7 @@ export type PanelRow =
       marks?: number;
       program?: boolean;
     }
-  /** What a task has earned, out of three. */
+  /** What a level has earned, out of three. */
   | { kind: 'stars'; count: number }
   /**
    * Prose in the language of the player, in the voice. With `when`, its room is kept and it is
@@ -113,7 +113,7 @@ const GAP = 4;
  */
 const SAY_LARGE_TALL = 15;
 const SAY_LARGE_WIDE = 12;
-/** Cells of tasks across a tall picture and across a wide one. */
+/** Cells of the levels across a tall picture and across a wide one. */
 const LEVELS_TALL = 6;
 const LEVELS_WIDE = 10;
 /** Half a blink of the bar of the name, in milliseconds. */

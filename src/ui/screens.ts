@@ -26,8 +26,8 @@ function button(key: DevKey, onClick: () => void, kind: 'primary' | 'plain' | 'q
 }
 
 /**
- * The tools of the playtest, as panels of the page over the canvas: the report of the tasks and
- * the settings of the experiments. They are not a part of the program the player sees.
+ * The tools of the playtest, as panels of the page over the canvas: the settings of the
+ * experiments. They are not a part of the program the player sees.
  */
 export class Screens {
   private readonly panel = h('div', { class: 'panel' });
@@ -51,31 +51,6 @@ export class Screens {
     this.panel.replaceChildren(...children.filter((c): c is Node => c !== null));
     this.root.hidden = false;
     this.panel.scrollTop = 0;
-  }
-
-  /** What was played, as text to pass on. An empty report shows a line saying so. */
-  showPuzzleStats(report: string, onBack: () => void): void {
-    const text = report || td('statsEmpty');
-    const copy = button('copy', () => {
-      void navigator.clipboard?.writeText(text).then(() => (copy.textContent = td('copied')));
-    });
-    // Phones offer their own sheet of messengers; elsewhere the text is copied.
-    const canShare = report !== '' && typeof navigator.share === 'function';
-    const share = canShare
-      ? button('share', () => void navigator.share({ text }).catch(() => undefined), 'primary')
-      : null;
-    this.open(
-      [
-        h('h2', { text: td('puzzleStats') }),
-        h('p', { class: 'note', text: td('statsNote') }),
-        // The report is long: the buttons that send it come before it.
-        share,
-        report !== '' ? copy : null,
-        button('back', onBack),
-        h('pre', { class: 'stats', text }),
-      ],
-      true,
-    );
   }
 
   showPlaytest(

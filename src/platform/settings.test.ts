@@ -34,6 +34,11 @@ describe('the experiments a player has saved', () => {
     expect('tutorialDone' in loadSettings()).toBe(false);
   });
 
+  it('let go of the tasks that were played: the game has no tasks any more', () => {
+    saved({ puzzle: { stars: { 1: 3 }, stats: {}, rulesSeen: true } });
+    expect('puzzle' in loadSettings()).toBe(false);
+  });
+
   it('stay as they were switched under these rules', () => {
     saved({ experiments: { ...defaultExperiments(), floorClimb: false, dockSteps: false }, rulesVersion: RULES_VERSION });
     expect(loadSettings().experiments).toMatchObject({ floorClimb: false, dockSteps: false });

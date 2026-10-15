@@ -99,18 +99,15 @@ export class ChainMarks {
     const now = this.lying2;
     now.clear();
     counts.fill(0);
-    // Nothing joins a finished group in a puzzle.
-    if (!state.puzzle) {
-      for (const cube of state.cubes) {
-        if (!inChain(cube)) continue;
-        const value = cube.ori.top - 1;
-        if (counts[value] >= MAX_MARKS) continue;
-        const turn = topTurn(cube.ori);
-        this.at.set(cube.x, 0.014, cube.z);
-        this.turn.setFromEuler(this.lying.set(-Math.PI / 2, 0, turn));
-        this.marks[value].setMatrixAt(counts[value]++, this.matrix.compose(this.at, this.turn, this.whole));
-        now.set(cube.id, { x: cube.x, z: cube.z, value, turn });
-      }
+    for (const cube of state.cubes) {
+      if (!inChain(cube)) continue;
+      const value = cube.ori.top - 1;
+      if (counts[value] >= MAX_MARKS) continue;
+      const turn = topTurn(cube.ori);
+      this.at.set(cube.x, 0.014, cube.z);
+      this.turn.setFromEuler(this.lying.set(-Math.PI / 2, 0, turn));
+      this.marks[value].setMatrixAt(counts[value]++, this.matrix.compose(this.at, this.turn, this.whole));
+      now.set(cube.id, { x: cube.x, z: cube.z, value, turn });
     }
     // A mark that lay a frame ago and does not now goes out where it lay.
     if (!reducedMotion) {

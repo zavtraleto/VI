@@ -20,7 +20,7 @@ export interface KeptRun {
 
 /**
  * Packs the run in hand for keeping. Null when there is nothing to come back to: a run that
- * has not begun or is over, a task.
+ * has not begun or is over, a level.
  */
 export function packRun(kind: KeptKind, state: RunState, tally: RunTally): KeptRun | null {
   if (state.over || state.tick === 0) return null;

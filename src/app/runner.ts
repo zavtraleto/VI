@@ -14,8 +14,8 @@ const MAX_FRAME_MS = 250;
 const TURN_FRAME_MS = 40;
 
 /**
- * The most time one frame may give the simulation. A session and a task take a late frame
- * nearly whole, so that their time stays the time of the wall. A level,
+ * The most time one frame may give the simulation. A session takes a late frame nearly
+ * whole, so that their time stays the time of the wall. A level,
  * and a piece of the road, has no clock and loses nothing when time stands still: a frame that
  * comes late there gives a small step, and what was moving goes on from where it was instead of
  * being played out between two pictures.

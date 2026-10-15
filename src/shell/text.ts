@@ -82,8 +82,8 @@ export interface MenuFile {
  * middle of the net, where the figure waits. Opposite faces add up to seven: the levels face
  * the settings of the program, the session without a limit faces the log, and what is read -
  * how the game is played, and the note that came with the program - stands on either side.
- * The exercise and the tasks had the three and the four until 6 October 2026: the exercise is
- * gone from the program, and the tasks have no file.
+ * The exercise and the tasks had the three and the four until 6 October 2026; both are gone
+ * from the program since 15 October 2026.
  */
 export const MENU_FILES: readonly MenuFile[] = [
   /** "Stages": the levels of the game; "completed". */
@@ -124,10 +124,6 @@ export const HUD = {
   found: '検出',
   /** "Full": every cell holds a die, and the seconds left to free one. */
   full: '満杯',
-  /** "Moves", "task", "target": the readings of a task. */
-  moves: '手数',
-  task: '課題',
-  target: '目標',
   /** "Take back", "again": what can be pressed over the board. */
   undo: '取消',
   retry: '再試',
@@ -188,8 +184,6 @@ export const PANELS = {
   howto: { native: '手順', name: 'HOW TO PLAY' },
   /** "To begin with": the note that came with the program. */
   readme: { native: 'はじめに', name: 'README' },
-  /** "Tasks". */
-  tasks: { native: '課題', name: 'TASKS' },
   /** "Completed". */
   cleared: { native: '完了', name: 'CLEARED' },
   /** "Stages": the levels of the game. */
@@ -213,7 +207,6 @@ export const COMMANDS = {
   system: { native: '設定', name: 'SYSTEM' },
   /** "End". */
   menu: { native: '終了', name: 'MENU' },
-  tasks: { native: '課題', name: 'TASKS' },
   levels: { native: '段階', name: 'LEVELS' },
   /** "Back". */
   back: { native: '戻る', name: 'BACK' },
@@ -227,7 +220,6 @@ export const COMMANDS = {
   skip: { native: '省略', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
   undo: { native: '取消', name: 'UNDO' },
-  rules: { native: '規則', name: 'RULES' },
   /** "Registration": the platform gives the player a name. */
   register: { native: '登録', name: 'REGISTER' },
   /** "Sharing": the player's result goes out with a link to the game. What it answers: "copied", "sent", "failure". */
@@ -246,8 +238,6 @@ export const RESULT = {
   /** "Time". */
   time: { native: '時間', name: 'TIME' },
   moves: { native: '手数', name: 'MOVES' },
-  /** "Fewest". */
-  least: { native: '最少', name: 'FEWEST' },
   /** "Remaining": the moves a passed level had left. */
   left: { native: '残り', name: 'MOVES LEFT' },
   /** "Rank": the place the session took in the log. */

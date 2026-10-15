@@ -27,5 +27,4 @@ export {
 } from './level';
 export { canAcceptCommand, resolveMove } from './movement';
 export { previewAll, previewMove, type MovePreview } from './preview';
-export { PUZZLE_HOLD_HEIGHT, puzzleBusy } from './puzzle';
 export { createRun, step, type RunOptions } from './sim';

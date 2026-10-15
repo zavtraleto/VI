@@ -10,7 +10,9 @@ import { Water } from '../render/water';
 import { BOARD_PARAMS, boardChanged, boardDefaults, parseBoardValue, type BoardLook } from '../render/params';
 import type { DicePassing } from '../render/passing';
 import { BoardView, type CameraAngles } from '../render/view';
-import { createRun, cubeAt, defaultConfig, type PuzzleDie, type RunState } from '../rules';
+import { ALL_ORIENTATIONS, createRun, cubeAt, defaultConfig, type PuzzleDie, type RunState } from '../rules';
+import { msToTicks } from '../rules/config';
+import { addCube } from '../rules/spawn';
 import { SHELL_PARAMS, parseShellValue, shellChanged, shellDefaults } from '../shell/theme';
 import { FpsCounter } from '../ui/fps';
 import { BoardPanel } from './boardPanel';
@@ -62,10 +64,14 @@ function sampleState(full: boolean, fixed: boolean): RunState {
   } else {
     for (const [x, z, top] of SAMPLE) dice.push({ x, z, top, north: NORTH[top] });
   }
-  const state = createRun({ seed: 1, config: defaultConfig(), puzzle: { size: SIZE, dice, start: PLAYER } });
-  // A board to look at, not a puzzle: the signs of an open chain are those of a session.
-  state.puzzle = null;
-  state.mode = 'endless';
+  // A board to look at: the dice laid as they are given, nothing coming, the player on the die of its cell. A group
+  // goes quickly, as it did on the boards of the puzzles this sample was first laid with; the signs are those of a session.
+  const base = defaultConfig();
+  const laid = { ...base, size: SIZE, startX: PLAYER.x, startZ: PLAYER.z, sinkingTicks: msToTicks(700), sinkLowHeight: Math.min(base.sinkLowHeight, 0.5) };
+  const state = createRun({ seed: 1, config: laid, empty: true });
+  state.spawnEnabled = false;
+  for (const { x, z, top, north } of dice) addCube(state, x, z, ALL_ORIENTATIONS.find((o) => o.top === top && o.north === north)!);
+  state.player = { x: PLAYER.x, z: PLAYER.z, level: 'top' };
   const at = ([x, z]: number[]) => state.cubes.find((cube) => cube.x === x && cube.z === z)!;
   if (fixed) for (const cell of FIXED) at(cell).fixed = true;
   if (full) return state;

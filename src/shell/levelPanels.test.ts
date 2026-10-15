@@ -325,7 +325,6 @@ describe('the result of a level', () => {
     expect(row(spec, 'field', 1)).toMatchObject({ label: RESULT.best, value: '07' });
     // Neither the moves a limit had left nor the fewest the level takes are readings of their own: the stars say how the pass went.
     expect(spec.rows.filter((candidate) => candidate.kind === 'field')).toHaveLength(2);
-    expect(spec.rows.some((candidate) => candidate.kind === 'field' && candidate.label === RESULT.least)).toBe(false);
     expect(commands(spec)).toEqual(['next', 'again', 'levels']);
   });
 

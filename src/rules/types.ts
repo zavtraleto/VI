@@ -310,8 +310,6 @@ export type GameEvent =
   | { type: 'fell' } // the cube under the player was removed
   | { type: 'lifted' } // a cube appeared under the player on the ground
   | { type: 'levelUp'; level: number }
-  | { type: 'deadEnd'; reason: DeadEnd } // puzzle: the group just made cannot be followed by a win
-  | { type: 'cleared' } // puzzle: the last dice are gone
   | { type: 'levelPassed' } // level: its goal is met
   | { type: 'levelFailed' } // level: its moves are spent with the goal not met, or its board is at a dead end
   | { type: 'gameOver' };
@@ -361,7 +359,7 @@ export interface RunStats {
   longestChainQuiet: number;
 }
 
-export type RunMode = 'endless' | 'puzzle' | 'level';
+export type RunMode = 'endless' | 'level';
 
 /**
  * What a level asks for: dice sent, of any face or of faces ordered; a chain of so many links;
@@ -474,7 +472,7 @@ export interface LevelRun {
   beat: number;
 }
 
-/** A die of a puzzle: its cell and the two faces that fix how it lies. */
+/** A die laid on a board: its cell and the two faces that fix how it lies. The name is that of the puzzles it was made for. */
 export interface PuzzleDie {
   x: number;
   z: number;
@@ -482,26 +480,6 @@ export interface PuzzleDie {
   north: number;
   /** The die cannot be rolled or pushed: it joins a combo and leaves with it, and can be walked over. Read on the board of a level only. */
   fixed?: boolean;
-}
-
-/** A puzzle as it stands before the first move. */
-export interface PuzzleLayout {
-  /** Cells along one side of the board. */
-  size: number;
-  dice: readonly PuzzleDie[];
-  /** Cell of the die the player starts on. */
-  start: { x: number; z: number };
-}
-
-/** Why a finished group leads nowhere: no die next to it to step onto, or one die left over. */
-export type DeadEnd = 'noExit' | 'single';
-
-export interface PuzzleState {
-  /** Rolls made so far. Steps from die to die are free. */
-  moves: number;
-  /** Reaction of the group that waits under the player; 0 when there is none. */
-  held: number;
-  dead: DeadEnd | null;
 }
 
 export interface RunState {
@@ -544,16 +522,13 @@ export interface RunState {
   /** Cards left in the decks that decide which spawns feed a running chain and which are helpful. */
   feedDeck: boolean[];
   helpDeck: boolean[];
-  /** Set for a puzzle run only. */
-  puzzle: PuzzleState | null;
   /** Set for a level only. */
   levelRun: LevelRun | null;
   over: boolean;
   /**
-   * Why the run ended: the board stayed full, a puzzle was cleared, or a level was passed or
-   * failed.
+   * Why the run ended: the board stayed full, or a level was passed or failed.
    */
-  endReason: null | 'full' | 'cleared' | 'passed' | 'failed';
+  endReason: null | 'full' | 'passed' | 'failed';
   stats: RunStats;
   /** Events produced by the most recent step. */
   events: GameEvent[];

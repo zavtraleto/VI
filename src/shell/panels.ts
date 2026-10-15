@@ -253,59 +253,6 @@ function liveLabel(label: () => PanelName): PanelName {
   };
 }
 
-/** The rules of the tasks, in the language of the player. With `onStart` this is the showing before the first task. */
-export function rulesPanel(lines: readonly string[], actions: { onStart?: () => void; onBack: () => void }): PanelSpec {
-  const rows: PanelRow[] = lines.map((text, i) => ({ kind: 'say', text: `${i + 1}. ${text}` }));
-  rows.push({ kind: 'gap' });
-  if (actions.onStart) rows.push({ kind: 'command', id: 'start', label: COMMANDS.start, action: actions.onStart });
-  rows.push({ kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
-  return { title: PANELS.rules, home: actions.onStart ? 'start' : 'back', back: actions.onBack, rows };
-}
-
-/** Every task, with what it has earned. All of them can be picked; `tier` is the kind of a task, in the language of the player. */
-export function tasksPanel(
-  levels: readonly { stars: number; tier: string }[],
-  current: number,
-  /** `tools` are commands of the development tools; a production build passes none. */
-  actions: { onPick: (index: number) => void; onRules: () => void; tools?: readonly PanelCommand[]; onBack: () => void },
-): PanelSpec {
-  return {
-    title: PANELS.tasks,
-    home: `task-${current}`,
-    back: actions.onBack,
-    rows: [
-      { kind: 'levels', id: 'task', levels, current, pick: actions.onPick, note: (index) => levels[index]?.tier ?? '' },
-      {
-        kind: 'commands',
-        commands: [
-          { id: 'rules', label: COMMANDS.rules, action: actions.onRules },
-          ...(actions.tools ?? []),
-          { id: 'back', label: COMMANDS.menu, action: actions.onBack },
-        ],
-      },
-    ],
-  };
-}
-
-/** A task is cleared: what it earned, in how many moves against the fewest. */
-export function clearedPanel(
-  data: { stars: number; moves: number; target: number; hasNext: boolean },
-  actions: { onNext: () => void; onAgain: () => void; onTasks: () => void },
-): PanelSpec {
-  const rows: PanelRow[] = [
-    { kind: 'stars', count: data.stars },
-    { kind: 'field', label: RESULT.moves, value: digits(data.moves, 2) },
-    { kind: 'field', label: RESULT.least, value: digits(data.target, 2) },
-    { kind: 'gap' },
-  ];
-  if (data.hasNext) rows.push({ kind: 'command', id: 'next', label: COMMANDS.next, action: actions.onNext });
-  rows.push(
-    { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
-    { kind: 'command', id: 'tasks', label: COMMANDS.tasks, action: actions.onTasks },
-  );
-  return { title: PANELS.cleared, home: data.hasNext ? 'next' : 'again', rows };
-}
-
 /**
  * Every board of the campaign in one list, the pieces of the road first: a cell to a board,
  * numbered from one, with the stars of the ones passed, out of three: those of its best pass,

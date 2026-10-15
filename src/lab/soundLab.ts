@@ -244,8 +244,6 @@ export function startSoundLab(): void {
       halt();
       fire({ kind: 'end' });
     },
-    cleared: () => fire({ kind: 'cleared', faces: [2, 3, head.face] }),
-    deadEnd: () => fire({ kind: 'deadEnd' }),
     fell: () => fire({ kind: 'fell', pan: head.place }),
     // The levels.
     undo: () => fire({ kind: 'undo', pan: head.place }),
@@ -405,8 +403,6 @@ export function startSoundLab(): void {
   events.add(actions, 'peak').name('За последним порогом');
   events.add(actions, 'danger').name('Опасность: поле заполнено');
   events.add(actions, 'end').name('Конец сессии');
-  events.add(actions, 'cleared').name('Задача решена');
-  events.add(actions, 'deadEnd').name('Задача: тупик');
   events.add(actions, 'fell').name('Упал на пол');
 
   const levels = gui.addFolder('Уровни');

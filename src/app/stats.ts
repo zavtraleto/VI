@@ -9,7 +9,7 @@ export function statsText(state: RunState): string {
   const flags = (Object.keys(config.experiments) as (keyof ExperimentConfig)[]).filter((k) => config.experiments[k]);
   // One entry for a level: how long it lasted, how many cubes came and how many were removed.
   const levels = stats.levels.map((l, i) => `${i + 1}: ${seconds(l.ticks)} +${l.spawned} -${l.removed}`);
-  // A run changes its chain window with the level; a puzzle keeps one of its own.
+  // A session changes its chain window with the level; a level of the game keeps one of its own.
   const paced = state.mode === 'endless';
   const sink = paced ? `${ms(config.sinkStartTicks)} to ${ms(config.sinkFloorTicks)}` : `${ms(config.sinkingTicks)}`;
   return [

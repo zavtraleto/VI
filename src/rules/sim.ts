@@ -2,16 +2,13 @@ import { NO_CELL, cellIndex, cubeAt } from './board';
 import { endBeat, levelConfig } from './level';
 import { applyMove, canAcceptCommand } from './movement';
 import { levelStats, pruneReactions, removeCube, resolveLanded, runPhase } from './reactions';
-import { isPuzzleHeld, placePuzzleLayout, puzzleConfig, runPuzzle } from './puzzle';
 import { advancePending, chainQuiet, placeLevelLayout, placeStartLayout, runSpawn } from './spawn';
 import { runWave, waveAt } from './wave';
-import type { Dir, LevelRun, LevelSpec, PuzzleLayout, RulesConfig, RunState } from './types';
+import type { Dir, LevelRun, LevelSpec, RulesConfig, RunState } from './types';
 
 export interface RunOptions {
   seed: number;
   config: RulesConfig;
-  /** A puzzle to solve: its dice and nothing else, on a board of its own size. */
-  puzzle?: PuzzleLayout;
   /** A level of the game: its board, its dice, its goal and its moves. */
   level?: LevelSpec;
   /** Start with no cubes and the player on the ground. Used by tests. */
@@ -20,17 +17,12 @@ export interface RunOptions {
 }
 
 export function createRun(opts: RunOptions): RunState {
-  const { puzzle } = opts;
-  const level = puzzle ? undefined : opts.level;
+  const { level } = opts;
   // The run keeps a config of its own: its chain window changes with the level.
-  const config = puzzle
-    ? puzzleConfig(opts.config, puzzle)
-    : level
-      ? levelConfig(opts.config, level)
-      : { ...opts.config };
+  const config = level ? levelConfig(opts.config, level) : { ...opts.config };
   const state: RunState = {
     config,
-    mode: puzzle ? 'puzzle' : level ? 'level' : 'endless',
+    mode: level ? 'level' : 'endless',
     seed: opts.seed,
     tick: 0,
     rng: opts.seed | 0,
@@ -53,10 +45,9 @@ export function createRun(opts: RunOptions): RunState {
     sinceClear: 0,
     liftTimer: 0,
     fullTicks: 0,
-    spawnEnabled: !puzzle && !level,
+    spawnEnabled: !level,
     feedDeck: [],
     helpDeck: [],
-    puzzle: puzzle ? { moves: 0, held: 0, dead: null } : null,
     levelRun: level ? { spec: level, moves: 0, sent: [0, 0, 0, 0, 0, 0], bestChain: 0, beat: 0 } : null,
     over: false,
     endReason: null,
@@ -85,8 +76,7 @@ export function createRun(opts: RunOptions): RunState {
   // The cells a level cuts out of its board are marked before anything is laid: nothing ever stands there.
   for (const { x, z } of level?.holes ?? []) state.grid[cellIndex(config.size, x, z)] = NO_CELL;
   if (opts.empty) return state;
-  if (puzzle) placePuzzleLayout(state, puzzle);
-  else if (level) placeLevelLayout(state);
+  if (level) placeLevelLayout(state);
   else placeStartLayout(state, opts.forceFallback);
   return state;
 }
@@ -114,7 +104,7 @@ function finishMovements(state: RunState): void {
 
 function finishRemovals(state: RunState): void {
   for (const cube of [...state.cubes]) {
-    if (cube.state !== 'sinking' || isPuzzleHeld(state, cube)) continue;
+    if (cube.state !== 'sinking') continue;
     if (cube.hold) {
       cube.hold--;
       continue;
@@ -227,9 +217,7 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   runWave(state);
   countChainQuiet(state);
   runSpawn(state);
-  runPuzzle(state);
-  // A puzzle is never lost to a full board: nothing rises on it.
-  if (!state.puzzle) checkFill(state);
+  checkFill(state);
 
   countStats(state);
   state.tick++;

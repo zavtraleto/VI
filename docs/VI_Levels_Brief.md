@@ -265,7 +265,7 @@
 
 - [VI_TurnBased_Research.md](VI_TurnBased_Research.md) — исследование целиком, три части: давление без часов и счёт (разделы 1–9), уровни (10–16), обучение уровнями, награда и боты-искатели (17–19); источники в конце каждой части.
 - `docs/VI_Tutorial_Decisions.md` и `docs/VI_Tutorial_Research.md` — новое обучение: решения, черновик, раздел 7 об уровнях. Лежат на `origin/main` (`dadd2fa`); в рабочем дереве появятся после подтягивания.
-- [Спека пазлов](superpowers/specs/2026-10-01-vi-puzzle-design.md) — правила режима пазлов: готовый образец счёта ходов.
+- Спека пазлов (`docs/superpowers/specs/2026-10-01-vi-puzzle-design.md`, в истории git) — правила режима пазлов: готовый образец счёта ходов.
 - [VI_Retention_Research.md](VI_Retention_Research.md) — удержание, кривая вызова, боты против живых игроков, два живых игрока (четвёртая часть).
 - [VI_Randomness_Research.md](VI_Randomness_Research.md) — режиссёр и честная помощь.
 - [VI_World_Logic.md](art/VI_World_Logic.md), раздел «Контакт» — шестнадцать ступеней, которые могут стать наградой за блок.

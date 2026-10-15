@@ -103,14 +103,6 @@
 | [superpowers/specs/2026-10-15-vi-platform-layer-design.md](superpowers/specs/2026-10-15-vi-platform-layer-design.md) | решение | **Построено 15 октября 2026, v0.2.61.** Слой платформы: игра знает только тип `Platform` и его реализацию `none`, площадка — адаптер `platforms/<имя>/`, подставляется псевдонимом `@platform` при сборке с `VI_PLATFORM`; сборка без площадки без SDK; `npm run pack -- playgama`; как добавить Poki или CrazyGames |
 | [superpowers/plans/2026-10-03-vi-ads-in-world.md](superpowers/plans/2026-10-03-vi-ads-in-world.md) | план | реклама в мире игры; не выполнен |
 
-## Уйдут вместе с кодом
-
-Владелец 8 октября 2026 решил удалить код пазлов (`?tasks`), обучения Endless (`?tutorial`) и ворот глав. Пока код лежит, лежат и спеки; код обучения удалён 15 октября 2026, его спека — в истории git.
-
-| Документ | Вид | Что в нём |
-|---|---|---|
-| [superpowers/specs/2026-10-01-vi-puzzle-design.md](superpowers/specs/2026-10-01-vi-puzzle-design.md) | решение | пазлы |
-
 ## Служебное
 
 | Документ | Вид | Что в нём |
@@ -173,6 +165,7 @@
 | docs/superpowers/plans/2026-10-15-vi-platform-layer.md | план слоя платформы, выполнен (v0.2.61) по задачам, без отступлений; достать — `git show 17cb1f9:<путь>` | спека platform-layer-design |
 | docs/superpowers/plans/2026-10-15-vi-hint-transmission.md | план подсказки доски как передачи, выполнен (v0.2.60), с разделом «Что вышло иначе»; достать — `git show 874c51f:<путь>` | спека hint-transmission-design |
 | docs/superpowers/specs/2026-10-01-vi-tutorial-design.md | спека обучения Endless из шести уроков; код удалён 15 октября 2026; достать — `git show 2edc558:<путь>` | — |
+| docs/superpowers/specs/2026-10-01-vi-puzzle-design.md | спека пазлов; код удалён 15 октября 2026; достать — `git show 8720477:<путь>` | — |
 
 Картинки без ссылок убраны там же: `docs/superpowers/specs/2026-10-14-vi-ring-once/` (5 png) и `docs/screens/` (5 jpg); достать — `git show e6dc47e:<путь>`.
 

@@ -188,7 +188,6 @@ describe('start of a level', () => {
     const s = level({ goal: { kind: 'send', count: 6 }, moves: 12 });
     expect(s.levelRun).toMatchObject({ moves: 0, sent: [0, 0, 0, 0, 0, 0], bestChain: 0, beat: 0 });
     expect(s.levelRun!.spec.moves).toBe(12);
-    expect(s.puzzle).toBeNull();
     expect(s.spawnEnabled).toBe(false);
     expect(createRun({ seed: 1, config: defaultConfig() }).levelRun).toBeNull();
   });

@@ -50,9 +50,7 @@ const EVERY: Cue[] = [
   { kind: 'contact', stage: 9 },
   { kind: 'peak' },
   { kind: 'danger', secondsLeft: 2 },
-  { kind: 'deadEnd' },
   { kind: 'end' },
-  { kind: 'cleared', faces: [2, 3, 5] },
   { kind: 'undo', pan: 0.2 },
   { kind: 'relaid' },
   { kind: 'failed' },
@@ -342,11 +340,6 @@ describe('the rest of a session', () => {
     const over = part(notes, 'over')[0];
     expect(over.hz / low.hz).toBeCloseTo(2 ** (1 / 12), 6);
     expect(over.at).toBeGreaterThan(low.at);
-  });
-
-  it('rings the faces a task was solved with', () => {
-    const notes = part(notesFor({ kind: 'cleared', faces: [5, 2, 3, 2] }, setup()), 'face');
-    expect(notes.map((note) => note.hz.toFixed(3))).toEqual([2, 3, 5].map((face) => faceHz(face).toFixed(3)));
   });
 });
 
@@ -929,19 +922,12 @@ describe('what the rules say', () => {
     const memory = new ScoreMemory();
     memory.open.set(1, { face: 2, chain: 4 });
     memory.sinking.set(7, 2);
-    memory.sent.add(2);
     memory.reset();
-    expect(memory.open.size + memory.sinking.size + memory.sent.size).toBe(0);
+    expect(memory.open.size + memory.sinking.size).toBe(0);
   });
 
-  it('ends a session, and rings a task that is solved with the faces it took', () => {
-    const s = emptyRun();
-    const memory = new ScoreMemory();
-    expect(cuesOfEvent({ type: 'gameOver' }, s, memory)).toEqual([{ kind: 'end' }]);
-    put(s, 0, 0, 2);
-    land(s, put(s, 1, 0, 2));
-    for (const event of s.events) cuesOfEvent(event, s, memory);
-    expect(cuesOfEvent({ type: 'cleared' }, s, memory)).toEqual([{ kind: 'cleared', faces: [2] }]);
+  it('ends a session', () => {
+    expect(cuesOfEvent({ type: 'gameOver' }, emptyRun(), new ScoreMemory())).toEqual([{ kind: 'end' }]);
   });
 
   it('turns the beats that are not groups into their sounds', () => {

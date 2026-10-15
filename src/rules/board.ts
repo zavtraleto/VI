@@ -141,10 +141,10 @@ export function inChain(cube: Cube): boolean {
 
 /**
  * A dock: a free cell beside a cube of a chain that is still open. A die brought there joins
- * the chain. A puzzle has none: nothing joins a finished group there, and it has no floor.
+ * the chain.
  */
 export function isDock(state: RunState, x: number, z: number): boolean {
-  return !state.puzzle && isFree(state, x, z) && neighbours(state, x, z).some(inChain);
+  return isFree(state, x, z) && neighbours(state, x, z).some(inChain);
 }
 
 /** What a step from the floor does with the standing cube it is made into. */

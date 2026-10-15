@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Climb } from './climb';
 import { textWidth } from './layout';
 import { LANGUAGES, setLanguage } from '../ui/i18n';
-import { clearedPanel, languagePanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type RecordsTable } from './panels';
+import { languagePanel, pausePanel, recordsPanel, resultPanel, systemPanel, type RecordsTable } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
 
 const nothing = (): void => undefined;
@@ -35,9 +35,6 @@ describe('the panels of the program', () => {
       languagePanel({ languages: LANGUAGES, current: 'pt', onPick: nothing, onBack: nothing }),
       resultPanel({ score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
       recordsPanel(() => ({ lines: [] }), { onBack: nothing }),
-      rulesPanel(['a', 'b'], { onBack: nothing }),
-      rulesPanel(['a', 'b'], { onStart: nothing, onBack: nothing }),
-      clearedPanel({ stars: 2, moves: 5, target: 4, hasNext: true }, { onNext: nothing, onAgain: nothing, onTasks: nothing }),
     ];
     for (const spec of specs) expect(pressed(spec)).toContain(spec.home);
   });
@@ -75,12 +72,6 @@ describe('the panels of the program', () => {
     expect(view.value()).toBe('FIXED');
   });
 
-  it('offer the next task only where there is one', () => {
-    const actions = { onNext: nothing, onAgain: nothing, onTasks: nothing };
-    expect(pressed(clearedPanel({ stars: 3, moves: 4, target: 4, hasNext: true }, actions))).toContain('next');
-    expect(pressed(clearedPanel({ stars: 3, moves: 4, target: 4, hasNext: false }, actions))).not.toContain('next');
-  });
-
   it('say what there is to say about a record under the readings of a result', () => {
     const actions = { onAgain: nothing, onRecords: nothing, onMenu: nothing };
     const data = { score: 10, best: 20, maxChain: 2, ticks: 9000, tickMs: 20, note: 'a new best' };
@@ -89,16 +80,6 @@ describe('the panels of the program', () => {
     expect(row(spec, 'say').text).toBe('a new best');
     expect(row(spec, 'field', 2).value).toBe('03:00');
     expect(resultPanel({ ...data, note: null }, actions).rows.some((candidate) => candidate.kind === 'say')).toBe(false);
-  });
-
-  it('name the kind of the task in focus', () => {
-    const levels = [
-      { stars: 0, tier: 'first' },
-      { stars: 3, tier: 'second' },
-    ];
-    const spec = tasksPanel(levels, 1, { onPick: nothing, onRules: nothing, onBack: nothing });
-    expect(spec.home).toBe('task-1');
-    expect(row(spec, 'levels').note(1)).toBe('second');
   });
 });
 
@@ -264,8 +245,5 @@ describe('the tools of development', () => {
     const values = () => ({ muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture' as const, view: 'auto' as const, language: 'en' as const });
     expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'backdrop', 'control', 'view', 'language', 'back']);
     expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
-    const levels = [{ stars: 0, tier: 'first' }];
-    expect(pressed(tasksPanel(levels, 0, { onPick: nothing, onRules: nothing, onBack: nothing }))).toEqual(['rules', 'back']);
-    expect(pressed(tasksPanel(levels, 0, { onPick: nothing, onRules: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
   });
 });

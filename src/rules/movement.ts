@@ -1,6 +1,5 @@
 import { DELTA, cellIndex, cubeAt, cubeHeight, floorStep, inBounds, isBelow, isDock, isFree, landing, type Landing } from './board';
 import { roll } from './orientation';
-import { puzzleBusy } from './puzzle';
 import { removeCube } from './reactions';
 import type { Cube, Dir, Level, MoveKind, Orientation, RunState } from './types';
 
@@ -30,7 +29,7 @@ const LEVEL_AFTER: Record<MoveKind, Level> = {
 };
 
 export function canAcceptCommand(state: RunState): boolean {
-  if (state.over || puzzleBusy(state)) return false;
+  if (state.over) return false;
   const action = state.player.action;
   return action === undefined || action.t + 1 >= state.config.actionTicks;
 }
@@ -52,9 +51,7 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
     // A fixed die is not rolled: from it the player steps to a die beside it, and nowhere else.
     if (own.state === 'idle' && !own.fixed) {
       const spot = landing(state, tx, tz, []);
-      // A puzzle die rolls into an empty cell only: nothing is rolled over.
-      const plain = spot !== null && !spot.over && !spot.displaced;
-      if (spot && (plain || !state.puzzle)) {
+      if (spot) {
         return { kind: 'roll', tx, tz, cube: own, cubeX: tx, cubeZ: tz, newOri: roll(own.ori, dir), ...spot };
       }
     }
@@ -73,9 +70,8 @@ export function resolveMove(state: RunState, dir: Dir): MoveIntent {
     // Glass does not hold: in a session a cube that is coming up is stepped off like one that
     // is going down. On a level it is not: there it comes up under the player (`stepLevel`).
     // A whole cube is never stepped off: it rolls.
-    // In a puzzle there is no floor to stand on: the player stays on the dice.
     const leaves = own.state === 'sinking' || (own.state === 'rising' && !state.levelRun);
-    if (state.puzzle || !leaves) return blocked;
+    if (!leaves) return blocked;
     // A dock is a step: the player comes down onto it from any height. So they do onto any
     // other empty cell as the game is set; with `stepDownHeight` tuned lower it waits until
     // the cube is that low.
@@ -147,7 +143,6 @@ export function applyMove(state: RunState, dir: Dir): boolean {
   player.x = intent.tx;
   player.z = intent.tz;
   player.level = LEVEL_AFTER[intent.kind];
-  if (state.puzzle && intent.kind === 'roll') state.puzzle.moves++;
   state.stats.steps++;
   // The ways between the floor and the cubes, for the report of the run.
   if (intent.kind === 'climb') state.stats[intent.dock ? 'dockClimbs' : 'floorClimbs']++;

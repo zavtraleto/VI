@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { PUZZLE_LEVELS } from '../puzzle/levels';
 import { createRun, defaultConfig, step, type Dir, type RunState } from '../rules';
 import { packRun, unpackRun } from './savedRun';
 import { RunTally } from './telemetry';
@@ -40,9 +39,6 @@ describe('a run kept for later', () => {
     const over = running();
     over.over = true;
     expect(packRun('endless', over, tally)).toBeNull();
-    const task = createRun({ seed: 1, config: defaultConfig(), puzzle: PUZZLE_LEVELS[0] });
-    play(task, 50);
-    expect(packRun('endless', task, tally)).toBeNull();
   });
 
   it('is not taken back under other rules, or when what was kept is not a run', () => {

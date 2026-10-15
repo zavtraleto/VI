@@ -31,16 +31,6 @@ export interface HudSession {
   next: number | null;
 }
 
-/** The readings of a task: it is counted in moves. */
-export interface HudTask {
-  kind: 'task';
-  number: number;
-  moves: number;
-  target: number;
-  /** Fewest moves the task has been cleared in. */
-  best: number | null;
-}
-
 /**
  * The readings of a level: the score of the levels, large; the moves made on this try and the
  * fewest the board is cleared in, small; and a line for whatever its goal counts.
@@ -149,16 +139,16 @@ export interface HudBeat {
 
 /** Everything the session shows over the board at one moment. */
 export interface HudView {
-  header: HudSession | HudTask | HudLevel;
+  header: HudSession | HudLevel;
   seal: HudSeal | null;
   labels: readonly HudLabel[];
-  /** One line at the bottom: a hint, or what a task says about the group just made. */
+  /** One line at the bottom: a hint. */
   note: { text: string; alarm: boolean } | null;
   /** On a level: over every group that is short, how many dice it has of how many it takes. */
   counters?: readonly HudCounter[];
   /** The swipe sign, while a level shows it. */
   sign?: HudSign | null;
-  /** The two buttons of a task. `retryOnly` leaves the one that starts over, where no move can be taken back. */
+  /** The two buttons of a level. `retryOnly` leaves the one that starts over, where no move can be taken back. */
   tools: HudTools | null;
   /** The four buttons of those who would rather press than swipe; `box` is theirs in the window. */
   pad: { pulse: Dir | null; box: Rect } | null;
@@ -596,13 +586,10 @@ export class GameHud {
     if (view.header.kind === 'session') {
       if (layout.wide) this.drawSessionWide(view.header, layout, timeMs, blink, program, decay);
       else this.drawSession(view.header, layout, timeMs, blink, program, decay);
-    } else if (view.header.kind === 'level') {
-      if (layout.wide) this.drawLevelWide(view.header, layout, timeMs);
-      else this.drawLevel(view.header, layout, timeMs);
     } else if (layout.wide) {
-      this.drawTaskWide(view.header, layout);
+      this.drawLevelWide(view.header, layout, timeMs);
     } else {
-      this.drawTask(view.header, layout);
+      this.drawLevel(view.header, layout, timeMs);
     }
     this.drawPause(layout);
     // The readings slip: what is drawn so far is theirs, the rest of the picture stays whole.
@@ -958,35 +945,6 @@ export class GameHud {
       if (i < session.stage && !(fresh && blink === 0)) kit.box(cell, ink);
       else kit.frame(cell, faint);
     }
-  }
-
-  private drawTaskWide(task: HudTask, layout: HudLayout): void {
-    const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
-    const { left, right, lines } = layout;
-    kit.text(HUD.moves, left, lines.label, dim);
-    this.counter(task.moves, 3, left, lines.big, 2, 'left', true);
-    kit.text(`${HUD.task}${digits(task.number, 2)}`, left, lines.tag, ink);
-    kit.text(HUD.best, left, lines.best, dim);
-    if (task.best === null) kit.text('--', right, lines.best, faint, { align: 'right' });
-    else this.counter(task.best, 2, right, lines.best, 1, 'right', false);
-    kit.text(HUD.target, left, lines.link, dim);
-    kit.text(digits(task.target, 2), right, lines.link, ink, { align: 'right' });
-  }
-
-  private drawTask(task: HudTask, layout: HudLayout): void {
-    const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
-    const { left, end, mid, rowA, rowB, rowC, big, tight } = layout;
-    kit.text(HUD.moves, left, rowA, dim);
-    this.counter(task.moves, 3, left, big, 2, 'left', true);
-    kit.text(`${HUD.task}${digits(task.number, 2)}`, mid, rowA, ink);
-    if (!tight) kit.text(HUD.best, end, rowA, dim, { align: 'right' });
-    if (task.best === null) kit.text('--', end, rowB, faint, { align: 'right' });
-    else this.counter(task.best, 2, end, rowB, 1, 'right', false);
-    const target = digits(task.target, 2);
-    const at = kit.text(HUD.target, end - kit.measure(target) - 4 - kit.measure(HUD.target), rowC, dim);
-    kit.text(target, at + 4, rowC, ink);
   }
 
   /**

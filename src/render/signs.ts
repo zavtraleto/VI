@@ -186,28 +186,25 @@ export class ChainSigns {
     this.cells.clear();
     this.tops.clear();
 
-    // Nothing joins a finished group in a puzzle.
-    if (!state.puzzle) {
-      for (const cube of state.cubes) {
-        if (!inChain(cube)) continue;
-        const value = cube.ori.top;
-        // The top face where it is drawn: a die the player weighs on stands lower.
-        const face = faceAt(height(cube, alpha)) + dip(cube.id);
-        for (const dir of DIRS) {
-          const x = cube.x + DELTA[dir].dx;
-          const z = cube.z + DELTA[dir].dz;
-          if (x < 0 || z < 0 || x >= size || z >= size) continue;
-          const cell = x + z * size;
-          if (!this.cells.has(cell)) this.cells.set(cell, value);
-          this.tops.set(cell, Math.max(this.tops.get(cell) ?? 0, face));
-        }
+    for (const cube of state.cubes) {
+      if (!inChain(cube)) continue;
+      const value = cube.ori.top;
+      // The top face where it is drawn: a die the player weighs on stands lower.
+      const face = faceAt(height(cube, alpha)) + dip(cube.id);
+      for (const dir of DIRS) {
+        const x = cube.x + DELTA[dir].dx;
+        const z = cube.z + DELTA[dir].dz;
+        if (x < 0 || z < 0 || x >= size || z >= size) continue;
+        const cell = x + z * size;
+        if (!this.cells.has(cell)) this.cells.set(cell, value);
+        this.tops.set(cell, Math.max(this.tops.get(cell) ?? 0, face));
       }
-      // A cell where a standing die is takes no die: it has no sign.
-      for (const cell of [...this.cells.keys()]) if (!isDock(state, cell % size, Math.floor(cell / size))) this.cells.delete(cell);
-      // A cell a die of the chain stood on until it was rolled over keeps the sign of the chain: the die is
-      // gone at once, and its place in the group is not.
-      for (const ghost of ghosts) this.cells.set(ghost.x + ghost.z * size, ghost.value);
     }
+    // A cell where a standing die is takes no die: it has no sign.
+    for (const cell of [...this.cells.keys()]) if (!isDock(state, cell % size, Math.floor(cell / size))) this.cells.delete(cell);
+    // A cell a die of the chain stood on until it was rolled over keeps the sign of the chain: the die is
+    // gone at once, and its place in the group is not.
+    for (const ghost of ghosts) this.cells.set(ghost.x + ghost.z * size, ghost.value);
 
     // With the steps of the docks a free cell beside a chain is walked on from the top of its
     // dice as well as from the floor: it has a shelf up there, which comes down with them.

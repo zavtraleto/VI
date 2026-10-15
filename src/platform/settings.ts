@@ -18,30 +18,6 @@ export interface RunRecord {
   date: string;
 }
 
-/** What a player did on one puzzle, for the playtest report. */
-export interface PuzzleStat {
-  /** Starts of the level that got at least one move, the first one included. */
-  tries: number;
-  undos: number;
-  /** Groups that turned out to be dead ends. */
-  dead: number;
-  /** Time spent on the level until it was first cleared, in milliseconds. */
-  playMs: number;
-  /** Moves and seconds of the first clear; null until then. */
-  firstMoves: number | null;
-  firstSec: number | null;
-  /** Fewest moves the level has been cleared in. */
-  best: number | null;
-}
-
-export interface PuzzleProgress {
-  /** Stars earned per level code. */
-  stars: Record<string, number>;
-  stats: Record<string, PuzzleStat>;
-  /** The rules have been shown once. */
-  rulesSeen: boolean;
-}
-
 /** What a player did on one level, for the playtest report. */
 export interface LevelStat {
   /** Starts of the level that got at least one move. */
@@ -117,7 +93,6 @@ export interface Settings {
    * whatever their version; under a key of its own what was played by changed rules.
    */
   runs: Record<string, RunRecord[]>;
-  puzzle: PuzzleProgress;
   levels: LevelProgress;
 }
 
@@ -147,7 +122,6 @@ export function loadSettings(): Settings {
     camera: { ...DEFAULT_CAMERA },
     debugPanel: false,
     runs: {},
-    puzzle: { stars: {}, stats: {}, rulesSeen: false },
     levels: { passed: {}, stats: {}, told: [] },
   };
   const loaded = loadJson(KEY, fallback);
@@ -160,7 +134,8 @@ export function loadSettings(): Settings {
   // The session of the day is gone from the game (the owner, 15 October 2026): what was kept of it goes.
   for (const kind of Object.keys(loaded.runs)) if (kind === 'timed' || kind.startsWith('timed/')) delete loaded.runs[kind];
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
-  loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
+  // The tasks are gone from the game (the owner, 15 October 2026): what was kept of them goes.
+  delete (loaded as Partial<{ puzzle: unknown }>).puzzle;
   // What was kept under the codes of an earlier edition of the road is of other boards (`toRoadEdition`).
   // A save from before the windows of hints has closed none: it takes `told` of the fallback. The line about a dim
   // die is said no more (the owner, 15 October 2026), and what was kept of it goes.
@@ -214,12 +189,6 @@ export function addRun(settings: Settings, key: string, run: RunRecord): void {
   } else {
     settings.runs[key] = list;
   }
-}
-
-export function puzzleStat(settings: Settings, id: string): PuzzleStat {
-  const stats = settings.puzzle.stats;
-  stats[id] ??= { tries: 0, undos: 0, dead: 0, playMs: 0, firstMoves: null, firstSec: null, best: null };
-  return stats[id];
 }
 
 /** Failed tries of a level whose shortfall is kept. */

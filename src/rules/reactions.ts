@@ -46,7 +46,7 @@ export function levelStats(state: RunState): LevelStats {
   return levels[state.level - 1];
 }
 
-/** Endless follows the pace of its level; a puzzle keeps its own. */
+/** Endless follows the pace of its level. */
 function isPaced(state: RunState): boolean {
   return state.mode === 'endless';
 }
@@ -225,27 +225,6 @@ function happyOne(state: RunState, trigger: Cube): void {
   rewardWipe(state);
 }
 
-/**
- * Puzzle: a group clears only as a whole and nothing joins it afterwards. It waits under the
- * player, so what matters at once is whether there is a way on from it.
- */
-function resolvePuzzle(state: RunState, cube: Cube): void {
-  const puzzle = state.puzzle!;
-  const value = cube.ori.top;
-  if (value < 2) return;
-  const component = componentOf(state, cube);
-  if (component.length < value) return;
-  startReaction(state, component);
-  const rest = state.cubes.filter((c) => c.state === 'idle');
-  // The last group goes down with the player on it.
-  if (rest.length === 0) return;
-  puzzle.held = cube.reactionId;
-  const touches = (a: Cube, b: Cube) => Math.abs(a.x - b.x) + Math.abs(a.z - b.z) === 1;
-  if (!rest.some((r) => component.some((c) => touches(r, c)))) puzzle.dead = 'noExit';
-  else if (rest.length === 1) puzzle.dead = 'single';
-  if (puzzle.dead) state.events.push({ type: 'deadEnd', reason: puzzle.dead });
-}
-
 /** Whether dice showing `value` make groups in this run: on a level that names its faces, only those do. */
 export function faceWorks(state: RunState, value: number): boolean {
   const faces = state.levelRun?.spec.faces;
@@ -259,10 +238,6 @@ export function faceWorks(state: RunState, value: number): boolean {
  */
 export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void {
   if (cube.state !== 'idle') return;
-  if (state.puzzle) {
-    resolvePuzzle(state, cube);
-    return;
-  }
   // A level may let only some faces work: a die showing any other makes nothing and joins nothing.
   if (!faceWorks(state, cube.ori.top)) return;
   if (cube.ori.top === 1) {
