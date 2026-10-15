@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import playgamaBridge from '@playgama/bridge/vite';
 import JavaScriptObfuscator from 'javascript-obfuscator';
-import type { Plugin } from 'vite';
+import type { Plugin, PluginOption } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { playgama } from './platforms/playgama/vite';
 import { viBoards } from './vite.boards';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
@@ -82,6 +82,9 @@ function woff2Only(): Plugin {
   };
 }
 
+/** The plugins a platform adds to its build: the SDK in the page, its files. A platform without any is not named here. */
+const PLATFORM_PLUGINS: Record<string, () => PluginOption[]> = { playgama };
+
 /**
  * The platform a build is made for: `VI_PLATFORM`, read by `vite build` only. The dev server
  * and the tests always have none. The game reads it as `@platform`.
@@ -97,26 +100,29 @@ function platformModule(name: string): string {
   return file;
 }
 
-export default defineConfig(({ command }) => ({
-  base: './',
-  resolve: { alias: [{ find: /^@platform$/, replacement: platformModule(platformOf(command)) }] },
-  define: { 'import.meta.env.VI_VERSION': JSON.stringify(version) },
-  // The Bridge SDK of the platform: from its CDN, with the copy of the package as a fallback.
-  // The boards of the lab of the levels are read and written by the dev server only: `viBoards` takes no part in a build.
-  plugins: [playgamaBridge({ mode: 'cdn' }), woff2Only(), viBoards(), ...(process.env.VI_OBFUSCATE ? [obfuscate()] : [])],
-  // The preview tooling passes its own port when 5183 is already taken by another session.
-  server: { host: true, port: Number(process.env.PORT) || 5183, strictPort: true },
-  build: {
-    sourcemap: false,
-    modulePreload: { polyfill: false },
-    chunkSizeWarningLimit: 900,
-    rolldownOptions: {
-      output: {
-        codeSplitting: { groups: [{ name: VENDOR, test: /node_modules/ }] },
+export default defineConfig(({ command }) => {
+  const platform = platformOf(command);
+  return {
+    base: './',
+    resolve: { alias: [{ find: /^@platform$/, replacement: platformModule(platform) }] },
+    define: { 'import.meta.env.VI_VERSION': JSON.stringify(version) },
+    // The SDK of a platform and its files come with the build for that platform only (platforms/).
+    // The boards of the lab of the levels are read and written by the dev server only: `viBoards` takes no part in a build.
+    plugins: [woff2Only(), viBoards(), ...(PLATFORM_PLUGINS[platform]?.() ?? []), ...(process.env.VI_OBFUSCATE ? [obfuscate()] : [])],
+    // The preview tooling passes its own port when 5183 is already taken by another session.
+    server: { host: true, port: Number(process.env.PORT) || 5183, strictPort: true },
+    build: {
+      sourcemap: false,
+      modulePreload: { polyfill: false },
+      chunkSizeWarningLimit: 900,
+      rolldownOptions: {
+        output: {
+          codeSplitting: { groups: [{ name: VENDOR, test: /node_modules/ }] },
+        },
       },
     },
-  },
-  // The files are run side by side, and a test that plays whole runs takes three times as long among them as alone:
-  // the five seconds a test gets unless said were what `bot.test.ts` took to the millisecond, and one file more tipped it.
-  test: { include: ['src/**/*.test.ts', 'platforms/**/*.test.ts'], testTimeout: 20_000 },
-}));
+    // The files are run side by side, and a test that plays whole runs takes three times as long among them as alone:
+    // the five seconds a test gets unless said were what `bot.test.ts` took to the millisecond, and one file more tipped it.
+    test: { include: ['src/**/*.test.ts', 'platforms/**/*.test.ts'], testTimeout: 20_000 },
+  };
+});
