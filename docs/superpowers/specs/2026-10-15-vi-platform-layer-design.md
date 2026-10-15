@@ -1,6 +1,6 @@
 # VI — слой платформы: игра без SDK, площадка — адаптер при сборке
 
-> Вид: решение. Статус: в силе. Дата: 2026-10-15. Принято владельцем 15 октября 2026 (чат Fable): способ «выбор модуля при сборке»; не построено.
+> Вид: решение. Статус: построено. Дата: 2026-10-15. Принято владельцем 15 октября 2026 (чат Fable): способ «выбор модуля при сборке»; построено 15 октября 2026, v0.2.61, по плану «platform-layer» (в истории git, см. индекс).
 > Что заменит: `src/platform/bridge.ts` (уходит целиком), `public/playgama-bridge-config.json` (переезжает в `platforms/playgama/`), вызов плагина `@playgama/bridge/vite` в `vite.config.ts`. Что будет жить в коде: src/platform/platform.ts, platforms/none.ts, platforms/playgama/adapter.ts, platforms/playgama/vite.ts, platforms/playgama/playgama-bridge-config.json, platforms/playgama/README.md, vite.config.ts, scripts/pack.mjs, src/main.ts, src/app/game.ts, src/platform/storage.ts.
 
 Исполнитель читает эту спеку и файлы, названные в разделе 4. Весь проект заново не изучается.

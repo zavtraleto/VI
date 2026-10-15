@@ -20,10 +20,10 @@
 
 ## Как реклама показывается сейчас
 
-- Одна функция: `showInterstitial(done)` в [src/platform/bridge.ts](../../../src/platform/bridge.ts). Она ждёт, пока реклама закроется, не откроется или не придёт, и только потом зовёт `done`.
+- Одна функция: `platform.interstitial(done)` (у Playgama — в [platforms/playgama/adapter.ts](../../../platforms/playgama/adapter.ts)). Она ждёт, пока реклама закроется, не откроется или не придёт, и только потом зовёт `done`.
 - После сессии без срока и после сеанса дня: игрок уходит с итога, проходит передача-ответ, затем реклама, затем новая сессия или меню. Место в коде — замыкание `answered` в `showResult()` в [src/app/game.ts](../../../src/app/game.ts).
 - В задачах: раз в 5–7 решённых, между двумя задачами. Место в коде — `then` в `showPuzzleResult()`, порог — `TASKS_TO_AD`.
-- Не чаще раза в 120 секунд: `minimumDelayBetweenInterstitial` в [public/playgama-bridge-config.json](../../../public/playgama-bridge-config.json).
+- Не чаще раза в 120 секунд: `minimumDelayBetweenInterstitial` в [platforms/playgama/playgama-bridge-config.json](../../../platforms/playgama/playgama-bridge-config.json).
 - Правило пользователя: реклама редкая и никогда не прерывает игровой процесс.
 
 ## Открытые вопросы к пользователю

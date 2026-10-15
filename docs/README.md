@@ -100,8 +100,7 @@
 | Документ | Вид | Что в нём |
 |---|---|---|
 | [VI_Playgama_Page.md](VI_Playgama_Page.md) | истина | тексты страницы игры в кабинете Playgama (временные) |
-| [superpowers/specs/2026-10-15-vi-platform-layer-design.md](superpowers/specs/2026-10-15-vi-platform-layer-design.md) | решение | **в силе с 15 октября 2026; не построено.** Слой платформы: игра знает только тип `Platform` и его реализацию `none`, площадка — адаптер `platforms/<имя>/`, подставляется псевдонимом `@platform` при сборке с `VI_PLATFORM`; сборка без площадки без SDK; `npm run pack -- playgama`; как добавить Poki или CrazyGames |
-| [superpowers/plans/2026-10-15-vi-platform-layer.md](superpowers/plans/2026-10-15-vi-platform-layer.md) | план | сборка слоя платформы в четыре коммита, каждый с рабочим архивом Playgama: тип и адаптер рядом с игрой, игра на `@platform`, SDK только в сборке площадки, документы; не выполнен |
+| [superpowers/specs/2026-10-15-vi-platform-layer-design.md](superpowers/specs/2026-10-15-vi-platform-layer-design.md) | решение | **Построено 15 октября 2026, v0.2.61.** Слой платформы: игра знает только тип `Platform` и его реализацию `none`, площадка — адаптер `platforms/<имя>/`, подставляется псевдонимом `@platform` при сборке с `VI_PLATFORM`; сборка без площадки без SDK; `npm run pack -- playgama`; как добавить Poki или CrazyGames |
 | [superpowers/plans/2026-10-03-vi-ads-in-world.md](superpowers/plans/2026-10-03-vi-ads-in-world.md) | план | реклама в мире игры; не выполнен |
 
 ## Уйдут вместе с кодом
@@ -170,6 +169,7 @@
 | docs/superpowers/specs/2026-10-14-vi-one-picture-language-design.md | спека единого языка картинки; отменена: отвергнута владельцем по виду, откат по его слову | — |
 | docs/VI_Levels_Constraints.md | замер первой пробы 4 октября | VI_Levels_Rules.md |
 | docs/art/VI_Shell_Research.md | оболочка: ориентиры и варианты | art/VI_Interface_Layer.md |
+| docs/superpowers/plans/2026-10-15-vi-platform-layer.md | план слоя платформы, выполнен (v0.2.61) по задачам, без отступлений; достать — `git show 17cb1f9:<путь>` | спека platform-layer-design |
 | docs/superpowers/plans/2026-10-15-vi-hint-transmission.md | план подсказки доски как передачи, выполнен (v0.2.60), с разделом «Что вышло иначе»; достать — `git show 874c51f:<путь>` | спека hint-transmission-design |
 
 Картинки без ссылок убраны там же: `docs/superpowers/specs/2026-10-14-vi-ring-once/` (5 png) и `docs/screens/` (5 jpg); достать — `git show e6dc47e:<путь>`.
