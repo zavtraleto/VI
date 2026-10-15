@@ -342,20 +342,7 @@ const HINT_BELOW = 8;
 export const HINT_FADE_MS = 300;
 const HINT_STEPS = 10;
 
-/** The words of a hint come one at a time, this far apart, unless the lab says otherwise (`hintWordMs`). */
-export const HINT_WORD_MS = 180;
-
-/**
- * The words of a hint that are there `elapsedMs` after it was put up: the first at once, and one
- * more every `perWordMs`, as if somebody said them; all of them where no time is given to a word.
- * What is returned is the start of the text as it is written, so its length is the signs to show.
- */
-export function wordsShown(text: string, elapsedMs: number, perWordMs = HINT_WORD_MS): string {
-  if (!(perWordMs > 0)) return text;
-  const words = text.split(' ');
-  const count = Math.floor(Math.max(0, elapsedMs) / perWordMs) + 1;
-  return count >= words.length ? text : words.slice(0, count).join(' ');
-}
+export { HINT_WORD_MS, wordsShown } from '../signal/caption';
 
 /**
  * How long a hint has been saying its words, for `wordsShown`: from when it was put up to now,
