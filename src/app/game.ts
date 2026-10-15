@@ -209,8 +209,11 @@ const REWIND_SPEED = 1.2;
 const REWIND_MOST_MS = 700;
 /** Whether the net of the die under the player is shown beside the board. */
 const SEAL_SHOWN: boolean = false;
-/** A try of a level may take this many moves back, and no more (`VI_Levels_Rules.md`, section 7). */
-const UNDO_LIMIT = 3;
+/**
+ * How many moves a try of a level may take back; `null` — as many as it has made (`VI_Levels_Rules.md`, section 7).
+ * Word of the owner, 15 October 2026: no limit for the playtest; later three to five, for an advert.
+ */
+const UNDO_LIMIT: number | null = null;
 /**
  * The stars of a pass stand in the one place whatever the board is: in the middle of the stage,
  * this share of its height down from its top. It is where they stood over a board of three by
@@ -1115,7 +1118,7 @@ export class Game {
 
   /** How many moves this try of a level may still take back. */
   private get undosLeft(): number {
-    return Math.max(0, UNDO_LIMIT - this.undosMade);
+    return UNDO_LIMIT === null ? Infinity : Math.max(0, UNDO_LIMIT - this.undosMade);
   }
 
   /** The next command, with the board as it stands remembered in case the command is a move that can be taken back. */
@@ -1130,8 +1133,8 @@ export class Game {
   }
 
   /**
-   * Takes the last move of a level back, with every step made since; a try takes back three
-   * moves and no more (`UNDO_LIMIT`). A level that has come to a dead end stands on the board with
+   * Takes the last move of a level back, with every step made since; a try takes back as many
+   * moves as `UNDO_LIMIT` lets it, or all it has made. A level that has come to a dead end stands on the board with
    * no window over it while the try has a move to take back, and goes on from before the move that ended it. The board is the one before
    * the move at once, and what is drawn runs backwards to it: the die rolls back the way it came
    * and the dice that had begun to leave come back up.
@@ -1344,7 +1347,8 @@ export class Game {
     this.audio.laid(this.state);
     if (said) this.sayLevelStarted();
     this.layoutGuide();
-    this.tellHint(spec.id);
+    // A board only laid waits under the start screen: its hint comes when the player starts it.
+    if (said) this.tellHint(spec.id);
   }
 
   /**
@@ -1442,6 +1446,7 @@ export class Game {
       this.audio.setPaused(false);
       this.lastFrame = 0;
       mark('play');
+      if (this.state.levelRun) this.tellHint(this.state.levelRun.spec.id);
     });
   }
 
@@ -2818,7 +2823,7 @@ export class Game {
         : levelRun
           ? this.undoable
             ? // A dead end is left by taking the move back: no window comes, and the button is the one to press.
-              { canUndo: this.history.length > 0 && !this.rewind && this.undosLeft > 0, urgent: this.state.over && deadEnd(this.state), left: this.undosLeft, muted: this.settings.muted }
+              { canUndo: this.history.length > 0 && !this.rewind && this.undosLeft > 0, urgent: this.state.over && deadEnd(this.state), left: UNDO_LIMIT === null ? undefined : this.undosLeft, muted: this.settings.muted }
             : { canUndo: false, urgent: false, retryOnly: true, muted: this.settings.muted }
           : null,
       pad:

@@ -209,10 +209,10 @@ export class SignalPlayer {
   private press(event: Event, at: { x: number; y: number } | null, code: string | null = null): void {
     const { playing } = this;
     const told = playing?.told;
-    if (!playing || !told) return;
+    // Until the window is on screen the game waits all the same (`busy`): a press passes, so a scene that never comes holds no key.
+    if (!playing || !told || playing.start === null) return;
     event.stopImmediatePropagation();
     if (code !== null && (event as KeyboardEvent).repeat) return;
-    if (playing.start === null) return;
     if (!told.full) {
       told.full = true;
       told.words = told.total;
