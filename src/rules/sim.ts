@@ -4,14 +4,12 @@ import { applyMove, canAcceptCommand } from './movement';
 import { levelStats, pruneReactions, removeCube, resolveLanded, runPhase } from './reactions';
 import { isPuzzleHeld, placePuzzleLayout, puzzleConfig, runPuzzle } from './puzzle';
 import { advancePending, chainQuiet, placeLevelLayout, placeStartLayout, runSpawn } from './spawn';
-import { isHeld, placeTutorialLayout, runTutorial, tutorialConfig, tutorialMove } from './tutorial';
 import { runWave, waveAt } from './wave';
 import type { Dir, LevelRun, LevelSpec, PuzzleLayout, RulesConfig, RunState } from './types';
 
 export interface RunOptions {
   seed: number;
   config: RulesConfig;
-  tutorial?: boolean;
   /** A puzzle to solve: its dice and nothing else, on a board of its own size. */
   puzzle?: PuzzleLayout;
   /** A level of the game: its board, its dice, its goal and its moves. */
@@ -24,18 +22,15 @@ export interface RunOptions {
 export function createRun(opts: RunOptions): RunState {
   const { puzzle } = opts;
   const level = puzzle ? undefined : opts.level;
-  const scripted = opts.tutorial && !puzzle && !level;
   // The run keeps a config of its own: its chain window changes with the level.
   const config = puzzle
     ? puzzleConfig(opts.config, puzzle)
     : level
       ? levelConfig(opts.config, level)
-      : opts.tutorial
-        ? tutorialConfig(opts.config)
-        : { ...opts.config };
+      : { ...opts.config };
   const state: RunState = {
     config,
-    mode: puzzle ? 'puzzle' : level ? 'level' : opts.tutorial ? 'practice' : 'endless',
+    mode: puzzle ? 'puzzle' : level ? 'level' : 'endless',
     seed: opts.seed,
     tick: 0,
     rng: opts.seed | 0,
@@ -58,10 +53,9 @@ export function createRun(opts: RunOptions): RunState {
     sinceClear: 0,
     liftTimer: 0,
     fullTicks: 0,
-    spawnEnabled: !opts.tutorial && !puzzle && !level,
+    spawnEnabled: !puzzle && !level,
     feedDeck: [],
     helpDeck: [],
-    tutorial: scripted ? { step: 0, timer: 0, done: false } : null,
     puzzle: puzzle ? { moves: 0, held: 0, dead: null } : null,
     levelRun: level ? { spec: level, moves: 0, sent: [0, 0, 0, 0, 0, 0], bestChain: 0, beat: 0 } : null,
     over: false,
@@ -93,7 +87,6 @@ export function createRun(opts: RunOptions): RunState {
   if (opts.empty) return state;
   if (puzzle) placePuzzleLayout(state, puzzle);
   else if (level) placeLevelLayout(state);
-  else if (opts.tutorial) placeTutorialLayout(state);
   else placeStartLayout(state, opts.forceFallback);
   return state;
 }
@@ -121,7 +114,7 @@ function finishMovements(state: RunState): void {
 
 function finishRemovals(state: RunState): void {
   for (const cube of [...state.cubes]) {
-    if (cube.state !== 'sinking' || isHeld(state, cube) || isPuzzleHeld(state, cube)) continue;
+    if (cube.state !== 'sinking' || isPuzzleHeld(state, cube)) continue;
     if (cube.hold) {
       cube.hold--;
       continue;
@@ -135,7 +128,7 @@ function finishRemovals(state: RunState): void {
 
 function finishRisings(state: RunState): void {
   for (const cube of state.cubes) {
-    if (cube.state !== 'rising' || isHeld(state, cube)) continue;
+    if (cube.state !== 'rising') continue;
     cube.t++;
     if (cube.t >= state.config.risingTicks) {
       cube.state = 'idle';
@@ -229,11 +222,7 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   finishMovements(state);
   finishRemovals(state);
   finishRisings(state);
-  if (accepts) {
-    if (state.tutorial && !state.tutorial.done) tutorialMove(state, cmd);
-    else applyMove(state, cmd);
-  }
-  runTutorial(state);
+  if (accepts) applyMove(state, cmd);
   runPhase(state);
   runWave(state);
   countChainQuiet(state);

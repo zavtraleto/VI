@@ -82,8 +82,8 @@ export interface MenuFile {
  * middle of the net, where the figure waits. Opposite faces add up to seven: the levels face
  * the settings of the program, the session without a limit faces the log, and what is read -
  * how the game is played, and the note that came with the program - stands on either side.
- * The exercise and the tasks had the three and the four until 6 October 2026: both are still
- * in the program, and neither has a file.
+ * The exercise and the tasks had the three and the four until 6 October 2026: the exercise is
+ * gone from the program, and the tasks have no file.
  */
 export const MENU_FILES: readonly MenuFile[] = [
   /** "Stages": the levels of the game; "completed". */
@@ -122,23 +122,15 @@ export const HUD = {
   link: '接続',
   /** "Detected": what the link reads once the program has found a pattern on it. */
   found: '検出',
-  /** A session that is not counted: the exercise. */
-  practice: 'TEST',
   /** "Full": every cell holds a die, and the seconds left to free one. */
   full: '満杯',
   /** "Moves", "task", "target": the readings of a task. */
   moves: '手数',
   task: '課題',
   target: '目標',
-  /** "Calibration": a part of the exercise sets one channel of the device, and says which. */
-  exercise: '較正',
-  channel: 'CH',
-  /** "Next": the words have been read. */
-  next: '次へ',
-  /** "Take back", "again", "skip": what can be pressed over the board. */
+  /** "Take back", "again": what can be pressed over the board. */
   undo: '取消',
   retry: '再試',
-  skip: { native: '省略', name: 'SKIP' },
 } as const;
 
 /** The two small readings of a level: the moves made on this try, and the fewest the board is cleared in. */

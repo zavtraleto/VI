@@ -162,7 +162,6 @@ export function startSoundLab(): void {
   /** A short session, so that the sounds are heard together and not one by one. Times are in milliseconds. */
   const session = (): void => {
     const script: [number, Cue | (() => void)][] = [
-      [0, { kind: 'begin' }],
       [900, () => roll(2, -0.4)],
       [1300, () => roll(4, -0.2)],
       [1750, () => roll(5, 0)],
@@ -248,7 +247,6 @@ export function startSoundLab(): void {
     cleared: () => fire({ kind: 'cleared', faces: [2, 3, head.face] }),
     deadEnd: () => fire({ kind: 'deadEnd' }),
     fell: () => fire({ kind: 'fell', pan: head.place }),
-    begin: () => fire({ kind: 'begin' }),
     // The levels.
     undo: () => fire({ kind: 'undo', pan: head.place }),
     relaid: () => fire({ kind: 'relaid' }),
@@ -302,7 +300,7 @@ export function startSoundLab(): void {
     open: () => engine.ui({ kind: 'open' }),
     close: () => engine.ui({ kind: 'close' }),
     words: () => {
-      // A line of the other side, sign by sign, as the exercise writes it.
+      // A line of the other side, sign by sign.
       halt();
       [...head.words].forEach((sign, i) => later(i * 38, () => engine.sign(sign)));
     },
@@ -410,7 +408,6 @@ export function startSoundLab(): void {
   events.add(actions, 'cleared').name('Задача решена');
   events.add(actions, 'deadEnd').name('Задача: тупик');
   events.add(actions, 'fell').name('Упал на пол');
-  events.add(actions, 'begin').name('Поле после обучения');
 
   const levels = gui.addFolder('Уровни');
   levels.add(actions, 'undo').name('Возврат хода');

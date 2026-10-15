@@ -65,7 +65,7 @@ export function beatsOf(state: RunState, events: readonly GameEvent[]): Beat[] {
       });
     } else if (event.type === 'happyOne') {
       beats.push({ kind: 'one', value: 1, tier: 2, cells: cellsOf((cube) => cube.ori.top === 1 && cube.reactionId === 0), points: event.points, chain: 0 });
-    } else if (event.type === 'levelUp' && !state.tutorial) {
+    } else if (event.type === 'levelUp') {
       beats.push({ kind: 'level', value: 0, tier: 0, cells: [], points: 0, chain: 0 });
     }
   }

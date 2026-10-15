@@ -68,7 +68,6 @@ export class ShellLab {
   screen: ShellScreenName;
   /** The boot is shown as the first start of the program, with the check. */
   first: boolean;
-  /** The tutorial is not done yet: EXERCISE is the main item of the menu. */
   /** What the last copy put on the clipboard. */
   copied: string | null = null;
   /** What the session of the sample of the way up the log came to. */

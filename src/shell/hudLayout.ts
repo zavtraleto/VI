@@ -319,20 +319,6 @@ export function signTurn(mode: 'dot' | 'key', timeMs: number, times: { runMs: nu
 
 /** Letters of the voice for a note over the board, in CSS pixels. */
 export const NOTE_SIZE = 17;
-/**
- * Letters of the voice over the board, in CSS pixels. On a tall screen they are a fixed size;
- * on a wide one they follow the height of the window, between these two.
- */
-const LINE_SIZE_TALL = 19;
-const LINE_SIZE_WIDE: readonly [number, number] = [26, 46];
-const LINE_SHARE_WIDE = 0.052;
-
-/** How large the letters of a line over the board are on this stage: of the words of the exercise. */
-export function lineSize(stage: Size): number {
-  if (stage.height > stage.width) return LINE_SIZE_TALL;
-  return Math.round(Math.min(LINE_SIZE_WIDE[1], Math.max(LINE_SIZE_WIDE[0], stage.height * LINE_SHARE_WIDE)));
-}
-
 /** The picture on a button of a level is this many dots a side; what the button that takes a move back keeps around its picture and its word, and between them. */
 export const TOOL_ICON = 9;
 const TOOL_PAD = 6;

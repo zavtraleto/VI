@@ -5,20 +5,7 @@ import type { Texts } from '../i18n';
  * is written here as a plain one: `i18n.ts` makes it a space no line breaks at.
  */
 export const FR: Texts = {
-  tut_roll: 'Tu es debout sur un dé. Guide-le : il roule, et une face latérale passe au-dessus',
-  tut_pair: 'Roule le 2 à côté du 2',
-  tut_count: 'Deux 2 côte à côte, et ils sont partis chez nous. Autant de dés que de points : trois 3, quatre 4',
-  tut_three: 'Un 3 en demande trois. Glisse le tien entre eux',
-  tut_carry: 'Le 4 est sur le côté. Tant que tu roules le long de lui, il reste sur le côté. Amène-le et bascule-le vers le haut',
-  tut_floor: "Ton dé est parti, tu es au sol. D'ici, on pousse les dés. Pousse le 5 vers les autres",
-  tut_mount: "Un éclair : un dé monte ici. Monte dessus tant qu'il est bas",
-  tut_seven: 'Un 1 en haut veut dire un 6 en bas : les faces opposées font sept. Deux roulements, et il est en haut',
-  tut_chain: "Tant qu'un groupe s'en va, le canal est ouvert. Passe sur le dé voisin et ajoute-le au groupe : le score se multiplie",
-  tut_ones: "Le 1 est à part : les 1 ne s'assemblent pas. Amène-le au groupe qui s'en va",
-  tut_alone: 'Tous ceux qui étaient à part sont partis. Il en reste un : celui sur lequel tu te tiens',
-  tut_end: "À partir d'ici, les dés arrivent d'eux-mêmes. Ne laisse pas le plateau se remplir, sinon nous ne t'entendrons plus",
   newBest: 'Nouveau record',
-  practiceNote: "Partie d'entraînement : record non enregistré",
   notSaved: 'Stockage indisponible : record non enregistré',
   hintFloor: 'Au sol, tu pousses les cubes',
   hintMount: 'Monte sur un cube qui apparaît',
@@ -118,7 +105,6 @@ export const FR: Texts = {
   campaignEnd: 'À suivre. En attendant de nouveaux niveaux, tu peux essayer le {mode infini}.',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLevels: 'NETTOYAGE DU CHAMP',
-  shellExercise: 'TEST DE COMPÉTENCE',
   shellTasks: 'NETTOYAGE DU CANAL',
   shellRecords: 'JOURNAL DES SESSIONS',
   shellSystem: 'PARAMÈTRES',

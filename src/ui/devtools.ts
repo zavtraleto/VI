@@ -67,7 +67,6 @@ export class DevTools {
     actions: {
       onApply: (experiments: ExperimentConfig, mode: ControlMode, debugPanel: boolean) => void;
       onBack: () => void;
-      onReplayTutorial: () => void;
     },
   ): void {
     this.screens.showPlaytest(settings, statsText || td('noStats'), actions);

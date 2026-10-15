@@ -40,9 +40,6 @@ describe('a run kept for later', () => {
     const over = running();
     over.over = true;
     expect(packRun('endless', over, tally)).toBeNull();
-    const exercise = createRun({ seed: 11, config: defaultConfig(), tutorial: true });
-    play(exercise, 50);
-    expect(packRun('endless', exercise, tally)).toBeNull();
     const task = createRun({ seed: 1, config: defaultConfig(), puzzle: PUZZLE_LEVELS[0] });
     play(task, 50);
     expect(packRun('endless', task, tally)).toBeNull();

@@ -66,7 +66,7 @@ const PART_PER_TIER = 0.25;
  * time. It is the cell that is followed, so a hop or a climb does not move the view.
  */
 const FOLLOW_Y = 1;
-/** The words of an exercise never take more of the stage than this from the followed board. */
+/** What lies over the top of the stage never takes more of it than this from the followed board. */
 const FOLLOW_CLEAR = 0.7;
 /**
  * A followed board seen through the lens is drawn denser than the canvas, for its enlarged
@@ -721,8 +721,8 @@ export class BoardView {
     // After a turn of the screen or a change of view the camera is put on the player at once.
     this.settled = false;
     if (this.mode === 'follow') {
-      // The words of the exercise have the top of the stage, and the board is drawn under
-      // them: the player, in the middle of it, is never covered. The frame itself goes with
+      // What lies over the top of the stage has it, and the board is drawn under it: the
+      // player, in the middle of it, is never covered. The frame itself goes with
       // the player and is set on every draw.
       const clear = Math.min(this.clear, this.height * FOLLOW_CLEAR);
       this.region = { x: 0, y: clear, width: this.width, height: Math.max(1, this.height - clear) };
@@ -1129,7 +1129,7 @@ export class BoardView {
     // Nothing is added to a combo that has cleared its board, and a board that comes has no die on it yet: neither is marked.
     this.marks.group.visible = !passing;
     this.signs.group.visible = !passing;
-    this.overlays.sync(state, timeMs, params.overlay, reducedMotion);
+    this.overlays.sync(state, params.overlay);
     this.marks.sync(state, timeMs, reducedMotion);
     this.signs.sync(state, alpha, timeMs, reducedMotion, dip, this.worldLayer.height / Math.max(1, this.lines), params.ghosts, this.heightOf);
     this.warnings.sync(state, dt, timeMs, reducedMotion);

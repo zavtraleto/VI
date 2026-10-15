@@ -26,8 +26,12 @@ describe('the experiments a player has saved', () => {
     expect(settings.experiments).toMatchObject({ floorClimb: true, dockSteps: true });
     // What the player had switched themselves stays as they left it.
     expect(settings.experiments).toMatchObject({ soloOne: true, guidedStart: false });
-    expect(settings.tutorialDone).toBe(true);
     expect(settings.rulesVersion).toBe(RULES_VERSION);
+  });
+
+  it('let go of the exercise that was done: the game has no exercise any more', () => {
+    saved({ tutorialDone: true });
+    expect('tutorialDone' in loadSettings()).toBe(false);
   });
 
   it('stay as they were switched under these rules', () => {

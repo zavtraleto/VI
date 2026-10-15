@@ -2,20 +2,7 @@ import type { Texts } from '../i18n';
 
 /** Portuguese, as it is written in Brazil. Not yet read by a native speaker. */
 export const PT: Texts = {
-  tut_roll: 'Você está sobre um dado. Conduza-o: ele rola, e uma face lateral fica em cima',
-  tut_pair: 'Leve o 2 para junto do 2',
-  tut_count: 'Dois 2 lado a lado, e eles já vieram para nós. Tantos dados quantos pontos: três 3, quatro 4',
-  tut_three: 'Um 3 precisa de três. Encaixe o seu entre eles',
-  tut_carry: 'O 4 está na lateral. Enquanto você rola ao longo dele, ele continua na lateral. Leve-o até lá e vire-o para cima',
-  tut_floor: 'Seu dado se foi, você está no chão. Daqui os dados são empurrados. Empurre o 5 até os outros',
-  tut_mount: 'Um raio: aqui sobe um dado. Suba nele enquanto está baixo',
-  tut_seven: 'Um 1 em cima significa um 6 embaixo: faces opostas somam sete. Duas roladas, e ele fica em cima',
-  tut_chain: 'Enquanto um grupo está saindo, o canal está aberto. Passe para o dado vizinho e junte-o ao grupo: a pontuação se multiplica',
-  tut_ones: 'O 1 é à parte: os uns não se juntam. Leve-o até o grupo que está saindo',
-  tut_alone: 'Todos os que eram à parte se foram. Sobrou um: aquele em que você pisa',
-  tut_end: 'Daqui em diante os dados chegam sozinhos. Não deixe o tabuleiro encher, ou não ouviremos você',
   newBest: 'Novo recorde',
-  practiceNote: 'Partida de treino: recorde não salvo',
   notSaved: 'Armazenamento indisponível: recorde não salvo',
   hintFloor: 'No chão você empurra os cubos',
   hintMount: 'Suba em um cubo que está surgindo',
@@ -115,7 +102,6 @@ export const PT: Texts = {
   campaignEnd: 'Continua. Enquanto novos níveis não chegam, você pode experimentar o {modo infinito}.',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLevels: 'LIMPEZA DO CAMPO',
-  shellExercise: 'TESTE DE HABILIDADE',
   shellTasks: 'LIMPEZA DO CANAL',
   shellRecords: 'REGISTRO DE SESSÕES',
   shellSystem: 'PARÂMETROS',

@@ -4,7 +4,6 @@
  */
 const RU = {
   score: 'SCORE',
-  practice: 'PRACTICE',
   resume: 'Продолжить',
   restart: 'Заново',
   again: 'Ещё раз',
@@ -13,7 +12,6 @@ const RU = {
   result: 'Итог',
   time: 'TIME',
   endless: 'Бесконечный',
-  tutorial: 'Обучение',
   experiments: 'Эксперименты',
   expNote: 'Правила применяются со следующей партии',
   guidedStart: 'Разовые подсказки в партии',
@@ -34,7 +32,6 @@ const RU = {
   controls: 'Управление',
   gesture: 'Жесты',
   dpad: 'Кнопки',
-  replayTutorial: 'Повторить обучение',
   stats: 'Статистика последней партии',
   copy: 'Скопировать',
   copied: 'Скопировано',
@@ -119,7 +116,6 @@ const RU = {
 
 const EN: typeof RU = {
   score: 'SCORE',
-  practice: 'PRACTICE',
   resume: 'Resume',
   restart: 'Restart',
   again: 'Again',
@@ -128,7 +124,6 @@ const EN: typeof RU = {
   result: 'Result',
   time: 'TIME',
   endless: 'Endless',
-  tutorial: 'Tutorial',
   experiments: 'Experiments',
   expNote: 'Rule changes apply from the next run',
   guidedStart: 'One-time hints during a run',
@@ -149,7 +144,6 @@ const EN: typeof RU = {
   controls: 'Controls',
   gesture: 'Swipes',
   dpad: 'Buttons',
-  replayTutorial: 'Replay tutorial',
   stats: 'Last run statistics',
   copy: 'Copy',
   copied: 'Copied',

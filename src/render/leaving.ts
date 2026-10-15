@@ -1,4 +1,4 @@
-import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rules';
+import { cubeHeight, worldRuns, type Cube, type RunState } from '../rules';
 import type { ParamSpec, ParamValues } from '../signal/scene';
 import { inOutSine, outCubic, outQuad, tween, type Curve } from './ease';
 import { BOARD_GROUPS } from './params';
@@ -60,14 +60,13 @@ export function isStair(cube: Cube, state: RunState): boolean {
 
 /**
  * How much of a die is shown above the floor. `alpha` is the share of the next tick the picture
- * is ahead of the rules; a die held by the tutorial stays put between ticks, and so does one on a
- * level whose world stands. On a level a die that leaves is shown by its steps: its share of time
+ * is ahead of the rules; a die on a level whose world stands stays put between ticks. On a level a die that leaves is shown by its steps: its share of time
  * left is counted from the tick it left on, when a whole window of moves is before it, and a die
  * laid as leaving with every move of that window is a die that has just left, shown at the middle
  * step and not the first.
  */
 export function shownHeight(cube: Cube, state: RunState, alpha: number, values?: ParamValues): number {
-  const ahead = isHeld(state, cube) || !worldRuns(state) ? 0 : alpha;
+  const ahead = !worldRuns(state) ? 0 : alpha;
   if (!state.levelRun || cube.state !== 'sinking') return cubeHeight(cube, state.config, ahead);
   const { sinkingTicks, actionTicks } = state.config;
   // A level's dice go in so many moves and a tick: the tick is the one they leave on.
@@ -134,7 +133,7 @@ export function restHeight(cube: Cube, state: RunState, alpha: number, values?: 
   const stair = isStair(cube, state);
   const step = (move: number): number => leavingHeight((sinkingTicks - 1 - move * actionTicks) / window, moves, steps, stair);
   // Between ticks the picture is ahead of the rules only while the world runs, and not for a die the rules hold.
-  const ahead = isHeld(state, cube) || !worldRuns(state) || (cube.hold ?? 0) > 0 ? 0 : alpha;
+  const ahead = !worldRuns(state) || (cube.hold ?? 0) > 0 ? 0 : alpha;
   const done = Math.max(0, (cube.t - 1 + ahead) / actionTicks);
   const move = Math.floor(done);
   return tween(done - move, step(move), step(move + 1), inOutSine);

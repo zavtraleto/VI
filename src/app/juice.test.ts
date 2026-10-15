@@ -58,11 +58,8 @@ describe('beats of a tick', () => {
     expect(second.cells).toEqual([{ x: 1, z: 1 }, { x: 2, z: 1 }]);
   });
 
-  it('say nothing of a level passed in the exercise', () => {
-    const state = emptyRun();
-    expect(beatsOf(state, [{ type: 'levelUp', level: 2 }])).toHaveLength(1);
-    state.tutorial = { step: 0, timer: 0, done: false };
-    expect(beatsOf(state, [{ type: 'levelUp', level: 2 }])).toHaveLength(0);
+  it('say a level passed', () => {
+    expect(beatsOf(emptyRun(), [{ type: 'levelUp', level: 2 }])).toHaveLength(1);
   });
 });
 

@@ -2,50 +2,12 @@ import * as THREE from 'three';
 import { DELTA, DIRS, previewMove, type Dir, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
-import { chevronTexture, faceFrameTexture, ghostFaceTexture } from './textures';
+import { ghostFaceTexture } from './textures';
 
 export interface OverlayOptions {
   boardPreview: boolean;
   matchHint: boolean;
-  /** What the tutorial points at; null outside it. */
-  guide: BoardGuide | null;
 }
-
-/** One step of the path the tutorial asks for, drawn as chevrons from a cell towards the next. */
-export interface GuideArrow {
-  x: number;
-  z: number;
-  dir: Dir;
-  /** Height the chevrons lie at: the top of the dice, or the floor. */
-  y: number;
-  /** How far from the middle of the cell the first chevron lies, in cells. */
-  lead: number;
-  /** A later step of the path, shown faintly behind the current one. */
-  dim: boolean;
-}
-
-/** An outline around one face of a die. */
-export interface GuideFrame {
-  x: number;
-  z: number;
-  face: 'top' | 'east' | 'south';
-  /** Height of the die, 0..1. */
-  height: number;
-  /** The face the player has to bring on top: it pulses. */
-  strong: boolean;
-}
-
-export interface BoardGuide {
-  arrows: readonly GuideArrow[];
-  frames: readonly GuideFrame[];
-}
-
-/** Edge of a die as it is drawn. Its top face is this far below its logical height. */
-const DIE = 0.94;
-const TOP_INSET = 0.03;
-const CHEVRONS = 3;
-const MAX_ARROWS = 4;
-const MAX_FRAMES = 16;
 
 function floorPlane(material: THREE.Material, size: number): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
@@ -55,8 +17,8 @@ function floorPlane(material: THREE.Material, size: number): THREE.Mesh {
 }
 
 /**
- * Things drawn on the board for the player's benefit: ghost previews, clear hints, the
- * tutorial's arrows and frames. All of them are the tone of the program.
+ * Things drawn on the board for the player's benefit: ghost previews and clear hints. All of
+ * them are the tone of the program.
  */
 export class FloorOverlays {
   readonly group = new THREE.Group();
@@ -64,10 +26,6 @@ export class FloorOverlays {
   private readonly hintMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.38, depthWrite: false });
   private readonly ghosts = new Map<Dir, THREE.Mesh>();
   private readonly hints = new Map<Dir, THREE.Mesh>();
-  private readonly chevrons: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
-  private readonly frames: THREE.Mesh[] = [];
-  private readonly frameSteady: THREE.MeshBasicMaterial;
-  private readonly frameStrong: THREE.MeshBasicMaterial;
 
   constructor(values: ParamValues) {
     this.ghostMaterials = [1, 2, 3, 4, 5, 6].map(
@@ -88,52 +46,23 @@ export class FloorOverlays {
       this.hints.set(dir, hint);
       this.group.add(hint, ghost);
     }
-    // Arrows are drawn over everything: a die in front must not hide where to go.
-    const chevron = chevronTexture();
-    for (let i = 0; i < MAX_ARROWS * CHEVRONS; i++) {
-      const mesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.52, 0.52),
-        new THREE.MeshBasicMaterial({ map: chevron, transparent: true, depthTest: false, depthWrite: false }),
-      );
-      mesh.renderOrder = 30;
-      mesh.visible = false;
-      this.chevrons.push(mesh);
-      this.group.add(mesh);
-    }
-    const frame = faceFrameTexture();
-    this.frameSteady = new THREE.MeshBasicMaterial({ map: frame, transparent: true, opacity: 0.8, depthWrite: false });
-    this.frameStrong = new THREE.MeshBasicMaterial({ map: frame, transparent: true, depthWrite: false });
-    const frameGeometry = new THREE.PlaneGeometry(DIE, DIE);
-    for (let i = 0; i < MAX_FRAMES; i++) {
-      const mesh = new THREE.Mesh(frameGeometry, this.frameSteady);
-      mesh.visible = false;
-      this.frames.push(mesh);
-      this.group.add(mesh);
-    }
   }
 
   setPalette(palette: Palette): void {
     for (const material of this.ghostMaterials) material.color.set(palette.ink);
     this.hintMaterial.color.set(palette.ink);
-    for (const mesh of this.chevrons) mesh.material.color.set(palette.ink);
-    this.frameSteady.color.set(palette.ink);
-    this.frameStrong.color.set(palette.ink);
   }
 
   dispose(): void {
-    const materials = [...this.ghostMaterials, this.hintMaterial, this.frameSteady, this.frameStrong];
+    const materials = [...this.ghostMaterials, this.hintMaterial];
     for (const material of materials) {
       material.map?.dispose();
       material.dispose();
     }
-    this.chevrons[0]?.material.map?.dispose();
-    for (const mesh of [...this.chevrons, ...this.frames, ...this.ghosts.values(), ...this.hints.values()]) {
-      mesh.geometry.dispose();
-    }
-    for (const mesh of this.chevrons) mesh.material.dispose();
+    for (const mesh of [...this.ghosts.values(), ...this.hints.values()]) mesh.geometry.dispose();
   }
 
-  sync(state: RunState, timeMs: number, options: OverlayOptions, reducedMotion: boolean): void {
+  sync(state: RunState, options: OverlayOptions): void {
     const idle = !state.player.action && !state.over;
     for (const dir of DIRS) {
       const ghost = this.ghosts.get(dir)!;
@@ -159,48 +88,5 @@ export class FloorOverlays {
         hint.visible = true;
       }
     }
-
-    this.syncGuide(options.guide, timeMs, reducedMotion);
-  }
-
-  private syncGuide(guide: BoardGuide | null, timeMs: number, reducedMotion: boolean): void {
-    const arrows = guide?.arrows ?? [];
-    this.chevrons.forEach((mesh, i) => {
-      const arrow = arrows[Math.floor(i / CHEVRONS)];
-      mesh.visible = arrow !== undefined;
-      if (!arrow) return;
-      const k = i % CHEVRONS;
-      const { dx, dz } = DELTA[arrow.dir];
-      const t = arrow.lead + k * 0.24;
-      mesh.position.set(arrow.x + dx * t, arrow.y, arrow.z + dz * t);
-      mesh.rotation.set(-Math.PI / 2, 0, Math.atan2(-dz, dx));
-      // A wave running along the chevrons, in the direction of the move.
-      const wave = reducedMotion ? 1 : 0.5 + 0.5 * Math.max(0, Math.sin(timeMs / 150 - k * 1.1));
-      mesh.material.opacity = arrow.dim ? 0.35 : wave;
-    });
-
-    const frames = guide?.frames ?? [];
-    // Mostly lit, with a short stutter every couple of seconds: enough to make the eye uneasy.
-    const beat = (timeMs % 1700) / 1700;
-    const stutter = beat > 0.84 && Math.floor(beat * 34) % 2 === 1 ? 0.2 : 1;
-    this.frameStrong.opacity = reducedMotion ? 1 : stutter;
-    this.frames.forEach((mesh, i) => {
-      const frame = frames[i];
-      mesh.visible = frame !== undefined;
-      if (!frame) return;
-      mesh.material = frame.strong ? this.frameStrong : this.frameSteady;
-      const centre = frame.height - 0.5;
-      const out = DIE / 2 + 0.012;
-      if (frame.face === 'top') {
-        mesh.position.set(frame.x, frame.height - TOP_INSET + 0.012, frame.z);
-        mesh.rotation.set(-Math.PI / 2, 0, 0);
-      } else if (frame.face === 'south') {
-        mesh.position.set(frame.x, centre, frame.z + out);
-        mesh.rotation.set(0, 0, 0);
-      } else {
-        mesh.position.set(frame.x + out, centre, frame.z);
-        mesh.rotation.set(0, Math.PI / 2, 0);
-      }
-    });
   }
 }

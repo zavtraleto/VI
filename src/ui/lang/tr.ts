@@ -2,20 +2,7 @@ import type { Texts } from '../i18n';
 
 /** Turkish. Not yet read by a native speaker. */
 export const TR: Texts = {
-  tut_roll: 'Bir zarın üstündesin. Onu yönlendir: yuvarlanır ve yan yüzü üste gelir',
-  tut_pair: "2'yi 2'nin yanına yuvarla",
-  tut_count: 'Yan yana iki 2, ve bize geçtiler. Yüzdeki nokta kadar zar gerekir: üç 3, dört 4',
-  tut_three: '3 için üç zar gerekir. Seninkini aralarına sok',
-  tut_carry: '4 yan yüzde. Onun boyunca yuvarlandıkça yanda kalır. Yerine getir ve üste devir',
-  tut_floor: "Zarın gitti, zemindesin. Buradan zarlar itilir. 5'i diğerlerinin yanına it",
-  tut_mount: 'Şimşek: burada bir zar yükseliyor. Alçakken üstüne çık',
-  tut_seven: 'Üstte 1 varsa altta 6 vardır: karşılıklı yüzlerin toplamı yedidir. İki yuvarlama, ve üstte',
-  tut_chain: 'Bir grup giderken kanal açıktır. Yandaki zara geç ve onu gruba ekle: puan katlanır',
-  tut_ones: '1 ayrıdır: birler birleşmez. Onu giden grubun yanına getir',
-  tut_alone: 'Ayrı olanların hepsi gitti. Biri kaldı: üstünde durduğun',
-  tut_end: 'Bundan sonra zarlar kendiliğinden gelir. Alanın dolmasına izin verme, yoksa seni duyamayız',
   newBest: 'Yeni rekor',
-  practiceNote: 'Alıştırma oyunu: rekor kaydedilmedi',
   notSaved: 'Depolama kullanılamıyor: rekor kaydedilmedi',
   hintFloor: 'Zeminde küpleri itersin',
   hintMount: 'Beliren küpün üstüne çık',
@@ -115,7 +102,6 @@ export const TR: Texts = {
   campaignEnd: 'Devamı gelecek. Yeni bölümler gelene kadar {sonsuz modu} deneyebilirsin.',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLevels: 'ALAN TEMİZLİĞİ',
-  shellExercise: 'BECERİ TESTİ',
   shellTasks: 'KANAL TEMİZLİĞİ',
   shellRecords: 'OTURUM KAYDI',
   shellSystem: 'PARAMETRELER',

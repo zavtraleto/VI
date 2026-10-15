@@ -20,7 +20,7 @@
 
 Четвёртый вопрос — открытый: не все механики объясняются, и, возможно, так и надо.
 
-Текущее обучение ([спека](superpowers/specs/2026-10-01-vi-tutorial-design.md), [`src/rules/tutorial.ts`](../src/rules/tutorial.ts)):
+Текущее обучение (спека `docs/superpowers/specs/2026-10-01-vi-tutorial-design.md` и код `src/rules/tutorial.ts` — в истории git, удалены 15 октября 2026):
 
 | Свойство | Сейчас |
 |---|---|

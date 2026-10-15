@@ -69,7 +69,6 @@ export type Cue =
   | { kind: 'contact'; stage: number }
   | { kind: 'peak' }
   | { kind: 'danger'; secondsLeft: number }
-  | { kind: 'begin' }
   | { kind: 'deadEnd' }
   | { kind: 'end' }
   | { kind: 'cleared'; faces: number[] }
@@ -585,12 +584,6 @@ function play(cue: Cue, kit: Kit): Note[] {
       const degree = cue.secondsLeft <= 1 ? 2 : cue.secondsLeft <= 3 ? 1 : 0;
       return [low('danger', degreeHz(tune, degree, -1), { gain: num('lowGain') * 0.75 * board, decay: num('lowLen') * 1.3, drop: num('lowDrop'), fall: 0.05 })];
     }
-    case 'begin':
-      // The one, and the six over it: the same note.
-      return [
-        bell('begin', kit.bell(0), { gain: 0.13 * bells, pan: -0.3, decay: num('bellTail'), bright: 0.7 }),
-        bell('begin', kit.bell(octave), { at: 0.16, gain: 0.13 * bells, pan: 0.3, decay: num('bellTail'), bright: 0.7 }),
-      ];
     case 'deadEnd':
       return [
         click('deadEnd', degreeHz(tune, 1, 0), { gain: 0.2 * program, decay: 0.09, dull: true }),
@@ -1046,7 +1039,7 @@ export function cuesOfEvent(event: GameEvent, state: RunState, memory: ScoreMemo
       cues.push({ kind: 'end' });
       break;
     default:
-      // A die that starts to come up, a level (it has its beat), the steps of the exercise: nothing is heard.
+      // A die that starts to come up, a level (it has its beat): nothing is heard.
       break;
   }
   return cues;

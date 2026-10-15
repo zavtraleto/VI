@@ -222,7 +222,7 @@ export class BoardLab {
     this.runGrid(timeMs);
     view.drawGrid(this.grid.share, !this.grid.erasing, this.scene ? state.player : this.stand);
     view.draw(state, alpha, timeMs, {
-      overlay: { boardPreview: false, matchHint: false, guide: null },
+      overlay: { boardPreview: false, matchHint: false },
       contact: {
         grid: lineLevel('grid', this.depth),
         dice: lineLevel('dice', this.depth),

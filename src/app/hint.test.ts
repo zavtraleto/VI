@@ -5,7 +5,6 @@ import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec } from '../rules/types';
 import { HINT_WORD_MS, captionWords, plainCaption, wordsShown } from '../signal/caption';
-import { NOTE_SIZE, lineSize } from '../shell/hudLayout';
 import { LANGUAGES, setLanguage, t, type TextKey } from '../ui/i18n';
 import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { roadWait } from './signWay';
@@ -88,21 +87,6 @@ describe('the hint of the address of development', () => {
     expect(probeHint('hintOne')).toBeNull();
     expect(probeHint('')).toBeNull();
     expect(probeHint(null)).toBeNull();
-  });
-});
-
-describe('the letters of the words of the exercise', () => {
-  it('are those of the words of the exercise: a fixed size on a tall stage, by the height of a wide one, between two sizes', () => {
-    expect(lineSize({ width: 360, height: 530 })).toBe(19);
-    expect(lineSize({ width: 390, height: 700 })).toBe(19);
-    expect(lineSize({ width: 1680, height: 1080 })).toBe(46);
-    expect(lineSize({ width: 1920, height: 1080 })).toBe(46);
-    expect(lineSize({ width: 1280, height: 720 })).toBe(37);
-    expect(lineSize({ width: 640, height: 360 })).toBe(26);
-  });
-
-  it('are larger than those of a note on every stage', () => {
-    for (const stage of [{ width: 360, height: 530 }, { width: 640, height: 360 }, { width: 1680, height: 1080 }]) expect(lineSize(stage)).toBeGreaterThan(NOTE_SIZE);
   });
 });
 

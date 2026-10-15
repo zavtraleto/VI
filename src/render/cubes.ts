@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { cubeHeight, isHeld, worldRuns, type Cube, type RunState } from '../rules';
+import { cubeHeight, worldRuns, type Cube, type RunState } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import { mixHex, type Palette } from '../shell/theme';
 import { CROSS_LEAST_PX, CROSS_RIM_LEAST_PX, offMask } from './faces';
@@ -685,8 +685,8 @@ export class CubeMeshes {
     let glasses = 0;
     for (const cube of state.cubes) {
       let look = this.look(cube, state);
-      // A die held by the tutorial stays put between ticks, and so does one on a level whose world stands.
-      let height = look === 'idle' ? 1 : cubeHeight(cube, state.config, isHeld(state, cube) || !worldRuns(state) ? 0 : alpha);
+      // A die on a level whose world stands stays put between ticks.
+      let height = look === 'idle' ? 1 : cubeHeight(cube, state.config, !worldRuns(state) ? 0 : alpha);
       // Where it stands: on a level a die that leaves stands by the steps of its look and is driven from one to the
       // next (`leaving.ts`); its glass, its dots and its light go by the height the rules give it, as they always did.
       // The last combo of a board takes every die of it away, the ones that stand too: all of them are where the show has them.

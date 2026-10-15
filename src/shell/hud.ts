@@ -6,9 +6,9 @@ import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hudLayout, lineSize, undoButton, restartDot, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hudLayout, undoButton, restartDot, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
-import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
+import { CELL_H, CELL_W, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
 import { praiseWord } from './praise';
 import { paintStar, paintStarGhost, starRow } from './star';
@@ -22,8 +22,7 @@ export interface HudSession {
   kind: 'session';
   score: number;
   best: number;
-  /** The level, or null in a session that is not counted. */
-  level: number | null;
+  level: number;
   /** Seconds left to free a cell of a board that is full. */
   danger: number | null;
   /** Steps the contact has taken, out of how many there are, and the score of the next one. */
@@ -87,7 +86,7 @@ export interface HudSeal {
   sinking: boolean;
   /** A step that way leads nowhere. */
   blocked: Record<Dir, boolean>;
-  /** The side a swipe is steering towards, the side the exercise asks for, the side to bring on top. */
+  /** The side a swipe is steering towards, the side to pulse, the side to bring on top. */
   active: Dir | null;
   pulse: Dir | null;
   marked: Dir | null;
@@ -148,31 +147,11 @@ export interface HudBeat {
   at: Point | null;
 }
 
-export interface HudLesson {
-  /** Which part of the exercise this is, out of how many, and the channel it sets. */
-  number: number;
-  count: number;
-  value: number;
-  /** What it says, in the language of the player. */
-  line: string;
-  /** The words wait to be read: the exercise goes on when the player presses. */
-  waits: boolean;
-  /** How many dice of the group are in place, over the group. */
-  counter: HudCounter | null;
-  /** Over the die whose hidden face matters: opposite faces add up to seven. */
-  seven: Point | null;
-  glyph: 'swipe' | 'keys' | 'none';
-  dir: Dir | null;
-  /** Where `dir` points on screen, y growing downwards. */
-  screen: Point | null;
-}
-
 /** Everything the session shows over the board at one moment. */
 export interface HudView {
   header: HudSession | HudTask | HudLevel;
   seal: HudSeal | null;
   labels: readonly HudLabel[];
-  lesson: HudLesson | null;
   /** One line at the bottom: a hint, or what a task says about the group just made. */
   note: { text: string; alarm: boolean } | null;
   /** On a level: over every group that is short, how many dice it has of how many it takes. */
@@ -235,11 +214,6 @@ export interface HudActions {
   onRestart(): void;
   /** The button of the sound was pressed: the sound goes off, or comes back. */
   onSound(): void;
-  onSkip(): void;
-  /** The words of the exercise have been read. */
-  onContinue(): void;
-  /** One more sign of the words of the exercise has come. */
-  onSign?(sign: string): void;
   /** Points of a group have reached the score; the score has counted a little further up. */
   onPoints?(points: number, tier: number): void;
   onCount?(): void;
@@ -403,9 +377,6 @@ const BLINK_MS = 250;
 const COUNTER_BLINK_MS = 500;
 /** A plaque brought in from the edge of the window stands this far from it, in picture pixels: as clear of it as the swipe sign. */
 const COUNTER_PAD = 1;
-/** How long the dot of a swipe takes along its line. */
-const SWIPE_MS = 900;
-const NUDGE_MS = 300;
 /**
  * The swipe sign: how far it stands from the die and from the edges of what it may stand in, in
  * pixels of the picture. How it is drawn is in `swipeSign.ts`; what the owner turns - the star,
@@ -415,10 +386,6 @@ const SIGN_GAP = 3;
 const SIGN_PAD = 2;
 /** A sign that cannot be drawn alone has all the readings drawn anew for it, and then no more often than this, in milliseconds. */
 const SIGN_STEP_MS = 33;
-/** The words of the exercise come one sign at a time, this many milliseconds apart. */
-const SIGN_MS = 38;
-/** Words that are all there cannot be passed sooner than this: a press meant for a move does not skip them. */
-const READ_MS = 350;
 /** Points of a group stand over it for this long, then fly to the score for this long. */
 const POP_MS = 420;
 const FLY_MS = 380;
@@ -460,7 +427,7 @@ function safeInsets(): Insets {
 
 /**
  * What the program shows of a session over the board: its readings at the top, the die under
- * the player unfolded, the multipliers of chains, the exercise, the buttons. It is a layer of
+ * the player unfolded, the multipliers of chains, the buttons. It is a layer of
  * the one canvas, in the same few pixels, colours and font as the program's menu, and under
  * the same tube. Prose in the language of the player is the voice's, not the program's.
  *
@@ -489,14 +456,6 @@ export class GameHud {
   private readonly chains = new Map<number, Multiplier>();
   /** Chains whose multiplier has gone out while they still stand, and how long each was then: it is not shown again until the chain grows. */
   private readonly said = new Map<number, number>();
-  private nudged = 0;
-  /** The words of the exercise now on screen, and the frame they began to come at. */
-  private line = '';
-  private lineStart = 0;
-  /** The moment all of them were there. */
-  private lineFull = 0;
-  /** How many of them had come by the last frame. */
-  private signsSaid = 0;
   private lastTime = 0;
   /** Points on their way from a group to the score. `from` is in pixels of the picture. */
   private flyers: { points: number; value: number; tier: number; from: Point; born: number }[] = [];
@@ -508,8 +467,6 @@ export class GameHud {
   private passed: (HudAward & { born: number; landed: number; lit: number }) | null = null;
   /** Nothing has been shown since the last start: the score of the levels is there at once, and does not run up from nothing. */
   private fresh = true;
-  /** Every line the exercise can say: the room kept for them is that of the longest. */
-  private lessonLines: readonly string[] = [];
   /**
    * The swipe sign of the picture as it was last drawn whole, where the sign can be drawn alone:
    * how it is laid out, the part of the picture it can light (`room`), and what was in that part
@@ -538,11 +495,6 @@ export class GameHud {
     window.addEventListener('pointercancel', (e) => this.onCancel(e), true);
   }
 
-  /** The exercise answers a step off its script. */
-  nudge(timeMs: number): void {
-    this.nudged = timeMs;
-  }
-
   /** The readings answer a beat: the points of a group stand over it, then fly to the score. */
   beat(beat: HudBeat): void {
     if (beat.points <= 0 || !beat.at) return;
@@ -556,31 +508,8 @@ export class GameHud {
     this.passed = { ...award, at: { x: award.at.x / zoom, y: award.at.y / zoom }, born: this.lastTime, landed: 0, lit: 0 };
   }
 
-  /**
-   * The player has pressed to go on. Words that are still coming arrive at once and the press
-   * is spent on that; words that are all there have been read. Returns whether they had been.
-   */
-  proceed(): boolean {
-    if (this.line === '') return false;
-    if (this.signs(this.lastTime) < this.line.length) {
-      this.lineStart = -Infinity;
-      this.lineFull = this.lastTime;
-      this.drawn = '';
-      return false;
-    }
-    if (this.lastTime < this.lineFull + READ_MS) return false;
-    this.actions.onContinue();
-    return true;
-  }
-
-  /** How many signs of the words of the exercise have come by now. */
-  private signs(timeMs: number): number {
-    return Math.max(0, Math.floor((timeMs - this.lineStart) / SIGN_MS));
-  }
-
   /** A new session: nothing of the last one is left flashing. */
   reset(): void {
-    this.line = '';
     this.flyers = [];
     this.hit = { at: -Infinity, value: 0, tier: 0 };
     this.shown = 0;
@@ -593,22 +522,6 @@ export class GameHud {
     this.chains.clear();
     this.said.clear();
     this.drawn = '';
-  }
-
-  /** Tells the voice every line the exercise can say, so the room for them never changes. */
-  setLessonLines(lines: readonly string[]): void {
-    this.lessonLines = lines;
-  }
-
-  /**
-   * How much of the top of the stage the exercise keeps for its words, in CSS pixels: the
-   * board is laid out below.
-   */
-  reserve(stage: Rect): number {
-    const { size, width } = this.lineFrame(stage);
-    let tallest = 0;
-    for (const line of this.lessonLines) tallest = Math.max(tallest, this.voice.height(line, width, size));
-    return Math.ceil((CELL_H + 6) * this.kit.zoom + tallest + 6);
   }
 
   /**
@@ -644,15 +557,6 @@ export class GameHud {
     const header = view.header;
     const layout = hudLayout({ width: kit.width, height: kit.height }, safe, zoom, { restart: view.tools !== null, sound: view.tools !== null && header.kind === 'level', level: header.kind === 'level', goal: header.kind === 'level' && header.goal.length > 0 });
     this.lastTime = timeMs;
-    const words = view.lesson?.line ?? '';
-    if (words !== this.line) {
-      this.line = words;
-      this.lineStart = view.reducedMotion ? -Infinity : timeMs;
-      this.lineFull = view.reducedMotion ? timeMs : timeMs + words.length * SIGN_MS;
-    }
-    const signs = Math.min(words.length, this.signs(timeMs));
-    if (signs > this.signsSaid) this.actions.onSign?.(words[signs - 1]);
-    this.signsSaid = signs;
     this.headerHeight = layout.wide ? 0 : Math.round(layout.height * zoom - css.top);
     this.columnWidth = layout.wide ? Math.round(layout.column * zoom - css.left) : 0;
     this.follow(view, timeMs);
@@ -660,8 +564,7 @@ export class GameHud {
     // What moves by itself: only these make the picture be drawn again while nothing else changes.
     const still = view.reducedMotion;
     const blink = still ? 1 : Math.floor(timeMs / BLINK_MS) % 2;
-    const swipe = view.lesson?.glyph === 'swipe' && !still ? Math.floor(timeMs / 33) : 0;
-    const flashing = timeMs < this.levelFlash || timeMs < this.stageFlash || timeMs < this.nudged + NUDGE_MS;
+    const flashing = timeMs < this.levelFlash || timeMs < this.stageFlash;
     const bumps = [...this.chains.values()].some((chain) => timeMs < chain.joined + BUMP_MS);
     // A multiplier that is shown swings, and goes out: the picture is drawn anew for it, thirty times a second.
     const swings = this.chains.size === 0 ? 0 : still ? this.chains.size : Math.floor(timeMs / 33);
@@ -673,10 +576,8 @@ export class GameHud {
     // A plaque that blinks is drawn anew each time it turns.
     const plaque = !still && (view.counters ?? []).some((counter) => counter.blink) ? Math.floor(timeMs / COUNTER_BLINK_MS) % 2 : 0;
     const signed = sign ? JSON.stringify(sign) : '';
-    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
-      // Words that are still coming change nothing but themselves: the readings stay as they are.
-      this.voice.reveal(signs);
       const turn = this.signTurnAt(sign, timeMs, still);
       if (turn === this.signTurned) return;
       if (this.signKept) {
@@ -707,18 +608,16 @@ export class GameHud {
     // The readings slip: what is drawn so far is theirs, the rest of the picture stays whole.
     if (decay.tears.length > 0) kit.tear(decay.tears, 0, layout.wide ? layout.column : kit.width);
     const stage = this.toPicture(view.stage);
-    // On a tall screen the words of the exercise take the place of the net.
-    if (view.seal && !(view.lesson && !layout.wide)) this.drawSeal(view.seal, layout, blink);
+    if (view.seal) this.drawSeal(view.seal, layout, blink);
     this.drawLabels(timeMs, still);
     this.drawFlyers(timeMs);
     // The stars of a pass keep under the readings and inside the window.
     if (this.passed) this.drawAward(this.passed, timeMs, still, layout.wide ? safe.top + 10 : layout.height + 6);
     // A step of the contact: the program says so over the board, for as long as its cell blinks.
-    if (view.header.kind === 'session' && !view.lesson && timeMs < this.stageFlash) {
+    if (view.header.kind === 'session' && timeMs < this.stageFlash) {
       const text = `${program >= 1 ? HUD.found : HUD.link} ${digits(view.header.stage, 2)}/${digits(view.header.steps, 2)}`;
       this.flagged(text, Math.round(stage.x + (stage.w - kit.measure(text)) / 2), Math.round(stage.y + 6), blink === 0);
     }
-    if (view.lesson) this.drawLesson(view.lesson, view.stage, stage, timeMs, still, signs, blink);
     // A plaque over a heap of a level keeps inside what the edges of the screen leave of the window.
     const within: Box = { x: safe.left, y: safe.top, w: kit.width - safe.right - safe.left, h: kit.height - safe.bottom - safe.top };
     for (const counter of view.counters ?? []) this.drawCounter(counter, plaque === 0, within);
@@ -966,7 +865,7 @@ export class GameHud {
     this.score(left, big, timeMs, decay);
 
     // The record so far; it is the session's own from the moment the session passes it.
-    const record = session.level !== null && session.score > session.best;
+    const record = session.score > session.best;
     const flagged = (text: string, x: number, y: number, on: boolean): void => this.flagged(text, x, y, on);
 
     // The middle: what the session is.
@@ -977,12 +876,12 @@ export class GameHud {
       flagged(text, mid, rowA, blink === 0);
       covered = mid + kit.measure(text) > end - kit.measure(HUD.best) - 4;
     } else {
-      const tag = session.level === null ? HUD.practice : `${HUD.level} ${digits(session.level, 2)}`;
+      const tag = `${HUD.level} ${digits(session.level, 2)}`;
       flagged(tag, mid, rowA, timeMs < this.levelFlash && blink === 0);
     }
 
     if (!covered) kit.text(HUD.best, end + this.adrift(2, drift), rowA, dim, { align: 'right' });
-    this.counter(Math.max(session.best, session.level === null ? 0 : session.score), 6, end, rowB, 1, 'right', record);
+    this.counter(Math.max(session.best, session.score), 6, end, rowB, 1, 'right', record);
 
     // The link: a cell for every step the contact can take, lit as far as it has gone, and
     // the score of the next step. What does not fit beside the large number is left out.
@@ -1037,13 +936,13 @@ export class GameHud {
       // The board is full. Its own rhythm, so it never reads as decoration.
       this.flagged(`${HUD.full}${digits(session.danger, 2)}`, left, lines.tag, blink === 0);
     } else {
-      const tag = session.level === null ? HUD.practice : `${HUD.level} ${digits(session.level, 2)}`;
+      const tag = `${HUD.level} ${digits(session.level, 2)}`;
       this.flagged(tag, left, lines.tag, timeMs < this.levelFlash && blink === 0);
     }
 
-    const record = session.level !== null && session.score > session.best;
+    const record = session.score > session.best;
     kit.text(HUD.best, left + this.adrift(2, drift), lines.best, dim);
-    this.counter(Math.max(session.best, session.level === null ? 0 : session.score), 6, right, lines.best, 1, 'right', record);
+    this.counter(Math.max(session.best, session.score), 6, right, lines.best, 1, 'right', record);
 
     // The link: the score of its next step beside its name, and under them a cell for every
     // step the contact can take, lit as far as it has gone. Once the program has found a
@@ -1369,14 +1268,6 @@ export class GameHud {
     }
   }
 
-  /** Where the words of the exercise go, in CSS pixels, and how large their letters are. */
-  private lineFrame(stage: Rect): { x: number; width: number; size: number } {
-    const tall = stage.height > stage.width;
-    const size = lineSize(stage);
-    const width = tall ? stage.width - 20 : Math.min(stage.width * 0.9, size * 34);
-    return { x: stage.x + (stage.width - width) / 2, width, size };
-  }
-
   /**
    * A small plate over the board, its foot at `at`: filled when what it says is complete. Given
    * `within`, a plate that would run past a side of it is moved in from that side, whole.
@@ -1465,88 +1356,6 @@ export class GameHud {
     this.kit.put(kept.under, kept.room);
     paintSign(this.kit, kept.plan, this.signLook(), timeMs, false);
     this.kit.endPart(kept.room);
-  }
-
-  private drawLesson(lesson: HudLesson, stage: Rect, box: Box, timeMs: number, still: boolean, signs: number, blink: number): void {
-    const { kit } = this;
-    const { bg, ink, dim, faint } = kit.palette;
-    const zoom = kit.zoom;
-    const middle = Math.round(box.x + box.w / 2);
-
-    // At the very top: which channel this part of the exercise sets, in the program's hand, and
-    // under it what is said, in the voice. The words come little by little.
-    kit.text(`${HUD.channel}${lesson.value} ${HUD.exercise}  ${lesson.number}/${lesson.count}`, middle, box.y + 3, dim, { align: 'center' });
-    const frame = this.lineFrame(stage);
-    const top = stage.y + (CELL_H + 6) * zoom;
-    this.voice.say({
-      text: lesson.line,
-      box: { x: frame.x, y: top, width: frame.width, height: this.reserve(stage) - (CELL_H + 6) * zoom },
-      size: frame.size,
-      anchor: 'top',
-      reveal: signs,
-    });
-
-    if (lesson.counter) this.drawCounter(lesson.counter, true);
-    if (lesson.seven) {
-      const text = '=7';
-      const at2 = this.plate(lesson.seven, 12 + CELL_W + 12 + kit.measure(text) + 8, false);
-      this.plateFace(1, at2.x + 3, at2.y + 3);
-      kit.text('+', at2.x + 16, at2.y + 1, ink);
-      this.plateFace(6, at2.x + 16 + CELL_W, at2.y + 3);
-      kit.text(text, at2.x + 16 + CELL_W + 14, at2.y + 1, ink);
-    }
-
-    // At the bottom: the input that makes the move the exercise waits for, or the word that
-    // the words above are waiting to be read.
-    const nudge = !still && timeMs < this.nudged + NUDGE_MS ? Math.round(Math.sin((timeMs - this.nudged) / 25) * 3) : 0;
-    const foot = box.y + box.h - 12;
-    if (lesson.waits) {
-      if (signs >= lesson.line.length) {
-        const text = `${HUD.next} ↓`;
-        const wide = kit.measure(text) + 12;
-        const plate: Box = { x: middle - wide / 2, y: foot - CELL_H - 4, w: wide, h: CELL_H + 4 };
-        if (blink === 0) {
-          kit.box(plate, ink);
-          kit.text(text, middle, plate.y + 2, bg, { align: 'center', bold: true });
-        } else {
-          kit.frame(plate, dim);
-          kit.text(text, middle, plate.y + 2, ink, { align: 'center' });
-        }
-      }
-    } else if (lesson.glyph === 'swipe' && lesson.screen) {
-      const reach = 16;
-      const centre = { x: middle + nudge, y: foot - reach - 4 };
-      const { x, y } = lesson.screen;
-      const from = { x: centre.x - x * reach, y: centre.y - y * reach };
-      const to = { x: centre.x + x * reach, y: centre.y + y * reach };
-      kit.wire([from, to], dim);
-      // The head of the arrow, and the finger that goes along it.
-      kit.wire([{ x: to.x - (x - y * 0.6) * 5, y: to.y - (y + x * 0.6) * 5 }, to, { x: to.x - (x + y * 0.6) * 5, y: to.y - (y - x * 0.6) * 5 }], dim);
-      const along = still ? 1 : (timeMs % SWIPE_MS) / SWIPE_MS;
-      const eased = 1 - (1 - along) * (1 - along);
-      kit.disc(from.x + (to.x - from.x) * eased, from.y + (to.y - from.y) * eased, 3.5, ink);
-    } else if (lesson.glyph === 'keys' && lesson.dir) {
-      const key = 18;
-      const place: Record<Dir, Point> = { N: { x: 0, y: -1 }, W: { x: -1, y: 0 }, S: { x: 0, y: 0 }, E: { x: 1, y: 0 } };
-      for (const dir of DIRS) {
-        const cell: Box = { x: middle + nudge - key / 2 + place[dir].x * (key + 2), y: foot - key + place[dir].y * (key + 2), w: key, h: key };
-        const lit = dir === lesson.dir;
-        if (lit) kit.box(cell, ink);
-        else kit.frame(cell, faint);
-        kit.text(ARROW[dir], cell.x + (key - CELL_W * 2) / 2, cell.y + 1, lit ? bg : dim);
-      }
-    }
-
-    // In the corner: leaves the exercise for a session.
-    const tall = Math.max(CELL_H + 4, Math.ceil(MIN_ZONE / zoom));
-    const skipText = `${HUD.skip.native} ${word(HUD.skip.name)}`;
-    const wide = kit.measure(skipText) + 12;
-    const skip: Box = { x: box.x + box.w - wide - 4, y: box.y + box.h - tall - 4, w: wide, h: tall };
-    kit.text(skipText, skip.x + 6, skip.y + Math.round((tall - CELL_H) / 2), this.held?.zone.id === 'skip' ? ink : dim);
-    this.zones.push({ id: 'skip', rect: kit.toWindow(skip), action: () => this.actions.onSkip() });
-    // While the words wait, a press or a swipe anywhere reads them. It comes after the pause
-    // and the skip, so a press on one of those is theirs.
-    if (lesson.waits) this.zones.push({ id: 'continue', rect: { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }, action: () => this.proceed() });
   }
 
   /**

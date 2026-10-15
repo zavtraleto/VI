@@ -513,11 +513,6 @@ export class AudioEngine {
     this.play({ kind: 'danger', secondsLeft });
   }
 
-  /** The board comes up for the run that follows the tutorial. */
-  begin(): void {
-    this.play({ kind: 'begin' });
-  }
-
   /** Points of a group have reached the score. */
   points(points: number, tier: number): void {
     this.play({ kind: 'points', points, tier });

@@ -94,19 +94,6 @@ export function warningTexture(): THREE.CanvasTexture {
   });
 }
 
-/** Thin outline laid over a die face the tutorial points at. */
-export function faceFrameTexture(): THREE.CanvasTexture {
-  return square(256, (ctx, size) => {
-    const inset = size * 0.085;
-    ctx.strokeStyle = '#fff';
-    ctx.shadowColor = '#fff';
-    ctx.shadowBlur = size * 0.03;
-    ctx.lineWidth = size * 0.022;
-    // Twice, so a faint glow gathers around a solid line.
-    for (let i = 0; i < 2; i++) ctx.strokeRect(inset, inset, size - inset * 2, size - inset * 2);
-  });
-}
-
 /**
  * A face left on the floor of a cell: a frame along the cell's edge and lit pips, laid out
  * as on a die that covers `face` of the cell's width.
@@ -162,25 +149,6 @@ export function socketTexture(): THREE.CanvasTexture {
         ctx.lineTo(x, y);
         ctx.lineTo(x, y + dy * arm);
       }
-      ctx.stroke();
-    }
-  });
-}
-
-/** Chevron pointing to the right, for the arrows that show a move. */
-export function chevronTexture(): THREE.CanvasTexture {
-  return square(128, (ctx, size) => {
-    ctx.strokeStyle = '#fff';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.shadowBlur = 10;
-    ctx.lineWidth = size * 0.17;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    for (let i = 0; i < 2; i++) {
-      ctx.beginPath();
-      ctx.moveTo(size * 0.32, size * 0.16);
-      ctx.lineTo(size * 0.7, size * 0.5);
-      ctx.lineTo(size * 0.32, size * 0.84);
       ctx.stroke();
     }
   });

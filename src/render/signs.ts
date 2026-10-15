@@ -44,8 +44,8 @@ interface Dock {
 }
 
 /**
- * How much of a die is above the floor, as it is shown (`leaving.ts`). A die held by the tutorial
- * stays put between ticks, and so does one on a level whose world stands.
+ * How much of a die is above the floor, as it is shown (`leaving.ts`). A die on a level whose
+ * world stands stays put between ticks.
  */
 
 /** Where the top face of a die that high is, before the dip a step or a weight makes in it. */

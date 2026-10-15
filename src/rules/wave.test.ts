@@ -254,11 +254,4 @@ describe('waves in a run', () => {
     expect(defaultConfig().experiments.waves).toBe(true);
     expect(ruleKey(defaultConfig({ waves: false }))).not.toBe(ruleKey(defaultConfig()));
   });
-
-  it('leave the exercise to its own pace', () => {
-    const s = createRun({ seed: 1, config: defaultConfig(), tutorial: true });
-    run(s, 4000);
-    expect(swell(s)).toBe(1);
-    expect(resting(s)).toBe(false);
-  });
 });

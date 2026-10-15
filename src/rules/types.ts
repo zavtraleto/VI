@@ -310,8 +310,6 @@ export type GameEvent =
   | { type: 'fell' } // the cube under the player was removed
   | { type: 'lifted' } // a cube appeared under the player on the ground
   | { type: 'levelUp'; level: number }
-  | { type: 'tutorialStep'; step: number }
-  | { type: 'tutorialDone' }
   | { type: 'deadEnd'; reason: DeadEnd } // puzzle: the group just made cannot be followed by a win
   | { type: 'cleared' } // puzzle: the last dice are gone
   | { type: 'levelPassed' } // level: its goal is met
@@ -363,7 +361,7 @@ export interface RunStats {
   longestChainQuiet: number;
 }
 
-export type RunMode = 'endless' | 'practice' | 'puzzle' | 'level';
+export type RunMode = 'endless' | 'puzzle' | 'level';
 
 /**
  * What a level asks for: dice sent, of any face or of faces ordered; a chain of so many links;
@@ -506,18 +504,6 @@ export interface PuzzleState {
   dead: DeadEnd | null;
 }
 
-export interface TutorialState {
-  /** Index of the current step of the script. */
-  step: number;
-  /** Ticks spent on the current step, counted while it is a pause. */
-  timer: number;
-  done: boolean;
-  /** Moves of the short way through the part in hand that the player has made, in order. */
-  along?: number;
-  /** The player has left that short way: the tutorial no longer knows the moves ahead. */
-  off?: boolean;
-}
-
 export interface RunState {
   config: RulesConfig;
   mode: RunMode;
@@ -558,7 +544,6 @@ export interface RunState {
   /** Cards left in the decks that decide which spawns feed a running chain and which are helpful. */
   feedDeck: boolean[];
   helpDeck: boolean[];
-  tutorial: TutorialState | null;
   /** Set for a puzzle run only. */
   puzzle: PuzzleState | null;
   /** Set for a level only. */

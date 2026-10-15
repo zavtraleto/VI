@@ -12,7 +12,6 @@ export const WORDS = {
   EXECUTE: { ru: 'ВЫПОЛНИТЬ', es: 'EJECUTAR', pt: 'EXECUTAR', tr: 'ÇALIŞTIR', de: 'AUSFÜHREN', fr: 'EXÉCUTER' },
   PROTOCOL: { ru: 'ПРОТОКОЛ', es: 'PROTOCOLO', pt: 'PROTOCOLO', tr: 'PROTOKOL', de: 'PROTOKOLL', fr: 'PROTOCOLE' },
   LEVELS: { ru: 'УРОВНИ', es: 'NIVELES', pt: 'NÍVEIS', tr: 'SEVİYELER', de: 'STUFEN', fr: 'NIVEAUX' },
-  EXERCISE: { ru: 'УПРАЖНЕНИЕ', es: 'EJERCICIO', pt: 'EXERCÍCIO', tr: 'ALIŞTIRMA', de: 'ÜBUNG', fr: 'EXERCICE' },
   TASKS: { ru: 'ЗАДАЧИ', es: 'TAREAS', pt: 'TAREFAS', tr: 'GÖREVLER', de: 'AUFGABEN', fr: 'TÂCHES' },
   RECORDS: { ru: 'ЖУРНАЛ', es: 'REGISTROS', pt: 'REGISTROS', tr: 'KAYITLAR', de: 'LOGBUCH', fr: 'JOURNAL' },
   SYSTEM: { ru: 'НАСТРОЙКИ', es: 'AJUSTES', pt: 'AJUSTES', tr: 'AYARLAR', de: 'OPTIONEN', fr: 'RÉGLAGES' },

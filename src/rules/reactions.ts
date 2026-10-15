@@ -46,7 +46,7 @@ export function levelStats(state: RunState): LevelStats {
   return levels[state.level - 1];
 }
 
-/** Endless follows the pace of its level; a tutorial and a puzzle keep their own. */
+/** Endless follows the pace of its level; a puzzle keeps its own. */
 function isPaced(state: RunState): boolean {
   return state.mode === 'endless';
 }

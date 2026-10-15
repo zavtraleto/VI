@@ -91,7 +91,6 @@ export interface Settings {
   /** The version of the rules the experiments were saved under; absent in what was saved before 0.8. */
   rulesVersion?: string;
   controlMode: ControlMode;
-  tutorialDone: boolean;
   hintsSeen: string[];
   /** The long boot of the first start has been shown: later starts get the short one. */
   bootSeen: boolean;
@@ -136,7 +135,6 @@ export function loadSettings(): Settings {
   const fallback: Settings = {
     experiments: defaultExperiments(),
     controlMode: 'gesture',
-    tutorialDone: false,
     hintsSeen: [],
     bootSeen: false,
     muted: false,
@@ -168,6 +166,8 @@ export function loadSettings(): Settings {
   // die is said no more (the owner, 15 October 2026), and what was kept of it goes.
   loaded.levels = toRoadEdition({ ...fallback.levels, ...loaded.levels });
   delete (loaded.levels as Partial<{ fixedSaid: boolean }>).fixedSaid;
+  // The exercise of Endless is gone from the game (the owner, 15 October 2026): what was kept of it goes.
+  delete (loaded as Partial<{ tutorialDone: boolean }>).tutorialDone;
   loaded.language ??= null;
   // A save from before the place behind the board has it off, as a new one does.
   loaded.backdrop ??= false;

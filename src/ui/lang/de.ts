@@ -2,20 +2,7 @@ import type { Texts } from '../i18n';
 
 /** German. Not yet read by a native speaker. */
 export const DE: Texts = {
-  tut_roll: 'Du stehst auf einem Würfel. Führe ihn: Er rollt, und eine Seitenfläche kommt nach oben',
-  tut_pair: 'Rolle die 2 neben die 2',
-  tut_count: 'Zwei 2er nebeneinander, und sie sind zu uns gegangen. So viele Würfel wie Augen: drei 3er, vier 4er',
-  tut_three: 'Eine 3 braucht drei. Rolle deinen zwischen sie',
-  tut_carry: 'Die 4 ist an der Seite. Solange du an ihr entlang rollst, bleibt sie an der Seite. Bring sie hin und kippe sie nach oben',
-  tut_floor: 'Dein Würfel ist weg, du stehst auf dem Boden. Von hier werden Würfel geschoben. Schiebe die 5 zu den anderen',
-  tut_mount: 'Ein Blitz: Hier steigt ein Würfel auf. Steig auf ihn, solange er niedrig ist',
-  tut_seven: 'Oben eine 1 heißt unten eine 6: Gegenüber ergibt immer sieben. Zweimal rollen, und sie ist oben',
-  tut_chain: 'Solange eine Gruppe geht, ist der Kanal offen. Geh auf den Nachbarwürfel und füge ihn der Gruppe hinzu: Die Punkte vervielfachen sich',
-  tut_ones: 'Die 1 steht für sich: Einsen verbinden sich nicht. Bring sie zur gehenden Gruppe',
-  tut_alone: 'Alle Einzelnen sind weg. Einer bleibt: der, auf dem du stehst',
-  tut_end: 'Ab hier kommen die Würfel von selbst. Lass das Feld nicht volllaufen, sonst hören wir dich nicht',
   newBest: 'Neuer Rekord',
-  practiceNote: 'Übungsrunde: Rekord nicht gespeichert',
   notSaved: 'Speicher nicht verfügbar: Rekord nicht gespeichert',
   hintFloor: 'Auf dem Boden schiebst du Würfel',
   hintMount: 'Steig auf einen aufsteigenden Würfel',
@@ -115,7 +102,6 @@ export const DE: Texts = {
   campaignEnd: 'Fortsetzung folgt. Bis neue Level kommen, kannst du den {Endlosmodus} ausprobieren.',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLevels: 'FELDRÄUMUNG',
-  shellExercise: 'FERTIGKEITSTEST',
   shellTasks: 'KANALRÄUMUNG',
   shellRecords: 'SITZUNGSPROTOKOLL',
   shellSystem: 'PARAMETER',

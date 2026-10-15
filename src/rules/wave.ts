@@ -50,7 +50,7 @@ export function swellAt(config: RulesConfig, wave: Wave, tick: number): number {
   return config.waveEase + (config.wavePeak - config.waveEase) * gathered;
 }
 
-/** Endless comes in waves; a tutorial and a puzzle keep a pace of their own. */
+/** Endless comes in waves; a puzzle keeps a pace of its own. */
 function hasWaves(state: RunState): boolean {
   return state.config.experiments.waves && state.mode === 'endless';
 }

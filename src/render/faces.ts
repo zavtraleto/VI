@@ -12,7 +12,7 @@ export const CROSS_RIM_LEAST_PX = 1;
 
 /**
  * The faces that do not work, a bit for each, the one in the lowest: on a level that names its
- * faces, every other one. Nothing where no faces are named: a session, the exercise, a task.
+ * faces, every other one. Nothing where no faces are named: a session, a task.
  */
 export function offMask(faces: readonly number[] | undefined): number {
   if (!faces) return 0;

@@ -84,7 +84,6 @@ export class Screens {
     actions: {
       onApply: (experiments: ExperimentConfig, mode: ControlMode, debugPanel: boolean) => void;
       onBack: () => void;
-      onReplayTutorial: () => void;
     },
   ): void {
     const draft: ExperimentConfig = { ...settings.experiments };
@@ -132,7 +131,6 @@ export class Screens {
         h('pre', { class: 'stats', text: statsText }),
         copy,
         button('applyRestart', () => actions.onApply(draft, mode, debugPanel), 'primary'),
-        button('replayTutorial', actions.onReplayTutorial),
         button('back', actions.onBack),
       ],
       true,

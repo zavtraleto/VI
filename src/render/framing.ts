@@ -21,8 +21,8 @@ export interface Fit {
 /**
  * Fits the board into a view that is `aspect` times as wide as it is tall.
  *
- * `clear` is the share of the height, from the top, that something else occupies - the
- * tutorial's text. The floor never reaches into it: where the screen has height to spare
+ * `clear` is the share of the height, from the top, that something else occupies: the words of
+ * the exercise did, until it went (15 October 2026). The floor never reaches into it: where the screen has height to spare
  * the board moves down, and where it has none the board is drawn smaller.
  */
 export function fitBoard(b: FrameBounds, aspect: number, clear: number, sideMargin: number, margin: number): Fit {

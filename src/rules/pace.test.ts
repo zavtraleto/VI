@@ -137,12 +137,6 @@ describe('level of an endless run', () => {
     expect(defaultConfig().experiments.timeFloor).toBe(true);
     expect(ruleKey(defaultConfig({ timeFloor: false }))).not.toBe(ruleKey(defaultConfig()));
   });
-
-  it('leaves the exercise on its own level', () => {
-    const s = createRun({ seed: 1, config: defaultConfig(), tutorial: true });
-    run(s, levelTicks * 2);
-    expect(s.level).toBe(1);
-  });
 });
 
 describe('chain window', () => {
