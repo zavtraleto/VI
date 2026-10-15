@@ -1,0 +1,55 @@
+{
+  "chapters": [
+    {
+      "title": "prologue",
+      "places": [
+        { "board": "R01", "role": "meet", "archetype": "roll", "help": { "sign": "N", "plaques": "all", "wait": "first", "camera": "hold" } },
+        { "board": "R02", "role": "learn", "archetype": "ride", "event": "stair and floor", "help": { "plaques": "all", "wait": "lesson", "camera": "hold" } },
+        { "board": "R03", "role": "apply", "archetype": "first free board", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "R04", "role": "apply", "archetype": "free to fail", "event": "first dead end", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "B01_s290", "role": "apply", "archetype": "the way round keeps the face", "event": "a straight roll turns the face away", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "R05", "role": "apply", "archetype": "choose the first die", "event": "choice of the first die", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "help": { "hint": "roadHintChain", "plaques": "near", "wait": "free", "camera": "cells" } },
+        { "board": "R08", "role": "rest", "archetype": "domino", "event": "domino", "help": { "plaques": "near", "wait": "free", "camera": "cells" } }
+      ]
+    },
+    {
+      "title": "road",
+      "faces": [2, 3],
+      "floor": "open",
+      "places": [
+        { "board": "R11", "role": "meet", "teaches": "walk", "archetype": "bridge", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk", "plaques": "near" } },
+        { "board": "P02", "role": "apply", "archetype": "bridge", "help": { "plaques": "near" } },
+        { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "event": "the rule of seven", "help": { "hint": "hintSeven" } },
+        { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "event": "the road goes both ways, briefly" },
+        { "board": "C1-07", "role": "rest", "archetype": "collapse", "event": "first big clearing, with a way to it" }
+      ]
+    },
+    {
+      "title": "order",
+      "faces": [2, 3],
+      "floor": "open",
+      "places": [
+        { "board": "R09", "role": "meet", "teaches": "twoFaces", "archetype": "two heaps at once", "event": "heaps of both faces on one board" },
+        { "board": "P07", "role": "apply", "archetype": "two combos from one die" },
+        { "board": "P08", "role": "apply", "archetype": "two combos in any order" },
+        { "board": "C2-05", "role": "twist", "archetype": "decoy of the wrong channel", "event": "first trap" },
+        { "board": "P24", "role": "rest", "archetype": "domino", "event": "first corridor" }
+      ]
+    },
+    {
+      "title": "floor",
+      "faces": [2, 3],
+      "floor": "open",
+      "places": [
+        { "board": "R13", "role": "meet", "teaches": "push", "archetype": "push to a waiting die", "event": "first push", "help": { "hint": "roadHintPush" } },
+        { "board": "R10", "role": "meet", "teaches": "lift", "archetype": "lift by a laid stair", "event": "first step down and up", "help": { "hint": "roadHintClimb" } },
+        { "board": "R14", "role": "apply", "archetype": "down and back" },
+        { "board": "P06", "role": "apply", "archetype": "down and back" },
+        { "board": "P09", "role": "apply", "archetype": "bridge with a link", "note": "its kept way is a bridge with a link (K ~ L), no floor and no push: the name of its probe place said otherwise" },
+        { "board": "R16", "role": "twist", "archetype": "everything at once" },
+        { "board": "P12", "role": "peak", "archetype": "down and back with two faces" }
+      ]
+    }
+  ]
+}

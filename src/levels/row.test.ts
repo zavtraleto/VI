@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import rowJson from '../../boards/row.json?raw';
+import { defaultConfig } from '../rules/config';
+import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
+import { createRun } from '../rules/sim';
+import { hasReadyGroup } from '../rules/spawn';
+import { t } from '../ui/i18n';
+import { BOARD_TEXTS } from './boardFiles';
 import { buildRow, readRowFile, rowText, type RowFile } from './row';
+import { ROW } from './row.gen';
 
 /** The board of B01_s290 under other codes: two 2s a cell apart, cleared by the way round in three moves. */
 const lay = (code: string, more: string[] = []): string =>
@@ -67,5 +75,36 @@ describe('buildRow', () => {
     expect(text).toContain('export const ROW: Row = {');
     expect(rowText(buildRow(readRowFile(JSON.stringify(file())), boards))).toBe(text);
     expect(() => readRowFile('{ "chapters": 1 }')).toThrow('row: "chapters" is a list of chapters');
+  });
+});
+
+describe('the row of the game', () => {
+  it('is what row.json and the files of the boards lay: run node scripts/row.mjs where it is not', () => {
+    expect(rowText(buildRow(readRowFile(rowJson), BOARD_TEXTS))).toBe(rowText(ROW));
+  });
+
+  it('clears every place by the way its file keeps, in as many moves as it says, and the solver finds none shorter', { timeout: 120_000 }, () => {
+    for (const { code, spec } of ROW.places) {
+      expect(spec.solution, code).toBeDefined();
+      const { state } = tryWay(spec, spec.solution!.map(moveOf));
+      expect(state.endReason, code).toBe('passed');
+      expect(state.levelRun!.moves, code).toBe(spec.par);
+      const solved = solveLevel(spec);
+      expect(solved.exhausted, code).toBe(true);
+      expect(solved.solution!.par, code).toBe(spec.par);
+    }
+  });
+
+  it('starts no place with a combo ready to go', () => {
+    for (const { code, spec } of ROW.places) {
+      const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
+      const tops = new Array<number>(spec.size * spec.size).fill(0);
+      for (const cube of state.cubes) if (cube.state === 'idle' && (spec.faces ?? []).includes(cube.ori.top)) tops[cube.z * spec.size + cube.x] = cube.ori.top;
+      expect(hasReadyGroup(tops, spec.size), code).toBe(false);
+    }
+  });
+
+  it('names hints that have words', () => {
+    for (const { code, help } of ROW.places) if (help.hint) expect(t(help.hint), code).not.toBe(help.hint);
   });
 });
