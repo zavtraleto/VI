@@ -372,17 +372,6 @@ export function gather(recipe: Recipe, verdicts: readonly Verdict[]): Filled {
   return { recipe, fits, tried: verdicts.length, reasons };
 }
 
-/** Judges the seeds of a place from `from` to `to`. */
-export function fill(recipe: Recipe, from: number, to: number, opts: JudgeOptions = {}, say?: (verdict: Verdict) => void): Verdict[] {
-  const verdicts: Verdict[] = [];
-  for (let seed = from; seed <= to; seed++) {
-    const verdict = judge(recipe, seed, opts);
-    verdicts.push(verdict);
-    say?.(verdict);
-  }
-  return verdicts;
-}
-
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
 export function layOutRows(rows: readonly string[][]): string {
