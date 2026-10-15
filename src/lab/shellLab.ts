@@ -1,16 +1,14 @@
-import { dailyArchive, endlessArchive } from '../app/archive';
+import { endlessArchive } from '../app/archive';
 import { standings } from '../app/standings';
 import { AudioEngine } from '../audio/engine';
 import { Display } from '../display/display';
 import { loadSettings, type Settings } from '../platform/settings';
-import { DEFAULT_TUNING } from '../rules';
 import type { ParamValues } from '../signal/scene';
 import { Climb } from '../shell/climb';
 import { clearedPanel, pausePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel } from '../shell/panels';
 import type { PanelSpec } from '../shell/screens/panel';
 import { Shell, type MenuActions } from '../shell/shell';
 import { COMMANDS, RECORDS } from '../shell/text';
-import { dayAt } from '../app/daily';
 import { SHELL_PARAMS, parseShellValue, shellChanged, shellDefaults } from '../shell/theme';
 import { FpsCounter } from '../ui/fps';
 import { t } from '../ui/i18n';
@@ -20,7 +18,7 @@ export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'clim
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
-const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 34, limitSec: DEFAULT_TUNING.timedSec, rules: 8, sessions: 12 };
+const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 34, rules: 8, sessions: 12 };
 /** Players for the sample of the table a platform keeps: one with no name, one with a name too long for the table. */
 const SAMPLE_PLAYERS = ['Green Chicken', '', 'A name far too long for the table', 'Yellow Mackerel'].map((name, i) => ({
   name,
@@ -31,7 +29,6 @@ const SAMPLE_PLAYERS = ['Green Chicken', '', 'A name far too long for the table'
 const SAMPLE_BEST = 870;
 /** The logs of the sample: the made-up players as they stand now, the sample players and the one who plays. */
 const sampleLog = () => standings(endlessArchive(Date.now()), SAMPLE_PLAYERS, { name: RECORDS.you, score: SAMPLE_BEST });
-const sampleDay = () => standings(dailyArchive(dayAt(Date.now()), Date.now()), [], { name: RECORDS.you, score: 0 });
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -175,7 +172,7 @@ export class ShellLab {
         return systemPanel({ values: () => values, onToggle: nothing, onLanguage: nothing, onBack: nothing });
       case 'result':
         return resultPanel(
-          { timeUp: false, score: 8020, best: 12840, maxChain: 5, ticks: 24100, tickMs: 20, note: t('newBest') },
+          { score: 8020, best: 12840, maxChain: 5, ticks: 24100, tickMs: 20, note: t('newBest') },
           { onAgain: nothing, onRecords: nothing, onMenu: nothing },
         );
       case 'climb': {
@@ -187,7 +184,6 @@ export class ShellLab {
         );
         return resultPanel(
           {
-            timeUp: false,
             score: this.climbScore,
             best: Math.max(SAMPLE_BEST, this.climbScore),
             before: SAMPLE_BEST,
@@ -202,7 +198,7 @@ export class ShellLab {
       }
       case 'records': {
         let shared = false;
-        return recordsPanel((section) => (section === 0 ? { lines: sampleLog() } : { lines: sampleDay(), link: 'waiting', day: 'H38.10.04' }), 0, {
+        return recordsPanel(() => ({ lines: sampleLog() }), {
           onBack: nothing,
           onRegister: nothing,
           share: {

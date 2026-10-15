@@ -21,7 +21,7 @@ function collect(s: RunState, ticks: number): GameEvent[] {
 }
 
 function interval(s: RunState): number {
-  return paceIntervalTicks(s.config, s.mode, s.level, s.tick, population(s));
+  return paceIntervalTicks(s.config, s.level, population(s));
 }
 
 /** A board one cube under the danger mark, with nothing on it that goes together. */
@@ -33,7 +33,7 @@ function crowded(experiments: Partial<ExperimentConfig> = {}, tuning: Partial<Tu
 
 describe('the last sliver', () => {
   const c = defaultConfig();
-  const at = (cubes: number, config = c) => paceIntervalTicks(config, 'endless', 1, 0, cubes);
+  const at = (cubes: number, config = c) => paceIntervalTicks(config, 1, cubes);
 
   it('leaves the pace alone up to the danger mark', () => {
     expect(c.warnOccupied).toBe(42);
@@ -45,12 +45,6 @@ describe('the last sliver', () => {
     for (let cubes = 42; cubes < 49; cubes++) expect(at(cubes + 1)).toBeGreaterThan(at(cubes));
     expect(DEFAULT_TUNING.edgeFactor).toBeGreaterThan(DEFAULT_TUNING.crowdedFactor);
     expect(at(49)).toBe(msToTicks(DEFAULT_TUNING.paceStartMs * DEFAULT_TUNING.edgeFactor));
-  });
-
-  it('does the same for the session of the day', () => {
-    const timed = (cubes: number) => paceIntervalTicks(c, 'timed', 1, 0, cubes);
-    expect(timed(49)).toBeGreaterThan(timed(42));
-    expect(timed(49)).toBe(msToTicks(DEFAULT_TUNING.timedStartMs * DEFAULT_TUNING.edgeFactor));
   });
 
   it('holds the noise for a while after a clear made at the danger mark', () => {
@@ -204,17 +198,6 @@ describe('a gift', () => {
     expect(s.stats.gifts).toBe(0);
   });
 
-  it('is not given in the session of the day', () => {
-    const config = defaultConfig({ gift: true, floorLift: false, gentleStart: false, waves: false }, { feedRate: 0, helpRate: 0, giftRate: 1, giftMax: 1 });
-    const s = createRun({ seed: 1, config, timed: true, empty: true });
-    put(s, 3, 3, 3);
-    put(s, 4, 3, 3);
-    s.sinceClear = 4;
-    run(s, 2000);
-    expect(s.pending.length + s.cubes.length).toBeGreaterThan(3);
-    expect(s.stats.gifts).toBe(0);
-  });
-
   it('is an experiment, on by default, and belongs to the record key', () => {
     const s = waiting(1, { gift: false });
     run(s, interval(s));
@@ -286,13 +269,12 @@ describe('the opening', () => {
     }
   });
 
-  it('is not laid out for the session of the day, nor with the experiment off', () => {
+  it('is not laid out with the experiment off', () => {
     const ready = (make: (seed: number) => RunState) => {
       let count = 0;
       for (let seed = 1; seed <= 40; seed++) if (firstClears(make(seed)).length > 0) count++;
       return count;
     };
-    expect(ready((seed) => createRun({ seed, config: defaultConfig(), timed: true }))).toBeLessThan(20);
     expect(ready((seed) => createRun({ seed, config: defaultConfig({ opening: false }) }))).toBeLessThan(20);
     expect(defaultConfig().experiments.opening).toBe(true);
     expect(ruleKey(defaultConfig({ opening: false }))).not.toBe(ruleKey(defaultConfig()));

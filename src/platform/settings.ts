@@ -114,8 +114,8 @@ export interface Settings {
   /** Shows the button that opens the debug panel. */
   debugPanel: boolean;
   /**
-   * Finished runs, newest last: under `endless` and `timed` those played by the rules everyone
-   * has, whatever their version; under a key of its own what was played by changed rules.
+   * Finished runs, newest last: under `endless` those played by the rules everyone has,
+   * whatever their version; under a key of its own what was played by changed rules.
    */
   runs: Record<string, RunRecord[]>;
   puzzle: PuzzleProgress;
@@ -159,6 +159,8 @@ export function loadSettings(): Settings {
   if (loaded.rulesVersion === undefined) loaded.experiments.floorClimb = defaultExperiments().floorClimb;
   loaded.rulesVersion = RULES_VERSION;
   loaded.runs = joinRuns(loaded.runs);
+  // The session of the day is gone from the game (the owner, 15 October 2026): what was kept of it goes.
+  for (const kind of Object.keys(loaded.runs)) if (kind === 'timed' || kind.startsWith('timed/')) delete loaded.runs[kind];
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
   // What was kept under the codes of an earlier edition of the road is of other boards (`toRoadEdition`).
@@ -247,11 +249,6 @@ export function topRuns(runs: readonly RunRecord[], metric: RecordMetric, count:
 
 export function bestOf(settings: Settings, key: string, metric: RecordMetric): number {
   return (settings.runs[key] ?? []).reduce((best, r) => Math.max(best, r[metric]), 0);
-}
-
-/** The best score among the sessions of one day, given as YYYY-MM-DD. */
-export function bestOn(settings: Settings, key: string, date: string): number {
-  return (settings.runs[key] ?? []).reduce((best, r) => (r.date === date ? Math.max(best, r.score) : best), 0);
 }
 
 export function prefersReducedMotion(settings: Settings): boolean {

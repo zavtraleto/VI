@@ -21,10 +21,7 @@ const { createRun, step, defaultConfig, RULES_VERSION } = await load('/src/rules
 
 /** The strongest player of the log stands this far along the named ones: 3 is the one who plays for chains. */
 const STRONGEST = 3.2;
-/**
- * Players of the log. Each has a strength, plays one session without a limit, and one session
- * of the day that the days take their lines from.
- */
+/** Players of the log. Each has a strength and plays one session. */
 const PLAYERS = 250;
 /** A session that lasts longer than this is given up. */
 const LIMIT_MINUTES = 40;
@@ -60,52 +57,45 @@ function skillAt(strength) {
   };
 }
 
-function play(strength, seed, timed) {
+function play(strength, seed) {
   const config = defaultConfig();
-  const state = createRun({ seed, config, timed });
+  const state = createRun({ seed, config });
   const bot = createBot(skillAt(strength), seed);
   const limit = Math.round((LIMIT_MINUTES * 60000) / config.tickMs);
   while (!state.over && state.tick < limit) step(state, botCommand(bot, state));
   return state.score;
 }
 
-/** The sessions of one kind: strengths spread evenly from the weakest to the strongest, each on a seed of its own. */
-function sessions(count, timed) {
+/** The sessions: strengths spread evenly from the weakest to the strongest, each on a seed of its own. */
+function sessions(count) {
   const runs = [];
   for (let i = 0; i < count; i++) {
     const strength = (STRONGEST * i) / (count - 1);
-    const seed = (timed ? 70_000 : 10_000) + i * 7919;
-    runs.push({ strength, seed, score: play(strength, seed, timed) });
+    const seed = 10_000 + i * 7919;
+    runs.push({ strength, seed, score: play(strength, seed) });
   }
   return runs;
 }
 
 const probe = process.argv.includes('probe');
 const started = Date.now();
-const endless = sessions(PLAYERS, false);
-const timed = sessions(PLAYERS, true);
+const endless = sessions(PLAYERS);
 
 if (probe) {
-  for (const [name, runs] of [['endless', endless], ['timed', timed]]) {
-    console.log(name);
-    for (const run of runs) console.log(`  ${run.strength.toFixed(2)}  seed ${run.seed}  ${run.score}`);
-  }
+  for (const run of endless) console.log(`  ${run.strength.toFixed(2)}  seed ${run.seed}  ${run.score}`);
 } else {
   const list = (runs) => runs.map((run) => run.score).join(', ');
   const text = `/**
  * Written by \`node scripts/archive.mjs\`, under the rules of ${RULES_VERSION}: not to be changed by hand.
  * Scores of sessions played by the player made of the rules, at ${PLAYERS} strengths from one who has
  * just been shown the rules to one who plays for chains. In the order of the players, the
- * weakest first: the same place in both lists is the same player.
+ * weakest first.
  */
 
 /** A session without a limit of each player. */
 export const ARCHIVE_ENDLESS: readonly number[] = [${list(endless)}];
-
-/** A session of the day of each player: what the days take their lines from. */
-export const ARCHIVE_TIMED: readonly number[] = [${list(timed)}];
 `;
   writeFileSync(resolve(root, 'src/app/archiveData.ts'), text);
-  console.log(`src/app/archiveData.ts: ${endless.length} sessions without a limit, ${timed.length} of the day`);
+  console.log(`src/app/archiveData.ts: ${endless.length} sessions without a limit`);
 }
 console.log(`${Math.round((Date.now() - started) / 1000)} s`);

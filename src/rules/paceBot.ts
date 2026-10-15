@@ -20,7 +20,6 @@ export interface PaceRun {
   hands: HandsName;
   style: StyleName;
   nobody: boolean;
-  timed: boolean;
   seed: number;
   seconds: number;
   level: number;
@@ -91,7 +90,6 @@ export interface PaceOptions {
   rush?: boolean;
   /** Nobody plays: what the pace does to a board left alone. */
   nobody?: boolean;
-  timed?: boolean;
   seed?: number;
   /** The trial gives up on a run that lasts this long. */
   limitMinutes?: number;
@@ -100,9 +98,9 @@ export interface PaceOptions {
 }
 
 export function playPace(opts: PaceOptions): PaceRun {
-  const { skill, timed = false, seed = 1, limitMinutes = 30 } = opts;
+  const { skill, seed = 1, limitMinutes = 30 } = opts;
   const config = defaultConfig(opts.experiments, opts.tuning);
-  const state = createRun({ seed, config, timed });
+  const state = createRun({ seed, config });
   const head = opts.head ?? skill;
   const hands = opts.hands ?? skill;
   const style = opts.style ?? 'plain';
@@ -172,7 +170,6 @@ export function playPace(opts: PaceOptions): PaceRun {
     hands,
     style,
     nobody,
-    timed,
     seed,
     seconds: seconds(state.tick),
     level: state.level,
@@ -228,38 +225,35 @@ function middle(values: number[]): number {
  * the middle value of each column, and the shortest and the longest run beside the time.
  */
 export function paceTable(
-  opts: Omit<PaceOptions, 'skill' | 'seed' | 'timed'> & { skills?: SkillName[]; seeds?: number[]; modes?: boolean[] } = {},
+  opts: Omit<PaceOptions, 'skill' | 'seed'> & { skills?: SkillName[]; seeds?: number[] } = {},
 ): string {
-  const { skills = SKILL_NAMES, seeds = [1, 2, 3, 4, 5], modes = [false, true], ...rest } = opts;
-  const head = ['mode', 'player', 'time', 'shortest-longest', 'end', 'cubes/min', 'score', 'best chain', 'first clear', 'drought', 'calm/flow/tense', 'highlights/min', 'at the edge', 'escapes', 'wipes', 'wave swing'];
+  const { skills = SKILL_NAMES, seeds = [1, 2, 3, 4, 5], ...rest } = opts;
+  const head = ['player', 'time', 'shortest-longest', 'end', 'cubes/min', 'score', 'best chain', 'first clear', 'drought', 'calm/flow/tense', 'highlights/min', 'at the edge', 'escapes', 'wipes', 'wave swing'];
   const rows: string[][] = [head];
-  for (const timed of modes) {
-    for (const skill of skills) {
-      const runs = seeds.map((seed) => playPace({ ...rest, skill, timed, seed }));
-      const of = (read: (run: PaceRun) => number) => middle(runs.map(read));
-      const times = runs.map((run) => run.seconds);
-      const ends = runs.filter((run) => run.endReason === 'full').length;
-      const first = runs.map((run) => run.firstClear).filter((value): value is number => value !== null);
-      const unfinished = runs.filter((run) => run.endReason === null).length;
-      rows.push([
-        timed ? 'timed' : 'endless',
-        skill,
-        clock(middle(times)),
-        `${clock(Math.min(...times))}-${clock(Math.max(...times))}`,
-        unfinished > 0 ? `${unfinished} of ${runs.length} not over in ${rest.limitMinutes ?? 30} min` : `${END.full} ${ends} of ${runs.length}`,
-        of((run) => run.perMinute).toFixed(1),
-        String(of((run) => run.score)),
-        `x${of((run) => run.maxChain)}`,
-        first.length > 0 ? `${middle(first).toFixed(0)} s` : 'none',
-        `${of((run) => run.drought).toFixed(0)} s`,
-        shares(of((run) => run.calmShare), of((run) => run.tenseShare)),
-        of((run) => run.highlights).toFixed(1),
-        `${of((run) => run.dangerSeconds).toFixed(0)} s`,
-        String(of((run) => run.escapes)),
-        String(runs.reduce((sum, run) => sum + run.wipes, 0)),
-        `${of((run) => run.swing).toFixed(1)} cubes`,
-      ]);
-    }
+  for (const skill of skills) {
+    const runs = seeds.map((seed) => playPace({ ...rest, skill, seed }));
+    const of = (read: (run: PaceRun) => number) => middle(runs.map(read));
+    const times = runs.map((run) => run.seconds);
+    const ends = runs.filter((run) => run.endReason === 'full').length;
+    const first = runs.map((run) => run.firstClear).filter((value): value is number => value !== null);
+    const unfinished = runs.filter((run) => run.endReason === null).length;
+    rows.push([
+      skill,
+      clock(middle(times)),
+      `${clock(Math.min(...times))}-${clock(Math.max(...times))}`,
+      unfinished > 0 ? `${unfinished} of ${runs.length} not over in ${rest.limitMinutes ?? 30} min` : `${END.full} ${ends} of ${runs.length}`,
+      of((run) => run.perMinute).toFixed(1),
+      String(of((run) => run.score)),
+      `x${of((run) => run.maxChain)}`,
+      first.length > 0 ? `${middle(first).toFixed(0)} s` : 'none',
+      `${of((run) => run.drought).toFixed(0)} s`,
+      shares(of((run) => run.calmShare), of((run) => run.tenseShare)),
+      of((run) => run.highlights).toFixed(1),
+      `${of((run) => run.dangerSeconds).toFixed(0)} s`,
+      String(of((run) => run.escapes)),
+      String(runs.reduce((sum, run) => sum + run.wipes, 0)),
+      `${of((run) => run.swing).toFixed(1)} cubes`,
+    ]);
   }
   return layOut(rows);
 }

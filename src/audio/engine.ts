@@ -518,11 +518,6 @@ export class AudioEngine {
     this.play({ kind: 'begin' });
   }
 
-  /** One second of the closing countdown in Time Limited. */
-  tick(): void {
-    this.play({ kind: 'clock' });
-  }
-
   /** Points of a group have reached the score. */
   points(points: number, tier: number): void {
     this.play({ kind: 'points', points, tier });

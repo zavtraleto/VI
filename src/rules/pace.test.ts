@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cubeHeight } from './board';
-import { DEFAULT_TUNING, defaultConfig, msToTicks, paceIntervalTicks, ruleKey, sinkTicksAt, timedPhase, timedPhases } from './config';
+import { DEFAULT_TUNING, defaultConfig, msToTicks, paceIntervalTicks, ruleKey, sinkTicksAt } from './config';
 import { createRun, step } from './sim';
 import { chainQuiet, population, spawnCube } from './spawn';
 import { emptyRun, land, ori, place, put, run } from './testkit';
@@ -19,7 +19,7 @@ const warned = (e: GameEvent) => e.type === 'warned';
 
 /** Ticks until the next regular spawn is announced, for the board as it is now. */
 function interval(s: RunState): number {
-  return paceIntervalTicks(s.config, s.mode, s.level, s.tick, population(s));
+  return paceIntervalTicks(s.config, s.level, population(s));
 }
 
 /** Takes the last cube that the level is short of off the board: one step, and the run is on `level`. */
@@ -32,7 +32,7 @@ function reach(s: RunState, level: number): void {
 
 describe('endless curve', () => {
   const c = defaultConfig();
-  const at = (level: number, config = c) => paceIntervalTicks(config, 'endless', level, 0, config.targetCubes);
+  const at = (level: number, config = c) => paceIntervalTicks(config, level, config.targetCubes);
 
   /** Cubes in a tick at a level: the flow, where the interval is the time between two of them. */
   const flow = (level: number, config = c) => 1 / at(level, config);
@@ -336,82 +336,13 @@ describe('cubes for a chain', () => {
   });
 });
 
-describe('time limited profile', () => {
-  const c = defaultConfig();
-  const minute = msToTicks(60_000);
-  const at = (tick: number, level = 1, cubes = c.targetCubes) => paceIntervalTicks(c, 'timed', level, tick, cubes);
-  const levelUp = (e: GameEvent) => e.type === 'levelUp';
-  // Nobody plays: the pace is slowed so that the board does not fill before the clock runs out.
-  const slow = { timedStartMs: 12000, timedEndMs: 12000 };
-
-  it('lasts three minutes', () => {
-    expect(c.timedTicks).toBe(3 * minute);
-  });
-
-  it('is fast from the first second and faster to the end', () => {
-    expect(at(0)).toBe(150); // 3 s
-    expect(at(c.timedTicks / 2)).toBe(113); // 2.25 s
-    expect(at(c.timedTicks)).toBe(75); // 1.5 s
-    for (let tick = 0; tick < c.timedTicks; tick += 50) expect(at(tick + 50)).toBeLessThanOrEqual(at(tick));
-    expect(at(0)).toBeLessThan(paceIntervalTicks(c, 'endless', 1, 0, c.targetCubes));
-  });
-
-  it('depends on the tick alone, not on the level', () => {
-    for (const tick of [0, 1000, 4000, 8999, 14999]) {
-      for (const cubes of [0, 13, 14, 22, 30]) {
-        expect(at(tick, 9, cubes)).toBe(at(tick, 1, cubes));
-        expect(at(tick, 40, cubes)).toBe(at(tick, 1, cubes));
-      }
-    }
-  });
-
-  it('counts three phases by the clock, a minute each', () => {
-    expect(timedPhases(c)).toBe(3);
-    expect(timedPhase(c, 0)).toBe(1);
-    expect(timedPhase(c, minute - 1)).toBe(1);
-    expect(timedPhase(c, minute)).toBe(2);
-    expect(timedPhase(c, 2 * minute)).toBe(3);
-    expect(timedPhase(c, c.timedTicks * 5)).toBe(3);
-  });
-
-  it('has a phase to every minute of a run of another length', () => {
-    const five = defaultConfig({}, { timedSec: 300 });
-    expect(timedPhases(five)).toBe(5);
-    expect(timedPhase(five, 10 * minute)).toBe(5);
-    expect(timedPhases(defaultConfig({}, { timedSec: 30 }))).toBe(1);
-  });
-
-  it('takes its level from the clock through all three phases: cubes removed do not raise it', () => {
-    const config = defaultConfig({ gentleStart: false, floorLift: false }, { cubesPerLevel: 1, ...slow });
-    const s = createRun({ seed: 5, config, timed: true });
-    for (const cube of s.cubes.slice(1, 5)) cube.state = 'sinking';
-    const first = collect(s, minute);
-    expect(s.removed).toBe(4);
-    expect(s.level).toBe(1);
-    expect(first.some(levelUp)).toBe(false);
-    step(s, null);
-    expect(s.level).toBe(2);
-    expect(s.events).toContainEqual({ type: 'levelUp', level: 2 });
-    const rest = collect(s, s.config.timedTicks);
-    expect(rest.filter(levelUp)).toEqual([{ type: 'levelUp', level: 3 }]);
-    expect(s.level).toBe(3);
-    expect(s.endReason).toBe('time');
-    expect(s.tick).toBe(3 * minute);
-  });
-
-  it('can be lost: it has no gentle start, and with nobody at it the board fills before the clock runs out', () => {
-    const s = createRun({ seed: 5, config: defaultConfig({ floorLift: false }), timed: true });
-    expect(s.config.experiments.gentleStart).toBe(true);
-    run(s, s.config.timedTicks);
-    expect(s.endReason).toBe('full');
-    expect(s.tick).toBeLessThan(s.config.timedTicks);
-  });
+describe('the gentle start of Endless', () => {
 
   it('leaves Endless to be lost once its gentle start is over', () => {
     const s = createRun({ seed: 5, config: defaultConfig({ floorLift: false }) });
     run(s, s.config.gentleTicks);
     expect(s.over).toBe(false);
-    run(s, s.config.timedTicks);
+    run(s, msToTicks(180_000));
     expect(s.endReason).toBe('full');
   });
 });
@@ -464,8 +395,8 @@ describe('run report', () => {
 });
 
 describe('determinism of the pace', () => {
-  function play(timed: boolean, config = defaultConfig()): string {
-    const s = createRun({ seed: 99, config, timed });
+  function play(config = defaultConfig()): string {
+    const s = createRun({ seed: 99, config });
     const dirs: Dir[] = ['N', 'E', 'S', 'W'];
     for (let i = 0; i < 16000 && !s.over; i++) {
       step(s, i % 7 === 0 ? dirs[(i / 7) % 4 | 0] : null);
@@ -474,16 +405,13 @@ describe('determinism of the pace', () => {
   }
 
   it('gives one run for one seed, counters of silence and report included', () => {
-    expect(play(false)).toBe(play(false));
-    expect(play(true)).toBe(play(true));
-    expect(play(true)).not.toBe(play(false));
+    expect(play()).toBe(play());
   });
 
   it('leaves the config it was given untouched', () => {
     const config = defaultConfig();
     const before = JSON.stringify(config);
-    play(false, config);
-    play(true, config);
+    play(config);
     expect(JSON.stringify(config)).toBe(before);
   });
 });

@@ -21,7 +21,6 @@ export const WORDS = {
   // The names of panels.
   PAUSE: { ru: 'ПАУЗА', es: 'PAUSA', pt: 'PAUSA', tr: 'DURAKLATILDI', de: 'PAUSE', fr: 'PAUSE' },
   RESULT: { ru: 'РЕЗУЛЬТАТ', es: 'RESULTADO', pt: 'RESULTADO', tr: 'SONUÇ', de: 'ERGEBNIS', fr: 'RÉSULTAT' },
-  'TIME UP': { ru: 'ВРЕМЯ ВЫШЛО', es: 'TIEMPO AGOTADO', pt: 'TEMPO ESGOTADO', tr: 'SÜRE DOLDU', de: 'ZEIT ABGELAUFEN', fr: 'TEMPS ÉCOULÉ' },
   RULES: { ru: 'ПРАВИЛА', es: 'REGLAS', pt: 'REGRAS', tr: 'KURALLAR', de: 'REGELN', fr: 'RÈGLES' },
   CLEARED: { ru: 'ПРОЙДЕНО', es: 'SUPERADO', pt: 'CONCLUÍDO', tr: 'TAMAMLANDI', de: 'GESCHAFFT', fr: 'TERMINÉ' },
   LANGUAGE: { ru: 'ЯЗЫК', es: 'IDIOMA', pt: 'IDIOMA', tr: 'DİL', de: 'SPRACHE', fr: 'LANGUE' },
@@ -50,9 +49,7 @@ export const WORDS = {
   MOVES: { ru: 'ХОДЫ', es: 'MOVIMIENTOS', pt: 'JOGADAS', tr: 'HAMLE', de: 'ZÜGE', fr: 'COUPS' },
   FEWEST: { ru: 'МИНИМУМ', es: 'MÍNIMO', pt: 'MÍNIMO', tr: 'EN AZ', de: 'MINIMUM', fr: 'MINIMUM' },
   'MOVES LEFT': { ru: 'ОСТАЛОСЬ ХОДОВ', es: 'RESTANTES', pt: 'RESTANTES', tr: 'KALAN HAMLE', de: 'ZÜGE ÜBRIG', fr: 'COUPS RESTANTS' },
-  TODAY: { ru: 'СЕГОДНЯ', es: 'HOY', pt: 'HOJE', tr: 'BUGÜN', de: 'HEUTE', fr: "AUJOURD'HUI" },
   RANK: { ru: 'МЕСТО', es: 'PUESTO', pt: 'POSIÇÃO', tr: 'SIRA', de: 'RANG', fr: 'RANG' },
-  LIMITED: { ru: 'ДНЕВНОЙ', es: 'DIARIA', pt: 'DIÁRIA', tr: 'GÜNLÜK', de: 'TÄGLICH', fr: 'DU JOUR' },
   'NO ENTRY': { ru: 'НЕТ ЗАПИСЕЙ', es: 'SIN REGISTROS', pt: 'SEM REGISTROS', tr: 'KAYIT YOK', de: 'KEINE EINTRÄGE', fr: 'AUCUNE ENTRÉE' },
   'NO NAME': { ru: 'БЕЗ ИМЕНИ', es: 'SIN NOMBRE', pt: 'SEM NOME', tr: 'İSİMSİZ', de: 'OHNE NAMEN', fr: 'SANS NOM' },
   YOU: { ru: 'ТЫ', es: 'TÚ', pt: 'VOCÊ', tr: 'SEN', de: 'DU', fr: 'TOI' },

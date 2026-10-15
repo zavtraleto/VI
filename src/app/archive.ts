@@ -1,5 +1,4 @@
-import { ARCHIVE_ENDLESS, ARCHIVE_TIMED } from './archiveData';
-import type { Day } from './daily';
+import { ARCHIVE_ENDLESS } from './archiveData';
 
 /**
  * The players a log has while few people play: made-up ones, so that the table of a new game
@@ -9,9 +8,8 @@ import type { Day } from './daily';
  * gives a guest, a colour and an animal, the rest under names of their own.
  *
  * There are a few hundred of them, each with a strength, and they behave as a crowd does. The
- * log of the sessions without a limit starts with some of them and takes the others in one by
- * one as the days go by. The session of a day is played by some of them, different ones every
- * day, and their lines come into its table through the day.
+ * log of the sessions starts with some of them and takes the others in one by one as the days
+ * go by.
  *
  * They are lines of the game's own table only: nothing of them is sent to the platform.
  */
@@ -27,15 +25,6 @@ const PLAYERS = ARCHIVE_ENDLESS.length;
 const FIRST = 50;
 const FIRST_DAY_MS = Date.UTC(2026, 9, 4);
 const JOIN_MS = DAY_MS / 2;
-/** Players who play the session of a day. */
-const DAILY = 56;
-/** The first of them have played within the first half hour of the day: one every so much of a day. */
-const EARLY = 6;
-const EARLY_STEP = 0.0035;
-/** How much earlier in the day than evenly the rest come: the table fills fast, then slowly. */
-const ARRIVAL_POWER = 1.6;
-/** How far the session of a day may be from what the player usually makes, in places of the players. */
-const DAY_SWING = 18;
 /** Share of the players that go under a name of the kind the platform gives a guest. */
 const GUEST_SHARE = 0.74;
 /** Widest a name gets in the table, in signs: a longer one would be cut there. */
@@ -101,9 +90,8 @@ function makeNames(count: number): string[] {
 
 let names: string[] | null = null;
 let joining: number[] | null = null;
-/** The log last made of each kind: it is asked for on every frame it is drawn. */
+/** The log last made: it is asked for on every frame it is drawn. */
 let endless: { count: number; lines: ArchiveLine[] } | null = null;
-let daily: { seed: number; players: { line: ArchiveLine; arrives: number }[] } | null = null;
 
 function nameOf(player: number): string {
   names ??= makeNames(PLAYERS);
@@ -137,41 +125,4 @@ export function endlessArchive(nowMs: number): readonly ArchiveLine[] {
     .sort(byScore);
   endless = { count, lines };
   return lines;
-}
-
-/**
- * The made-up players in the table of the session of a day at a moment, best first. Who plays
- * that day, when in the day, and how well against their usual is taken from the seed of the
- * day: the same for everyone, and different the day after. A line is in the table from the
- * moment its player has played.
- */
-export function dailyArchive(day: Pick<Day, 'seed' | 'index'>, nowMs: number): readonly ArchiveLine[] {
-  if (daily?.seed !== day.seed) {
-    const rand = chance(day.seed);
-    const today = shuffled(ARCHIVE_ENDLESS.map((_, player) => player), rand).slice(0, DAILY);
-    const last = ARCHIVE_TIMED.length - 1;
-    const taken = new Set<number>();
-    const players = today.map((player, i) => {
-      const arrives = i < EARLY ? (i + 1) * EARLY_STEP : rand() ** ARRIVAL_POWER;
-      // A good day or a bad one: the session of a player some places away. Past either end of
-      // the players it comes back in, and no session is made twice in a day: two players with
-      // the very same score would give the table away.
-      let other = Math.round(player + (rand() * 2 - 1) * DAY_SWING);
-      if (other < 0) other = -other;
-      if (other > last) other = 2 * last - other;
-      for (let step = 1; taken.has(other) && step <= last; step++) {
-        const near = [other + step, other - step].find((at) => at >= 0 && at <= last && !taken.has(at));
-        if (near !== undefined) other = near;
-      }
-      taken.add(other);
-      return { line: { name: nameOf(player), score: ARCHIVE_TIMED[other] ?? 0 }, arrives };
-    });
-    daily = { seed: day.seed, players };
-  }
-  // How much of the day has gone by; a day that is over has all its lines.
-  const gone = (nowMs - day.index * DAY_MS) / DAY_MS;
-  return daily.players
-    .filter((player) => player.arrives <= gone && player.line.score > 0)
-    .map((player) => player.line)
-    .sort(byScore);
 }

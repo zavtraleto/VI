@@ -368,7 +368,7 @@ function restingGroup(state: RunState, start: Cube): Cube[] {
  * taking it is the player's doing. Where it can, it comes up beside a die that stands, so
  * that it can be stepped onto. The longer nothing has been cleared, the likelier it is;
  * a clear starts the count over, so gifts do not come to a player who is doing well. Only in
- * Endless: the session of the day is the same test for everyone.
+ * Endless.
  */
 function gift(state: RunState, free: readonly { x: number; z: number }[]): Placement | null {
   const { config } = state;
@@ -727,8 +727,7 @@ export function runSpawn(state: RunState): void {
 
   const { config } = state;
   const free = freeCells(state).filter((c) => !hasPendingAt(state, c.x, c.z));
-  // A gentle start is Endless's: the session of the day is a test, and can be lost from its first second.
-  const gentle = config.experiments.gentleStart && state.mode !== 'timed' && state.tick < config.gentleTicks;
+  const gentle = config.experiments.gentleStart && state.tick < config.gentleTicks;
   if (free.length === 0 || (gentle && committed(state) >= config.warnOccupied)) {
     state.spawnTimer = 0;
     return;
@@ -748,7 +747,7 @@ export function runSpawn(state: RunState): void {
     return;
   }
   state.spawnTimer++;
-  if (state.spawnTimer < paceIntervalTicks(config, state.mode, state.level, state.tick, population(state), swell(state))) return;
+  if (state.spawnTimer < paceIntervalTicks(config, state.level, population(state), swell(state))) return;
   state.spawnTimer = 0;
   const feeder = chainFeeder(state, free);
   if (feeder) {

@@ -21,6 +21,6 @@ npm run pack -- playgama
 
 ## Выкладка
 
-Игра в кабинете Playgama: `VI`, id `cmusa94kw028hpr0hzb9wqkrf`. Таблицы игроков: `endless` и `timed` (вторая — от сеанса дня, которого в игре больше нет). Публичный токен SaaS в [playgama-bridge-config.json](playgama-bridge-config.json) — это id игры, он не секрет. Sandbox: https://playgama.ai/play/hbhtrqdwvr — публичная ссылка без модерации.
+Игра в кабинете Playgama: `VI`, id `cmusa94kw028hpr0hzb9wqkrf`. Таблица игроков игры — `endless`. Таблица `timed` в кабинете осталась от сеанса дня: игра её больше не знает (код удалён 15 октября 2026), а удалить её в кабинете — по слову владельца. Публичный токен SaaS в [playgama-bridge-config.json](playgama-bridge-config.json) — это id игры, он не секрет. Sandbox: https://playgama.ai/play/hbhtrqdwvr — публичная ссылка без модерации.
 
 Новая версия: поднять `version` в `package.json` (по ней различаются архивы в кабинете и сборки в аналитике), `npm run pack -- playgama`, загрузить `release/vi-<версия>-playgama.zip` и опубликовать в sandbox через Playgama MCP (`start_archive_upload` → PUT → `confirm_archive_upload` → `get_archive_status` → `publish_sandbox`). Адрес sandbox при этом не меняется. Отправка на модерацию в основной каталог делается только руками в кабинете. Обложки в кабинете временные: кадры главного меню. Тексты страницы (описание и «как играть») — в [docs/VI_Playgama_Page.md](../../docs/VI_Playgama_Page.md).

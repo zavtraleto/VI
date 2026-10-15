@@ -6,7 +6,6 @@
 //   node scripts/pace.mjs                          the pace as it is
 //   node scripts/pace.mjs paceGrowth=0.08 restMs=0 with variables of the debug panel changed
 //   node scripts/pace.mjs waves=false              with an experiment switched
-//   node scripts/pace.mjs endless                  Endless alone; `timed` for the session of the day
 //   node scripts/pace.mjs seeds=9 minutes=45       more runs to a row, a longer trial
 //   node scripts/pace.mjs players=newbie,esports   some of the players only
 //   node scripts/pace.mjs grid                     heads against hands: time and score of every pair
@@ -29,10 +28,7 @@ for (const arg of process.argv.slice(2)) {
   const [key, value] = arg.split('=');
   if (['grid', 'styles', 'survival', 'edges'].includes(arg)) which = arg;
   else if (arg === 'rush') table.rush = true;
-  else if (arg === 'endless' || arg === 'timed') {
-    table.modes = [arg === 'timed'];
-    table.timed = arg === 'timed';
-  } else if (key === 'seeds') table.seeds = Array.from({ length: Number(value) }, (_, i) => i + 1);
+  else if (key === 'seeds') table.seeds = Array.from({ length: Number(value) }, (_, i) => i + 1);
   else if (key === 'players') table.skills = value.split(',');
   else if (key === 'minutes') table.limitMinutes = Number(value);
   else if (value === 'true' || value === 'false') experiments[key] = value === 'true';
@@ -40,13 +36,12 @@ for (const arg of process.argv.slice(2)) {
   else throw new Error(`cannot read "${arg}": write it as name=number or name=true`);
 }
 
-// The table of the pace plays both modes by `modes`; the others play the one that was named, Endless if none.
-const { modes, skills, timed, limitMinutes, ...shared } = table;
+const { skills, limitMinutes, ...shared } = table;
 const print = {
-  table: () => module.paceTable({ tuning, experiments, ...table, timed: undefined }),
-  grid: () => module.paceGrid({ tuning, experiments, ...shared, timed, limitMinutes }),
-  styles: () => module.paceStyles({ tuning, experiments, ...shared, skills, timed, limitMinutes }),
-  survival: () => module.survivalTable({ tuning, experiments, ...shared, skills, timed, minutes: limitMinutes }),
-  edges: () => module.paceEdges({ tuning, experiments, ...shared, timed, limitMinutes }),
+  table: () => module.paceTable({ tuning, experiments, ...table }),
+  grid: () => module.paceGrid({ tuning, experiments, ...shared, limitMinutes }),
+  styles: () => module.paceStyles({ tuning, experiments, ...shared, skills, limitMinutes }),
+  survival: () => module.survivalTable({ tuning, experiments, ...shared, skills, minutes: limitMinutes }),
+  edges: () => module.paceEdges({ tuning, experiments, ...shared, limitMinutes }),
 };
 console.log(print[which]());

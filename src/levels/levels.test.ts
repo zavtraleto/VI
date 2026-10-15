@@ -336,6 +336,6 @@ describe('a level as it is played', () => {
     step(state, first.dir);
     for (let i = 0; i < 20; i++) step(state, null);
     expect(state.tick).toBeGreaterThan(0);
-    expect(packRun('endless', '2026-10-04', state, new RunTally())).toBeNull();
+    expect(packRun('endless', state, new RunTally())).toBeNull();
   });
 });

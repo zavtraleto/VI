@@ -1,4 +1,4 @@
-import type { ExperimentConfig, RulesConfig, RunMode, Tuning } from './types';
+import type { ExperimentConfig, RulesConfig, Tuning } from './types';
 
 export const TICK_MS = 20;
 
@@ -60,8 +60,6 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   chainCalmMaxMs: 8000,
   sinkStartMs: 10000,
   sinkFloorMs: 7000,
-  timedStartMs: 3000,
-  timedEndMs: 1500,
   startCubes: 10,
   // Glass does not hold: a cube that comes or goes is rolled over, mounted and stepped off at any height.
   lowHeight: 1,
@@ -74,7 +72,6 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   liftMs: 3000,
   gentleSec: 180,
   rescueMs: 3000,
-  timedSec: 180,
   helpRate: 0.65,
   targetCubes: 14,
   refillMs: 2200,
@@ -113,8 +110,6 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   chainCalmMaxMs: [0, 20000, 500],
   sinkStartMs: [1000, 15000, 250],
   sinkFloorMs: [1000, 15000, 250],
-  timedStartMs: [500, 8000, 100],
-  timedEndMs: [300, 8000, 100],
   startCubes: [2, 30, 1],
   lowHeight: [0.1, 0.9, 0.05],
   sinkLowHeight: [0.1, 1, 0.05],
@@ -126,7 +121,6 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   liftMs: [500, 10000, 250],
   gentleSec: [0, 600, 15],
   rescueMs: [1000, 10000, 500],
-  timedSec: [30, 600, 15],
   helpRate: [0, 1, 0.05],
   targetCubes: [0, 30, 1],
   refillMs: [300, 5000, 100],
@@ -178,8 +172,6 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     wipeBonus: Math.max(0, Math.round(t.wipeBonus)),
     chainCalmTicks: Math.round(t.chainCalmMs / TICK_MS),
     chainCalmMaxTicks: Math.round(t.chainCalmMaxMs / TICK_MS),
-    timedStartMs: t.timedStartMs,
-    timedEndMs: t.timedEndMs,
     cubesPerLevel: Math.max(1, Math.round(t.cubesPerLevel)),
     levelTicks: msToTicks(t.levelSec * 1000),
     warnOccupied: 42,
@@ -202,7 +194,6 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     giftMax: t.giftMax,
     easyLevels: Math.max(1, Math.round(t.easyLevels)),
     gentleTicks: Math.round((t.gentleSec * 1000) / TICK_MS),
-    timedTicks: msToTicks(t.timedSec * 1000),
     floorLiftTicks: msToTicks(t.liftMs),
     custom: isCustomTuning(tuning),
     experiments: exp,
@@ -238,8 +229,6 @@ const FLAT_LEVELS = 3;
 /** Levels by which the refill and the chain window have come to their last values. */
 const REFILL_LEVEL = 15;
 const SINK_LEVEL = 20;
-/** A phase of a Time Limited run lasts a minute: the level of the run is the number of the phase. */
-const TIMED_PHASE_MS = 60_000;
 
 /** How far a value that changes with the level has come by `level`: 0 on the flat start, 1 from `last` on. */
 function ramp(level: number, last: number): number {
@@ -264,42 +253,20 @@ export function timeLevel(config: RulesConfig, tick: number): number {
   return 1 + Math.floor(tick / config.levelTicks);
 }
 
-/** Time Limited: how many phases a run has, one for every minute it lasts. */
-export function timedPhases(config: RulesConfig): number {
-  return Math.max(1, Math.ceil((config.timedTicks * config.tickMs) / TIMED_PHASE_MS));
-}
-
-/** Time Limited: the phase of the clock, the same for every player. */
-export function timedPhase(config: RulesConfig, tick: number): number {
-  return Math.min(timedPhases(config), 1 + Math.floor((tick * config.tickMs) / TIMED_PHASE_MS));
-}
-
-/** Time Limited: time between spawns at the target, falling evenly from the first tick to the last. */
-function timedPaceMs(config: RulesConfig, tick: number): number {
-  const done = Math.min(1, tick / config.timedTicks);
-  return config.timedStartMs + (config.timedEndMs - config.timedStartMs) * done;
-}
-
 /**
- * Time between spawns for a number of cubes in play. The interval is given at the target:
- * Endless takes it from the level, Time Limited from the clock alone, so that its pressure
- * is the same for everybody. `swell` is what the wave the run is on multiplies it by; the
- * interval stays above its floor whatever the wave: the lowest one of Endless, the one a Time
- * Limited run ends at. Below the target what the
+ * Time between spawns for a number of cubes in play. The interval is given at the target and
+ * taken from the level. `swell` is what the wave the run is on multiplies it by; the interval
+ * stays above its lowest whatever the wave. Below the target what the
  * player clears comes back sooner, so there is always something to build with; above it the
  * interval stretches as the board crowds, to give the player room to clear. Past the danger
  * mark it stretches much further, the more the nearer the board is to full: the last sliver
  * of the board is thicker than the rest of it.
  */
-export function paceIntervalTicks(config: RulesConfig, mode: RunMode, level: number, tick: number, cubes: number, swell = 1): number {
-  const timed = mode === 'timed';
-  const atTarget = timed
-    ? Math.max(Math.min(config.timedStartMs, config.timedEndMs), timedPaceMs(config, tick) * swell)
-    : Math.max(config.paceMinMs, endlessPaceMs(config, level) * swell);
+export function paceIntervalTicks(config: RulesConfig, level: number, cubes: number, swell = 1): number {
+  const atTarget = Math.max(config.paceMinMs, endlessPaceMs(config, level) * swell);
   const target = config.targetCubes;
   if (cubes < target) {
-    const refillLevel = timed ? timedPhase(config, tick) : level;
-    const refill = config.refillMs + (config.refillEndMs - config.refillMs) * ramp(refillLevel, REFILL_LEVEL);
+    const refill = config.refillMs + (config.refillEndMs - config.refillMs) * ramp(level, REFILL_LEVEL);
     const short = Math.min(1, (target - cubes) / REFILL_FULL);
     return msToTicks(atTarget + (Math.min(refill, atTarget) - atTarget) * short);
   }

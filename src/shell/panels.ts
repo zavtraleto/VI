@@ -95,14 +95,10 @@ export function languagePanel(actions: { languages: readonly LanguageCode[]; cur
 }
 
 export interface ResultData {
-  /** The session ran out of time, not of room. */
-  timeUp: boolean;
   score: number;
   best: number;
   /** The best there was before this session: what the result shows until the session has taken its place. */
   before?: number;
-  /** The day a session of the day belongs to, as the program writes it; null for any other session. */
-  day?: string | null;
   maxChain: number;
   ticks: number;
   tickMs: number;
@@ -119,7 +115,7 @@ const CLIMB_LINES = 7;
  * what there is to say about a record is said once the place is taken.
  */
 export function resultPanel(data: ResultData, actions: { onAgain: () => void; onRecords: () => void; onMenu: () => void }, climb?: Climb): PanelSpec {
-  const name = data.timeUp ? PANELS.timeUp : PANELS.result;
+  const name = PANELS.result;
   const settled = (): boolean => climb?.done ?? true;
   const rows: PanelRow[] = [];
   if (climb) {
@@ -144,7 +140,6 @@ export function resultPanel(data: ResultData, actions: { onAgain: () => void; on
     { kind: 'field', label: RESULT.chain, value: `×${digits(data.maxChain, 2)}` },
     { kind: 'field', label: RESULT.time, value: clock(data.ticks, data.tickMs) },
   );
-  if (data.day) rows.push({ kind: 'field', label: RESULT.day, value: data.day });
   if (data.note) rows.push({ kind: 'say', text: data.note, when: settled });
   rows.push(
     { kind: 'gap' },
@@ -178,13 +173,11 @@ export interface RecordLine {
   own: boolean;
 }
 
-/** The log of one kind of session. */
+/** The log of the session. */
 export interface RecordsTable {
   lines: readonly RecordLine[];
   /** How the asking for the players of the platform stands, while they are not in the log. */
   link?: 'waiting' | 'failed' | null;
-  /** The day the log is of, as the program writes it, where it starts anew every day. */
-  day?: string | null;
 }
 
 export interface RecordsActions {
@@ -195,7 +188,7 @@ export interface RecordsActions {
    * Sends out what the player has in the log in sight, with a link to the game. `label` is what
    * the command reads: its name, or what came of the last sending.
    */
-  share?: { label: () => PanelName; action: (section: number) => void };
+  share?: { label: () => PanelName; action: () => void };
 }
 
 /** Widest a name gets in the table, in places of the font. */
@@ -212,26 +205,21 @@ function fitName(name: string): string {
 }
 
 /**
- * The log of sessions, one for each kind of session: what the program had in it before the
- * player, the players a platform knows, and the one who plays, by score.
+ * The log of sessions: what the program had in it before the player, the players a platform
+ * knows, and the one who plays, by score.
  */
-export function recordsPanel(table: (section: number) => RecordsTable, initial: number, actions: RecordsActions): PanelSpec {
-  let section = Math.min(Math.max(initial, 0), RECORDS.modes.length - 1);
+export function recordsPanel(table: () => RecordsTable, actions: RecordsActions): PanelSpec {
   const rows: PanelRow[] = [
-    { kind: 'tabs', id: 'mode', labels: () => RECORDS.modes.map(word), selected: () => section, pick: (index) => (section = index) },
     {
       kind: 'table',
-      head: () => {
-        const day = table(section).day;
-        return day ? `${RECORDS.name} ${day}` : RECORDS.name;
-      },
+      head: () => RECORDS.name,
       status: () => {
-        const link = table(section).link;
+        const link = table().link;
         return link === 'waiting' ? RECORDS.waiting : link === 'failed' ? RECORDS.failed : '';
       },
       empty: () => `${RECORDS.empty.native} ${word(RECORDS.empty.name)}`,
       lines: 12,
-      rows: (): readonly TableLine[] => table(section).lines.map((line) => [fitName(line.name), digits(line.score, 6), line.own, line.rank] as const),
+      rows: (): readonly TableLine[] => table().lines.map((line) => [fitName(line.name), digits(line.score, 6), line.own, line.rank] as const),
     },
   ];
   const back: PanelCommand = { id: 'back', label: COMMANDS.back, action: actions.onBack };
@@ -248,9 +236,9 @@ export function recordsPanel(table: (section: number) => RecordsTable, initial: 
         return share.label().name;
       },
     };
-    rows.push({ kind: 'command', id: 'share', label, action: () => share.action(section), instant: true });
+    rows.push({ kind: 'command', id: 'share', label, action: () => share.action(), instant: true });
   }
-  return { title: PANELS.records, home: 'back', back: actions.onBack, rows };
+  return { title: RECORDS.title, home: 'back', back: actions.onBack, rows };
 }
 
 /** What a command reads, asked for every time it is drawn: the command of sharing answers the last sending for a moment. */

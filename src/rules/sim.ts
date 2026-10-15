@@ -11,8 +11,6 @@ import type { Dir, LevelRun, LevelSpec, PuzzleLayout, RulesConfig, RunState } fr
 export interface RunOptions {
   seed: number;
   config: RulesConfig;
-  /** Time Limited instead of Endless. Ignored for the tutorial. */
-  timed?: boolean;
   tutorial?: boolean;
   /** A puzzle to solve: its dice and nothing else, on a board of its own size. */
   puzzle?: PuzzleLayout;
@@ -37,7 +35,7 @@ export function createRun(opts: RunOptions): RunState {
         : { ...opts.config };
   const state: RunState = {
     config,
-    mode: puzzle ? 'puzzle' : level ? 'level' : opts.tutorial ? 'practice' : opts.timed ? 'timed' : 'endless',
+    mode: puzzle ? 'puzzle' : level ? 'level' : opts.tutorial ? 'practice' : 'endless',
     seed: opts.seed,
     tick: 0,
     rng: opts.seed | 0,
@@ -161,15 +159,6 @@ function checkFill(state: RunState): void {
   }
 }
 
-/** Time Limited ends when the clock runs out. */
-function checkClock(state: RunState): void {
-  if (state.over || state.mode !== 'timed') return;
-  if (state.tick + 1 < state.config.timedTicks) return;
-  state.over = true;
-  state.endReason = 'time';
-  state.events.push({ type: 'gameOver' });
-}
-
 /** Counters of the run report: what the pace is tuned by. */
 function countStats(state: RunState): void {
   const { config, stats } = state;
@@ -252,7 +241,6 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   runPuzzle(state);
   // A puzzle is never lost to a full board: nothing rises on it.
   if (!state.puzzle) checkFill(state);
-  checkClock(state);
 
   countStats(state);
   state.tick++;

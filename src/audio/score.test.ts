@@ -50,7 +50,6 @@ const EVERY: Cue[] = [
   { kind: 'contact', stage: 9 },
   { kind: 'peak' },
   { kind: 'danger', secondsLeft: 2 },
-  { kind: 'clock' },
   { kind: 'begin' },
   { kind: 'deadEnd' },
   { kind: 'end' },

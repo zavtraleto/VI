@@ -1,23 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { dailyArchive, endlessArchive } from './archive';
-import { ARCHIVE_ENDLESS, ARCHIVE_TIMED } from './archiveData';
-import { dayAt } from './daily';
+import { endlessArchive } from './archive';
+import { ARCHIVE_ENDLESS } from './archiveData';
 import { standings, placeOf } from './standings';
 
 const DAY_MS = 86_400_000;
 const at = (moment: string): number => Date.parse(`${moment}Z`);
 const START = at('2026-10-04T00:00:00');
-/** The table of the session of a day at an hour of that day. */
-const table = (date: string, hour: number) => {
-  const ms = at(`${date}T00:00:00`) + hour * 3_600_000;
-  return dailyArchive(dayAt(at(`${date}T00:00:00`)), ms);
-};
 const names = (lines: readonly { name: string }[]): string[] => lines.map((line) => line.name);
 
 describe('the sessions the made-up players have played', () => {
-  it('are a few hundred, a session without a limit and a session of the day for each player', () => {
+  it('are a few hundred, a session for each player', () => {
     expect(ARCHIVE_ENDLESS.length).toBeGreaterThanOrEqual(200);
-    expect(ARCHIVE_TIMED).toHaveLength(ARCHIVE_ENDLESS.length);
   });
 
   it('are of every strength: many under a thousand points, some over a hundred thousand', () => {
@@ -72,70 +65,6 @@ describe('the made-up players of the log of the sessions without a limit', () =>
     const all = endlessArchive(START + 1000 * DAY_MS);
     expect(all.length).toBe(ARCHIVE_ENDLESS.filter((score) => score > 0).length);
     expect(endlessArchive(START + 2000 * DAY_MS)).toEqual(all);
-  });
-});
-
-describe('the made-up players of the session of a day', () => {
-  it('are about fifty by the end of the day, best first, each with a score that was really made', () => {
-    const lines = table('2026-10-04', 24);
-    expect(lines.length).toBeGreaterThanOrEqual(45);
-    expect(lines.length).toBeLessThanOrEqual(56);
-    for (let i = 1; i < lines.length; i++) expect(lines[i].score).toBeLessThanOrEqual(lines[i - 1].score);
-    for (const line of lines) {
-      expect(line.score).toBeGreaterThan(0);
-      expect(ARCHIVE_TIMED).toContain(line.score);
-    }
-    expect(new Set(names(lines)).size).toBe(lines.length);
-  });
-
-  it('have each a session of their own: no two lines of a day show the very same large score', () => {
-    // Small scores do meet by chance, as they do among people; large ones that meet would give the table away.
-    for (const date of ['2026-10-04', '2026-10-05', '2026-11-20', '2027-03-01']) {
-      const scores = table(date, 24).map((line) => line.score).filter((score) => score >= 2000);
-      expect(scores.length).toBeGreaterThan(5);
-      expect(new Set(scores).size).toBe(scores.length);
-    }
-  });
-
-  it('come into the table through the day: a few within the first hour, most by the evening', () => {
-    const counts = [0, 1, 6, 12, 18, 24].map((hour) => table('2026-10-04', hour).length);
-    expect(counts[0]).toBe(0);
-    expect(counts[1]).toBeGreaterThanOrEqual(5);
-    for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
-    expect(counts[2]).toBeGreaterThan(counts[1]);
-    expect(counts[3]).toBeGreaterThan(counts[5] / 2);
-    // Whoever has played stays in the table with what they made.
-    const noon = new Map(table('2026-10-04', 12).map((line) => [line.name, line.score]));
-    const evening = new Map(table('2026-10-04', 20).map((line) => [line.name, line.score]));
-    for (const [name, score] of noon) expect(evening.get(name)).toBe(score);
-  });
-
-  it('are the same for everyone on one day, and all there once the day is over', () => {
-    expect(table('2026-10-04', 15)).toEqual(table('2026-10-04', 15));
-    expect(table('2026-10-04', 30)).toEqual(table('2026-10-04', 24));
-  });
-
-  it('are other players the day after, with some of the same faces', () => {
-    const one = names(table('2026-10-04', 24));
-    const next = names(table('2026-10-05', 24));
-    const both = next.filter((name) => one.includes(name)).length;
-    expect(next).not.toEqual(one);
-    expect(both).toBeGreaterThan(0);
-    expect(both).toBeLessThan(next.length / 2);
-  });
-
-  it('are the players of the other log: the same names', () => {
-    const everyone = new Set(names(endlessArchive(START + 1000 * DAY_MS)));
-    for (const name of names(table('2026-10-04', 24))) expect(everyone.has(name)).toBe(true);
-  });
-
-  it('play about as well as they do without a limit: the strong of one log are the strong of the other', () => {
-    const strength = new Map(endlessArchive(START + 1000 * DAY_MS).map((line, i) => [line.name, i]));
-    const lines = table('2026-10-04', 24);
-    const top = lines.slice(0, 10).map((line) => strength.get(line.name)!);
-    const bottom = lines.slice(-10).map((line) => strength.get(line.name)!);
-    const mean = (values: number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length;
-    expect(mean(top)).toBeLessThan(mean(bottom));
   });
 });
 

@@ -24,8 +24,6 @@ export interface HudSession {
   best: number;
   /** The level, or null in a session that is not counted. */
   level: number | null;
-  /** Seconds left of a session with a limit. */
-  clock: number | null;
   /** Seconds left to free a cell of a board that is full. */
   danger: number | null;
   /** Steps the contact has taken, out of how many there are, and the score of the next one. */
@@ -961,7 +959,7 @@ export class GameHud {
   private drawSession(session: HudSession, layout: HudLayout, timeMs: number, blink: number, program: number, decay: Decay): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
-    const { left, end, mid, rowA, rowB, rowC, big, tight } = layout;
+    const { left, end, mid, rowA, rowB, rowC, big } = layout;
     const { drift } = decay;
 
     kit.text(HUD.score, left + this.adrift(1, drift), rowA, dim);
@@ -971,20 +969,16 @@ export class GameHud {
     const record = session.level !== null && session.score > session.best;
     const flagged = (text: string, x: number, y: number, on: boolean): void => this.flagged(text, x, y, on);
 
-    // The middle: what the session is, and the time it has.
-    const clock = session.clock === null ? null : `${digits(Math.floor(session.clock / 60), 2)}:${digits(session.clock % 60, 2)}`;
+    // The middle: what the session is.
     let covered = false;
     if (session.danger !== null) {
       // The board is full. Its own rhythm, so it never reads as decoration.
       const text = `${HUD.full}${digits(session.danger, 2)}`;
       flagged(text, mid, rowA, blink === 0);
       covered = mid + kit.measure(text) > end - kit.measure(HUD.best) - 4;
-    } else if (clock !== null && tight) {
-      flagged(clock, mid, rowA, session.clock! <= 10 && blink === 0);
     } else {
       const tag = session.level === null ? HUD.practice : `${HUD.level} ${digits(session.level, 2)}`;
       flagged(tag, mid, rowA, timeMs < this.levelFlash && blink === 0);
-      if (clock !== null) flagged(clock, mid, rowB, session.clock! <= 10 && blink === 0);
     }
 
     if (!covered) kit.text(HUD.best, end + this.adrift(2, drift), rowA, dim, { align: 'right' });
@@ -1045,10 +1039,6 @@ export class GameHud {
     } else {
       const tag = session.level === null ? HUD.practice : `${HUD.level} ${digits(session.level, 2)}`;
       this.flagged(tag, left, lines.tag, timeMs < this.levelFlash && blink === 0);
-      if (session.clock !== null) {
-        const clock = `${digits(Math.floor(session.clock / 60), 2)}:${digits(session.clock % 60, 2)}`;
-        this.flagged(clock, right - kit.measure(clock), lines.tag, session.clock <= 10 && blink === 0);
-      }
     }
 
     const record = session.level !== null && session.score > session.best;

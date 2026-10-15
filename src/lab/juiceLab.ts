@@ -14,7 +14,7 @@ const JOIN_MS = 520;
 interface Inside {
   readonly state: RunState;
   readonly ritual: Ritual;
-  startRun(kind: 'endless' | 'timed'): void;
+  startRun(kind: 'endless'): void;
   beat(beat: Beat): void;
   frame(time: number): void;
 }

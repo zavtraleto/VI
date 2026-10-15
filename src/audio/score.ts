@@ -69,7 +69,6 @@ export type Cue =
   | { kind: 'contact'; stage: number }
   | { kind: 'peak' }
   | { kind: 'danger'; secondsLeft: number }
-  | { kind: 'clock' }
   | { kind: 'begin' }
   | { kind: 'deadEnd' }
   | { kind: 'end' }
@@ -586,8 +585,6 @@ function play(cue: Cue, kit: Kit): Note[] {
       const degree = cue.secondsLeft <= 1 ? 2 : cue.secondsLeft <= 3 ? 1 : 0;
       return [low('danger', degreeHz(tune, degree, -1), { gain: num('lowGain') * 0.75 * board, decay: num('lowLen') * 1.3, drop: num('lowDrop'), fall: 0.05 })];
     }
-    case 'clock':
-      return [click('clock', degreeHz(tune, 0, clickOctave), { gain: 0.18 * program, decay: num('clickLen') * 1.3 })];
     case 'begin':
       // The one, and the six over it: the same note.
       return [

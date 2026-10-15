@@ -10,7 +10,7 @@ import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, nearestDir, type
 import { bindKeyboard } from '../input/keyboard';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
-import { SETTINGS_KEY, addRun, bestOf, bestOn, levelStat, loadSettings, noteShort, prefersReducedMotion, puzzleStat, saveSettings, type LevelStat, type Settings } from '../platform/settings';
+import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteShort, prefersReducedMotion, puzzleStat, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { LevelScene } from '../render/levelScene';
@@ -67,16 +67,15 @@ import { GameHud, type HudCounter, type HudLabel, type HudLesson, type HudSeal, 
 import { Climb } from '../shell/climb';
 import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, rulesPanel, systemPanel, tasksPanel, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, eraDate, type PanelName } from '../shell/text';
+import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
 import { readmePages } from '../ui/readme';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
-import { dailyArchive, endlessArchive } from './archive';
-import { clockLeft, secondsLeft } from './clock';
-import { dailyValue, dayAt, readDailyValue, type Day } from './daily';
+import { endlessArchive } from './archive';
+import { secondsLeft } from './clock';
 import { Hints } from './hints';
 import { levelReport, shortOf } from './levelStats';
 import { puzzleReport, starsFor } from './puzzleStats';
@@ -146,7 +145,7 @@ const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 const GUIDE_GAP_PX = 8;
 
 /** What the player picked in the menu, or in the list of levels. */
-type RunKind = 'endless' | 'timed' | 'tutorial' | 'puzzle' | 'level';
+type RunKind = 'endless' | 'tutorial' | 'puzzle' | 'level';
 
 /**
  * The levels are a file of the menu. Asked for in the address, `?levels`, the program opens on
@@ -200,10 +199,6 @@ const README_SIGNS = 330;
 const LEVEL_GATES = new URLSearchParams(window.location.search).get('gates') !== 'off';
 /** What the report of the levels says before any level has been played. */
 const LEVELS_UNPLAYED = 'VI levels playtest: no level played yet';
-
-/** The kinds of session that are scored, in the order the log shows them. Each has a table of players on the platform, under its own name. */
-const SCORED = ['endless', 'timed'] as const;
-type Scored = (typeof SCORED)[number];
 
 /** An advertisement may come after this many tasks cleared: a number picked anew each time, from the first to the second. */
 const TASKS_TO_AD = [5, 7] as const;
@@ -325,7 +320,6 @@ export class Game {
   private paused = false;
   private inMenu = false;
   private kind: RunKind = 'endless';
-  private lastClock = -1;
   private lastFrame = 0;
   /** Where a swipe has to point for each board direction; follows the camera. */
   private swipeDirs: ScreenDirs = CARDINAL_DIRS;
@@ -460,13 +454,11 @@ export class Game {
   private platformSound = true;
   /** What keeps the game waiting from outside: the page is hidden, the platform has asked for a pause. */
   private readonly away = new Set<'page' | 'platform'>();
-  /** The tables of players the platform keeps, by kind of session: their lines, or how the asking for them stands. */
-  private readonly boards = new Map<string, readonly BoardEntry[] | 'waiting' | 'failed'>();
+  /** The table of players the platform keeps of the session: its lines, or how the asking for them stands. */
+  private board: readonly BoardEntry[] | 'waiting' | 'failed' | undefined;
   /** What came of the last sharing, for as long as its command reads it. */
   private shared: Shared | null = null;
   private sharedTimer = 0;
-  /** The day the run on the board was started on: the session with a limit is the session of that day. */
-  private day: Day = dayAt(platform.now());
   /** What the events of the run add up to, for the analytics. */
   private readonly tally = new RunTally();
   /** The frames of active play, measured for the platform. */
@@ -764,8 +756,8 @@ export class Game {
 
   /** The scored run in hand as it would be kept; null when there is nothing to come back to. */
   private packedRun(): KeptRun | null {
-    if (!this.opened || this.inMenu || this.handoff || (this.kind !== 'endless' && this.kind !== 'timed')) return null;
-    return packRun(this.kind, this.day.date, this.state, this.tally);
+    if (!this.opened || this.inMenu || this.handoff || this.kind !== 'endless') return null;
+    return packRun(this.kind, this.state, this.tally);
   }
 
   private noteKept(kept: KeptRun): void {
@@ -794,13 +786,12 @@ export class Game {
   private keptRun(): KeptRun | null {
     const found = loadJson<{ version?: number }>(RUN_KEY, {});
     this.runKept = found.version !== undefined;
-    return unpackRun(found, dayAt(platform.now()).date);
+    return unpackRun(found);
   }
 
   /** Puts a kept run back. It waits on its pause: nothing moves until the player says so. */
   private continueRun(kept: KeptRun): void {
     this.kind = kept.kind;
-    this.day = dayAt(platform.now());
     this.begin(kept.state, false);
     this.tally.take(kept.tally);
     // The contact stands where the run left it, without its steps being played again.
@@ -942,12 +933,9 @@ export class Game {
     this.frames.flush(this.lastFrame);
   }
 
-  /**
-   * The best score a session is measured against: of all time for the session without a
-   * limit, of one day for the session of the day.
-   */
-  private bestScore(mode: Scored, date = dayAt(platform.now()).date): number {
-    return mode === 'timed' ? bestOn(this.settings, this.recordKey('timed'), date) : bestOf(this.settings, this.recordKey('endless'), 'score');
+  /** The best score a session is measured against: of all time. */
+  private bestScore(): number {
+    return bestOf(this.settings, this.recordKey(), 'score');
   }
 
   /** A tool of development lies over the canvas and takes the input. */
@@ -982,15 +970,10 @@ export class Game {
    * keep a log of their own. The exercise keeps rules of its own and is not scored: while it is
    * on the board, the key is the one of the session it leads to.
    */
-  private recordKey(mode: 'endless' | 'timed'): string {
+  private recordKey(): string {
     const config = this.state.tutorial ? defaultConfig(this.settings.experiments) : this.state.config;
     const rules = ruleKey(config);
-    return rules === ruleKey(defaultConfig()) ? mode : `${mode}/${rules}`;
-  }
-
-  /** The table the current run counts towards; the tutorial shows Endless. */
-  private currentRecordKey(): string {
-    return this.recordKey(this.state.mode === 'timed' ? 'timed' : 'endless');
+    return rules === ruleKey(defaultConfig()) ? 'endless' : `endless/${rules}`;
   }
 
   /** Points the camera; the swipes follow the way the board now lies on screen. */
@@ -1015,17 +998,15 @@ export class Game {
     this.kind = kind;
     const { experiments } = this.settings;
     const tutorial = kind === 'tutorial';
-    this.day = dayAt(platform.now());
-    // The session with a limit is the session of the day: everyone is dealt it from one seed.
-    const seed = kind === 'timed' ? this.day.seed : (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
+    const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
     const config = defaultConfig(experiments, this.settings.tuning);
     if (start) {
       config.startX = start.x;
       config.startZ = start.z;
     }
-    this.begin(createRun({ seed, config, tutorial, timed: kind === 'timed' }), start !== undefined);
+    this.begin(createRun({ seed, config, tutorial }), start !== undefined);
     this.resumed = false;
-    if (this.opened && (kind === 'endless' || kind === 'timed')) {
+    if (this.opened && kind === 'endless') {
       // The table of the platform is asked for now, so that it is here when the session ends and goes up it.
       if (hasBoard()) this.loadBoards();
       this.runIndex++;
@@ -1085,7 +1066,6 @@ export class Game {
     this.starting = false;
     // A level that waited to be reported and was never played is not reported at all.
     this.unsaid = false;
-    this.lastClock = -1;
     this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
     this.tools?.showDebugButton(this.settings.debugPanel);
     this.controller.cancel();
@@ -2116,13 +2096,11 @@ export class Game {
     this.layoutGuide();
     // The menu is the shell's; a tool of the page that led here goes away.
     this.tools?.hide();
-    // The session with a limit lasts as long as the rules say: the menu reads it from them.
-    const rules = defaultConfig(this.settings.experiments, this.settings.tuning);
     this.shell.showMenu(
       {
         onEndless: () => this.open(FILE_LEADS.protocol),
-        // The levels stand in the menu where the session of the day stood: the file opens their list, the
-        // pieces of the road first in it. The file that says how the game is played opens the rules.
+        // The file of the levels opens their list, the pieces of the road first in it. The file that
+        // says how the game is played opens the rules.
         onLevels: () => this.open(FILE_LEADS.levels),
         onHowTo: () => this.open(FILE_LEADS.howto),
         onReadme: () => this.open(FILE_LEADS.readme),
@@ -2130,10 +2108,9 @@ export class Game {
         onSystem: () => this.open(FILE_LEADS.system),
       },
       {
-        bestEndless: this.bestScore('endless'),
+        bestEndless: this.bestScore(),
         levelsDone: campaignDone(this.settings.levels),
         levelsTotal: CAMPAIGN.length,
-        limitSec: (rules.timedTicks * rules.tickMs) / 1000,
         rules: HOW_TO_PLAY.length,
         sessions: Object.values(this.settings.runs).reduce((sum, runs) => sum + runs.length, 0),
       },
@@ -2172,31 +2149,21 @@ export class Game {
     this.shell.showPanel(pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu() }), false);
   }
 
-  /** Asks the platform for its tables of players. The log is drawn again when they come. */
+  /** Asks the platform for its table of players. The log is drawn again when it comes. */
   private loadBoards(): void {
-    for (const mode of SCORED) {
-      if (!Array.isArray(this.boards.get(mode))) this.boards.set(mode, 'waiting');
-      void boardEntries(mode)
-        .then(
-          (entries) => this.boards.set(mode, entries),
-          () => this.boards.set(mode, 'failed'),
-        )
-        .then(() => this.shell.touch());
-    }
+    if (!Array.isArray(this.board)) this.board = 'waiting';
+    void boardEntries('endless')
+      .then(
+        (entries) => (this.board = entries),
+        () => (this.board = 'failed'),
+      )
+      .then(() => this.shell.touch());
   }
 
-  /**
-   * The players the platform has in its table of a kind of session, as far as the table has
-   * come. The table of the session of the day is that of `day` alone.
-   */
-  private players(mode: Scored, day: Day): readonly PlayerLine[] {
-    const board = this.boards.get(mode);
-    if (board === undefined || typeof board === 'string') return [];
-    if (mode === 'endless') return board;
-    return board
-      .map((entry) => ({ entry, kept: readDailyValue(entry.score) }))
-      .filter(({ kept }) => kept.day === day.index)
-      .map(({ entry, kept }) => ({ ...entry, score: kept.score }));
+  /** The players the platform has in its table, as far as the table has come. */
+  private players(): readonly PlayerLine[] {
+    const { board } = this;
+    return board === undefined || typeof board === 'string' ? [] : board;
   }
 
   /**
@@ -2205,22 +2172,17 @@ export class Game {
    */
   private ownName(): string {
     // A table that already has a line of the player knows best what they are called there.
-    for (const mode of SCORED) {
-      const board = this.boards.get(mode);
-      const mine = board === undefined || typeof board === 'string' ? undefined : board.find((entry) => entry.own && entry.name !== '');
-      if (mine) return mine.name;
-    }
+    const mine = this.players().find((entry) => entry.own && entry.name !== '');
+    if (mine) return mine.name;
     return (hasBoard() ? playerName() : null) ?? word(RECORDS.you);
   }
 
   /**
-   * The log of a kind of session as it stands now: the made-up players it is filled with, the
+   * The log of the session as it stands now: the made-up players it is filled with, the
    * players of the platform, and the one who plays, best first.
    */
-  private log(mode: Scored, day: Day = dayAt(platform.now())): Standing[] {
-    const now = platform.now();
-    const archive = mode === 'timed' ? dailyArchive(day, now) : endlessArchive(now);
-    return standings(archive, this.players(mode, day), { name: this.ownName(), score: this.bestScore(mode, day.date) });
+  private log(): Standing[] {
+    return standings(endlessArchive(platform.now()), this.players(), { name: this.ownName(), score: this.bestScore() });
   }
 
   private showRecords(back: () => void): void {
@@ -2229,17 +2191,10 @@ export class Game {
     platform.track('records_opened', { network: shared });
     this.shell.showPanel(
       recordsPanel(
-        (section) => {
-          const mode = SCORED[section];
-          const day = dayAt(platform.now());
-          const board = this.boards.get(mode);
-          return {
-            lines: this.log(mode, day),
-            link: shared && typeof board === 'string' ? board : null,
-            day: mode === 'timed' ? eraDate(day.date) : null,
-          };
+        () => {
+          const { board } = this;
+          return { lines: this.log(), link: shared && typeof board === 'string' ? board : null };
         },
-        this.state.mode === 'timed' ? 1 : 0,
         {
           onBack: back,
           // A guest is given a name by the platform's own sign-in; the log opens again with what it says.
@@ -2250,7 +2205,7 @@ export class Game {
                   this.showRecords(back);
                 })
             : undefined,
-          share: { label: () => this.shareLabel(), action: (section) => this.share(SCORED[section]) },
+          share: { label: () => this.shareLabel(), action: () => this.share() },
         },
       ),
       this.inMenu,
@@ -2262,9 +2217,10 @@ export class Game {
     return this.shared === null ? COMMANDS.share : COMMANDS[this.shared];
   }
 
-  /** Sends out the best the player has in a kind of session, with the address of the game. */
-  private share(mode: Scored): void {
-    const score = this.bestScore(mode);
+  /** Sends out the best the player has in the session, with the address of the game. */
+  private share(): void {
+    const mode = 'endless';
+    const score = this.bestScore();
     const text = score > 0 ? t('shareScore').replace('{score}', String(score)) : LOGO_TEXT;
     void shareOut(text).then((how) => {
       platform.track('result_shared', { mode, how, score });
@@ -2391,17 +2347,14 @@ export class Game {
     const state = this.state;
     // What the playtest reads after a session: kept in development only.
     if (import.meta.env.DEV) this.lastStats = statsText(state);
-    const key = this.currentRecordKey();
-    const mode: Scored = state.mode === 'timed' ? 'timed' : 'endless';
-    // The session of the day is measured against the day it was started on.
-    const { day } = this;
-    const date = mode === 'timed' ? day.date : dayAt(platform.now()).date;
+    const key = this.recordKey();
+    const date = new Date(platform.now()).toISOString().slice(0, 10);
     let note: string | null = null;
     const scored = state.mode !== 'practice' && !state.config.custom;
     // The log as it stood before this session, and the best the player had in it: on this
     // device or, where the platform knows more, there.
-    const before = scored ? this.log(mode, day) : [];
-    const previous = scored ? (before.find((line) => line.own)?.score ?? 0) : this.bestScore(mode, day.date);
+    const before = scored ? this.log() : [];
+    const previous = scored ? (before.find((line) => line.own)?.score ?? 0) : this.bestScore();
     const best = scored && state.score > previous;
     // The session goes up that log under the eyes of the player.
     const climb = scored
@@ -2424,39 +2377,32 @@ export class Game {
       // The run is over: what was kept of it goes out of storage with the record of it.
       const saved = this.saveWithoutRun() && storageAvailable();
       if (!saved) note = t('notSaved');
-      // The session of the day says what it is: one for everyone, and new every day.
-      else if (mode === 'timed') note = t(best ? 'dailyBest' : 'dailyNote');
       else if (best) note = t('newBest');
       // The table of the platform takes a new best of a session played by the rules everyone has.
       if (best && ruleKey(state.config) === ruleKey(defaultConfig())) {
-        // In a table the game draws itself, a score of the session of the day goes with its day.
         // The table is read again once it has the score: the log then shows it as the platform has it.
-        void submitScore(mode, mode === 'timed' && hasBoard() ? dailyValue(day.index, state.score) : state.score).then((taken) => {
+        void submitScore('endless', state.score).then((taken) => {
           if (taken && hasBoard()) this.loadBoards();
         });
         platform.tell('player_got_achievement');
       }
     }
-    // What the session came to, for tuning the pace and the spawn: a session with a limit that ran its time is completed, any other end is a failure.
+    // What the session came to, for tuning the pace and the spawn: a session has no end but a failure.
     const summary: EventData = { ...this.step(), ...runSummary(state, this.tally), ...this.visit(), contact: this.ritual.stage, scored, best };
     // The run is over: nothing of it is left to come back to, and the next one knows how this one went.
     this.dropRun();
     this.lossesInRow = state.endReason === 'full' ? this.lossesInRow + 1 : 0;
     this.lastRunEnd = Date.now();
-    if (mode === 'timed') summary.day = day.date;
-    if (state.endReason === 'time') platform.track('progression_completed', summary);
-    else platform.track('progression_failed', { ...summary, reason: state.endReason ?? 'full' });
+    platform.track('progression_failed', { ...summary, reason: state.endReason ?? 'full' });
     this.frames.flush(this.lastFrame);
-    platform.tell(state.endReason === 'time' ? 'level_completed' : 'level_failed', this.kind);
+    platform.tell('level_failed', this.kind);
     const result = () =>
       this.shell.showPanel(
         resultPanel(
           {
-            timeUp: state.endReason === 'time',
             score: state.score,
             best: scored ? Math.max(previous, state.score) : previous,
             before: previous,
-            day: mode === 'timed' ? eraDate(day.date) : null,
             maxChain: state.maxChain,
             ticks: state.tick,
             tickMs: state.config.tickMs,
@@ -2548,7 +2494,7 @@ export class Game {
     if (trail && state.levelRun && (state.player.action || state.events.length > 0 || worldRuns(state))) trail.push(structuredClone(state));
     // A scored session says how it stands at every whole minute.
     const minute = Math.round(60_000 / state.config.tickMs);
-    if (state.tick % minute === 0 && (state.mode === 'endless' || state.mode === 'timed')) {
+    if (state.tick % minute === 0 && state.mode === 'endless') {
       platform.track('session_checkpoint', { step_id: this.kind, ...checkpoint(state, state.tick / minute) });
     }
     // The combo that passes a level is answered by the passage: every die of the board, on one chord.
@@ -2627,7 +2573,7 @@ export class Game {
         break;
       case 'levelUp':
         // A level of a scored session is passed: how long it took and what it did to the board.
-        if (state.mode === 'endless' || state.mode === 'timed') {
+        if (state.mode === 'endless') {
           platform.track('progression_completed', { step_id: `${this.kind}_level`, ...levelSummary(state, event.level - 1) });
         }
         break;
@@ -2831,9 +2777,8 @@ export class Game {
           : {
               kind: 'session',
               score: state.score,
-              best: this.bestScore(state.mode === 'timed' ? 'timed' : 'endless', this.day.date),
+              best: this.bestScore(),
               level: state.mode === 'practice' ? null : state.level,
-              clock: clockLeft(state),
               danger: secondsLeft(state),
               stage: this.ritual.stage,
               steps: CONTACT_STEPS.length,
@@ -2948,12 +2893,6 @@ export class Game {
     this.lastPeak = peak;
     const danger = secondsLeft(state);
     this.audio.warn(danger);
-    // The last ten seconds of a Time Limited run are counted out loud.
-    const clock = clockLeft(state);
-    if (clock !== null && clock !== this.lastClock) {
-      if (running && clock <= 10 && clock > 0 && this.lastClock !== -1) this.audio.tick();
-      this.lastClock = clock;
-    }
 
     // A move that is being taken back: what is drawn is the board on its way back.
     const back = this.rewound(dt);

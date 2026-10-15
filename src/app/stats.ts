@@ -10,7 +10,7 @@ export function statsText(state: RunState): string {
   // One entry for a level: how long it lasted, how many cubes came and how many were removed.
   const levels = stats.levels.map((l, i) => `${i + 1}: ${seconds(l.ticks)} +${l.spawned} -${l.removed}`);
   // A run changes its chain window with the level; a tutorial and a puzzle keep one of their own.
-  const paced = state.mode === 'endless' || state.mode === 'timed';
+  const paced = state.mode === 'endless';
   const sink = paced ? `${ms(config.sinkStartTicks)} to ${ms(config.sinkFloorTicks)}` : `${ms(config.sinkingTicks)}`;
   return [
     `VI · rules ${ruleKey(config)} · ${state.mode} · seed ${state.seed}`,
@@ -24,6 +24,6 @@ export function statsText(state: RunState): string {
     `flags: ${flags.length > 0 ? flags.join(', ') : 'none'}${config.custom ? ' · custom variables' : ''}`,
     `step ${ms(config.actionTicks)} · warn ${ms(config.warnTicks)} · rise ${ms(config.risingTicks)} · sink ${sink} ms`,
     `pace ${config.paceStartMs}, flow +${config.paceGrowth}/lvl after level ${config.paceFlatLevels}, min ${config.paceMinMs} · a level in ${config.cubesPerLevel} cubes or ${seconds(config.levelTicks)} · refill ${config.refillMs} to ${config.refillEndMs}`,
-    `on wave ${state.wave.index + 1} · waves ${seconds(config.waveTicks)} ±${config.waveSpread}, x${config.waveEase} to x${config.wavePeak}, trough ${ms(config.restTicks)} at ${config.restFlow} of the flow · chain calm ${ms(config.chainCalmTicks)}/link, max ${ms(config.chainCalmMaxTicks)} · timed ${config.timedStartMs} to ${config.timedEndMs} ms`,
+    `on wave ${state.wave.index + 1} · waves ${seconds(config.waveTicks)} ±${config.waveSpread}, x${config.waveEase} to x${config.wavePeak}, trough ${ms(config.restTicks)} at ${config.restFlow} of the flow · chain calm ${ms(config.chainCalmTicks)}/link, max ${ms(config.chainCalmMaxTicks)}`,
   ].join('\n');
 }

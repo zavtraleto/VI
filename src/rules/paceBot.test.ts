@@ -35,8 +35,8 @@ describe('a run of the pace', { timeout: ROOM }, () => {
     expect(playPace({ skill: 'newbie', rush: true, seed: 4, limitMinutes: 3 })).not.toEqual(calm);
   });
 
-  it('is lost with nobody at it: the board fills', () => {
-    const run = playPace({ skill: 'newbie', nobody: true, timed: true, seed: 1, limitMinutes: 5 });
+  it('is lost with nobody at it: the board fills once the gentle start is over', () => {
+    const run = playPace({ skill: 'newbie', nobody: true, seed: 1, limitMinutes: 8 });
     expect(run).toMatchObject({ nobody: true, endReason: 'full', steps: 0, clears: 0 });
   });
 });

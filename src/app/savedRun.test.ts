@@ -10,8 +10,8 @@ function play(state: RunState, ticks: number): void {
   for (let i = 0; i < ticks && !state.over; i++) step(state, i % 7 === 0 ? dirs[(i / 7) % 4 | 0] : null);
 }
 
-function running(timed = false): RunState {
-  const state = createRun({ seed: 11, config: defaultConfig(), timed });
+function running(): RunState {
+  const state = createRun({ seed: 11, config: defaultConfig() });
   play(state, 900);
   return state;
 }
@@ -22,9 +22,9 @@ const stored = (kept: unknown): unknown => JSON.parse(JSON.stringify(kept));
 describe('a run kept for later', () => {
   it('comes back as it was left and goes on as it would have', () => {
     const state = running();
-    const kept = packRun('endless', '2026-10-03', state, new RunTally());
+    const kept = packRun('endless', state, new RunTally());
     expect(kept).not.toBeNull();
-    const back = unpackRun(stored(kept), '2026-10-09');
+    const back = unpackRun(stored(kept));
     expect(back).not.toBeNull();
     expect(back!.kind).toBe('endless');
     expect(JSON.stringify(back!.state)).toBe(JSON.stringify({ ...state, events: [] }));
@@ -36,38 +36,42 @@ describe('a run kept for later', () => {
 
   it('is not kept when there is nothing to come back to', () => {
     const tally = new RunTally();
-    expect(packRun('endless', '2026-10-03', createRun({ seed: 11, config: defaultConfig() }), tally)).toBeNull();
+    expect(packRun('endless', createRun({ seed: 11, config: defaultConfig() }), tally)).toBeNull();
     const over = running();
     over.over = true;
-    expect(packRun('endless', '2026-10-03', over, tally)).toBeNull();
+    expect(packRun('endless', over, tally)).toBeNull();
     const exercise = createRun({ seed: 11, config: defaultConfig(), tutorial: true });
     play(exercise, 50);
-    expect(packRun('endless', '2026-10-03', exercise, tally)).toBeNull();
+    expect(packRun('endless', exercise, tally)).toBeNull();
     const task = createRun({ seed: 1, config: defaultConfig(), puzzle: PUZZLE_LEVELS[0] });
     play(task, 50);
-    expect(packRun('endless', '2026-10-03', task, tally)).toBeNull();
+    expect(packRun('endless', task, tally)).toBeNull();
   });
 
   it('is not taken back under other rules, or when what was kept is not a run', () => {
-    const kept = stored(packRun('endless', '2026-10-03', running(), new RunTally())) as { state: RunState };
-    expect(unpackRun(kept, '2026-10-03')).not.toBeNull();
+    const kept = stored(packRun('endless', running(), new RunTally())) as { state: RunState };
+    expect(unpackRun(kept)).not.toBeNull();
     kept.state.config.rulesVersion = '0.1';
-    expect(unpackRun(kept, '2026-10-03')).toBeNull();
-    expect(unpackRun(null, '2026-10-03')).toBeNull();
-    expect(unpackRun({}, '2026-10-03')).toBeNull();
-    expect(unpackRun('a run', '2026-10-03')).toBeNull();
-    const broken = stored(packRun('endless', '2026-10-03', running(), new RunTally())) as { state: RunState };
+    expect(unpackRun(kept)).toBeNull();
+    expect(unpackRun(null)).toBeNull();
+    expect(unpackRun({})).toBeNull();
+    expect(unpackRun('a run')).toBeNull();
+    const broken = stored(packRun('endless', running(), new RunTally())) as { state: RunState };
     broken.state.grid = [1, 2, 3];
-    expect(unpackRun(broken, '2026-10-03')).toBeNull();
-    const other = stored(packRun('endless', '2026-10-03', running(), new RunTally())) as { version: number };
+    expect(unpackRun(broken)).toBeNull();
+    const other = stored(packRun('endless', running(), new RunTally())) as { version: number };
     other.version = 99;
-    expect(unpackRun(other, '2026-10-03')).toBeNull();
+    expect(unpackRun(other)).toBeNull();
   });
 
-  it('lets a session of the day be finished on its own day only', () => {
-    const kept = stored(packRun('timed', '2026-10-03', running(true), new RunTally()));
-    expect(unpackRun(kept, '2026-10-03')?.kind).toBe('timed');
-    expect(unpackRun(kept, '2026-10-04')).toBeNull();
+  it('lets a session of the day that was kept go: there is no such session any more', () => {
+    const kept = { version: 1, kind: 'timed', day: '2026-10-03', state: { ...running(), mode: 'timed' }, tally: new RunTally().keep() };
+    expect(unpackRun(stored(kept))).toBeNull();
+  });
+
+  it('reads a run of Endless kept with the day it was started on, as runs were kept before', () => {
+    const kept = { ...packRun('endless', running(), new RunTally())!, day: '2026-10-03' };
+    expect(unpackRun(stored(kept))).not.toBeNull();
   });
 
   it('brings the count of the run back with it', () => {
@@ -75,7 +79,7 @@ describe('a run kept for later', () => {
     tally.note({ type: 'match', reactionId: 1, value: 3, count: 3, points: 9 });
     tally.note({ type: 'chain', reactionId: 1, value: 3, chain: 2, count: 4, points: 24 });
     tally.note({ type: 'happyOne', count: 2, points: 2 });
-    const back = unpackRun(stored(packRun('endless', '2026-10-03', running(), tally)), '2026-10-03')!;
+    const back = unpackRun(stored(packRun('endless', running(), tally)))!;
     const again = new RunTally();
     again.take(back.tally);
     expect(again.values()).toEqual(tally.values());

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
-import { SETTINGS_KEY, bestOf, bestOn, joinRuns, loadSettings } from './settings';
+import { SETTINGS_KEY, bestOf, joinRuns, loadSettings } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -44,15 +44,18 @@ describe('the sessions a player has saved', () => {
       runs: {
         'endless:0.7-gclq': [run(900, '2026-10-01')],
         'endless:0.9-gclqdtwuepo': [run(27770, '2026-10-04'), run(300, '2026-10-03')],
-        'timed:0.8-gclqd': [run(708, '2026-10-03')],
       },
     });
     const settings = loadSettings();
-    expect(Object.keys(settings.runs).sort()).toEqual(['endless', 'timed']);
+    expect(Object.keys(settings.runs)).toEqual(['endless']);
     expect(bestOf(settings, 'endless', 'score')).toBe(27770);
-    expect(bestOn(settings, 'timed', '2026-10-03')).toBe(708);
     // Newest last: a log that grows too long lets go of its oldest runs.
     expect(settings.runs.endless.map((kept) => kept.date)).toEqual(['2026-10-01', '2026-10-03', '2026-10-04']);
+  });
+
+  it('let go of the sessions of the day, which the game has no more', () => {
+    saved({ runs: { endless: [run(500, '2026-10-04')], timed: [run(708, '2026-10-03')], 'timed:0.8-gclqd': [run(70, '2026-10-02')], 'timed/0.9-g': [run(7, '2026-10-04')] } });
+    expect(Object.keys(loadSettings().runs)).toEqual(['endless']);
   });
 
   it('stay as they are once they are kept by kind of session', () => {

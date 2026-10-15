@@ -170,9 +170,6 @@ export interface Tuning {
   /** Chain window: how long a cleared cube sinks, on the first levels and in the deep. */
   sinkStartMs: number;
   sinkFloorMs: number;
-  /** Time Limited: interval at the target at the start and at the end. */
-  timedStartMs: number;
-  timedEndMs: number;
   startCubes: number;
   lowHeight: number;
   sinkLowHeight: number;
@@ -184,7 +181,6 @@ export interface Tuning {
   liftMs: number;
   gentleSec: number;
   rescueMs: number;
-  timedSec: number;
   helpRate: number;
   targetCubes: number;
   /** Interval below the target on the first levels, and from level 15 on. */
@@ -255,9 +251,6 @@ export interface RulesConfig {
    */
   chainCalmTicks: number;
   chainCalmMaxTicks: number;
-  /** Time Limited: interval at the target at the start and at the end of the run. */
-  timedStartMs: number;
-  timedEndMs: number;
   cubesPerLevel: number;
   /** Endless: ticks of play that raise the level by one, with `timeFloor`. */
   levelTicks: number;
@@ -295,8 +288,6 @@ export interface RulesConfig {
   /** Levels over which low face values stop being favoured. */
   easyLevels: number;
   gentleTicks: number;
-  /** Length of a Time Limited run. */
-  timedTicks: number;
   floorLiftTicks: number;
   /** True when any tuning value differs from the defaults. */
   custom: boolean;
@@ -372,7 +363,7 @@ export interface RunStats {
   longestChainQuiet: number;
 }
 
-export type RunMode = 'endless' | 'timed' | 'practice' | 'puzzle' | 'level';
+export type RunMode = 'endless' | 'practice' | 'puzzle' | 'level';
 
 /**
  * What a level asks for: dice sent, of any face or of faces ordered; a chain of so many links;
@@ -574,10 +565,10 @@ export interface RunState {
   levelRun: LevelRun | null;
   over: boolean;
   /**
-   * Why the run ended: the board stayed full, the Time Limited clock ran out, a puzzle was
-   * cleared, or a level was passed or failed.
+   * Why the run ended: the board stayed full, a puzzle was cleared, or a level was passed or
+   * failed.
    */
-  endReason: null | 'full' | 'time' | 'cleared' | 'passed' | 'failed';
+  endReason: null | 'full' | 'cleared' | 'passed' | 'failed';
   stats: RunStats;
   /** Events produced by the most recent step. */
   events: GameEvent[];

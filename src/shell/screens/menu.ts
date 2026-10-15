@@ -6,7 +6,7 @@ import { CELL_H, CELL_W, MIN_ZONE, menuLayout, netProjection, netStep, type Box,
 import { drawLogo } from '../logo';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { ShellSpace } from '../space';
-import { EXEC_LABEL, EXEC_NAME, LEGEND, MENU_FILES, PAGER, README_DATE, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, fileLine, type FileField, type MenuFile } from '../text';
+import { EXEC_LABEL, EXEC_NAME, LEGEND, MENU_FILES, PAGER, README_DATE, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, type FileField, type MenuFile } from '../text';
 import type { Palette } from '../theme';
 
 /** What the files of the main menu do. */
@@ -26,8 +26,6 @@ export interface MenuData {
   /** Boards of the campaign passed, pieces of the road and levels alike, out of how many there are. */
   levelsDone: number;
   levelsTotal: number;
-  /** Seconds a session with a limit lasts, as the rules have it: for a line that names the time. */
-  limitSec: number;
   /** The rules the file of how the game is played has to read. */
   rules: number;
   /** Sessions on record. */
@@ -311,7 +309,7 @@ export class MenuScreen implements ShellScreen {
 
     const nameEnd = kit.text(word(file.name), left, box.y + 22, ink, { scale: 2, bold: true });
     kit.text(file.native, nameEnd + CELL_W, box.y + 22 + CELL_H, dim);
-    kit.text(fileLine(t(file.line), this.data.limitSec), left, box.y + 60, ink);
+    kit.text(t(file.line), left, box.y + 60, ink);
     kit.field(file.field[0], this.value(file.field[1]), left, right, box.y + 82, dim, ink);
 
     const exec = layout.exec;

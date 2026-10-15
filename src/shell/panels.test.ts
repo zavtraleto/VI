@@ -33,8 +33,8 @@ describe('the panels of the program', () => {
       pausePanel(PAUSE),
       systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, backdrop: false, control: 'gesture', view: 'auto', language: 'en' }), onToggle: nothing, onLanguage: nothing, onBack: nothing }),
       languagePanel({ languages: LANGUAGES, current: 'pt', onPick: nothing, onBack: nothing }),
-      resultPanel({ timeUp: false, score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
-      recordsPanel(() => ({ lines: [] }), 0, { onBack: nothing }),
+      resultPanel({ score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
+      recordsPanel(() => ({ lines: [] }), { onBack: nothing }),
       rulesPanel(['a', 'b'], { onBack: nothing }),
       rulesPanel(['a', 'b'], { onStart: nothing, onBack: nothing }),
       clearedPanel({ stars: 2, moves: 5, target: 4, hasNext: true }, { onNext: nothing, onAgain: nothing, onTasks: nothing }),
@@ -83,9 +83,9 @@ describe('the panels of the program', () => {
 
   it('say what there is to say about a record under the readings of a result', () => {
     const actions = { onAgain: nothing, onRecords: nothing, onMenu: nothing };
-    const data = { timeUp: true, score: 10, best: 20, maxChain: 2, ticks: 9000, tickMs: 20, note: 'a new best' };
+    const data = { score: 10, best: 20, maxChain: 2, ticks: 9000, tickMs: 20, note: 'a new best' };
     const spec = resultPanel(data, actions);
-    expect(spec.title).toMatchObject({ name: 'TIME UP' });
+    expect(spec.title).toMatchObject({ name: 'RESULT' });
     expect(row(spec, 'say').text).toBe('a new best');
     expect(row(spec, 'field', 2).value).toBe('03:00');
     expect(resultPanel({ ...data, note: null }, actions).rows.some((candidate) => candidate.kind === 'say')).toBe(false);
@@ -103,16 +103,8 @@ describe('the panels of the program', () => {
 });
 
 describe('the result of a session', () => {
-  const data = { timeUp: true, score: 10, best: 20, maxChain: 2, ticks: 9000, tickMs: 20, note: null };
+  const data = { score: 10, best: 20, maxChain: 2, ticks: 9000, tickMs: 20, note: null };
   const actions = { onAgain: nothing, onRecords: nothing, onMenu: nothing };
-  const value = (field: Extract<PanelRow, { kind: 'field' }>): string => (typeof field.value === 'function' ? field.value() : field.value);
-  const fields = (spec: PanelSpec) => spec.rows.flatMap((candidate) => (candidate.kind === 'field' ? [`${candidate.label.name} ${value(candidate)}`] : []));
-
-  it('names its day when it is the session of the day, and only then', () => {
-    expect(fields(resultPanel({ ...data, day: 'H38.10.03' }, actions))).toContain('TODAY H38.10.03');
-    expect(fields(resultPanel({ ...data, day: null }, actions)).join()).not.toContain('TODAY');
-    expect(fields(resultPanel(data, actions)).join()).not.toContain('TODAY');
-  });
 
   it('has its three commands in one line that stacks on a tall picture', () => {
     const commands = row(resultPanel(data, actions), 'commands');
@@ -130,7 +122,7 @@ describe('the result of a session that goes up the log', () => {
   ];
   const result = (score: number) => {
     const climb = new Climb({ lines, score, name: 'me', record: score > 400 });
-    const spec = resultPanel({ timeUp: false, score, best: Math.max(400, score), before: 400, maxChain: 2, ticks: 100, tickMs: 20, note: 'a new best' }, actions, climb);
+    const spec = resultPanel({ score, best: Math.max(400, score), before: 400, maxChain: 2, ticks: 100, tickMs: 20, note: 'a new best' }, actions, climb);
     return { climb, spec };
   };
   const title = (spec: PanelSpec): string => (typeof spec.title === 'function' ? spec.title() : spec.title).name;
@@ -184,26 +176,17 @@ describe('the result of a session that goes up the log', () => {
 
 describe('the log of sessions', () => {
   const line = (rank: number, name: string, score: number, own = false) => ({ rank, name, score, own });
-  const tables: RecordsTable[] = [
-    { lines: [line(1, 'Ada', 5200), line(2, '  ', 900), line(41, 'A name far too long for the table', 70, true)] },
-    { lines: [], link: 'waiting', day: 'H38.10.03' },
-  ];
-  const table = (section: number): RecordsTable => tables[section];
+  let shown: RecordsTable = { lines: [line(1, 'Ada', 5200), line(2, '  ', 900), line(41, 'A name far too long for the table', 70, true)] };
+  const table = (): RecordsTable => shown;
 
-  it('has a tab for each kind of session, and no other tabs', () => {
-    const spec = recordsPanel(table, 0, { onBack: nothing });
-    const tabs = spec.rows.filter((candidate) => candidate.kind === 'tabs');
-    expect(tabs).toHaveLength(1);
-    expect(row(spec, 'tabs').labels()).toEqual(['PROTOCOL', 'LIMITED']);
-  });
-
-  it('opens on the kind of session that was asked for', () => {
-    expect(row(recordsPanel(table, 1, { onBack: nothing }), 'tabs').selected()).toBe(1);
-    expect(row(recordsPanel(table, 7, { onBack: nothing }), 'tabs').selected()).toBe(1);
+  it('is one log under the name of the one session there is, with no tabs', () => {
+    const spec = recordsPanel(table, { onBack: nothing });
+    expect(spec.rows.filter((candidate) => candidate.kind === 'tabs')).toHaveLength(0);
+    expect(typeof spec.title === 'function' ? spec.title() : spec.title).toEqual({ native: 'プロトコル', name: 'PROTOCOL' });
   });
 
   it('shows the lines by name, with their places and the line of the one who plays', () => {
-    const spec = recordsPanel(table, 0, { onBack: nothing });
+    const spec = recordsPanel(table, { onBack: nothing });
     const log = row(spec, 'table');
     expect(log.head()).toBe('名前');
     expect(log.status?.()).toBe('');
@@ -214,40 +197,39 @@ describe('the log of sessions', () => {
     ]);
   });
 
-  it('names the day of a log that starts anew every day, and says how the platform stands', () => {
-    const spec = recordsPanel(table, 0, { onBack: nothing });
+  it('says how the platform stands while its players are on their way', () => {
+    const spec = recordsPanel(table, { onBack: nothing });
     const log = row(spec, 'table');
-    row(spec, 'tabs').pick(1);
-    expect(log.head()).toBe('名前 H38.10.03');
+    shown = { lines: [], link: 'waiting' };
+    expect(log.head()).toBe('名前');
     expect(log.rows()).toEqual([]);
     expect(log.empty()).toBe('記録なし NO ENTRY');
     expect(log.status?.()).toBe('接続中');
-    tables[1] = { ...tables[1], link: 'failed' };
+    shown = { ...shown, link: 'failed' };
     expect(log.status?.()).toBe('接続なし');
     // The head and what the platform has to say of itself fit the panel of a phone side by side.
     expect(textWidth(`No. ${log.head()} ${log.status?.()}`)).toBeLessThanOrEqual(248);
   });
 
   it('lets a guest be given a name where the platform can give one', () => {
-    expect(pressed(recordsPanel(table, 0, { onBack: nothing }))).toEqual(['back']);
-    const spec = recordsPanel(table, 0, { onBack: nothing, onRegister: nothing });
+    expect(pressed(recordsPanel(table, { onBack: nothing }))).toEqual(['back']);
+    const spec = recordsPanel(table, { onBack: nothing, onRegister: nothing });
     expect(pressed(spec)).toEqual(['register', 'back']);
     expect(spec.home).toBe('back');
   });
 
-  it('has the sharing under the way back: it sends the log in sight, and reads what came of it', () => {
-    const sent: number[] = [];
+  it('has the sharing under the way back: it sends the best of the player, and reads what came of it', () => {
+    let sent = 0;
     let label = { native: '共有', name: 'SHARE' };
-    const spec = recordsPanel(table, 0, { onBack: nothing, share: { label: () => label, action: (section) => sent.push(section) } });
+    const spec = recordsPanel(table, { onBack: nothing, share: { label: () => label, action: () => sent++ } });
     expect(pressed(spec)).toEqual(['back', 'share']);
     const share = spec.rows[spec.rows.length - 1];
     if (share.kind !== 'command') throw new Error('no command of sharing');
     expect(share.label.name).toBe('SHARE');
     // Writing to the clipboard is allowed only inside a press.
     expect(share.instant).toBe(true);
-    row(spec, 'tabs').pick(1);
     share.action();
-    expect(sent).toEqual([1]);
+    expect(sent).toBe(1);
     label = { native: '複写済', name: 'COPIED' };
     expect(share.label.name).toBe('COPIED');
     expect(share.label.native).toBe('複写済');

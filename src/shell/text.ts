@@ -106,23 +106,9 @@ export const README_DATE = 'H13.03.20';
 /** The arrows that turn the record of the menu to the file before and the file after. */
 export const PAGER = { prev: '←', next: '→' } as const;
 
-/** A date given as YYYY-MM-DD, as the program writes it: by the era, where Heisei 38 is 2026. */
-export function eraDate(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
-  return `H${String(year - 1988).padStart(2, '0')}.${String(month).padStart(2, '0')}.${String(day).padStart(2, '0')}`;
-}
-
 /** A count as the program writes it: with leading zeros. */
 export function digits(value: number, places: number): string {
   return String(Math.max(0, Math.round(value))).padStart(places, '0');
-}
-
-/**
- * The dry line of a file as its record shows it. The session with a limit says how long it
- * lasts where its words have `{time}`: the length is the rules', not the words'.
- */
-export function fileLine(words: string, limitSec: number): string {
-  return words.replace('{time}', `${digits(Math.floor(limitSec / 60), 2)}:${digits(limitSec % 60, 2)}`);
 }
 
 /** What the session shows while it runs: the names of its readings. */
@@ -200,8 +186,6 @@ export const PANELS = {
   pause: { native: '一時停止', name: 'PAUSE' },
   /** "Result". */
   result: { native: '結果', name: 'RESULT' },
-  /** "Time is out". */
-  timeUp: { native: '時間切れ', name: 'TIME UP' },
   /** "Records". */
   records: { native: '記録', name: 'RECORDS' },
   /** "Settings". */
@@ -274,15 +258,14 @@ export const RESULT = {
   least: { native: '最少', name: 'FEWEST' },
   /** "Remaining": the moves a passed level had left. */
   left: { native: '残り', name: 'MOVES LEFT' },
-  /** "Today": the day a session of the day belongs to. */
-  day: { native: '本日', name: 'TODAY' },
   /** "Rank": the place the session took in the log. */
   rank: { native: '順位', name: 'RANK' },
 } as const satisfies Record<string, PanelName>;
 
-/** The log of sessions: which sessions, and the heads of its columns. */
+/** The log of sessions: its name and the heads of its columns. */
 export const RECORDS = {
-  modes: ['PROTOCOL', 'LIMITED'],
+  /** The log is of the one session there is, and goes under its name: the file of the menu that plays it. */
+  title: { native: 'プロトコル', name: 'PROTOCOL' },
   /** "No entries". */
   empty: { native: '記録なし', name: 'NO ENTRY' },
   /** "Name": the head of the column of whose session a line is. */

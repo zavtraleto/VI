@@ -1,5 +1,5 @@
 import { cellIndex, cubeAt, inChain, neighbours } from './board';
-import { sinkTicksAt, timeLevel, timedPhase } from './config';
+import { sinkTicksAt, timeLevel } from './config';
 import type { Cube, LevelStats, Overrun, RulesConfig, RunState } from './types';
 
 function startSinking(cube: Cube, reactionId: number): void {
@@ -46,9 +46,9 @@ export function levelStats(state: RunState): LevelStats {
   return levels[state.level - 1];
 }
 
-/** Endless and Time Limited follow the pace of their level; a tutorial and a puzzle keep their own. */
+/** Endless follows the pace of its level; a tutorial and a puzzle keep their own. */
 function isPaced(state: RunState): boolean {
-  return state.mode === 'endless' || state.mode === 'timed';
+  return state.mode === 'endless';
 }
 
 /**
@@ -72,16 +72,14 @@ function enterLevel(state: RunState, level: number): void {
 }
 
 /**
- * What the clock does to the level. Time Limited takes its level from the clock, not from the
- * cubes removed: the pressure is the same for every player and the results can be compared.
- * In Endless the clock is a floor under the level the cubes give: the run is on the greater
- * of the two, so an unhurried player is not left on the first levels for good.
+ * What the clock does to the level. In Endless the clock is a floor under the level the cubes
+ * give: the run is on the greater of the two, so an unhurried player is not left on the first
+ * levels for good.
  */
 export function runPhase(state: RunState): void {
   const { config } = state;
   let level = state.level;
-  if (state.mode === 'timed') level = timedPhase(config, state.tick);
-  else if (state.mode === 'endless' && config.experiments.timeFloor) level = timeLevel(config, state.tick);
+  if (state.mode === 'endless' && config.experiments.timeFloor) level = timeLevel(config, state.tick);
   if (level > state.level) enterLevel(state, level);
 }
 
@@ -101,7 +99,7 @@ export function removeCube(state: RunState, cube: Cube): void {
     state.stats.falls++;
     state.events.push({ type: 'fell' });
   }
-  if (state.mode === 'timed' || state.mode === 'level') return;
+  if (state.mode === 'level') return;
   const level = 1 + Math.floor(state.removed / config.cubesPerLevel);
   if (level > state.level) enterLevel(state, level);
 }

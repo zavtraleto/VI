@@ -103,7 +103,7 @@ describe('a wave of the pace', () => {
 });
 
 describe('the swell of a wave', () => {
-  const endless = (level: number, by?: number) => paceIntervalTicks(c, 'endless', level, 0, c.targetCubes, by);
+  const endless = (level: number, by?: number) => paceIntervalTicks(c, level, c.targetCubes, by);
 
   it('stretches and squeezes the interval of the level', () => {
     expect(endless(1)).toBe(250); // 5 s
@@ -115,16 +115,6 @@ describe('the swell of a wave', () => {
   it('never takes the interval under its floor', () => {
     expect(endless(200, 0.75)).toBe(25); // 0.5 s
     expect(endless(200, 1.2)).toBe(30); // 0.5 s x 1.2
-  });
-
-  it('takes Time Limited the same way', () => {
-    expect(paceIntervalTicks(c, 'timed', 1, 0, c.targetCubes, 1.2)).toBe(180); // 3 s x 1.2
-    expect(paceIntervalTicks(c, 'timed', 1, 0, c.targetCubes, 0.75)).toBe(113); // 3 s x 0.75
-  });
-
-  it('never takes Time Limited under the interval it ends at', () => {
-    expect(paceIntervalTicks(c, 'timed', 1, c.timedTicks, c.targetCubes, 0.75)).toBe(75); // 1.5 s
-    expect(paceIntervalTicks(c, 'timed', 1, c.timedTicks, c.targetCubes, 1.2)).toBe(90); // 1.5 s x 1.2
   });
 });
 
@@ -223,7 +213,7 @@ describe('waves in a run', () => {
 
   it('come back slower after the rest, and every crest is at least as fast as the last', () => {
     const s = swelling();
-    const interval = () => paceIntervalTicks(s.config, s.mode, s.level, s.tick, s.config.targetCubes, swell(s));
+    const interval = () => paceIntervalTicks(s.config, s.level, s.config.targetCubes, swell(s));
     const crests: number[] = [];
     for (let i = 0; i < 6; i++) {
       const { start, build, rest } = s.wave;
@@ -239,31 +229,19 @@ describe('waves in a run', () => {
   });
 
   /** A run of the game as it is dealt, with somebody at it or nobody. */
-  function played(timed: boolean, moves: boolean): RunState {
-    const s = createRun({ seed: 42, config: defaultConfig(), timed });
+  function played(moves: boolean): RunState {
+    const s = createRun({ seed: 42, config: defaultConfig() });
     const dirs: Dir[] = ['N', 'E', 'S', 'W'];
-    // The session of the day can be lost from its first second: it is played while nobody can have lost it.
-    const ticks = timed ? 3500 : 8000;
-    for (let i = 0; i < ticks && !s.over; i++) step(s, moves && i % 7 === 0 ? dirs[(i / 7) % 4 | 0] : null);
+    for (let i = 0; i < 8000 && !s.over; i++) step(s, moves && i % 7 === 0 ? dirs[(i / 7) % 4 | 0] : null);
     return s;
   }
 
   it('do not look at what the player does', () => {
-    const idle = played(false, false);
-    const busy = played(false, true);
+    const idle = played(false);
+    const busy = played(true);
     expect(busy.wave.index).toBeGreaterThan(1);
     expect(busy.wave).toEqual(idle.wave);
     expect(swell(busy)).toBe(swell(idle));
-  });
-
-  it('are the same for everyone in the session of the day', () => {
-    const idle = played(true, false);
-    const busy = played(true, true);
-    expect(idle.over || busy.over).toBe(false);
-    expect(busy.wave.index).toBeGreaterThanOrEqual(1);
-    expect(busy.wave).toEqual(idle.wave);
-    expect(swell(busy)).toBe(swell(idle));
-    expect(played(true, true).wave).toEqual(waves(42, busy.wave.index + 1).at(-1));
   });
 
   it('are an experiment: switched off, the flow keeps to the level and never rests', () => {
