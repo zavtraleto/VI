@@ -96,6 +96,8 @@
 
 Решения владельца 8 октября 2026. **Срок — ближайший:** сразу после обучения и уровней (его слово 9 октября). Раньше нельзя: ветка `first-level` правит те же файлы.
 
+15 октября 2026 (чат Fable) владелец решил: «удалить всё, чего нет в меню» — и код сеанса дня тоже; мёртвый код — всё, до чего нельзя дойти ни из меню, ни из его инструментов (лаборатории, скрипты, тесты живого кода). Как и в каком порядке — [спека](superpowers/specs/2026-10-15-vi-dead-code-and-loading-design.md), там же быстрая загрузка.
+
 - **Обучение Endless** (`?tutorial`) и **пазлы** (`?tasks`). В главном меню их файлов `EXERCISE` и `TASKS` нет с 6 октября 2026, на их гранях стоят `HOW TO PLAY` и `README`; код открывается только по адресу (`SHELVED` в `src/app/game.ts`). К удалению:
   - обучение: `src/rules/tutorial.ts`, `tutorialHint.ts`, слова `tut_*` и `shellExercise` в `src/ui/i18n.ts` и `src/ui/lang/`, показания упражнения в `src/shell/hud.ts`, `tutorialDone` в настройках;
   - пазлы: `src/rules/puzzle.ts` и уровни пазлов, `rulesPanel`, `tasksPanel`, `clearedPanel` в `src/shell/panels.ts`, слова `puzzleRule*`, `tier_*`, `shellTasks`.
