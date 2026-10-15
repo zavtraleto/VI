@@ -185,7 +185,7 @@
 
 ## 12. Производство уровней
 
-По слову владельца учтены страницы о генерации: `VI_Level_Generation_Deep_Research.md` (исследование генерации и режиссуры первых уровней), [VI_Levels_Constraints.md](VI_Levels_Constraints.md), [VI_TurnBased_Research.md](VI_TurnBased_Research.md) (разделы 11–15 и 19), VI_Levels_Backlog.md (в истории git, коммит `7780049`) (блок A). Что из них взято в спеку:
+По слову владельца учтены страницы о генерации: `VI_Level_Generation_Deep_Research.md` (исследование генерации и режиссуры первых уровней), `VI_Levels_Constraints.md` (в истории git, см. индекс), [VI_TurnBased_Research.md](VI_TurnBased_Research.md) (разделы 11–15 и 19), VI_Levels_Backlog.md (в истории git, коммит `7780049`) (блок A). Что из них взято в спеку:
 
 | Вывод тех страниц | Что это значит для уроков |
 |---|---|

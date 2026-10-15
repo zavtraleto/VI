@@ -10,7 +10,7 @@
 
 Откуда решения: [исследование](../../VI_Levels_Onboarding_Research.md) (источники, замер нынешних уровней, раздел 6а о длине обучения). Что было до этого: VI_Levels_Teaching.md (в истории git, коммит `7780049`) (словарь, как ходит игрок, что доска может обязать), [VI_Levels_Progression_Research.md](../../VI_Levels_Progression_Research.md) (звёзды, лимит, ворота), VI_Levels_First20_Build.md (в истории git, коммит `7780049`) (решатель, персоны, подбор досок).
 
-О производстве уровней, по слову владельца от 6 октября («учитывай их и опыт, указанный там»): `docs/VI_Level_Generation_Deep_Research.md` (исследование генерации и режиссуры первых уровней; на 6 октября лежит в основной папке, в ветку не внесено), [VI_Levels_Constraints.md](../../VI_Levels_Constraints.md) (рычаги трудности), [VI_TurnBased_Research.md](../../VI_TurnBased_Research.md), разделы 11–15 и 19, VI_Levels_Backlog.md (в истории git, коммит `7780049`), блок A. Что из них взято — раздел 6.
+О производстве уровней, по слову владельца от 6 октября («учитывай их и опыт, указанный там»): `docs/VI_Level_Generation_Deep_Research.md` (исследование генерации и режиссуры первых уровней; на 6 октября лежит в основной папке, в ветку не внесено), `VI_Levels_Constraints.md` (в истории git, см. индекс) (рычаги трудности), [VI_TurnBased_Research.md](../../VI_TurnBased_Research.md), разделы 11–15 и 19, VI_Levels_Backlog.md (в истории git, коммит `7780049`), блок A. Что из них взято — раздел 6.
 
 Рабочее дерево: `.claude/worktrees/levels-onboarding`, ветка `worktree-levels-onboarding` от `origin/main` (`b8884f7`, версия 0.2.18).
 

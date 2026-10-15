@@ -1,6 +1,7 @@
 // Checks the documents of the project: `node scripts/docs-check.mjs`.
 // Every page under docs/ opens with a header of its kind and status, is named in the index,
-// and links only to files that exist; a page of the kind «истина» names only code that exists.
+// and links only to files that exist; a page of the kind «истина» names only code that exists;
+// a page with the status done, superseded or cancelled does not lie in the tree (it lives in git history).
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KINDS = ['истина', 'решение', 'исследование', 'план'];
 const STATUSES = ['в силе', 'построено', 'вытеснено', 'отменено', 'черновик', 'выполнен', 'не выполнен'];
 const INDEX = 'docs/README.md';
+// Status of a document that no longer belongs in the tree (done, superseded, cancelled); «не выполнен» does not match.
+const GONE = /^(?:выполнен|вытеснен|отменен|отменён)/;
 
 const walk = (dir) =>
   readdirSync(join(root, dir)).flatMap((name) => {
@@ -35,6 +38,7 @@ for (const page of pages) {
       const status = found[2].trim();
       if (!KINDS.includes(kind)) say(page, `вид «${kind}» не из словаря`);
       if (!STATUSES.includes(status)) say(page, `статус «${status}» не из словаря`);
+      if (GONE.test(status)) say(page, `статус «${status}», документу место в истории git, не в дереве`);
     }
     if (!index.includes(page.slice('docs/'.length))) say(page, `нет в индексе ${INDEX}`);
   }

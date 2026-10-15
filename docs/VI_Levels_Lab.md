@@ -2,7 +2,7 @@
 
 > Вид: истина. Статус: в силе. Дата: 2026-10-12.
 > Что заменило: —. Что живёт в коде: src/levels/boardFile.ts, src/levels/labText.ts, src/levels/boardSvg.ts, scripts/level.mjs, src/app/boardProbe.ts, src/lab/boardProbe.ts, src/lab/boardsServer.ts, src/lab/levelsLab.ts, src/lab/boardEditor.ts, src/lab/editBoard.ts, src/lab/boardsClient.ts, src/lab/boardStage.ts, src/lab/cellPick.ts, src/lab/orderDesk.ts, src/levels/orders.ts, src/levels/orderSearch.ts, src/levels/sets.ts, src/lab/labFacts.ts, src/lab/solveClient.ts, src/lab/solve.worker.ts, src/levels/snapshot.ts, src/lab/playLog.ts, src/lab/playWatch.ts, src/levels/library.ts, scripts/library.mjs, scripts/library-words.json, src/lab/libraryLab.ts, src/lab/libraryRows.ts.
-> Инструмент разработки: в сборку игры не входит. Постановка — [план](superpowers/plans/2026-10-12-vi-levels-lab.md), обоснование — [исследование](VI_Level_Tool_Research.md).
+> Инструмент разработки: в сборку игры не входит. Постановка — план «levels-lab» (в истории git, см. индекс), обоснование — [исследование](VI_Level_Tool_Research.md).
 
 Лаборатория — одно место, где доску уровня рисуют, сразу играют на настоящих правилах, меряют решателем и сравнивают версии. Источник правды — текстовый файл доски в папке `boards/`, по файлу на доску. Правила уровня лаборатория только читает: `src/rules` она не меняет. Доска из `boards/` в игру сама не попадает: в список и на дорогу её переносят руками, по слову владельца.
 
@@ -386,7 +386,7 @@ way: 0,1,N 1,1,E 2,1,S                    (ходы через пробел в �
 
 ## 15. Библиотека
 
-С 14 октября 2026 ([спека](superpowers/specs/2026-10-14-vi-board-library-design.md), [план](superpowers/plans/2026-10-14-vi-board-library.md)). Слово владельца: «мне нужен архив или библиотека уровней — чтобы там были все уровни, которые мы сделали. я их и подставлять в нужные места смогу и проходить и так далее».
+С 14 октября 2026 ([спека](superpowers/specs/2026-10-14-vi-board-library-design.md), план «board-library» (в истории git, см. индекс)). Слово владельца: «мне нужен архив или библиотека уровней — чтобы там были все уровни, которые мы сделали. я их и подставлять в нужные места смогу и проходить и так далее».
 
 **Полка.** Каждая доска, когда-либо сделанная, — файл `boards/<имя>.txt` в формате раздела 1; голова несёт статус, `origin`, `mark`, `words`, `tags`. Доски кода (`road.ts`, `levels.ts`) остаются в коде, а тест `src/levels/library.test.ts` держит их равными файлам: у каждой доски кода есть файл с теми же костями и путём; у каждой доски ряда (`CAMPAIGN`) — файл под её кодом со статусом `R`; каждый файл `R` стоит в ряду (`CHAPTERS`). Красный тест называет код. Перенос доски в ряд — словом владельца в чат: исполнитель правит `CHAPTERS`, ставит файлу `R`, а уходящей из ряда доске — `RC` или `X`.
 
