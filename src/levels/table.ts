@@ -3,7 +3,7 @@ import { scoreOf } from '../rules/levelScore';
 import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
 import type { Ban } from '../rules/reach';
 import type { LevelSpec } from '../rules/types';
-import type { Technique } from './chapters';
+import type { Technique } from './row';
 import type { SlowFacts, Violation } from './grammar';
 import { firstsOf, tailOf, turnsOf } from './measures';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';

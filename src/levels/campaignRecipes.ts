@@ -1,4 +1,4 @@
-import type { Role } from './chapters';
+import type { Role } from './row';
 import { cutFrom, type Recipe } from './recipes';
 
 /**

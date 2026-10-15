@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS, PARKED } from '../levels/levels';
+import { parkedBoards, rowBoards } from '../levels/boardSets';
+import { CAMPAIGN } from '../levels/campaign';
 import { defaultConfig } from '../rules/config';
 import { moveOf, movesAt, playMove, solveFrom } from '../rules/levelSolver';
 import { createRun } from '../rules/sim';
@@ -7,7 +8,7 @@ import type { LevelSpec, RunState } from '../rules/types';
 import { comboHints } from './comboHint';
 import { boardKey, stillShort } from './comboHintWork';
 
-const levelOf = (id: string): LevelSpec => [...LEVELS, ...PARKED].find((spec) => spec.id === id)!;
+const levelOf = (id: string): LevelSpec => [...rowBoards(), ...parkedBoards()].find((spec) => spec.id === id)!;
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 const along = (spec: LevelSpec, moves: readonly string[]): RunState => moves.reduce((state, move) => playMove(state, moveOf(move)), start(spec));
 
@@ -27,7 +28,7 @@ describe('the plaques of a level as a hint', () => {
   });
 
   it('names only heaps a combo is made of within two moves, on a board that can then be cleared', () => {
-    for (const spec of LEVELS) {
+    for (const { spec } of CAMPAIGN.filter((place) => place.chapter > 0)) {
       const state = start(spec);
       for (const group of comboHints(state).groups) {
         const made = (after: RunState): boolean => group.cells.every(({ x, z }) => after.cubes.some((cube) => cube.x === x && cube.z === z && cube.state === 'sinking' && cube.ori.top === group.value));

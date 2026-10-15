@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { LESSON } from './boardSamples';
 import { boardSvg } from './boardSvg';
-import { ROAD } from './road';
+import { fileBoard } from './boardFiles';
 
 describe('boardSvg', () => {
   it('draws a board as the text of a picture: its cells, its dice, the frame of a fixed die and the start', () => {
-    const svg = boardSvg(ROAD[0]);
+    const svg = boardSvg(fileBoard('R01'));
     expect(svg.startsWith('<svg')).toBe(true);
     expect(svg.match(/class="top"/g)).toHaveLength(2);
     expect(svg.match(/class="fixed"/g)).toHaveLength(1);

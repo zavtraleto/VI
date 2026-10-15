@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { MEASURE_HEAD } from './select';
-import { ROAD } from './road';
+import { fileBoard } from './boardFiles';
 import { ROAD_HEAD, measureBoard, roadRow, roadTable, tableOf } from './table';
 
 /**
@@ -54,13 +54,13 @@ describe('the table of the levels', () => {
 
 describe('the table of the road', () => {
   it('is a row for a piece: what it is, its board, its fewest moves, its first moves, the walk and two personas', () => {
-    const lesson = ROAD.find((spec) => spec.id === 'R01')!;
+    const lesson = fileBoard('R01');
     expect(roadRow(1, lesson, 'lesson', 300, 4)).toEqual(['1', 'R01', 'lesson', '1x6', '2', '2', '4', '0', '0', '1', '4', '0', '5', '100%', '100%']);
     expect(roadRow(1, lesson, 'lesson', 300, 4)).toHaveLength(ROAD_HEAD.length);
   });
 
   it('says the number of the board in its row, and the dice to turn and the rolls away of the way it keeps', () => {
-    const second = ROAD.find((spec) => spec.id === 'R02')!;
+    const second = fileBoard('R02');
     const row = roadRow(17, second, 'list', 12, 1);
     expect(row[ROAD_HEAD.indexOf('n')]).toBe('17');
     expect(row[ROAD_HEAD.indexOf('board')]).toBe('R02');
@@ -69,7 +69,7 @@ describe('the table of the road', () => {
   });
 
   it('marks what the walk counted with a plus where it was cut: the numbers are of the boards nearest the start', () => {
-    const free = ROAD.find((spec) => spec.id === 'R03')!;
+    const free = fileBoard('R03');
     const row = roadRow(3, free, 'free', 12, 2);
     expect(row.slice(0, 7)).toEqual(['3', 'R03', 'free', '3x3', '2', '2', '2']);
     expect(row[ROAD_HEAD.indexOf('boards')]).toBe('12+');

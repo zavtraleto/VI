@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FRAME_MARGIN, SIDE_MARGIN, boardBounds, cellsOf, frameOf, frameOfPiece, shapeKey, sightOf, toFloor, toPlane, type BoardShape, type CameraAxes } from './board';
-import { ROAD, ROAD_BLOCKS } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
+import { CAMPAIGN } from '../levels/campaign';
 import { cellPixels, fitBoard } from './framing';
 
 /** The axes of a camera that is turned by `yaw` and looks down by `pitch`, in degrees: what the view reads off its camera. */
@@ -113,8 +114,9 @@ describe('shapeKey', () => {
 describe('frameOfPiece', () => {
   const [width, height] = [1920, 1080];
   const shapeOf = (spec: { size: number; holes?: readonly { x: number; z: number }[] }, x = 0, z = 0): BoardShape => ({ size: spec.size, holes: spec.holes ?? [], origin: { x, z } });
-  const piece = (id: string): BoardShape => shapeOf(ROAD.find((one) => one.id === id)!);
-  const first = ROAD.slice(ROAD_BLOCKS[0].from, ROAD_BLOCKS[0].to + 1);
+  const piece = (id: string): BoardShape => shapeOf(fileBoard(id));
+  // The first run of places seen at one scale (`camera: hold`).
+  const first = CAMPAIGN.filter((place) => place.help.camera === 'hold').map((place) => place.spec);
 
   it('counts the rectangle of the cells that are left of a square', () => {
     expect(cellsOf(piece('R01'))).toEqual({ minX: 2, maxX: 2, minZ: 0, maxZ: 5 });

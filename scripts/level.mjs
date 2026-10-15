@@ -346,8 +346,7 @@ if (command === 'show') {
   const ratings = ratingsOf(plays);
   print(ratingsText(ratings), { plays: plays.length, ...ratings });
 } else if (command === 'regress') {
-  const { LEVELS, PARKED, SPARES } = await load('/src/levels/levels.ts');
-  const { ROAD, ROAD_SPARES } = await load('/src/levels/road.ts');
+  const { CAMPAIGN } = await load('/src/levels/campaign.ts');
   const dir = resolve(root, 'boards');
   // A board the library laid from the history and nobody took up again (a draft from there, or one taken off) is history, not work in hand: it is not held here.
   const history = (name) => {
@@ -357,12 +356,8 @@ if (command === 'show') {
   const files = existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.txt') && !history(name)).sort() : [];
   // Every board with where it is from; a file that cannot be read is a board that is broken, and says why.
   const boards = [
-    ...LEVELS.map((spec) => ({ from: 'list', spec })),
-    ...SPARES.map((spec) => ({ from: 'spare', spec })),
-    ...ROAD.map((spec) => ({ from: 'road', spec })),
-    // The levels parked and the spares of the road: boards a chapter can take, held to what they keep as the rest are.
-    ...PARKED.map((spec) => ({ from: 'parked', spec })),
-    ...ROAD_SPARES.map((spec) => ({ from: 'road', spec })),
+    // The boards of the row as they are played (on the faces of their chapters), and then every file that is work in hand.
+    ...CAMPAIGN.map((place) => ({ from: 'row', spec: place.spec })),
     ...files.map((name) => {
       try {
         return { from: 'board', spec: parseBoard(readFileSync(resolve(dir, name), 'utf8'), name) };

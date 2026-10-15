@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { normalSpec, parseBoard, readBoardHead } from './boardFile';
 import { CAMPAIGN } from './campaign';
-import { CHAPTERS } from './chapters';
-import { LEVELS, PARKED, SPARES } from './levels';
+import type { LevelSpec } from '../rules/types';
+import { parkedBoards, spareBoards } from './boardSets';
 import {
   asInRow,
   checkLibrary,
@@ -17,11 +17,13 @@ import {
   sameDice,
   spareName,
   statusFor,
-  type RowChapter,
+  type LibraryRowChapter,
+  rowChapters,
 } from './library';
-import { ROAD, ROAD_SPARES } from './road';
+import { fileBoard } from './boardFiles';
+import { ROW as LAID } from './row.gen';
 
-const ROW: readonly RowChapter[] = [
+const ROW: readonly LibraryRowChapter[] = [
   { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02'] },
   { id: 1, title: 'road', faces: [2, 3], stops: ['P02', 'C1-04'] },
 ];
@@ -40,7 +42,7 @@ describe('the place of a board', () => {
     expect(placeOf('P13', ROW)).toBeNull();
   });
   it('plays a board of a chapter on the faces of the chapter, with the floor open', () => {
-    const spec = { ...PARKED[0], floor: false as const };
+    const spec = { ...parkedBoards()[0], floor: false as const };
     const played = asInRow(spec, placeOf('P02', ROW), ROW);
     expect(played.faces).toEqual([2, 3]);
     expect(played.floor).toBeUndefined();
@@ -50,7 +52,8 @@ describe('the place of a board', () => {
 
 describe('a board as a file', () => {
   it('is read back as the same board under its name', () => {
-    const spec = SPARES[0];
+    const named = spareBoards()[0];
+    const spec = { ...named, id: named.id.slice(0, named.id.indexOf('_s')) };
     const name = spareName(spec.id, spec.seed);
     const text = fileOfSpec(spec, name, { status: 'D', origin: 'проба 7 октября, резерв (P01)' });
     const back = parseBoard(text, name);
@@ -59,10 +62,10 @@ describe('a board as a file', () => {
     expect(readBoardHead(text)).toEqual({ status: 'D', origin: 'проба 7 октября, резерв (P01)' });
   });
   it('is the same dice whatever faces it works on, and the same board turned', () => {
-    expect(sameDice(ROAD[2], { ...ROAD[2], faces: [5], values: [5] })).toBe(true);
-    expect(sameDice(ROAD[2], { ...ROAD[2], solution: [] })).toBe(false);
-    expect(sameDice(ROAD[2], ROAD[3])).toBe(false);
-    expect(sameBoardAnyFaces(ROAD[2], { ...ROAD[2], faces: [5], values: [5] })).toBe(true);
+    expect(sameDice(fileBoard('R03'), { ...fileBoard('R03'), faces: [5], values: [5] })).toBe(true);
+    expect(sameDice(fileBoard('R03'), { ...fileBoard('R03'), solution: [] })).toBe(false);
+    expect(sameDice(fileBoard('R03'), fileBoard('R04'))).toBe(false);
+    expect(sameBoardAnyFaces(fileBoard('R03'), { ...fileBoard('R03'), faces: [5], values: [5] })).toBe(true);
   });
 });
 
@@ -113,27 +116,26 @@ describe('the status a board is laid with', () => {
 });
 
 describe('checkLibrary', () => {
-  const file = (spec: (typeof ROAD)[number], status: string, name = spec.id): { name: string; text: string } => ({ name, text: fileOfSpec(spec, name).replace('---', `status: ${status}\n---`) });
-  const row = [ROAD[0], ROAD[1]];
-  const chapters: readonly RowChapter[] = [{ id: 0, title: 'prologue', faces: null, stops: [ROAD[0].id, ROAD[1].id] }];
+  const file = (spec: LevelSpec, status: string, name = spec.id): { name: string; text: string } => ({ name, text: fileOfSpec(spec, name).replace('---', `status: ${status}\n---`) });
+  const row = [fileBoard('R01'), fileBoard('R02')];
+  const chapters: readonly LibraryRowChapter[] = [{ id: 0, title: 'prologue', faces: null, stops: [fileBoard('R01').id, fileBoard('R02').id] }];
   it('is clean where the files and the code agree', () => {
-    expect(checkLibrary([file(ROAD[0], 'R'), file(ROAD[1], 'R'), file(ROAD[2], 'D', 'Z1')], { row, others: [ROAD[2]] }, chapters)).toEqual([]);
+    expect(checkLibrary([file(fileBoard('R01'), 'R'), file(fileBoard('R02'), 'R'), file(fileBoard('R03'), 'D', 'Z1')], { row }, chapters)).toEqual([]);
   });
   it('names the code of a board of the row with no file, with another status or another board, and of an R file out of the row', () => {
-    const faults = checkLibrary([file(ROAD[0], 'RC'), file(ROAD[3], 'R', ROAD[1].id), file(ROAD[2], 'R')], { row, others: [] }, chapters);
+    const faults = checkLibrary([file(fileBoard('R01'), 'RC'), file(fileBoard('R04'), 'R', fileBoard('R02').id), file(fileBoard('R03'), 'R')], { row }, chapters);
     expect(faults).toEqual([
-      `${ROAD[0].id}: in the row, and its file says status RC`,
-      `${ROAD[1].id}: the file is another board than the one in the row`,
-      `${ROAD[2].id}: status R, and it is not in the row`,
+      `${fileBoard('R01').id}: in the row, and its file says status RC`,
+      `${fileBoard('R02').id}: the file is another board than the one in the row`,
+      `${fileBoard('R03').id}: status R, and it is not in the row`,
     ]);
-    expect(checkLibrary([], { row, others: [ROAD[2]] }, chapters)).toEqual([
-      `${ROAD[0].id}: in the row, and there is no file boards/${ROAD[0].id}.txt`,
-      `${ROAD[1].id}: in the row, and there is no file boards/${ROAD[1].id}.txt`,
-      `${ROAD[2].id}: a board of the code with no file of the same dice and way`,
+    expect(checkLibrary([], { row }, chapters)).toEqual([
+      `${fileBoard('R01').id}: in the row, and there is no file boards/${fileBoard('R01').id}.txt`,
+      `${fileBoard('R02').id}: in the row, and there is no file boards/${fileBoard('R02').id}.txt`,
     ]);
   });
   it('names a file of the old statuses', () => {
-    expect(checkLibrary([file(ROAD[2], 'fire', 'Z1')], { row: [], others: [] }, [])).toEqual(['Z1: the status is of the old words; run node scripts/library.mjs import']);
+    expect(checkLibrary([file(fileBoard('R03'), 'fire', 'Z1')], { row: [] }, [])).toEqual(['Z1: the status is of the old words; run node scripts/library.mjs import']);
   });
 });
 
@@ -171,17 +173,11 @@ describe('the files of boards/ and the code', () => {
   const row = CAMPAIGN.map((stop) => stop.spec);
   const rowCodes = new Set(row.map((spec) => spec.id));
   it('every board of the row has a file with status R, and every R file is in the row', () => {
-    const faults = checkLibrary(files, { row, others: [] }, CHAPTERS);
+    const faults = checkLibrary(files, { row }, rowChapters(LAID));
     expect(faults).toEqual([]);
     expect(files.filter((file) => readBoardHead(file.text).status === 'R').map((file) => file.name).sort()).toEqual([...rowCodes].sort());
   });
-  it('every board of the code has a file with the same dice and way', () => {
-    expect(checkLibrary(files, { row: [], others: [...ROAD, ...ROAD_SPARES, ...LEVELS, ...PARKED, ...SPARES] }, [])).toEqual(
-      // With no row given, an R file is said to be out of it: that is the other test's.
-      files.filter((file) => readBoardHead(file.text).status === 'R').map((file) => `${file.name}: status R, and it is not in the row`),
-    );
-  });
   it('places every stop of the chapters', () => {
-    for (const stop of CAMPAIGN) expect(placeOf(stop.spec.id, CHAPTERS)?.number).toBe(stop.number);
+    for (const stop of CAMPAIGN) expect(placeOf(stop.spec.id, rowChapters(LAID))?.number).toBe(stop.number);
   });
 });

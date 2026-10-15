@@ -36,7 +36,9 @@ const RANDOM_CAP = 100;
 const PLAYERS = ['random', 'hasty', 'casual', 'careful', 'planner'];
 const PERSONAS = PLAYERS.slice(1);
 
-const { LEVELS } = await load('/src/levels/levels.ts');
+const { CAMPAIGN } = await load('/src/levels/campaign.ts');
+// The boards of the row as they are played, the prologue with them (boards/row.json).
+const LEVELS = CAMPAIGN.map((place) => place.spec);
 const { personaPlay, randomPlay } = await load('/src/rules/levelBot.ts');
 const { THREE_STARS_OVER, TWO_STARS_OVER, levelStars } = await load('/src/levels/progress.ts');
 // The game has no limit of moves since 12 October 2026. The one it had, five times the fewest moves and ten,

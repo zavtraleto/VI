@@ -2,7 +2,8 @@ import { scoreOf } from '../rules/levelScore';
 import { moveOf } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import type { Stop } from './campaign';
-import { CHAPTERS, type Technique } from './chapters';
+import type { Technique } from './row';
+import { ROW } from './row.gen';
 import { sameBoard } from './variety';
 
 /**
@@ -125,7 +126,7 @@ function oneThought(row: readonly Stop[]): Violation[] {
 function facesOfChapter(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   for (const stop of row) {
-    const faces = CHAPTERS.find((chapter) => chapter.id === stop.chapter)?.faces;
+    const faces = ROW.chapters[stop.chapter]?.faces;
     if (!faces) continue;
     const own = stop.spec.faces ?? [];
     if (String(own) !== String(faces)) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} на гранях ${own.join(' ')}, а глава ${stop.chapter} — на гранях ${faces.join(' ')}` });

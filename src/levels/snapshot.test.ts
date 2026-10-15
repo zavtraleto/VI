@@ -4,7 +4,7 @@ import { createRun, defaultConfig } from '../rules';
 import { moveOf, tryWay } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import { normalSpec, parseBoard, printBoard } from './boardFile';
-import { ROAD } from './road';
+import { CAMPAIGN } from './campaign';
 import { specFromState } from './snapshot';
 
 /** A level without the way it keeps. */
@@ -14,7 +14,7 @@ function bare(spec: LevelSpec): LevelSpec {
 }
 
 describe('specFromState', () => {
-  it.each(ROAD.map((spec) => [spec.id, spec] as const))('gives the start of %s back as the board it is, without its way', (_, spec) => {
+  it.each(CAMPAIGN.filter((place) => place.chapter === 0).map(({ spec }) => [spec.id, spec] as const))('gives the start of %s back as the board it is, without its way', (_, spec) => {
     const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
     expect(normalSpec(specFromState(state, spec))).toEqual(normalSpec(bare(spec)));
   });

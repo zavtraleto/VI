@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import rowJson from '../../boards/row.json?raw';
+import { packRun } from '../app/savedRun';
+import { RunTally } from '../app/telemetry';
 import { defaultConfig } from '../rules/config';
 import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
-import { createRun } from '../rules/sim';
+import { createRun, step } from '../rules/sim';
+import { sameBoard } from './variety';
 import { hasReadyGroup } from '../rules/spawn';
 import { t } from '../ui/i18n';
 import { BOARD_TEXTS } from './boardFiles';
@@ -116,5 +119,33 @@ describe('the row of the game', () => {
 
   it('names hints that have words', () => {
     for (const { code, help } of ROW.places) if (help.hint) expect(t(help.hint), code).not.toBe(help.hint);
+  });
+
+  it('makes on the way of every place only combos of the faces that work', () => {
+    for (const { code, spec } of ROW.places) {
+      const { values } = tryWay(spec, spec.solution!.map(moveOf));
+      expect(values.length, code).toBeGreaterThan(0);
+      for (const value of values) expect(spec.faces, code).toContain(value);
+    }
+  });
+
+  it('has no board twice, and none that is another turned or mirrored', () => {
+    const boards = ROW.places.map(({ spec }) => JSON.stringify(spec.layout));
+    expect(new Set(boards).size).toBe(boards.length);
+    ROW.places.forEach((place, index) => {
+      for (const other of ROW.places.slice(index + 1)) expect(sameBoard(place.spec, other.spec), `${place.code} and ${other.code}`).toBe(false);
+    });
+  });
+
+  it('plays every place with no limit of moves, and keeps none for later when the page goes away', () => {
+    for (const { code, spec } of ROW.places) expect(spec.moves, code).toBe(0);
+    const { spec } = ROW.places[ROW.places.length - 1];
+    const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
+    const first = moveOf(spec.solution![0]);
+    state.player = { x: first.x, z: first.z, level: 'top' };
+    step(state, first.dir);
+    for (let i = 0; i < 20; i++) step(state, null);
+    expect(state.tick).toBeGreaterThan(0);
+    expect(packRun('endless', state, new RunTally())).toBeNull();
   });
 });

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS, SPARES } from './levels';
-import { ROAD } from './road';
+import { rowBoards, spareBoards } from './boardSets';
 import { normalSpec, parseBoard, printBoard, readBoardHead } from './boardFile';
 
 const SAMPLE = `id: H01
@@ -82,7 +81,7 @@ describe('parseBoard, loose', () => {
 });
 
 describe('printBoard', () => {
-  it.each([...LEVELS, ...SPARES, ...ROAD].map((spec) => [spec.id, spec] as const))('round-trips %s', (_, spec) => {
+  it.each([...rowBoards(), ...spareBoards()].map((spec) => [spec.id, spec] as const))('round-trips %s', (_, spec) => {
     const text = printBoard(spec);
     expect(normalSpec(parseBoard(text, spec.id))).toEqual(normalSpec(spec));
   });

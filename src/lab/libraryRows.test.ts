@@ -1,24 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { printBoard } from '../levels/boardFile';
-import type { RowChapter } from '../levels/library';
-import { ROAD } from '../levels/road';
+import type { LibraryRowChapter } from '../levels/library';
+import { fileBoard } from '../levels/boardFiles';
+import type { LevelSpec } from '../rules/types';
 import { NO_FILTER, filterRows, rowOf, sortRows, type LibraryRow } from './libraryRows';
 
-const CHAPTERS: readonly RowChapter[] = [
+const CHAPTERS: readonly LibraryRowChapter[] = [
   { id: 0, title: 'prologue', faces: null, stops: ['A'] },
   { id: 1, title: 'road', faces: [2, 3], stops: ['B'] },
 ];
 
-function row(name: string, spec: (typeof ROAD)[number], head: Parameters<typeof printBoard>[1]): LibraryRow {
+function row(name: string, spec: LevelSpec, head: Parameters<typeof printBoard>[1]): LibraryRow {
   return rowOf({ name, text: printBoard({ ...spec, id: name }, head), hash: null }, CHAPTERS);
 }
 
 const ROWS = [
-  row('A', ROAD[0], { status: 'R', origin: 'дорога, редакция 7', mark: 'норм', words: [{ date: '2026-10-14', text: 'ок' }] }),
-  row('B', ROAD[3], { status: 'R', origin: 'проба 7 октября', tags: ['мост'] }),
-  row('C10', ROAD[4], { status: 'RC', mark: 'огонь', origin: 'курс 6 октября' }),
-  row('C9', ROAD[5], { status: 'X', mark: 'мимо', origin: 'дорога, редакция 1', words: [{ date: '2026-10-11', text: 'убрать' }] }),
-  row('D', ROAD[6], { status: 'D' }),
+  row('A', fileBoard('R01'), { status: 'R', origin: 'дорога, редакция 7', mark: 'норм', words: [{ date: '2026-10-14', text: 'ок' }] }),
+  row('B', fileBoard('R04'), { status: 'R', origin: 'проба 7 октября', tags: ['мост'] }),
+  row('C10', fileBoard('B01_s290'), { status: 'RC', mark: 'огонь', origin: 'курс 6 октября' }),
+  row('C9', fileBoard('R05'), { status: 'X', mark: 'мимо', origin: 'дорога, редакция 1', words: [{ date: '2026-10-11', text: 'убрать' }] }),
+  row('D', fileBoard('R07'), { status: 'D' }),
 ];
 const names = (rows: readonly LibraryRow[]): string[] => rows.map((one) => one.name);
 

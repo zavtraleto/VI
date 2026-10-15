@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import type { Size } from '../display/sizing';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
 import { campaignCells } from '../levels/campaign';
-import { LEVELS } from '../levels/levels';
+import { FIXTURE } from '../levels/rowFixture';
 import { MIN_ZONE, pictureSize, textWidth } from './layout';
 import { LANGUAGES, setLanguage } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
@@ -93,19 +93,19 @@ describe('the list of levels', () => {
     expect(row(starred, 'levels').levels.map((level) => level.stars)).toEqual([3, 2]);
   });
 
-  it('lists the pieces of the road before the levels, numbered on from one, every one open', () => {
-    const cells = campaignCells({ passed: { R01: true }, stats: { R01: { bestMoves: ROAD[0].par } } });
+  it('lists every place of the row, through its chapters, numbered from one, every one open', () => {
+    const fixture = FIXTURE.places;
+    const cells = campaignCells({ passed: { F1: true }, stats: { F1: { bestMoves: fixture[0].spec.par } } }, fixture);
     const picked: number[] = [];
     const items = row(levelsPanel(cells, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels');
-    expect(items.levels.length).toBe(ROAD.length + LEVELS.length);
-    // The row of the second edition: the prologue of eight and chapters 1 to 3.
-    expect(items.levels.length).toBe(25);
+    expect(items.levels.length).toBe(fixture.length);
     expect(items.levels[0]).toMatchObject({ stars: 3 });
-    expect(items.levels[ROAD.length]).toMatchObject({ stars: 0 });
-    expect(items.note(0)).toBe(`FACE ${ROAD[0].faces!.join(' ')} · ${goalText(cells[0].goal)}`);
-    items.pick(ROAD.length);
+    expect(items.levels[3]).toMatchObject({ stars: 0 });
+    expect(items.note(0)).toBe(`FACE ${fixture[0].spec.faces!.join(' ')} · ${goalText(cells[0].goal)}`);
+    expect(items.note(3)).toBe(`FACE ${fixture[3].spec.faces!.join(' ')} · ${goalText(cells[3].goal)}`);
+    items.pick(3);
     items.pick(2);
-    expect(picked).toEqual([ROAD.length, 2]);
+    expect(picked).toEqual([3, 2]);
   });
 
   it('writes the goal of the level in focus in the font of the program', () => {
@@ -169,7 +169,7 @@ function context(window: Size, ratio: number): ShellContext {
 
 describe('the list of the levels on a screen', () => {
   const share = { label: (): PanelName => COMMANDS.share, action: nothing };
-  const cells = campaignCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: ROAD[0].par! }, R02: { bestMoves: 99 } } });
+  const cells = campaignCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: fileBoard('R01').par! }, R02: { bestMoves: 99 } } });
   const actions = { onPick: nothing, share, onBack: nothing };
 
   it.each(SCREENS)('fits the window of a %s: a cell for every board of the campaign and two commands, each large enough for a finger', (_name, window, ratio) => {

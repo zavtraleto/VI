@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
 import { createRun, defaultConfig } from '../rules';
 import { moveOf, tryWay } from '../rules/levelSolver';
 import { mergePlays, playRecordOf, ratingsOf, ratingsText, versionSummary, type PlayRecord } from './playLog';
 
-const R03 = ROAD[2];
+const R03 = fileBoard('R03');
 const OF = { hash: 'abcd1234', par: 2 };
 const NOON = Date.UTC(2026, 9, 12, 12, 0, 0);
 
@@ -21,7 +21,9 @@ describe('playRecordOf', () => {
   });
   it('writes a play that came to a dead end down as failed, with the dead end', () => {
     // One die of two cannot make a pair: with the other gone the count is short.
-    const alone = { ...R03, norm: 1, layout: { start: { x: 1, z: 2 }, dice: [R03.layout!.dice[0]] } };
+    const { start } = R03.layout!;
+    const own = R03.layout!.dice.find((die) => die.x === start.x && die.z === start.z)!;
+    const alone = { ...R03, norm: 1, layout: { start, dice: [own] } };
     const state = createRun({ seed: 1, config: defaultConfig(), level: alone });
     expect(playRecordOf(state, NOON, NOON, 0, OF)).toMatchObject({ result: 'failed', deadEnd: 'count' });
   });

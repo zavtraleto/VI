@@ -42,7 +42,9 @@ for (const arg of args) {
 const { parseBoard, printBoard, readBoardHead } = await load('/src/levels/boardFile.ts');
 const library = await load('/src/levels/library.ts');
 const { sameBoard } = await load('/src/levels/variety.ts');
-const { CHAPTERS } = await load('/src/levels/chapters.ts');
+const { ROW } = await load('/src/levels/row.gen.ts');
+// The chapters of the row (boards/row.json) as the library reads them.
+const CHAPTERS = library.rowChapters(ROW);
 
 /** The files of boards/ as they are: name, text, the board (as strictly as it reads) and the head. */
 function readFiles() {
@@ -71,14 +73,15 @@ function readFiles() {
  * Where the boards of the history are: the commits, the newest first, with the edition of the
  * road each is of, its rank in time (for the order of `origin`), and what each export of road.ts
  * and levels.ts is called there. An export not named is not read. The reserves are laid under the
- * name of their place and seed (`spareName`). HEAD's chapters are read from `CHAPTERS`.
+ * name of their place and seed (`spareName`). The newest source is the last commit with boards in the code
+ * (66b1d22): its boards are matched by dice, way and faces; the chapters of today are read from row.json.
  */
 const PROBE = { LEVELS: 'проба 7 октября', SPARES: 'проба 7 октября, резерв' };
 const LIST = { LEVELS: 'список 12 октября', PARKED: 'парковка', SPARES: PROBE.SPARES };
 // On 11 October P08 of the probe went to the road and R10 of the second edition took its place in the list.
 const LIST_11 = { LEVELS: 'список 11 октября', SPARES: PROBE.SPARES };
 const SOURCES = [
-  { at: 'HEAD', edition: 7, rank: 11, road: { ROAD: 'пролог, дорога редакции 7', ROAD_SPARES: 'запас дороги, редакция 7' }, levels: { PARKED: 'парковка', SPARES: PROBE.SPARES } },
+  { at: '66b1d22', newest: true, edition: 7, rank: 11, road: { ROAD: 'пролог, дорога редакции 7', ROAD_SPARES: 'запас дороги, редакция 7' }, levels: { PARKED: 'парковка', SPARES: PROBE.SPARES } },
   { at: '6a32b23', edition: 6, rank: 10, road: { ROAD: 'дорога, редакция 6' }, levels: { ACT_1: 'акт I', ACT_2: 'акт II', TAIL: 'хвост ряда 0.2.53', PARKED: 'парковка', SPARES: PROBE.SPARES } },
   { at: '8ea871d', edition: 6, rank: 9, road: { ROAD: 'дорога, редакция 6' }, levels: LIST },
   { at: 'f9ad605', edition: 5, rank: 8, road: { ROAD: 'дорога, редакция 5' }, levels: LIST },
@@ -99,7 +102,8 @@ function treeOf(commit) {
   if (!existsSync(resolve(dir, 'src'))) {
     mkdirSync(dir, { recursive: true });
     const tar = execFileSync('git', ['-C', root, 'archive', '--format=tar', commit, 'src'], { maxBuffer: 1 << 28 });
-    const out = spawnSync('tar', ['-x', '-f', '-', '-C', dir], { input: tar });
+    // Forward slashes: tar reads a backslash before a digit (the cache of 66b1d22) as an escape.
+    const out = spawnSync('tar', ['-x', '-f', '-', '-C', dir.replace(/\\/g, '/')], { input: tar });
     if (out.status !== 0) throw new Error(`cannot lay out ${commit}: ${String(out.stderr)}`);
   }
   return dir;
@@ -148,7 +152,7 @@ async function lay() {
   };
 
   for (const source of SOURCES) {
-    const head = source.at === 'HEAD';
+    const head = source.newest === true;
     for (const { spec, label: text, spare } of await boardsOf(source)) {
       // A board of the code is the file of the same dice, way and faces; a board of the history, the file of the same board turned or not.
       let file = head
@@ -163,15 +167,15 @@ async function lay() {
         file = add(fresh(wanted, source.edition), spec, source.at);
       }
       label(file, text, spec.id, source.rank);
-      if (!spare) alias.set(`${source.at}:${spec.id}`, file.name);
+      // The words said of the code of today (`at: HEAD` in library-words.json) are of the newest source.
+      if (!spare) for (const at of source.newest ? [source.at, 'HEAD'] : [source.at]) alias.set(`${at}:${spec.id}`, file.name);
     }
   }
   // The boards of the chapters: each is a board of the code already, on the faces of its place; in the row it plays on those of its chapter.
-  const { LEVELS } = await load('/src/levels/levels.ts');
   for (const chapter of CHAPTERS) {
     if (chapter.id === 0) continue;
     for (const code of chapter.stops) {
-      const spec = LEVELS.find((one) => one.id === code);
+      const spec = ROW.places.find((one) => one.code === code).spec;
       let file = byName.get(code);
       if (!file || !file.spec || !library.sameDice(file.spec, spec)) file = files.find((one) => one.spec && library.sameDice(one.spec, spec));
       if (!file) {
@@ -217,10 +221,7 @@ async function lay() {
 
 /** The row and the other boards of the code, as `checkLibrary` takes them. */
 async function codeBoards() {
-  const { CAMPAIGN } = await load('/src/levels/campaign.ts');
-  const { ROAD_SPARES } = await load('/src/levels/road.ts');
-  const { PARKED, SPARES } = await load('/src/levels/levels.ts');
-  return { row: CAMPAIGN.map((stop) => stop.spec), others: [...ROAD_SPARES, ...PARKED, ...SPARES] };
+  return { row: ROW.places.map((place) => place.spec) };
 }
 
 if (command === 'import') {

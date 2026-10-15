@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS } from '../levels/levels';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
+import { boardOf } from '../levels/boardSets';
 import { createRun, defaultConfig, step, type LevelSpec, type RunState } from '../rules';
 import { land, levelRun, ori, put } from '../rules/testkit';
 import { laidFace } from './laid';
@@ -14,7 +14,7 @@ function act(state: RunState, dir: 'N' | 'E' | 'S' | 'W'): void {
 
 describe('the light of a die laid as leaving', () => {
   it('is that of the face of the die, by its own reaction: the stair of the second piece shows a six', () => {
-    const state = start(ROAD[1]);
+    const state = start(fileBoard('R02'));
     expect(laidFace(state)).toBe(6);
     // The reaction of the die is asked, not the first there is.
     state.reactions.unshift({ id: 999, value: 2, chain: 1, total: 1 });
@@ -22,7 +22,7 @@ describe('the light of a die laid as leaving', () => {
   });
 
   it('is there while a die is: walked over the stair of two is still going, with the first roll the upper is, and gone with the second it is none', () => {
-    const state = start(ROAD[1]);
+    const state = start(fileBoard('R02'));
     act(state, 'N');
     act(state, 'N');
     act(state, 'N');
@@ -36,7 +36,7 @@ describe('the light of a die laid as leaving', () => {
   });
 
   it('is none on a board whose layout lays no die as leaving', () => {
-    for (const spec of [ROAD[0], ROAD[2], ROAD[3], LEVELS[0]]) expect(laidFace(start(spec))).toBe(0);
+    for (const spec of [fileBoard('R01'), fileBoard('R03'), fileBoard('R04'), boardOf('R11')]) expect(laidFace(start(spec))).toBe(0);
   });
 
   it('is none for dice that go by a group of their own, as after a move taken back on a level of the list', () => {
@@ -48,7 +48,7 @@ describe('the light of a die laid as leaving', () => {
   });
 
   it('is none for another die that is going on the cell the laid one stood on', () => {
-    const state = start(ROAD[1]);
+    const state = start(fileBoard('R02'));
     for (const stair of state.cubes.filter((cube) => cube.state === 'sinking')) stair.ori = ori({ top: 3, north: 1 });
     expect(laidFace(state)).toBe(0);
   });

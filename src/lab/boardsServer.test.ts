@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { printBoard, readBoardHead } from '../levels/boardFile';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
 import { askOf, boardHash, exportFile, headPatchOf, historyPath, patchHead, safeName, versionOf } from './boardsServer';
 
 describe('safeName', () => {
@@ -22,10 +22,10 @@ describe('the history', () => {
     expect(versionOf('plays.jsonl')).toBeNull();
   });
   it('knows a board by its dice and its head, not by its note', () => {
-    const text = printBoard(ROAD[2]);
+    const text = printBoard(fileBoard('R03'));
     expect(boardHash(text)).toMatch(/^[0-9a-f]{8}$/);
-    expect(boardHash(printBoard(ROAD[2], { note: 'another word', status: 'RC', mark: 'огонь', words: [{ date: '2026-10-14', text: 'слово' }] }))).toBe(boardHash(text));
-    expect(boardHash(printBoard(ROAD[3]))).not.toBe(boardHash(text));
+    expect(boardHash(printBoard(fileBoard('R03'), { note: 'another word', status: 'RC', mark: 'огонь', words: [{ date: '2026-10-14', text: 'слово' }] }))).toBe(boardHash(text));
+    expect(boardHash(printBoard(fileBoard('R04')))).not.toBe(boardHash(text));
     expect(boardHash('no board at all')).toBeNull();
   });
 });

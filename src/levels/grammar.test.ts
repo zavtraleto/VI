@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
-import { STOPS } from './chapters';
 import { fastGrammar, needsOf, slowGrammar } from './grammar';
-import { LEVELS, PARKED } from './levels';
-import { ROAD, ROAD_SPARES } from './road';
+import { boardOf as anyBoard } from './boardSets';
 
 /**
  * The grammar of the row (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 3): the
@@ -12,13 +10,14 @@ import { ROAD, ROAD_SPARES } from './road';
  * made wrong on purpose.
  */
 
-const boardOf = (id: string): LevelSpec => [...LEVELS, ...ROAD, ...ROAD_SPARES, ...PARKED].find((spec) => spec.id === id)!;
+const boardOf = (id: string): LevelSpec => anyBoard(id);
 
 /** A row of the boards named, each with what the row says of it, or what is given here instead. */
 function rowOf(entries: readonly (string | [string, Partial<Stop>])[]): Stop[] {
   return entries.map((entry, index) => {
     const [id, over] = typeof entry === 'string' ? [entry, {}] : entry;
-    const meta = STOPS[id] ?? { chapter: 1, role: 'apply' as const, archetype: id };
+    const place = CAMPAIGN.find((one) => one.code === id);
+    const meta = place ? { chapter: place.chapter, role: place.role, teaches: place.teaches, archetype: place.archetype, event: place.event } : { chapter: 1, role: 'apply' as const, archetype: id };
     return { spec: boardOf(id), code: id, number: index + 1, help: {}, ...meta, ...over };
   });
 }

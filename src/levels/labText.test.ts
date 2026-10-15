@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DOWN_AND_UP, LESSON } from './boardSamples';
-import { ROAD } from './road';
+import { fileBoard } from './boardFiles';
 import { createRun, defaultConfig } from '../rules';
 import { movesAt, moveText } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
@@ -31,8 +31,8 @@ describe('genOf', () => {
     expect(parseBoard(text, name).par).toBe(fits[0].par);
   });
   it('gives the boards one change away as boards, each with its way where it has one', () => {
-    const boards = nearBoards(ROAD[2]);
-    expect(boards.map(({ spec: _spec, ...fact }) => fact)).toEqual(nearOf(ROAD[2]));
+    const boards = nearBoards(fileBoard('R03'));
+    expect(boards.map(({ spec: _spec, ...fact }) => fact)).toEqual(nearOf(fileBoard('R03')));
     const cleared = boards.find((board) => board.par !== null)!;
     expect(cleared.spec.solution).toHaveLength(cleared.par!);
   });
@@ -40,7 +40,7 @@ describe('genOf', () => {
 
 describe('fitOf', () => {
   it('holds a board against places, and says what it misses of each by the name of the place alone', { timeout: 120_000 }, () => {
-    const facts = fitOf(ROAD[2], ROAD_PLACES);
+    const facts = fitOf(fileBoard('R03'), ROAD_PLACES);
     expect(facts).toHaveLength(ROAD_PLACES.length);
     expect(facts.find((fact) => fact.place === 'R03')).toEqual({ place: 'R03', misses: [] });
     expect(facts.find((fact) => fact.place === 'R04')!.misses[0]).toMatch(/faces 2, the place has 3/);
@@ -73,7 +73,7 @@ describe('levelSource', () => {
 });
 
 describe('movesOf', () => {
-  const R03 = ROAD[2];
+  const R03 = fileBoard('R03');
   it('tells every move there is from the start, and which keep the fewest moves', () => {
     const start = createRun({ seed: R03.seed, config: defaultConfig(), level: { ...R03, moves: 0 } });
     const facts = movesOf(R03);
@@ -89,7 +89,7 @@ describe('movesOf', () => {
 
 describe('nearOf', () => {
   it('solves every board one change away and says what the change does', () => {
-    const facts = nearOf(ROAD[2]);
+    const facts = nearOf(fileBoard('R03'));
     expect(facts.length).toBeGreaterThan(0);
     expect(facts.every((fact) => fact.what !== '')).toBe(true);
     expect(facts.some((fact) => fact.change === 'unsolved' || fact.change === 'longer')).toBe(true);
@@ -103,29 +103,28 @@ describe('nearOf', () => {
 
 describe('regressOne', () => {
   it('says ok of a board that is as it says, shorter of one that keeps a move too many, broken of a way that does not play', () => {
-    const R03 = ROAD[2];
+    const R03 = fileBoard('R03');
     expect(regressOne(R03, 100_000, 'road')).toMatchObject({ id: 'R03', from: 'road', stored: 2, found: 2, verdict: 'ok' });
     expect(regressOne({ ...R03, par: 3 }, 100_000).verdict).toBe('shorter');
     expect(regressOne({ ...R03, solution: ['0,0,N'] }, 100_000).verdict).toBe('broken');
     expect(regressOne(R03, 1).verdict).toBe('capped');
   });
   it('is told as a table with the count of what is not ok', () => {
-    const text = regressText([regressOne(ROAD[2], 100_000, 'road'), regressOne({ ...ROAD[2], solution: ['0,0,N'] }, 100_000)]);
+    const text = regressText([regressOne(fileBoard('R03'), 100_000, 'road'), regressOne({ ...fileBoard('R03'), solution: ['0,0,N'] }, 100_000)]);
     expect(text).toContain('regress: 2 boards, 1 not ok');
   });
 });
 
-const R03 = ROAD[2];
+const R03 = fileBoard('R03');
 
 describe('boardFrom', () => {
-  it('finds a level of the list and a piece of the road by their codes', () => {
-    expect(boardFrom('P06')).toMatchObject({ from: 'list', spec: { id: 'P06' } });
-    expect(boardFrom('R03')).toMatchObject({ from: 'road', spec: { id: 'R03' } });
-    // A board of the road a chapter took is the level of the list, on the faces of the chapter; a spare and a parked level are found too.
-    expect(boardFrom('R11')).toMatchObject({ from: 'list', spec: { id: 'R11', faces: [2, 3] } });
-    expect(boardFrom('C1-05')).toMatchObject({ from: 'list', spec: { id: 'C1-05', faces: [2, 3] } });
-    expect(boardFrom('R06')).toMatchObject({ from: 'road', spec: { id: 'R06' } });
-    expect(boardFrom('K23')).toMatchObject({ from: 'list', spec: { id: 'K23' } });
+  it('finds a board of the row by its code, as the row plays it', () => {
+    expect(boardFrom('R03')).toMatchObject({ from: 'row', spec: { id: 'R03' } });
+    // A board of a chapter is played on the faces of the chapter.
+    expect(boardFrom('R11')).toMatchObject({ from: 'row', spec: { id: 'R11', faces: [2, 3] } });
+    expect(boardFrom('C1-05')).toMatchObject({ from: 'row', spec: { id: 'C1-05', faces: [2, 3] } });
+    // A board out of the row is read by its file, and the refusal says how.
+    expect(() => boardFrom('K23')).toThrow(/file=K23/);
     expect(() => boardFrom('Z9')).toThrow(/Z9/);
   });
 });
@@ -160,7 +159,7 @@ describe('checkOf', () => {
     expect(Object.keys(checkJson(R03, check))).toEqual(['id', 'par', 'exact', 'states', 'way', 'route', 'kind', 'turns', 'away', 'kept', 'ok']);
   });
   it('tells the dice to turn before the first event and the rolls away, as a line and as keys', () => {
-    const R02 = ROAD[1];
+    const R02 = fileBoard('R02');
     const check = checkOf(R02);
     expect(checkText(R02, check)).toContain('turns 1  away 0');
     expect(checkJson(R02, check)).toMatchObject({ turns: 1, away: 0 });

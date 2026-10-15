@@ -1,4 +1,4 @@
-import { ROAD_SPARES } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
 import { createRun, defaultConfig, step, type Dir, type GameEvent, type RunState } from '../rules';
 import type { LevelSpec } from '../rules/types';
 
@@ -58,8 +58,7 @@ export const LEAVING_SCENES: Record<LeavingScene, string> = {
 export function leavingSceneState(scene: LeavingScene): RunState {
   const { dice, clear } = SCENES[scene];
   // The lesson of the way down and up, a board in spare of the road since the prologue of 14 October 2026: its rules are those of the game.
-  const base = ROAD_SPARES.find((piece) => piece.id === 'R10');
-  if (!base) throw new Error('no board R10 to lay the scenes of the leaving on');
+  const base = fileBoard('R10');
   const spec: LevelSpec = {
     ...base,
     id: `LAB-${scene}`,

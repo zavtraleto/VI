@@ -1,5 +1,5 @@
 import { BOARD_MARKS, BOARD_STATUSES, parseBoard, readBoardHead, type BoardHead, type BoardMark, type BoardStatus, type BoardWords } from '../levels/boardFile';
-import { asInRow, originsOf, placeOf, type Place, type RowChapter } from '../levels/library';
+import { asInRow, originsOf, placeOf, type Place, type LibraryRowChapter } from '../levels/library';
 import type { LevelSpec } from '../rules/types';
 
 /**
@@ -31,7 +31,7 @@ export interface LibraryRow {
 }
 
 /** A file read as a row: the board strictly where it is one, as it is written where the rules refuse it. */
-export function rowOf(file: { name: string; text: string; hash: string | null }, chapters: readonly RowChapter[]): LibraryRow {
+export function rowOf(file: { name: string; text: string; hash: string | null }, chapters: readonly LibraryRowChapter[]): LibraryRow {
   const place = placeOf(file.name, chapters);
   let spec: LevelSpec | null = null;
   let error: string | null = null;

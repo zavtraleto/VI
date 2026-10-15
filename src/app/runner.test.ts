@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRun, defaultConfig, type Dir } from '../rules';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
 import { Runner, frameBound } from './runner';
 
 function record(): { log: { tick: number; dir: Dir }[]; endTick: number } {
@@ -65,7 +65,7 @@ describe('Runner', () => {
   });
 
   it('never plays a roll of a level out within one late frame', () => {
-    const spec = ROAD[0];
+    const spec = fileBoard('R01');
     const runner = new Runner(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }));
     const { state } = runner;
     // Every frame comes a quarter of a second late: the worst the page can do.

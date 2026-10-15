@@ -83,12 +83,11 @@ if (flag('limit')) {
   const say = (row) => console.log(`${row.name}  seed ${row.seed}  moves ${row.par ?? '-'}  ${row.exhausted ? 'counted through' : 'gave up'}  boards ${row.states}  ${row.ms} ms`);
   solverLimit(Number(named.boards ?? 5), Number(named.states ?? 3_000_000), named.only, say);
 } else if (flag('road') || flag('campaign')) {
-  // The pieces of the road, or the whole row of the campaign: the pieces and then the levels of the list.
-  const { ROAD } = await load('/src/levels/road.ts');
+  // The prologue, or the whole row of the campaign (boards/row.json).
   const { CAMPAIGN } = await load('/src/levels/campaign.ts');
   const { roadRow, roadTable, ROAD_WALK_LIMIT, slowFactsOf, grammarText } = await load('/src/levels/table.ts');
   const { fastGrammar, slowGrammar } = await load('/src/levels/grammar.ts');
-  const stops = flag('campaign') ? CAMPAIGN : CAMPAIGN.slice(0, ROAD.length);
+  const stops = flag('campaign') ? CAMPAIGN : CAMPAIGN.filter((place) => place.chapter === 0);
   // A board by its chapter and its role: `0:meet` is the first piece of the prologue, `1:meet` the first board of chapter 1.
   const roleOf = (stop) => `${stop.chapter}:${stop.role}`;
   if (worker) {
@@ -221,15 +220,20 @@ if (flag('limit')) {
     }
   }
 } else {
-  const { LEVELS: LISTED, PARKED, SPARES } = await load('/src/levels/levels.ts');
+  const { CAMPAIGN } = await load('/src/levels/campaign.ts');
+  const { parkedBoards, spareBoards } = await load('/src/levels/boardSets.ts');
+  // The boards of the row, the parked boards and the reserve, the last two read from their files.
+  const [LISTED, PARKED, SPARES] = [CAMPAIGN.map((place) => place.spec), parkedBoards(), spareBoards()];
   const LEVELS = flag('parked') ? PARKED : LISTED;
   const { measureBoard, tableOf } = await load('/src/levels/table.ts');
   // Every level under its name, in the order of the ladder, and after it the boards in reserve for its place;
   // the boards of places that have no level any more come last. `levels` leaves the reserve out.
   const spares = flag('levels') || flag('parked') ? [] : SPARES;
+  /** The code of the place a board of the reserve is of: its name before the seed. */
+  const placeOfSpare = (spare) => spare.id.replace(/_s\d+$/, '');
   const boards = [
-    ...LEVELS.flatMap((spec) => [{ place: spec.id, spec }, ...spares.filter((spare) => spare.id === spec.id).map((spare) => ({ place: `${spare.id} spare`, spec: spare }))]),
-    ...spares.filter((spare) => !LEVELS.some((level) => level.id === spare.id)).map((spare) => ({ place: `${spare.id} gone`, spec: spare })),
+    ...LEVELS.flatMap((spec) => [{ place: spec.id, spec }, ...spares.filter((spare) => placeOfSpare(spare) === spec.id).map((spare) => ({ place: `${placeOfSpare(spare)} spare`, spec: spare }))]),
+    ...spares.filter((spare) => !LEVELS.some((level) => level.id === placeOfSpare(spare))).map((spare) => ({ place: `${placeOfSpare(spare)} gone`, spec: spare })),
   ];
   if (worker) {
     boards.forEach((board, index) => {

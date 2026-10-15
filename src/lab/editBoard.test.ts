@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DOWN_AND_UP, LESSON } from '../levels/boardSamples';
 import { normalSpec } from '../levels/boardFile';
-import { LEVELS } from '../levels/levels';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
+import { rowBoards } from '../levels/boardSets';
 import { ALL_ORIENTATIONS, roll } from '../rules/orientation';
 import { cellAt, clearCell, cycleLeaving, displaySpecOf, editBoardOf, emptyBoard, moveDie, putDie, putFixed, removeAt, resize, rollDie, setStart, setTop, specOf, spinDie, textOf, toggleFixed, toggleHole } from './editBoard';
 
@@ -14,13 +14,13 @@ describe('editBoardOf', () => {
     expect(cellAt(board, 3, 4)).toMatchObject({ kind: 'die', leaving: 1 });
     expect(cellAt(board, 0, 0)).toEqual({ kind: 'hole' });
   });
-  it.each([...ROAD, ...LEVELS].map((spec) => [spec.id, spec] as const))('gives %s back as the level it was', (_, spec) => {
+  it.each(rowBoards().map((spec) => [spec.id, spec] as const))('gives %s back as the level it was', (_, spec) => {
     expect(normalSpec(specOf(editBoardOf(spec), spec))).toEqual(normalSpec(spec));
   });
 });
 
 describe('the changes of a board', () => {
-  const head = ROAD[2];
+  const head = fileBoard('R03');
   it('puts a die on an empty cell, and turns a die to its next face', () => {
     const one = putDie(emptyBoard(3), 1, 1);
     expect(cellAt(one, 1, 1)).toMatchObject({ kind: 'die', top: 1 });

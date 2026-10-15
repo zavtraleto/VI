@@ -1,7 +1,11 @@
 import type { Game } from '../app/game';
 import { BOARD_MARKS, type BoardMark, type BoardWords } from '../levels/boardFile';
 import { boardSvg } from '../levels/boardSvg';
-import { CHAPTERS } from '../levels/chapters';
+import { rowChapters } from '../levels/library';
+import { ROW } from '../levels/row.gen';
+
+/** The chapters of the row as the library reads them. */
+const CHAPTERS = rowChapters(ROW);
 import { exportText, markOfKey, originsOf, type ExportEntry } from '../levels/library';
 import type { LevelSpec } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';

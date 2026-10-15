@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
-import { LEVELS, PARKED } from './levels';
-import { ROAD } from './road';
+import { fileBoard } from './boardFiles';
+import { boardOf } from './boardSets';
 import { walkBoards } from './walk';
 
 /**
@@ -23,18 +23,18 @@ describe('the walk over the boards a player can come to', () => {
 
   it('finds the boards of a level from which the board cannot be cleared, and the commands that lead to the first', () => {
     // P03 of the list is wide open (the walk over it is thousands of boards long); P04 loses the board in four commands.
-    const walk = walkBoards([...LEVELS, ...PARKED].find((spec) => spec.id === 'P04')!, 60);
+    const walk = walkBoards(boardOf('P04'), 60);
     expect(walk.lost).toBeGreaterThan(0);
     expect(walk.example).toBe('EESN');
   }, 30_000);
 
   it('is left at the first board lost, or the first that takes more moves than is asked, where it is told to', () => {
-    const level = [...LEVELS, ...PARKED].find((spec) => spec.id === 'P04')!;
+    const level = boardOf('P04');
     const early = walkBoards(level, 5000, { lost: true });
     expect(early).toMatchObject({ lost: 1, example: 'EESN', capped: false });
     expect(early.boards).toBeLessThan(80);
-    expect(walkBoards(ROAD[1], 5000, { worst: 3 }).worst).toBeGreaterThan(3);
-    expect(walkBoards(ROAD[1], 5000, { worst: 6 })).toEqual(walkBoards(ROAD[1]));
+    expect(walkBoards(fileBoard('R02'), 5000, { worst: 3 }).worst).toBeGreaterThan(3);
+    expect(walkBoards(fileBoard('R02'), 5000, { worst: 6 })).toEqual(walkBoards(fileBoard('R02')));
   }, 30_000);
 
   it('stops at the limit, says so, and counts only the boards it has seen', () => {
@@ -51,12 +51,12 @@ describe('the walk over the boards a player can come to', () => {
     expect(walk.unsettled).toBeGreaterThan(0);
     expect(walk).toMatchObject({ lost: 0, capped: true, example: null });
     // A board that is lost is still counted, by a search that went through every way: P04, as above.
-    const level = [...LEVELS, ...PARKED].find((spec) => spec.id === 'P04')!;
+    const level = boardOf('P04');
     expect(walkBoards(level, 60)).toMatchObject({ unsettled: 0, example: 'EESN' });
   }, 30_000);
 
   it('is left as soon as it is not whole, where it is told to: at its limit, or at a board the solver gave up on', () => {
-    const level = [...LEVELS, ...PARKED].find((spec) => spec.id === 'P04')!;
+    const level = boardOf('P04');
     // Left at the board after the one whose moves filled the queue, the rest of the queue is not solved.
     const cut = walkBoards(level, 60, { capped: true });
     expect(cut).toMatchObject({ capped: true, boards: 60 });
@@ -72,6 +72,6 @@ describe('the walk over the boards a player can come to', () => {
   });
 
   it('is the same every time', () => {
-    expect(walkBoards(ROAD[1])).toEqual(walkBoards(ROAD[1]));
+    expect(walkBoards(fileBoard('R02'))).toEqual(walkBoards(fileBoard('R02')));
   });
 });

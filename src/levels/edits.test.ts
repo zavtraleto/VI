@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec, PuzzleDie } from '../rules/types';
 import { editsOf, probeEdits } from './edits';
-import { LEVELS, PARKED } from './levels';
+import { parkedBoards, rowBoards } from './boardSets';
 
 /** A board of the ladder where 2s work: three cells a side, the player on the first die named. */
 function board(dice: readonly PuzzleDie[], more: Partial<LevelSpec> = {}): LevelSpec {
@@ -61,7 +61,7 @@ describe('the boards one change away from a level', () => {
   });
 
   it('keep every die of a level of the game on the cells its board has', () => {
-    const levels = [...LEVELS, ...PARKED].filter((level) => (level.holes?.length ?? 0) > 0);
+    const levels = [...rowBoards(), ...parkedBoards()].filter((level) => (level.holes?.length ?? 0) > 0);
     expect(levels.length).toBeGreaterThan(0);
     for (const level of levels) {
       const cut = new Set(level.holes!.map((cell) => `${cell.x},${cell.z}`));

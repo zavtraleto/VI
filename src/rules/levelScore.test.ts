@@ -3,8 +3,8 @@ import { moveOf } from './levelSolver';
 import { scoreOf } from './levelScore';
 import { ALL_ORIENTATIONS, roll } from './orientation';
 import type { Dir, LevelSpec, PuzzleDie } from './types';
-import { ROAD } from '../levels/road';
-import { LEVELS, PARKED } from '../levels/levels';
+import { fileBoard } from '../levels/boardFiles';
+import { boardOf } from '../levels/boardSets';
 
 /**
  * Boards of the ladder with a strict floor: 2s work, a combo goes in two moves, and from the
@@ -31,8 +31,8 @@ function turns(x: number, z: number, ...ways: Dir[]): PuzzleDie {
 }
 const way = (...moves: string[]) => moves.map(moveOf);
 const two = (x: number, z: number): PuzzleDie => ({ x, z, top: 2, north: 1 });
-const road = (id: string) => ROAD.find((spec) => spec.id === id)!;
-const level = (id: string) => [...LEVELS, ...PARKED].find((spec) => spec.id === id)!;
+const road = (id: string) => fileBoard(id);
+const level = (id: string) => boardOf(id);
 const kept = (spec: LevelSpec) => scoreOf(spec, spec.solution!.map(moveOf));
 
 /** The player's die rolled west makes a pair in the corner. */

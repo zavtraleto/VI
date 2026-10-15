@@ -34,7 +34,9 @@ for (const key of Object.keys(named)) {
 }
 const states = Number(named.states ?? 400000);
 
-const { LEVELS } = await load('/src/levels/levels.ts');
+const { CAMPAIGN } = await load('/src/levels/campaign.ts');
+// The boards of the row as they are played, the prologue with them (boards/row.json).
+const LEVELS = CAMPAIGN.map((place) => place.spec);
 const { candidate } = await load('/src/levels/generate.ts');
 const { solveLevel, tryWay, replay, moveOf } = await load('/src/rules/levelSolver.ts');
 

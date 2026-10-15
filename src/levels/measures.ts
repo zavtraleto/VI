@@ -1,7 +1,7 @@
 import { DELTA, DIRS, cubeAt } from '../rules/board';
 import { defaultConfig } from '../rules/config';
-import { shortGroups } from '../rules/level';
-import { movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
+import { levelDeadEnd, shortGroups } from '../rules/level';
+import { explore, movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
 import { scan } from '../rules/reach';
 import { ALL_ORIENTATIONS } from '../rules/orientation';
 import { createRun } from '../rules/sim';
@@ -270,4 +270,69 @@ export function decoyOf(spec: LevelSpec, way: readonly SolverMove[]): boolean {
     for (const cube of state.cubes) if (cube.state === 'sinking' && !wentAs.has(cube.id)) wentAs.set(cube.id, cube.ori.top);
   }
   return dice.some((group) => group.ids.some((id) => wentAs.has(id) && wentAs.get(id) !== group.value));
+}
+
+/**
+ * The boards of a level within two moves of its start, every one of them, each solved: how many
+ * they are, how many are dead ends the level says at once, how many are lost and not said, and the
+ * most moves it takes to clear any of the rest. What a careless move or two cost; `node scripts/row.mjs
+ * report` shows it for every place of the row.
+ */
+export function nearOf(spec: LevelSpec): [boards: number, said: number, silent: number, worst: number] {
+  const nameOf = (state: RunState): string =>
+    JSON.stringify([state.cubes.map((cube) => [cube.x, cube.z, cube.ori.top, cube.ori.north, cube.state, cube.t, cube.hold ?? 0, cube.reactionId]).sort(), state.player.x, state.player.z, state.player.level, state.endReason]);
+  const root = startOf(spec);
+  const seen = new Set([nameOf(root)]);
+  let front = [root];
+  let [boards, said, silent, worst] = [0, 0, 0, 0];
+  for (let moves = 1; moves <= 2; moves++) {
+    const next: RunState[] = [];
+    for (const state of front) {
+      for (const move of movesAt(state)) {
+        const after = playMove(state, move);
+        const name = nameOf(after);
+        if (seen.has(name)) continue;
+        seen.add(name);
+        boards++;
+        if (after.endReason === 'passed') continue;
+        if (after.over || levelDeadEnd(after) !== null) {
+          said++;
+          continue;
+        }
+        const solved = solveFrom(after);
+        if (!solved.exhausted) throw new Error(`${spec.id}: a board near the start the solver gave up on`);
+        if (!solved.solution) silent++;
+        else {
+          worst = Math.max(worst, solved.solution.moves.length);
+          next.push(after);
+        }
+      }
+    }
+    front = next;
+  }
+  return [boards, said, silent, worst];
+}
+
+/**
+ * The boards of a level that can be come to by its moves, all of them; those among them from which it
+ * can no longer be cleared; how many of those are dead ends the level says at once; and the most moves
+ * from any board to the cleared one. Only for a board whose boards are few: throws where the walk does
+ * not end.
+ */
+export function lostOf(spec: LevelSpec): { boards: number; lost: number; said: number; worst: number } {
+  const { complete, boards, next, end } = explore(startOf(spec));
+  if (!complete) throw new Error(`${spec.id}: more boards than can be walked whole`);
+  // The moves from every board to the cleared one, found from the cleared one backwards, a move at a time.
+  const far: number[] = end.map((how) => (how === 'passed' ? 0 : -1));
+  let worst = 0;
+  for (let moves = 1, grew = true; grew; moves++) {
+    grew = false;
+    const nearer = next.map((to, at) => far[at] < 0 && to.some((board) => far[board] >= 0 && far[board] < moves));
+    nearer.forEach((is, at) => {
+      if (!is) return;
+      far[at] = worst = moves;
+      grew = true;
+    });
+  }
+  return { boards, lost: far.filter((moves) => moves < 0).length, said: end.filter((how) => how === 'count' || how === 'floor').length, worst };
 }

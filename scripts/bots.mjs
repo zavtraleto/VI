@@ -38,7 +38,12 @@ for (const arg of args) {
   if (!arg.includes('=') && !['spares', 'edits'].includes(arg)) throw new Error(`cannot read "${arg}": the words are spares and edits`);
 }
 
-const { LEVELS, PARKED, SPARES } = await load('/src/levels/levels.ts');
+const { CAMPAIGN } = await load('/src/levels/campaign.ts');
+// The boards of the row as they are played, the prologue with them (boards/row.json).
+const LEVELS = CAMPAIGN.map((place) => place.spec);
+// The boards that were parked and in reserve in the code until 15 October 2026, read from their files.
+const { parkedBoards, spareBoards } = await load('/src/levels/boardSets.ts');
+const [PARKED, SPARES] = [parkedBoards(), spareBoards()];
 const { report, reportRow, REPORT_HEAD, REPORT_PLAYERS, layOut, scoreText } = await load('/src/rules/levelReport.ts');
 const { boardText } = await load('/src/levels/generate.ts');
 const { turnsOf } = await load('/src/levels/measures.ts');

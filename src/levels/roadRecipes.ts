@@ -6,7 +6,7 @@ import { cutFrom, type Recipe } from './recipes';
  * lesson is laid by hand and holds the player to its move; a free piece is a small level on an
  * open board, every die of it a die that rolls, and its board is looked for among the boards
  * laid for its place here (`node scripts/ladder.mjs place=R05`), as the boards of the list are.
- * The board picked is written into `road.ts`, and `road.test.ts` asks of it what its place asks.
+ * The board picked is laid as a file of `boards/`, and `node scripts/row.mjs report` shows what its place asks of it.
  *
  * What every place asks: at least two first moves that keep the board in hand (`firsts`), and
  * the shares of the hasty and the casual persona that clear it. The walk over the boards a
@@ -16,15 +16,16 @@ import { cutFrom, type Recipe } from './recipes';
  * (`safe`): as many dice as the one combo of their one face takes, and the floor shut.
  *
  * Seven boards are the ones their places lay from a seed (`ROAD_SEEDS`). A place keeps the number
- * (`slot`) it had in the edition its board was laid in: the seed lays with it. The other five are
- * the `sketch` of their place, judged by `judge` as any board is: `B01_s290` is the owner's board of the
- * lab, `R05` is `R08` of the second
- * edition turned half round, `R06` was laid by hand for the second edition (its `R09`), `R08` is
- * the board of `P08` of the list, and `R15` is the lesson of the walk of the second edition
- * opened, with the 2 that waits moved a cell so that two first moves keep it in hand.
+ * (`slot`) it had in the edition its board was laid in: the seed lays with it. The other five were
+ * laid by hand and kept here as the `sketch` of their place until the row moved to files
+ * (15 October 2026): a board is its file of `boards/` now, and a place keeps no copy of it.
+ * `B01_s290` is the owner's board of the lab, `R05` is `R08` of the second edition turned half
+ * round, `R06` was laid by hand for the second edition (its `R09`), `R08` is the board of `P08` of
+ * the list, and `R15` is the lesson of the walk of the second edition opened, with the 2 that
+ * waits moved a cell so that two first moves keep it in hand.
  *
- * Where a board misses what its place asks, in one number, `road.test.ts` holds it to exactly
- * that (`MISSES` there): the owner chose those boards by name.
+ * Where a board misses what its place asks, the report says so: the owner chose those boards by
+ * name, and a miss is not a fault of the row.
  */
 
 /** What a place of the road is: a free piece, or the mix that ends its block. */
@@ -50,7 +51,6 @@ export const ROAD_PLACES: readonly RoadPlace[] = [
     ...FREE, slot: 1, id: 'B01_s290', role: 'free', size: 3, dice: 2, faces: [2], par: [3, 3], floor: false, safe: true, personas: BLOCK_A,
     // The owner's board of the lab, laid anew under the name of a board of the course of 6 October, and put between R04
     // and R05 by the owner on 15 October 2026.
-    sketch: [{ start: { x: 0, z: 1 }, dice: [{ x: 0, z: 1, top: 2, north: 4 }, { x: 2, z: 1, top: 2, north: 1 }] }],
     brief: 'two 2s with a cell between them: the roll straight into it turns the 2 away, the way round brings it back up',
   },
   {
@@ -66,18 +66,15 @@ export const ROAD_PLACES: readonly RoadPlace[] = [
     // R08 of the second edition turned half round, the 2 of the die beside the player on its east side, and the row no way
     // used cut off. The player stands a cell west of the edge since 14 October 2026 (the owner): the first move is made
     // with the die they step to.
-    sketch: [{ start: { x: 2, z: 2 }, dice: [{ x: 2, z: 2, top: 4, north: 6 }, { x: 3, z: 2, top: 4, north: 6 }, { x: 1, z: 3, top: 2, north: 3 }, { x: 1, z: 1, top: 2, north: 1 }] }],
     brief: 'two pairs of 2s, or a pair and the two others brought to it: the chain is a gain, not a must',
   },
   {
     ...FREE, slot: 7, id: 'R06', role: 'free', size: 4, dice: 4, faces: [3], par: [2, 3], floor: false, needs: ['link'], kinds: ['top'], avoid: ['glass'], personas: LATER,
-    sketch: [{ start: { x: 1, z: 3 }, dice: [{ x: 1, z: 3, top: 2, north: 4 }, { x: 1, z: 0, top: 3, north: 6 }, { x: 1, z: 1, top: 3, north: 6 }, { x: 2, z: 2, top: 2, north: 4 }] }],
     brief: 'three 3s and one more: the board is not cleared without the chain',
   },
   {
     ...FREE, slot: 8, id: 'R08', role: 'free', size: 4, dice: 5, faces: [2], par: [4, 6], floor: false, shows: ['link'], kinds: ['top'], avoid: ['glass'], personas: LATER,
     // The board of P08 of the list (levels.ts), a long chain, as the owner chose it for the road on 11 October.
-    sketch: [{ start: { x: 3, z: 0 }, dice: [{ x: 3, z: 0, top: 5, north: 6 }, { x: 0, z: 0, top: 3, north: 2 }, { x: 1, z: 1, top: 2, north: 1 }, { x: 0, z: 2, top: 3, north: 6 }, { x: 2, z: 2, top: 6, north: 5 }] }],
     brief: 'a long chain: a pair, and one die after another brought to it while it leaves',
   },
   {
@@ -102,7 +99,6 @@ export const ROAD_PLACES: readonly RoadPlace[] = [
     ...FREE, slot: 15, id: 'R15', role: 'free', size: 4, dice: 5, faces: [3, 2], par: [3, 4], floor: true, personas: LATER,
     // The lesson of the walk of the second edition (its R11) on an open board, every die one that rolls; the 2 that waited
     // in the corner is a cell nearer, since there one first move only kept the board in hand.
-    sketch: [{ start: { x: 0, z: 3 }, dice: [{ x: 0, z: 3, top: 6, north: 4 }, { x: 2, z: 1, top: 6, north: 3 }, { x: 1, z: 2, top: 3, north: 1 }, { x: 2, z: 2, top: 3, north: 1 }, { x: 1, z: 1, top: 2, north: 1 }] }],
     brief: 'the walk of the lesson, now that the floor and the push are known: over the 3s as they leave',
   },
   {

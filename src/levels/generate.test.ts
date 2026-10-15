@@ -6,7 +6,7 @@ import { createRun } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import type { LevelLayout } from '../rules/types';
 import { FROM_ROUTE, FROM_SOLUTION, SKETCH, boardText, builtWay, candidate, cutOut, isBoard, layFromSolution, layOut, levelId, levelOf } from './generate';
-import { LEVELS } from './levels';
+import { boardOf } from './boardSets';
 import { PLACES, cutFrom, type Recipe } from './recipes';
 import { gather, judge, levelSource, placeReport } from './select';
 
@@ -340,7 +340,7 @@ describe('a candidate of a place', () => {
 
   it('gives the levels of the game back from their seeds: the first places, which are quick to judge', () => {
     // P02 is not among them: its board was moved a row when its place was narrowed to a strip, and its seed is kept for the record.
-    for (const level of LEVELS.filter((spec) => ['P01', 'P03', 'P04'].includes(spec.id))) {
+    for (const level of ['P01', 'P03', 'P04'].map(boardOf)) {
       const place = PLACES.find((other) => levelId(other) === level.id)!;
       const verdict = judge(place, level.seed);
       expect(verdict.why, level.id).toBe('');

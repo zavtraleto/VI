@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { beatsOf, chainTier, matchTier, peakBeat, stepBeat } from '../app/juice';
 import { CONTACT_STEPS } from '../app/ritual';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
 import { createRun, defaultConfig, step, type GameEvent } from '../rules';
 import { gridSegments, waveFrom } from '../render/gridLines';
 import { emptyRun, land, place, put } from '../rules/testkit';
@@ -840,7 +840,7 @@ describe('what the rules say', () => {
 
   /** Plays the second piece of the road by its way and says every die that was heard going under, in order. */
   const stairHeard = (memory: ScoreMemory): Cue[] => {
-    const s = createRun({ seed: ROAD[1].seed, config: defaultConfig(), level: ROAD[1] });
+    const s = createRun({ seed: fileBoard('R02').seed, config: defaultConfig(), level: fileBoard('R02') });
     noteLaid(s, memory);
     const heard: Cue[] = [];
     // Up the stair of two, over to the die beyond it, and two rolls: the lower stair goes with the first, the upper with the second.
@@ -863,7 +863,7 @@ describe('what the rules say', () => {
   it('keeps such a die in mind when its move is taken back: it is not forgotten once it has gone', () => {
     const memory = new ScoreMemory();
     stairHeard(memory);
-    const s = createRun({ seed: ROAD[1].seed, config: defaultConfig(), level: ROAD[1] });
+    const s = createRun({ seed: fileBoard('R02').seed, config: defaultConfig(), level: fileBoard('R02') });
     const stair = s.cubes.find((cube) => cube.state === 'sinking')!;
     expect(cuesOfEvent({ type: 'removed', cubeId: stair.id }, s, memory)).toEqual([{ kind: 'sunk', face: 6, pan: 0 }]);
     memory.reset();
@@ -882,7 +882,7 @@ describe('what the rules say', () => {
 
   it('keeps nothing in mind of a board with no die laid as leaving, nor of dice that go by their group', () => {
     const memory = new ScoreMemory();
-    noteLaid(createRun({ seed: ROAD[0].seed, config: defaultConfig(), level: ROAD[0] }), memory);
+    noteLaid(createRun({ seed: fileBoard('R01').seed, config: defaultConfig(), level: fileBoard('R01') }), memory);
     expect(memory.laid.size).toBe(0);
     const s = emptyRun();
     put(s, 0, 0, 2);

@@ -1,4 +1,5 @@
 import type { LevelSpec } from '../rules/types';
+import type { Row } from './row';
 import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardMark, type BoardStatus, type BoardWords } from './boardFile';
 
 export { withHead } from './boardFile';
@@ -12,15 +13,20 @@ import { sameBoard } from './variety';
  * checked of the files against the code, and the text a session of marks is given out as.
  *
  * The row is given to every function that needs it, as the chapters of the campaign are
- * (`CHAPTERS` of `chapters.ts`): the library reads the row, it does not hold it.
+ * (`rowChapters` of the row of `row.gen.ts`): the library reads the row, it does not hold it.
  */
 
-/** A chapter of the row as the library needs it: the shape of `Chapter` of `chapters.ts`. */
-export interface RowChapter {
+/** A chapter of the row as the library needs it: its codes in order. */
+export interface LibraryRowChapter {
   id: number;
   title: string;
   faces: readonly number[] | null;
   stops: readonly string[];
+}
+
+/** The chapters of a laid row as the library reads them: their codes in order. */
+export function rowChapters(row: Row): LibraryRowChapter[] {
+  return row.chapters.map((chapter) => ({ id: chapter.id, title: chapter.title, faces: chapter.faces, stops: row.places.slice(chapter.first, chapter.last + 1).map((place) => place.code) }));
 }
 
 /** Where a board stands in the row: its number from 1, and its chapter. */
@@ -41,12 +47,12 @@ export function spareName(code: string, seed: number): string {
 }
 
 /** The codes of the row in its order. */
-export function rowCodes(chapters: readonly RowChapter[]): string[] {
+export function rowCodes(chapters: readonly LibraryRowChapter[]): string[] {
   return chapters.flatMap((chapter) => chapter.stops);
 }
 
 /** The place of a board in the row, by its name; null for a board that is not in it. */
-export function placeOf(name: string, chapters: readonly RowChapter[]): Place | null {
+export function placeOf(name: string, chapters: readonly LibraryRowChapter[]): Place | null {
   let number = 0;
   for (const chapter of chapters) {
     for (const stop of chapter.stops) {
@@ -58,7 +64,7 @@ export function placeOf(name: string, chapters: readonly RowChapter[]): Place | 
 }
 
 /** The board as the row plays it: on the faces of its chapter and with the floor open, as `levels.ts` lays a board of a chapter. */
-export function asInRow(spec: LevelSpec, place: Place | null, chapters: readonly RowChapter[]): LevelSpec {
+export function asInRow(spec: LevelSpec, place: Place | null, chapters: readonly LibraryRowChapter[]): LevelSpec {
   const faces = place ? chapters.find((chapter) => chapter.id === place.chapter)?.faces : null;
   if (!faces) return spec;
   const { floor: _floor, ...open } = { ...spec, faces, values: faces };
@@ -144,7 +150,7 @@ export function sameBoardAnyFaces(a: LevelSpec, b: LevelSpec): boolean {
  * the row that its file said was in it, `RC`; else what its file says; else by the last mark of
  * the owner, `RC` for fire or fine and `X` for a miss; else a draft.
  */
-export function statusFor(name: string, said: BoardStatus | undefined, mark: BoardMark | undefined, chapters: readonly RowChapter[]): BoardStatus {
+export function statusFor(name: string, said: BoardStatus | undefined, mark: BoardMark | undefined, chapters: readonly LibraryRowChapter[]): BoardStatus {
   if (placeOf(name, chapters)) return 'R';
   if (said === 'R') return 'RC';
   if (said) return said;
@@ -159,20 +165,18 @@ export interface LibraryFile {
   text: string;
 }
 
-/** The boards the code of the game has: the row in its order, and every board there is besides (the reserves, the parked). */
+/** The boards of the row as the game plays them, in its order. */
 export interface CodeBoards {
   row: readonly LevelSpec[];
-  others: readonly LevelSpec[];
 }
 
 /**
  * What is wrong between the files of the library and the code, a line to a fault with the code
  * of the board in it; empty where they agree. Every board of the row has a file under its code
- * with the same dice and way and the status `R`; every file with `R` is in the row; every other
- * board of the code has a file with the same dice and way; every file is read and says a status
- * of the four.
+ * with the same dice and way and the status `R`; every file with `R` is in the row; every file is
+ * read and says a status of the four.
  */
-export function checkLibrary(files: readonly LibraryFile[], code: CodeBoards, chapters: readonly RowChapter[]): string[] {
+export function checkLibrary(files: readonly LibraryFile[], code: CodeBoards, chapters: readonly LibraryRowChapter[]): string[] {
   const faults: string[] = [];
   const read: { name: string; spec: LevelSpec; head: BoardHead; strict: boolean }[] = [];
   for (const { name, text } of files) {
@@ -202,9 +206,6 @@ export function checkLibrary(files: readonly LibraryFile[], code: CodeBoards, ch
     else if (!file.strict) faults.push(`${spec.id}: in the row, and the rules refuse its file`);
   }
   for (const file of read) if (file.head.status === 'R' && !row.includes(file.name)) faults.push(`${file.name}: status R, and it is not in the row`);
-  for (const spec of code.others) {
-    if (!read.some((file) => sameDice(file.spec, spec))) faults.push(`${spec.id}: a board of the code with no file of the same dice and way`);
-  }
   return faults;
 }
 

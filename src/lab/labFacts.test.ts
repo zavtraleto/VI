@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ROAD } from '../levels/road';
+import { fileBoard } from '../levels/boardFiles';
 import { parseBoard } from '../levels/boardFile';
 import { GEN_PLACES, answer, instantOf, laterOf, offersOfBoard, secondsOf, spareOf } from './labFacts';
 
-const R03 = ROAD[2];
+const R03 = fileBoard('R03');
 
 describe('the tiers of the lab', () => {
   it('says at once that a board is laid and is no dead end', () => {

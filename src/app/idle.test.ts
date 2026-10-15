@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROAD_IDLE } from '../levels/road';
+import { IDLE_RULES } from './signWay';
 import { Idle, type IdleRule } from './idle';
 
 const RULE: IdleRule = { blinkMs: 4000, signMs: 8000, wasted: 3 };
@@ -101,8 +101,8 @@ describe('the wait of a stage', () => {
     expect(idle.at(6000)).toEqual({ blink: false, sign: true });
   });
 
-  it('takes the rule of every piece of the road as it is written', () => {
-    for (const rule of Object.values(ROAD_IDLE)) {
+  it('takes every rule a place can wait by as it is written', () => {
+    for (const rule of Object.values(IDLE_RULES)) {
       const idle = new Idle(rule);
       idle.acted(0, 0);
       expect(idle.at(rule.signMs - 1).sign).toBe(false);
