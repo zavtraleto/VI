@@ -100,6 +100,8 @@
 | Документ | Вид | Что в нём |
 |---|---|---|
 | [VI_Playgama_Page.md](VI_Playgama_Page.md) | истина | тексты страницы игры в кабинете Playgama (временные) |
+| [superpowers/specs/2026-10-15-vi-platform-layer-design.md](superpowers/specs/2026-10-15-vi-platform-layer-design.md) | решение | **в силе с 15 октября 2026; не построено.** Слой платформы: игра знает только тип `Platform` и его реализацию `none`, площадка — адаптер `platforms/<имя>/`, подставляется псевдонимом `@platform` при сборке с `VI_PLATFORM`; сборка без площадки без SDK; `npm run pack -- playgama`; как добавить Poki или CrazyGames |
+| [superpowers/plans/2026-10-15-vi-platform-layer.md](superpowers/plans/2026-10-15-vi-platform-layer.md) | план | сборка слоя платформы в четыре коммита, каждый с рабочим архивом Playgama: тип и адаптер рядом с игрой, игра на `@platform`, SDK только в сборке площадки, документы; не выполнен |
 | [superpowers/plans/2026-10-03-vi-ads-in-world.md](superpowers/plans/2026-10-03-vi-ads-in-world.md) | план | реклама в мире игры; не выполнен |
 
 ## Уйдут вместе с кодом

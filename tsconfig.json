@@ -11,7 +11,9 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": { "@platform": ["./platforms/none.ts"] }
   },
-  "include": ["src"]
+  "include": ["src", "platforms"],
+  "exclude": ["platforms/*/vite.ts"]
 }

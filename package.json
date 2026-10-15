@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "pack": "npm run build && node scripts/pack.mjs",
+    "pack": "node scripts/pack.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "fonts": "node scripts/subset-fonts.mjs && node scripts/cyrillic-font.mjs"

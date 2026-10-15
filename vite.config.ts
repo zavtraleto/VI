@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import playgamaBridge from '@playgama/bridge/vite';
 import JavaScriptObfuscator from 'javascript-obfuscator';
 import type { Plugin } from 'vite';
@@ -82,8 +82,24 @@ function woff2Only(): Plugin {
   };
 }
 
-export default defineConfig({
+/**
+ * The platform a build is made for: `VI_PLATFORM`, read by `vite build` only. The dev server
+ * and the tests always have none. The game reads it as `@platform`.
+ */
+function platformOf(command: 'build' | 'serve'): string {
+  return (command === 'build' && process.env.VI_PLATFORM) || 'none';
+}
+
+/** The file `@platform` stands for: platforms/none.ts, or the adapter of a platform. */
+function platformModule(name: string): string {
+  const file = resolve(name === 'none' ? 'platforms/none.ts' : `platforms/${name}/adapter.ts`);
+  if (!existsSync(file)) throw new Error(`VI_PLATFORM=${name}: there is no ${file}`);
+  return file;
+}
+
+export default defineConfig(({ command }) => ({
   base: './',
+  resolve: { alias: [{ find: /^@platform$/, replacement: platformModule(platformOf(command)) }] },
   define: { 'import.meta.env.VI_VERSION': JSON.stringify(version) },
   // The Bridge SDK of the platform: from its CDN, with the copy of the package as a fallback.
   // The boards of the lab of the levels are read and written by the dev server only: `viBoards` takes no part in a build.
@@ -102,5 +118,5 @@ export default defineConfig({
   },
   // The files are run side by side, and a test that plays whole runs takes three times as long among them as alone:
   // the five seconds a test gets unless said were what `bot.test.ts` took to the millisecond, and one file more tipped it.
-  test: { include: ['src/**/*.test.ts'], testTimeout: 20_000 },
-});
+  test: { include: ['src/**/*.test.ts', 'platforms/**/*.test.ts'], testTimeout: 20_000 },
+}));
