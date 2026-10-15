@@ -23,7 +23,7 @@ export interface Chapter {
 
 /** The chapters of the row, in its order: the prologue is chapter 0. */
 export const CHAPTERS: readonly Chapter[] = [
-  { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02', 'R03', 'R04', 'R05', 'R07', 'R08'] },
+  { id: 0, title: 'prologue', faces: null, stops: ['R01', 'R02', 'R03', 'R04', 'B01_s290', 'R05', 'R07', 'R08'] },
   { id: 1, title: 'road', faces: [2, 3], stops: ['R11', 'P02', 'C1-05', 'C1-06', 'C1-07'] },
   { id: 2, title: 'order', faces: [2, 3], stops: ['R09', 'P07', 'P08', 'C2-05', 'P24'] },
   { id: 3, title: 'floor', faces: [2, 3], stops: ['R13', 'R10', 'R14', 'P06', 'P09', 'R16', 'P12'] },
@@ -43,6 +43,7 @@ export const STOPS: Readonly<Record<string, StopMeta>> = {
   R02: { chapter: 0, role: 'learn', archetype: 'ride', event: 'stair and floor' },
   R03: { chapter: 0, role: 'apply', archetype: 'first free board' },
   R04: { chapter: 0, role: 'apply', archetype: 'free to fail', event: 'first dead end' },
+  B01_s290: { chapter: 0, role: 'apply', archetype: 'the way round keeps the face', event: 'a straight roll turns the face away' },
   R05: { chapter: 0, role: 'apply', archetype: 'choose the first die', event: 'choice of the first die' },
   R07: { chapter: 0, role: 'meet', teaches: 'link', archetype: 'chain' },
   R08: { chapter: 0, role: 'rest', archetype: 'domino', event: 'domino' },

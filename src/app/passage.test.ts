@@ -17,7 +17,7 @@ describe('the board the program opens on', () => {
   it('is the piece the player stopped on', () => {
     expect(startBoard('R01', false, 0)).toEqual({ road: 0 });
     expect(startBoard('R04', false, 0)).toEqual({ road: 3 });
-    expect(startBoard('R08', false, 5)).toEqual({ road: 6 });
+    expect(startBoard('R08', false, 5)).toEqual({ road: 7 });
     // A code that is kept is read before what was passed in the build before.
     expect(startBoard('R02', true, 5)).toEqual({ road: 1 });
   });
@@ -30,7 +30,7 @@ describe('the board the program opens on', () => {
   it('is past the first block for one who passed the first level of the build before and has no piece kept', () => {
     expect(startBoard(undefined, true, 0)).toEqual(startBoard(FIRST_PASSED, false, 0));
     // Past the block is the first piece of the second block, whatever level of the list they would go on with.
-    expect(startBoard(undefined, true, 3)).toEqual({ road: 5 });
+    expect(startBoard(undefined, true, 3)).toEqual({ road: 6 });
   });
 });
 

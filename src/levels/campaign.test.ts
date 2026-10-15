@@ -44,7 +44,7 @@ describe('the cells of the list', () => {
 
 describe('where the list opens', () => {
   it('is the piece the player is on, by the place kept of them', () => {
-    expect(campaignFocus({ ...none, road: 'R08' }, false, 0)).toBe(6);
+    expect(campaignFocus({ ...none, road: 'R08' }, false, 0)).toBe(7);
   });
   it('is the first piece for one who is new, whatever they passed of the list', () => {
     expect(campaignFocus({ passed: { [LEVELS[0].id]: true }, stats: {} }, false, 1)).toBe(0);
@@ -62,27 +62,27 @@ describe('where the list opens', () => {
 describe('the chapters of the row', () => {
   it('is the prologue and the chapters, in the order of CHAPTERS, numbered from one', () => {
     expect(CAMPAIGN.map((stop) => stop.spec.id)).toEqual(CHAPTERS.flatMap((chapter) => chapter.stops));
-    expect(CAMPAIGN.length).toBe(24);
-    expect(CAMPAIGN[17]).toMatchObject({ chapter: 3, role: 'meet', teaches: 'push' });
-    expect(CAMPAIGN[18]).toMatchObject({ chapter: 3, role: 'meet', teaches: 'lift' });
+    expect(CAMPAIGN.length).toBe(25);
+    expect(CAMPAIGN[18]).toMatchObject({ chapter: 3, role: 'meet', teaches: 'push' });
+    expect(CAMPAIGN[19]).toMatchObject({ chapter: 3, role: 'meet', teaches: 'lift' });
     expect(CHAPTER_3.map((spec) => spec.id)).toEqual(CHAPTERS[3].stops);
     // The lessons of the floor keep their fixed dice, and the floor is open.
     for (const spec of CHAPTER_3.slice(0, 2)) expect(spec.layout!.dice.some((die) => die.fixed), spec.id).toBe(true);
     for (const spec of CHAPTER_3) expect(spec.floor, spec.id).toBeUndefined();
-    expect(CAMPAIGN[12]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
+    expect(CAMPAIGN[13]).toMatchObject({ chapter: 2, role: 'meet', teaches: 'twoFaces' });
     // The boards the owner called a repeat on 14 October are out of the row.
     for (const id of ['R15', 'C1-04', 'K22', 'R12', 'P15']) expect(CAMPAIGN.some((stop) => stop.spec.id === id), id).toBe(false);
     expect(CHAPTER_2.map((spec) => spec.id)).toEqual(CHAPTERS[2].stops);
     expect(CAMPAIGN[0]).toMatchObject({ chapter: 0, role: 'meet' });
-    expect(CAMPAIGN[7]).toMatchObject({ chapter: 1, role: 'meet', teaches: 'walk' });
+    expect(CAMPAIGN[8]).toMatchObject({ chapter: 1, role: 'meet', teaches: 'walk' });
     expect(CHAPTERS.map((chapter) => [chapter.id, chapter.faces])).toEqual([[0, null], [1, [2, 3]], [2, [2, 3]], [3, [2, 3]]]);
     expect(CHAPTERS[0].stops).toEqual(ROAD.map((spec) => spec.id));
     expect(CHAPTER_1.map((spec) => spec.id)).toEqual(CHAPTERS[1].stops);
   });
 
   it('gives every board of a chapter the faces of the chapter, and leaves the prologue its own', () => {
-    for (const stop of CAMPAIGN.slice(7)) expect(stop.spec.faces, stop.spec.id).toEqual([2, 3]);
-    for (const stop of CAMPAIGN.slice(7)) expect(stop.spec.values, stop.spec.id).toEqual([2, 3]);
+    for (const stop of CAMPAIGN.slice(8)) expect(stop.spec.faces, stop.spec.id).toEqual([2, 3]);
+    for (const stop of CAMPAIGN.slice(8)) expect(stop.spec.values, stop.spec.id).toEqual([2, 3]);
     expect(CAMPAIGN[0].spec.faces).toEqual([2]);
     expect(CAMPAIGN[1].spec.faces).toEqual([3]);
     const spec = ROAD[0];
@@ -118,6 +118,6 @@ describe('the chapters of the row', () => {
   it('opens the list on the first board of the chapter not yet passed', () => {
     // nextLevel of the game is the first index of LEVELS not passed: with three of the chapter passed, 3.
     expect(campaignFocus({ passed: Object.fromEntries(CHAPTER_1.slice(0, 3).map((spec) => [spec.id, true])), stats: {}, road: ROAD_END }, false, 3)).toBe(ROAD.length + 3);
-    expect(campaignFocus({ ...none, road: ROAD_END }, false, 0)).toBe(7);
+    expect(campaignFocus({ ...none, road: ROAD_END }, false, 0)).toBe(8);
   });
 });

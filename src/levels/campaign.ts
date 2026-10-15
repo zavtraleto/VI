@@ -50,7 +50,7 @@ export interface Hint {
 /**
  * The hint a board shows before it starts, by its code, in a window of a transmission, once for a
  * player (the owner, 15 October 2026): the chain of the prologue, the walk over leaving dice on the
- * meeting of chapter 1, the seven on its third (the tenth of the row), the push and the way down
+ * meeting of chapter 1, the seven on its third (the eleventh of the row), the push and the way down
  * and up of chapter 3. The hint of time (`hintLinkMove`) keeps its text and comes back with the
  * chapter that uses it.
  */

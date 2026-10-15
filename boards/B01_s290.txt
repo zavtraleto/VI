@@ -1,14 +1,15 @@
 id: B01_s290
-status: D
-origin: курс 6 октября, резерв (B01)
-faces: 3
+status: R
+origin: курс 6 октября, резерв (B01); доска владельца из лаборатории 15 октября; пролог, дорога редакции 7
+faces: 2
+floor: shut
+undos: 3
 seed: 290
-chapter: 5
-lesson: lessonThrees
-par: 1
+chapter: 0
+par: 3
 exact: yes
-way: 1,2,N
+way: 0,1,N 0,0,E 1,0,S
 ---
  .   .   .
- .   .  32
- .  24* 32
+24*  .  21
+ .   .   .

@@ -78,11 +78,7 @@ describe('the list of levels', () => {
     const spec = levelsPanel(levels, 1, { onPick: nothing, share, onBack: nothing });
     const cells = row(spec, 'levels');
     expect(spec.title).toBe(PANELS.levels);
-    expect(cells.levels).toEqual([
-      { stars: 1, locked: false },
-      { stars: 0, locked: false },
-      { stars: 0, locked: false },
-    ]);
+    expect(cells.levels).toEqual([{ stars: 1 }, { stars: 0 }, { stars: 0 }]);
     expect(cells.marks).toBe(3);
     expect(cells.current).toBe(1);
     expect(spec.home).toBe('level-1');
@@ -102,11 +98,10 @@ describe('the list of levels', () => {
     const picked: number[] = [];
     const items = row(levelsPanel(cells, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels');
     expect(items.levels.length).toBe(ROAD.length + LEVELS.length);
-    // The row of the second edition: the prologue of seven and chapter 1.
-    expect(items.levels.length).toBe(24);
-    expect(items.levels[0]).toMatchObject({ stars: 3, locked: false });
-    expect(items.levels[ROAD.length]).toMatchObject({ stars: 0, locked: false });
-    expect(items.levels.every((cell) => !cell.locked)).toBe(true);
+    // The row of the second edition: the prologue of eight and chapters 1 to 3.
+    expect(items.levels.length).toBe(25);
+    expect(items.levels[0]).toMatchObject({ stars: 3 });
+    expect(items.levels[ROAD.length]).toMatchObject({ stars: 0 });
     expect(items.note(0)).toBe(`FACE ${ROAD[0].faces!.join(' ')} · ${goalText(cells[0].goal)}`);
     items.pick(ROAD.length);
     items.pick(2);

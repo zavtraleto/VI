@@ -8,10 +8,11 @@ import type { Dir, LevelSpec } from '../rules/types';
  * (`levels.ts`).
  *
  * This is the prologue of the campaign of the second edition
- * (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, sections 4.1 and 5): seven pieces in two
+ * (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, sections 4.1 and 5): eight pieces in two
  * blocks (`ROAD_BLOCKS`), set by the owner's notes of 14 October 2026. `R01` to `R05` teach the roll,
- * the faces, the combo and the choice of the first die; `R07` the chain, and `R08` is the reward after
- * it. The nine pieces the road had besides are in spare (`ROAD_SPARES`): boards that the chapters of
+ * the faces, the combo and the choice of the first die, and between `R04` and `R05` stands `B01_s290`,
+ * a board of the course whose 2 is brought back up by the way round (the owner, 15 October 2026);
+ * `R07` the chain, and `R08` is the reward after it. The nine pieces the road had besides are in spare (`ROAD_SPARES`): boards that the chapters of
  * the campaign take by their thought (`campaign.ts`), each under its code still.
  *
  * A lesson is the piece that brings a move, with a line above the board. `R01` and `R02` are
@@ -28,8 +29,8 @@ import type { Dir, LevelSpec } from '../rules/types';
  * line cut off its side (`R04`, `R05`), every die a die that rolls, at least two first moves that
  * keep the board in hand where its board allows. Its board is picked among the boards laid for
  * its place (`roadRecipes.ts`), and what the place asks is asked of it again in `road.test.ts`.
- * `R03` and `R04` cannot be lost: as many dice as the one combo of their face takes, and the
- * floor shut. From `R05` on a piece can come to a dead end, and a move can be taken back.
+ * `R03`, `R04` and `B01_s290` cannot be lost: as many dice as the one combo of their face takes,
+ * and the floor shut. From `R05` on a piece can come to a dead end, and a move can be taken back.
  * Nothing is asked of the walk over the boards the player can come to: on an open board they are
  * thousands and more.
  *
@@ -116,7 +117,17 @@ export const ROAD: readonly LevelSpec[] = [
     layout: { start: { x: 1, z: 3 }, dice: [{ x: 1, z: 3, top: 2, north: 6 }, { x: 0, z: 1, top: 3, north: 2 }, { x: 1, z: 1, top: 3, north: 2 }] },
     par: 2, solution: ['1,3,N', '1,2,W'],
   },
-  // . . . .    A5, free: the board that was R08 of the second edition, turned half round, with the
+  // # # #      A5, free: the owner's board of the lab, laid anew under the name of a board of the course
+  // A # b      of 6 October (B01_s290), and put here by the owner on 15 October 2026. Two 2s on one row,
+  // # # #      both with the 2 up, a cell between them. A roll east into it turns the 2 away; north,
+  //            east and south, round the cell, bring it up again beside the other 2, as does the way
+  //            round by the south.
+  {
+    ...COMMON, id: 'B01_s290', seed: 290, size: 3, values: [2], faces: [2], norm: 2, floor: false,
+    layout: { start: { x: 0, z: 1 }, dice: [{ x: 0, z: 1, top: 2, north: 4 }, { x: 2, z: 1, top: 2, north: 1 }] },
+    par: 3, solution: ['0,1,N', '0,0,E', '1,0,S'],
+  },
+  // . . . .    A6, free: the board that was R08 of the second edition, turned half round, with the
   // # d # #    row no way used cut off. The player starts on the die a cell west of the east edge,
   // # # A b    nearer the middle (the owner, 14 October 2026): the first die to roll is the one beside,
   // # c # #    whose 2 is on its east side, where it is seen. A step east, north and west: the 2s at
@@ -328,8 +339,8 @@ export interface RoadBlock {
 
 /** The blocks of the road, in its order. */
 export const ROAD_BLOCKS: readonly RoadBlock[] = [
-  { from: 0, to: 4, oneScale: true },
-  { from: 5, to: 6, oneScale: false },
+  { from: 0, to: 5, oneScale: true },
+  { from: 6, to: 7, oneScale: false },
 ];
 
 /** The block the piece at this place of the road is in; null for a place that is in none. */

@@ -12,12 +12,13 @@ import { cutFrom, type Recipe } from './recipes';
  * the shares of the hasty and the casual persona that clear it. The walk over the boards a
  * player can come to (`walk.ts`) is not asked of a place: on an open board the dice can be
  * rolled anywhere and turned any way, the boards are thousands and millions, and the walk is
- * cut long before it has seen them. `R03` and `R04` cannot be lost by what they are made of
+ * cut long before it has seen them. `R03`, `R04` and `B01_s290` cannot be lost by what they are made of
  * (`safe`): as many dice as the one combo of their one face takes, and the floor shut.
  *
  * Seven boards are the ones their places lay from a seed (`ROAD_SEEDS`). A place keeps the number
- * (`slot`) it had in the edition its board was laid in: the seed lays with it. The other four are
- * the `sketch` of their place, judged by `judge` as any board is: `R05` is `R08` of the second
+ * (`slot`) it had in the edition its board was laid in: the seed lays with it. The other five are
+ * the `sketch` of their place, judged by `judge` as any board is: `B01_s290` is the owner's board of the
+ * lab, `R05` is `R08` of the second
  * edition turned half round, `R06` was laid by hand for the second edition (its `R09`), `R08` is
  * the board of `P08` of the list, and `R15` is the lesson of the walk of the second edition
  * opened, with the 2 that waits moved a cell so that two first moves keep it in hand.
@@ -45,6 +46,13 @@ const FREE = { chapter: 0, compact: false, firsts: [2, 99] } as const;
 export const ROAD_SEEDS: Readonly<Record<string, number>> = { R03: 10393, R04: 261, R09: 10307, R11: 11400, R12: 11118, R14: 30503, R16: 30547 };
 
 export const ROAD_PLACES: readonly RoadPlace[] = [
+  {
+    ...FREE, slot: 1, id: 'B01_s290', role: 'free', size: 3, dice: 2, faces: [2], par: [3, 3], floor: false, safe: true, personas: BLOCK_A,
+    // The owner's board of the lab, laid anew under the name of a board of the course of 6 October, and put between R04
+    // and R05 by the owner on 15 October 2026.
+    sketch: [{ start: { x: 0, z: 1 }, dice: [{ x: 0, z: 1, top: 2, north: 4 }, { x: 2, z: 1, top: 2, north: 1 }] }],
+    brief: 'two 2s with a cell between them: the roll straight into it turns the 2 away, the way round brings it back up',
+  },
   {
     ...FREE, slot: 3, id: 'R03', role: 'free', size: 3, dice: 2, faces: [2], par: [1, 2], floor: false, safe: true, personas: BLOCK_A,
     brief: 'the first freedom: two dice, a pair of 2s, and the 2 of the own die on a side the player sees',
