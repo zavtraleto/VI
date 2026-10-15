@@ -1,7 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { basename, join, resolve, sep } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
 import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, safeName, versionOf } from './src/lab/boardsServer';
+import { buildRow, readRowFile, rowText, touchesRow } from './src/levels/row';
 
 /**
  * The files of the lab of the levels for the page `?lab=levels`: the dev server reads and writes
@@ -121,6 +122,29 @@ export function viBoards(): Plugin {
       server.watcher.on('add', told);
       server.watcher.on('change', told);
       server.watcher.on('unlink', told);
+
+      // The row the game reads is laid again when row.json or a board of it is written, by the lab or by anyone
+      // (docs/superpowers/specs/2026-10-15-vi-row-json-design.md, section 4.4). A row that cannot be laid is said on
+      // the server and over the page, and row.gen.ts is left as it was.
+      const genFile = resolve(server.config.root, 'src/levels/row.gen.ts');
+      const relay = (path: string): void => {
+        const full = resolve(path);
+        if (dirname(full) !== dir) return;
+        try {
+          const file = readRowFile(readFileSync(join(dir, 'row.json'), 'utf8'));
+          if (!touchesRow(basename(full), file)) return;
+          const texts = new Map(readdirSync(dir).filter((one) => one.endsWith('.txt')).map((one) => [basename(one, '.txt'), readFileSync(join(dir, one), 'utf8')]));
+          const text = rowText(buildRow(file, texts));
+          if (!existsSync(genFile) || readFileSync(genFile, 'utf8') !== text) writeFileSync(genFile, text);
+        } catch (error) {
+          const message = (error as Error).message;
+          server.config.logger.error(message);
+          server.ws.send({ type: 'error', err: { message, stack: '' } });
+        }
+      };
+      server.watcher.on('add', relay);
+      server.watcher.on('change', relay);
+      server.watcher.on('unlink', relay);
     },
   };
 }

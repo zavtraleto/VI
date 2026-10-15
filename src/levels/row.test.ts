@@ -6,7 +6,7 @@ import { createRun } from '../rules/sim';
 import { hasReadyGroup } from '../rules/spawn';
 import { t } from '../ui/i18n';
 import { BOARD_TEXTS } from './boardFiles';
-import { buildRow, readRowFile, rowText, type RowFile } from './row';
+import { buildRow, readRowFile, rowText, touchesRow, type RowFile } from './row';
 import { ROW } from './row.gen';
 
 /** The board of B01_s290 under other codes: two 2s a cell apart, cleared by the way round in three moves. */
@@ -75,6 +75,16 @@ describe('buildRow', () => {
     expect(text).toContain('export const ROW: Row = {');
     expect(rowText(buildRow(readRowFile(JSON.stringify(file())), boards))).toBe(text);
     expect(() => readRowFile('{ "chapters": 1 }')).toThrow('row: "chapters" is a list of chapters');
+  });
+});
+
+describe('touchesRow', () => {
+  it('is row.json and the file of a board of the row, and no other file', () => {
+    expect(touchesRow('row.json', file())).toBe(true);
+    expect(touchesRow('A.txt', file())).toBe(true);
+    expect(touchesRow('B.txt', file())).toBe(true);
+    expect(touchesRow('C.txt', file())).toBe(false);
+    expect(touchesRow('README.md', file())).toBe(false);
   });
 });
 

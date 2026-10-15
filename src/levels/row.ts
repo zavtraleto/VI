@@ -156,6 +156,14 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
   return { chapters, places };
 }
 
+/** Whether a file of `boards/` written anew changes the row: row.json itself, or the file of a board in it. */
+export function touchesRow(name: string, file: RowFile): boolean {
+  if (name === 'row.json') return true;
+  if (!name.endsWith('.txt')) return false;
+  const code = name.slice(0, -'.txt'.length);
+  return file.chapters.some((chapter) => chapter.places.some((place) => place.board === code));
+}
+
 /** The text of `row.gen.ts` for a row: one literal, keys as they were laid, two spaces. */
 export function rowText(row: Row): string {
   return [
