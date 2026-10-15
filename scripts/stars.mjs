@@ -1,9 +1,8 @@
 // What the levels cost in moves: how many moves over the fewest a pass takes, for the players
 // made of the rules. The fewest moves of a level are proved by the solver; this measures the
-// other end, the moves of the passes that are not the shortest, to set stars, gates and limits by.
-// The players are the personas and the random one of src/rules/levelBot.ts; the stars, the limit
-// of moves and the gates are the game's own, src/levels/progress.ts: change them there and the
-// tables follow. What the numbers came to is in docs/VI_Levels_Progression_Research.md.
+// other end, the moves of the passes that are not the shortest, to set stars and limits by.
+// The players are the personas and the random one of src/rules/levelBot.ts; the stars are the
+// game's own, src/levels/progress.ts: change them there and the tables follow. What the numbers came to is in docs/VI_Levels_Progression_Research.md.
 //
 //   node scripts/stars.mjs                 the tables, 200 runs of each player on each level
 //   node scripts/stars.mjs runs=60         fewer runs
@@ -39,7 +38,7 @@ const PERSONAS = PLAYERS.slice(1);
 
 const { LEVELS } = await load('/src/levels/levels.ts');
 const { personaPlay, randomPlay } = await load('/src/rules/levelBot.ts');
-const { THREE_STARS_OVER, TWO_STARS_OVER, chaptersOf, gateOf, levelStars } = await load('/src/levels/progress.ts');
+const { THREE_STARS_OVER, TWO_STARS_OVER, levelStars } = await load('/src/levels/progress.ts');
 // The game has no limit of moves since 12 October 2026. The one it had, five times the fewest moves and ten,
 // is kept here to measure against: what a limit would do to the players.
 const moveLimit = (par) => (par === undefined ? 0 : 5 * par + 10);
@@ -118,13 +117,18 @@ const table = (rows) => {
 const movesOf = (level, player) => plays[level][player].moves;
 const all = LEVELS.map((_, level) => level);
 
-/** The chapters of the ladder, each with its levels, counted from 0, and the stars its gate asks for. */
-const chapters = chaptersOf(LEVELS).map((chapter) => ({ faces: LEVELS[chapter.from].faces.join(''), levels: all.slice(chapter.from, chapter.to), gate: gateOf(chapter) }));
+/** The chapters of the ladder: the levels that follow one another and name one chapter, counted from 0, with the faces of the first. */
+const chapters = [];
+LEVELS.forEach((level, index) => {
+  const last = chapters[chapters.length - 1];
+  if (last && last.chapter === (level.chapter ?? 0)) last.levels.push(index);
+  else chapters.push({ chapter: level.chapter ?? 0, faces: level.faces.join(''), levels: [index] });
+});
 /** The limit of moves a level was played with until 12 October 2026. */
 const limitOf = (level) => moveLimit(LEVELS[level].par);
 
 console.log(`Runs of each player on each level: ${RUNS}. A persona is called off at ${PERSONA_CAP} moves, the random player at ${RANDOM_CAP}.`);
-console.log(`The game: three stars within ${TOP} of the fewest moves, two within ${TWO}, one for a pass; there is no limit of moves (the one the game had: ${all.map(limitOf).join(' ')}); the gates ask for ${chapters.map(({ gate }) => gate).join(', ')} stars.`);
+console.log(`The game: three stars within ${TOP} of the fewest moves, two within ${TWO}, one for a pass; there is no limit of moves (the one the game had: ${all.map(limitOf).join(' ')}); every level is open.`);
 
 console.log('\n1. Passes with no limit, and the moves of a pass over the fewest: median / nine in ten');
 console.log(table([
@@ -199,25 +203,7 @@ console.log(table([
   ...chapters.map(({ faces, levels }, index) => [index + 1, faces, levels.length, levels.length * 3, ...PERSONAS.map((player) => [1, 3, 10].map((tries) => starsOver(levels, player, tries).toFixed(1)).join(' / '))]),
 ]));
 
-console.log('\n7. A gate of stars before a chapter: tries of every level before it after which a player is expected to hold them; the gate of the game is marked');
-{
-  const rows = [['chapter', 'gate', ...PERSONAS]];
-  chapters.slice(1).forEach(({ gate: own }, index) => {
-    const before = chapters.slice(0, index + 1).flatMap((chapter) => chapter.levels);
-    const stars = before.length * 3;
-    // From a star for every level to two for every level, by sixths of what there is, and the gate of the game among them.
-    const gates = [...new Set([2, 2.5, 3, 3.5, 4].map((sixths) => Math.round((stars * sixths) / 6)).concat(own))].sort((a, b) => a - b);
-    for (const gate of gates) {
-      rows.push([index + 2, `${gate} of ${stars}${gate === own ? ' *' : ''}`, ...PERSONAS.map((player) => {
-        for (let tries = 1; tries <= 30; tries++) if (starsOver(before, player, tries) >= gate) return tries;
-        return 'over 30';
-      })]);
-    }
-  });
-  console.log(table(rows));
-}
-
-console.log(`\n8. How ${RANDOM_CAP} moves at random end, with no limit`);
+console.log(`\n7. How ${RANDOM_CAP} moves at random end, with no limit`);
 console.log(table([
   ['level', 'dice', 'faces', 'cleared', 'dead end', 'still going'],
   ...LEVELS.map((spec, level) => {

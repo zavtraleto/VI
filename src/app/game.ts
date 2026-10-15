@@ -24,7 +24,7 @@ import { BoardView, type Frame } from '../render/view';
 import { ROAD, blockOf, placeAfter } from '../levels/road';
 import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf } from '../levels/campaign';
 import { LEVELS } from '../levels/levels';
-import { STAR_POINTS, ladderProgress, levelStars, starScore, starsHeld, type LadderProgress } from '../levels/progress';
+import { STAR_POINTS, levelStars, starScore, starsHeld } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
 import { messagesOf } from '../levels/voices';
 import {
@@ -172,11 +172,6 @@ const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'les
 /** A window lower than this, in CSS pixels, and lying on its side shows the note that came with the program so many signs at a time. */
 const README_LOW = 520;
 const README_SIGNS = 330;
-/**
- * A chapter of the levels opens for the stars of the levels before it. The gates are a probe:
- * `?gates=off` in the address leaves every chapter open, to play the ladder both ways.
- */
-const LEVEL_GATES = new URLSearchParams(window.location.search).get('gates') !== 'off';
 /** What the report of the levels says before any level has been played. */
 const LEVELS_UNPLAYED = 'VI levels playtest: no level played yet';
 
@@ -1077,11 +1072,6 @@ export class Game {
    * the level is come to from the list or from the level before; started over, it is not said again.
    */
   private startLevel(index: number, intro = false, said = true): void {
-    // A level of a chapter that is not open is not started: the list says what its chapter asks for.
-    if (this.ladder().locked[index]) {
-      this.showLevels();
-      return;
-    }
     // A level is played as it is kept: its moves are not limited.
     const spec = LEVELS[index];
     this.levelIndex = index;
@@ -1260,14 +1250,13 @@ export class Game {
    * уйти все разом»). From there the passage leads to the board
    * after this one with no window: the next piece of the road, after its last the level of the
    * list the player goes on with (the first not passed, or the first when all are), the level
-   * after a level of the list. Where it leads nowhere - after the last level, or before a chapter
-   * that is not open - the window of the level comes when the dice are gone.
+   * after a level of the list. Where it leads nowhere - after the last level - the window of the
+   * level comes when the dice are gone.
    */
   private startPassage(): void {
     const { state, passing } = this;
     // A board of the lab leads nowhere: its window comes when its dice are gone.
-    const after = this.labSpec !== null ? null : boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length);
-    const next = after && !(after.level !== undefined && this.ladder().locked[after.level]) ? after : null;
+    const next = this.labSpec !== null ? null : boardAfter(this.piece !== null ? { road: this.piece } : { level: this.levelIndex }, ROAD.length, LEVELS.length);
     this.frames.flush(this.lastFrame);
     const { cubes } = state;
     // A die the combo has just taken has not begun to go down: it stands as it stood until its turn to light up.
@@ -1577,15 +1566,9 @@ export class Game {
     this.audio.play({ kind: 'relaid' });
   }
 
-  /** How the player stands on the ladder: the stars of every level, by the fewest moves it was passed in, and the chapters they open. */
-  private ladder(): LadderProgress {
-    return ladderProgress(LEVELS, (id) => this.settings.levels.stats[id]?.bestMoves, LEVEL_GATES);
-  }
-
-  /** First level that has not been passed and can be played; the first one when there is none. */
+  /** First level that has not been passed; the first one when there is none. */
   private nextLevel(): number {
-    const { locked } = this.ladder();
-    const open = LEVELS.findIndex((level, index) => !this.settings.levels.passed[level.id] && !locked[index]);
+    const open = LEVELS.findIndex((level) => !this.settings.levels.passed[level.id]);
     return open === -1 ? 0 : open;
   }
 
@@ -1698,8 +1681,7 @@ export class Game {
           // A level whose fewest moves are known is rated by its moves.
           stars: passed && stat && spec.par !== undefined ? levelStars(run.moves, spec.par) : undefined,
           goal: lines,
-          // The level after the last of a chapter is offered once its chapter is open.
-          hasNext: this.piece === null && this.labSpec === null && this.levelIndex + 1 < LEVELS.length && !this.ladder().locked[this.levelIndex + 1],
+          hasNext: this.piece === null && this.labSpec === null && this.levelIndex + 1 < LEVELS.length,
           // A level that is failed says why: at a dead end, the dice that stand against the dice a combo takes.
           reason: passed
             ? undefined

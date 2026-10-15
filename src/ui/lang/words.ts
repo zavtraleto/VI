@@ -52,8 +52,6 @@ export const WORDS = {
   'NO ENTRY': { ru: 'НЕТ ЗАПИСЕЙ', es: 'SIN REGISTROS', pt: 'SEM REGISTROS', tr: 'KAYIT YOK', de: 'KEINE EINTRÄGE', fr: 'AUCUNE ENTRÉE' },
   'NO NAME': { ru: 'БЕЗ ИМЕНИ', es: 'SIN NOMBRE', pt: 'SEM NOME', tr: 'İSİMSİZ', de: 'OHNE NAMEN', fr: 'SANS NOM' },
   YOU: { ru: 'ТЫ', es: 'TÚ', pt: 'VOCÊ', tr: 'SEN', de: 'DU', fr: 'TOI' },
-  LOCKED: { ru: 'ЗАКРЫТО', es: 'BLOQUEADO', pt: 'BLOQUEADO', tr: 'KİLİTLİ', de: 'GESPERRT', fr: 'VERROUILLÉ' },
-  STARS: { ru: 'ЗВЁЗДЫ', es: 'ESTRELLAS', pt: 'ESTRELAS', tr: 'YILDIZ', de: 'STERNE', fr: 'ÉTOILES' },
   // The settings and their values.
   SOUND: { ru: 'ЗВУК', es: 'SONIDO', pt: 'SOM', tr: 'SES', de: 'TON', fr: 'SON' },
   MOTION: { ru: 'ДВИЖЕНИЕ', es: 'MOVIMIENTO', pt: 'MOVIMENTO', tr: 'HAREKET', de: 'BEWEGUNG', fr: 'MOUVEMENT' },

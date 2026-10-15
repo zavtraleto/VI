@@ -46,14 +46,12 @@ export type PanelRow =
   /**
    * The boards of the levels, as numbered cells with what each has earned; `note` is said under them for the cell
    * in focus. `marks` is how many a cell can earn, three when left out. With `program` the note
-   * is the program's own text and is written in its font, not said in the voice. A cell that is
-   * `locked` is drawn faint and without marks: it can be looked at, and what picking it does is
-   * the panel's to say.
+   * is the program's own text and is written in its font, not said in the voice.
    */
   | {
       kind: 'levels';
       id: string;
-      levels: readonly { stars: number; locked?: boolean }[];
+      levels: readonly { stars: number }[];
       current: number;
       pick: (index: number) => void;
       note: (index: number) => string;
@@ -317,12 +315,6 @@ export class PanelScreen implements ShellScreen {
             const on = focus.focus === id;
             if (on) noted = i;
             const filled = on && focus.pressed !== id;
-            if (row.levels[i].locked) {
-              // A level that is shut: its number alone, faint, in a frame that only focus lights.
-              kit.frame(cell, on ? dim : faint);
-              kit.text(digits(i + 1, 2), cell.x + cell.w / 2, cell.y + 2, on ? dim : faint, { align: 'center' });
-              return;
-            }
             if (filled) kit.box(cell, ink);
             else kit.frame(cell, on || i === row.current ? ink : faint);
             kit.text(digits(i + 1, 2), cell.x + cell.w / 2, cell.y + 2, filled ? bg : ink, { align: 'center' });
@@ -508,10 +500,8 @@ export class PanelScreen implements ShellScreen {
         const count = row.labels().length;
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });
       } else if (row.kind === 'levels') {
-        // A level that is not open answers a press as a step that cannot be taken does.
         this.levelCells(row, box).forEach((cell, i) => {
-          const locked = row.levels[i]?.locked === true;
-          items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: locked ? () => this.context.sound({ kind: 'stuck' }) : () => row.pick(i), quiet: locked, instant: locked });
+          items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: () => row.pick(i) });
         });
       }
     }

@@ -258,7 +258,7 @@ function liveLabel(label: () => PanelName): PanelName {
  * numbered from one, with the stars of the ones passed, out of three: those of its best pass,
  * and one where `stars` is not said. Under them the faces and the goal of the board in focus
  * are written as the readings of a level write them, with nothing counted yet. Every cell is
- * open: there are no gates.
+ * open.
  * `share` sends out what the player did on the levels, as text: the report of the playtest.
  */
 export function levelsPanel(
@@ -274,7 +274,7 @@ export function levelsPanel(
       {
         kind: 'levels',
         id: 'level',
-        levels: levels.map((level) => ({ stars: level.stars ?? (level.passed ? 1 : 0), locked: false })),
+        levels: levels.map((level) => ({ stars: level.stars ?? (level.passed ? 1 : 0) })),
         marks: 3,
         current,
         pick: actions.onPick,

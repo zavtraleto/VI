@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { levelId } from './generate';
-import { CHAPTERS, PLACES, boundsOf, cutFrom, type Recipe, type Scene } from './recipes';
+import { PLACES, boundsOf, cutFrom, type Recipe, type Scene } from './recipes';
 
 /** Dice a scene puts on the board: a combo of as many as its face has pips unless it says, a link of one, the 1 that is brought and the 1s that wait for it. */
 function diceOf(scene: Scene, place: Recipe): number {
@@ -17,16 +17,6 @@ const SQUARE = PLACES.filter((place) => holesOf(place).length === 0);
 const UNUSUAL = PLACES.filter((place) => holesOf(place).length > 0);
 /** The events of a route and what each is made with, in their order: `combo roll, link push`. */
 const eventsOf = (place: Recipe): string => scenesOf(place).map((scene) => `${scene.event} ${scene.by}`).join(', ');
-
-describe('the chapters of the levels', () => {
-  it('are one: the probe', () => {
-    expect(CHAPTERS.map((chapter) => chapter.key)).toEqual(['probe']);
-  });
-
-  it('is open from its first level, with the floor open, no net under the player and a generous limit of moves', () => {
-    expect(CHAPTERS[0]).toEqual({ key: 'probe', gate: false, floor: true, guard: 'none' });
-  });
-});
 
 describe('the places of the probe', () => {
   it('are thirty and one, named and numbered in their order, all of the one chapter: twenty of the first batch, square but for the strip of P02, ten on boards with cells cut out, and the breather added since', () => {

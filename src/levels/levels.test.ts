@@ -13,7 +13,6 @@ import { levelId } from './generate';
 import { CHAPTERS } from './campaign';
 import { CHAPTER_1, CHAPTER_2, CHAPTER_3, LEVELS, PARKED, SPARES } from './levels';
 import { decoyOf, islandsOf, safeFirstOf, silenceOf, tailOf, turnsOf, underOf } from './measures';
-import { chaptersOf, ladderProgress } from './progress';
 import { LADDER_LIFT_MOVES, LADDER_SINK_MOVES, PLACES, type Recipe } from './recipes';
 import { ROAD_SPARES } from './road';
 import { ROAD_PLACES } from './roadRecipes';
@@ -135,12 +134,8 @@ describe('the levels of the game', () => {
     for (const place of PLACES) expect(SPARES.filter((spare) => spare.id === levelId(place)).length, place.id).toBeLessThanOrEqual(3);
   });
 
-  it('are one chapter, open from the first level to the last', () => {
-    expect(chaptersOf(LEVELS)).toEqual([{ chapter: 0, from: 0, to: LEVELS.length }]);
+  it('are all of chapter 0', () => {
     for (const level of ALL) expect(level.chapter, level.id).toBe(0);
-    const fresh = ladderProgress(LEVELS, () => null);
-    expect(fresh.chapters.map((chapter) => [chapter.gate, chapter.open])).toEqual([[0, true]]);
-    expect(fresh.locked).toEqual(LEVELS.map(() => false));
   });
 
   it('are boards to clear, given die by die: nothing comes, and the level as it is kept has no limit of moves', () => {

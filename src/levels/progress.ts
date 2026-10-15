@@ -1,17 +1,12 @@
 import type { LevelSpec } from '../rules/types';
-import { CHAPTERS } from './recipes';
 
 /**
- * What a player has of the ladder, and what the ladder asks of a player beyond clearing a board.
- * Two things, each a plain rule over the fewest moves a level is cleared in, so that a ladder
- * of other boards needs nothing set anew:
- *
- * - stars for a pass, by its moves, the top mark a move over the fewest;
- * - gates: a chapter that has one opens for a share of the stars of the levels before it.
+ * What a player has of the ladder: stars for a pass, by its moves, the top mark a move over the
+ * fewest. A plain rule over the fewest moves a level is cleared in, so that a ladder of other
+ * boards needs nothing set anew. Every level is open: the gates of the chapters went on
+ * 15 October 2026.
  *
  * A level has no limit of moves: the one this module laid on it was taken out on 12 October 2026.
- *
- * A level names its chapter; what a chapter asks for is in `recipes.ts`.
  *
  * What these numbers do to the players made of the rules is measured by `node scripts/stars.mjs`;
  * where they come from is in docs/VI_Levels_Progression_Research.md.
@@ -50,62 +45,4 @@ export const STAR_POINTS = 100;
  */
 export function starScore(boards: readonly Pick<LevelSpec, 'id' | 'par'>[], bestMoves: (id: string) => number | null | undefined): number {
   return boards.reduce((sum, board) => sum + starsHeld(bestMoves(board.id), board.par), 0) * STAR_POINTS;
-}
-
-/** A chapter as a ladder has it: its number, and its levels from `from` up to and not including `to`, counted from 0. */
-export interface Chapter {
-  chapter: number;
-  from: number;
-  to: number;
-}
-
-/** The chapters of a ladder: the levels that follow one another and name one chapter. A level that names none is of the first. */
-export function chaptersOf(levels: readonly Pick<LevelSpec, 'chapter'>[]): Chapter[] {
-  const chapters: Chapter[] = [];
-  levels.forEach((level, index) => {
-    const chapter = level.chapter ?? 0;
-    const last = chapters[chapters.length - 1];
-    if (last && last.chapter === chapter) last.to = index + 1;
-    else chapters.push({ chapter, from: index, to: index + 1 });
-  });
-  return chapters;
-}
-
-/** The rule of a chapter by its number; past the last chapter there is, that of the last. */
-const ruleOf = (chapter: number) => CHAPTERS[Math.min(Math.max(0, chapter), CHAPTERS.length - 1)];
-
-/** Share of the stars of the levels before a chapter that open it. */
-export const GATE_SHARE = 0.4;
-
-/** Stars a chapter asks for: a share of what the levels before it can give. A chapter with no gate asks for none. */
-export function gateOf(chapter: Chapter): number {
-  return ruleOf(chapter.chapter).gate ? Math.ceil(GATE_SHARE * 3 * chapter.from) : 0;
-}
-
-/** How a player stands on the ladder. */
-export interface LadderProgress {
-  /** Stars held on every level. */
-  stars: (0 | 1 | 2 | 3)[];
-  total: number;
-  chapters: (Chapter & { gate: number; open: boolean })[];
-  /** Levels that cannot be played yet: those of a chapter that is not open. */
-  locked: boolean[];
-  /** The chapter a level is in, counted from 0. */
-  chapterOf: (index: number) => number;
-}
-
-/**
- * The ladder as a player has it: the stars of every level by the fewest moves it was passed in
- * (`best` answers by the code of a level), and the chapters those stars open. Stars count
- * wherever they were earned. With `gates` off every chapter is open.
- */
-export function ladderProgress(levels: readonly LevelSpec[], best: (id: string) => number | null | undefined, gates = true): LadderProgress {
-  const stars = levels.map((level) => starsHeld(best(level.id), level.par));
-  const total = stars.reduce<number>((sum, count) => sum + count, 0);
-  const chapters = chaptersOf(levels).map((chapter) => {
-    const gate = gateOf(chapter);
-    return { ...chapter, gate, open: !gates || total >= gate };
-  });
-  const chapterOf = (index: number) => chapters.findIndex(({ from, to }) => index >= from && index < to);
-  return { stars, total, chapters, locked: levels.map((_, index) => !(chapters[chapterOf(index)]?.open ?? true)), chapterOf };
 }
