@@ -62,24 +62,29 @@ describe('the sessions a player has saved', () => {
   });
 });
 
-describe('the line about a dim die', () => {
-  it('has not been said in a new save nor in one from before it, and stays said once it is', () => {
+describe('the windows a player has closed', () => {
+  it('are none in a new save nor in one from before them, and are kept once they are', () => {
     saved(null);
-    expect(loadSettings().levels.fixedSaid).toBe(false);
-    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 2 } });
-    expect(loadSettings().levels.fixedSaid).toBe(false);
-    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 2, fixedSaid: true } });
-    expect(loadSettings().levels.fixedSaid).toBe(true);
-    // A save of the first edition is brought to the seventh and keeps what the player has been told.
-    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', fixedSaid: true } });
-    expect(loadSettings().levels.fixedSaid).toBe(true);
+    expect(loadSettings().levels.told).toEqual([]);
+    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 7 } });
+    expect(loadSettings().levels.told).toEqual([]);
+    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', roadEdition: 7, told: ['R07', 'end:24'] } });
+    expect(loadSettings().levels.told).toEqual(['R07', 'end:24']);
+    // A save of an earlier edition starts again and keeps what the player has been told.
+    saved({ levels: { passed: { R01: true }, stats: {}, road: 'R02', told: ['R07'] } });
+    expect(loadSettings().levels.told).toEqual(['R07']);
+  });
+
+  it('leave nothing of the line about a dim die, which is said no more', () => {
+    saved({ levels: { passed: {}, stats: {}, roadEdition: 7, fixedSaid: true } });
+    expect('fixedSaid' in loadSettings().levels).toBe(false);
   });
 });
 
 describe('the place on the road a player has saved', () => {
   it('is none where nothing was saved, and none in a save from before the road, whose levels are of other boards', () => {
     saved(null);
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, fixedSaid: false, roadEdition: 7 });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], roadEdition: 7 });
     saved({ levels: { passed: { F1: true, P01: true }, stats: {} } });
     const { levels } = loadSettings();
     expect(levels.road).toBeUndefined();
@@ -100,11 +105,11 @@ describe('the place on the road a player has saved', () => {
     const stat = { tries: 2, passes: 1, fails: 0, firstPassTry: 1, bestLeft: null, bestMoves: 3, undos: 0, stuck: 0, short: [], playMs: 100 };
     // A save of v0.2.27, of the first edition: on the ninth piece of twenty, with two levels of the list passed.
     saved({ levels: { passed: { R01: true, R08: true, P01: true, P02: true }, stats: { R01: stat, R08: stat, P01: stat }, road: 'R09' } });
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, fixedSaid: false, roadEdition: 7 });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], roadEdition: 7 });
     // A save of the sixth edition, in the middle of the road of sixteen and with levels of the acts passed.
-    saved({ levels: { passed: { R01: true, P13: true, K17: true }, stats: { R01: stat, K17: stat }, road: 'R12', roadEdition: 6, fixedSaid: true } });
+    saved({ levels: { passed: { R01: true, P13: true, K17: true }, stats: { R01: stat, K17: stat }, road: 'R12', roadEdition: 6, told: ['R07'] } });
     const { levels } = loadSettings();
-    expect(levels).toEqual({ passed: {}, stats: {}, fixedSaid: true, roadEdition: 7 });
+    expect(levels).toEqual({ passed: {}, stats: {}, told: ['R07'], roadEdition: 7 });
     expect(levels.road).toBeUndefined();
   });
 });

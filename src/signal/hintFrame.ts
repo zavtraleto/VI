@@ -29,15 +29,17 @@ export const HINT_SCENE = {
   glow: [0.15, 0.4],
   /** Times the sea's own waves. */
   wave: [0.6, 1.4],
-  glint: [0.4, 0.9],
+  /** The light on the water is a path under the sun, not a field: narrow, of small dashes. */
+  glint: [0.3, 0.6],
   glintColors: ['#ffb08a', '#ffd2b0'],
-  glintWidth: [25, 60],
+  glintWidth: [10, 20],
+  glintSize: [0.12, 0.22],
   /** Degrees the camera looks up: the horizon stays above the band of the words. */
   camPitch: [1, 4],
   sunSize: [2.8, 5.5],
   sunColors: ['#d8261a', '#c0301c'],
   poleHeight: [6, 10],
-  poleTilt: [0, 6],
+  poleTilt: [0, 3],
   poleSag: [1, 3],
   poleColors: ['#2a2424', '#3a3232'],
   /** How heavy the picture is: from a light daydream to sadness. */
@@ -97,7 +99,9 @@ export function hintCard(random: () => number, aspect: number, text: string): Si
     waveSpeed: seaValue('waveSpeed') * wave,
     glint: within(HINT_SCENE.glint, random),
     glintColor: pick(HINT_SCENE.glintColors, random),
-    glintWidth: Math.round(within(HINT_SCENE.glintWidth, random)),
+    // A narrow frame shows less of the sea across: its path of light is narrower by as much.
+    glintWidth: Math.max(2, Math.round(within(HINT_SCENE.glintWidth, random) * Math.min(1, aspect))),
+    glintSize: within(HINT_SCENE.glintSize, random),
     camPitch: within(HINT_SCENE.camPitch, random),
     // The sun stands where the light comes from: 180 is straight ahead, less is to the right.
     lightAngle: 180 - Math.atan(comp.sun * Math.tan(halfAcross)) / DEG,

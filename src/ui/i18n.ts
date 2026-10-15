@@ -139,25 +139,18 @@ const RU = {
   ruleTwos: 'Работают двойки и тройки. Двойке нужны две кости, тройке — три.',
   ruleGlass: 'По уходящей кости можно прокатиться. Совпала грань — кость вошла в цепочку.',
   ruleFives: 'Работают только пятёрки. Комбо — пять пятёрок рядом.',
-  // The lines a piece of the road carries over its board when it teaches a move (`ROAD_HINTS`), and the one
-  // about a dim die, said once to a player on any board (`roadHintFixed`): a hint and not an instruction, eight words
-  // at most, in the voice of the lab assistant but short. THE TEXTS ARE A PROPOSAL OF THE IMPLEMENTER, `roadHintFixed`
-  // and the words of `roadHintPush` of 9 October too; the owner corrects them. The words of `roadHintWalk` are the
-  // owner's, of 11 October: it says when a combo can be walked over, while it leaves; since 12 October no piece carries
-  // it, and the key is kept. `roadHintClimb` (12 October) is the implementer's too: the brief proposed «Пока кость
-  // уходит, с неё сходят и на неё поднимаются.», ten words, cut to eight. The other six languages say the
-  // same in the same length and have not been read by a native speaker either.
-  roadHintChain: 'Пока комбо уходит, докати к нему ещё одну.',
-  roadHintWalk: 'Пока комбо уходит, по нему можно пройти.',
-  roadHintPush: 'Сойди с уходящей кости на пол и толкни.',
-  roadHintFixed: 'Тусклая кость стоит. Шагни на другую.',
-  roadHintClimb: 'С уходящей кости сходят и на неё поднимаются.',
-  // The line of the seven (`HINTS` in `src/levels/campaign.ts`), on the tenth place of the row (C1-05), where a die is laid by
-  // its hidden face: the owner's words of 14 October 2026, «ты видишь три грани — значит знаешь все шесть», cut to eight
-  // words at most; said once, until the board is passed.
-  hintSeven: 'Три грани видно — все шесть известны.',
-  // The line act II opens with, a draft of 13 October 2026 as well.
+  // The hints a board shows in a window of its own before it starts (`HINTS` in `src/levels/campaign.ts`), once for a
+  // player: the owner's words of 15 October 2026, plain and clear, with a little mystery kept. The other six languages
+  // say the same and have not been read by a native speaker.
+  roadHintChain: 'К уходящему комбо можно добавлять кости.',
+  roadHintWalk: 'По уходящим костям можно ходить.',
+  roadHintPush: 'Спустись по уходящим костям и толкай.',
+  roadHintClimb: 'Уходящие кости позволяют подниматься и опускаться.',
+  hintSeven: 'Сумма точек на противоположных гранях всегда равна 7.',
+  // The line act II opened with, a draft of 13 October 2026: no board carries it now.
   hintLinkMove: 'Звено даёт комбо ещё ход.',
+  // The window after the last board of the row: the words in braces lead to the endless session (the owner, 15 October 2026).
+  campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLimited: 'СЕАНС ДНЯ {time}',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
@@ -285,13 +278,13 @@ const EN: typeof RU = {
   ruleTwos: '2s and 3s work. A 2 takes two dice, a 3 takes three.',
   ruleGlass: 'You can roll over a leaving die. If the face matches, the die joins the chain.',
   ruleFives: 'Only 5s work. A combo is five 5s side by side.',
-  roadHintChain: 'Roll another die to the leaving combo.',
-  roadHintWalk: 'While a combo leaves, you can cross it.',
-  roadHintPush: 'Step down from the leaving die and push.',
-  roadHintFixed: 'A dim die stays put. Step to another.',
-  roadHintClimb: 'Step off a leaving die and back on.',
-  hintSeven: 'See three faces, know all six.',
+  roadHintChain: 'Dice can be added to a leaving combo.',
+  roadHintWalk: 'You can walk on leaving dice.',
+  roadHintPush: 'Go down the leaving dice and push.',
+  roadHintClimb: 'Leaving dice let you climb up and down.',
+  hintSeven: 'Opposite faces always add up to 7.',
   hintLinkMove: 'A link gives the combo a move.',
+  campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLimited: 'SESSION OF THE DAY {time}',
   shellLevels: 'CLEAR THE BOARD',

@@ -98,11 +98,11 @@ describe('the chapters of the row', () => {
 
   it('carries the line of the chain on R07, of the walk over leaving dice on R11 and of the seven on C1-05', () => {
     expect(HINTS).toEqual({
-      R07: { key: 'roadHintChain', until: 'chain' },
-      R11: { key: 'roadHintWalk', until: 'walk' },
-      'C1-05': { key: 'hintSeven', until: 'combo' },
-      R13: { key: 'roadHintPush', until: 'push' },
-      R10: { key: 'roadHintClimb', until: 'climb' },
+      R07: { key: 'roadHintChain' },
+      R11: { key: 'roadHintWalk' },
+      'C1-05': { key: 'hintSeven' },
+      R13: { key: 'roadHintPush' },
+      R10: { key: 'roadHintClimb' },
     });
     expect(STOPS.R11.teaches).toBe('walk');
     expect(STOPS['C1-05']).toMatchObject({ role: 'apply', event: 'the rule of seven' });

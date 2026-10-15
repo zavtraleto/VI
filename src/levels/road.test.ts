@@ -355,7 +355,7 @@ describe('the road', () => {
 
 describe('the lessons of the road', () => {
   it('carry one line in the prologue, that of the chain over its lesson; the lines of the way down and up and of the push come back with the chapter of the push', () => {
-    expect(ROAD_HINTS).toEqual({ R07: { key: 'roadHintChain', until: 'chain' } });
+    expect(ROAD_HINTS).toEqual({ R07: { key: 'roadHintChain' } });
     expect(LESSONS).toContain('R07');
     expect(playKeys(pieceOf('R07')).events).toContain('chain');
     // The lessons of the way down and up and of the push are boards in spare still.
@@ -861,9 +861,9 @@ describe('what was kept of a player of an edition before', () => {
   });
 
   it('of any edition before the seventh: starts again, the stars and the place dropped, what the player was told kept', () => {
-    const kept = { passed: { R01: true, P13: true }, stats: { R01: { bestMoves: 4 } }, road: 'R12', roadEdition: 6, fixedSaid: true };
+    const kept = { passed: { R01: true, P13: true }, stats: { R01: { bestMoves: 4 } }, road: 'R12', roadEdition: 6, told: ['R07'] };
     const moved = toRoadEdition(kept);
-    expect(moved).toEqual({ passed: {}, stats: {}, road: undefined, roadEdition: 7, fixedSaid: true });
+    expect(moved).toEqual({ passed: {}, stats: {}, road: undefined, roadEdition: 7, told: ['R07'] });
     expect(moved.road).toBeUndefined();
     expect(roadPlace(moved.road, false)).toBe(0);
     // What was given is not changed.

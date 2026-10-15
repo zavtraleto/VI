@@ -77,16 +77,28 @@ export interface CaptionDrawn {
   link: CaptionBox[];
 }
 
-/** The words of a caption, and whether each is of its link: the words between braces, which are not drawn. */
-export function captionWords(text: string): { word: string; link: boolean }[] {
-  const words: { word: string; link: boolean }[] = [];
+/**
+ * A word of a caption, and whether it is of its link: the words between braces, which are not
+ * drawn. The word the link ends in may go on past it, as a stop does: `linkSigns` is how much of it is.
+ */
+export interface CaptionWord {
+  word: string;
+  link: boolean;
+  linkSigns?: number;
+}
+
+/** The words of a caption, and which of them are its link. */
+export function captionWords(text: string): CaptionWord[] {
+  const words: CaptionWord[] = [];
   let open = false;
   // A space that ties two signs together (U+00A0) keeps them one word, as in `wrapCaption`.
   for (const raw of text.split(/[^\S ]+/).filter(Boolean)) {
     const opens = raw.includes('{');
     const closes = raw.includes('}');
     const word = raw.replace(/[{}]/g, '');
-    if (word) words.push({ word, link: open || opens });
+    const end = raw.replace('{', '').indexOf('}');
+    if (word && closes && end < word.length) words.push({ word, link: true, linkSigns: end });
+    else if (word) words.push({ word, link: open || opens });
     if (opens) open = true;
     if (closes) open = false;
   }
@@ -176,8 +188,9 @@ export function drawCaption(
         ctx.strokeText(word, left, at);
         ctx.fillText(word, left, at);
         if (of?.link) {
-          if (link) link.w = left + w - link.x;
-          else link = { x: left, y: at - size, w, h: step };
+          const lit = of.linkSigns === undefined ? w : measure(word.slice(0, of.linkSigns));
+          if (link) link.w = left + lit - link.x;
+          else link = { x: left, y: at - size, w: lit, h: step };
         }
       }
       left += w + space;

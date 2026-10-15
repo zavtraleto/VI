@@ -6,7 +6,7 @@ import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hintAlpha, hintBox, hintResumes, hintSaidFor, wordsShown, hudLayout, lineSize, undoButton, restartDot, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hudLayout, lineSize, undoButton, restartDot, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout } from './hudLayout';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, MIN_ZONE, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -181,8 +181,6 @@ export interface HudView {
   counters?: readonly HudCounter[];
   /** The swipe sign, while a level shows it. */
   sign?: HudSign | null;
-  /** The one line of a hint over the board of a piece that teaches a move; it comes and goes by itself. */
-  hint?: { text: string } | null;
   /** The two buttons of a task. `retryOnly` leaves the one that starts over, where no move can be taken back. */
   tools: HudTools | null;
   /** The four buttons of those who would rather press than swipe; `box` is theirs in the window. */
@@ -244,8 +242,6 @@ export interface HudActions {
   onContinue(): void;
   /** One more sign of the words of the exercise has come. */
   onSign?(sign: string): void;
-  /** One more word of the hint over the board has come: its first sign. */
-  onHintWord?(sign: string): void;
   /** Points of a group have reached the score; the score has counted a little further up. */
   onPoints?(points: number, tier: number): void;
   onCount?(): void;
@@ -516,13 +512,6 @@ export class GameHud {
   private fresh = true;
   /** Every line the exercise can say: the room kept for them is that of the longest. */
   private lessonLines: readonly string[] = [];
-  /** The hint now on screen (it stays while it goes out), the frame it came at, and the frame it was taken away at; null while it stands. */
-  private hintText = '';
-  private hintSince = 0;
-  private hintGone: number | null = null;
-  /** The frame the hint now on screen was first given at, from which its words come one at a time, and how many signs of it have come. */
-  private hintSaid = 0;
-  private hintSigns = 0;
   /**
    * The swipe sign of the picture as it was last drawn whole, where the sign can be drawn alone:
    * how it is laid out, the part of the picture it can light (`room`), and what was in that part
@@ -605,8 +594,6 @@ export class GameHud {
     this.stageFlash = 0;
     this.chains.clear();
     this.said.clear();
-    this.hintText = '';
-    this.hintGone = null;
     this.drawn = '';
   }
 
@@ -624,23 +611,6 @@ export class GameHud {
     let tallest = 0;
     for (const line of this.lessonLines) tallest = Math.max(tallest, this.voice.height(line, width, size));
     return Math.ceil((CELL_H + 6) * this.kit.zoom + tallest + 6);
-  }
-
-  /**
-   * How much of the top of the stage a hint keeps for its line, in CSS pixels: the board is laid
-   * out below it. The room is that of the line as it is put into lines at the width it has.
-   */
-  hintRoom(stage: Rect, text: string): number {
-    return this.hintPlace(stage, text).room;
-  }
-
-  /** Where the line of a hint stands and the room it keeps; its letters are those of the words of the exercise (`lineSize`). */
-  private hintPlace(stage: Rect, text: string): { box: Rect; room: number; size: number } {
-    const size = lineSize(stage);
-    const zoom = this.kit.zoom;
-    const window = { width: this.kit.width * zoom, height: this.kit.height * zoom };
-    const { box } = hintBox(stage, window, safeInsets(), size, 0);
-    return { ...hintBox(stage, window, safeInsets(), size, this.voice.height(text, box.width, size)), size };
   }
 
   /**
@@ -682,12 +652,6 @@ export class GameHud {
       this.lineStart = view.reducedMotion ? -Infinity : timeMs;
       this.lineFull = view.reducedMotion ? timeMs : timeMs + words.length * SIGN_MS;
     }
-    const hint = this.hintFade(view, timeMs);
-    // Each new word of the hint is answered once, and not where a window lies over the session.
-    if (hint && hint.reveal > this.hintSigns) {
-      if (hint.reveal < Infinity && !unseen && this.actions.live()) this.actions.onHintWord?.(hint.text[this.hintSigns === 0 ? 0 : this.hintSigns + 1] ?? '');
-      this.hintSigns = hint.reveal;
-    }
     const signs = Math.min(words.length, this.signs(timeMs));
     if (signs > this.signsSaid) this.actions.onSign?.(words[signs - 1]);
     this.signsSaid = signs;
@@ -711,7 +675,7 @@ export class GameHud {
     // A plaque that blinks is drawn anew each time it turns.
     const plaque = !still && (view.counters ?? []).some((counter) => counter.blink) ? Math.floor(timeMs / COUNTER_BLINK_MS) % 2 : 0;
     const signed = sign ? JSON.stringify(sign) : '';
-    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(hint), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.lesson), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, swipe, flashing, bumps, signs >= words.length, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       // Words that are still coming change nothing but themselves: the readings stay as they are.
       this.voice.reveal(signs);
@@ -786,49 +750,8 @@ export class GameHud {
         anchor: 'bottom',
       });
     }
-    if (hint) {
-      const { box, size } = this.hintPlace(view.stage, hint.text);
-      // The line is put into its rows whole and each word is written where it will stand: nothing moves as they come.
-      this.voice.say({ text: hint.text, box, size, anchor: 'top', alpha: hint.alpha, shown: hint.reveal < hint.text.length ? hint.reveal : undefined });
-    }
     kit.end();
     this.voice.end();
-  }
-
-  /**
-   * The hint as it is on this frame: its words and how bright they are. It comes in when the view
-   * gives it and goes out, over the same time, when the view stops giving it; null once it is gone.
-   */
-  private hintFade(view: HudView, timeMs: number): { text: string; alpha: number; reveal: number } | null {
-    const given = view.hint?.text ?? '';
-    if (given && (given !== this.hintText || this.hintGone !== null)) {
-      // The same line given again while it goes out comes back from how bright it had got, not from nothing.
-      const resumed = given === this.hintText && this.hintGone !== null;
-      const into = resumed ? hintResumes(timeMs - this.hintSince, timeMs - this.hintGone!, view.reducedMotion) : 0;
-      // A line that is new is said from its first word; one that comes back keeps the words it had.
-      if (!resumed) {
-        this.hintSaid = timeMs;
-        this.hintSigns = 0;
-      } else {
-        // While it went out it said nothing: its words go on from where they stopped.
-        this.hintSaid += timeMs - this.hintGone!;
-      }
-      this.hintText = given;
-      this.hintSince = timeMs - into;
-      this.hintGone = null;
-    } else if (!given && this.hintText && this.hintGone === null) {
-      this.hintGone = timeMs;
-    }
-    if (!this.hintText) return null;
-    const alpha = hintAlpha(timeMs - this.hintSince, this.hintGone === null ? null : timeMs - this.hintGone, view.reducedMotion);
-    if (alpha <= 0 && this.hintGone !== null) {
-      this.hintText = '';
-      this.hintGone = null;
-      return null;
-    }
-    // With reduced motion the line is there whole, and no word of it is answered. A line that goes out keeps the words it had: no more come, and none clicks.
-    const reveal = view.reducedMotion ? Infinity : wordsShown(this.hintText, hintSaidFor(timeMs, this.hintSaid, this.hintGone), Number(this.look.board.hintWordMs)).length;
-    return { text: this.hintText, alpha, reveal };
   }
 
   /** Keeps what runs from frame to frame: the number that counts up, what has just changed. */

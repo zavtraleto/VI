@@ -79,8 +79,11 @@ export interface LevelProgress {
    * (`ROAD_EDITION`); absent in what was saved before the second, which is brought to it on load.
    */
   roadEdition?: number;
-  /** The line about a dim die has been said to this player: it is said once (`saysFixed` in `src/app/hint.ts`). */
-  fixedSaid: boolean;
+  /**
+   * The windows this player has closed and is not shown again: the hints of boards by their codes
+   * (`tellsHint` in `src/app/hint.ts`), and the end of the row by its length (`endKey`).
+   */
+  told: string[];
 }
 
 export interface Settings {
@@ -147,7 +150,7 @@ export function loadSettings(): Settings {
     debugPanel: false,
     runs: {},
     puzzle: { stars: {}, stats: {}, rulesSeen: false },
-    levels: { passed: {}, stats: {}, fixedSaid: false },
+    levels: { passed: {}, stats: {}, told: [] },
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
@@ -159,8 +162,10 @@ export function loadSettings(): Settings {
   loaded.camera = { ...DEFAULT_CAMERA, ...loaded.camera };
   loaded.puzzle = { ...fallback.puzzle, ...loaded.puzzle };
   // What was kept under the codes of an earlier edition of the road is of other boards (`toRoadEdition`).
-  // A save from before the line about a dim die has not heard it: it takes `fixedSaid` of the fallback.
+  // A save from before the windows of hints has closed none: it takes `told` of the fallback. The line about a dim
+  // die is said no more (the owner, 15 October 2026), and what was kept of it goes.
   loaded.levels = toRoadEdition({ ...fallback.levels, ...loaded.levels });
+  delete (loaded.levels as Partial<{ fixedSaid: boolean }>).fixedSaid;
   loaded.language ??= null;
   // A save from before the place behind the board has it off, as a new one does.
   loaded.backdrop ??= false;

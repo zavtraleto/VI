@@ -26,7 +26,7 @@ describe('caption words', () => {
     expect(captionWords('try {endless mode}.')).toEqual([
       { word: 'try', link: false },
       { word: 'endless', link: true },
-      { word: 'mode.', link: true },
+      { word: 'mode.', link: true, linkSigns: 4 },
     ]);
   });
 
@@ -72,6 +72,12 @@ describe('drawing a caption', () => {
     expect(box.w).toBeCloseTo('endless mode'.length * 10);
     // The underline is a thin filled rectangle under the words of the link.
     expect(calls.filter((c) => c.op === 'rect').length).toBe(2);
+  });
+
+  it('does not underline the stop after the link', () => {
+    const { ctx } = fakeContext();
+    const [box] = drawCaption(ctx, 'try {endless mode}.', 0, 0, 1000, 600, { plate: true }).link;
+    expect(box.w).toBeCloseTo('endless mode'.length * 10);
   });
 
   it('gives no link while its words have not come', () => {

@@ -3,7 +3,7 @@ import type { GoalLine, LevelSpec } from '../rules/types';
 import { STOPS, type StopMeta } from './chapters';
 import { LEVELS } from './levels';
 import { starsHeld } from './progress';
-import { ROAD, ROAD_HINTS, roadPlace, type HintUntil, type RoadHintKey } from './road';
+import { ROAD, ROAD_HINTS, roadPlace, type RoadHintKey } from './road';
 
 /**
  * The campaign: every board the player is led through, in one row with one number each — the
@@ -40,30 +40,28 @@ export const CAMPAIGN: readonly Stop[] = [
   ...LEVELS.map((spec, level) => ({ spec, number: ROAD.length + level + 1, board: { level }, ...metaOf(spec) })),
 ];
 
-/** The lines of the texts (`src/ui/i18n.ts`) that a board can carry above itself: those of the road and those of the acts. */
+/** The hints of the texts (`src/ui/i18n.ts`) that a board can show before it starts: those of the road and those of the chapters. */
 export type HintKey = RoadHintKey | 'hintSeven' | 'hintLinkMove';
 
 export interface Hint {
   key: HintKey;
-  /** The line stands from the start of the board and goes out when this has been done on it. */
-  until: HintUntil;
 }
 
 /**
- * The line a board carries above itself, by its code: the lesson of the chain of the prologue, the
- * walk over leaving dice on the meeting of chapter 1 and the seven on its third (the tenth of the row), by the word
- * of the owner of 14 October 2026. The line of time (`hintLinkMove`) keeps its text and comes back
- * with the chapter that uses it. A line of a chapter is said once: a board the player has passed
- * does not say it again.
+ * The hint a board shows before it starts, by its code, in a window of a transmission, once for a
+ * player (the owner, 15 October 2026): the chain of the prologue, the walk over leaving dice on the
+ * meeting of chapter 1, the seven on its third (the tenth of the row), the push and the way down
+ * and up of chapter 3. The hint of time (`hintLinkMove`) keeps its text and comes back with the
+ * chapter that uses it.
  */
 export const HINTS: Readonly<Record<string, Hint>> = {
   ...ROAD_HINTS,
   // The walk over leaving dice on its meeting, and the seven where a die has to be laid by its hidden face (the owner, 14 October 2026).
-  R11: { key: 'roadHintWalk', until: 'walk' },
-  'C1-05': { key: 'hintSeven', until: 'combo' },
+  R11: { key: 'roadHintWalk' },
+  'C1-05': { key: 'hintSeven' },
   // The two lessons of chapter 3, the floor and the push: their lines come back from the road (the owner: «точно нужно где-то одной строкой»).
-  R13: { key: 'roadHintPush', until: 'push' },
-  R10: { key: 'roadHintClimb', until: 'climb' },
+  R13: { key: 'roadHintPush' },
+  R10: { key: 'roadHintClimb' },
 };
 
 export function stopOf(board: Board): Stop | undefined {

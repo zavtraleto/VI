@@ -5,8 +5,9 @@ import { loadShellFonts } from '../shell/fonts';
 import { Kit } from '../shell/kit';
 import { CELL_W, pictureSize } from '../shell/layout';
 import { clockHour, paletteAt } from '../shell/theme';
-import { captionLook, drawCaption, loadCaptionFont } from './caption';
+import { captionLook, drawCaption, loadCaptionFont, plainCaption, wordsShown, type CaptionBox } from './caption';
 import { GLIMPSE_SECONDS, cardScene, cardTitle, randomCard, type SignalCard } from './card';
+import { hintCard } from './hintFrame';
 import { SignalLeak, type LeakKind } from './leak';
 import { captionLines, signalLook, type ParamValues, type SceneInstance } from './scene';
 import type { SessionReading } from './terminal';
@@ -21,6 +22,40 @@ const GLIMPSE_EVERY: readonly [number, number] = [4, 7];
 /** Cells of the reading of the link in the row at the bottom. */
 const LINK_CELLS = 5;
 const LINK_LABEL = '接続';
+/** The letters of what a board is told are no smaller than the line over the board was on a phone, in CSS pixels. */
+const TOLD_MIN_SIZE = 19;
+/** A window that is told something stands in the middle of the screen and fills it. */
+const TOLD_PLACE: WindowPlace = { x: 0.5, y: 0.5 };
+
+/** Words the game has to tell the player before a board, in a window of their own. */
+export interface Telling {
+  /** The words; those in braces are a link. */
+  text: string;
+  /** The window has been closed. */
+  onDone: () => void;
+  /** The link has been pressed: called instead of `onDone`. */
+  onLink?: () => void;
+  /** Milliseconds a word; 0 puts the words there at once. */
+  wordMs: number;
+  /** Motion kept low: the words stand whole at once, and make no sound. */
+  reduced: boolean;
+}
+
+/** How far the words of a telling have come. */
+interface Told {
+  telling: Telling;
+  /** The words as they are read, without the braces of the link. */
+  plain: string;
+  total: number;
+  /** How many words are there. */
+  words: number;
+  /** All of them are: the window can be closed. */
+  full: boolean;
+  /** The frame the first word came at; null until the window has opened. */
+  since: number | null;
+  /** Where the words of the link are, in CSS pixels. */
+  links: CaptionBox[];
+}
 
 interface Playing {
   card: SignalCard;
@@ -28,6 +63,10 @@ interface Playing {
   values: ParamValues;
   instance: SceneInstance;
   contact: number;
+  /** How much of the screen the window takes, 0..1: as strong as the contact, or the whole of it for a telling. */
+  size: number;
+  /** Words the game tells, or null for a transmission that says what it says. */
+  told: Told | null;
   /** It comes before a session and asks for nothing, instead of answering one. */
   glimpse: boolean;
   /** Where the window stands in the room the screen leaves it. */
@@ -64,6 +103,8 @@ export class SignalPlayer {
   enabled = !import.meta.env.DEV || new URLSearchParams(window.location.search).get('signal') !== 'off';
   /** Hears the window open and close. */
   onSound: ((event: SignalSound) => void) | null = null;
+  /** Hears each word of a telling as it comes: its first sign. */
+  onWord: ((sign: string) => void) | null = null;
   /** In development `?signal=always` shows one before every session, to look at them without waiting. */
   private readonly always = import.meta.env.DEV && new URLSearchParams(window.location.search).get('signal') === 'always';
   private readonly picture: Layer;
@@ -104,6 +145,9 @@ export class SignalPlayer {
     });
     window.addEventListener('pointerdown', () => this.skip());
     window.addEventListener('keydown', () => this.skip());
+    // A telling takes every press before the game hears it: the press that closes it moves nothing on the board.
+    window.addEventListener('pointerdown', (e) => this.press(e, { x: e.clientX, y: e.clientY }), true);
+    window.addEventListener('keydown', (e) => this.press(e, null, e.code), true);
   }
 
   /** A transmission is on screen: the game waits for it. */
@@ -136,10 +180,55 @@ export class SignalPlayer {
     this.play(randomCard(this.random, 0, GLIMPSE_SECONDS), 0, () => undefined, true);
   }
 
-  /** Closes the window that is open, if it has been open long enough to have been seen. */
+  /**
+   * Tells the player something before a board: the sea with the pole at sundown fills the
+   * screen, and the words come one at a time on a dark band. A press puts all of them there, the
+   * next one closes the window; a press on the link follows it.
+   */
+  tell(telling: Telling): void {
+    if (!this.enabled) {
+      telling.onDone();
+      return;
+    }
+    const layout = windowLayout(this.pictureNow(), 1, TOLD_PLACE);
+    const plain = plainCaption(telling.text);
+    const card = hintCard(this.random, layout.content.w / Math.max(1, layout.content.h), telling.text);
+    const total = plain.split(' ').length;
+    const full = telling.reduced || !(telling.wordMs > 0);
+    const told: Told = { telling, plain, total, words: full ? total : 0, full, since: null, links: [] };
+    this.play(card, card.contact, telling.onDone, false, 1, TOLD_PLACE, told);
+  }
+
+  /** Closes the window that is open, if it has been open long enough to have been seen. A telling is closed by `press`. */
   skip(): void {
     const { playing } = this;
-    if (playing && playing.elapsed >= SKIP_AFTER_MS) this.finish();
+    if (playing && !playing.told && playing.elapsed >= SKIP_AFTER_MS) this.finish();
+  }
+
+  /** A press while a telling is on screen: it is the telling's, and nobody else hears it. */
+  private press(event: Event, at: { x: number; y: number } | null, code: string | null = null): void {
+    const { playing } = this;
+    const told = playing?.told;
+    if (!playing || !told) return;
+    event.stopImmediatePropagation();
+    if (code !== null && (event as KeyboardEvent).repeat) return;
+    if (playing.start === null) return;
+    if (!told.full) {
+      told.full = true;
+      told.words = told.total;
+      return;
+    }
+    if (playing.elapsed < SKIP_AFTER_MS) return;
+    const onLink = told.links.some((box) => at !== null && at.x >= box.x && at.x <= box.x + box.w && at.y >= box.y && at.y <= box.y + box.h);
+    this.finish(told.links.length > 0 && (onLink || code === 'Enter'));
+  }
+
+  /** The size of the interface's picture on the screen as it is now. */
+  private pictureNow(): { width: number; height: number } {
+    const { display } = this;
+    display.sync();
+    const canvas = { width: display.width * display.pixelRatio, height: display.height * display.pixelRatio };
+    return pictureSize(canvas, Number(this.shell.pixelsTall), Number(this.shell.pixelsWide));
   }
 
   /** A chain has reached `length` groups. */
@@ -169,13 +258,11 @@ export class SignalPlayer {
     }
 
     // The window is a part of the interface: the same few pixels and the same tube.
-    display.sync();
-    const canvas = { width: display.width * display.pixelRatio, height: display.height * display.pixelRatio };
-    const size = pictureSize(canvas, Number(this.shell.pixelsTall), Number(this.shell.pixelsWide));
+    const size = this.pictureNow();
     this.chrome.setLines(size.height);
     Object.assign(this.chrome.look, signalLook(this.shell), { opacity: 1, depth: 8, dither: 0 });
     this.kit.palette = paletteAt(this.shell, clockHour());
-    const layout = windowLayout({ width: this.chrome.width, height: this.chrome.height }, playing.contact, playing.place);
+    const layout = windowLayout({ width: this.chrome.width, height: this.chrome.height }, playing.size, playing.place);
 
     // The picture keeps the lines of its scene inside the window, however small the window is.
     const rect = this.kit.toWindow(layout.content);
@@ -186,8 +273,21 @@ export class SignalPlayer {
     this.picture.render(playing.instance.scene, playing.instance.camera, { rect });
 
     const opened = Math.min(1, elapsed / OPEN_MS);
+    if (playing.told && opened >= 1) this.say(playing.told, timeMs);
     this.writeCaption(playing, rect, opened >= 1);
-    this.drawWindow(layout, playing, opened, elapsed / playing.durationMs);
+    const played = playing.told ? playing.told.words / playing.told.total : elapsed / playing.durationMs;
+    this.drawWindow(layout, playing, opened, played);
+  }
+
+  /** The words of a telling that have come by now, each heard as it comes. */
+  private say(told: Told, timeMs: number): void {
+    told.since ??= timeMs;
+    if (told.full) return;
+    const words = wordsShown(told.plain, timeMs - told.since, told.telling.wordMs).split(' ').length;
+    const all = told.plain.split(' ');
+    for (let i = told.words; i < words; i++) this.onWord?.(all[i]?.[0] ?? '');
+    told.words = words;
+    told.full = words >= told.total;
   }
 
   private glimpseGap(): number {
@@ -195,7 +295,15 @@ export class SignalPlayer {
     return from + Math.floor(this.random() * (to - from + 1));
   }
 
-  private play(card: SignalCard, contact: number, onDone: () => void, glimpse = false): void {
+  private play(
+    card: SignalCard,
+    contact: number,
+    onDone: () => void,
+    glimpse = false,
+    size = contact,
+    place: WindowPlace = { x: this.random(), y: this.random() },
+    told: Told | null = null,
+  ): void {
     this.finish();
     const { def, values } = cardScene(card);
     const playing: Playing = {
@@ -204,8 +312,10 @@ export class SignalPlayer {
       values,
       instance: def.build(values, card.seed),
       contact,
+      size,
+      told,
       glimpse,
-      place: { x: this.random(), y: this.random() },
+      place,
       durationMs: card.seconds * 1000,
       start: null,
       elapsed: 0,
@@ -220,7 +330,8 @@ export class SignalPlayer {
     this.written = '';
   }
 
-  private finish(): void {
+  /** The window goes. `link`: it was closed by its link, which is followed instead of `onDone`. */
+  private finish(link = false): void {
     const { playing } = this;
     if (!playing) return;
     this.playing = null;
@@ -230,7 +341,9 @@ export class SignalPlayer {
     this.words.look.opacity = 0;
     this.chrome.look.opacity = 0;
     if (playing.start !== null) this.onSound?.({ kind: 'close' });
-    playing.onDone();
+    const onLink = link ? playing.told?.telling.onLink : undefined;
+    if (onLink) onLink();
+    else playing.onDone();
   }
 
   /**
@@ -244,15 +357,19 @@ export class SignalPlayer {
       words.look.opacity = 0;
       return;
     }
-    const lines = captionLines(Number(playing.values.lines), rect.width / Math.max(1, rect.height));
-    words.setLines(Math.round((lines * display.height) / Math.max(1, rect.height)));
+    const { told } = playing;
+    // The words a board is told are read, not glimpsed: they keep the pixels of the screen.
+    const lines = told ? display.height : captionLines(Number(playing.values.lines), rect.width / Math.max(1, rect.height));
+    words.setLines(told ? lines : Math.round((lines * display.height) / Math.max(1, rect.height)));
     Object.assign(words.look, captionLook(signalLook(playing.values)), { opacity: 1 });
     const scale = words.height / Math.max(1, display.height);
-    const state = [text, rect.x, rect.y, rect.width, rect.height, words.width, words.height].join();
+    const state = [text, told?.words, rect.x, rect.y, rect.width, rect.height, words.width, words.height].join();
     if (state === this.written) return;
     this.written = state;
     words.ctx.clearRect(0, 0, words.width, words.height);
-    drawCaption(words.ctx, text, rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
+    const options = told ? { plate: true, words: told.words, minSize: TOLD_MIN_SIZE * scale } : {};
+    const drawn = drawCaption(words.ctx, text, rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale, options);
+    if (told) told.links = drawn.link.map((box) => ({ x: box.x / scale, y: box.y / scale, w: box.w / scale, h: box.h / scale }));
     words.markDirty();
   }
 

@@ -39,8 +39,8 @@ import { boardDefaults, readView, type BoardLook } from '../render/params';
 import type { DicePassing } from '../render/passing';
 import { finaleMs, type LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
-import { ROAD, blockOf, placeAfter, type HintUntil } from '../levels/road';
-import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf, type HintKey } from '../levels/campaign';
+import { ROAD, blockOf, placeAfter } from '../levels/road';
+import { CAMPAIGN, HINTS, campaignCells, campaignDone, campaignFocus, numberOf } from '../levels/campaign';
 import { LEVELS } from '../levels/levels';
 import { STAR_POINTS, ladderProgress, levelStars, starScore, starsHeld, type LadderProgress } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
@@ -106,7 +106,7 @@ import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
 import { FILE_LEADS, boardAfter, orderOf, passageAt, passageMarks, startBoard, type Board, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
-import { DeadEnds, fixedLineOver, hintOver, probeHint, roomLines, saysFixed, saysLine } from './hint';
+import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
 import { roadCounters } from './roadCounters';
 import { roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
@@ -368,6 +368,8 @@ export class Game {
     counts: PassageCounts;
     swapped: boolean;
     struck: boolean;
+    /** Whether the end of the row has been looked for: once, when the dice of the board are under the floor. */
+    endAsked: boolean;
     /** The clock of the passage has been set to the frame the dice were seen under. */
     aligned: boolean;
     beaten: boolean;
@@ -409,15 +411,6 @@ export class Game {
   private wait: RoadWait | null = null;
   /** The dead ends of the piece in hand, which a try started over and a move taken back do not forget. */
   private readonly deadEnds = new DeadEnds();
-  /** The line above the board of the piece in hand, while it teaches a move: from the start of the piece to the move being made. Null where the piece has none. */
-  private hint: { key: HintKey; until: HintUntil; done: boolean } | null = null;
-  /**
-   * The line about a dim die, said once to a player: the time of play it was put up at, null
-   * while it is not shown. And whether it has been put up on the board in hand: no room is kept
-   * for it before that, and from then the board keeps the room, as for the line of a lesson.
-   */
-  private fixedLine: number | null = null;
-  private fixedShown = false;
   /** What that wait shows on this frame: the way the swipe sign points, and whether the plaque over the target blinks. */
   private waiting: Waiting = { dir: null, blink: false };
   /** What the player last played with: the swipe sign is a key for those who press keys. */
@@ -491,7 +484,6 @@ export class Game {
     onRefused: () => this.audio.ui({ kind: 'stuck' }),
     onSign: (sign) => this.audio.sign(sign),
     // The words over the board come with the click the program types the windows of the levels with.
-    onHintWord: (sign) => this.audio.typed(sign),
     press: (dir) => {
       if (!this.inputEnabled()) return;
       // While the words of the exercise wait to be read, a button of the pad reads them.
@@ -608,6 +600,7 @@ export class Game {
     window.addEventListener('pointerdown', () => (this.lastInput = 'pointer'));
     window.addEventListener('keydown', () => (this.lastInput = 'keys'));
     this.signal.onSound = (event) => this.audio.signal(event);
+    this.signal.onWord = (sign) => this.audio.typed(sign);
     this.applySound();
     onPlatformAudio((enabled) => {
       this.platformSound = enabled;
@@ -1051,11 +1044,6 @@ export class Game {
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
-    // Only a level carries a line over its board, a piece of the road or the board an act opens with; a run that is no level carries none.
-    if (!state.levelRun) this.hint = null;
-    // Every start of a board is without the line about a dim die; a board that is no level keeps no room for it.
-    this.fixedLine = null;
-    if (!state.levelRun) this.fixedShown = false;
     // A piece of the road waits with the player; every start of it waits anew.
     this.wait = state.levelRun ? roadWait(state.levelRun.spec.id, this.deadEnds.hurries) : null;
     this.waiting = { dir: null, blink: false };
@@ -1348,20 +1336,66 @@ export class Game {
   private runLevel(spec: LevelSpec, said = true): void {
     this.kind = 'level';
     this.tryCounted = false;
-    // A board that teaches a move carries its line from its start, by its code; its room is the board's from the first frame it is framed in.
-    // A piece of the road says its line every time; the line an act opens with is said until its board is passed.
-    const own = saysLine(this.piece !== null, this.settings.levels.passed[spec.id] === true) ? HINTS[spec.id] : undefined;
-    const carried = this.labSpec === null ? (own ?? (this.piece !== null ? HINT_PROBE : null)) : null;
-    this.hint = carried ? { ...carried, done: false } : null;
-    this.fixedShown = false;
     this.deadEnds.begin(spec.id);
-    this.view.setClear(this.hintRoom());
+    this.view.setClear(0);
     // A level is the same for everyone: it is played by the rules as they are, whatever the player has set.
     this.begin(createRun({ seed: spec.seed, config: defaultConfig(), level: spec }), false);
     // A die laid as leaving sends nothing when it goes: the sound is told of it now.
     this.audio.laid(this.state);
     if (said) this.sayLevelStarted();
     this.layoutGuide();
+    this.tellHint(spec.id);
+  }
+
+  /**
+   * A board that teaches a move shows its hint before it starts, in a window of a transmission,
+   * once for a player (the owner, 15 October 2026): the board waits under it. In development
+   * `?hint=` shows one on any piece of the road, whether it has been told or not.
+   */
+  private tellHint(id: string): void {
+    if (this.labSpec !== null) return;
+    const probe = this.piece !== null ? HINT_PROBE : null;
+    const own = HINTS[id];
+    const { told } = this.settings.levels;
+    const hint = probe ?? (own && tellsHint(id, told) ? own : null);
+    if (!hint) return;
+    this.signal.tell({
+      text: t(hint.key),
+      wordMs: Number(this.look.board.hintWordMs),
+      reduced: prefersReducedMotion(this.settings),
+      onDone: () => {
+        if (probe || told.includes(id)) return;
+        told.push(id);
+        this.later.after(() => saveSettings(this.settings), 'settings');
+      },
+    });
+  }
+
+  /**
+   * Every board of the row is passed: a window says that more is to come, and its link leads to
+   * the endless session (the owner, 15 October 2026). It is said once for a row of this length.
+   * True when the window is up: the passage waits under it.
+   */
+  private tellEnd(): boolean {
+    if (this.labSpec !== null) return false;
+    const ids = CAMPAIGN.map(({ spec }) => spec.id);
+    const { levels } = this.settings;
+    if (!endDue(levels.passed, ids, levels.told)) return false;
+    const mark = (): void => {
+      levels.told.push(endKey(ids.length));
+      this.later.after(() => saveSettings(this.settings), 'settings');
+    };
+    this.signal.tell({
+      text: t('campaignEnd'),
+      wordMs: Number(this.look.board.hintWordMs),
+      reduced: prefersReducedMotion(this.settings),
+      onDone: mark,
+      onLink: () => {
+        mark();
+        this.open(FILE_LEADS.protocol);
+      },
+    });
+    return this.signal.busy;
   }
 
   /** The level on the board has started: the analytics and the platform are told. */
@@ -1477,6 +1511,7 @@ export class Game {
       counts: { combo: passing.count, dice: 0 },
       swapped: false,
       struck: false,
+      endAsked: false,
       aligned: false,
       beaten: true,
       lit: 0,
@@ -1533,6 +1568,11 @@ export class Game {
         now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
       }
       if (now.phase === 'combo' || now.phase === 'sink') return;
+      // The last board of the row that was left is passed: the end of the row is said before what comes after it.
+      if (!passage.endAsked) {
+        passage.endAsked = true;
+        if (this.tellEnd()) return;
+      }
       if (!passage.next) {
         // The passage leads nowhere: the window of the level, over a board whose dice are gone and whose strike has rung out.
         if (passage.elapsed < marks.sink + FINALE_WINDOW_MS) return;
@@ -1924,16 +1964,7 @@ export class Game {
    */
   private layoutGuide(): void {
     const active = this.state.tutorial !== null && !this.inMenu;
-    this.view.setClear(active ? this.hud.reserve(this.stageRect()) + GUIDE_GAP_PX : this.inMenu ? 0 : this.hintRoom());
-  }
-
-  /**
-   * How much of the top of the stage the line of a hint keeps, in CSS pixels, whether it is still
-   * shown or has gone out: the board does not move when it goes. None where the piece has none.
-   */
-  private hintRoom(): number {
-    const stage = this.stageRect();
-    return Math.max(0, ...roomLines(this.hint?.key ?? null, this.fixedShown).map((key) => this.hud.hintRoom(stage, t(key))));
+    this.view.setClear(active ? this.hud.reserve(this.stageRect()) + GUIDE_GAP_PX : 0);
   }
 
   /**
@@ -2482,25 +2513,6 @@ export class Game {
     // What a move that can be taken back sets going is kept tick by tick: taken back, it is played backwards.
     const trail = this.trails[this.trails.length - 1];
     if (trail && state.levelRun && (state.player.action || state.events.length > 0 || worldRuns(state))) trail.push(structuredClone(state));
-    // The line of a hint goes out when the move it speaks of is made.
-    if (this.hint && !this.hint.done) {
-      const { player } = state;
-      const under = player.level === 'top' ? (cubeAt(state, player.x, player.z)?.state ?? null) : null;
-      if (hintOver(this.hint.until, state.events, under)) this.hint.done = true;
-    }
-    // The line about a dim die: said once to a player, at the first step such a die stops, unless
-    // the line of the lesson stands - that one wins, and this waits for a later step.
-    if (this.fixedLine !== null) {
-      if (fixedLineOver(state.events, this.now() - this.fixedLine)) this.fixedLine = null;
-    } else if (saysFixed(state, this.settings.levels.fixedSaid, this.hint !== null && !this.hint.done)) {
-      this.fixedLine = this.now();
-      // The room of the line is taken now, and not before it has come.
-      this.fixedShown = true;
-      this.layoutGuide();
-      this.settings.levels.fixedSaid = true;
-      // Written once the move is over, and at once if the page is hidden before that.
-      this.later.after(() => saveSettings(this.settings), 'settings');
-    }
     // A scored session says how it stands at every whole minute.
     const minute = Math.round(60_000 / state.config.tickMs);
     if (state.tick % minute === 0 && (state.mode === 'endless' || state.mode === 'timed')) {
@@ -2801,16 +2813,6 @@ export class Game {
       note,
       counters,
       sign: levelRun && this.waiting.dir ? this.signView(state, this.waiting.dir, over) : null,
-      // The hint stands once the board is whole, and goes when the move is made or the piece is over.
-      // The line about a dim die stands in the same place, and only where the lesson has none standing.
-      hint:
-        this.passage || this.starting || state.over
-          ? null
-          : this.hint && !this.hint.done
-            ? { text: t(this.hint.key) }
-            : this.fixedLine !== null
-              ? { text: t('roadHintFixed') }
-              : null,
       tools: puzzle
         ? { canUndo: this.history.length > 0, urgent: puzzle.dead !== null, muted: this.settings.muted }
         : levelRun
@@ -2889,7 +2891,8 @@ export class Game {
         else this.startPassage();
       }
     }
-    if (this.passage && !this.inMenu) {
+    // A passage waits under a window: the hint of the next board, or the end of the row.
+    if (this.passage && !this.inMenu && !this.signal.busy) {
       this.runPassage(began ? 0 : dt);
       // Another board may be on by now: the rest of the frame is its own.
       state = this.state;

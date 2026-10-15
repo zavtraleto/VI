@@ -340,32 +340,21 @@ export function blockOf(index: number): RoadBlock | null {
 /** The sign a piece opens with, if any: the direction the swipe sign shows from the first frame. */
 export const ROAD_SIGNS: Readonly<Record<string, Dir | undefined>> = { R01: 'N' };
 
-/**
- * The moves a piece can teach that a line above the board speaks of, and what ends the line: the
- * first combo, a die joined to a combo that is leaving, a step onto a leaving die, a push, a step
- * up from the floor onto a leaving die.
- */
-export type HintUntil = 'combo' | 'chain' | 'walk' | 'push' | 'climb';
-
-/** The lines of the texts (`src/ui/i18n.ts`) that a piece can carry above its board. */
+/** The hints of the texts (`src/ui/i18n.ts`) that a piece can show before its board. */
 export type RoadHintKey = 'roadHintChain' | 'roadHintWalk' | 'roadHintPush' | 'roadHintClimb';
 
 export interface RoadHint {
-  /** The key of the line, in the seven languages. */
+  /** The key of the hint, in the seven languages. */
   key: RoadHintKey;
-  /** The line stands from the start of the piece and goes out when this has been done on it. */
-  until: HintUntil;
 }
 
 /**
- * The pieces that teach a move carry a line above the board, a hint and not an instruction (the
- * owner: «они скорее подсказка, а не наставление»). In the prologue only the lesson of the chain
- * (`R07`) does. The lines of the way down and up (`roadHintClimb`) and of the push (`roadHintPush`)
- * come back with the chapter of the push, by the codes of its boards (the campaign of the second
- * edition, section 2.7); that of the walk over dice that are leaving (`roadHintWalk`) is no piece's.
+ * The pieces that teach a move show a hint before the board, in a window of its own, once for a
+ * player (the owner, 15 October 2026). In the prologue only the lesson of the chain (`R07`) does;
+ * the hints of the chapters stand by the codes of their boards in `HINTS` (`src/levels/campaign.ts`).
  */
 export const ROAD_HINTS: Readonly<Record<string, RoadHint>> = {
-  R07: { key: 'roadHintChain', until: 'chain' },
+  R07: { key: 'roadHintChain' },
 };
 
 /** A piece that has come to a dead end this many times shows the sign of the way at once: the second time is a mistake that is repeated. */
