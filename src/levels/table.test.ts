@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { MEASURE_HEAD } from './select';
 import { fileBoard } from './boardFiles';
-import { ROAD_HEAD, measureBoard, roadRow, roadTable, tableOf } from './table';
+import { FIXTURE } from './rowFixture';
+import { PLACE_HEAD, ROAD_HEAD, measureBoard, placeRow, roadRow, roadTable, tableOf } from './table';
 
 /**
  * A level as the list keeps one, written for this test: two pairs where 2s work. The die of the
@@ -76,5 +77,23 @@ describe('the table of the road', () => {
     expect(row[ROAD_HEAD.indexOf('lost')]).toBe('0+');
     expect(row[ROAD_HEAD.indexOf('worst')]).toMatch(/^\d+\+$/);
     expect(roadTable([row]).split('\n')).toHaveLength(2);
+  });
+});
+
+describe('the passport of a place', () => {
+  it('is the row of the table of the road, with the chapter and the role, and the boards near the start after it', () => {
+    const place = FIXTURE.places[3];
+    const row = placeRow(place, 50, 2);
+    expect(row).toHaveLength(PLACE_HEAD.length);
+    expect(row.slice(0, ROAD_HEAD.length)).toEqual(roadRow(4, place.spec, '1:meet', 50, 2));
+    // Nine boards within two moves of the start, none a dead end or lost, five moves from the farthest.
+    expect(row[PLACE_HEAD.indexOf('near')]).toBe('9 0 0 5');
+    // A board of nine cells is walked whole: every board it can come to, none lost, twelve moves from the farthest.
+    expect(row[PLACE_HEAD.indexOf('whole')]).toBe('8592 0 12');
+  });
+
+  it('walks no board whole that has more than nine cells', () => {
+    const big = { ...FIXTURE.places[0], spec: { ...FIXTURE.places[0].spec, size: 4 } };
+    expect(placeRow(big, 50, 2)[PLACE_HEAD.indexOf('whole')]).toBe('-');
   });
 });

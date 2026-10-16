@@ -3,9 +3,9 @@ import { scoreOf } from '../rules/levelScore';
 import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
 import type { Ban } from '../rules/reach';
 import type { LevelSpec } from '../rules/types';
-import type { Technique } from './row';
+import type { Place, Technique } from './row';
 import type { SlowFacts, Violation } from './grammar';
-import { firstsOf, tailOf, turnsOf } from './measures';
+import { firstsOf, lostOf, nearOf, tailOf, turnsOf } from './measures';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { walkBoards } from './walk';
 
@@ -87,6 +87,33 @@ export function roadRow(number: number, spec: LevelSpec, role: string, walkLimit
 
 export function roadTable(rows: readonly string[][]): string {
   return layOutRows([[...ROAD_HEAD], ...rows]);
+}
+
+/** The passport of a place of the row (`node scripts/row.mjs report`): the table of the road, and the boards within two moves of the start. */
+export const PLACE_HEAD: readonly string[] = [...ROAD_HEAD, 'near', 'whole'];
+/** A board of no more cells than this is walked whole for its passport: the walk of two dice on nine cells takes half a second. */
+export const WHOLE_CELLS = 9;
+
+/**
+ * A place of the row as a row of its passport: the row of the table of the road, its role named with
+ * its chapter (`1:meet`); `near` — the boards within two moves of the start, the dead ends the level
+ * says at once, the boards lost and not said, and the most moves from the rest (`nearOf`); and `whole`
+ * — for a board of nine cells or fewer, every board it can come to, those lost, and the most moves
+ * from any of them (`lostOf`).
+ */
+export function placeRow(place: Place, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): string[] {
+  const { spec } = place;
+  const cells = spec.size * spec.size - (spec.holes?.length ?? 0);
+  const whole = cells <= WHOLE_CELLS ? lostOf(spec) : null;
+  return [
+    ...roadRow(place.number, spec, `${place.chapter}:${place.role}`, walkLimit, runs),
+    nearOf(spec).join(' '),
+    whole ? `${whole.boards} ${whole.lost} ${whole.worst}` : '-',
+  ];
+}
+
+export function placeTable(rows: readonly string[][]): string {
+  return layOutRows([[...PLACE_HEAD], ...rows]);
 }
 
 /**

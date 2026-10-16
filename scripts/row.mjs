@@ -60,7 +60,19 @@ if (command === 'check') {
   }
   console.log(`${said}, row.gen.ts is fresh`);
 } else if (command === 'report') {
-  refuse('report: comes with the report of the places');
+  // The passport of the places: the table of the road (the solver, the score of the way, the walk, two personas) and
+  // the boards within two moves of the start, for every place or for the one named. Laid from the files, as `check` is.
+  const { placeRow, placeTable } = await load('/src/levels/table.ts');
+  const number = named.place === undefined ? null : Number(named.place);
+  if (number !== null && !row.places.some((place) => place.number === number)) refuse(`report: there is no place ${named.place}: the places are 1 to ${row.places.length}`);
+  const places = row.places.filter((place) => number === null || place.number === number);
+  const rows = [];
+  for (const place of places) {
+    rows.push(placeRow(place));
+    if (number === null) console.error(`${place.number} of ${row.places.length}: ${place.code}`);
+  }
+  console.log(placeTable(rows));
+  for (const place of places.filter(() => number !== null)) console.log(`\n${place.code}: way ${(place.spec.solution ?? []).join(' ')}; help ${JSON.stringify(place.help)}`);
 } else {
   writeFileSync(genFile, text);
   console.log(said);
