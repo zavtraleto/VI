@@ -90,7 +90,10 @@ export interface Later {
   spare: { x: number; z: number }[];
 }
 
-export function laterOf(spec: LevelSpec, runs = 10): Later {
+/** The games each player of the report plays in the third tier. */
+export const LATER_RUNS = 10;
+
+export function laterOf(spec: LevelSpec, runs = LATER_RUNS): Later {
   // The report takes a way a level keeps at its word; here the board is asked, so it is given without one.
   const { par: _par, exact: _exact, solution: _solution, ...bare } = spec;
   return { report: report(bare, { runs }), near: nearOf(bare), spare: spareOf(bare) };

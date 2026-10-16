@@ -44,6 +44,32 @@ describe('what «проверить» says', () => {
     expect(checkLines(instant, seconds({}, { trap: 0 }), null)[3]).toBe('ловушка: есть, тупик сразу');
     expect(checkLines(instant, seconds({}, { trap: null }), null)[3]).toBe('ловушки нет');
   });
+  it('says whether the way the file keeps holds on a board the solver found no way on', () => {
+    expect(checkLines(instant, seconds({ par: null, exact: false, way: null, kept: 'missing' }, { moves: [], trap: null }), null)).toEqual([
+      'решатель сдался, решения не нашёл',
+      'решатель сдался; записанный путь проходит доску',
+      'боты: считаю…',
+    ]);
+    expect(checkLines(instant, seconds({ par: null, exact: true, way: null, kept: 'broken' }, { moves: [], trap: null }), null)).toEqual([
+      'решения нет',
+      'записанный путь не проходит доску',
+      'боты: считаю…',
+    ]);
+    expect(checkLines(instant, seconds({ par: null, exact: true, way: null, kept: null }, { moves: [], trap: null }), null)).toEqual(['решения нет', 'боты: считаю…']);
+  });
+  it('says first moves the search gave up on as not counted, not as leading nowhere', () => {
+    const open = seconds({}, {
+      moves: [
+        { move: '0,0,E', keeps: 'par', par: 6, deadEnd: null },
+        { move: '0,0,S', keeps: 'unknown', par: null, deadEnd: null },
+        { move: '0,0,N', keeps: 'unknown', par: null, deadEnd: null },
+        { move: '0,0,W', keeps: 'dead', par: null, deadEnd: 'count' },
+      ],
+    });
+    expect(checkLines(instant, open, null)[2]).toBe('первые ходы: 1 из 4 ведут к решению, 1 сразу в тупик, 2 не досчитаны');
+    const none = seconds({}, { moves: [{ move: '0,0,E', keeps: 'unknown', par: null, deadEnd: null }] });
+    expect(checkLines(instant, none, null)[2]).toBe('первые ходы: 0 из 1 ведут к решению, 1 не досчитаны');
+  });
   it('says a board that stands in a dead end as it is', () => {
     expect(checkLines({ ...instant, deadEnd: 'count' }, null, null)[0]).toBe('доска стоит в тупике как есть');
   });

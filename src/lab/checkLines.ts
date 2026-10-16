@@ -1,4 +1,4 @@
-import type { Instant, Later, Seconds } from './labFacts';
+import { LATER_RUNS, type Instant, type Later, type Seconds } from './labFacts';
 import { plural } from './workshopLists';
 
 /**
@@ -15,30 +15,36 @@ export function checkLines(instant: Instant | null, seconds: Seconds | string | 
   else if (typeof seconds === 'string') lines.push(`решатель: ${seconds}`);
   else {
     const { check } = seconds;
-    if (check.par === null) lines.push(check.exact ? 'решения нет' : 'решатель сдался, решения не нашёл');
-    else {
+    // `kept` holds the solver against the file (`checkOf`): shorter, the solver found a way shorter than the file keeps;
+    // longer, the file keeps fewer moves than the solver can find; missing, the file's way plays and the solver gave up.
+    const kept = {
+      same: 'записанный путь: держит минимум',
+      shorter: `записанный путь длиннее: есть путь за ${moves(check.par ?? 0)}`,
+      longer: 'записано меньше ходов, чем нашёл решатель',
+      missing: 'решатель сдался; записанный путь проходит доску',
+      broken: 'записанный путь не проходит доску',
+    } as const;
+    if (check.par === null) {
+      lines.push(check.exact ? 'решения нет' : 'решатель сдался, решения не нашёл');
+      // With no way found only `missing` and `broken` can stand here.
+      if (check.kept !== null) lines.push(kept[check.kept]);
+    } else {
       lines.push(`решается за ${moves(check.par)} (${check.exact ? 'доказано' : 'не доказано'})`);
-      // `kept` holds the solver against the file (`checkOf`): shorter, the solver found a way shorter than the file keeps; longer, the file keeps fewer moves than the solver can find.
-      const kept = {
-        same: 'записанный путь: держит минимум',
-        shorter: `записанный путь длиннее: есть путь за ${moves(check.par)}`,
-        longer: 'записано меньше ходов, чем нашёл решатель',
-        missing: 'записанный путь: решатель не нашёл пути',
-        broken: 'записанный путь не проходит доску',
-      } as const;
       lines.push(check.kept === null ? 'пути в файле нет' : kept[check.kept]);
-      const lead = seconds.moves.filter((move) => move.keeps === 'par' || move.keeps === 'longer').length;
-      const dead = seconds.moves.filter((move) => move.keeps === 'dead' && move.deadEnd !== null).length;
-      lines.push(`первые ходы: ${lead} из ${seconds.moves.length} ведут к решению${dead > 0 ? `, ${dead} сразу в тупик` : ''}`);
+      const count = (keeps: (fact: Seconds['moves'][number]) => boolean): number => seconds.moves.filter(keeps).length;
+      const lead = count((move) => move.keeps === 'par' || move.keeps === 'longer');
+      const dead = count((move) => move.keeps === 'dead' && move.deadEnd !== null);
+      // A move the search gave up on is not said to lead nowhere: it is said to be not counted out.
+      const open = count((move) => move.keeps === 'unknown');
+      lines.push(`первые ходы: ${lead} из ${seconds.moves.length} ведут к решению${dead > 0 ? `, ${dead} сразу в тупик` : ''}${open > 0 ? `, ${open} не досчитаны` : ''}`);
       lines.push(seconds.trap === null ? 'ловушки нет' : seconds.trap === 0 ? 'ловушка: есть, тупик сразу' : `ловушка: есть, тупик виден через ${moves(seconds.trap)}`);
     }
   }
   if (later === null) lines.push('боты: считаю…');
   else if (typeof later === 'string') lines.push(`боты: ${later}`);
   else {
-    // 10: the games each player of the report plays in `laterOf` (`runs = 10`).
-    const of = (name: 'hasty' | 'casual' | 'careful' | 'planner'): number => Math.round((later.report.personas[name]?.endings.passed ?? 0) * 10);
-    lines.push(`боты из 10: торопливый ${of('hasty')}, обычный ${of('casual')}, внимательный ${of('careful')}, планирующий ${of('planner')}`);
+    const of = (name: 'hasty' | 'casual' | 'careful' | 'planner'): number => Math.round(later.report.personas[name].endings.passed * LATER_RUNS);
+    lines.push(`боты из ${LATER_RUNS}: торопливый ${of('hasty')}, обычный ${of('casual')}, внимательный ${of('careful')}, планирующий ${of('planner')}`);
     lines.push(later.spare.length === 0 ? 'лишних костей нет' : `лишних костей: ${later.spare.length}`);
   }
   return lines;
