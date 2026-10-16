@@ -1,0 +1,15 @@
+id: ladder-16
+status: D
+origin: курс 6 октября
+was: B16
+faces: 2 3
+seed: 68
+chapter: 6
+par: 8
+exact: yes
+way: 2,1,E 2,0,S 3,0,W 2,1,W 2,2,E 0,2,N 2,0,S 2,1,W
+---
+31  26  56  54
+32   .  51   .
+64* 31  51   .
+ .   .   .  35

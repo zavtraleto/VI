@@ -1,0 +1,17 @@
+id: road-e1-6
+status: D
+origin: дорога, редакция 1 (R06)
+was: R06e1
+faces: 4
+floor: shut
+undos: 3
+seed: 8106
+chapter: 0
+par: 2
+exact: yes
+way: 1,2,N 1,1,E
+---
+ -   -  41+ 41+
+ .   .   .  41+
+ -  62*  -   -
+ -   -   -   -

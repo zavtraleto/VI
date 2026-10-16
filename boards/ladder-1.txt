@@ -1,0 +1,15 @@
+id: ladder-1
+status: D
+origin: курс 6 октября, резерв (B01)
+was: B01_s435
+faces: 3
+seed: 435
+chapter: 5
+lesson: lessonThrees
+par: 1
+exact: yes
+way: 1,2,N
+---
+ .   .   .
+36   .   .
+32  54*  .

@@ -1,0 +1,17 @@
+id: road-e2-16
+status: D
+origin: дорога, редакция 2 (R16)
+was: R16e2
+words: 2026-10-11: становится не нужен, если перенесём в 15
+faces: 3
+undos: 3
+seed: 8116
+chapter: 0
+par: 2
+exact: yes
+way: 1,0,E,p 3,2,N,p
+---
+ .  31   .   .
+ .   .  31+  .
+ .   .   .  31
+ .   .   f   .

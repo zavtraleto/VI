@@ -1,0 +1,17 @@
+id: chapter1-9-2
+status: D
+origin: курс 6 октября, резерв (C109)
+was: C109_s10370
+faces: 3
+floor: shut
+seed: 10370
+chapter: 1
+guard: on
+par: 4
+exact: yes
+way: 0,1,E 2,0,S 2,1,S 2,2,W
+---
+32  32  62   .
+26*  .   .   .
+36   .   .   .
+36   .   .   .

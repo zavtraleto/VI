@@ -1,0 +1,18 @@
+id: course-1
+status: D
+origin: курс 6 октября; курс 6 октября (C101); курс 6 октября, резерв; курс 6 октября, резерв (C101)
+was: T01
+faces: 3
+floor: shut
+seed: 78
+chapter: 0
+lesson: lineCombo
+guard: on
+guide: on
+par: 1
+exact: yes
+way: 1,0,S
+---
+ .  63*  .
+ .   .   .
+32  32   .

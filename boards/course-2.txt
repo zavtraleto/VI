@@ -1,0 +1,16 @@
+id: course-2
+status: D
+origin: курс 6 октября; курс 6 октября, резерв
+was: T02
+faces: 2
+floor: shut
+seed: 113
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 1,0,W
+---
+ .  36*  .
+26   .   .
+ .   .   .

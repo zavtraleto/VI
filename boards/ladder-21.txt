@@ -1,0 +1,15 @@
+id: ladder-21
+status: D
+origin: курс 6 октября
+was: B21
+faces: 5
+seed: 87
+chapter: 7
+par: 6
+exact: yes
+way: 2,1,E 3,1,S 3,2,W 2,2,N 2,1,W 0,1,S
+---
+53  51  54  56
+45*  .  32   .
+53  51   .   .
+ .   .   .   .

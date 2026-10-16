@@ -1,0 +1,16 @@
+id: course-3-2
+status: D
+origin: курс 6 октября, резерв (T03)
+was: T03_s133
+faces: 4
+floor: shut
+seed: 133
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 1,0,S
+---
+ .  54* 41
+ .   .  41
+ .   .  41

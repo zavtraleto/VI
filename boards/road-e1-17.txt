@@ -1,0 +1,16 @@
+id: road-e1-17
+status: D
+origin: дорога, редакция 1
+was: R17
+faces: 2 3
+undos: 3
+seed: 8117
+chapter: 0
+par: 2
+exact: yes
+way: 0,3,N 2,2,E,p
+---
+ -   -   -  31+
+21+  -   -  31+
+ .   .  31   .
+45*  -   -   -

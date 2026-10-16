@@ -1,0 +1,19 @@
+id: course-7-5
+status: D
+origin: курс 6 октября, резерв (T07)
+was: T07_s10050
+faces: 2
+floor: shut
+seed: 10050
+chapter: 0
+lesson: lineWalk
+until: end
+guard: on
+guide: on
+par: 2
+exact: yes
+way: 1,1,W 1,2,E
+---
+ .   .   .
+ .  41* 21
+26  31   .

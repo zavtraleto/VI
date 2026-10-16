@@ -1,0 +1,15 @@
+id: two-combos-5
+status: D
+origin: проба 7 октября, резерв (P17)
+was: P17_s31123
+faces: 3 4
+seed: 31123
+chapter: 0
+par: 5
+exact: yes
+way: 3,1,W 3,2,N 2,2,E 2,1,W 0,0,S
+---
+54  45  42* 36
+ .   .   .  35
+ .   .  65  64
+ .   .   .   .

@@ -1,0 +1,14 @@
+id: two-combos-2
+status: D
+origin: проба 7 октября, резерв (P07)
+was: P07_s32873
+faces: 2 3
+seed: 32873
+chapter: 0
+par: 4
+exact: yes
+way: 1,2,E 1,0,E 0,1,S 0,2,E
+---
+ .  46   .
+26* 32  26
+ .  51   .

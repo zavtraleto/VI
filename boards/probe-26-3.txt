@@ -1,0 +1,16 @@
+id: probe-26-3
+status: D
+origin: проба 7 октября, резерв (P26)
+was: P26_s30605
+faces: 2
+seed: 30605
+chapter: 0
+par: 4
+exact: yes
+way: 1,1,W 0,1,S 2,2,E,p 4,2,S
+---
+ -   -   -   -   -
+ .  42*  -   .   .
+ .   .  24   .  42
+26   .   -  24   .
+ -   -   -   -   -

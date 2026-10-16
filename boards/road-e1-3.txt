@@ -1,0 +1,15 @@
+id: road-e1-3
+status: D
+origin: дорога, редакция 1 (R03)
+was: R03e1
+faces: 2
+floor: shut
+undos: 3
+seed: 8103
+chapter: 0
+par: 1
+exact: yes
+way: 0,1,E
+---
+ .  21+
+63*  .

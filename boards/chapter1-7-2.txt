@@ -1,0 +1,17 @@
+id: chapter1-7-2
+status: D
+origin: курс 6 октября, резерв (C107)
+was: C107_s311
+faces: 5
+floor: shut
+seed: 311
+chapter: 1
+guard: on
+par: 1
+exact: yes
+way: 1,2,W
+---
+ .  54  53   .
+54  51*  .   .
+ .  31   .   .
+ .   .   .   .

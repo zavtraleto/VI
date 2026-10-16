@@ -1,0 +1,17 @@
+id: chapter1-8-2
+status: D
+origin: курс 6 октября, резерв (C108)
+was: C108_s10143
+faces: 2
+floor: shut
+seed: 10143
+chapter: 1
+guard: on
+par: 4
+exact: yes
+way: 1,1,N 1,0,W 0,2,E 1,2,E
+---
+ .   .   .   .
+26* 41  21   .
+56   .   .   .
+ .   .   .   .

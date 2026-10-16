@@ -1,0 +1,18 @@
+id: course-4-2
+status: D
+origin: курс 6 октября, резерв (T04); курс 6 октября, резерв (B02)
+was: T04_s93
+faces: 3
+floor: shut
+seed: 93
+chapter: 0
+lesson: lineStep
+guard: on
+guide: on
+par: 1
+exact: yes
+way: 1,0,S
+---
+32  63   .
+36*  .   .
+ .   .   .

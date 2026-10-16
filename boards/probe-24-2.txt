@@ -1,0 +1,16 @@
+id: probe-24-2
+status: D
+origin: проба 7 октября, резерв (P24)
+was: P24_s30074
+faces: 2
+seed: 30074
+chapter: 0
+par: 5
+exact: yes
+way: 2,1,W 1,1,S 0,1,E 0,2,N 3,2,W
+---
+ -   -   -   -   -
+63   .  62   .   .
+65   .  24  41*  .
+ -   -   -   -   -
+ -   -   -   -   -

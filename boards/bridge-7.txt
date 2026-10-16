@@ -1,0 +1,15 @@
+id: bridge-7
+status: D
+origin: проба 7 октября, резерв (P16)
+was: P16_s31722
+faces: 3
+seed: 31722
+chapter: 0
+par: 4
+exact: yes
+way: 0,1,S 0,2,E 0,3,N 0,2,N
+---
+35*  .   .   .
+51  32   .   .
+ .   .   .   .
+45  35  35   .

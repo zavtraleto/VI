@@ -1,0 +1,16 @@
+id: chapter1-2
+status: D
+origin: курс 6 октября; курс 6 октября, резерв
+was: C102
+faces: 2
+floor: shut
+seed: 174
+chapter: 1
+guard: on
+par: 2
+exact: yes
+way: 0,2,N 0,1,E
+---
+ .  26   .
+ .   .   .
+46*  .   .

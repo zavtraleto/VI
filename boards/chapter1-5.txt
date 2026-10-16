@@ -1,0 +1,19 @@
+id: chapter1-5
+status: D
+origin: курс 6 октября; курс 6 октября, резерв
+was: C105
+faces: 3
+floor: shut
+seed: 105
+chapter: 1
+lesson: lineSeven
+until: combo
+guard: on
+guide: on
+par: 2
+exact: yes
+way: 2,2,N 2,1,N
+---
+ .  35   .
+ .  36   .
+ .   .  46*

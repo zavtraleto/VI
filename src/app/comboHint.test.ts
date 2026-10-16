@@ -14,14 +14,14 @@ const along = (spec: LevelSpec, moves: readonly string[]): RunState => moves.red
 
 describe('the plaques of a level as a hint', () => {
   it('stands over the heap whose combo is two moves away with the board still to be cleared', () => {
-    // P04: four 5s in a row, the fifth two rolls off, and the way of the level begins with those two rolls.
-    const hint = comboHints(start(levelOf('P04')));
+    // hidden-face-3 (was P04): four 5s in a row, the fifth two rolls off, and the way of the level begins with those two rolls.
+    const hint = comboHints(start(levelOf('hidden-face-3')));
     expect(hint.settled).toBe(true);
     expect(hint.groups.map(({ value, have, need }) => ({ value, have, need }))).toEqual([{ value: 5, have: 4, need: 5 }]);
   });
 
   it('says nothing on a board that is over', () => {
-    const spec = levelOf('P04');
+    const spec = levelOf('hidden-face-3');
     const dead = along(spec, ['3,0,W', '2,0,W', '1,1,S', '1,2,N']);
     expect(dead.over).toBe(true);
     expect(comboHints(dead).groups).toEqual([]);
@@ -43,7 +43,7 @@ describe('the plaques of a level as a hint', () => {
   });
 
   it('leaves the board it is asked about as it was', () => {
-    const state = start(levelOf('P04'));
+    const state = start(levelOf('hidden-face-3'));
     const before = boardKey(state);
     comboHints(state);
     expect(boardKey(state)).toBe(before);
@@ -52,7 +52,7 @@ describe('the plaques of a level as a hint', () => {
 
 describe('a plaque kept while the next board is counted', () => {
   it('stays over a heap that has not changed, and goes from one that has', () => {
-    const spec = levelOf('P04');
+    const spec = levelOf('hidden-face-3');
     const state = start(spec);
     const [heap] = comboHints(state).groups;
     expect(stillShort(state, heap)).toBe(true);

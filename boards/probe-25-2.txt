@@ -1,0 +1,15 @@
+id: probe-25-2
+status: D
+origin: проба 7 октября, резерв (P25)
+was: P25_s30431
+faces: 3
+seed: 30431
+chapter: 0
+par: 5
+exact: yes
+way: 3,3,N 3,2,W 2,2,N 2,0,S 2,1,S
+---
+ -   -  41   -
+ -  36   .   .
+ -  31   .   .
+ -   .   .  46*

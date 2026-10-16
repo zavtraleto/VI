@@ -1,0 +1,16 @@
+id: ladder-20-3
+status: D
+origin: курс 6 октября, резерв (B20)
+was: B20_s10186
+faces: 5
+seed: 10186
+chapter: 7
+par: 6
+exact: yes
+way: 0,2,S 0,3,E 1,3,E 2,3,N 2,1,E 3,1,S
+---
+ .   .   .   .   .
+ .   .  35   .  56
+54*  .   .   .  53
+ .   .   .  53  51
+ .   .   .   .   .

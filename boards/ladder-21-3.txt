@@ -1,0 +1,15 @@
+id: ladder-21-3
+status: D
+origin: курс 6 октября, резерв (B21)
+was: B21_s146
+faces: 5
+seed: 146
+chapter: 7
+par: 6
+exact: yes
+way: 2,1,E 2,2,N 0,3,N 0,2,E 1,2,E 3,1,W
+---
+ .   .  54   .
+ .   .  51   .
+ .   .  32  53
+35  56* 53  54

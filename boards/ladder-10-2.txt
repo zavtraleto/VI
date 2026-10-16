@@ -1,0 +1,14 @@
+id: ladder-10-2
+status: D
+origin: курс 6 октября, резерв (B10)
+was: B10_s10120
+faces: 2 3
+seed: 10120
+chapter: 6
+par: 5
+exact: yes
+way: 1,2,W 1,1,S 1,2,E 2,2,N 2,1,W
+---
+31  21   .
+36  42   .
+ .  62*  .

@@ -1,0 +1,15 @@
+id: down-back-1
+status: D
+origin: проба 7 октября, резерв (P06)
+was: P06_s30377
+faces: 2
+seed: 30377
+chapter: 0
+par: 4
+exact: yes
+way: 1,1,E 2,1,N 3,2,S,p 2,2,E
+---
+ .   .   .  23
+ .  45*  .   .
+ .   .  31  24
+ .   .  23   .

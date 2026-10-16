@@ -1,0 +1,16 @@
+id: course-5-3
+status: D
+origin: курс 6 октября, резерв (T05)
+was: T05_s442
+faces: 4
+floor: shut
+seed: 442
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 1,0,E
+---
+ .  62   .
+ .  45  45*
+ .   .  42

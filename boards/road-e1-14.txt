@@ -1,0 +1,16 @@
+id: road-e1-14
+status: D
+origin: дорога, редакция 1 (R14)
+was: R14e1
+faces: 3
+undos: 3
+seed: 8114
+chapter: 0
+par: 2
+exact: yes
+way: 1,1,N 1,0,E
+---
+ -    .    .   31+
+ -   51    -   31+
+ -   62~1  -    -
+ -    f    -    -

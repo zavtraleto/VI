@@ -1,0 +1,14 @@
+id: ladder-7-2
+status: D
+origin: курс 6 октября, резерв (B07)
+was: B07_s10031
+faces: 3
+seed: 10031
+chapter: 5
+par: 7
+exact: yes
+way: 1,1,E 1,0,S 1,2,E 1,1,S 2,0,S 2,1,S 0,0,S
+---
+63  46  45
+31  65*  .
+31  51   .

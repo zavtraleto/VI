@@ -1,0 +1,16 @@
+id: ladder-11-3
+status: D
+origin: курс 6 октября, резерв (B11)
+was: B11_s10055
+faces: 2 3
+seed: 10055
+chapter: 6
+lesson: lessonGlass
+par: 4
+exact: yes
+way: 0,3,N 0,2,E 3,2,S 2,1,S
+---
+ .   .   .   .
+ .   .  63   .
+ .   .  26  63*
+46  36  35   .

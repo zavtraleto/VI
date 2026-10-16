@@ -1,0 +1,15 @@
+id: ladder-4-3
+status: D
+origin: курс 6 октября, резерв (B04)
+was: B04_s755
+faces: 3
+seed: 755
+chapter: 5
+lesson: lessonSeven
+par: 4
+exact: yes
+way: 1,2,E 2,2,N 2,1,W 0,2,E
+---
+32*  .   .
+32   .   .
+65  36   .

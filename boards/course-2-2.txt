@@ -1,0 +1,16 @@
+id: course-2-2
+status: D
+origin: курс 6 октября, резерв (T02)
+was: T02_s405
+faces: 2
+floor: shut
+seed: 405
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 0,0,E
+---
+46*  .   .
+ .  21   .
+ .   .   .

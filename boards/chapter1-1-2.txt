@@ -1,0 +1,19 @@
+id: chapter1-1-2
+status: D
+origin: курс 6 октября, резерв (C101)
+was: C101_s583
+faces: 3
+floor: shut
+seed: 583
+chapter: 1
+lesson: lineSide
+until: combo
+guard: on
+guide: on
+par: 2
+exact: yes
+way: 2,1,W 1,1,N
+---
+32   .   .
+31   .  24*
+ .   .   .

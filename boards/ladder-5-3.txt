@@ -1,0 +1,15 @@
+id: ladder-5-3
+status: D
+origin: курс 6 октября, резерв (B05)
+was: B05_s10730
+faces: 3
+seed: 10730
+chapter: 5
+par: 4
+exact: yes
+way: 2,0,S 3,0,W 3,1,N 0,1,E
+---
+36  32  23* 56
+51   .   .  54
+ .   .   .   .
+ .   .   .   .

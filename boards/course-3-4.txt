@@ -1,0 +1,16 @@
+id: course-3-4
+status: D
+origin: курс 6 октября, резерв (T03)
+was: T03_s276
+faces: 4
+floor: shut
+seed: 276
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 1,0,W
+---
+ .  26*  .
+42  46   .
+ .  42   .

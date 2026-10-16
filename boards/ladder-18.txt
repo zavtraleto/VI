@@ -1,0 +1,15 @@
+id: ladder-18
+status: D
+origin: курс 6 октября, резерв (B18)
+was: B18_s5
+faces: 5
+seed: 5
+chapter: 7
+par: 4
+exact: yes
+way: 0,1,N 0,0,E 1,0,S 1,1,W
+---
+ .   .   .   .
+42*  .   .   .
+51  56   .   .
+53  54   .   .

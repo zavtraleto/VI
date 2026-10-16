@@ -1,0 +1,16 @@
+id: course-3
+status: D
+origin: курс 6 октября
+was: T03
+faces: 4
+floor: shut
+seed: 88
+chapter: 0
+guard: on
+par: 1
+exact: yes
+way: 0,1,E
+---
+ .   .   .
+21*  .   .
+42  46  41

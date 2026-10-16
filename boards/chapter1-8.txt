@@ -1,0 +1,17 @@
+id: chapter1-8
+status: D
+origin: курс 6 октября
+was: C108
+faces: 2
+floor: shut
+seed: 18
+chapter: 1
+guard: on
+par: 4
+exact: yes
+way: 0,0,S 0,1,S 1,1,W 0,1,N
+---
+51  24*  .   .
+ .  65   .   .
+ .  26   .   .
+ .   .   .   .

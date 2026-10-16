@@ -1,0 +1,17 @@
+id: course-9-5
+status: D
+origin: курс 6 октября, резерв (T09)
+was: T09_s10973
+faces: 2
+floor: shut
+seed: 10973
+chapter: 0
+guard: on
+par: 4
+exact: yes
+way: 1,2,S 3,1,N 3,0,W 2,2,W
+---
+ .   .   .   .
+ .   .  21  36
+23  62  36*  .
+ .   .  21   .

@@ -1,0 +1,15 @@
+id: ladder-3
+status: D
+origin: курс 6 октября, резерв (B03)
+was: B03_s368
+faces: 3
+seed: 368
+chapter: 5
+lesson: lessonLink
+par: 3
+exact: yes
+way: 2,0,S 0,0,S 1,0,E
+---
+23* 65  23
+ .  31   .
+ .   .   .

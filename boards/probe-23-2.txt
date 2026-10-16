@@ -1,0 +1,16 @@
+id: probe-23-2
+status: D
+origin: проба 7 октября, резерв (P23)
+was: P23_s30060
+faces: 3
+seed: 30060
+chapter: 0
+par: 7
+exact: yes
+way: 2,2,E 3,2,E 4,2,N 2,1,S 2,2,E 4,1,S 3,1,E
+---
+ -   -   -   -   -
+ -   -  65  51   .
+ .   .  46*  .   .
+ -   -   .   .   .
+ -   -   -   -   -

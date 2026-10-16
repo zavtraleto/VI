@@ -1,0 +1,14 @@
+id: ladder-10
+status: D
+origin: курс 6 октября
+was: B10
+faces: 2 3
+seed: 745
+chapter: 6
+par: 5
+exact: yes
+way: 1,2,E 1,1,S 1,2,W 0,0,E 1,0,S
+---
+63   .   .
+36* 56  21
+ .  31   .

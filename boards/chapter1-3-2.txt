@@ -1,0 +1,17 @@
+id: chapter1-3-2
+status: D
+origin: курс 6 октября, резерв (C103)
+was: C103_s829
+faces: 4
+floor: shut
+seed: 829
+chapter: 1
+guard: on
+par: 3
+exact: yes
+way: 3,0,S 3,1,S 3,2,W
+---
+ .   .   .  26*
+ .   .   .   .
+ .   .   .   .
+41  46  41   .

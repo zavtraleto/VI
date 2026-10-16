@@ -1,0 +1,15 @@
+id: ladder-23
+status: D
+origin: курс 6 октября, резерв (B23)
+was: B23_s11
+faces: 5
+seed: 11
+chapter: 7
+par: 9
+exact: yes
+way: 2,1,S 1,1,E 0,1,E 1,1,S 2,1,W 2,0,S 1,2,S 0,2,E 2,2,W
+---
+53  54  35  53
+46  56* 46  56
+41   .   .  51
+56   .   .   .

@@ -344,12 +344,14 @@ describe('a candidate of a place', () => {
     // kept for the record, as that of P02 was before; each board is judged as laid by hand. P01 is
     // not among them: its way is still one of the fewest moves, but the solver tries the rolls in the
     // order N, E, S, W, so on the mirrored board it first finds another way as short, a bridge, which
-    // its place does not take.
-    for (const level of ['P03', 'P04'].map(boardOf)) {
-      const place = PLACES.find((other) => levelId(other) === level.id)!;
+    // its place does not take. Their files took names by their idea on 16 October 2026; the code of
+    // the place is the name they had.
+    for (const code of ['P03', 'P04']) {
+      const level = { ...boardOf(code), id: code };
+      const place = PLACES.find((other) => levelId(other) === code)!;
       const verdict = judge({ ...place, sketch: [level.layout!] }, SKETCH + 1);
-      expect(verdict.why, level.id).toBe('');
-      expect(verdict.fit?.spec, level.id).toEqual({ ...level, seed: SKETCH + 1 });
+      expect(verdict.why, code).toBe('');
+      expect(verdict.fit?.spec, code).toEqual({ ...level, seed: SKETCH + 1 });
     }
   });
 

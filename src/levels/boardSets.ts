@@ -5,24 +5,25 @@ import { CAMPAIGN } from './campaign';
 /**
  * The boards the code of the game held until the row moved to files (15 October 2026), now read from
  * their files by code: the tests and the scripts that went over all of them still do. For the tests and
- * the labs only, as `boardFiles.ts` is: the game reads its row from `row.gen.ts`.
+ * the labs only, as `boardFiles.ts` is: the game reads its row from `row.gen.ts`. The files took names
+ * by their idea on 16 October 2026; the old names are in their `was:`.
  */
 
 /** The levels of the probe and the acts that were parked: played by the tests, not by the game. */
 export const PARKED_CODES: readonly string[] = [
-  'P10', 'P18', 'P21', 'P22', 'P23', 'P25', 'P26', 'P27', 'P28', 'P29', 'P30', 'P13', 'P04', 'P14', 'P01', 'P17', 'P31', 'P19',
-  'K17', 'P03', 'P16', 'K21', 'K23', 'P20', 'K25', 'P05', 'K28', 'C1-04', 'K22', 'P15',
+  'first-die-1', 'broom-3', 'collapse-6', 'bridge-8', 'probe-23', 'probe-25', 'probe-26', 'probe-27', 'probe-28', 'probe-29', 'probe-30', 'collapse-3', 'hidden-face-3', 'rescue-3', 'chaser-1', 'two-combos-3', 'probe-31', 'trap-4',
+  'act-k17', 'hidden-face-1', 'bridge-5', 'act-k21', 'act-k23', 'domino-3', 'act-k25', 'tight-room-1', 'act-k28', 'roll-onto-1', 'act-k22', 'tight-room-4',
 ];
 
-/** The reserve of the places of the probe, under the code of the place and the seed it was laid from. */
+/** The reserve of the places of the probe, once under the code of the place and the seed it was laid from (now in their `was:`). */
 export const SPARE_NAMES: readonly string[] = [
-  'P01_s30512', 'P01_s30192', 'P02_s31295', 'P02_s30214', 'P03_s30146', 'P04_s31783', 'P04_s30207', 'P05_s30158', 'P05_s30236',
-  'P06_s30377', 'P06_s30399', 'P07_s31151', 'P07_s32873', 'P08_s30006', 'P08_s30370', 'P09_s30009', 'P09_s30848', 'P10_s30582',
-  'P10_s30882', 'P12_s30002', 'P12_s30376', 'P13_s30460', 'P13_s30065', 'P14_s30615', 'P14_s30797', 'P15_s31571', 'P15_s30402',
-  'P16_s31722', 'P16_s31055', 'P17_s30075', 'P17_s31123', 'P17_s30072', 'P18_s30105', 'P18_s30824', 'P19_s30721', 'P19_s30263',
-  'P20_s30220', 'P20_s30054', 'P21_s30482', 'P21_s30392', 'P22_s34545', 'P22_s30785', 'P23_s30060', 'P24_s30485', 'P24_s30074',
-  'P25_s30744', 'P25_s30431', 'P26_s30605', 'P26_s30141', 'P27_s30633', 'P27_s30653', 'P28_s30007', 'P28_s30061', 'P29_s30038',
-  'P29_s30663', 'P30_s30012', 'P30_s30121',
+  'collapse-2', 'collapse-1', 'bridge-3', 'bridge-1', 'hidden-face-2', 'rescue-2', 'rescue-1', 'tight-room-2', 'tight-room-3',
+  'down-back-1', 'down-back-2', 'two-combos-1', 'two-combos-2', 'domino-1', 'domino-2', 'trap-1', 'trap-2', 'broom-1',
+  'broom-2', 'down-back-3', 'down-back-4', 'collapse-5', 'collapse-4', 'rescue-4', 'rescue-5', 'tight-room-6', 'tight-room-5',
+  'bridge-7', 'bridge-6', 'two-combos-4', 'two-combos-5', 'trap-3', 'broom-4', 'broom-5', 'trap-6', 'trap-5',
+  'domino-5', 'domino-4', 'collapse-8', 'collapse-7', 'bridge-10', 'bridge-9', 'probe-23-2', 'probe-24-3', 'probe-24-2',
+  'probe-25-3', 'probe-25-2', 'probe-26-3', 'probe-26-2', 'probe-27-2', 'probe-27-3', 'probe-28-2', 'probe-28-3', 'probe-29-2',
+  'probe-29-3', 'probe-30-2', 'probe-30-3',
 ];
 
 /** The boards of the row as they are played. */

@@ -1,0 +1,15 @@
+id: rescue-2
+status: D
+origin: проба 7 октября, резерв (P04)
+was: P04_s31783
+faces: 5
+seed: 31783
+chapter: 0
+par: 4
+exact: yes
+way: 0,3,N 0,2,E 1,3,E 2,3,E
+---
+ .   .   .  54
+ .   .   .  54
+ .   .  54  51
+41  23*  .   .

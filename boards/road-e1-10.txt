@@ -1,0 +1,17 @@
+id: road-e1-10
+status: D
+origin: дорога, редакция 1 (R10)
+was: R10e1
+faces: 4
+floor: shut
+undos: 3
+seed: 8110
+chapter: 0
+par: 3
+exact: yes
+way: 1,2,W 0,2,N 0,1,N
+---
+ .  41+ 41+ 41+
+ .   -   -   -
+ .  62*  -   -
+ -   -   -   -

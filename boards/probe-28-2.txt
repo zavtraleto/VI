@@ -1,0 +1,16 @@
+id: probe-28-2
+status: D
+origin: проба 7 октября, резерв (P28)
+was: P28_s30007
+faces: 3
+seed: 30007
+chapter: 0
+par: 4
+exact: yes
+way: 0,2,N 0,1,E 2,2,E 4,1,W
+---
+ -   -   -   -   -
+ .   .  31   .  62
+65  35  65*  .  31
+ -   -   -   -   -
+ -   -   -   -   -

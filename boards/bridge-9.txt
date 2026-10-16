@@ -1,0 +1,16 @@
+id: bridge-9
+status: D
+origin: проба 7 октября, резерв (P22)
+was: P22_s30785
+faces: 3
+seed: 30785
+chapter: 0
+par: 4
+exact: yes
+way: 4,1,W 3,1,S 1,1,W 0,1,S
+---
+ -   -   -   -   -
+ .  53   -   .  63*
+ .  35  32   .   .
+36   .   -  32   .
+ -   -   -   -   -

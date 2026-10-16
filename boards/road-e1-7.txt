@@ -1,0 +1,18 @@
+id: road-e1-7
+status: D
+origin: дорога, редакция 1 (R07)
+was: R07e1
+faces: 2 3
+floor: shut
+undos: 3
+seed: 8107
+chapter: 0
+par: 4
+exact: yes
+way: 2,4,N 3,3,N 3,2,N 3,1,E
+---
+ -   -   -  31+ 31+
+ -   -   -   .   .
+ -   -   -   .   -
+ -  21+  .  12   -
+ -   -  45*  -   -

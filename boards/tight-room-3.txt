@@ -1,0 +1,14 @@
+id: tight-room-3
+status: D
+origin: проба 7 октября, резерв (P05)
+was: P05_s30236
+faces: 3
+seed: 30236
+chapter: 0
+par: 6
+exact: yes
+way: 1,1,W 0,1,N 2,1,W 2,0,S 1,2,N 1,1,W
+---
+ .  36* 63
+ .  54  56
+35  21   .

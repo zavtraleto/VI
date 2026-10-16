@@ -1,0 +1,17 @@
+id: road-e1-12
+status: D
+origin: дорога, редакция 1 (R12)
+was: R12e1
+faces: 2 3
+floor: shut
+undos: 3
+seed: 8112
+chapter: 0
+par: 3
+exact: yes
+way: 0,3,N 1,2,N 1,0,E
+---
+ -  65   .   -
+21+  .  31+ 31+
+ .  64   -   -
+45*  -   -   -

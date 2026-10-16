@@ -1,0 +1,15 @@
+id: ladder-9-2
+status: D
+origin: курс 6 октября, резерв (B09)
+was: B09_s10155
+faces: 2 3
+seed: 10155
+chapter: 6
+lesson: lessonTwos
+par: 3
+exact: yes
+way: 2,0,S 1,0,W 2,1,S
+---
+ .  62  56
+32* 36   .
+ .  21   .

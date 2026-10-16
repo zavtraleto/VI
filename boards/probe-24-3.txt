@@ -1,0 +1,16 @@
+id: probe-24-3
+status: D
+origin: проба 7 октября, резерв (P24)
+was: P24_s30485
+faces: 2
+seed: 30485
+chapter: 0
+par: 5
+exact: yes
+way: 3,2,W 2,2,N 1,2,E 1,1,S 4,1,W
+---
+ -   -   -   -   -
+ .  32   .  26* 36
+ .  31   .  45   .
+ -   -   -   -   -
+ -   -   -   -   -

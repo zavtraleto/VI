@@ -1,0 +1,15 @@
+id: ladder-12-3
+status: D
+origin: курс 6 октября, резерв (B12)
+was: B12_s10932
+faces: 2 3
+seed: 10932
+chapter: 6
+par: 6
+exact: yes
+way: 2,1,N 1,1,E 2,1,S 3,3,W 3,2,S 2,2,E
+---
+ .  26   .  32
+ .  45  65  35
+ .   .   .  53*
+ .   .   .  21

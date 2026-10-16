@@ -1,0 +1,16 @@
+id: ladder-17
+status: D
+origin: курс 6 октября, резерв (B17)
+was: B17_s13
+faces: 5
+seed: 13
+chapter: 7
+lesson: lessonFives
+par: 2
+exact: yes
+way: 2,2,N 2,1,N
+---
+ .  51   .   .
+ .  53   .   .
+56  54  21*  .
+ .   .   .   .

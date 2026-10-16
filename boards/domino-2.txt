@@ -1,0 +1,15 @@
+id: domino-2
+status: D
+origin: проба 7 октября, резерв (P08)
+was: P08_s30370
+faces: 2
+seed: 30370
+chapter: 0
+par: 5
+exact: yes
+way: 2,2,W 1,2,N 0,0,E 2,1,N 3,0,W
+---
+63   .   .  41
+23   .  45*  .
+ .   .  35   .
+ .   .   .   .

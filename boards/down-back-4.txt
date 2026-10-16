@@ -1,0 +1,15 @@
+id: down-back-4
+status: D
+origin: проба 7 октября, резерв (P12)
+was: P12_s30376
+faces: 2 3
+seed: 30376
+chapter: 0
+par: 4
+exact: yes
+way: 1,0,W 2,1,E,p 2,3,E,p 3,3,N
+---
+ .  41*  .  32
+26   .  36   .
+ .   .   .  36
+ .   .  24   .

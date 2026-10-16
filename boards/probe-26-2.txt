@@ -1,0 +1,16 @@
+id: probe-26-2
+status: D
+origin: проба 7 октября, резерв (P26)
+was: P26_s30141
+faces: 2
+seed: 30141
+chapter: 0
+par: 4
+exact: yes
+way: 0,2,E 1,2,S 2,2,E,p 4,2,N
+---
+ -   -   -   -   -
+ .   .   -  21   .
+62*  .  23   .  45
+21   .   -   .   .
+ -   -   -   -   -

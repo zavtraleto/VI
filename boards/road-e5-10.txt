@@ -1,0 +1,16 @@
+id: road-e5-10
+status: D
+origin: дорога, редакция 5 (R10)
+was: R10e5
+faces: 2
+undos: 3
+seed: 8110
+chapter: 0
+par: 2
+exact: yes
+way: 3,3,N 0,1,N
+---
+ .   21+   .    .
+45   63~2  .   21+
+ .    .    .    .
+ .    .    .   65*

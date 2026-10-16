@@ -1,0 +1,16 @@
+id: ladder-13
+status: D
+origin: курс 6 октября
+was: B13
+faces: 3
+seed: 36
+chapter: 5
+lesson: lineFloor
+par: 5
+exact: yes
+way: 1,0,S 0,0,S 0,1,S 2,0,W,p 2,3,N
+---
+45  23  36*  .
+36   .   .   .
+ .  35   .   .
+ .   .  24   .
