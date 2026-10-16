@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { rowBoards, spareBoards } from './boardSets';
-import { normalSpec, parseBoard, printBoard, readBoardHead } from './boardFile';
+import { normalSpec, parseBoard, printBoard, readBoardHead, withHead } from './boardFile';
 
 const SAMPLE = `id: H01
 note: третья кость подъезжает толчком
@@ -140,8 +140,37 @@ faces: 3
     expect(readBoardHead(HEAD.replace('status: RC', 'status: fire').replace('mark: огонь', 'mark: мимо')).mark).toBe('мимо');
   });
   it('refuses a status that is none, a mark that is none and words with no date', () => {
-    expect(() => parseBoard(HEAD.replace('status: RC', 'status: maybe'), 'Q1')).toThrow(/"status: maybe" is none of D RC R X/);
+    expect(() => parseBoard(HEAD.replace('status: RC', 'status: maybe'), 'Q1')).toThrow(/"status: maybe" is none of N D RC R X/);
     expect(() => parseBoard(HEAD.replace('mark: огонь', 'mark: класс'), 'Q1')).toThrow(/mark: класс/);
     expect(() => parseBoard(HEAD.replace('words: 2026-10-14: ', 'words: '), 'Q1')).toThrow(/has no date/);
+  });
+});
+
+describe('the head of the workshop', () => {
+  const text = [
+    'id: bridge-3',
+    'status: N',
+    'batch: bridge 2026-10-16',
+    'origin: заказ',
+    'was: P13_s30460 P13x',
+    'faces: 2',
+    '---',
+    '21* 21',
+    ' .   .',
+  ].join('\n');
+  it('reads a new board, its batch and the names it had', () => {
+    expect(readBoardHead(text)).toEqual({ status: 'N', batch: 'bridge 2026-10-16', origin: 'заказ', was: ['P13_s30460', 'P13x'] });
+  });
+  it('writes them back in the order of the keys, and the hash of the board does not see them', () => {
+    const spec = parseBoard(text, 'bridge-3', true);
+    const written = printBoard(spec, readBoardHead(text));
+    expect(written.split('\n').slice(0, 5)).toEqual(['id: bridge-3', 'status: N', 'batch: bridge 2026-10-16', 'origin: заказ', 'was: P13_s30460 P13x']);
+    expect(printBoard(normalSpec(parseBoard(written, 'x', true)))).toBe(printBoard(normalSpec(spec)));
+  });
+  it('says N among the statuses a file may have', () => {
+    expect(() => parseBoard(text.replace('status: N', 'status: Q'), 'q', true)).toThrow('"status: Q" is none of N D RC R X');
+  });
+  it('keeps them when the head of the library is said anew', () => {
+    expect(readBoardHead(withHead(text, { ...readBoardHead(text), status: 'RC' }))).toEqual({ status: 'RC', batch: 'bridge 2026-10-16', origin: 'заказ', was: ['P13_s30460', 'P13x'] });
   });
 });

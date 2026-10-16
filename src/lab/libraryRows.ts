@@ -112,7 +112,7 @@ function sortValue(row: LibraryRow, key: SortKey): number | string | null {
     case 'name':
       return row.name;
     case 'status':
-      return row.head.status ? (['R', 'RC', 'D', 'X'] as const).indexOf(row.head.status) : null;
+      return row.head.status ? (['R', 'RC', 'D', 'N', 'X'] as const).indexOf(row.head.status) : null;
     case 'place':
       return row.place?.number ?? null;
     case 'chapter':

@@ -49,10 +49,12 @@ import type { LevelLayout, LevelSpec, PuzzleDie } from '../rules/types';
 
 /**
  * Where a board stands (the library of the boards, docs/superpowers/specs/2026-10-14-vi-board-library-design.md):
- * `D` a draft, `RC` a candidate for the row, `R` in the row, `X` taken off. Not a part of its code.
+ * `N` new: laid by an order or a generator and not yet marked by the owner
+ * (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md, section 5), `D` a draft, `RC` a
+ * candidate for the row, `R` in the row, `X` taken off. Not a part of its code.
  */
-export type BoardStatus = 'D' | 'RC' | 'R' | 'X';
-export const BOARD_STATUSES: readonly BoardStatus[] = ['D', 'RC', 'R', 'X'];
+export type BoardStatus = 'N' | 'D' | 'RC' | 'R' | 'X';
+export const BOARD_STATUSES: readonly BoardStatus[] = ['N', 'D', 'RC', 'R', 'X'];
 /** The last word of the owner on a board after playing it. */
 export type BoardMark = 'огонь' | 'норм' | 'мимо';
 export const BOARD_MARKS: readonly BoardMark[] = ['огонь', 'норм', 'мимо'];
@@ -73,7 +75,11 @@ export interface BoardWords {
 export interface BoardHead {
   note?: string;
   status?: BoardStatus;
+  /** The batch a board was laid in: the word of the order and the day, `bridge 2026-10-16`. */
+  batch?: string;
   origin?: string;
+  /** The names the board had before, the oldest first. */
+  was?: string[];
   mark?: BoardMark;
   words?: BoardWords[];
   tags?: string[];
@@ -81,7 +87,7 @@ export interface BoardHead {
   migrated?: boolean;
 }
 
-const KEYS = ['id', 'note', 'status', 'origin', 'mark', 'words', 'tags', 'faces', 'sink', 'lift', 'floor', 'climb', 'undos', 'seed', 'chapter', 'lesson', 'story', 'until', 'guard', 'guide', 'par', 'exact', 'way'] as const;
+const KEYS = ['id', 'note', 'status', 'batch', 'origin', 'was', 'mark', 'words', 'tags', 'faces', 'sink', 'lift', 'floor', 'climb', 'undos', 'seed', 'chapter', 'lesson', 'story', 'until', 'guard', 'guide', 'par', 'exact', 'way'] as const;
 type Key = (typeof KEYS)[number];
 const DIE = /^([1-6])([1-6])((?:[*+]|~\d+)*)$/;
 const UNTIL: readonly NonNullable<LevelSpec['until']>[] = ['move', 'combo', 'chain', 'push', 'climb', 'end'];
@@ -253,8 +259,8 @@ export function parseBoard(text: string, name = '?', loose = false): LevelSpec {
 }
 
 /**
- * The lines of a file that are about the board and not of it: the note, the status, where it is
- * from, the mark and the words of the owner, the tags. Reads no more of the file, and takes what
+ * The lines of a file that are about the board and not of it: the note, the status, the batch,
+ * where it is from, the names it had, the mark and the words of the owner, the tags. Reads no more of the file, and takes what
  * it can of a file that is no board. A status of the old words is read as the new one, with the
  * mark it said, and the head says it was (`migrated`).
  */
@@ -264,11 +270,13 @@ export function readBoardHead(text: string): BoardHead {
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (/^-{3,}$/.test(line)) break;
-    const read = /^(note|status|origin|mark|words|tags):\s*(.*)$/.exec(line);
+    const read = /^(note|status|batch|origin|was|mark|words|tags):\s*(.*)$/.exec(line);
     if (!read || read[2] === '') continue;
     const [, key, value] = read;
     if (key === 'note') head.note = value;
+    else if (key === 'batch') head.batch = value;
     else if (key === 'origin') head.origin = value;
+    else if (key === 'was') head.was = value.split(/\s+/);
     else if (key === 'mark' && (BOARD_MARKS as readonly string[]).includes(value)) head.mark = value as BoardMark;
     else if (key === 'tags') head.tags = value.split(/\s+/);
     else if (key === 'words') {
@@ -289,11 +297,11 @@ export function readBoardHead(text: string): BoardHead {
 }
 
 /** The keys of the head that are the library's (docs/superpowers/specs/2026-10-14-vi-board-library-design.md): said anew by `withHead`, the rest of a file left as it is. */
-const LIBRARY_KEYS = /^(status|origin|mark|words|tags):/;
+const LIBRARY_KEYS = /^(status|batch|origin|was|mark|words|tags):/;
 
 /**
- * A file with the lines of the library in its head said anew — status, origin, mark, words,
- * tags — and every other line, the board itself, its way and its comments, as they were. The
+ * A file with the lines of the library in its head said anew — status, batch, origin, was, mark,
+ * words, tags — and every other line, the board itself, its way and its comments, as they were. The
  * new lines stand after the id and the note, where `printBoard` puts them.
  */
 export function withHead(text: string, head: BoardHead): string {
@@ -342,7 +350,9 @@ export function printBoard(spec: LevelSpec, extra: BoardHead = {}): string {
     id: spec.id,
     note: extra.note,
     status: extra.status,
+    batch: extra.batch,
     origin: extra.origin,
+    was: extra.was && extra.was.length > 0 ? extra.was.join(' ') : undefined,
     mark: extra.mark,
     words: undefined,
     tags: extra.tags && extra.tags.length > 0 ? extra.tags.join(' ') : undefined,
