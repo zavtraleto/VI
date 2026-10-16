@@ -181,14 +181,9 @@ export interface NearFact {
  * refuse, a combo ready at the start and the like, is left out.
  */
 export function nearOf(spec: LevelSpec, opts: { maxStates?: number } = {}): NearFact[] {
-  return nearBoards(spec, opts).map(({ what, par, exact, change }) => ({ what, par, exact, change }));
-}
-
-/** The boards one change away with what each change does, as `nearOf` tells it, and the board itself: a board that is cleared keeps its way. */
-export function nearBoards(spec: LevelSpec, opts: { maxStates?: number } = {}): (NearFact & { spec: LevelSpec })[] {
   const { maxStates = QUICK_MAX_STATES } = opts;
   const before = solveLevel(spec, { maxStates }).solution?.par ?? spec.par ?? null;
-  const facts: (NearFact & { spec: LevelSpec })[] = [];
+  const facts: NearFact[] = [];
   for (const edit of editsOf(spec)) {
     const { leaving, onFloor } = spec.layout!;
     const moved = edit.what.startsWith('start at');
@@ -202,8 +197,7 @@ export function nearBoards(spec: LevelSpec, opts: { maxStates?: number } = {}): 
     }
     const par = solved.solution?.par ?? null;
     const change: NearFact['change'] = par === null ? 'unsolved' : before === null || par === before ? 'same' : par < before ? 'shorter' : 'longer';
-    const kept: LevelSpec = solved.solution ? { ...board, par: solved.solution.par, exact: true, solution: solved.solution.moves.map(moveText) } : board;
-    facts.push({ what: edit.what, par, exact: solved.exhausted, change, spec: kept });
+    facts.push({ what: edit.what, par, exact: solved.exhausted, change });
   }
   return facts;
 }

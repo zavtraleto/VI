@@ -10,7 +10,6 @@ import {
   compactOrigins,
   exportText,
   fileOfSpec,
-  markOfKey,
   mergeHead,
   placeOf,
   renameFaults,
@@ -192,9 +191,6 @@ describe('the text given out', () => {
   });
   it('says that nothing was marked, where nothing was', () => {
     expect(exportText([], '2026-10-14')).toBe('## Библиотека, выгрузка 2026-10-14\n\n- ничего не оценено\n');
-  });
-  it('reads the keys of a mark', () => {
-    expect([markOfKey('Digit1'), markOfKey('Numpad2'), markOfKey('Digit3'), markOfKey('KeyE')]).toEqual(['огонь', 'норм', 'мимо', null]);
   });
 });
 

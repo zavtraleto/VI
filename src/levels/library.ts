@@ -1,6 +1,6 @@
 import type { LevelSpec } from '../rules/types';
 import type { Row } from './row';
-import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardMark, type BoardStatus, type BoardWords } from './boardFile';
+import { normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead, type BoardMark, type BoardStatus, type BoardWords } from './boardFile';
 
 export { withHead } from './boardFile';
 import { sameBoard } from './variety';
@@ -277,12 +277,4 @@ export function exportText(entries: readonly ExportEntry[], date: string): strin
     return `- ${entry.name} (${passport}) — ${entry.mark ?? 'без оценки'}.${words ? ` ${words}.` : ''}`;
   });
   return [`## Библиотека, выгрузка ${date}`, '', ...(lines.length > 0 ? lines : ['- ничего не оценено']), ''].join('\n');
-}
-
-/** The mark of a key after a play: `1` fire, `2` fine, `3` a miss. */
-export function markOfKey(code: string): BoardMark | null {
-  const at = ['Digit1', 'Digit2', 'Digit3'].indexOf(code);
-  const pad = ['Numpad1', 'Numpad2', 'Numpad3'].indexOf(code);
-  const index = at >= 0 ? at : pad;
-  return index >= 0 ? BOARD_MARKS[index] : null;
 }

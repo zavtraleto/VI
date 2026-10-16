@@ -1,5 +1,5 @@
 import type { RowOp } from '../levels/rowEdit';
-import type { HeadPatch, Version } from './boardsServer';
+import type { HeadPatch } from './boardsServer';
 
 /**
  * The files of the lab of the levels as the page asks for them: every call is an address of the
@@ -15,11 +15,6 @@ async function asked(address: string, init?: RequestInit): Promise<Response> {
   return answer;
 }
 
-/** The names of the boards there are, sorted. */
-export async function listBoards(): Promise<string[]> {
-  return (await (await asked('/__boards')).json()) as string[];
-}
-
 export async function readBoard(name: string): Promise<string> {
   return (await asked(at(name))).text();
 }
@@ -28,20 +23,6 @@ export async function readBoard(name: string): Promise<string> {
 export async function writeBoard(name: string, text: string): Promise<{ hash?: string; error?: string }> {
   // `keepalive`: a write begun as the page is closed is still made.
   return (await (await asked(at(name), { method: 'PUT', body: text, keepalive: true })).json()) as { hash?: string; error?: string };
-}
-
-/** The versions of a board that are kept, the oldest first. */
-export async function historyOf(name: string): Promise<Version[]> {
-  return (await (await asked(at(name, '/history'))).json()) as Version[];
-}
-
-export async function readVersion(name: string, file: string): Promise<string> {
-  return (await asked(at(name, `/history/${encodeURIComponent(file)}`))).text();
-}
-
-/** The plays written down for a board, of every version of it. */
-export async function playsOf<T>(name: string): Promise<T[]> {
-  return (await (await asked(at(name, '/plays'))).json()) as T[];
 }
 
 export async function addPlay(name: string, play: unknown): Promise<void> {
@@ -80,11 +61,6 @@ export async function editRow(op: RowOp): Promise<void> {
 /** Gives the board of the file `from` to the board `code`, and the board of `code` to `from`, as a candidate; both or neither. */
 export async function swapBoards(code: string, from: string): Promise<void> {
   await asked(at(code, '/swap'), { method: 'POST', body: JSON.stringify({ from }) });
-}
-
-/** Keeps the text a session of the library gave out, in `boards/.history/export-<date>.md`; the path it is kept at. */
-export async function writeExport(date: string, text: string): Promise<string> {
-  return ((await (await asked(`/__boards?export=${encodeURIComponent(date)}`, { method: 'POST', body: text })).json()) as { file: string }).file;
 }
 
 /** Calls `told` with the name of a board whenever its file is changed on the disk, by this page or by anyone else. */

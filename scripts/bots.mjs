@@ -6,7 +6,8 @@
 //   node scripts/bots.mjs                    the table of the levels
 //   node scripts/bots.mjs only=P05,P06       some of the levels
 //   node scripts/bots.mjs spares             the levels that are parked and the boards in reserve as well
-//   node scripts/bots.mjs level=P06          one level in full: its board, its score move by move, every player
+//   node scripts/bots.mjs level=P06          one level in full: its board, its score move by move, every player;
+//                                            a board is named by its file, or by a name it had (`was:`, as P13)
 //   node scripts/bots.mjs climb=on           the levels played by the rule of the floor as it was, and as a session
 //                                            still has it: a die that cannot be pushed is climbed from the floor.
 //                                            A level is then solved anew, since there may be a shorter way
@@ -101,9 +102,15 @@ function full(spec) {
 
 const all = flag('spares') ? [...LEVELS, ...PARKED, ...SPARES] : LEVELS;
 
+// A level is named by its code, or by a name its file had before (`was:`), as level.mjs finds it.
+const { BOARD_TEXTS } = await load('/src/levels/boardFiles.ts');
+const { resolveName } = await load('/src/levels/library.ts');
+const files = [...BOARD_TEXTS].map(([name, text]) => ({ name, text }));
+const levelOf = (name) => all.find((level) => level.id === name) ?? all.find((level) => level.id === resolveName(name, files));
+
 if (flag('edits')) {
   const { probeEdits } = await load('/src/levels/edits.ts');
-  const spec = all.find((level) => level.id === named.level);
+  const spec = levelOf(named.level);
   if (!spec) throw new Error('edits: name a level, as in edits level=P06');
   const base = played(spec);
   const before = report(base, { runs: 1, maxStates });
@@ -118,11 +125,11 @@ if (flag('edits')) {
   }
   console.log(layOut(rows));
 } else if (named.level) {
-  const spec = all.find((level) => level.id === named.level);
+  const spec = levelOf(named.level);
   if (!spec) throw new Error(`no level "${named.level}"`);
   console.log(full(played(spec)));
 } else {
-  const only = named.only ? named.only.split(',') : null;
+  const only = named.only ? named.only.split(',').map((name) => levelOf(name)?.id ?? name) : null;
   const rows = [[...REPORT_HEAD]];
   for (const spec of all) {
     if (only && !only.includes(spec.id)) continue;

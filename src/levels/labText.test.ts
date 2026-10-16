@@ -8,7 +8,7 @@ import { normalSpec } from './boardFile';
 import { ROAD_PLACES } from './roadRecipes';
 import { levelSource } from './select';
 import { parseBoard, readBoardHead } from './boardFile';
-import { BATCH_WORD, BLIND, batchFile, batchTaken, boardFrom, checkJson, checkOf, checkText, diffOf, diffText, fitOf, fitText, genFile, genOf, genSeeds, movesOf, movesText, nearBoards, nearOf, nearText, regressOne, regressText } from './labText';
+import { BATCH_WORD, BLIND, batchFile, batchTaken, boardFrom, checkJson, checkOf, checkText, diffOf, diffText, fitOf, fitText, genFile, genOf, genSeeds, movesOf, movesText, nearOf, nearText, regressOne, regressText } from './labText';
 
 describe('a board of a batch', () => {
   it('takes the first free number of its word, and says it is new', () => {
@@ -51,12 +51,6 @@ describe('genOf', () => {
     expect(name).toBe('R03-10393');
     expect(readBoardHead(text)).toEqual({ status: 'D', note: 'место R03, зерно 10393' });
     expect(parseBoard(text, name).par).toBe(fits[0].par);
-  });
-  it('gives the boards one change away as boards, each with its way where it has one', () => {
-    const boards = nearBoards(fileBoard('R03'));
-    expect(boards.map(({ spec: _spec, ...fact }) => fact)).toEqual(nearOf(fileBoard('R03')));
-    const cleared = boards.find((board) => board.par !== null)!;
-    expect(cleared.spec.solution).toHaveLength(cleared.par!);
   });
 });
 
