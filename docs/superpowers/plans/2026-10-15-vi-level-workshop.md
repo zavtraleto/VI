@@ -11,6 +11,8 @@
 
 **Стек:** TypeScript, Vite (дев-сервер и плагин `vite.boards.ts`), vitest, Node-скрипты через `runnerImport`.
 
+**Порядок задач:** 0–10, затем 14, 15, 16 (дополнение спеки 16 октября, раздел 11: кампания из мастерской), затем 11, 12, 13. Номера 14–16 даны, чтобы не сдвигать ссылки на 11–13.
+
 ## Общие рамки
 
 - Правила уровня (`src/rules`) не меняются; из `src/app/game.ts` — только два шва задачи 5.
@@ -904,6 +906,101 @@ export function startLabIndex(): void {
 
 ---
 
+### Задача 14: операции над рядом — чистые функции и адреса сервера
+
+**Файлы:**
+- Создать: `src/levels/rowEdit.ts`, `src/levels/rowEdit.test.ts`
+- Изменить: `src/lab/boardsServer.ts` (`BoardsAsk`, `askOf`, `rowOpOf`, `swapOf`, шапка-перечень адресов), `vite.boards.ts` (ветки `row-read`, `row`, `swap`), `src/lab/boardsClient.ts` (`readRowFile`-текст, `editRow`, `swapBoards`)
+- Тест: `src/lab/boardsServer.test.ts`
+
+**Интерфейсы:**
+- Потребляет: `RowFile`, `RowPlaceFile`, `Help`, `ROLES`, `TECHNIQUES`, `HINT_KEYS`, `SIGNS`, `PLAQUES`, `WAITS`, `CAMERAS`, `readRowFile`, `buildRow` из `src/levels/row.ts`; `fastGrammar`, `Violation` из `src/levels/grammar.ts`; `readBoardHead`, `withHead`, `BoardStatus` из `src/levels/boardFile.ts`.
+- Даёт (`src/levels/rowEdit.ts`):
+
+```ts
+export type PlaceFields = Omit<RowPlaceFile, 'board'>;
+export type RowOp =
+  | { op: 'insert'; board: string; chapter: number; after: string | null; place: PlaceFields }
+  | { op: 'move'; board: string; way: 'up' | 'down' }
+  | { op: 'remove'; board: string; status: 'RC' | 'X' }
+  | { op: 'edit'; board: string; place: PlaceFields };
+/** The row after the operation, and the files whose status it changes: insert → R, remove → RC or X. */
+export interface RowEdit { file: RowFile; statuses: Readonly<Record<string, BoardStatus>> }
+export function rowEdit(file: RowFile, op: RowOp): RowEdit;
+export function helpNear(file: RowFile, chapter: number, after: string | null): Help;
+export function rowFileText(file: RowFile): string;
+export function withStatus(text: string, status: BoardStatus): string;
+export function swapBoardTexts(kept: string, other: string, note: string): { kept: string; other: string };
+```
+
+- Даёт (`boardsServer.ts`): `BoardsAsk` получает `{ kind: 'row-read' }` (`GET /__boards?row`), `{ kind: 'row' }` (`POST /__boards?row`, тело — `RowOp`), `{ kind: 'swap'; name: string }` (`POST /__boards/<код>/swap`, тело `{ from: <имя копии> }`); `rowOpOf(body: string): RowOp | null` — разбор и проверка формы тела (имена — `safeName`, роль и прочие слова — из списков `row.ts`), `swapOf(body: string): string | null`.
+- Даёт (`boardsClient.ts`): `readRow(): Promise<string>`, `editRow(op: RowOp): Promise<{ violations: Violation[] }>`, `swapBoards(code: string, from: string): Promise<void>`.
+
+- [ ] **Шаг 1. Тест `rowEdit.test.ts`.** Ряд-образец в тесте — `RowFile` из двух глав (`{ title: 'a', places: [p('A1'), p('A2')] }`, `{ title: 'b', faces: [2, 3], places: [p('B1')] }`, где `p(board)` — `{ board, role: 'apply', archetype: 'x', help: { plaques: 'near' } }`). Проверить:
+  - `insert` с `after: null` ставит первым в главе, с `after: 'A1'` — сразу после `A1`; `statuses` — `{ [board]: 'R' }`; доска, уже стоящая в ряду, — ошибка `row: <board> is in the row already`; `after`, которого нет в главе, — ошибка `row: <after> is not in chapter <n>`; глава вне ряда — ошибка.
+  - `move` `up` у второго места главы меняет его с первым; `up` у первого места главы переносит его последним в предыдущую главу; `down` у последнего — первым в следующую; `up` у первого места ряда и `down` у последнего — ошибка `row: <board> is at the <start|end> of the row`; `statuses` пуст.
+  - `remove` снимает место, `statuses` — `{ [board]: 'RC' }` или `'X'`; доска не из ряда — ошибка.
+  - `edit` меняет поля места, доска та же; `statuses` пуст.
+  - `helpNear(file, 0, 'A1')` — `help` места `A1`; `helpNear(file, 1, null)` — `help` места `B1`; пустая глава — `{}`.
+  - Исходный `file` не меняется ни одной операцией (сравнить с глубокой копией до).
+  - `rowFileText(readRowFile(text)) === text` для настоящего `boards/row.json` (читать через `?raw`: `import row from '../../boards/row.json?raw'`): печать держит нынешнюю раскладку файла — глава многострочно, место строкой. Перед тем как писать `rowFileText`, открыть `boards/row.json` и повторить его раскладку точно (отступы, пробелы внутри `{ }`, порядок ключей места `board, role, teaches, archetype, event, note, help`, порядок ключей `help` как в `HELP_KEYS`, конец файла).
+  - `withStatus(text, 'R')` — голова со `status: R`, остальное как было.
+  - `swapBoardTexts(kept, other, 'прежняя доска R05, заменена 2026-10-16')`: `kept` получает клетки, правила доски и путь из `other`, свои `id`, `status`, `origin`, `was`, `mark`, `words`, `tags`, `note` и `batch` сохраняет; `other` получает прежнюю доску `kept`, свой `id`, статус `RC` и заметку из третьего аргумента.
+- [ ] **Шаг 2.** Красный.
+- [ ] **Шаг 3. Код `rowEdit.ts`.** Шапка: «The operations the workshop does on the row (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md, section 11): each gives a new `RowFile` and the files whose status it changes; the server lays the row on the result and writes it only where it is laid». Функции не меняют свой вход (копия глав и мест). `swapBoardTexts`: разобрать обе (`parseBoard(text, id, true)`), голову взять `readBoardHead`; новая `kept` — `printBoard({ ...specOther, id: idKept }, headKept)`; новая `other` — `printBoard({ ...specKept, id: idOther }, { ...headOther, status: 'RC', note })`.
+- [ ] **Шаг 4.** Зелёный.
+- [ ] **Шаг 5. Тест `boardsServer.test.ts`:** `askOf('GET', '/?row')` → `{ kind: 'row-read' }`; `askOf('POST', '/?row')` → `{ kind: 'row' }`; `askOf('PUT', '/?row')` → 405; `askOf('POST', '/R05/swap')` → `{ kind: 'swap', name: 'R05' }`; `rowOpOf` принимает каждую из четырёх форм и отказывает (null): неизвестный `op`, `board` с точкой, `role` не из `ROLES`, `way` не `up`/`down`, `status` не `RC`/`X`, `help.sign` не из `SIGNS`, лишний ключ места; `swapOf('{"from":"R05-try-1"}')` → `'R05-try-1'`, `swapOf('{"from":"../x"}')` → null.
+- [ ] **Шаг 6. Код `boardsServer.ts`** по тесту; строки шапки-перечня:
+  `GET  /__boards?row                     the text of boards/row.json` · `POST /__boards?row                     an operation on the row (\`RowOp\`): laid, then written whole, or refused with nothing written` · `POST /__boards/<code>/swap             { from }: the board of the file <from> goes into <code> and the board of <code> into <from>, laid, then written, or refused`.
+- [ ] **Шаг 7. Код `vite.boards.ts`.**
+  - `row-read`: текст `boards/row.json`.
+  - `row`: `const op = rowOpOf(await body())` (null → 400); `file = readRowFile(row.json)`; `const { file: next, statuses } = rowEdit(file, op)` (ошибка → 409 с её текстом); `texts` — все `boards/*.txt` как в `relay`, для каждого из `statuses` — `withStatus`; `buildRow(next, texts)` (ошибка → 409 с её текстом, ничего не записано); записать `row.json` текстом `rowFileText(next)` и файлы `statuses`; ответ `{ violations: fastGrammar(row.places) }`.
+  - `swap`: `from = swapOf(...)`; оба файла должны быть; `from` не в ряду; `{ kept, other } = swapBoardTexts(текст <code>, текст <from>, \`прежняя доска \${code}, заменена \${дата}\`)`; `buildRow(file, texts с kept)` — ошибка → 409, ничего не записано; записать оба файла.
+  - `relay` уже пересобирает `row.gen.ts` при записи `row.json` и досок ряда — ничего не добавлять.
+- [ ] **Шаг 8. `boardsClient.ts`:** три функции по образцу соседних (`asked`, JSON).
+- [ ] **Шаг 9. Проверка руками** в worktree, на копии: скопировать `boards/row.json` во временный файл scratchpad, написать маленький node-скрипт в scratchpad, который через `runnerImport` грузит `src/levels/rowEdit.ts` и `src/levels/row.ts` и прогоняет `insert` → `buildRow` на настоящих файлах `boards/` без записи; убедиться, что доска не `R` ставится и ряд собирается, а `remove` последнего места пролога и `move` через границу главы дают собираемый ряд. Ничего в `boards/` не писать.
+- [ ] **Шаг 10.** `npx vitest run --maxWorkers=3`, `npm run typecheck`, `npm run build`, `node scripts/library.mjs check`.
+- [ ] **Шаг 11. Коммит:** «Ряд: операции над row.json и обмен досками на сервере».
+
+---
+
+### Задача 15: ряд на странице
+
+**Файлы:**
+- Изменить: `src/lab/workshop.ts`
+- Изменить (если нужно): `src/lab/workshopLists.ts` (подписи ролей), его тест
+
+**Интерфейсы:**
+- Потребляет: `rowEdit`/`RowOp`/`helpNear`/`PlaceFields` (задача 14), `readRow`, `editRow` (задача 14), `buildRow`, `readRowFile`, `ROLES`, `TECHNIQUES`, `HINT_KEYS`, `SIGNS`, `PLAQUES`, `WAITS`, `CAMERAS` (`src/levels/row.ts`), `fastGrammar` (`src/levels/grammar.ts`).
+- Даёт: `ROLE_TITLES: Readonly<Record<Role, string>>` в `workshopLists.ts` — `{ meet: 'встреча', learn: 'урок', apply: 'применение', event: 'событие', twist: 'поворот', peak: 'пик', rest: 'передышка' }`; `chaptersOf(rows: readonly BoardRow[], file: RowFile): { title: string; faces: readonly number[] | null; places: { number: number; row: BoardRow | null; place: RowPlaceFile }[] }[]` — главы для списка «в кампании».
+
+- [ ] **Шаг 1. Тест** в `workshopLists.test.ts`: `chaptersOf` на ряду-образце из двух глав и трёх строк даёт главы по порядку, места со сквозными номерами с 1, строку доски по коду (null, если файла нет); `ROLE_TITLES` покрывает каждую роль `ROLES`.
+- [ ] **Шаг 2.** Красный; **шаг 3** — код; **шаг 4** — зелёный.
+- [ ] **Шаг 5. Список «в кампании»** на странице: заголовок главы (название и грани, если есть), под ним места `<номер> <картинка> <код> <роль>`; у выбранного места — «выше», «ниже», «правка места», «убрать из ряда» (спрашивает: «в хорошие» или «убрать»). Текст ряда — `readRow()` при загрузке и после каждой операции; при событии `vi:boards` о `row` (имя `row` в `onBoardChanged` не придёт — `told` в `vite.boards.ts` смотрит только `.txt`; поэтому после своей операции страница перечитывает ряд сама, а изменение `row.json` снаружи видно по пересборке: перечитывать ряд и при любом событии о доске ряда).
+- [ ] **Шаг 6. «Поставить в ряд»** у доски не `R` (кнопка рядом с «копировать для чата»): форма раздела 11.1 спеки — глава (список глав), место («первым в главе» или «после <код>» — места выбранной главы), роль (подписи `ROLE_TITLES`), архетип (поле, обязательно), `teaches`, `event`, `note`, помощь (пять списков, у каждого «нет»), по умолчанию — `helpNear`; строка «в главе играет на гранях …», если у главы `faces`. «Поставить» — `editRow({ op: 'insert', … })`; отказ — его строка в строке сообщений, форма остаётся.
+- [ ] **Шаг 7. Грамматика.** Под списком «в кампании» — строки `fastGrammar(buildRow(readRowFile(текст ряда), тексты досок).places)` (их `Violation` в одну строку: правило и место), или «грамматика держится»; после операции — `violations` из ответа сервера. Ряд, который не собирается, — строка отказа `buildRow`.
+- [ ] **Шаг 8.** Проверки; **preview** (приём «Смотреть worktree»): список «в кампании» совпадает с `boards/row.json` по порядку и номерам; грамматика — «держится» (как тест). Операции в preview пишут `row.json` основной папки — поэтому их **не** выполнять, а проверить, что форма собирает верный `RowOp` (вывести его в консоль вместо отправки — временной правкой, снятой до коммита) и что ответ отказа показывается (`fetch('/__boards?row', { method: 'POST', body: '{}' })` → 400, строка видна). Операции на настоящих файлах держат тесты задачи 14.
+- [ ] **Шаг 9. Коммит:** «Мастерская: ряд кампании — поставить, переставить, убрать, грамматика».
+
+---
+
+### Задача 16: доска кампании — путь сам, копия и замена
+
+**Файлы:**
+- Изменить: `src/lab/workshop.ts`
+
+**Интерфейсы:**
+- Потребляет: ярус `seconds` (`SolveClient`), `swapBoards` (задача 14), `writeBoard`.
+
+- [ ] **Шаг 1. Путь сам.** У открытой доски со статусом `R`: после каждой правки (и при открытии, если в файле нет `par` или `way`) спросить `seconds`; когда ответ пришёл для этой же доски и `check.exact && check.par !== null && check.way` — положить в голову `par`, `exact: true`, `solution: way` (как `levelsLab.keepSolved`, строки 740–746) и записать файл. Пока ответа нет — над полем строка «ряд не соберётся, пока не записан путь»; нет решения — «ряд не соберётся: решения нет»; минимум не доказан — «ряд не соберётся: решатель не доказал минимум». У досок не `R` — как раньше, путь сам не пишется.
+- [ ] **Шаг 2. Копия.** Кнопка «копия» у доски `R`: имя `<код>-try-<n>` — первый `n`, свободный среди имён (без учёта регистра); текст — та же доска, `status: D`, `origin: копия <код>`, без `words`, `mark`, `was`, `batch`; `writeBoard`, перечитать списки, открыть копию.
+- [ ] **Шаг 3. Заменить в ряду.** У доски, чей `origin` — `копия <код>` и `<код>` стоит в ряду: кнопка «заменить в ряду <код>» → сначала `save()`, потом `swapBoards(code, name)`; при успехе открыть `<код>`; отказ сервера — строкой.
+- [ ] **Шаг 4.** Проверки; **preview** — только на копиях, без записи в ряд: открыть доску ряда, нажать «копия» → появилась `<код>-try-1` в основной папке (сказать владельцу в отчёте, чтобы её убрали); строка «ряд не соберётся…» видна на доске `R` во время счёта (смотреть на копии нельзя — у неё не `R`; поэтому проверить логику строк чистой функцией: вынести выбор строки в `rowPathLine(status, seconds)` в `checkLines.ts` с тестом). Замену и запись пути в файл доски ряда держит тест задачи 14 (`swapBoardTexts`) и ручная проверка задачи 14.
+- [ ] **Шаг 5. Тест** `rowPathLine` в `checkLines.test.ts`: не `R` → null; `R` и `seconds` null → «ряд не соберётся, пока не записан путь»; нет решения → «ряд не соберётся: решения нет»; не доказан → «ряд не соберётся: решатель не доказал минимум»; доказан → null.
+- [ ] **Шаг 6. Коммит:** «Мастерская: доска кампании — путь сам, копия и замена».
+
+---
+
 ### Задача 11: имена досок вне ряда
 
 **Файлы:**
@@ -938,6 +1035,8 @@ export function startLabIndex(): void {
   - Раздел 9: страница — убрать папку «Генерация»; команды — с `batch=`.
   - Разделы 11–14: команды `order`, `complete`, `repair`, `improve`, `set`, `ratings` — как были; абзацы о панели («Папка «Заказ»», клавиши `K`, `Y`/`N`/`U`/`M`, «Связка» на странице, выдача на поле, `OrderDesk`) — заменить строкой «на странице этого нет с 16 октября 2026; команды остались».
   - Раздел 15: «Страница `?lab=library`» → «страница — мастерская, раздел 4»; `import` убран; `rename`, `history`, `list batch=`.
+  - Раздел 16 «Ряд»: «Как вставить доску» — со страницы (поставить, переставить, убрать, грамматика), адреса `GET`/`POST /__boards?row` и `POST …/swap`, доска ряда правится прямо с записью пути, копия и замена; прежний способ руками остаётся строкой.
+  - Шапка «Что живёт в коде» дополняется `src/levels/rowEdit.ts`.
   - «Что вышло иначе» — дописать то, что вышло иначе в этой работе.
 - [ ] **Шаг 3. `README.md`** (корень): строку о лабораториях в таблице структуры — `?lab=workshop` (мастерская уровней), `?lab` — список лабораторий.
 - [ ] **Шаг 4. `docs/README.md`:** строку спеки мастерской — «построено <дата>, v<версия>»; две одинаковые строки `VI_Levels_Lab.md` — одна; абзац команд уровней: `?lab=workshop`, `library.mjs list | check | export | rename | history`, `level.mjs … batch=`. Строка плана уходит в задаче 13.
