@@ -24,6 +24,7 @@
 //   node scripts/level.mjs order preset=tricky par=4-6 out=boards/out/   boards laid for an order: a preset and the bounds
 //                                                       said after it (size= dice= faces= par= needs= avoid= quiet= events= tail=
 //                                                       ends= firsts= trap= trapdepth= hidden= far= last=); seconds=10, keep=5
+//                                                       (batch=bridge: boards/bridge-<n>.txt, new (N), in one batch; keep=10)
 //   node scripts/level.mjs complete file=H01 pinned=1.1,3.2 preset=flow   the dice named stay, the rest are laid for the order
 //   node scripts/level.mjs repair file=H01 par=4-4 needs=link   the nearest board that meets the order, by the fewest changes
 //   node scripts/level.mjs improve file=H01 preset=tricky   as repair, by many small changes: for a board three changes do not mend
@@ -35,6 +36,7 @@
 //   node scripts/level.mjs gen place=R05 out=boards/out/   boards laid for a place and judged by it, the ones that fit
 //                                                       written as files: seeds=200 from=1, mode=random|solution|route|both
 //                                                       (the place's own way unless said), keep=20 the most that are written
+//                                                       (batch=bridge: boards/bridge-<n>.txt, new (N), in one batch)
 //
 // file= is a path, or the name of a file in boards/ without its .txt, or a name the board had before
 // (`was:`), or the code of a board the game has: a level of the list (P06) or a piece of the road (R03).
@@ -68,7 +70,7 @@ const COMMANDS = {
   diff: { keys: ['a', 'b'], flags: ['json'] },
   svg: { keys: ['file', 'out', 'cell'], flags: [] },
   source: { keys: ['file', 'states'], flags: [] },
-  gen: { keys: ['place', 'seeds', 'from', 'mode', 'keep', 'out', 'states', 'workers', 'share'], flags: ['json'] },
+  gen: { keys: ['place', 'seeds', 'from', 'mode', 'keep', 'out', 'batch', 'states', 'workers', 'share'], flags: ['json'] },
   // The keys of `order` are the words of an order, read by `orderOf`: any key is taken here and held against them there.
   order: { keys: null, flags: ['json'] },
   ratings: { keys: [], flags: ['json'] },
@@ -133,6 +135,20 @@ function loadBoard(key = 'file') {
 }
 
 const print = (text, json) => console.log(flag('json') ? JSON.stringify(json, null, 2) : text);
+
+/** The word of batch= checked, or nothing where no batch is asked for. */
+function batchWord() {
+  if (named.batch === undefined) return undefined;
+  if (!lab.BATCH_WORD.test(named.batch)) refuse(`${command}: "batch=${named.batch}" is no word of a batch: small English letters, words joined by -`);
+  return named.batch;
+}
+
+/** The names of the boards a folder has: a board of a batch takes a number none of them has. */
+function boardNames(dir) {
+  return existsSync(dir) ? readdirSync(dir).filter((file) => /\.txt$/i.test(file)).map((file) => file.slice(0, -'.txt'.length)) : [];
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 if (command === 'show') {
   const { spec, head, from } = loadBoard();
@@ -224,7 +240,8 @@ if (command === 'show') {
       if (at % of === index) console.log(JSON.stringify(judge(recipe, seed, judging)));
     });
   } else {
-    if (!named.out) refuse('gen: name the folder to write the boards to, as in out=boards/out/');
+    const word = batchWord();
+    if (!named.out && word === undefined) refuse('gen: name the folder to write the boards to, as in out=boards/out/, or a batch, as in batch=bridge');
     const verdicts = [];
     const began = Date.now();
     await shareOut((verdict) => {
@@ -234,10 +251,14 @@ if (command === 'show') {
     verdicts.sort((a, b) => a.seed - b.seed);
     // The boards that fit, the best first, each written as a file: an idea, with a note of its place and seed.
     const fits = gather(recipe, verdicts).fits.slice(0, number('keep') ?? 20);
-    const dir = resolve(process.cwd(), named.out);
+    const dir = resolve(process.cwd(), named.out ?? resolve(root, 'boards'));
     mkdirSync(dir, { recursive: true });
+    // A batch is laid among the boards there are: each board takes the first number of its word none of them has.
+    const taken = boardNames(dir);
     const written = fits.map((fit) => {
-      const { name, text } = lab.genFile(recipe, fit);
+      const file = lab.genFile(recipe, fit);
+      const { name, text } = word === undefined ? file : lab.batchFile(fit.spec, word, taken, today(), readBoardHead(file.text).note);
+      taken.push(name);
       writeFileSync(resolve(dir, `${name}.txt`), text);
       return { file: resolve(dir, `${name}.txt`), seed: fit.seed, par: fit.par, exact: fit.exact, route: fit.route };
     });
@@ -249,7 +270,7 @@ if (command === 'show') {
   }
 } else if (command === 'order') {
   // Every word that is not the script's own is a word of the order: preset=tricky par=4-6 dice=5 …
-  const own = ['seconds', 'keep', 'out'];
+  const own = ['seconds', 'keep', 'out', 'batch'];
   const { orderOf, orderText } = await load('/src/levels/orders.ts');
   const { offersFor } = await load('/src/levels/orderSearch.ts');
   let order;
@@ -258,17 +279,22 @@ if (command === 'show') {
   } catch (error) {
     refuse(error.message);
   }
-  if (!named.out) refuse('order: name the folder to write the boards to, as in out=boards/out/');
+  const word = batchWord();
+  if (!named.out && word === undefined) refuse('order: name the folder to write the boards to, as in out=boards/out/, or a batch, as in batch=bridge');
   const began = Date.now();
-  const { offers, tried } = offersFor(order, { budgetMs: (number('seconds') ?? 10) * 1000, keep: number('keep') ?? 5 });
+  const { offers, tried } = offersFor(order, { budgetMs: (number('seconds') ?? 10) * 1000, keep: number('keep') ?? (word === undefined ? 5 : 10) });
   console.error(`order: ${tried} seeds in ${((Date.now() - began) / 1000).toFixed(1)} s`);
-  const dir = resolve(process.cwd(), named.out);
+  const dir = resolve(process.cwd(), named.out ?? resolve(root, 'boards'));
   mkdirSync(dir, { recursive: true });
   const stem = order.preset ?? 'order';
+  const note = `заказ ${orderText(order)}`;
+  const taken = boardNames(dir);
   const written = offers.map((offer, index) => {
-    const name = `${stem}-${index + 1}`;
+    const plain = `${stem}-${index + 1}`;
+    const { name, text } = word === undefined ? { name: plain, text: printBoard({ ...offer.spec, id: plain }, { status: 'D', note }) } : lab.batchFile(offer.spec, word, taken, today(), note);
+    taken.push(name);
     const file = resolve(dir, `${name}.txt`);
-    writeFileSync(file, printBoard({ ...offer.spec, id: name }, { status: 'D', note: `заказ ${orderText(order)}` }));
+    writeFileSync(file, text);
     return { file, seed: offer.seed, par: offer.par, route: offer.route, misses: offer.misses };
   });
   print(

@@ -8,7 +8,24 @@ import { normalSpec } from './boardFile';
 import { ROAD_PLACES } from './roadRecipes';
 import { levelSource } from './select';
 import { parseBoard, readBoardHead } from './boardFile';
-import { BLIND, boardFrom, checkJson, checkOf, checkText, diffOf, diffText, fitOf, fitText, genFile, genOf, genSeeds, movesOf, movesText, nearBoards, nearOf, nearText, regressOne, regressText } from './labText';
+import { BATCH_WORD, BLIND, batchFile, boardFrom, checkJson, checkOf, checkText, diffOf, diffText, fitOf, fitText, genFile, genOf, genSeeds, movesOf, movesText, nearBoards, nearOf, nearText, regressOne, regressText } from './labText';
+
+describe('a board of a batch', () => {
+  it('takes the first free number of its word, and says it is new', () => {
+    const { name, text } = batchFile(fileBoard('R03'), 'bridge', ['bridge-1', 'bridge-3'], '2026-10-16', 'заказ preset=tricky');
+    expect(name).toBe('bridge-2');
+    expect(readBoardHead(text)).toMatchObject({ status: 'N', batch: 'bridge 2026-10-16', note: 'заказ preset=tricky' });
+    expect(parseBoard(text, name).id).toBe('bridge-2');
+  });
+  it('holds a name taken in other letters as taken: the disk does not tell them apart', () => {
+    expect(batchFile(fileBoard('R03'), 'bridge', ['Bridge-1'], '2026-10-16', '').name).toBe('bridge-2');
+  });
+  it('knows a word of a batch', () => {
+    expect(BATCH_WORD.test('combo-opens')).toBe(true);
+    expect(BATCH_WORD.test('Мост')).toBe(false);
+    expect(BATCH_WORD.test('a_b')).toBe(false);
+  });
+});
 
 describe('genOf', () => {
   const place = ROAD_PLACES.find((recipe) => recipe.id === 'R03')!;

@@ -333,6 +333,22 @@ export function genFile(recipe: Recipe, fit: Pick<Fit, 'seed' | 'spec'>): { name
   return { name: `${place}-${fit.seed}`, text: printBoard(fit.spec, { status: 'D', note: `место ${place}, зерно ${fit.seed}` }) };
 }
 
+/** A word a batch of boards is named by: English, in small letters, words joined by `-`. */
+export const BATCH_WORD = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/;
+
+/**
+ * A board laid for an order or a place as a board of a batch: `<word>-<n>` by the first free
+ * number, new (`N`), with its batch and its note. A name is taken in any letters, small or great:
+ * the disk of Windows does not tell `Bridge-1.txt` from `bridge-1.txt`.
+ */
+export function batchFile(spec: LevelSpec, word: string, taken: readonly string[], date: string, note: string): { name: string; text: string } {
+  const names = new Set(taken.map((name) => name.toLowerCase()));
+  let number = 1;
+  while (names.has(`${word}-${number}`.toLowerCase())) number++;
+  const name = `${word}-${number}`;
+  return { name, text: printBoard({ ...spec, id: name }, { status: 'N', batch: `${word} ${date}`, note }) };
+}
+
 /**
  * A board solved anew for the record of every board: `ok` where the fewest moves found are the
  * moves it keeps (or it keeps none and a way was found), `shorter` and `longer` where they are
