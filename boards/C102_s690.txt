@@ -8,8 +8,8 @@ chapter: 1
 guard: on
 par: 2
 exact: yes
-way: 0,2,N 0,1,E
+way: 2,2,N 2,1,W
 ---
  .  24   .
  .   .   .
-36*  .   .
+ .   .  36*

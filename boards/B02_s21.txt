@@ -7,7 +7,7 @@ chapter: 5
 lesson: lessonStep
 par: 2
 exact: yes
-way: 1,2,E 2,2,N
+way: 1,2,W 0,2,N
 ---
  .  32*  .
  .  32   .

@@ -6,24 +6,24 @@ import { resolveMove } from './movement';
 import { createRun, step } from './sim';
 import type { Cube, Dir, LevelLayout, LevelSpec, RunState } from './types';
 
-/** The cells of the board: a pocket, a strip that runs east of it and a turn to the north. Every other cell of the square is cut out. */
-const CELLS: readonly string[] = ['2,0', '3,0', '3,1', '0,2', '1,2', '2,2', '3,2', '0,3'];
+/** The cells of the board: a pocket, a strip that runs west of it and a turn to the north. Every other cell of the square is cut out. */
+const CELLS: readonly string[] = ['2,0', '1,0', '1,1', '4,2', '3,2', '2,2', '1,2', '4,3'];
 
 const HOLES: { x: number; z: number }[] = [];
 for (let z = 0; z < 5; z++) for (let x = 0; x < 5; x++) if (!CELLS.includes(`${x},${z}`)) HOLES.push({ x, z });
 
 /**
- * A board with a stair: the die at (0,2) is leaving and stands half down, and the player starts
- * on the floor in the pocket south of it. Only 3s work. The die at (1,2) has its 3 to the south:
- * rolled east twice and north once it shows it beside the two 3s at the top.
+ * A board with a stair: the die at (4,2) is leaving and stands half down, and the player starts
+ * on the floor in the pocket south of it. Only 3s work. The die at (3,2) has its 3 to the south:
+ * rolled west twice and north once it shows it beside the two 3s at the top.
  */
 const STAGE2: LevelSpec = {
   id: 'T-stair', seed: 1, size: 5, values: [3], norm: 4, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], floor: true,
   sinkMoves: 2, liftMoves: 1,
   holes: HOLES,
   layout: {
-    dice: [{ x: 0, z: 2, top: 6, north: 2 }, { x: 1, z: 2, top: 1, north: 4 }, { x: 3, z: 0, top: 3, north: 1 }, { x: 2, z: 0, top: 3, north: 2 }],
-    start: { x: 0, z: 3 }, onFloor: true, leaving: [{ die: 0, moves: 1 }],
+    dice: [{ x: 4, z: 2, top: 6, north: 2 }, { x: 3, z: 2, top: 1, north: 4 }, { x: 1, z: 0, top: 3, north: 1 }, { x: 2, z: 0, top: 3, north: 2 }],
+    start: { x: 4, z: 3 }, onFloor: true, leaving: [{ die: 0, moves: 1 }],
   },
 };
 
@@ -47,14 +47,14 @@ function go(state: RunState, dir: Dir): void {
 
 /** The die that is leaving from the start. */
 function stair(state: RunState): Cube {
-  return cubeAt(state, 0, 2)!;
+  return cubeAt(state, 4, 2)!;
 }
 
 /** The board with the player gone up the stair and over onto the die beside it. */
 function climbed(spec: LevelSpec = STAGE2): RunState {
   const s = start(spec);
   go(s, 'N');
-  go(s, 'E');
+  go(s, 'W');
   return s;
 }
 
@@ -64,8 +64,8 @@ describe('a board laid with a die that is already leaving and the player on the 
     // Eight cells are the board, and the pocket the player starts in is one of them with no die on it.
     expect(s.grid.filter((id) => id === NO_CELL)).toHaveLength(17);
     expect(s.cubes).toHaveLength(4);
-    expect(s.player).toEqual({ x: 0, z: 3, level: 'ground' });
-    expect(cubeAt(s, 0, 3)).toBeUndefined();
+    expect(s.player).toEqual({ x: 4, z: 3, level: 'ground' });
+    expect(cubeAt(s, 4, 3)).toBeUndefined();
     expect(stair(s).state).toBe('sinking');
     const height = cubeHeight(stair(s), s.config);
     expect(height).toBeGreaterThanOrEqual(0.45);
@@ -85,7 +85,7 @@ describe('a board laid with a die that is already leaving and the player on the 
     const { t } = stair(s);
     expect(resolveMove(s, 'N').kind).toBe('mount');
     go(s, 'N');
-    expect(s.player).toEqual({ x: 0, z: 2, level: 'top' });
+    expect(s.player).toEqual({ x: 4, z: 2, level: 'top' });
     expect(stair(s).t).toBe(t);
     expect(s.tick).toBe(0);
     expect(s.levelRun!.moves).toBe(0);
@@ -95,9 +95,9 @@ describe('a board laid with a die that is already leaving and the player on the 
     const s = start();
     const { t } = stair(s);
     go(s, 'N');
-    expect(resolveMove(s, 'E').kind).toBe('hop');
-    go(s, 'E');
-    expect(s.player).toEqual({ x: 1, z: 2, level: 'top' });
+    expect(resolveMove(s, 'W').kind).toBe('hop');
+    go(s, 'W');
+    expect(s.player).toEqual({ x: 3, z: 2, level: 'top' });
     expect(stair(s).state).toBe('sinking');
     expect(stair(s).t).toBe(t);
     expect(s.tick).toBe(0);
@@ -110,15 +110,15 @@ describe('a board laid with a die that is already leaving and the player on the 
     go(s, 'N');
     expect(resolveMove(s, 'S').kind).toBe('descend');
     go(s, 'S');
-    expect(s.player).toEqual({ x: 0, z: 3, level: 'ground' });
+    expect(s.player).toEqual({ x: 4, z: 3, level: 'ground' });
     expect(stair(s).t).toBe(t);
   });
 
   it('takes the die off with the first move, and its reaction with it', () => {
     const s = climbed();
     const id = stair(s).id;
-    go(s, 'E');
-    expect(cubeAt(s, 0, 2)).toBeUndefined();
+    go(s, 'W');
+    expect(cubeAt(s, 4, 2)).toBeUndefined();
     expect(s.cubes.some((c) => c.id === id)).toBe(false);
     expect(s.reactions).toHaveLength(0);
     expect(cubeAt(s, 2, 2)?.ori.top).toBe(5);
@@ -131,24 +131,24 @@ describe('a board laid with a die that is already leaving and the player on the 
   it('is rolled over like any die that is leaving: it goes at once and the die rolled stands in its cell', () => {
     const s = climbed();
     const id = stair(s).id;
-    const own = cubeAt(s, 1, 2)!;
-    const intent = resolveMove(s, 'W');
+    const own = cubeAt(s, 3, 2)!;
+    const intent = resolveMove(s, 'E');
     expect(intent.kind).toBe('roll');
     expect(intent.over?.id).toBe(id);
-    go(s, 'W');
+    go(s, 'E');
     expect(s.cubes.some((c) => c.id === id)).toBe(false);
-    expect(cubeAt(s, 0, 2)).toBe(own);
+    expect(cubeAt(s, 4, 2)).toBe(own);
     expect(own.state).toBe('idle');
     expect(own.ori.south).toBe(3);
-    expect(cubeAt(s, 1, 2)).toBeUndefined();
+    expect(cubeAt(s, 3, 2)).toBeUndefined();
     expect(s.reactions).toHaveLength(0);
     expect(s.over).toBe(false);
   });
 
   it('is cleared by the way of the board: up the stair, over, and three rolls', () => {
     const s = climbed();
-    go(s, 'E');
-    go(s, 'E');
+    go(s, 'W');
+    go(s, 'W');
     expect(s.over).toBe(false);
     go(s, 'N');
     expect(s.endReason).toBe('passed');
@@ -158,20 +158,20 @@ describe('a board laid with a die that is already leaving and the player on the 
   it('keeps a die for as many moves as the board says it leaves in', () => {
     const s = climbed(laid({ leaving: [{ die: 0, moves: 2 }] }));
     expect(chainWindows(s)).toEqual([{ value: 6, moves: 2 }]);
-    go(s, 'E');
+    go(s, 'W');
     expect(stair(s).state).toBe('sinking');
     expect(chainWindows(s)).toEqual([{ value: 6, moves: 1 }]);
-    go(s, 'E');
-    expect(cubeAt(s, 0, 2)).toBeUndefined();
+    go(s, 'W');
+    expect(cubeAt(s, 4, 2)).toBeUndefined();
     expect(s.reactions).toHaveLength(0);
   });
 
   it('says what is wrong with it: a die where the player starts on the floor, a start that is no cell, a leaving die that is not laid or goes in moves it cannot', () => {
-    expect(() => start(laid({ start: { x: 0, z: 2 } }))).toThrow(/a die on the floor the player starts on at 0,2/);
+    expect(() => start(laid({ start: { x: 4, z: 2 } }))).toThrow(/a die on the floor the player starts on at 4,2/);
     expect(() => start(laid({ start: { x: 5, z: 3 } }))).toThrow(/a start off the board at 5,3/);
-    expect(() => start(laid({ start: { x: 1, z: 3 } }))).toThrow(/a start on a cell that is cut out at 1,3/);
+    expect(() => start(laid({ start: { x: 3, z: 3 } }))).toThrow(/a start on a cell that is cut out at 3,3/);
     // Without the floor to start on, the start is a die as it was.
-    expect(() => start(laid({ onFloor: false }))).toThrow(/no die to start on at 0,3/);
+    expect(() => start(laid({ onFloor: false }))).toThrow(/no die to start on at 4,3/);
     expect(() => start(laid({ leaving: [{ die: 4, moves: 1 }] }))).toThrow(/no die 4 to be leaving: 4 are laid/);
     expect(() => start(laid({ leaving: [{ die: -1, moves: 1 }] }))).toThrow(/no die -1 to be leaving/);
     expect(() => start(laid({ leaving: [{ die: 0.5, moves: 1 }] }))).toThrow(/no die 0.5 to be leaving/);

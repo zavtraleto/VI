@@ -1,6 +1,10 @@
 import type { Dir, Orientation } from './types';
 
-export const CANONICAL: Orientation = { top: 1, bottom: 6, north: 2, south: 5, east: 3, west: 4 };
+/**
+ * The die as it lies at the start: a western die, "right-handed" - seen from outside the corner
+ * where 1, 2 and 3 meet, they go round it counterclockwise. Opposite faces add up to seven.
+ */
+export const CANONICAL: Orientation = { top: 1, bottom: 6, north: 2, south: 5, east: 4, west: 3 };
 
 /** Orientation after rolling one cell in `dir`. The two faces on the roll axis stay put. */
 export function roll(o: Orientation, dir: Dir): Orientation {

@@ -55,7 +55,7 @@ describe('diffOf', () => {
     expect(diffOf(P06, P06)).toEqual({ cells: [], same: true });
     const dice = P06.layout!.dice.map((die, index) => (index === 1 ? { ...die, top: 1, north: 2 } : die));
     const turned = { ...P06, layout: { ...P06.layout!, dice } };
-    expect(diffOf(P06, turned)).toEqual({ cells: [{ x: 1, z: 1, was: '21', now: '12' }], same: false });
+    expect(diffOf(P06, turned)).toEqual({ cells: [{ x: 2, z: 1, was: '21', now: '12' }], same: false });
     expect(diffText(P06, turned, diffOf(P06, turned))).toContain('diff: 1 cells differ');
   });
 });

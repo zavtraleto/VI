@@ -7,8 +7,8 @@ chapter: 5
 lesson: lessonSeven
 par: 4
 exact: yes
-way: 1,2,W 0,2,N 0,1,E 2,2,W
+way: 1,2,E 2,2,N 2,1,W 0,2,E
 ---
- .   .  32*
- .   .  32
- .  36  65
+32*  .   .
+32   .   .
+65  36   .

@@ -82,14 +82,14 @@ describe('the net of a die', () => {
 
   it('is walked from face to face, and stops at its edges', () => {
     expect(netStep(1, 'up')).toBe(2);
-    expect(netStep(1, 'left')).toBe(4);
-    expect(netStep(1, 'right')).toBe(3);
+    expect(netStep(1, 'left')).toBe(3);
+    expect(netStep(1, 'right')).toBe(4);
     expect(netStep(1, 'down')).toBe(5);
     expect(netStep(5, 'down')).toBe(6);
     expect(netStep(6, 'up')).toBe(5);
     expect(netStep(2, 'up')).toBe(2);
     expect(netStep(2, 'left')).toBe(2);
-    expect(netStep(3, 'right')).toBe(3);
+    expect(netStep(3, 'left')).toBe(3);
     expect(netStep(6, 'down')).toBe(6);
   });
 
@@ -204,8 +204,8 @@ describe('netProjection', () => {
     expect(y(2)).toBeLessThan(y(1));
     expect(y(1)).toBeLessThan(y(5));
     expect(y(5)).toBeLessThan(y(6));
-    expect(projection.centres[3].x).toBeLessThan(projection.centres[0].x);
-    expect(projection.centres[0].x).toBeLessThan(projection.centres[2].x);
+    expect(projection.centres[2].x).toBeLessThan(projection.centres[0].x);
+    expect(projection.centres[0].x).toBeLessThan(projection.centres[3].x);
   });
 
   it('gives the dice zones that do not share a point', () => {

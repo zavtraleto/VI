@@ -8,8 +8,8 @@ seed: 290
 chapter: 0
 par: 3
 exact: yes
-way: 0,1,N 0,0,E 1,0,S
+way: 2,1,N 2,0,W 1,0,S
 ---
  .   .   .
-24*  .  21
+21   .  24*
  .   .   .

@@ -7,9 +7,9 @@ seed: 8118
 chapter: 0
 par: 2
 exact: yes
-way: 1,2,N,p 2,2,N,p
+way: 2,2,N,p 1,2,N,p
 ---
- -   -  31+  -
+ -  31+  -   -
  -   .   .   -
  -  31  31   -
- -   f   .   -
+ -   .   f   -

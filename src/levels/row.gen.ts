@@ -60,7 +60,7 @@ export const ROW: Row = {
             "z": 0
           },
           {
-            "x": 3,
+            "x": 2,
             "z": 0
           },
           {
@@ -80,7 +80,7 @@ export const ROW: Row = {
             "z": 1
           },
           {
-            "x": 3,
+            "x": 2,
             "z": 1
           },
           {
@@ -100,7 +100,7 @@ export const ROW: Row = {
             "z": 2
           },
           {
-            "x": 3,
+            "x": 2,
             "z": 2
           },
           {
@@ -120,7 +120,7 @@ export const ROW: Row = {
             "z": 3
           },
           {
-            "x": 3,
+            "x": 2,
             "z": 3
           },
           {
@@ -140,7 +140,7 @@ export const ROW: Row = {
             "z": 4
           },
           {
-            "x": 3,
+            "x": 2,
             "z": 4
           },
           {
@@ -160,7 +160,7 @@ export const ROW: Row = {
             "z": 5
           },
           {
-            "x": 3,
+            "x": 2,
             "z": 5
           },
           {
@@ -188,19 +188,19 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 3,
             "z": 5
           },
           "dice": [
             {
-              "x": 2,
+              "x": 3,
               "z": 0,
               "top": 2,
               "north": 1,
               "fixed": true
             },
             {
-              "x": 2,
+              "x": 3,
               "z": 5,
               "top": 2,
               "north": 4
@@ -213,10 +213,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "2,5,N",
-          "2,4,N",
-          "2,3,N",
-          "2,2,N"
+          "3,5,N",
+          "3,4,N",
+          "3,3,N",
+          "3,2,N"
         ]
       },
       "role": "meet",
@@ -281,11 +281,11 @@ export const ROW: Row = {
             "z": 2
           },
           {
-            "x": 2,
+            "x": 3,
             "z": 2
           },
           {
-            "x": 3,
+            "x": 4,
             "z": 2
           },
           {
@@ -305,11 +305,11 @@ export const ROW: Row = {
             "z": 3
           },
           {
-            "x": 2,
+            "x": 3,
             "z": 3
           },
           {
-            "x": 3,
+            "x": 4,
             "z": 3
           },
           {
@@ -329,11 +329,11 @@ export const ROW: Row = {
             "z": 4
           },
           {
-            "x": 2,
+            "x": 3,
             "z": 4
           },
           {
-            "x": 3,
+            "x": 4,
             "z": 4
           },
           {
@@ -353,11 +353,11 @@ export const ROW: Row = {
             "z": 5
           },
           {
-            "x": 2,
+            "x": 3,
             "z": 5
           },
           {
-            "x": 3,
+            "x": 4,
             "z": 5
           },
           {
@@ -377,11 +377,11 @@ export const ROW: Row = {
             "z": 6
           },
           {
-            "x": 2,
+            "x": 3,
             "z": 6
           },
           {
-            "x": 3,
+            "x": 4,
             "z": 6
           },
           {
@@ -409,38 +409,38 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 4,
+            "x": 2,
             "z": 6
           },
           "dice": [
             {
-              "x": 2,
+              "x": 4,
               "z": 0,
               "top": 3,
               "north": 1,
               "fixed": true
             },
             {
-              "x": 2,
+              "x": 4,
               "z": 1,
               "top": 3,
               "north": 1,
               "fixed": true
             },
             {
-              "x": 4,
+              "x": 2,
               "z": 3,
               "top": 1,
               "north": 2
             },
             {
-              "x": 4,
+              "x": 2,
               "z": 4,
               "top": 6,
               "north": 2
             },
             {
-              "x": 4,
+              "x": 2,
               "z": 5,
               "top": 6,
               "north": 2
@@ -463,10 +463,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "4,3,N",
-          "4,2,N",
-          "4,1,N",
-          "4,0,W"
+          "2,3,N",
+          "2,2,N",
+          "2,1,N",
+          "2,0,E"
         ]
       },
       "role": "learn",
@@ -525,8 +525,8 @@ export const ROW: Row = {
         "par": 2,
         "exact": true,
         "solution": [
-          "1,2,E",
-          "2,2,N"
+          "1,2,W",
+          "0,2,N"
         ]
       },
       "role": "apply",
@@ -546,19 +546,19 @@ export const ROW: Row = {
         "size": 4,
         "holes": [
           {
-            "x": 3,
+            "x": 0,
             "z": 0
           },
           {
-            "x": 3,
+            "x": 0,
             "z": 1
           },
           {
-            "x": 3,
+            "x": 0,
             "z": 2
           },
           {
-            "x": 3,
+            "x": 0,
             "z": 3
           }
         ],
@@ -578,24 +578,24 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 1,
+            "x": 2,
             "z": 3
           },
           "dice": [
             {
-              "x": 0,
+              "x": 2,
               "z": 1,
               "top": 3,
               "north": 2
             },
             {
-              "x": 1,
+              "x": 3,
               "z": 1,
               "top": 3,
               "north": 2
             },
             {
-              "x": 1,
+              "x": 2,
               "z": 3,
               "top": 2,
               "north": 6
@@ -608,8 +608,8 @@ export const ROW: Row = {
         "par": 2,
         "exact": true,
         "solution": [
-          "1,3,N",
-          "1,2,W"
+          "2,3,N",
+          "2,2,E"
         ]
       },
       "role": "apply",
@@ -644,7 +644,7 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 2,
             "z": 1
           },
           "dice": [
@@ -652,13 +652,13 @@ export const ROW: Row = {
               "x": 0,
               "z": 1,
               "top": 2,
-              "north": 4
+              "north": 1
             },
             {
               "x": 2,
               "z": 1,
               "top": 2,
-              "north": 1
+              "north": 4
             }
           ]
         },
@@ -668,8 +668,8 @@ export const ROW: Row = {
         "par": 3,
         "exact": true,
         "solution": [
-          "0,1,N",
-          "0,0,E",
+          "2,1,N",
+          "2,0,W",
           "1,0,S"
         ]
       },
@@ -705,12 +705,12 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 1
           },
           "dice": [
             {
-              "x": 2,
+              "x": 1,
               "z": 1,
               "top": 1,
               "north": 2
@@ -718,22 +718,22 @@ export const ROW: Row = {
             {
               "x": 1,
               "z": 2,
-              "top": 3,
-              "north": 6
+              "top": 1,
+              "north": 4
             },
             {
               "x": 2,
               "z": 2,
-              "top": 1,
-              "north": 4
+              "top": 3,
+              "north": 6
             }
           ]
         },
         "par": 2,
         "exact": true,
         "solution": [
-          "2,1,W",
-          "2,2,N"
+          "1,1,E",
+          "1,2,N"
         ]
       },
       "role": "apply",
@@ -785,30 +785,30 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 2
           },
           "dice": [
             {
-              "x": 1,
+              "x": 2,
               "z": 1,
               "top": 2,
               "north": 1
             },
             {
-              "x": 2,
-              "z": 2,
-              "top": 4,
-              "north": 6
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 2,
               "top": 4,
               "north": 6
             },
             {
               "x": 1,
+              "z": 2,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 2,
               "z": 3,
               "top": 2,
               "north": 3
@@ -821,9 +821,9 @@ export const ROW: Row = {
         "par": 3,
         "exact": true,
         "solution": [
-          "3,2,N",
-          "3,1,W",
-          "2,2,W"
+          "0,2,N",
+          "0,1,E",
+          "1,2,E"
         ]
       },
       "role": "apply",
@@ -858,24 +858,24 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 1
           },
           "dice": [
             {
-              "x": 1,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 1,
               "top": 3,
               "north": 2
             },
             {
-              "x": 1,
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 2,
               "z": 2,
               "top": 6,
               "north": 2
@@ -885,10 +885,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "3,1,N",
-          "3,0,W",
-          "2,0,S",
-          "1,2,E"
+          "0,1,N",
+          "0,0,E",
+          "1,0,S",
+          "2,2,W"
         ]
       },
       "role": "apply",
@@ -922,20 +922,20 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 3,
             "z": 2
           },
           "dice": [
             {
-              "x": 0,
+              "x": 1,
               "z": 2,
-              "top": 2,
+              "top": 4,
               "north": 6
             },
             {
-              "x": 2,
+              "x": 3,
               "z": 2,
-              "top": 4,
+              "top": 2,
               "north": 6
             }
           ]
@@ -943,11 +943,11 @@ export const ROW: Row = {
         "par": 5,
         "exact": true,
         "solution": [
-          "0,2,N",
-          "0,1,E",
-          "1,1,S",
-          "2,2,N",
-          "2,1,W"
+          "3,2,N",
+          "3,1,W",
+          "2,1,S",
+          "1,2,N",
+          "1,1,E"
         ]
       },
       "role": "apply",
@@ -981,24 +981,24 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 0
           },
           "dice": [
             {
-              "x": 1,
+              "x": 0,
+              "z": 0,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 2,
               "z": 0,
               "top": 2,
               "north": 1
             },
             {
               "x": 3,
-              "z": 0,
-              "top": 4,
-              "north": 5
-            },
-            {
-              "x": 0,
               "z": 1,
               "top": 6,
               "north": 5
@@ -1011,10 +1011,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "3,0,S",
-          "3,1,W",
-          "2,1,W",
-          "0,1,N"
+          "0,0,S",
+          "0,1,E",
+          "1,1,E",
+          "3,1,N"
         ]
       },
       "role": "meet",
@@ -1050,39 +1050,39 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 0
           },
           "dice": [
             {
               "x": 0,
               "z": 0,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 3,
-              "z": 0,
               "top": 5,
               "north": 6
             },
             {
-              "x": 1,
+              "x": 3,
+              "z": 0,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 2,
               "z": 1,
               "top": 2,
               "north": 1
             },
             {
-              "x": 0,
-              "z": 2,
-              "top": 3,
-              "north": 6
-            },
-            {
-              "x": 2,
+              "x": 1,
               "z": 2,
               "top": 6,
               "north": 5
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 3,
+              "north": 6
             }
           ]
         },
@@ -1092,11 +1092,11 @@ export const ROW: Row = {
         "par": 5,
         "exact": true,
         "solution": [
-          "3,0,W",
-          "2,0,W",
-          "0,0,S",
-          "0,2,E",
-          "2,2,N"
+          "0,0,E",
+          "1,0,E",
+          "3,0,S",
+          "3,2,W",
+          "1,2,N"
         ]
       },
       "role": "rest",
@@ -1133,38 +1133,38 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 0
           },
           "dice": [
             {
               "x": 0,
               "z": 0,
-              "top": 2,
-              "north": 3
-            },
-            {
-              "x": 3,
-              "z": 0,
               "top": 4,
               "north": 6
             },
             {
-              "x": 1,
+              "x": 3,
+              "z": 0,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 2,
               "z": 1,
               "top": 3,
               "north": 6
             },
             {
-              "x": 0,
+              "x": 2,
               "z": 2,
-              "top": 6,
+              "top": 3,
               "north": 5
             },
             {
-              "x": 1,
+              "x": 3,
               "z": 2,
-              "top": 3,
+              "top": 6,
               "north": 5
             }
           ]
@@ -1174,9 +1174,9 @@ export const ROW: Row = {
         "par": 3,
         "exact": true,
         "solution": [
-          "3,0,W",
-          "2,0,W",
-          "0,2,N"
+          "0,0,E",
+          "1,0,E",
+          "3,2,N"
         ]
       },
       "role": "meet",
@@ -1247,30 +1247,30 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 1,
+            "x": 2,
             "z": 1
           },
           "dice": [
             {
-              "x": 1,
-              "z": 1,
-              "top": 6,
-              "north": 2
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 1,
               "top": 5,
               "north": 6
             },
             {
-              "x": 1,
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 0,
               "z": 2,
               "top": 2,
               "north": 3
             },
             {
-              "x": 3,
+              "x": 2,
               "z": 2,
               "top": 2,
               "north": 3
@@ -1281,10 +1281,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "1,1,E",
-          "2,1,S",
-          "3,1,W",
-          "2,1,W"
+          "2,1,W",
+          "1,1,S",
+          "0,1,E",
+          "1,1,E"
         ]
       },
       "role": "apply",
@@ -1317,18 +1317,18 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 3,
             "z": 0
           },
           "dice": [
             {
               "x": 0,
               "z": 0,
-              "top": 2,
-              "north": 1
+              "top": 3,
+              "north": 6
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 0,
               "top": 3,
               "north": 1
@@ -1336,17 +1336,17 @@ export const ROW: Row = {
             {
               "x": 3,
               "z": 0,
-              "top": 3,
-              "north": 6
+              "top": 2,
+              "north": 1
             },
             {
-              "x": 1,
+              "x": 2,
               "z": 1,
               "top": 3,
               "north": 5
             },
             {
-              "x": 1,
+              "x": 2,
               "z": 2,
               "top": 6,
               "north": 2
@@ -1357,9 +1357,9 @@ export const ROW: Row = {
         "par": 3,
         "exact": true,
         "solution": [
-          "0,0,E",
-          "1,2,N",
-          "1,1,E"
+          "3,0,W",
+          "2,2,N",
+          "2,1,W"
         ]
       },
       "role": "apply",
@@ -1395,42 +1395,42 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 3,
             "z": 3
           },
           "dice": [
             {
-              "x": 2,
+              "x": 1,
               "z": 0,
               "top": 5,
               "north": 4
             },
             {
-              "x": 0,
-              "z": 1,
-              "top": 6,
-              "north": 4
-            },
-            {
-              "x": 2,
+              "x": 1,
               "z": 1,
               "top": 2,
               "north": 3
             },
             {
-              "x": 0,
-              "z": 2,
-              "top": 2,
-              "north": 1
+              "x": 3,
+              "z": 1,
+              "top": 6,
+              "north": 4
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 2,
               "top": 3,
               "north": 1
             },
             {
-              "x": 0,
+              "x": 3,
+              "z": 2,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 3,
               "z": 3,
               "top": 3,
               "north": 5
@@ -1441,11 +1441,11 @@ export const ROW: Row = {
         "par": 5,
         "exact": true,
         "solution": [
-          "0,1,E",
-          "2,2,W",
-          "2,0,S",
-          "2,1,S",
-          "0,3,N"
+          "3,1,W",
+          "1,2,E",
+          "1,0,S",
+          "1,1,S",
+          "3,3,N"
         ]
       },
       "role": "twist",
@@ -1479,18 +1479,18 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 0
           },
           "dice": [
             {
-              "x": 3,
+              "x": 0,
               "z": 0,
               "top": 4,
               "north": 2
             },
             {
-              "x": 0,
+              "x": 3,
               "z": 1,
               "top": 3,
               "north": 1
@@ -1499,10 +1499,10 @@ export const ROW: Row = {
               "x": 0,
               "z": 2,
               "top": 3,
-              "north": 5
+              "north": 1
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 2,
               "top": 3,
               "north": 5
@@ -1511,10 +1511,10 @@ export const ROW: Row = {
               "x": 3,
               "z": 2,
               "top": 3,
-              "north": 1
+              "north": 5
             },
             {
-              "x": 1,
+              "x": 2,
               "z": 3,
               "top": 3,
               "north": 1
@@ -1525,10 +1525,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "3,0,S",
-          "3,1,W",
-          "2,1,W",
-          "1,1,S"
+          "0,0,S",
+          "0,1,E",
+          "1,1,E",
+          "2,1,S"
         ]
       },
       "role": "rest",
@@ -1562,39 +1562,39 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 1
           },
           "dice": [
             {
-              "x": 2,
+              "x": 0,
               "z": 0,
               "top": 3,
               "north": 5
             },
             {
-              "x": 3,
+              "x": 1,
               "z": 0,
               "top": 3,
               "north": 5
             },
             {
-              "x": 3,
+              "x": 0,
               "z": 1,
               "top": 6,
               "north": 5
             },
             {
-              "x": 2,
-              "z": 2,
-              "top": 6,
-              "north": 4
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 2,
               "top": 2,
               "north": 6
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 6,
+              "north": 4
             }
           ]
         },
@@ -1603,9 +1603,9 @@ export const ROW: Row = {
         "par": 3,
         "exact": true,
         "solution": [
-          "3,1,W",
-          "2,2,S",
-          "2,3,E"
+          "0,1,E",
+          "1,2,S",
+          "1,3,W"
         ]
       },
       "role": "meet",
@@ -1640,15 +1640,15 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 2,
             "z": 1
           },
           "dice": [
             {
               "x": 0,
               "z": 1,
-              "top": 2,
-              "north": 4
+              "top": 5,
+              "north": 1
             },
             {
               "x": 1,
@@ -1659,20 +1659,20 @@ export const ROW: Row = {
             {
               "x": 2,
               "z": 1,
-              "top": 5,
-              "north": 1
+              "top": 2,
+              "north": 4
             },
             {
               "x": 0,
               "z": 2,
-              "top": 3,
-              "north": 6
+              "top": 2,
+              "north": 3
             },
             {
               "x": 2,
               "z": 2,
-              "top": 2,
-              "north": 3
+              "top": 3,
+              "north": 6
             }
           ]
         },
@@ -1680,10 +1680,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "2,1,N",
-          "2,0,W",
-          "0,2,E",
-          "0,1,N"
+          "0,1,N",
+          "0,0,E",
+          "2,2,W",
+          "2,1,N"
         ]
       },
       "role": "apply",
@@ -1716,18 +1716,18 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 2
           },
           "dice": [
             {
-              "x": 3,
+              "x": 0,
               "z": 0,
               "top": 2,
               "north": 3
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 1,
               "top": 6,
               "north": 4
@@ -1735,26 +1735,26 @@ export const ROW: Row = {
             {
               "x": 1,
               "z": 2,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 2,
-              "z": 2,
               "top": 6,
               "north": 3
             },
             {
-              "x": 1,
-              "z": 3,
+              "x": 2,
+              "z": 2,
               "top": 3,
               "north": 2
             },
             {
-              "x": 3,
+              "x": 0,
               "z": 3,
               "top": 6,
               "north": 5
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 3,
+              "north": 2
             }
           ]
         },
@@ -1762,10 +1762,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "2,2,S",
-          "3,3,N",
-          "3,2,W",
-          "2,1,E"
+          "1,2,S",
+          "0,3,N",
+          "0,2,E",
+          "1,1,W"
         ]
       },
       "role": "apply",
@@ -1798,39 +1798,39 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 3,
             "z": 2
           },
           "dice": [
             {
-              "x": 2,
+              "x": 1,
               "z": 1,
               "top": 3,
               "north": 6
             },
             {
-              "x": 0,
-              "z": 2,
-              "top": 5,
-              "north": 4
-            },
-            {
-              "x": 2,
+              "x": 1,
               "z": 2,
               "top": 3,
               "north": 2
             },
             {
+              "x": 3,
+              "z": 2,
+              "top": 5,
+              "north": 4
+            },
+            {
               "x": 0,
               "z": 3,
-              "top": 6,
-              "north": 2
+              "top": 2,
+              "north": 1
             },
             {
               "x": 3,
               "z": 3,
-              "top": 2,
-              "north": 1
+              "top": 6,
+              "north": 2
             }
           ]
         },
@@ -1838,11 +1838,11 @@ export const ROW: Row = {
         "par": 5,
         "exact": true,
         "solution": [
-          "0,2,E",
-          "1,2,S",
-          "0,3,N",
-          "0,2,E",
-          "1,3,E"
+          "3,2,W",
+          "2,2,S",
+          "3,3,N",
+          "3,2,W",
+          "2,3,W"
         ]
       },
       "role": "twist",
@@ -1938,38 +1938,38 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 4,
             "z": 1
           },
           "dice": [
             {
-              "x": 0,
-              "z": 1,
-              "top": 6,
-              "north": 4
-            },
-            {
               "x": 1,
-              "z": 1,
-              "top": 6,
-              "north": 4
-            },
-            {
-              "x": 3,
               "z": 1,
               "top": 6,
               "north": 2
             },
             {
-              "x": 2,
-              "z": 2,
-              "top": 2,
-              "north": 1
+              "x": 3,
+              "z": 1,
+              "top": 6,
+              "north": 4
             },
             {
               "x": 4,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 0,
               "z": 2,
               "top": 3,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
               "north": 1
             }
           ]
@@ -1978,11 +1978,11 @@ export const ROW: Row = {
         "par": 5,
         "exact": true,
         "solution": [
-          "0,1,S",
-          "0,2,E",
-          "1,1,E",
-          "3,1,S",
-          "4,2,W"
+          "4,1,S",
+          "4,2,W",
+          "3,1,W",
+          "1,1,S",
+          "0,2,E"
         ]
       },
       "role": "rest",
@@ -2016,40 +2016,40 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 3
           },
           "dice": [
             {
-              "x": 1,
+              "x": 2,
               "z": 0,
               "top": 3,
               "north": 1
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 1,
               "top": 3,
               "north": 1,
               "fixed": true
             },
             {
-              "x": 3,
+              "x": 0,
               "z": 2,
               "top": 3,
               "north": 1
             },
             {
-              "x": 0,
-              "z": 3,
-              "top": 2,
-              "north": 1
-            },
-            {
-              "x": 2,
+              "x": 1,
               "z": 3,
               "top": 6,
               "north": 3
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 2,
+              "north": 1
             }
           ]
         },
@@ -2058,9 +2058,9 @@ export const ROW: Row = {
         "par": 3,
         "exact": true,
         "solution": [
-          "2,3,W",
-          "1,0,E,p",
-          "3,2,N,p"
+          "1,3,E",
+          "2,0,W,p",
+          "0,2,N,p"
         ]
       },
       "role": "meet",
@@ -2097,19 +2097,18 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 3,
             "z": 3
           },
           "dice": [
             {
               "x": 0,
               "z": 1,
-              "top": 2,
-              "north": 1,
-              "fixed": true
+              "top": 4,
+              "north": 5
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 1,
               "top": 6,
               "north": 3
@@ -2117,21 +2116,22 @@ export const ROW: Row = {
             {
               "x": 3,
               "z": 1,
-              "top": 4,
-              "north": 5
+              "top": 2,
+              "north": 1,
+              "fixed": true
             },
             {
-              "x": 0,
-              "z": 3,
-              "top": 6,
-              "north": 5
-            },
-            {
-              "x": 1,
+              "x": 2,
               "z": 3,
               "top": 2,
               "north": 1,
               "fixed": true
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 6,
+              "north": 5
             }
           ],
           "leaving": [
@@ -2146,10 +2146,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "0,3,N",
-          "3,1,S",
-          "3,2,W",
-          "2,2,W"
+          "3,3,N",
+          "0,1,S",
+          "0,2,E",
+          "1,2,E"
         ]
       },
       "role": "meet",
@@ -2186,45 +2186,45 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 0
           },
           "dice": [
             {
-              "x": 1,
-              "z": 0,
-              "top": 2,
-              "north": 6
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 0,
               "top": 6,
               "north": 3
             },
             {
-              "x": 1,
-              "z": 2,
-              "top": 3,
-              "north": 1
+              "x": 2,
+              "z": 0,
+              "top": 2,
+              "north": 6
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 2,
               "top": 2,
               "north": 6
             },
             {
-              "x": 0,
-              "z": 3,
+              "x": 2,
+              "z": 2,
               "top": 3,
               "north": 1
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 3,
               "top": 3,
               "north": 2
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 3,
+              "north": 1
             }
           ]
         },
@@ -2233,9 +2233,9 @@ export const ROW: Row = {
         "par": 3,
         "exact": true,
         "solution": [
-          "3,0,W",
-          "1,2,S,p",
-          "2,2,W"
+          "0,0,E",
+          "2,2,S,p",
+          "1,2,E"
         ]
       },
       "role": "apply",
@@ -2268,36 +2268,36 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 0
           },
           "dice": [
             {
-              "x": 3,
+              "x": 0,
               "z": 0,
               "top": 5,
               "north": 4
             },
             {
-              "x": 1,
+              "x": 2,
               "z": 1,
               "top": 2,
               "north": 1
             },
             {
-              "x": 2,
-              "z": 2,
-              "top": 6,
-              "north": 4
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 2,
               "top": 2,
               "north": 1
             },
             {
-              "x": 2,
+              "x": 1,
+              "z": 2,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 1,
               "z": 3,
               "top": 2,
               "north": 4
@@ -2308,10 +2308,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "3,0,W",
-          "2,0,W",
-          "3,2,S,p",
-          "2,2,E"
+          "0,0,E",
+          "1,0,E",
+          "0,2,S,p",
+          "1,2,W"
         ]
       },
       "role": "apply",
@@ -2344,45 +2344,45 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 0,
             "z": 3
           },
           "dice": [
             {
-              "x": 1,
-              "z": 0,
-              "top": 2,
-              "north": 1
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 0,
               "top": 3,
               "north": 6
             },
             {
               "x": 2,
+              "z": 0,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 1,
               "z": 1,
               "top": 3,
               "north": 6
             },
             {
-              "x": 1,
+              "x": 2,
               "z": 2,
               "top": 6,
               "north": 2
             },
             {
-              "x": 1,
-              "z": 3,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 3,
               "top": 6,
               "north": 5
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 3,
+              "north": 2
             }
           ]
         },
@@ -2390,11 +2390,11 @@ export const ROW: Row = {
         "par": 5,
         "exact": true,
         "solution": [
-          "3,3,W",
-          "1,2,N",
-          "1,0,E",
-          "1,1,S",
-          "1,2,E"
+          "0,3,E",
+          "2,2,N",
+          "2,0,W",
+          "2,1,S",
+          "2,2,W"
         ]
       },
       "role": "apply",
@@ -2427,42 +2427,42 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 3
           },
           "dice": [
             {
-              "x": 0,
-              "z": 0,
-              "top": 2,
-              "north": 4
-            },
-            {
-              "x": 2,
+              "x": 1,
               "z": 0,
               "top": 2,
               "north": 3
             },
             {
-              "x": 2,
+              "x": 3,
+              "z": 0,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 1,
               "z": 1,
               "top": 3,
               "north": 1
             },
             {
               "x": 3,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 0,
               "z": 2,
               "top": 4,
               "north": 1
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 3,
               "top": 2,
               "north": 4
@@ -2474,10 +2474,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "2,3,N",
-          "2,0,W,p",
-          "0,2,N,p",
-          "0,1,E"
+          "1,3,N",
+          "1,0,E,p",
+          "3,2,N,p",
+          "3,1,W"
         ]
       },
       "role": "twist",
@@ -2510,42 +2510,42 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 3
           },
           "dice": [
             {
-              "x": 3,
+              "x": 0,
               "z": 0,
               "top": 5,
               "north": 1
             },
             {
-              "x": 2,
-              "z": 1,
-              "top": 3,
-              "north": 6
-            },
-            {
-              "x": 3,
+              "x": 0,
               "z": 1,
               "top": 3,
               "north": 5
             },
             {
-              "x": 0,
+              "x": 1,
+              "z": 1,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 3,
               "z": 2,
               "top": 2,
               "north": 6
             },
             {
               "x": 1,
-              "z": 2,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 2,
               "z": 3,
               "top": 5,
               "north": 1
@@ -2556,10 +2556,10 @@ export const ROW: Row = {
         "par": 4,
         "exact": true,
         "solution": [
-          "2,3,W",
-          "1,3,W",
-          "1,2,N,p",
-          "3,0,W"
+          "1,3,E",
+          "2,3,E",
+          "2,2,N,p",
+          "0,0,E"
         ]
       },
       "role": "peak",

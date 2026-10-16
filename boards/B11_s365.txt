@@ -7,9 +7,9 @@ chapter: 6
 lesson: lessonGlass
 par: 4
 exact: yes
-way: 1,2,E 2,2,N 3,1,N 3,0,W
+way: 2,2,W 1,2,N 0,1,N 0,0,E
 ---
- .  23  36  36
- .  36*  .  46
- .  24   .   .
+36  36  23   .
+46   .  36*  .
+ .   .  24   .
  .   .   .   .

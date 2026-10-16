@@ -7,9 +7,9 @@ chapter: 6
 lesson: lessonFloor
 par: 5
 exact: yes
-way: 3,1,W 3,2,N,p 0,2,N,p 2,2,N,p 2,1,W,p
+way: 0,1,E 0,2,N,p 3,2,N,p 1,2,N,p 1,1,E,p
 ---
-31   .  26   .
- .   .   .  31*
-32   .  35  24
+ .  26   .  31
+31*  .   .   .
+24  35   .  32
  .   .   .   .

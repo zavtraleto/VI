@@ -8,9 +8,9 @@ chapter: 1
 guard: on
 par: 1
 exact: yes
-way: 2,2,E
+way: 1,2,W
 ---
  .   .   .   .
  .   .   .   .
- .  56  31   .
- .  56* 53  51
+ .  31  56   .
+51  53  56*  .

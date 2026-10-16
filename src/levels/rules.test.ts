@@ -225,10 +225,10 @@ describe('what is said in the windows of the levels', () => {
     // Four dice where 3s work: three make the combo, and the fourth has to join it while it is leaving.
     const chain: LevelSpec = {
       id: 'chain', seed: 368, size: 3, values: [3], norm: 4, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1,
-      layout: { start: { x: 2, z: 0 }, dice: [{ x: 1, z: 0, top: 6, north: 5 }, { x: 0, z: 0, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 1 }, { x: 2, z: 0, top: 2, north: 3 }] },
+      layout: { start: { x: 0, z: 0 }, dice: [{ x: 1, z: 0, top: 6, north: 5 }, { x: 2, z: 0, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 1 }, { x: 0, z: 0, top: 2, north: 3 }] },
     };
     // The combo is made and no die is brought to it: two moves on it is gone, and the fourth die stands alone.
-    const state = replay(chain, ['0,0,S', '2,0,S', '1,0,E', '2,0,S'].map(moveOf));
+    const state = replay(chain, ['2,0,S', '0,0,S', '1,0,W', '0,0,S'].map(moveOf));
     expect(state.endReason).toBe('failed');
     expect(levelStuck(state)).toBe(true);
     expect(levelDeadEnd(state)).toBe('count');

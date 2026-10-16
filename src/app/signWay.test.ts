@@ -31,38 +31,38 @@ const COMMON = { arrival: 'none', goal: { kind: 'clear' }, moves: 0, undos: 3, s
  * They go by the codes they had, which name pieces of the road still, all three of which wait as
  * a free piece does (`IDLE_RULES.free`). The first and the second piece are those of the road itself.
  *
- *   2 #      . . 2 .      3 3 . .
- *   # A      . . # .      # # . .
- *            A # # #      . # . .
- *                         . B # 2
- *                         . . A .
+ *   # 2      . 2 . .      . . 3 3
+ *   A #      . # . .      . . # #
+ *            # # # A      . . # .
+ *                         2 # B .
+ *                         . A . .
  */
 const SMALL: Readonly<Record<string, LevelSpec>> = {
   R03: {
     ...COMMON, id: 'R03', seed: 8103, size: 2, values: [2], faces: [2], norm: 2,
-    layout: { start: { x: 1, z: 1 }, dice: [{ x: 1, z: 1, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1, fixed: true }] },
-    par: 1, solution: ['1,1,W'],
+    layout: { start: { x: 0, z: 1 }, dice: [{ x: 0, z: 1, top: 6, north: 3 }, { x: 1, z: 0, top: 2, north: 1, fixed: true }] },
+    par: 1, solution: ['0,1,E'],
   },
   R05: {
     ...COMMON, id: 'R05', seed: 8105, size: 4, values: [2], faces: [2], norm: 2,
-    holes: cutAllBut(4, [[2, 0], [2, 1], [0, 2], [1, 2], [2, 2], [3, 2]]),
-    layout: { start: { x: 0, z: 2 }, dice: [{ x: 0, z: 2, top: 6, north: 5 }, { x: 2, z: 0, top: 2, north: 1, fixed: true }] },
-    par: 3, solution: ['0,2,E', '1,2,E', '2,2,N'],
+    holes: cutAllBut(4, [[1, 0], [1, 1], [3, 2], [2, 2], [1, 2], [0, 2]]),
+    layout: { start: { x: 3, z: 2 }, dice: [{ x: 3, z: 2, top: 6, north: 5 }, { x: 1, z: 0, top: 2, north: 1, fixed: true }] },
+    par: 3, solution: ['3,2,W', '2,2,W', '1,2,N'],
   },
   R07: {
     ...COMMON, id: 'R07', seed: 8107, size: 5, values: [2, 3], faces: [2, 3], norm: 5,
-    holes: cutAllBut(5, [[0, 0], [1, 0], [0, 1], [1, 1], [1, 2], [1, 3], [2, 3], [3, 3], [2, 4]]),
+    holes: cutAllBut(5, [[4, 0], [3, 0], [4, 1], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [2, 4]]),
     layout: {
       start: { x: 2, z: 4 },
       dice: [
         { x: 2, z: 4, top: 4, north: 5 },
-        { x: 1, z: 3, top: 1, north: 2 },
-        { x: 0, z: 0, top: 3, north: 1, fixed: true },
-        { x: 1, z: 0, top: 3, north: 1, fixed: true },
-        { x: 3, z: 3, top: 2, north: 1, fixed: true },
+        { x: 3, z: 3, top: 1, north: 2 },
+        { x: 4, z: 0, top: 3, north: 1, fixed: true },
+        { x: 3, z: 0, top: 3, north: 1, fixed: true },
+        { x: 1, z: 3, top: 2, north: 1, fixed: true },
       ],
     },
-    par: 4, solution: ['2,4,N', '1,3,N', '1,2,N', '1,1,W'],
+    par: 4, solution: ['2,4,N', '3,3,N', '3,2,N', '3,1,E'],
   },
 };
 
@@ -106,13 +106,13 @@ function follow(spec: LevelSpec, before: readonly Dir[] = []): { state: RunState
 describe('the way the swipe sign points', () => {
   it('is the roll of the way, where the player stands on its die', () => {
     expect(signAt(start(pieceOf('R01')))).toEqual({ dir: 'N', left: 4 });
-    expect(signAt(start(pieceOf('R03')))).toEqual({ dir: 'W', left: 1 });
-    expect(signAt(start(pieceOf('R05')))).toEqual({ dir: 'E', left: 3 });
+    expect(signAt(start(pieceOf('R03')))).toEqual({ dir: 'E', left: 1 });
+    expect(signAt(start(pieceOf('R05')))).toEqual({ dir: 'W', left: 3 });
   });
 
   it('is the step towards the die of the way, where the player is not on it: up the stair of two, over, and then the rolls', () => {
     const { state, dirs, left } = follow(pieceOf('R02'));
-    expect(dirs).toEqual(['N', 'N', 'N', 'N', 'N', 'N', 'W']);
+    expect(dirs).toEqual(['N', 'N', 'N', 'N', 'N', 'N', 'E']);
     // Steps are not moves: the way is as long after them as before.
     expect(left).toEqual([4, 4, 4, 4, 3, 2, 1]);
     expect(state.endReason).toBe('passed');
@@ -121,7 +121,7 @@ describe('the way the swipe sign points', () => {
 
   it('is the step over to the second die when the first has made its combo', () => {
     const { state, dirs, left } = follow(pieceOf('R07'));
-    expect(dirs).toEqual(['N', 'W', 'N', 'N', 'W']);
+    expect(dirs).toEqual(['N', 'E', 'N', 'N', 'E']);
     expect(left).toEqual([4, 3, 3, 2, 1]);
     expect(state.endReason).toBe('passed');
   });
@@ -138,11 +138,11 @@ describe('the way the swipe sign points', () => {
     const wandered: readonly (readonly [string, readonly Dir[]])[] = [
       ['R01', ['N', 'N', 'S']],
       ['R03', ['N']],
-      ['R04', ['W', 'W']],
-      ['R05', ['E', 'E', 'E']],
-      ['R06', ['N', 'E']],
+      ['R04', ['E', 'E']],
+      ['R05', ['W', 'W', 'W']],
+      ['R06', ['N', 'W']],
       ['R02', ['N', 'N', 'N', 'S', 'S', 'S']],
-      ['R07', ['N', 'W', 'N', 'S', 'E', 'E']],
+      ['R07', ['N', 'E', 'N', 'S', 'W', 'W']],
     ];
     for (const [id, before] of wandered) {
       const { state } = follow(pieceOf(id), before);
@@ -186,14 +186,14 @@ describe('the way the swipe sign points', () => {
 describe('the steps to a place', () => {
   it('are none to where the player is', () => {
     const state = start(pieceOf('R02'));
-    expect(stepsTo(state, { x: 4, z: 6, level: 'ground' })).toEqual([]);
+    expect(stepsTo(state, { x: 2, z: 6, level: 'ground' })).toEqual([]);
   });
 
   it('lead from the floor up the dice that are leaving and on over the dice', () => {
     const state = start(pieceOf('R02'));
-    expect(stepsTo(state, { x: 4, z: 5, level: 'top' })).toEqual(['N']);
-    expect(stepsTo(state, { x: 4, z: 4, level: 'top' })).toEqual(['N', 'N']);
-    expect(stepsTo(state, { x: 4, z: 3, level: 'top' })).toEqual(['N', 'N', 'N']);
+    expect(stepsTo(state, { x: 2, z: 5, level: 'top' })).toEqual(['N']);
+    expect(stepsTo(state, { x: 2, z: 4, level: 'top' })).toEqual(['N', 'N']);
+    expect(stepsTo(state, { x: 2, z: 3, level: 'top' })).toEqual(['N', 'N', 'N']);
   });
 
   it('are never a roll: a cell with no die is not stepped to from a die that stands', () => {
@@ -202,16 +202,16 @@ describe('the steps to a place', () => {
     go(state, 'N');
     go(state, 'N');
     go(state, 'N');
-    expect(state.player).toEqual({ x: 4, z: 3, level: 'top' });
-    expect(stepsTo(state, { x: 4, z: 2, level: 'top' })).toBeNull();
-    expect(stepsTo(state, { x: 2, z: 0, level: 'top' })).toBeNull();
+    expect(state.player).toEqual({ x: 2, z: 3, level: 'top' });
+    expect(stepsTo(state, { x: 2, z: 2, level: 'top' })).toBeNull();
+    expect(stepsTo(state, { x: 4, z: 0, level: 'top' })).toBeNull();
     expect(state.levelRun!.moves).toBe(0);
   });
 
   it('leave the board as it was', () => {
     const state = start(pieceOf('R02'));
     const before = JSON.stringify(state);
-    stepsTo(state, { x: 4, z: 3, level: 'top' });
+    stepsTo(state, { x: 2, z: 3, level: 'top' });
     signAt(state);
     expect(JSON.stringify(state)).toBe(before);
   });
@@ -252,20 +252,20 @@ describe('what the sign stands beside', () => {
     const state = start(pieceOf('R01'));
     const body = signBody(state);
     expect(body).toHaveLength(8);
-    expect(spans(body)).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [4.5, 5.5] });
+    expect(spans(body)).toEqual({ x: [2.5, 3.5], y: [0, 1], z: [4.5, 5.5] });
   });
 
   it('is the cell of a figure on the floor, as high as a die: the figure stands in it', () => {
     const state = start(pieceOf('R02'));
     expect(state.player.level).toBe('ground');
-    expect(spans(signBody(state))).toEqual({ x: [3.5, 4.5], y: [0, 1], z: [5.5, 6.5] });
+    expect(spans(signBody(state))).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [5.5, 6.5] });
   });
 
   it('is as high as the die is shown: the last step of a die that leaves on the lower stair of the second piece, the middle one on the upper', () => {
     const state = start(pieceOf('R02'));
     go(state, 'N');
     const { x, y, z } = spans(signBody(state));
-    expect(x).toEqual([3.5, 4.5]);
+    expect(x).toEqual([1.5, 2.5]);
     expect(z).toEqual([4.5, 5.5]);
     expect(y[0]).toBe(0);
     expect(y[1]).toBeCloseTo(0.12, 2);
@@ -276,7 +276,7 @@ describe('what the sign stands beside', () => {
   it('goes with the figure: after a roll it is the cell the figure has come to', () => {
     const state = start(pieceOf('R01'));
     go(state, 'N');
-    expect(spans(signBody(state))).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [3.5, 4.5] });
+    expect(spans(signBody(state))).toEqual({ x: [2.5, 3.5], y: [0, 1], z: [3.5, 4.5] });
   });
 });
 
@@ -290,13 +290,13 @@ describe('how high the sign stands', () => {
   it('is the last step on the lower stair of the second piece, which has a move left to it, the middle step on the upper, which has two, and a whole die on the die beyond them', () => {
     const stair = start(pieceOf('R02'));
     go(stair, 'N');
-    expect(stair.player).toMatchObject({ x: 4, z: 5, level: 'top' });
+    expect(stair.player).toMatchObject({ x: 2, z: 5, level: 'top' });
     // The rules have the stair half down; it is shown as low as a die with its last move left (src/render/leaving.ts).
     expect(signHeight(stair)).toBeCloseTo(0.12, 2);
     expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { leaveLast: 0.2 }))).toBeCloseTo(0.2, 2);
     go(stair, 'N');
     // The rules have the upper stair nearly whole; it is shown half way up.
-    expect(stair.player).toMatchObject({ x: 4, z: 4, level: 'top' });
+    expect(stair.player).toMatchObject({ x: 2, z: 4, level: 'top' });
     expect(signHeight(stair)).toBeCloseTo(0.5, 2);
     expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { stairMiddle: 0.4 }))).toBeCloseTo(0.4, 2);
     go(stair, 'N');
@@ -366,7 +366,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     const state = start(pieceOf('R03'));
     const wait = roadWait(FREE)!;
     expect(wait.frame(state, 0, true)).toEqual(NOTHING);
-    expect(wait.frame(state, 9000, true)).toEqual({ dir: 'W', blink: false });
+    expect(wait.frame(state, 9000, true)).toEqual({ dir: 'E', blink: false });
     step(state, 'N');
     expect(wait.frame(state, 9016, true)).toEqual(NOTHING);
     let time = 9016;
@@ -391,10 +391,10 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     expect(wait.frame(state, 100_000, true)).toEqual(NOTHING);
     expect(wait.frame(state, 100_999, true)).toEqual(NOTHING);
     expect(wait.frame(state, 101_000, true)).toEqual({ dir: null, blink: true });
-    expect(wait.frame(state, 105_000, true)).toEqual({ dir: 'W', blink: false });
+    expect(wait.frame(state, 105_000, true)).toEqual({ dir: 'E', blink: false });
     // The sign that had come goes out under a panel too.
     expect(wait.frame(state, 105_100, false)).toEqual(NOTHING);
-    expect(wait.frame(state, 105_200, true)).toEqual({ dir: 'W', blink: false });
+    expect(wait.frame(state, 105_200, true)).toEqual({ dir: 'E', blink: false });
   });
 
   it('keeps the opening sign of the first piece out from under a panel', () => {
@@ -442,7 +442,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     const state = start(pieceOf('R03'));
     const wait = roadWait(FREE)!;
     wait.frame(state, 0, true);
-    go(state, 'W');
+    go(state, 'E');
     expect(state.endReason).toBe('passed');
     expect(wait.frame(state, 60_000, true)).toEqual(NOTHING);
   });
@@ -492,7 +492,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
   it('shows the way at once to a piece that is in a hurry, on every board of it, and to no other', () => {
     const state = start(pieceOf('R03'));
     const hurried = roadWait(FREE, true)!;
-    expect(hurried.frame(state, 0, true)).toEqual({ dir: 'W', blink: false });
+    expect(hurried.frame(state, 0, true)).toEqual({ dir: 'E', blink: false });
     go(state, 'N');
     // The board after a roll is asked anew and shows its way with no wait.
     expect(hurried.frame(state, 100, true)).toEqual({ dir: signAt(state).dir, blink: false });
@@ -510,7 +510,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
   it('keeps the dead-end window as it is: a board that is over shows no sign, hurried or not', () => {
     const state = start(pieceOf('R03'));
     const hurried = roadWait(FREE, true)!;
-    go(state, 'W');
+    go(state, 'E');
     expect(state.over).toBe(true);
     expect(hurried.frame(state, 1000, true)).toEqual(NOTHING);
   });

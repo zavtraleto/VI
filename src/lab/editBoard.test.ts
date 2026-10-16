@@ -9,10 +9,10 @@ import { cellAt, clearCell, cycleLeaving, displaySpecOf, editBoardOf, emptyBoard
 describe('editBoardOf', () => {
   it('holds a board cell for cell: a start on the floor, a fixed die, a die that is leaving', () => {
     const board = editBoardOf(LESSON);
-    expect(cellAt(board, 3, 5)).toEqual({ kind: 'empty', floorStart: true });
-    expect(cellAt(board, 1, 0)).toMatchObject({ kind: 'die', fixed: true });
-    expect(cellAt(board, 3, 4)).toMatchObject({ kind: 'die', leaving: 1 });
-    expect(cellAt(board, 0, 0)).toEqual({ kind: 'hole' });
+    expect(cellAt(board, 2, 5)).toEqual({ kind: 'empty', floorStart: true });
+    expect(cellAt(board, 4, 0)).toMatchObject({ kind: 'die', fixed: true });
+    expect(cellAt(board, 2, 4)).toMatchObject({ kind: 'die', leaving: 1 });
+    expect(cellAt(board, 5, 0)).toEqual({ kind: 'hole' });
   });
   it.each(rowBoards().map((spec) => [spec.id, spec] as const))('gives %s back as the level it was', (_, spec) => {
     expect(normalSpec(specOf(editBoardOf(spec), spec))).toEqual(normalSpec(spec));
@@ -78,15 +78,15 @@ describe('the changes of a board', () => {
 describe('the changes a drag makes', () => {
   it('carries a die to an empty cell with its marks, and to no cell that is taken or cut out', () => {
     const board = editBoardOf(LESSON);
-    const moved = moveDie(board, { x: 3, z: 4 }, { x: 3, z: 2 });
-    expect(cellAt(moved, 3, 2)).toMatchObject({ kind: 'die', leaving: 1 });
-    expect(cellAt(moved, 3, 4)).toEqual({ kind: 'empty' });
-    expect(moveDie(board, { x: 3, z: 4 }, { x: 3, z: 3 })).toBe(board);
-    expect(moveDie(board, { x: 3, z: 4 }, { x: 0, z: 0 })).toBe(board);
+    const moved = moveDie(board, { x: 2, z: 4 }, { x: 2, z: 2 });
+    expect(cellAt(moved, 2, 2)).toMatchObject({ kind: 'die', leaving: 1 });
+    expect(cellAt(moved, 2, 4)).toEqual({ kind: 'empty' });
+    expect(moveDie(board, { x: 2, z: 4 }, { x: 2, z: 3 })).toBe(board);
+    expect(moveDie(board, { x: 2, z: 4 }, { x: 5, z: 0 })).toBe(board);
     // Carried to the cell the player stands on the floor of, it is the die they stand on.
-    expect(cellAt(moveDie(board, { x: 3, z: 3 }, { x: 3, z: 5 }), 3, 5)).toMatchObject({ kind: 'die', start: true });
+    expect(cellAt(moveDie(board, { x: 2, z: 3 }, { x: 2, z: 5 }), 2, 5)).toMatchObject({ kind: 'die', start: true });
     const start = editBoardOf(DOWN_AND_UP);
-    expect(cellAt(moveDie(start, { x: 3, z: 0 }, { x: 0, z: 0 }), 0, 0)).toMatchObject({ start: true });
+    expect(cellAt(moveDie(start, { x: 0, z: 0 }, { x: 3, z: 0 }), 3, 0)).toMatchObject({ start: true });
   });
   it('drops a face on a cell: a die on an empty one, another top on a die, and a fixed die', () => {
     const board = setTop(emptyBoard(3), 1, 1, 4);

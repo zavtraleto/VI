@@ -58,30 +58,30 @@ describe('the height a die that leaves a level is shown at', () => {
   it('is so on a piece of the road: the pair made, a move after it, and the stair laid as leaving in two moves and in one', () => {
     // The lesson of the way up: its stair is laid as leaving in two moves, and stands half way up, not as a die that has just left.
     const climb = start(pieceOf('R10'));
-    expect(isStair(cubeAt(climb, 2, 1)!, climb)).toBe(true);
-    expect(shownHeight(cubeAt(climb, 2, 1)!, climb, 0)).toBeCloseTo(0.5);
+    expect(isStair(cubeAt(climb, 1, 1)!, climb)).toBe(true);
+    expect(shownHeight(cubeAt(climb, 1, 1)!, climb, 0)).toBeCloseTo(0.5);
     go(climb, 'N');
     // The pair has just left, and the stair has a move left to it. The pair is no stair, though it is as far from going.
-    expect(isStair(cubeAt(climb, 0, 2)!, climb)).toBe(false);
-    expect(shownHeight(cubeAt(climb, 0, 2)!, climb, 0)).toBeCloseTo(0.78);
-    expect(shownHeight(cubeAt(climb, 0, 1)!, climb, 0)).toBeCloseTo(0.78);
-    expect(shownHeight(cubeAt(climb, 2, 1)!, climb, 0)).toBeCloseTo(0.12);
+    expect(isStair(cubeAt(climb, 3, 2)!, climb)).toBe(false);
+    expect(shownHeight(cubeAt(climb, 3, 2)!, climb, 0)).toBeCloseTo(0.78);
+    expect(shownHeight(cubeAt(climb, 3, 1)!, climb, 0)).toBeCloseTo(0.78);
+    expect(shownHeight(cubeAt(climb, 1, 1)!, climb, 0)).toBeCloseTo(0.12);
     // The rules have them otherwise, and are not changed: nearly whole, and about half.
-    expect(cubeHeight(cubeAt(climb, 0, 2)!, climb.config)).toBeGreaterThan(0.9);
-    expect(cubeHeight(cubeAt(climb, 2, 1)!, climb.config)).toBeGreaterThan(0.45);
+    expect(cubeHeight(cubeAt(climb, 3, 2)!, climb.config)).toBeGreaterThan(0.9);
+    expect(cubeHeight(cubeAt(climb, 1, 1)!, climb.config)).toBeGreaterThan(0.45);
     // The stair of two of the second piece: the lower laid as leaving in one move, near the floor, the upper in two, half way up.
     const stair = start(pieceOf('R02'));
-    expect(shownHeight(cubeAt(stair, 4, 5)!, stair, 0)).toBeCloseTo(0.12);
-    expect(shownHeight(cubeAt(stair, 4, 4)!, stair, 0)).toBeCloseTo(0.5);
+    expect(shownHeight(cubeAt(stair, 2, 5)!, stair, 0)).toBeCloseTo(0.12);
+    expect(shownHeight(cubeAt(stair, 2, 4)!, stair, 0)).toBeCloseTo(0.5);
     // A die that stands is whole.
-    expect(shownHeight(cubeAt(stair, 4, 3)!, stair, 0)).toBe(1);
+    expect(shownHeight(cubeAt(stair, 2, 3)!, stair, 0)).toBe(1);
     // Up the stair, over, and the first roll: the lower is gone, and the upper has come down to where the lower was.
     for (const dir of ['N', 'N', 'N', 'N'] as const) go(stair, dir);
-    expect(cubeAt(stair, 4, 5)).toBeUndefined();
-    expect(shownHeight(cubeAt(stair, 4, 4)!, stair, 0)).toBeCloseTo(0.12);
+    expect(cubeAt(stair, 2, 5)).toBeUndefined();
+    expect(shownHeight(cubeAt(stair, 2, 4)!, stair, 0)).toBeCloseTo(0.12);
     // With the second roll it is gone too.
     go(stair, 'N');
-    expect(cubeAt(stair, 4, 4)).toBeUndefined();
+    expect(cubeAt(stair, 2, 4)).toBeUndefined();
   });
 
   it('is what the rules have outside a level', () => {
@@ -399,12 +399,12 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     const stair = start(pieceOf('R02'));
     const show = new LeavingShow();
     expect(show.frame(stair, 0, false, noDip)).toEqual([]);
-    expect(show.height(cubeAt(stair, 4, 5)!, stair, 0, values)).toBeCloseTo(0.12);
-    expect(show.height(cubeAt(stair, 4, 4)!, stair, 0, values)).toBeCloseTo(0.5);
+    expect(show.height(cubeAt(stair, 2, 5)!, stair, 0, values)).toBeCloseTo(0.12);
+    expect(show.height(cubeAt(stair, 2, 4)!, stair, 0, values)).toBeCloseTo(0.5);
   });
 
   /**
-   * A board of the road made over for the show: the figure's die rolls north into a pair of 2s; the die east of the
+   * A board of the road made over for the show: the figure's die rolls north into a pair of 2s; the die west of the
    * pair, rolled north, joins it; the fourth die stands far from them, so that the world stands between moves. `count` is
    * how many of the four are laid.
    */
@@ -412,8 +412,8 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     const dice = [
       { x: 2, z: 3, top: 4, north: 5 },
       { x: 2, z: 1, top: 2, north: 1 },
-      { x: 3, z: 2, top: 4, north: 5 },
-      { x: 0, z: 4, top: 4, north: 5 },
+      { x: 1, z: 2, top: 4, north: 5 },
+      { x: 4, z: 4, top: 4, north: 5 },
     ].slice(0, count);
     return start({ ...pieceOf('R10'), id: 'T01', size: 5, values: [2], faces: [2], norm: dice.length, floor: true, holes: undefined, goal: { kind: 'send', count: 999 }, moves: 0, sinkMoves: 6, layout: { start: { x: 2, z: 3 }, dice } });
   }
@@ -438,7 +438,7 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     const show = new LeavingShow();
     show.frame(state, 0, false, noDip);
     // The pair, over to the die beside it, and six rolls of that die to and fro: the window of the pair.
-    const { kinds, heights } = playAhead(state, show, ['N', 'E', 'E', 'W', 'E', 'W', 'E', 'W']);
+    const { kinds, heights } = playAhead(state, show, ['N', 'W', 'W', 'E', 'W', 'E', 'W', 'E']);
     expect(state.cubes.filter((cube) => cube.state === 'sinking')).toEqual([]);
     expect(kinds).toEqual(['sent', 'gone']);
     neverUp(heights);
@@ -473,10 +473,10 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     show.frame(state, 0, false, noDip);
     const pair = cubeAt(state, 2, 2)!;
     run(show, state, pair, 400);
-    go(state, 'E');
+    go(state, 'W');
     show.frame(state, 100, false, noDip);
     go(state, 'N');
-    const joined = cubeAt(state, 3, 1)!;
+    const joined = cubeAt(state, 1, 1)!;
     expect(joined.reactionId).toBe(pair.reactionId);
     const before = show.height(pair, state, 0, values);
     const sent = show.frame(state, 0, false, noDip);

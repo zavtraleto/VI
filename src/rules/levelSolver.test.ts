@@ -16,9 +16,9 @@ function board(dice: readonly PuzzleDie[], spec: Partial<LevelSpec> = {}): Level
 
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 
-/** The die the player is on shows its 2 when rolled west, beside the 2 in the corner. */
-const MOVER: PuzzleDie = { x: 2, z: 0, top: 6, north: 3 };
-const CORNER: PuzzleDie = { x: 0, z: 0, top: 2, north: 1 };
+/** The die the player is on shows its 2 when rolled east, beside the 2 in the corner. */
+const MOVER: PuzzleDie = { x: 0, z: 0, top: 6, north: 3 };
+const CORNER: PuzzleDie = { x: 2, z: 0, top: 2, north: 1 };
 const PAIR = board([MOVER, CORNER]);
 /** A third die beside where the pair is made: rolled north over the die that is going, it shows a 2. */
 const GLASS = board([MOVER, CORNER, { x: 1, z: 1, top: 6, north: 5 }]);
@@ -26,7 +26,7 @@ const GLASS = board([MOVER, CORNER, { x: 1, z: 1, top: 6, north: 5 }]);
  * A third die two cells off, with no die between: it comes to the pair by the floor, in two rolls.
  * It stands in a corner and cannot be pushed, so the board is one where such a die is climbed.
  */
-const FLOOR = board([MOVER, CORNER, { x: 2, z: 2, top: 5, north: 4 }], { climb: true });
+const FLOOR = board([MOVER, CORNER, { x: 0, z: 2, top: 5, north: 4 }], { climb: true });
 
 describe('moves of a board', () => {
   it('are the rolls of every die the player can step to', () => {
@@ -41,22 +41,22 @@ describe('moves of a board', () => {
   });
 
   it('do not reach a die that no step leads to', () => {
-    expect(movesAt(start(PAIR)).map(moveText)).toEqual(['2,0,S', '2,0,W']);
+    expect(movesAt(start(PAIR)).map(moveText)).toEqual(['0,0,E', '0,0,S']);
   });
 
   it('take in the floor, once a die that is going lets the player down', () => {
-    const made = playMove(start(FLOOR), moveOf('2,0,W'));
+    const made = playMove(start(FLOOR), moveOf('0,0,E'));
     const all = movesAt(made).map(moveText);
     // From the floor the die in the far corner is stepped onto and rolled.
-    expect(all).toEqual(expect.arrayContaining(['2,2,N', '2,2,W']));
+    expect(all).toEqual(expect.arrayContaining(['0,2,N', '0,2,E']));
     expect(movesAt(made, ['floor'])).toEqual([]);
   });
 
   it('leave out a roll over a die that is going when glass is banned', () => {
-    const made = playMove(start(GLASS), moveOf('2,0,W'));
+    const made = playMove(start(GLASS), moveOf('0,0,E'));
     expect(movesAt(made).map(moveText)).toContain('1,1,N');
     expect(movesAt(made, ['glass']).map(moveText)).not.toContain('1,1,N');
-    expect(movesAt(made, ['glass']).map(moveText)).toContain('1,1,E');
+    expect(movesAt(made, ['glass']).map(moveText)).toContain('1,1,W');
   });
 
   it('are written and read back as a level keeps them', () => {
@@ -72,16 +72,16 @@ describe('a move played', () => {
   it('is played on the real rules until the world stands, and leaves the run it was given alone', () => {
     const before = start(PAIR);
     const same = JSON.stringify(before);
-    const after = playMove(before, moveOf('2,0,S'));
+    const after = playMove(before, moveOf('0,0,S'));
     expect(JSON.stringify(before)).toBe(same);
     expect(after.levelRun!.moves).toBe(1);
     expect(after.cubes.every((cube) => cube.state === 'idle')).toBe(true);
-    expect(after.player).toEqual({ x: 2, z: 1, level: 'top' });
+    expect(after.player).toEqual({ x: 0, z: 1, level: 'top' });
     expect(after.over).toBe(false);
   });
 
   it('ends the level when it clears the board', () => {
-    const after = playMove(start(PAIR), moveOf('2,0,W'));
+    const after = playMove(start(PAIR), moveOf('0,0,E'));
     expect(after.endReason).toBe('passed');
   });
 });
@@ -89,10 +89,10 @@ describe('a move played', () => {
 describe('the fewest moves of a board', () => {
   it('is one for a board one roll clears', () => {
     const { solution, exhausted, states } = solveLevel(PAIR);
-    expect(solution).toEqual({ par: 1, moves: [{ x: 2, z: 0, dir: 'W', push: false }], depth: 1, uses: [] });
+    expect(solution).toEqual({ par: 1, moves: [{ x: 0, z: 0, dir: 'E', push: false }], depth: 1, uses: [] });
     expect(exhausted).toBe(true);
-    // The start, and the board the other roll of the die leads to.
-    expect(states).toBe(2);
+    // Only the start: the roll that clears is tried before the other one.
+    expect(states).toBe(1);
   });
 
   it('is found with a way that clears the board in exactly that many moves', () => {
@@ -147,7 +147,7 @@ describe('the fewest moves of a board', () => {
     // Here the pair is made by the die beside the one the player starts on.
     const walk = board([
       { x: 1, z: 0, top: 5, north: 4 },
-      { x: 0, z: 0, top: 2, north: 1 },
+      { x: 2, z: 0, top: 2, north: 1 },
       { x: 1, z: 1, top: 6, north: 3 },
     ]);
     const any = solveLevel(walk).solution!;
@@ -171,8 +171,8 @@ describe('a way played again', () => {
   });
 
   it('gives up on a move that cannot be made, and says which', () => {
-    expect(() => replay(PAIR, [moveOf('0,0,E')])).toThrow(/move 1 \(0,0,E\) cannot be made/);
-    expect(() => replay(PAIR, [moveOf('2,0,W'), moveOf('1,0,S')])).toThrow(/move 2 is made after the level has ended/);
+    expect(() => replay(PAIR, [moveOf('2,0,W')])).toThrow(/move 1 \(2,0,W\) cannot be made/);
+    expect(() => replay(PAIR, [moveOf('0,0,E'), moveOf('1,0,S')])).toThrow(/move 2 is made after the level has ended/);
   });
 
   it('counts a choice among standing dice that no step joins', () => {
@@ -194,9 +194,9 @@ describe('a way played again', () => {
 /** Four dice where only 3s work: the fewest moves are three, and the last is a link. */
 const LINK: LevelSpec = {
   id: 'link', seed: 368, size: 3, values: [3], norm: 4, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1,
-  layout: { start: { x: 2, z: 0 }, dice: [{ x: 1, z: 0, top: 6, north: 5 }, { x: 0, z: 0, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 1 }, { x: 2, z: 0, top: 2, north: 3 }] },
+  layout: { start: { x: 0, z: 0 }, dice: [{ x: 1, z: 0, top: 6, north: 5 }, { x: 2, z: 0, top: 2, north: 3 }, { x: 1, z: 1, top: 3, north: 1 }, { x: 0, z: 0, top: 2, north: 3 }] },
 };
-const LINK_WAY = ['0,0,S', '2,0,S', '1,0,W'].map(moveOf);
+const LINK_WAY = ['2,0,S', '0,0,S', '1,0,E'].map(moveOf);
 
 describe('the fewest moves from where a run stands', () => {
   it('are those of the level at its start', () => {
@@ -246,7 +246,7 @@ describe('the moves of a way played again', () => {
     expect(report.inPlace).toEqual([false, false, false]);
     expect(new Set(report.dice).size).toBe(3);
     // One roll of the die the player starts on is a move made in place.
-    expect(tryWay(PAIR, [{ x: 2, z: 0, dir: 'W', push: false }]).inPlace).toEqual([true]);
+    expect(tryWay(PAIR, [{ x: 0, z: 0, dir: 'E', push: false }]).inPlace).toEqual([true]);
   });
 });
 
@@ -326,7 +326,7 @@ describe('a way with a part of its route taken away', () => {
     expect(without.map(moveText)).toContain('0,3,N,p');
     expect(without.every((move) => move.push)).toBe(true);
     // A step from the die that is going onto a die that stands is no walk over the combo.
-    const beside = playMove(start(GLASS), moveOf('2,0,W'));
+    const beside = playMove(start(GLASS), moveOf('0,0,E'));
     expect(movesAt(beside, ['bridge']).map(moveText)).toEqual(movesAt(beside).map(moveText));
   });
 });

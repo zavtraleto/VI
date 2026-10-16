@@ -7,8 +7,8 @@ chapter: 6
 lesson: lessonTwos
 par: 3
 exact: yes
-way: 0,0,S 1,0,E 0,1,S
+way: 2,0,S 1,0,W 2,1,S
 ---
-56  62   .
- .  36  32*
+ .  62  56
+32* 36   .
  .  21   .

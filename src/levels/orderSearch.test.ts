@@ -27,7 +27,7 @@ describe('judgeBoard', () => {
     expect(judgeBoard({ size: 4, dice: 5, faces: [2], par: [1, 99] }, DOWN_AND_UP)!.misses).toEqual([]);
   });
   it('gives nothing for a board the rules do not lay', () => {
-    const none = { ...DOWN_AND_UP, layout: { ...DOWN_AND_UP.layout!, start: { x: 0, z: 0 } } };
+    const none = { ...DOWN_AND_UP, layout: { ...DOWN_AND_UP.layout!, start: { x: 3, z: 0 } } };
     expect(judgeBoard(BASE_ORDER, none)).toBeNull();
   });
 });
@@ -66,7 +66,7 @@ describe('offersFor', () => {
 
 describe('completeFor', () => {
   // The two dice of the pair are put down by hand; the board is to have five.
-  const pinned = [{ x: 1, z: 1 }, { x: 3, z: 2 }];
+  const pinned = [{ x: 2, z: 1 }, { x: 0, z: 2 }];
   const order: Order = { size: 4, dice: 5, faces: [2], par: [2, 8] };
   it('lays the rest of the dice about those that are pinned, which stay as they lie', () => {
     const { offers, tried } = completeFor(order, DOWN_AND_UP, pinned, { tries: 60, budgetMs: 60_000, keep: 3 });
@@ -75,8 +75,8 @@ describe('completeFor', () => {
     for (const offer of offers) {
       const dice = offer.spec.layout!.dice;
       expect(dice).toHaveLength(5);
-      expect(dice).toContainEqual({ x: 1, z: 1, top: 2, north: 1 });
-      expect(dice).toContainEqual({ x: 3, z: 2, top: 2, north: 1 });
+      expect(dice).toContainEqual({ x: 2, z: 1, top: 2, north: 1 });
+      expect(dice).toContainEqual({ x: 0, z: 2, top: 2, north: 1 });
       expect(offer.spec.par).toBe(offer.par);
     }
     expect([...offers].sort(byOrder)).toEqual(offers);
@@ -102,7 +102,7 @@ describe('repairFor', () => {
   });
   it('mends a board with one die spoilt by one change', { timeout: 120_000 }, () => {
     // The die of the push shows another face: the way of four moves is gone.
-    const dice = DOWN_AND_UP.layout!.dice.map((die) => (die.x === 3 && die.z === 2 ? { ...die, top: 3, north: 1 } : die));
+    const dice = DOWN_AND_UP.layout!.dice.map((die) => (die.x === 0 && die.z === 2 ? { ...die, top: 3, north: 1 } : die));
     const spoilt = { ...DOWN_AND_UP, layout: { ...DOWN_AND_UP.layout!, dice } };
     expect(judgeBoard(order, spoilt)!.misses.length).toBeGreaterThan(0);
     const { mended } = repairFor(order, spoilt, [], { budgetMs: 100_000, keep: 1 });
@@ -110,19 +110,19 @@ describe('repairFor', () => {
     expect(mended[0].edits).toHaveLength(1);
   });
   it('changes no die that is pinned', { timeout: 120_000 }, () => {
-    const dice = DOWN_AND_UP.layout!.dice.map((die) => (die.x === 3 && die.z === 2 ? { ...die, top: 3, north: 1 } : die));
+    const dice = DOWN_AND_UP.layout!.dice.map((die) => (die.x === 0 && die.z === 2 ? { ...die, top: 3, north: 1 } : die));
     const spoilt = { ...DOWN_AND_UP, layout: { ...DOWN_AND_UP.layout!, dice } };
-    const { mended } = repairFor(order, spoilt, [{ x: 3, z: 2 }], { budgetMs: 20_000, keep: 2 });
+    const { mended } = repairFor(order, spoilt, [{ x: 0, z: 2 }], { budgetMs: 20_000, keep: 2 });
     for (const board of mended) {
-      expect(board.edits.every((edit) => !edit.startsWith('die 3,2'))).toBe(true);
-      expect(board.spec.layout!.dice).toContainEqual({ x: 3, z: 2, top: 3, north: 1 });
+      expect(board.edits.every((edit) => !edit.startsWith('die 0,2'))).toBe(true);
+      expect(board.spec.layout!.dice).toContainEqual({ x: 0, z: 2, top: 3, north: 1 });
     }
   });
 });
 
 describe('improveFor', () => {
   const order: Order = { size: 4, dice: 5, faces: [2], par: [4, 4], needs: ['link', 'floor'] };
-  const dice = DOWN_AND_UP.layout!.dice.map((die) => (die.x === 3 && die.z === 2 ? { ...die, top: 3, north: 1 } : die));
+  const dice = DOWN_AND_UP.layout!.dice.map((die) => (die.x === 0 && die.z === 2 ? { ...die, top: 3, north: 1 } : die));
   const spoilt = { ...DOWN_AND_UP, layout: { ...DOWN_AND_UP.layout!, dice } };
   it('keeps a pool no bigger than it is told, and its best board never gets worse', { timeout: 120_000 }, () => {
     const bests: number[] = [];

@@ -26,7 +26,7 @@ const RIDE: LevelLayout = { start: { x: 0, z: 2 }, dice: [die(1, 1, { top: 3 }),
 const place: Recipe = { slot: 901, id: 'X01', chapter: 0, size: 3, dice: 3, faces: [3], compact: false, par: [3, 3], floor: false, sketch: [RIDE] };
 const first = SKETCH + 1;
 /** A place of the third piece of the road as its first edition had it, laid by hand: a 2 rolled to a dim 2, on a board the player cannot lose and walks in four boards. */
-const pair: Recipe = { slot: 904, id: 'X05', chapter: 0, size: 2, dice: 2, faces: [2], compact: false, par: [1, 2], floor: false, sketch: [{ start: { x: 1, z: 1 }, dice: [{ x: 1, z: 1, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1, fixed: true }] }] };
+const pair: Recipe = { slot: 904, id: 'X05', chapter: 0, size: 2, dice: 2, faces: [2], compact: false, par: [1, 2], floor: false, sketch: [{ start: { x: 0, z: 1 }, dice: [{ x: 0, z: 1, top: 6, north: 3 }, { x: 1, z: 0, top: 2, north: 1, fixed: true }] }] };
 
 describe('a place judged', () => {
   it('takes a board laid by hand as it takes one laid from a seed, and names its level as the place says', () => {

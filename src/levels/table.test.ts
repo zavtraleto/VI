@@ -12,11 +12,11 @@ import { PLACE_HEAD, ROAD_HEAD, measureBoard, placeRow, roadRow, roadTable, tabl
  */
 const TWO_PAIRS: LevelSpec = {
   id: 'X02', chapter: 0, seed: 20001, size: 4, values: [2], norm: 4, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [2], sinkMoves: 2, liftMoves: 1, par: 2, exact: true,
-  solution: ['2,0,W', '0,1,S'],
-  layout: { start: { x: 2, z: 0 }, dice: [{ x: 2, z: 0, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1 }, { x: 0, z: 1, top: 6, north: 2 }, { x: 0, z: 3, top: 2, north: 1 }] },
+  solution: ['1,0,E', '3,1,S'],
+  layout: { start: { x: 1, z: 0 }, dice: [{ x: 1, z: 0, top: 6, north: 3 }, { x: 3, z: 0, top: 2, north: 1 }, { x: 3, z: 1, top: 6, north: 2 }, { x: 3, z: 3, top: 2, north: 1 }] },
 };
 /** One die where pairs go: a board with no way to clear it. */
-const ALONE: LevelSpec = { ...TWO_PAIRS, id: 'X00', norm: 1, par: undefined, exact: undefined, solution: undefined, layout: { start: { x: 2, z: 0 }, dice: [TWO_PAIRS.layout!.dice[0]] } };
+const ALONE: LevelSpec = { ...TWO_PAIRS, id: 'X00', norm: 1, par: undefined, exact: undefined, solution: undefined, layout: { start: { x: 1, z: 0 }, dice: [TWO_PAIRS.layout!.dice[0]] } };
 
 const cell = (row: readonly string[], column: string): string => row[MEASURE_HEAD.indexOf(column)];
 

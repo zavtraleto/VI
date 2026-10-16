@@ -8,7 +8,7 @@ seed: 8103
 chapter: 0
 par: 1
 exact: yes
-way: 1,1,W
+way: 0,1,E
 ---
-21+  .
- .  63*
+ .  21+
+63*  .

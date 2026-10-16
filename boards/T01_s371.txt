@@ -10,8 +10,8 @@ guard: on
 guide: on
 par: 1
 exact: yes
-way: 1,2,W
+way: 1,2,E
 ---
  .   .   .
-31  35   .
+ .  35  31
  .  65*  .

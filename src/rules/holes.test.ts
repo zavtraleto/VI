@@ -129,18 +129,18 @@ describe('a cell cut out of the board of a level', () => {
 });
 
 describe('a board with cells cut out, as it is given', () => {
-  const pair: PuzzleDie[] = [{ x: 2, z: 0, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1 }];
+  const pair: PuzzleDie[] = [{ x: 0, z: 0, top: 6, north: 3 }, { x: 2, z: 0, top: 2, north: 1 }];
   const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 
   it('is a board: its cells are marked on the run from the start', () => {
-    const s = start(board(pair, { holes: [{ x: 1, z: 1 }, { x: 2, z: 2 }] }));
+    const s = start(board(pair, { holes: [{ x: 1, z: 1 }, { x: 0, z: 2 }] }));
     expect(isCell(s, 1, 1)).toBe(false);
-    expect(isCell(s, 2, 2)).toBe(false);
+    expect(isCell(s, 0, 2)).toBe(false);
     expect(s.cubes).toHaveLength(2);
   });
 
   it('says what is wrong with it: a die on a cell that is not there, a cell cut out twice or off the square, a board in two parts', () => {
-    expect(() => start(board(pair, { holes: [{ x: 0, z: 0 }] }))).toThrow(/a die on a cell that is cut out at 0,0/);
+    expect(() => start(board(pair, { holes: [{ x: 2, z: 0 }] }))).toThrow(/a die on a cell that is cut out at 2,0/);
     expect(() => start(board(pair, { holes: [{ x: 1, z: 1 }, { x: 1, z: 1 }] }))).toThrow(/cut out twice at 1,1/);
     expect(() => start(board(pair, { holes: [{ x: 3, z: 0 }] }))).toThrow(/off the board at 3,0/);
     // The middle column gone, the board is two columns that do not touch.
@@ -148,16 +148,16 @@ describe('a board with cells cut out, as it is given', () => {
   });
 
   it('is solved on its own cells: a way that would cross a cut-out cell is no way', () => {
-    // With the cell between them there, one roll west makes the pair. With it cut out, the die has no way to the other at all.
+    // With the cell between them there, one roll east makes the pair. With it cut out, the die has no way to the other at all.
     expect(solveLevel(board(pair)).solution?.par).toBe(1);
     const cut = board(pair, { holes: [{ x: 1, z: 0 }, { x: 1, z: 1 }] });
     const solved = solveLevel(cut, { maxMoves: 6 });
     expect(solved.exhausted).toBe(true);
     expect(solved.solution === null || solved.solution.par > 1).toBe(true);
-    expect(movesAt(start(cut)).map(moveText)).toEqual(['2,0,S']);
+    expect(movesAt(start(cut)).map(moveText)).toEqual(['0,0,S']);
     // The cells stay cut out on every board the search comes to.
-    const after = playMove(start(cut), moveOf('2,0,S'));
+    const after = playMove(start(cut), moveOf('0,0,S'));
     expect(isCell(after, 1, 0)).toBe(false);
-    expect(movesAt(after).map(moveText)).not.toContain('2,1,W');
+    expect(movesAt(after).map(moveText)).not.toContain('0,1,E');
   });
 });

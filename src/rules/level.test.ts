@@ -487,7 +487,7 @@ describe('dice that come to a level', () => {
       s.config.feedRate = 0;
       const before = new Set(s.cubes.map((c) => c.id));
       group(s);
-      for (let i = 0; i < 8; i++) idleMove(s);
+      for (let i = 0; i < 6; i++) idleMove(s);
       const came = s.cubes.filter((c) => !before.has(c.id));
       expect(came.length).toBeGreaterThanOrEqual(3);
       // The player has stayed on one die: the ones that came show what they came with.
@@ -981,11 +981,11 @@ describe('a level played through', () => {
 describe('a board given die by die', () => {
   const LAYOUT: LevelLayout = {
     dice: [
-      { x: 0, z: 0, top: 2, north: 1 },
-      { x: 2, z: 0, top: 6, north: 3 },
+      { x: 2, z: 0, top: 2, north: 1 },
+      { x: 0, z: 0, top: 6, north: 3 },
       { x: 1, z: 2, top: 3, north: 6 },
     ],
-    start: { x: 2, z: 0 },
+    start: { x: 0, z: 0 },
   };
   const given = (spec: Partial<LevelSpec> = {}): RunState =>
     level({ size: 3, norm: 3, arrival: 'none', goal: { kind: 'clear' }, layout: LAYOUT, ...spec });
@@ -993,14 +993,14 @@ describe('a board given die by die', () => {
   it('stands exactly as given, with the player on the die it names', () => {
     const s = given();
     expect(s.config.size).toBe(3);
-    expect([s.config.startX, s.config.startZ]).toEqual([2, 0]);
-    expect(s.player).toEqual({ x: 2, z: 0, level: 'top' });
+    expect([s.config.startX, s.config.startZ]).toEqual([0, 0]);
+    expect(s.player).toEqual({ x: 0, z: 0, level: 'top' });
     expect(s.cubes.map((c) => [c.x, c.z, c.ori.top, c.ori.north, c.state])).toEqual([
-      [0, 0, 2, 1, 'idle'],
-      [2, 0, 6, 3, 'idle'],
+      [2, 0, 2, 1, 'idle'],
+      [0, 0, 6, 3, 'idle'],
       [1, 2, 3, 6, 'idle'],
     ]);
-    expect(cubeAt(s, 2, 0)?.ori).toEqual({ top: 6, bottom: 1, north: 3, south: 4, east: 2, west: 5 });
+    expect(cubeAt(s, 0, 0)?.ori).toEqual({ top: 6, bottom: 1, north: 3, south: 4, east: 5, west: 2 });
   });
 
   it('is the same whatever the seed, and asks nothing of the generator', () => {
@@ -1013,7 +1013,7 @@ describe('a board given die by die', () => {
 
   it('is played by the rules of any level', () => {
     const s = given();
-    act(s, 'W');
+    act(s, 'E');
     expect(s.events).toContainEqual(expect.objectContaining({ type: 'match', value: 2, count: 2 }));
     expect(goalLines(s)).toEqual([{ what: 'cleared', value: 0, have: 2, need: 3 }]);
     expect(s.over).toBe(false);
@@ -1022,7 +1022,7 @@ describe('a board given die by die', () => {
   it('says what is wrong with a board that is not one', () => {
     const [a, b, c] = LAYOUT.dice;
     expect(() => given({ id: 'L07', norm: 4 })).toThrow(/L07.*3 dice laid, 4 named/);
-    expect(() => given({ id: 'L07', layout: { ...LAYOUT, dice: [a, b, { ...c, x: 0, z: 0 }] } })).toThrow(/L07.*two dice at 0,0/);
+    expect(() => given({ id: 'L07', layout: { ...LAYOUT, dice: [a, b, { ...c, x: 2, z: 0 }] } })).toThrow(/L07.*two dice at 2,0/);
     expect(() => given({ id: 'L07', layout: { ...LAYOUT, start: { x: 1, z: 1 } } })).toThrow(/L07.*no die to start on at 1,1/);
     expect(() => given({ id: 'L07', layout: { ...LAYOUT, dice: [a, b, { ...c, x: 3 }] } })).toThrow(/L07.*off the board/);
     // A die cannot show a face on top and its opposite to the north.

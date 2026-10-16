@@ -8,7 +8,7 @@ import type { LevelSpec } from './types';
 /** Two levels of the second probe, laid from a seed: a board to clear, and an order with a limit taken from the players. */
 const SEEDED: readonly LevelSpec[] = [
   { id: 'c1', seed: 1, size: 5, values: [2, 3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0 },
-  { id: 'k1', seed: 15, size: 5, values: [2, 3], norm: 8, arrival: 'refill', goal: { kind: 'order', items: [{ value: 2, count: 4 }] }, moves: 6 },
+  { id: 'k1', seed: 15, size: 5, values: [2, 3], norm: 8, arrival: 'refill', goal: { kind: 'order', items: [{ value: 2, count: 4 }] }, moves: 7 },
 ];
 const byId = (id: string): LevelSpec => SEEDED.find((level) => level.id === id)!;
 const SEND: LevelSpec = { id: 'send', seed: 3, size: 5, values: [2, 3], norm: 8, arrival: 'refill', goal: { kind: 'send', count: 6 }, moves: 0 };
@@ -169,10 +169,10 @@ describe('table of the levels', () => {
 });
 
 describe('the players by skill on a board to be cleared', () => {
-  /** One roll west makes the pair. */
+  /** One roll east makes the pair. */
   const PAIR: LevelSpec = {
     id: 'test', seed: 1, size: 3, values: [2, 3], norm: 2, arrival: 'none', goal: { kind: 'clear' }, moves: 0,
-    layout: { dice: [{ x: 2, z: 0, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1 }], start: { x: 2, z: 0 } },
+    layout: { dice: [{ x: 0, z: 0, top: 6, north: 3 }, { x: 2, z: 0, top: 2, north: 1 }], start: { x: 0, z: 0 } },
   };
 
   it('count the clears of every player by skill', () => {

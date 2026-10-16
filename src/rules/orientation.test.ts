@@ -37,17 +37,22 @@ describe('orientation', () => {
   });
 
   it('follows the roll table from the spec', () => {
-    const o = CANONICAL; // top 1, bottom 6, north 2, south 5, east 3, west 4
-    expect(roll(o, 'N')).toEqual({ top: 5, bottom: 2, north: 1, south: 6, east: 3, west: 4 });
-    expect(roll(o, 'S')).toEqual({ top: 2, bottom: 5, north: 6, south: 1, east: 3, west: 4 });
-    expect(roll(o, 'E')).toEqual({ top: 4, bottom: 3, north: 2, south: 5, east: 1, west: 6 });
-    expect(roll(o, 'W')).toEqual({ top: 3, bottom: 4, north: 2, south: 5, east: 6, west: 1 });
+    const o = CANONICAL; // top 1, bottom 6, north 2, south 5, east 4, west 3
+    expect(roll(o, 'N')).toEqual({ top: 5, bottom: 2, north: 1, south: 6, east: 4, west: 3 });
+    expect(roll(o, 'S')).toEqual({ top: 2, bottom: 5, north: 6, south: 1, east: 4, west: 3 });
+    expect(roll(o, 'E')).toEqual({ top: 3, bottom: 4, north: 2, south: 5, east: 1, west: 6 });
+    expect(roll(o, 'W')).toEqual({ top: 4, bottom: 3, north: 2, south: 5, east: 6, west: 1 });
   });
 
-  it('contains the tutorial cube and rolls it west to a 2', () => {
-    const a = { top: 1, bottom: 6, north: 4, south: 3, east: 2, west: 5 };
+  it('is a western die: 1, 2 and 3 go counterclockwise round their corner', () => {
+    // Seen from above with the north up, the 2 is to the north of the 1 and the 3 to the west.
+    expect([CANONICAL.top, CANONICAL.north, CANONICAL.west]).toEqual([1, 2, 3]);
+  });
+
+  it('contains a die with the 2 to the west and rolls it east to a 2', () => {
+    const a = { top: 1, bottom: 6, north: 4, south: 3, east: 5, west: 2 };
     expect(ALL_ORIENTATIONS.map(orientationKey)).toContain(orientationKey(a));
-    expect(roll(a, 'W').top).toBe(2);
+    expect(roll(a, 'E').top).toBe(2);
   });
 });
 

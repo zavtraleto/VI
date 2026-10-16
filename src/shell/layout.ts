@@ -75,15 +75,15 @@ export function signPlaces(text: string): number[] {
 /**
  * The net of a die: where each face lies when the die is unfolded into a cross. Index 0 is
  * the face 1. The die is unfolded as it stands on the board at the start: the one on top is
- * the middle of the cross, the two lies to the north of it, the three to the east, the four to
+ * the middle of the cross, the two lies to the north of it, the four to the east, the three to
  * the west, the five to the south, and the six, which was underneath, hangs from the five.
  * Opposite faces - they add up to seven - are never side by side.
  */
 export const NET: readonly { col: number; row: number }[] = [
   { col: 1, row: 1 }, // 1
   { col: 1, row: 0 }, // 2
-  { col: 2, row: 1 }, // 3
-  { col: 0, row: 1 }, // 4
+  { col: 0, row: 1 }, // 3
+  { col: 2, row: 1 }, // 4
   { col: 1, row: 2 }, // 5
   { col: 1, row: 3 }, // 6
 ];

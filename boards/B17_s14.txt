@@ -7,9 +7,9 @@ chapter: 7
 lesson: lessonFives
 par: 1
 exact: yes
-way: 0,0,S
+way: 3,0,S
 ---
-65  51   .   .
- .  51  54*  .
- .   .  54   .
+ .   .  51  65
+ .  54* 51   .
+ .  54   .   .
  .   .   .   .

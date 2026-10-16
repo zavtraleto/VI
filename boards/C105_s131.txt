@@ -11,8 +11,8 @@ guard: on
 guide: on
 par: 2
 exact: yes
-way: 2,0,S 2,1,S
+way: 0,0,S 0,1,S
 ---
- .   .  41*
+41*  .   .
  .   .   .
-31  36   .
+ .  36  31

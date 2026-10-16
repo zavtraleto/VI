@@ -14,56 +14,56 @@ const places = (state: RunState) => roadCounters(state).map(({ value, have, need
 
 describe('the plaques of the road', () => {
   it('stand over the fixed 2 at the far end of the strip, and not over the 2 the player starts on', () => {
-    expect(places(start('R01'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['2,0'] }]);
+    expect(places(start('R01'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['3,0'] }]);
   });
 
   it('stand over the pair of threes on the second piece and on the fourth', () => {
-    expect(places(start('R02'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['2,0', '2,1'] }]);
-    expect(places(start('R04'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['0,1', '1,1'] }]);
+    expect(places(start('R02'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['4,0', '4,1'] }]);
+    expect(places(start('R04'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['2,1', '3,1'] }]);
   });
 
   it('stand over a lone two, one for each, and not over the dice that show no face of the piece', () => {
     expect(places(start('R03'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,1'] }]);
-    expect(places(start('R07'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,0'] }]);
+    expect(places(start('R07'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['2,0'] }]);
     // Two 2s apart and two dice that show 4s: a plaque over each of the 2s.
     expect(places(start('R05'))).toEqual([
-      { value: 2, have: 1, need: 2, cells: ['1,1'] },
-      { value: 2, have: 1, need: 2, cells: ['1,3'] },
+      { value: 2, have: 1, need: 2, cells: ['2,1'] },
+      { value: 2, have: 1, need: 2, cells: ['2,3'] },
     ]);
   });
 
   it('stand over each of the two asks of the mix of the second block: the pair of threes and the lone two', () => {
     expect(places(start('R09'))).toEqual([
-      { value: 3, have: 2, need: 3, cells: ['2,0', '3,0'] },
-      { value: 2, have: 1, need: 2, cells: ['3,2'] },
+      { value: 3, have: 2, need: 3, cells: ['0,0', '1,0'] },
+      { value: 2, have: 1, need: 2, cells: ['0,2'] },
     ]);
   });
 
   it('leave out the die the player stands on, whichever it is', () => {
     // The player starts on the two at the south end: only the other two has a plaque; on the other, only the first has.
     const state = start('R01');
-    expect(places(state).map((p) => p.cells)).toEqual([['2,0']]);
-    state.player = { x: 2, z: 0, level: 'top' };
-    expect(places(state).map((p) => p.cells)).toEqual([['2,5']]);
+    expect(places(state).map((p) => p.cells)).toEqual([['3,0']]);
+    state.player = { x: 3, z: 0, level: 'top' };
+    expect(places(state).map((p) => p.cells)).toEqual([['3,5']]);
   });
 
   it('count a die the player stands beside, and not one that is going', () => {
     const state = start('R02');
-    const cube = state.cubes.find((c) => c.x === 2 && c.z === 1)!;
+    const cube = state.cubes.find((c) => c.x === 4 && c.z === 1)!;
     cube.state = 'sinking';
-    expect(places(state)).toEqual([{ value: 3, have: 1, need: 3, cells: ['2,0'] }]);
+    expect(places(state)).toEqual([{ value: 3, have: 1, need: 3, cells: ['4,0'] }]);
   });
 
   it('give none for a heap as large as its combo', () => {
     const state = start('R04');
     // A third three put under the pair makes three side by side: a combo, which has no plaque.
-    const third = state.cubes.find((c) => c.x === 1 && c.z === 3)!;
-    third.x = 1;
+    const third = state.cubes.find((c) => c.x === 2 && c.z === 3)!;
+    third.x = 2;
     third.z = 2;
     third.ori = { ...third.ori, top: 3 };
     state.grid.fill(0);
     for (const cube of state.cubes) state.grid[cube.z * state.config.size + cube.x] = cube.id;
-    state.player = { x: 1, z: 3, level: 'ground' };
+    state.player = { x: 2, z: 3, level: 'ground' };
     expect(roadCounters(state)).toEqual([]);
   });
 });

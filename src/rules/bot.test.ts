@@ -177,9 +177,9 @@ describe('a player made of rules', () => {
   it('plays as it did before its head and hands were set apart', () => {
     const keep = (run: ReturnType<typeof play>) => ({ score: run.score, removed: run.removed, steps: run.steps, clears: run.clears, chains: run.chains, maxChain: run.maxChain, seconds: run.seconds });
     // The numbers are those of the rules the session is played by: they were taken anew on
-    // 7 October, when a cube that comes or goes stopped holding the player.
-    expect(keep(play('average', 3, 2))).toEqual({ score: 1494, removed: 34, steps: 140, clears: 26, chains: 18, maxChain: 9, seconds: 120 });
-    expect(keep(play('newbie', 5, 2))).toEqual({ score: 43, removed: 8, steps: 59, clears: 5, chains: 1, maxChain: 2, seconds: 120 });
+    // 16 October, when the die was made a western one and its east and west faces swapped.
+    expect(keep(play('average', 3, 2))).toEqual({ score: 1881, removed: 28, steps: 136, clears: 23, chains: 16, maxChain: 10, seconds: 120 });
+    expect(keep(play('newbie', 5, 2))).toEqual({ score: 59, removed: 12, steps: 47, clears: 6, chains: 1, maxChain: 2, seconds: 120 });
   });
 
   // Thirty runs of three minutes: with the whole suite beside them, on a slow machine, more than the usual five seconds.

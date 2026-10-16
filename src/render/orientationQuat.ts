@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { roll, type Dir, type Orientation } from '../rules';
+import { CANONICAL } from '../rules/orientation';
 
 /** Axis a cube turns around when rolling in a direction: up x direction. */
 export const ROLL_AXIS: Record<Dir, THREE.Vector3> = {
@@ -8,8 +9,6 @@ export const ROLL_AXIS: Record<Dir, THREE.Vector3> = {
   E: new THREE.Vector3(0, 0, -1),
   W: new THREE.Vector3(0, 0, 1),
 };
-
-const CANONICAL: Orientation = { top: 1, bottom: 6, north: 2, south: 5, east: 3, west: 4 };
 
 /** Face values of the unrotated mesh in BoxGeometry order: +x, -x, +y, -y, +z, -z. */
 export const CANONICAL_FACE_VALUES = [

@@ -21,9 +21,9 @@ const SIZE = 7;
 const OWN = { x: 3, z: 4, top: 4, north: 5 };
 /** The 2 it rolls up to, and the die beside the pair that a roll north brings to it. */
 const PARTNER = { x: 3, z: 2, top: 2, north: 1 };
-const THIRD = { x: 4, z: 3, top: 4, north: 5 };
+const THIRD = { x: 2, z: 3, top: 4, north: 5 };
 /** A die that stands far from them: with it the world of the level stands between moves. */
-const SPARE = { x: 0, z: 6, top: 4, north: 5 };
+const SPARE = { x: 6, z: 6, top: 4, north: 5 };
 
 const SCENES = {
   /** A group is made: the answer of the board, and the group coming down to its first step. */
@@ -32,13 +32,13 @@ const SCENES = {
   steps: {
     dice: [OWN, PARTNER, THIRD, SPARE],
     clear: false,
-    beats: [wait(400), move('N'), wait(700), move('E'), wait(250), move('E'), wait(450), move('W'), wait(450), move('E'), wait(450), move('W'), wait(450), move('E'), wait(450), move('W'), wait(1200)],
+    beats: [wait(400), move('N'), wait(700), move('W'), wait(250), move('W'), wait(450), move('E'), wait(450), move('W'), wait(450), move('E'), wait(450), move('W'), wait(450), move('E'), wait(1200)],
   },
   /** A pair made, and a third die brought to it: the chain is added to. */
-  join: { dice: [OWN, PARTNER, THIRD, SPARE], clear: false, beats: [wait(400), move('N'), wait(900), move('E'), wait(350), move('N'), wait(1500)] },
+  join: { dice: [OWN, PARTNER, THIRD, SPARE], clear: false, beats: [wait(400), move('N'), wait(900), move('W'), wait(350), move('N'), wait(1500)] },
   /** A board cleared by one combo of four: the last combo of a board. */
   finale: {
-    dice: [OWN, PARTNER, { x: 2, z: 3, top: 2, north: 1 }, { x: 4, z: 3, top: 2, north: 1 }],
+    dice: [OWN, PARTNER, { x: 4, z: 3, top: 2, north: 1 }, { x: 2, z: 3, top: 2, north: 1 }],
     clear: true,
     beats: [wait(600), move('N'), wait(2200)],
   },

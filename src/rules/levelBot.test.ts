@@ -15,10 +15,10 @@ const board = (dice: readonly PuzzleDie[]): LevelSpec => ({
   id: 'test', seed: 1, size: 3, values: [2, 3], norm: dice.length, arrival: 'none', goal: { kind: 'clear' }, moves: 0,
   layout: { dice, start: { x: dice[0].x, z: dice[0].z } },
 });
-/** One roll west makes the pair. */
-const PAIR = board([{ x: 2, z: 0, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1 }]);
+/** One roll east makes the pair. */
+const PAIR = board([{ x: 0, z: 0, top: 6, north: 3 }, { x: 2, z: 0, top: 2, north: 1 }]);
 /** The pair, and a die beside it that comes to it over the die that is going. */
-const GLASS = board([{ x: 2, z: 0, top: 6, north: 3 }, { x: 0, z: 0, top: 2, north: 1 }, { x: 1, z: 1, top: 6, north: 5 }]);
+const GLASS = board([{ x: 0, z: 0, top: 6, north: 3 }, { x: 2, z: 0, top: 2, north: 1 }, { x: 1, z: 1, top: 6, north: 5 }]);
 const ALONE = board([{ x: 1, z: 1, top: 6, north: 3 }]);
 
 /** Boards of the ladder with a strict floor: 2s work, a combo goes in two moves, no die is climbed from the floor. */
@@ -59,9 +59,9 @@ const played = (spec: LevelSpec, ...moves: string[]): RunState => moves.map(move
 
 /** Three levels of the ladder with their floor shut, as they stood when the players were taught the rule of the floor. */
 const SHUT: readonly LevelSpec[] = [
-  { id: 'T09', chapter: 0, seed: 10874, size: 4, values: [2], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [2], sinkMoves: 2, liftMoves: 1, floor: false, guard: true, par: 4, exact: true, solution: ['1,1,N', '1,2,S', '1,3,W', '0,1,E'], layout: { start: { x: 1, z: 2 }, dice: [{ x: 0, z: 0, top: 2, north: 1 }, { x: 0, z: 1, top: 6, north: 4 }, { x: 1, z: 1, top: 4, north: 5 }, { x: 2, z: 1, top: 2, north: 6 }, { x: 0, z: 2, top: 2, north: 4 }, { x: 1, z: 2, top: 4, north: 6 }] } },
-  { id: 'C104', chapter: 1, seed: 10299, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, floor: false, guard: true, par: 3, exact: true, solution: ['2,3,E', '3,3,N', '1,1,W'], layout: { start: { x: 1, z: 0 }, dice: [{ x: 0, z: 0, top: 3, north: 5 }, { x: 1, z: 0, top: 3, north: 1 }, { x: 1, z: 1, top: 5, north: 1 }, { x: 2, z: 1, top: 3, north: 6 }, { x: 2, z: 2, top: 3, north: 6 }, { x: 2, z: 3, top: 5, north: 4 }] } },
-  { id: 'C109', chapter: 1, seed: 10880, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, floor: false, guard: true, par: 4, exact: true, solution: ['1,2,E', '3,1,S', '3,2,S', '3,3,W'], layout: { start: { x: 0, z: 3 }, dice: [{ x: 1, z: 1, top: 3, north: 6 }, { x: 2, z: 1, top: 3, north: 5 }, { x: 3, z: 1, top: 6, north: 5 }, { x: 1, z: 2, top: 5, north: 6 }, { x: 0, z: 3, top: 3, north: 1 }, { x: 1, z: 3, top: 3, north: 1 }] } },
+  { id: 'T09', chapter: 0, seed: 10874, size: 4, values: [2], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [2], sinkMoves: 2, liftMoves: 1, floor: false, guard: true, par: 4, exact: true, solution: ['2,1,N', '2,2,S', '2,3,E', '3,1,W'], layout: { start: { x: 2, z: 2 }, dice: [{ x: 3, z: 0, top: 2, north: 1 }, { x: 3, z: 1, top: 6, north: 4 }, { x: 2, z: 1, top: 4, north: 5 }, { x: 1, z: 1, top: 2, north: 6 }, { x: 3, z: 2, top: 2, north: 4 }, { x: 2, z: 2, top: 4, north: 6 }] } },
+  { id: 'C104', chapter: 1, seed: 10299, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, floor: false, guard: true, par: 3, exact: true, solution: ['1,3,W', '0,3,N', '2,1,E'], layout: { start: { x: 2, z: 0 }, dice: [{ x: 3, z: 0, top: 3, north: 5 }, { x: 2, z: 0, top: 3, north: 1 }, { x: 2, z: 1, top: 5, north: 1 }, { x: 1, z: 1, top: 3, north: 6 }, { x: 1, z: 2, top: 3, north: 6 }, { x: 1, z: 3, top: 5, north: 4 }] } },
+  { id: 'C109', chapter: 1, seed: 10880, size: 4, values: [3], norm: 6, arrival: 'none', goal: { kind: 'clear' }, moves: 0, faces: [3], sinkMoves: 2, liftMoves: 1, floor: false, guard: true, par: 4, exact: true, solution: ['2,2,W', '0,1,S', '0,2,S', '0,3,E'], layout: { start: { x: 3, z: 3 }, dice: [{ x: 2, z: 1, top: 3, north: 6 }, { x: 1, z: 1, top: 3, north: 5 }, { x: 0, z: 1, top: 6, north: 5 }, { x: 2, z: 2, top: 5, north: 6 }, { x: 3, z: 3, top: 3, north: 1 }, { x: 2, z: 3, top: 3, north: 1 }] } },
 ];
 
 describe('how a run ends', () => {
@@ -130,14 +130,14 @@ describe('the players that plan', () => {
       const end = personaPlay(spec, name, seed);
       return [end.levelRun!.moves, end.endReason];
     };
-    expect([moves(twos, 'casual', 3), moves(twos, 'hasty', 7), moves(twos, 'careful', 2)]).toEqual([[4, 'passed'], [12, 'passed'], [4, 'passed']]);
+    expect([moves(twos, 'casual', 3), moves(twos, 'hasty', 7), moves(twos, 'careful', 2)]).toEqual([[4, 'passed'], [60, 'passed'], [4, 'passed']]);
     expect([moves(threes, 'casual', 3), moves(threes, 'hasty', 7), moves(threes, 'careful', 2)]).toEqual([[3, 'passed'], [3, 'passed'], [3, 'passed']]);
-    expect([moves(peak, 'casual', 3), moves(peak, 'hasty', 7), moves(peak, 'careful', 2)]).toEqual([[4, 'passed'], [14, 'passed'], [4, 'passed']]);
-    expect(personaRates(twos, 6)).toEqual({ hasty: 5 / 6, casual: 1, careful: 1, planner: 1 });
-    expect(personaRates(threes, 6)).toEqual({ hasty: 0.5, casual: 5 / 6, careful: 1, planner: 1 });
-    expect(personaRates(peak, 6)).toEqual({ hasty: 5 / 6, casual: 5 / 6, careful: 1, planner: 1 });
-    expect([randomPlay(twos, 5, 30).levelRun!.moves, randomPlay(threes, 5, 30).levelRun!.moves, randomPlay(peak, 5, 30).levelRun!.moves]).toEqual([30, 23, 30]);
-    expect([randomRate(twos, 40), randomRate(threes, 40), randomRate(peak, 40)]).toEqual([0.05, 0.05, 0.1]);
+    expect([moves(peak, 'casual', 3), moves(peak, 'hasty', 7), moves(peak, 'careful', 2)]).toEqual([[4, 'passed'], [6, 'passed'], [4, 'passed']]);
+    expect(personaRates(twos, 6)).toEqual({ hasty: 4 / 6, casual: 1, careful: 1, planner: 1 });
+    expect(personaRates(threes, 6)).toEqual({ hasty: 2 / 6, casual: 4 / 6, careful: 1, planner: 1 });
+    expect(personaRates(peak, 6)).toEqual({ hasty: 4 / 6, casual: 1, careful: 1, planner: 1 });
+    expect([randomPlay(twos, 5, 30).levelRun!.moves, randomPlay(threes, 5, 30).levelRun!.moves, randomPlay(peak, 5, 30).levelRun!.moves]).toEqual([30, 1, 30]);
+    expect([randomRate(twos, 40), randomRate(threes, 40), randomRate(peak, 40)]).toEqual([0.05, 0.1, 0.025]);
   }, 60_000);
 
   it('keep the moves they made, as a way the solver can play', () => {
@@ -264,7 +264,7 @@ describe('a board measured', () => {
   it('is asked of the solver for its moves, and of the players for the rest', () => {
     const measured = measure(GLASS, { skillRuns: 2 });
     expect(measured).toMatchObject({ par: 2, exact: true, depth: 1, uses: ['link', 'glass'], needs: ['link'] });
-    expect(measured.way!.map(moveText)).toEqual(['2,0,W', '1,1,N']);
+    expect(measured.way!.map(moveText)).toEqual(['0,0,E', '1,1,N']);
     expect(measured.traps).toBeGreaterThanOrEqual(0);
     expect(measured.random).toBeGreaterThanOrEqual(0);
     expect(Object.keys(measured.personas)).toEqual(PERSONA_NAMES);
@@ -272,9 +272,9 @@ describe('a board measured', () => {
 
   it('is taken at its word where it keeps its way, and the way is played again', () => {
     // A longer way than the fewest: round the die that is going.
-    const kept: LevelSpec = { ...GLASS, par: 3, exact: false, solution: ['2,0,W', '1,1,E', '2,1,N'] };
+    const kept: LevelSpec = { ...GLASS, par: 3, exact: false, solution: ['0,0,E', '1,1,W', '0,1,N'] };
     expect(measure(kept, { skillRuns: 1 })).toMatchObject({ par: 3, exact: false, uses: ['link'] });
-    expect(() => measure({ ...kept, solution: ['0,0,E'] }, { skillRuns: 1 })).toThrow(/cannot be made/);
+    expect(() => measure({ ...kept, solution: ['2,0,W'] }, { skillRuns: 1 })).toThrow(/cannot be made/);
   });
 
   it('has no way where there is none', () => {

@@ -22,7 +22,7 @@ describe('the plaques of a level as a hint', () => {
 
   it('says nothing on a board that is over', () => {
     const spec = levelOf('P04');
-    const dead = along(spec, ['0,0,E', '1,0,E', '2,1,S', '2,2,N']);
+    const dead = along(spec, ['3,0,W', '2,0,W', '1,1,S', '1,2,N']);
     expect(dead.over).toBe(true);
     expect(comboHints(dead).groups).toEqual([]);
   });
@@ -57,7 +57,7 @@ describe('a plaque kept while the next board is counted', () => {
     const [heap] = comboHints(state).groups;
     expect(stillShort(state, heap)).toBe(true);
     // The first move of the way rolls another die: the heap stands as it stood.
-    expect(stillShort(playMove(state, moveOf('0,0,E')), heap)).toBe(true);
+    expect(stillShort(playMove(state, moveOf('3,0,W')), heap)).toBe(true);
     // The whole way of the level sends the heap off.
     expect(stillShort(along(spec, spec.solution!.slice(0, 3)), heap)).toBe(false);
   });

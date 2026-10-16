@@ -8,8 +8,8 @@ chapter: 0
 guard: on
 par: 1
 exact: yes
-way: 0,1,S
+way: 2,1,S
 ---
  .   .   .
-64  46   .
- .  45  45*
+ .  46  64
+45* 45   .
