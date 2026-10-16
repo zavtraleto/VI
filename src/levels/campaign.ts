@@ -48,15 +48,21 @@ export function placeOfCode(code: string, row: readonly Place[] = CAMPAIGN): num
 }
 
 /**
- * The place the player stands on, which the list opens on and the program starts from: the place of
- * the code kept of them; for no code, or one the row has not, the first place not passed, and the
- * first when all are.
+ * The place the player stands on, which the program starts from and the list opens on, as the road and
+ * the list had it before the row was one: on the prologue (the first chapter), the place of the code
+ * kept of them, whatever they play or have passed further on; with no code, or one the row has not, its
+ * first place. Past the prologue (a code of a later chapter), the place of a chapter being played
+ * (`playing`, for the list), or else the first place of the chapters not passed, and their first when
+ * all are: a place passed out of turn holds no one.
  */
-export function campaignFocus(kept: CampaignKept, row: readonly Place[] = CAMPAIGN): number {
+export function campaignFocus(kept: CampaignKept, row: readonly Place[] = CAMPAIGN, playing: number | null = null): number {
   const at = kept.at === undefined ? -1 : placeOfCode(kept.at, row);
-  if (at >= 0) return at;
-  const open = row.findIndex((place) => kept.passed[place.code] !== true);
-  return open < 0 ? 0 : open;
+  if (at < 0) return 0;
+  if (row[at].chapter === 0) return at;
+  if (playing !== null && row[playing]?.chapter > 0) return playing;
+  const chapters = row.findIndex((place) => place.chapter > 0);
+  const open = row.findIndex((place) => place.chapter > 0 && kept.passed[place.code] !== true);
+  return open >= 0 ? open : chapters;
 }
 
 export function campaignDone(kept: Pick<CampaignKept, 'passed'>, row: readonly Place[] = CAMPAIGN): number {

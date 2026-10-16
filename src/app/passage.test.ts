@@ -20,9 +20,14 @@ describe('the place the program opens on', () => {
     expect(startPlace('F2', { F1: true, F2: true, F3: true }, row)).toBe(1);
   });
 
-  it('is the first not passed for a code the row has not, and the first when all are', () => {
-    expect(startPlace('R99', { F1: true, F2: true }, row)).toBe(2);
-    expect(startPlace('R99', Object.fromEntries(row.map((place) => [place.code, true])), row)).toBe(0);
+  it('is the first for a code the row has not', () => {
+    expect(startPlace('R99', { F1: true, F2: true }, row)).toBe(0);
+  });
+
+  it('is, past the prologue, the first place of the chapters not passed, and their first when all are', () => {
+    // At C1-05 the player played C1-06 out of turn, then passed C1-05: they go on with the first not passed.
+    expect(startPlace('G2', { F1: true, F2: true, F3: true, G2: true }, row)).toBe(3);
+    expect(startPlace('G2', Object.fromEntries(row.map((place) => [place.code, true])), row)).toBe(3);
   });
 });
 

@@ -1550,8 +1550,9 @@ export class Game {
     this.tools?.hide();
     saveSettings(this.settings);
     const { levels } = this.settings;
-    // The list opens on the place being played, or else on the one the player stands on.
-    const current = this.kind === 'level' && this.labSpec === null && this.place !== null ? this.place : campaignFocus(levels);
+    // The list opens where the player stands: on the prologue, the place kept of them, whatever they play out of turn; past it, the
+    // place of a chapter being played, or the first of the chapters not passed (`campaignFocus`).
+    const current = campaignFocus(levels, CAMPAIGN, this.kind === 'level' && this.labSpec === null ? this.place : null);
     this.shell.showPanel(
       levelsPanel(campaignCells(levels), current, {
         // A place starts as it does by its address, with no screen before it, and the row goes on from it.

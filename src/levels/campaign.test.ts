@@ -39,14 +39,31 @@ describe('the cells of the list', () => {
 });
 
 describe('where the list opens', () => {
-  it('is the place the player stands on, by its code', () => {
-    expect(campaignFocus({ ...none, at: 'G1' }, row)).toBe(3);
+  it('is the place of the prologue the player stands on, by its code, whatever they passed further on', () => {
+    expect(campaignFocus({ ...none, at: 'F2' }, row)).toBe(1);
+    expect(campaignFocus({ passed: { G1: true }, stats: {}, at: 'F3' }, row)).toBe(2);
+    // On the prologue the place kept is shown even while a board of a chapter is played out of turn.
+    expect(campaignFocus({ ...none, at: 'F2' }, row, 4)).toBe(1);
   });
 
-  it('is the first place not passed for one with no place kept, and the first when all are', () => {
+  it('is the first place of the prologue for one who is new, and for a code the row has not', () => {
     expect(campaignFocus(none, row)).toBe(0);
-    expect(campaignFocus({ passed: { F1: true, F2: true }, stats: {} }, row)).toBe(2);
-    expect(campaignFocus({ passed: Object.fromEntries(row.map((place) => [place.code, true])), stats: {} }, row)).toBe(0);
+    expect(campaignFocus({ passed: { F1: true, F2: true }, stats: {} }, row)).toBe(0);
+    expect(campaignFocus({ ...none, at: 'R99' }, row)).toBe(0);
+  });
+
+  it('is, past the prologue, the first place of the chapters not passed, wherever the code kept points', () => {
+    // A place further on passed out of turn does not hold the player: the first one not passed does.
+    expect(campaignFocus({ passed: { G2: true }, stats: {}, at: 'G2' }, row)).toBe(3);
+    expect(campaignFocus({ passed: { G1: true }, stats: {}, at: 'G1' }, row)).toBe(4);
+    // Every place of the chapters passed: the first of them.
+    expect(campaignFocus({ passed: { G1: true, G2: true }, stats: {}, at: 'G2' }, row)).toBe(3);
+  });
+
+  it('is, past the prologue, the place of a chapter being played', () => {
+    expect(campaignFocus({ ...none, at: 'G1' }, row, 4)).toBe(4);
+    // A board of the prologue played again past it does not move the list off the chapters.
+    expect(campaignFocus({ ...none, at: 'G1' }, row, 0)).toBe(3);
   });
 
   it('counts the boards passed of the row, and no code that is not in it', () => {
