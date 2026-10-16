@@ -147,17 +147,27 @@ if (command === 'check') {
   // A board of the row keeps its code by row.json, and by its own status R as the dev server holds it.
   const rowCodes = [...ROW.places.map((place) => place.code), ...files.filter((file) => file.head.status === 'R').map((file) => file.name)];
   const faults = library.renameFaults(map, files.map((file) => file.name), rowCodes);
+  // Names that differ only in letter case are one name, as they are one file on Windows (and in renameFaults).
+  const key = (name) => name.toLowerCase();
+  const leaving = new Set(Object.keys(map).map(key));
+  const histories = existsSync(historyOf('')) ? readdirSync(historyOf('')) : [];
   // A history under the new name is refused as the dev server refuses it: the history of the board would be left behind. Not where that history goes too.
-  for (const [from, to] of pairs) if (existsSync(historyOf(to)) && !Object.hasOwn(map, to)) faults.push(`${from}: there is a history of ${to} already`);
+  for (const [from, to] of pairs) if (histories.some((name) => key(name) === key(to)) && !leaving.has(key(to))) faults.push(`${from}: there is a history of ${to} already`);
+  // A history half moved by a rename that did not end is put back by hand before another is begun.
+  for (const name of histories) if (name.startsWith('.renaming-')) faults.push(`boards/.history/${name}: left by a rename that did not end; put it back by hand`);
   if (faults.length > 0) {
     for (const fault of faults) console.log(fault);
     console.log(`rename: ${faults.length} faults, nothing renamed`);
     process.exit(1);
   }
-  // The texts are all read before anything is written: a file given to another board is written over, and goes only where no board takes its name.
+  // The texts are all read before anything is written. A new file goes first where it falls on no file that leaves; a file that leaves goes
+  // where no board takes its name; then the new files that fall on the name of one that left, in whatever letter case it had.
   const texts = new Map(files.map((file) => [file.name, file.text]));
-  for (const [from, to] of pairs) writeFileSync(resolve(boardsDir, `${to}.txt`), renamedText(texts.get(from), to));
-  for (const [from] of pairs) if (!pairs.some(([, to]) => to === from)) unlinkSync(resolve(boardsDir, `${from}.txt`));
+  const write = ([from, to]) => writeFileSync(resolve(boardsDir, `${to}.txt`), renamedText(texts.get(from), to));
+  const ontoLeaving = ([, to]) => leaving.has(key(to));
+  for (const pair of pairs) if (!ontoLeaving(pair)) write(pair);
+  for (const [from] of pairs) unlinkSync(resolve(boardsDir, `${from}.txt`));
+  for (const pair of pairs) if (ontoLeaving(pair)) write(pair);
   // The histories go in two steps, so that a history moved off a name makes room for the one moved onto it.
   const moving = pairs.filter(([from]) => existsSync(historyOf(from)));
   for (const [from] of moving) renameSync(historyOf(from), historyOf(`.renaming-${from}`));

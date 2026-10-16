@@ -51,6 +51,14 @@ describe('the renames of the library', () => {
     ]);
     expect(renameFaults({ P13_s1: 'b-1', P13_s2: 'b-1' }, names, [])).toEqual(['P13_s2: b-1 is given twice']);
   });
+  it('holds two names that differ only in letter case for one, as the file system of Windows does', () => {
+    expect(renameFaults({ P13_s1: 'r01' }, names, ['R01'])).toEqual(['P13_s1: r01 is taken']);
+    expect(renameFaults({ P13_s1: 'r01' }, ['P13_s1'], ['R01'])).toEqual(['P13_s1: r01 is taken']);
+    expect(renameFaults({ P13_s1: 'BRIDGE-1' }, names, [])).toEqual(['P13_s1: BRIDGE-1 is taken']);
+    expect(renameFaults({ 'bridge-1': 'Bridge-1' }, names, [])).toEqual(['bridge-1: Bridge-1 differs from it only in letter case']);
+    expect(renameFaults({ P13_s1: 'b-1', P13_s2: 'B-1' }, names, [])).toEqual(['P13_s2: B-1 is given twice']);
+    expect(renameFaults({ 'bridge-1': 'bridge-9', P13_s1: 'BRIDGE-1' }, names, [])).toEqual([]);
+  });
   it('finds a board by the name it has or by a name it had', () => {
     const files = [{ name: 'bridge-2', text: 'id: bridge-2\nwas: P13_s1\nfaces: 2\n---\n21*\n' }];
     expect(resolveName('bridge-2', files)).toBe('bridge-2');
@@ -159,7 +167,7 @@ describe('checkLibrary', () => {
     ]);
   });
   it('names a file of the old statuses', () => {
-    expect(checkLibrary([file(fileBoard('R03'), 'fire', 'Z1')], { row: [] }, [])).toEqual(['Z1: the status is of the old words; run node scripts/library.mjs import']);
+    expect(checkLibrary([file(fileBoard('R03'), 'fire', 'Z1')], { row: [] }, [])).toEqual(['Z1: the status is of the old words; mark the board anew']);
   });
 });
 

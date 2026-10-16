@@ -50,20 +50,26 @@ export function spareName(code: string, seed: number): string {
 /**
  * What is wrong with a map of renames (`library.mjs rename map=`), a line to a board: a board that
  * is not there, a board of the row (its code is what the progress of the players keeps), a name
- * taken by a board that is not renamed itself, a name given twice, a name that is no name of a
- * board. Empty where the map can be done.
+ * taken by a board that is not renamed itself or by a board of the row, a name given twice, a name
+ * that is no name of a board, a name that is the old one in another letter case. Empty where the
+ * map can be done. Two names that differ only in letter case are one name here, as they are one
+ * file on Windows: a board given such a name would be written over its neighbour or over itself.
  */
 export function renameFaults(map: Readonly<Record<string, string>>, names: readonly string[], rowCodes: readonly string[]): string[] {
+  const key = (name: string): string => name.toLowerCase();
   const faults: string[] = [];
   const given = new Set<string>();
-  const leaving = new Set(Object.keys(map));
+  const leaving = new Set(Object.keys(map).map(key));
+  const kept = new Set(names.map(key).filter((name) => !leaving.has(name)));
+  const row = new Set(rowCodes.map(key));
   for (const [from, to] of Object.entries(map)) {
     if (!names.includes(from)) faults.push(`${from}: no such board`);
     else if (rowCodes.includes(from)) faults.push(`${from}: a board of the row keeps its code`);
     else if (!isBoardName(to)) faults.push(`${from}: "${to}" is no name of a board`);
-    else if (given.has(to)) faults.push(`${from}: ${to} is given twice`);
-    else if (names.includes(to) && !leaving.has(to)) faults.push(`${from}: ${to} is taken`);
-    given.add(to);
+    else if (to !== from && key(to) === key(from)) faults.push(`${from}: ${to} differs from it only in letter case`);
+    else if (given.has(key(to))) faults.push(`${from}: ${to} is given twice`);
+    else if (kept.has(key(to)) || row.has(key(to))) faults.push(`${from}: ${to} is taken`);
+    given.add(key(to));
   }
   return faults;
 }
@@ -221,7 +227,7 @@ export function checkLibrary(files: readonly LibraryFile[], code: CodeBoards, ch
   }
   const byName = new Map(read.map((file) => [file.name, file]));
   for (const file of read) {
-    if (file.head.migrated) faults.push(`${file.name}: the status is of the old words; run node scripts/library.mjs import`);
+    if (file.head.migrated) faults.push(`${file.name}: the status is of the old words; mark the board anew`);
     else if (!file.head.status) faults.push(`${file.name}: no status`);
     if (file.spec.id !== file.name) faults.push(`${file.name}: the file says id ${file.spec.id}`);
   }
