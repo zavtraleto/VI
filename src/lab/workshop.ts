@@ -420,18 +420,24 @@ class Workshop {
   private async rename(to: string): Promise<void> {
     const from = this.name;
     if (from === '' || to === from) return;
+    // A file that cannot be read is shut on the stage, and is mended in the file itself: the page does not take it over to another name.
+    if (this.editor.locked) {
+      this.nameInput.value = from;
+      return this.say('не переименовано: файл не читается как доска — сперва поправить его в самом файле');
+    }
     if (!isBoardName(to)) {
       this.nameInput.value = from;
       return this.say('имя: латинские буквы, цифры, - и _');
     }
     if (this.playing) this.togglePlay();
     await this.save();
-    // No change is taken while the file goes over: it would be written under the old name.
+    // No change is taken while the file goes over: it would be written under the old name. A rename refused leaves the stage as it was.
+    const locked = this.editor.locked;
     this.editor.locked = true;
     try {
       await renameBoard(from, to);
     } catch (error) {
-      this.editor.locked = false;
+      this.editor.locked = locked;
       this.nameInput.value = from;
       return this.say(`не переименовано: ${(error as Error).message}`);
     }
@@ -447,8 +453,10 @@ class Workshop {
   private async makeNew(word: string): Promise<void> {
     const said = word.trim();
     if (!BATCH_WORD.test(said)) return this.say('слово: маленькие латинские буквы и цифры, слова через -');
+    // A name is taken in any letters, small or great, as `batchFile` takes it: the disk of Windows does not tell `Bridge-1.txt` from `bridge-1.txt`.
+    const taken = new Set(this.rows.map((row) => row.name.toLowerCase()));
     let number = 1;
-    while (this.rows.some((row) => row.name === `${said}-${number}`)) number++;
+    while (taken.has(`${said}-${number}`.toLowerCase())) number++;
     const name = `${said}-${number}`;
     if (!isBoardName(name)) return this.say(`не имя доски: ${name}`);
     if (this.playing) this.togglePlay();
@@ -479,6 +487,8 @@ class Workshop {
       this.playing = true;
       this.topBar.style.visibility = this.stageBox.style.visibility = 'hidden';
       this.inside.audio.setAway(false);
+      // A new play: what was asked of the one before is asked no more.
+      this.ask(null);
       this.game.playBoard(spec);
       // The plays of the board as it stands are watched, to be written down as each is over.
       this.watcher.start({ name: this.name, hash: boardHash(this.text(), this.name) ?? '', par: spec.par ?? null, measures: { size: spec.size, dice: spec.norm } });
@@ -549,8 +559,8 @@ class Workshop {
     const said = this.wordsInput.value.replace(/\s+/g, ' ').trim();
     const patch = verdictPatch(row.head.status, verdict, said, today());
     if (!patch) return;
-    // The next board is taken before the verdict moves this one out of the new.
-    const next = play.wasNew ? nextInBatch(this.rows, play.name) : null;
+    // The next board is taken before the verdict moves this one out of the new. Words alone leave the board where it is, and the page with it.
+    const next = play.wasNew && verdict ? nextInBatch(this.rows, play.name) : null;
     // What waits to be written of the board in hand is written first: the head is laid over the file as it is.
     if (play.name === this.name) await this.save();
     try {

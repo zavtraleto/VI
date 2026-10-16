@@ -11,6 +11,8 @@ export function buttonOf(palette: Palette, label: string, click: () => void): HT
   const button = document.createElement('button');
   button.textContent = label;
   button.style.cssText = fieldStyle(palette, 'cursor:pointer');
+  // A button clicked keeps no focus: Space or Enter in a play is the game's, and does not click it again.
+  button.addEventListener('mousedown', (event) => event.preventDefault());
   button.addEventListener('click', click);
   return button;
 }
