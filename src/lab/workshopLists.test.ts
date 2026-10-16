@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibraryRowChapter } from '../levels/library';
 import { ROLES, type RowFile } from '../levels/row';
-import { ROLE_TITLES, batchTitle, batchesOf, chaptersOf, listOf, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
+import { ROLE_TITLES, batchTitle, batchesOf, chaptersOf, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
 
 const ROW: readonly LibraryRowChapter[] = [{ id: 0, title: 'prologue', faces: null, stops: ['R01'] }];
 const file = (name: string, head: string, time?: string) => rowOf({ name, text: `id: ${name}\n${head}faces: 2\n---\n21* 21\n .   .\n`, hash: null, time }, ROW);
@@ -96,11 +96,6 @@ describe('the chapters of «в кампании»', () => {
       [3, 'R03', 'R03'],
     ]);
     expect(chapters[1].places[1].place.role).toBe('rest');
-  });
-  it('reads the list an address asks for, and none it does not know', () => {
-    expect(listOf('?lab=workshop&board=R01&list=row')).toBe('row');
-    expect(listOf('?lab=workshop&list=chairs')).toBeNull();
-    expect(listOf('?lab=workshop')).toBeNull();
   });
   it('has a Russian word for every role of the row', () => {
     expect(Object.keys(ROLE_TITLES).sort()).toEqual([...ROLES].sort());

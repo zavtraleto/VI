@@ -122,7 +122,7 @@ class Workshop {
     this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller?.cancel() }, (line) => this.say(line));
     const { palette } = this;
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
-    this.row = new WorkshopRow(palette, this.lists, { say: (line) => this.say(line), save: () => this.save(), readLists: () => this.readLists(), reread: (name) => this.changedOutside(name), open: (name) => this.open(name) });
+    this.row = new WorkshopRow(palette, this.lists, { say: (line) => this.say(line), save: () => this.save(), stage: () => this.editor, readLists: () => this.readLists(), reread: (name) => this.changedOutside(name), open: (name) => this.open(name) });
 
     // The game stands to the right of the lists: its page is moved over, and the board is laid in what is left.
     const app = document.getElementById('app');
@@ -273,7 +273,7 @@ class Workshop {
     const asked = boardNameOf(window.location.search);
     const named = asked ? resolveName(asked, this.rows) : null;
     const fresh = listRows(this.rows, 'new', '')[0]?.name;
-    if (!fresh && this.lists.list === 'new') this.lists.list = 'all';
+    if (!fresh) this.lists.list = 'all';
     const first = named ?? fresh ?? listRows(this.rows, 'all', '')[0]?.name;
     if (first) await this.open(first);
     else this.showAll();
@@ -400,12 +400,11 @@ class Workshop {
     this.showHead();
   }
 
-  private async save(): Promise<void> {
+  private async save(): Promise<boolean> {
     window.clearTimeout(this.saveTimer);
     this.saveTimer = 0;
-    if (this.name === '' || this.editor.locked) return;
-    const text = this.text();
-    if (text === this.saved) return;
+    const text = this.name === '' || this.editor.locked ? this.saved : this.text();
+    if (text === this.saved) return true;
     const before = this.saved;
     this.saved = text;
     try {
@@ -414,7 +413,9 @@ class Workshop {
       // Not written: the next change, or the next try, writes it.
       if (this.saved === text) this.saved = before;
       this.say((error as Error).message);
+      return false;
     }
+    return true;
   }
 
   /**

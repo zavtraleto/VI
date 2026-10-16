@@ -44,11 +44,6 @@ export const LISTS: readonly { key: ListKey; title: string }[] = [
   { key: 'row', title: 'в кампании' },
   { key: 'all', title: 'все' },
 ];
-/** The list an address asks for, `?lab=workshop&list=row`; null where it names none. */
-export function listOf(search: string): ListKey | null {
-  const asked = new URLSearchParams(search).get('list');
-  return LISTS.find((list) => list.key === asked)?.key ?? null;
-}
 const STATUS_OF: Readonly<Record<Exclude<ListKey, 'all'>, BoardStatus>> = { new: 'N', redo: 'D', good: 'RC', row: 'R' };
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 

@@ -1,7 +1,7 @@
 import { boardSvg } from '../levels/boardSvg';
 import type { LevelSpec } from '../rules/types';
 import { PROGRAM_FONT, type Palette } from '../shell/theme';
-import { LISTS, batchTitle, batchesOf, listOf, listRows, type BoardRow, type ListKey } from './workshopLists';
+import { LISTS, batchTitle, batchesOf, listRows, type BoardRow, type ListKey } from './workshopLists';
 
 /** A field of the workshop as the old labs drew theirs: the font of the page, the colours of the palette, a thin line about it. */
 export function fieldStyle(palette: Palette, extra = ''): string {
@@ -40,7 +40,7 @@ export interface RowList {
 export class WorkshopListView {
   readonly root = document.createElement('div');
   /** The list shown, and what the search says. */
-  list: ListKey = listOf(window.location.search) ?? 'new';
+  list: ListKey = 'new';
   search = '';
   private readonly tabs = document.createElement('div');
   private readonly rowsBox = document.createElement('div');

@@ -104,6 +104,14 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(row).filter((one) => one.rule === 4)).toEqual([{ rule: 4, at: 2, text: 'место 2 (K22) на гранях 3, а глава 1 — на гранях 2 3' }]);
   });
 
+  it('holds rule 4 to the chapters of the row it is given, not to the row of the game', () => {
+    const row = rowOf([['R11', { teaches: undefined }], 'K22']);
+    row[1] = { ...row[1], spec: { ...row[1].spec, faces: [3], values: [3] } };
+    const rule4 = (chapters: { faces: readonly number[] | null }[]) => fastGrammar(row, chapters).filter((one) => one.rule === 4);
+    expect(rule4([{ faces: null }, { faces: [3] }]).map((one) => one.text)).toEqual(['место 1 (R11) на гранях 2 3, а глава 1 — на гранях 3']);
+    expect(rule4([{ faces: null }, { faces: null }])).toEqual([]);
+  });
+
   it('says where the board after a meeting is more than a move longer: rule 5', () => {
     const row = rowOf([['R03', { role: 'meet', archetype: 'x' }], ['R08', { archetype: 'y' }]]);
     expect(fastGrammar(row).filter((one) => one.rule === 5)).toEqual([{ rule: 5, at: 2, text: 'место 2 (R08) после встречи на месте 1: 5 ходов, а встреча — 2' }]);

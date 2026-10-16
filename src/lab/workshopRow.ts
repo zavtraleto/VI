@@ -1,6 +1,6 @@
 import { fastGrammar } from '../levels/grammar';
 import { rowChapters, type LibraryRowChapter } from '../levels/library';
-import { CAMERAS, HELP_KEYS, HINT_KEYS, PLAQUES, ROLES, SIGNS, TECHNIQUES, WAITS, buildRow, readRowFile, type Help, type RowFile, type RowPlaceFile } from '../levels/row';
+import { CAMERAS, HELP_KEYS, HINT_KEYS, PLAQUES, ROLES, ROW_EVENT, SIGNS, TECHNIQUES, WAITS, buildRow, readRowFile, type Help, type RowFile, type RowPlaceFile } from '../levels/row';
 import { ROW } from '../levels/row.gen';
 import { helpNear, type PlaceFields, type RowOp } from '../levels/rowEdit';
 import type { Palette } from '../shell/theme';
@@ -11,8 +11,10 @@ import { ROLE_TITLES, chaptersOf, listRows, rowOf, type BoardRow } from './works
 /** What the row asks of the page it is on. */
 export interface RowPage {
   say(line: string): void;
-  /** Writes what waits to be written of the board in hand. */
-  save(): Promise<void>;
+  /** Writes what waits to be written of the board in hand; false where it could not be written, and what was wrong is said. */
+  save(): Promise<boolean>;
+  /** The stage of the board in hand: it takes no change while it is locked. */
+  stage(): { locked: boolean };
   /** Reads every file and the row again (`WorkshopRow.lay`), and shows them. */
   readLists(): Promise<void>;
   /** Reads a file changed on the disk again, and the board in hand with it where it is that one. */
@@ -93,6 +95,8 @@ export class WorkshopRow implements RowList {
     this.form.style.cssText = 'display:none;flex-wrap:wrap;gap:6px;align-items:center';
     this.insertButton = buttonOf(palette, 'поставить в ряд', () => this.openForm(null));
     lists.attachRow(this);
+    // The dev server laid the row again (row.gen.ts): the files and the row are read anew, and the page is not loaded again.
+    window.addEventListener(ROW_EVENT, () => void page.readLists());
   }
 
   /** Whether a board has a place in row.json. */
@@ -111,7 +115,7 @@ export class WorkshopRow implements RowList {
       this.file = readRowFile(await readRow());
       const row = buildRow(this.file, new Map(files.map((file) => [file.name, file.text])));
       this.chapters = rowChapters(row);
-      const broken = fastGrammar(row.places);
+      const broken = fastGrammar(row.places, row.chapters);
       lines = broken.length === 0 ? ['грамматика держится'] : broken.map((one) => `правило ${one.rule}: ${one.text}`);
     } catch (error) {
       lines = [refusal(error as Error)];
@@ -195,24 +199,25 @@ export class WorkshopRow implements RowList {
   }
 
   /**
-   * An operation sent to the server: what waits to be written of the board in hand is written first,
-   * since the operation may lay a status into its file. Done, the files and the row are read again and
-   * the board in hand with them; refused, its line is said and the form stays as it is.
+   * An operation sent to the server. What waits to be written of the board in hand is written first,
+   * since the operation may lay a status into its file; where it cannot be, nothing is sent. While
+   * the server works the stage is locked, so that no change made meanwhile writes the old head back
+   * over the status it lays. Done, the files and the row are read again and the board in hand with
+   * them; refused, its line is said and the form stays as it is.
    */
   private async run(op: RowOp, done: string): Promise<void> {
     if (this.busy) return;
     this.busy = true;
-    // The dev server lays row.gen.ts anew after the operation, and the page is loaded again from its address: the address keeps the board and «в кампании».
-    const address = new URL(window.location.href);
-    address.searchParams.set('board', op.board);
-    address.searchParams.set('list', 'row');
-    window.history.replaceState(window.history.state, '', address);
+    const stage = this.page.stage();
+    const locked = stage.locked;
     try {
-      await this.page.save();
+      if (!(await this.page.save())) return;
+      stage.locked = true;
       await editRow(op);
     } catch (error) {
       return this.page.say(`${op.board}: ${refusal(error as Error)}`);
     } finally {
+      stage.locked = locked;
       this.busy = false;
     }
     this.removing = false;

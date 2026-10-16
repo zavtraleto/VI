@@ -2,7 +2,7 @@ import { scoreOf } from '../rules/levelScore';
 import { moveOf } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import type { Stop } from './campaign';
-import type { Technique } from './row';
+import type { RowChapter, Technique } from './row';
 import { ROW } from './row.gen';
 import { sameBoard } from './variety';
 
@@ -122,11 +122,14 @@ function oneThought(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** Rule 4: a board of a chapter with faces works on the faces of its chapter; the prologue (`faces: null`) has its own. */
-function facesOfChapter(row: readonly Stop[]): Violation[] {
+/**
+ * Rule 4: a board of a chapter with faces works on the faces of its chapter; the prologue (`faces: null`) has its own.
+ * The chapters are those of the row the places were laid in.
+ */
+function facesOfChapter(row: readonly Stop[], chapters: readonly Pick<RowChapter, 'faces'>[]): Violation[] {
   const out: Violation[] = [];
   for (const stop of row) {
-    const faces = ROW.chapters[stop.chapter]?.faces;
+    const faces = chapters[stop.chapter]?.faces;
     if (!faces) continue;
     const own = stop.spec.faces ?? [];
     if (String(own) !== String(faces)) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} на гранях ${own.join(' ')}, а глава ${stop.chapter} — на гранях ${faces.join(' ')}` });
@@ -162,9 +165,12 @@ function noPushBeforeLesson(row: readonly Stop[]): Violation[] {
     .map((stop) => ({ rule: 1 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4 and the count of moves of 5. */
-export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesOfChapter(row), ...easyAfterMeeting(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+/**
+ * The rules that ask nothing of a search: 1, 3, 4 and the count of moves of 5. The chapters are those
+ * of the row the places were laid in: the row of the game unless another is given (the workshop lays its own).
+ */
+export function fastGrammar(row: readonly Stop[], chapters: readonly Pick<RowChapter, 'faces'>[] = ROW.chapters): Violation[] {
+  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesOfChapter(row, chapters), ...easyAfterMeeting(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
