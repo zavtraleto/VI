@@ -4,7 +4,7 @@ import { normalSpec } from '../levels/boardFile';
 import { fileBoard } from '../levels/boardFiles';
 import { rowBoards } from '../levels/boardSets';
 import { ALL_ORIENTATIONS, roll } from '../rules/orientation';
-import { cellAt, clearCell, cycleLeaving, displaySpecOf, editBoardOf, emptyBoard, moveDie, putDie, putFixed, removeAt, resize, rollAlong, rollDie, setStart, setTop, specOf, spinDie, textOf, toggleFixed, toggleHole } from './editBoard';
+import { cellAt, clearCell, cycleLeaving, displaySpecOf, editBoardOf, emptyBoard, moveDie, putDie, putFixed, removeAt, resize, rollAlong, rollDie, sameBoard, setStart, setTop, specOf, spinDie, textOf, toggleFixed, toggleHole } from './editBoard';
 
 describe('editBoardOf', () => {
   it('holds a board cell for cell: a start on the floor, a fixed die, a die that is leaving', () => {
@@ -142,6 +142,16 @@ describe('rollAlong', () => {
     expect(cellAt(rollAlong(riding, { x: 0, z: 0 }, [{ x: 1, z: 0 }]).board, 1, 0)).toMatchObject({ kind: 'die', start: true });
     const fixed = toggleFixed(start, 0, 0);
     expect(rollAlong(fixed, { x: 0, z: 0 }, [{ x: 1, z: 0 }]).board).toBe(fixed);
+  });
+  it('gives the same board by value for a way that comes back, and another for a way round a square', () => {
+    const riding = setStart(start, 0, 0);
+    const back = rollAlong(riding, { x: 0, z: 0 }, [{ x: 1, z: 0 }, { x: 0, z: 0 }]);
+    expect(back.board).not.toBe(riding);
+    expect(sameBoard(back.board, riding)).toBe(true);
+    const round = rollAlong(riding, { x: 0, z: 0 }, [{ x: 1, z: 0 }, { x: 1, z: 1 }, { x: 0, z: 1 }, { x: 0, z: 0 }]);
+    expect(round.at).toEqual({ x: 0, z: 0 });
+    expect(sameBoard(round.board, riding)).toBe(false);
+    expect(sameBoard(toggleFixed(riding, 0, 0), riding)).toBe(false);
   });
 });
 

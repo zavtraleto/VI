@@ -224,6 +224,23 @@ export function rollAlong(board: EditBoard, from: { x: number; z: number }, cell
   return { board: at === from ? board : now, at };
 }
 
+/** Two boards that are one: of a side, and with every cell as the other's, mark for mark. A roll that came back the way it went gives such a board. */
+export function sameBoard(a: EditBoard, b: EditBoard): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  return a.cells.every((row, z) =>
+    row.every((one, x) => {
+      const other = b.cells[z][x];
+      if (one.kind !== other.kind) return false;
+      if (one.kind === 'empty' && other.kind === 'empty') return !one.floorStart === !other.floorStart;
+      if (one.kind === 'die' && other.kind === 'die') {
+        return one.top === other.top && one.north === other.north && !one.start === !other.start && !one.fixed === !other.fixed && (one.leaving ?? 0) === (other.leaving ?? 0);
+      }
+      return true;
+    }),
+  );
+}
+
 /** A die with a face on top dropped on a cell: an empty cell gets one, a die is turned to that face and keeps its marks. */
 export function setTop(board: EditBoard, x: number, z: number, top: number): EditBoard {
   const cell = cellAt(board, x, z);

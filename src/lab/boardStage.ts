@@ -2,7 +2,7 @@ import type { Dir } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults, type Palette } from '../shell/theme';
 import type { Overlay } from './boardEditor';
 import { pickCell, reachOf, type CellPoint } from './cellPick';
-import { cellAt, cycleLeaving, emptyBoard, moveDie, putFixed, removeAt, rollAlong, rollDie, setStart, setTop, spinDie, toggleFixed, toggleHole, type EditBoard } from './editBoard';
+import { cellAt, cycleLeaving, emptyBoard, moveDie, putFixed, removeAt, rollAlong, rollDie, sameBoard, setStart, setTop, spinDie, toggleFixed, toggleHole, type EditBoard } from './editBoard';
 
 const ARROWS: Readonly<Record<string, Dir>> = { ArrowUp: 'N', ArrowRight: 'E', ArrowDown: 'S', ArrowLeft: 'W' };
 const TOWARDS: Readonly<Record<Dir, { dx: number; dz: number }>> = { N: { dx: 0, dz: -1 }, E: { dx: 1, dz: 0 }, S: { dx: 0, dz: 1 }, W: { dx: -1, dz: 0 } };
@@ -55,8 +55,13 @@ export class BoardStage {
   private carried: Carried | null = null;
   /** A press on a die of the board that may yet become a drag. */
   private pressed: { at: { x: number; z: number }; px: number; py: number } | null = null;
-  /** A die being rolled across the board with Shift held: where it began, the board before, the cells it has gone through. */
-  private rolling: { from: { x: number; z: number }; before: EditBoard; cells: { x: number; z: number }[] } | null = null;
+  /**
+   * A die being rolled across the board with Shift held: where it began, the cells it has gone
+   * through and the board as it is on the way. That board is only seen: the board in hand, the
+   * one `current` gives and a file is written from, stays the one before the roll until the roll
+   * is let go.
+   */
+  private rolling: { from: { x: number; z: number }; cells: { x: number; z: number }[]; board: EditBoard } | null = null;
   /** The dice the owner has pinned, by their cells: what a generator asked to build about them, or to mend the board, leaves as it is. No file keeps them. */
   private pinned = new Set<string>();
   /** The face a fixed die of the list is put with: the face of the die last taken. */
@@ -87,7 +92,7 @@ export class BoardStage {
       if (event.button !== 0 || !cell) return;
       this.selected = cell;
       if (!this.locked && cellAt(this.board, cell.x, cell.z)?.kind === 'die') {
-        if (event.shiftKey) this.rolling = { from: cell, before: this.board, cells: [] };
+        if (event.shiftKey) this.rolling = { from: cell, cells: [], board: this.board };
         else this.pressed = { at: cell, px: event.clientX, py: event.clientY };
         canvas.setPointerCapture(event.pointerId);
       }
@@ -97,14 +102,14 @@ export class BoardStage {
       const { rolling } = this;
       if (rolling) {
         // Every cell the mouse comes to is tried as the next step of the whole way from the board
-        // before, so a way that doubles back rolls the die back the way it came, faces and all.
+        // in hand, so a way that doubles back rolls the die back the way it came, faces and all.
         const cell = this.hover;
         const now = rolling.cells[rolling.cells.length - 1] ?? rolling.from;
         if (!cell || (cell.x === now.x && cell.z === now.z)) return;
-        const tried = rollAlong(rolling.before, rolling.from, [...rolling.cells, cell]);
+        const tried = rollAlong(this.board, rolling.from, [...rolling.cells, cell]);
         if (tried.at.x !== cell.x || tried.at.z !== cell.z) return;
         rolling.cells.push(cell);
-        this.board = tried.board;
+        rolling.board = tried.board;
         this.selected = cell;
         this.present(tried.board);
         return;
@@ -117,15 +122,18 @@ export class BoardStage {
       this.pressed = null;
       const { rolling } = this;
       if (rolling) {
-        // The board went on through the roll unrecorded: the whole roll is one step, from the board before it.
-        const done = this.board;
+        // The whole roll is one step, from the board in hand; a roll that came back as it went is none.
+        const done = rolling.board;
         const at = rolling.cells[rolling.cells.length - 1];
-        this.board = rolling.before;
         this.rolling = null;
+        if (sameBoard(done, this.board)) {
+          this.present(this.board);
+          return;
+        }
         // The pin of a die goes with it.
-        if (at && done !== rolling.before && this.pinned.delete(`${rolling.from.x},${rolling.from.z}`)) this.pinned.add(`${at.x},${at.z}`);
+        if (at && !this.locked && this.pinned.delete(`${rolling.from.x},${rolling.from.z}`)) this.pinned.add(`${at.x},${at.z}`);
         this.change(done);
-        // A stage locked while the die was rolling takes no change: the board before is shown again.
+        // A stage locked while the die was rolling takes no change: the board in hand is shown again.
         if (this.board !== done) this.present(this.board);
         return;
       }
@@ -137,9 +145,8 @@ export class BoardStage {
       this.ghost.style.display = 'none';
       const { rolling } = this;
       if (rolling) {
-        // A roll broken off is no roll: the board is put back as it was before it.
+        // A roll broken off is no roll: the board in hand is shown again, as it was before it.
         this.rolling = null;
-        this.board = rolling.before;
         this.selected = rolling.from;
         this.present(this.board);
       }
@@ -155,6 +162,8 @@ export class BoardStage {
     canvas.addEventListener(
       'wheel',
       (event) => {
+        // The wheel turns no die of the board in hand while another is on its way.
+        if (this.rolling) return;
         const cell = this.cellOf(event);
         if (!cell || cellAt(this.board, cell.x, cell.z)?.kind !== 'die') return;
         event.preventDefault();
@@ -181,8 +190,14 @@ export class BoardStage {
     window.requestAnimationFrame(frame);
   }
 
+  /** The board in hand: while a die is being rolled, the board from before the roll. */
   get current(): EditBoard {
     return this.board;
+  }
+
+  /** The board as it is seen and pointed at: the one on its way while a die is being rolled. */
+  private get shown(): EditBoard {
+    return this.rolling?.board ?? this.board;
   }
 
   /** Puts a board on the stage as the one in hand: it is no change, and nothing before it can be taken back to unless `keepSteps` is said. */
@@ -204,6 +219,8 @@ export class BoardStage {
   /** A change of the board: one step to take back. A change that changes nothing is none. */
   change(next: EditBoard): void {
     if (this.locked || next === this.board) return;
+    // A roll on its way was of the board before this change.
+    this.rolling = null;
     this.before.push(this.board);
     this.after = [];
     this.board = next;
@@ -216,6 +233,7 @@ export class BoardStage {
     if (this.locked) return;
     const last = this.before.pop();
     if (!last) return;
+    this.rolling = null;
     this.after.push(this.board);
     this.board = last;
     this.present(last);
@@ -226,6 +244,7 @@ export class BoardStage {
     if (this.locked) return;
     const next = this.after.pop();
     if (!next) return;
+    this.rolling = null;
     this.before.push(this.board);
     this.board = next;
     this.present(next);
@@ -250,6 +269,8 @@ export class BoardStage {
 
   /** A key of the stage; true where it was one of them. */
   key(event: KeyboardEvent): boolean {
+    // While a die is on its way the keys do nothing: they would change a board the roll is not of.
+    if (this.rolling) return true;
     const control = event.ctrlKey || event.metaKey;
     if (control && event.code === 'KeyZ') {
       if (event.shiftKey) this.redo();
@@ -362,11 +383,12 @@ export class BoardStage {
   private points(): { floor: CellPoint[]; all: CellPoint[] } {
     const floor: CellPoint[] = [];
     const dice: CellPoint[] = [];
-    for (let z = 0; z < this.board.size; z++) {
-      for (let x = 0; x < this.board.size; x++) {
+    const { shown } = this;
+    for (let z = 0; z < shown.size; z++) {
+      for (let x = 0; x < shown.size; x++) {
         const low = this.project(x, z, 0);
         floor.push({ x, z, px: low.x, py: low.y });
-        if (this.board.cells[z][x].kind !== 'die') continue;
+        if (shown.cells[z][x].kind !== 'die') continue;
         const body = this.project(x, z, 0.6);
         dice.push({ x, z, px: body.x, py: body.y });
       }
@@ -393,11 +415,11 @@ export class BoardStage {
 
   /** The height a mark on a cell is drawn at: on top of its die, or on the floor. */
   private heightAt(x: number, z: number): number {
-    return cellAt(this.board, x, z)?.kind === 'die' ? 1 : 0;
+    return cellAt(this.shown, x, z)?.kind === 'die' ? 1 : 0;
   }
 
   draw(): void {
-    const { canvas, palette, board } = this;
+    const { canvas, palette, shown: board } = this;
     const ratio = window.devicePixelRatio || 1;
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
