@@ -1,7 +1,7 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
-import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, safeName, versionOf } from './src/lab/boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, renamedText, renameOf, safeName, versionOf } from './src/lab/boardsServer';
 import { buildRow, readRowFile, rowText, touchesRow } from './src/levels/row';
 
 /**
@@ -64,9 +64,9 @@ export function viBoards(): Plugin {
           }
           const file = join(dir, `${ask.name}.txt`);
           if (ask.kind === 'head') {
-            // A mark and words laid into the head: the board is the same, so no version is kept.
+            // A status, a mark and words laid into the head: the board is the same, so no version is kept.
             const patch = headPatchOf(await body());
-            if (!patch) return send(400, JSON.stringify({ error: 'a head is { mark?, words?: [{ date, text }] }' }));
+            if (!patch) return send(400, JSON.stringify({ error: 'a head is { status?: N | D | RC | X, mark?, words?: [{ date, text }] }' }));
             if (!existsSync(file)) return send(404, JSON.stringify({ error: `no board ${ask.name}` }));
             try {
               writeFileSync(file, patchHead(readFileSync(file, 'utf8'), patch));
@@ -74,6 +74,20 @@ export function viBoards(): Plugin {
               return send(400, JSON.stringify({ error: (error as Error).message }));
             }
             return send(200, '{}');
+          }
+          if (ask.kind === 'rename') {
+            // A board is given a new name: the file, and its history and plays with it. A name that is taken, or a board of the row, is refused.
+            const to = renameOf(await body());
+            if (!to) return send(400, JSON.stringify({ error: 'a rename is { to: <name of a board> }' }));
+            if (!existsSync(file)) return send(404, JSON.stringify({ error: `no board ${ask.name}` }));
+            const target = join(dir, `${to}.txt`);
+            if (existsSync(target)) return send(409, JSON.stringify({ error: `there is a board ${to} already` }));
+            const row = readRowFile(readFileSync(join(dir, 'row.json'), 'utf8'));
+            if (row.chapters.some((chapter) => chapter.places.some((place) => place.board === ask.name))) return send(409, JSON.stringify({ error: `${ask.name} is a board of the row: its code is what the players' progress keeps` }));
+            writeFileSync(target, renamedText(readFileSync(file, 'utf8'), to));
+            unlinkSync(file);
+            if (existsSync(history(ask.name)) && !existsSync(history(to))) renameSync(history(ask.name), history(to));
+            return send(200, JSON.stringify({ name: to }));
           }
           if (ask.kind === 'read') return existsSync(file) ? send(200, readFileSync(file, 'utf8'), 'text/plain') : send(404, JSON.stringify({ error: `no board ${ask.name}` }));
           if (ask.kind === 'write') {

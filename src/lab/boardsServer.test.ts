@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { printBoard, readBoardHead } from '../levels/boardFile';
 import { fileBoard } from '../levels/boardFiles';
-import { askOf, boardHash, exportFile, headPatchOf, historyPath, patchHead, safeName, versionOf } from './boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyPath, patchHead, renamedText, renameOf, safeName, versionOf } from './boardsServer';
 
 describe('safeName', () => {
   it('takes the name of a board and nothing that could be a path', () => {
@@ -82,5 +82,42 @@ describe('askOf', () => {
     expect(askOf('DELETE', '/H01')).toMatchObject({ kind: 'refused', status: 405 });
     expect(askOf('PUT', '/')).toMatchObject({ kind: 'refused', status: 405 });
     expect(askOf('GET', '/H01/other')).toMatchObject({ kind: 'refused', status: 404 });
+  });
+});
+
+describe('a status laid into the head', () => {
+  const file = (status: string) => `id: a-1\nstatus: ${status}\nfaces: 2\n---\n21* 21\n .   .\n`;
+  it('takes the status of a verdict, and refuses R and a status no verdict gives', () => {
+    expect(headPatchOf('{"status":"RC"}')).toEqual({ status: 'RC' });
+    expect(headPatchOf('{"status":"R"}')).toBeNull();
+    expect(headPatchOf('{"status":"Q"}')).toBeNull();
+  });
+  it('writes it over the one there was, and the board stays the board', () => {
+    const after = patchHead(file('N'), { status: 'X', words: [{ date: '2026-10-16', text: 'скучно' }] });
+    expect(readBoardHead(after)).toMatchObject({ status: 'X', words: [{ date: '2026-10-16', text: 'скучно' }] });
+    expect(boardHash(file('N'), 'a-1')).not.toBeNull();
+    expect(boardHash(after, 'a-1')).toBe(boardHash(file('N'), 'a-1'));
+  });
+  it('leaves a board of the row in the row: its status is not changed from the page', () => {
+    expect(() => patchHead(file('R'), { status: 'D' })).toThrow('a board of the row keeps R');
+    expect(readBoardHead(patchHead(file('R'), { words: [{ date: '2026-10-16', text: 'доделать: длинно' }] })).status).toBe('R');
+  });
+});
+
+describe('a board renamed', () => {
+  it('is asked with POST, by a name of a board to a name of a board', () => {
+    expect(askOf('POST', '/a-1/rename')).toEqual({ kind: 'rename', name: 'a-1' });
+    expect(askOf('GET', '/a-1/rename')).toMatchObject({ kind: 'refused', status: 405 });
+    expect(renameOf('{"to":"bridge-2"}')).toBe('bridge-2');
+    expect(renameOf('{"to":"../x"}')).toBeNull();
+    expect(renameOf('{"to":"a.b"}')).toBeNull();
+    expect(renameOf('nothing')).toBeNull();
+  });
+  it('takes the new name as its id and keeps the old one among the names it had', () => {
+    const text = 'id: P13_s1\nwas: P13old\nfaces: 2\n---\n21* 21\n .   .\n';
+    const renamed = renamedText(text, 'bridge-4');
+    expect(renamed.split('\n')[0]).toBe('id: bridge-4');
+    expect(readBoardHead(renamed).was).toEqual(['P13old', 'P13_s1']);
+    expect(boardHash(renamed, 'bridge-4')).not.toBeNull();
   });
 });

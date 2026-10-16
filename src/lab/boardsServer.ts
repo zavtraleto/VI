@@ -1,5 +1,5 @@
 import { isBoardName } from '../app/boardProbe';
-import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, withHead, type BoardMark, type BoardWords } from '../levels/boardFile';
+import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, withHead, type BoardMark, type BoardStatus, type BoardWords } from '../levels/boardFile';
 
 /**
  * What the dev server does for the lab of the levels, as far as it can be said without a disk:
@@ -15,7 +15,8 @@ import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, withHea
  *   GET  /__boards/<name>/plays            the plays written down, as JSON
  *   POST /__boards/<name>/plays            writes a play down: a line of JSON
  *   GET  /__boards?heads                   every board with its text and hash: [{ name, text, hash }], for the library
- *   PUT  /__boards/<name>/head             a mark and words laid into the head of the file (`patchHead`); no version is kept
+ *   PUT  /__boards/<name>/head             a status, a mark and words laid into the head of the file (`patchHead`); no version is kept
+ *   POST /__boards/<name>/rename           { to }: the file, its history and its plays under the new name; refused where the name is taken or the board is of the row
  *   POST /__boards?export=<date>           a text given out by the library, kept in boards/.history/export-<date>.md
  *
  * A name is the name of a board and nothing more: letters, digits, `-` and `_`. A name with a
@@ -85,6 +86,7 @@ export type BoardsAsk =
   | { kind: 'list' | 'heads' }
   | { kind: 'export'; date: string }
   | { kind: 'head'; name: string }
+  | { kind: 'rename'; name: string }
   | { kind: 'read' | 'write' | 'history' | 'plays' | 'play'; name: string }
   | { kind: 'version'; name: string; file: string }
   | { kind: 'refused'; status: 400 | 404 | 405; why: string };
@@ -119,11 +121,14 @@ export function askOf(method: string, path: string): BoardsAsk {
   }
   if (parts[1] === 'head' && parts.length === 2) return method === 'PUT' ? { kind: 'head', name } : refused(405, 'a head is written with PUT');
   if (parts[1] === 'plays' && parts.length === 2) return method === 'GET' ? { kind: 'plays', name } : method === 'POST' ? { kind: 'play', name } : refused(405, 'the plays are read with GET and added to with POST');
+  if (parts[1] === 'rename' && parts.length === 2) return method === 'POST' ? { kind: 'rename', name } : refused(405, 'a board is renamed with POST');
   return refused(404, 'no such address');
 }
 
-/** What the page of the library lays into the head of a file: the mark, and words to add, each with its day. */
+/** What the page of the library lays into the head of a file: the status, the mark, and words to add, each with its day. */
 export interface HeadPatch {
+  /** What a verdict after a play makes of the board: R is given only by the row. */
+  status?: Exclude<BoardStatus, 'R'>;
   mark?: BoardMark;
   words?: BoardWords[];
 }
@@ -137,25 +142,51 @@ export function headPatchOf(body: string): HeadPatch | null {
     return null;
   }
   if (said === null || typeof said !== 'object') return null;
-  const { mark, words } = said as { mark?: unknown; words?: unknown };
+  const { status, mark, words } = said as { status?: unknown; mark?: unknown; words?: unknown };
+  if (status !== undefined && !(['N', 'D', 'RC', 'X'] as unknown[]).includes(status)) return null;
   if (mark !== undefined && !(BOARD_MARKS as readonly unknown[]).includes(mark)) return null;
   if (words !== undefined && (!Array.isArray(words) || !words.every((word) => word && typeof word.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(word.date) && typeof word.text === 'string' && word.text.trim() !== '' && !/[\r\n]/.test(word.text)))) return null;
-  return { ...(mark !== undefined ? { mark: mark as BoardMark } : {}), ...(words !== undefined ? { words: (words as BoardWords[]).map(({ date, text }) => ({ date, text: text.trim() })) } : {}) };
+  return { ...(status !== undefined ? { status: status as Exclude<BoardStatus, 'R'> } : {}), ...(mark !== undefined ? { mark: mark as BoardMark } : {}), ...(words !== undefined ? { words: (words as BoardWords[]).map(({ date, text }) => ({ date, text: text.trim() })) } : {}) };
 }
 
 /**
- * A file with a mark and words laid into its head: the mark stands for the one there was, the
- * words go after those there are, and nothing else of the file changes. The board is the same,
- * so its hash is: the plugin keeps no version for it.
+ * A file with a status, a mark and words laid into its head: the status and the mark stand for
+ * those there were, the words go after those there are, and nothing else of the file changes. The
+ * board is the same, so its hash is: the plugin keeps no version for it. A board of the row keeps
+ * its R: a patch that would change it is refused, and its words are laid in all the same.
  */
 export function patchHead(text: string, patch: HeadPatch): string {
   const head = readBoardHead(text);
+  if (patch.status && head.status === 'R') throw new Error(`a board of the row keeps R: ${/^id:\s*(.*)$/m.exec(text)?.[1]?.trim() || 'this board'}`);
   const { migrated: _migrated, ...rest } = head;
   return withHead(text, {
     ...rest,
+    ...(patch.status ? { status: patch.status } : {}),
     ...(patch.mark ? { mark: patch.mark } : {}),
     ...(patch.words && patch.words.length > 0 ? { words: [...(head.words ?? []), ...patch.words] } : {}),
   });
+}
+
+/** The name a body of `POST …/rename` asks for, or null where it asks for no name of a board. */
+export function renameOf(body: string): string | null {
+  try {
+    const { to } = JSON.parse(body) as { to?: unknown };
+    return typeof to === 'string' ? safeName(to) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A file under a new name: its id is the new name, and the name it had goes to the end of the
+ * names it had before (`was`). Nothing else of the file changes.
+ */
+export function renamedText(text: string, to: string): string {
+  const head = readBoardHead(text);
+  const { migrated: _migrated, ...rest } = head;
+  const id = /^id:\s*(.*)$/m.exec(text)?.[1]?.trim() ?? '';
+  const was = [...(head.was ?? []), ...(id && id !== to ? [id] : [])];
+  return withHead(text.replace(/^id:.*$/m, `id: ${to}`), { ...rest, ...(was.length > 0 ? { was } : {}) });
 }
 
 /** The file of the history an export of a day is kept in. */

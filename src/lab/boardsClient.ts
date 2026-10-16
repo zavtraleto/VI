@@ -52,9 +52,14 @@ export async function listHeads(): Promise<{ name: string; text: string; hash: s
   return (await (await asked('/__boards?heads')).json()) as { name: string; text: string; hash: string | null }[];
 }
 
-/** Lays a mark and words into the head of a board's file; no version is kept, the board being the same. */
+/** Lays a status, a mark and words into the head of a board's file; no version is kept, the board being the same. */
 export async function writeHead(name: string, patch: HeadPatch): Promise<void> {
   await asked(at(name, '/head'), { method: 'PUT', body: JSON.stringify(patch) });
+}
+
+/** Gives a board a new name: its file, history and plays go over to it. Refused where the name is taken or the board is of the row. */
+export async function renameBoard(name: string, to: string): Promise<void> {
+  await asked(at(name, '/rename'), { method: 'POST', body: JSON.stringify({ to }) });
 }
 
 /** Keeps the text a session of the library gave out, in `boards/.history/export-<date>.md`; the path it is kept at. */
