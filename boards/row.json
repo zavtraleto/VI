@@ -3,14 +3,17 @@
     {
       "title": "prologue",
       "places": [
-        { "board": "R01", "role": "meet", "archetype": "roll", "help": { "sign": "N", "plaques": "all", "wait": "first", "camera": "hold" } },
-        { "board": "R02", "role": "learn", "archetype": "ride", "event": "stair and floor", "help": { "plaques": "all", "wait": "lesson", "camera": "hold" } },
-        { "board": "R03", "role": "apply", "archetype": "first free board", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "R04", "role": "apply", "archetype": "free to fail", "event": "first dead end", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "B01_s290", "role": "apply", "archetype": "the way round keeps the face", "event": "a straight roll turns the face away", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "R05", "role": "apply", "archetype": "choose the first die", "event": "choice of the first die", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "help": { "hint": "roadHintChain", "plaques": "near", "wait": "free", "camera": "cells" } },
-        { "board": "R08", "role": "rest", "archetype": "domino", "event": "domino", "help": { "plaques": "near", "wait": "free", "camera": "cells" } }
+        { "board": "R01", "role": "meet", "archetype": "roll", "help": { "sign": "N", "wait": "first", "camera": "hold" } },
+        { "board": "R02", "role": "learn", "archetype": "ride", "event": "stair and floor", "help": { "wait": "lesson", "camera": "hold" } },
+        { "board": "R03", "role": "apply", "archetype": "first free board", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "R04", "role": "apply", "archetype": "free to fail", "event": "first dead end", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "B01_s290", "role": "apply", "archetype": "the way round keeps the face", "event": "a straight roll turns the face away", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "H06", "role": "apply", "archetype": "three 3s: one roll, then the die beside", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "R05", "role": "apply", "archetype": "choose the first die", "event": "choice of the first die", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "H07", "role": "apply", "archetype": "the way round to a 3, and the third rolled to the pair", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "H08", "role": "apply", "archetype": "the way round, for both dice", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "help": { "hint": "roadHintChain", "wait": "free", "camera": "cells" } },
+        { "board": "R08", "role": "rest", "archetype": "domino", "event": "domino", "help": { "wait": "free", "camera": "cells" } }
       ]
     },
     {
@@ -18,8 +21,8 @@
       "faces": [2, 3],
       "floor": "open",
       "places": [
-        { "board": "R11", "role": "meet", "teaches": "walk", "archetype": "bridge", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk", "plaques": "near" } },
-        { "board": "P02", "role": "apply", "archetype": "bridge", "help": { "plaques": "near" } },
+        { "board": "R11", "role": "meet", "teaches": "walk", "archetype": "bridge", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk" } },
+        { "board": "P02", "role": "apply", "archetype": "bridge" },
         { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "event": "the rule of seven", "help": { "hint": "hintSeven" } },
         { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "event": "the road goes both ways, briefly" },
         { "board": "C1-07", "role": "rest", "archetype": "collapse", "event": "first big clearing, with a way to it" }
