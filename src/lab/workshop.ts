@@ -13,8 +13,9 @@ import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, resize, tex
 import { PlayWatch, type Inside, type ToldPlay } from './playWatch';
 import { WayShow, wayToShow } from './showWay';
 import { BoardFacts } from './workshopFacts';
+import { WorkshopCampaign } from './workshopCampaign';
 import { WorkshopListView, buttonOf, fieldStyle, light } from './workshopListView';
-import { VERDICTS, listRows, nextInBatch, rowOf, verdictPatch, type BoardRow, type Verdict } from './workshopLists';
+import { VERDICTS, freeName, listRows, nextInBatch, rowOf, verdictPatch, type BoardRow, type Verdict } from './workshopLists';
 import { WorkshopRow } from './workshopRow';
 
 /** The width of the column of the lists on the left: the board of the game stands to the right of it. */
@@ -59,6 +60,7 @@ class Workshop {
   private readonly lists: WorkshopListView;
   /** The row of the campaign: «в кампании», «поставить в ряд», and the chapters the boards are placed by. */
   private readonly row: WorkshopRow;
+  private readonly campaign: WorkshopCampaign;
   private readonly editor: BoardStage;
   private readonly watcher: PlayWatch;
   /** Every file of `boards/` as a row of the lists. */
@@ -122,7 +124,8 @@ class Workshop {
     this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller?.cancel() }, (line) => this.say(line));
     const { palette } = this;
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
-    this.row = new WorkshopRow(palette, this.lists, { say: (line) => this.say(line), save: () => this.save(), stage: () => this.editor, readLists: () => this.readLists(), reread: (name) => this.changedOutside(name), open: (name) => this.open(name) });
+    const page = { say: (line: string) => this.say(line), save: () => this.save(), stage: () => this.editor, readLists: () => this.readLists(), reread: (name: string) => this.changedOutside(name), open: (name: string) => this.open(name) };
+    this.row = new WorkshopRow(palette, this.lists, page);
 
     // The game stands to the right of the lists: its page is moved over, and the board is laid in what is left.
     const app = document.getElementById('app');
@@ -138,14 +141,14 @@ class Workshop {
     document.body.append(this.lists.root, frame);
 
     this.editor = new BoardStage(this.stageBox, (x, z, y) => game.cellPoint(x, z, y), () => this.edited(true), (board) => this.present(board));
-    this.buildTop();
     this.playButton = buttonOf(palette, 'играть (E)', () => this.togglePlay());
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
     this.checkButton = buttonOf(palette, 'проверить (C)', () => this.facts.toggle());
-    actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()), this.row.insertButton);
-    this.checkBox.style.cssText = 'display:none;margin:0;white-space:pre-wrap;font:inherit';
-    this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => this.showWay());
+    this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => (this.showWay(), this.campaign.told()));
+    this.campaign = new WorkshopCampaign(palette, this.facts, this.row, { ...page, board: () => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.editor.locked }), names: () => this.rows.map((row) => row.name), keep: (way) => ((this.head = { ...this.head, ...way }), this.keepWay(), this.edited(false)) });
+    this.buildTop();
+    actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()), this.row.insertButton, this.campaign.copyButton, this.campaign.swapButton);
     this.buildVerdict();
     this.told.style.cssText = `color:${palette.dim};min-height:1.4em`;
     bottom.append(actions, this.row.form, this.checkBox, this.verdictBar, this.told);
@@ -244,7 +247,7 @@ class Workshop {
     for (const input of [this.shutBox, this.sinkInput, this.liftInput]) input.addEventListener('change', () => this.rulesChanged());
     rules.append(summary, label('пол закрыт', this.shutBox), label('sink: ходов до ухода', this.sinkInput), label('lift: ходов подъёма', this.liftInput));
     this.boardLine.style.cssText = `flex-basis:100%;color:${palette.dim};min-height:1.4em`;
-    topBar.append(this.nameInput, buttonOf(palette, '−', () => side(-1)), this.sizeLabel, buttonOf(palette, '+', () => side(1)), faces, rules, this.boardLine);
+    topBar.append(this.nameInput, buttonOf(palette, '−', () => side(-1)), this.sizeLabel, buttonOf(palette, '+', () => side(1)), faces, rules, this.boardLine, this.campaign.line);
   }
 
   /** The bar of the verdict, shown when a play has been written down: three buttons, a line of words, and the button that writes them. */
@@ -327,15 +330,15 @@ class Workshop {
     }
   }
 
-  /** Takes a text as the board in hand. A text that is no board is shown with what is wrong, and the stage is shut on it. */
+  /** Takes a text as the board in hand. A text that is no board is shown with what is wrong, and the stage is shut on it. The head is read first: the solver asks after a board of the row by its status. */
   private load(name: string, text: string, sameBoard = false): void {
     // The verdict asked is of the board played: another board opened, it is asked no more.
     if (!sameBoard && this.lastPlay && this.lastPlay.name !== name) this.ask(null);
     this.name = name;
     this.saved = text;
+    this.extra = readBoardHead(text);
     this.read(text);
     this.editor.locked = false;
-    this.extra = readBoardHead(text);
     // A board the rules refuse, one with no start as every new board is, is opened as it is written: only a file that cannot be read is shut.
     let shown = this.spec;
     if (!shown) {
@@ -497,11 +500,7 @@ class Workshop {
   private async makeNew(word: string): Promise<void> {
     const said = word.trim();
     if (!BATCH_WORD.test(said)) return this.say('слово: маленькие латинские буквы и цифры, слова через -');
-    // A name is taken in any letters, small or great, as `batchFile` takes it: the disk of Windows does not tell `Bridge-1.txt` from `bridge-1.txt`.
-    const taken = new Set(this.rows.map((row) => row.name.toLowerCase()));
-    let number = 1;
-    while (taken.has(`${said}-${number}`.toLowerCase())) number++;
-    const name = `${said}-${number}`;
+    const name = freeName(said, this.rows.map((row) => row.name));
     if (!isBoardName(name)) return this.say(`не имя доски: ${name}`);
     this.leave();
     await this.save();
@@ -705,6 +704,7 @@ class Workshop {
     this.shutBox.checked = head.floor === false;
     this.sinkInput.value = String(head.sinkMoves ?? 2);
     this.liftInput.value = String(head.liftMoves ?? 1);
+    this.campaign.show();
     let line = '';
     if (this.name === '') line = 'нет досок: «новая доска» под списками';
     else if (editor.locked) line = `${this.error ?? ''} — файл не читается как доска: править его надо в самом файле, страница его не перезапишет`;

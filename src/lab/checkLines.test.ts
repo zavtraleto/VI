@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Instant, Later, Seconds } from './labFacts';
-import { checkLines } from './checkLines';
+import { checkLines, rowPathLine } from './checkLines';
 
 const instant: Instant = { error: null, deadEnd: null, dice: 5, groups: [] };
 const seconds = (over: Partial<Seconds['check']> = {}, more: Partial<Seconds> = {}): Seconds => ({
@@ -72,5 +72,24 @@ describe('what «проверить» says', () => {
   });
   it('says a board that stands in a dead end as it is', () => {
     expect(checkLines({ ...instant, deadEnd: 'count' }, null, null)[0]).toBe('доска стоит в тупике как есть');
+  });
+});
+
+describe('the line over a board of the row that keeps no way yet', () => {
+  it('says nothing of a board not of the row', () => {
+    expect(rowPathLine('D', null)).toBeNull();
+    expect(rowPathLine(undefined, seconds({ par: null, exact: true, way: null }))).toBeNull();
+  });
+  it('says the row waits while the solver counts', () => {
+    expect(rowPathLine('R', null)).toBe('ряд не соберётся, пока не записан путь');
+  });
+  it('says why the way cannot be written', () => {
+    expect(rowPathLine('R', seconds({ par: null, exact: true, way: null, kept: null }))).toBe('ряд не соберётся: решения нет');
+    expect(rowPathLine('R', seconds({ par: null, exact: false, way: null, kept: null }))).toBe('ряд не соберётся: решатель сдался, решения не нашёл');
+    expect(rowPathLine('R', seconds({ exact: false }))).toBe('ряд не соберётся: решатель не доказал минимум');
+    expect(rowPathLine('R', 'the worker fell')).toBe('ряд не соберётся: the worker fell');
+  });
+  it('says nothing once the fewest moves are proved: the page writes them', () => {
+    expect(rowPathLine('R', seconds())).toBeNull();
   });
 });

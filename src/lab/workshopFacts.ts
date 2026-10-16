@@ -23,6 +23,8 @@ export class BoardFacts {
   checking = false;
   /** A way is waited for: the solver is asked even with the lines shut. */
   wanted = false;
+  /** The solver is asked of a board this holds true of, with the lines shut and no way wanted: a board of the row that keeps no way yet (`WorkshopCampaign`). */
+  keep: (spec: LevelSpec) => boolean = () => false;
   private spec: LevelSpec | null = null;
   private error: string | null = null;
   /** The board the facts are of, as text. */
@@ -40,7 +42,9 @@ export class BoardFacts {
     private readonly button: HTMLElement,
     private readonly palette: Palette,
     private readonly told: () => void,
-  ) {}
+  ) {
+    box.style.cssText = 'display:none;margin:0;white-space:pre-wrap;font:inherit';
+  }
 
   /** The board in hand, as the rules take it, or what they say of it. True where it is another board, and what was wanted of the one before is wanted no more. */
   of(spec: LevelSpec | null, error: string | null): boolean {
@@ -70,7 +74,7 @@ export class BoardFacts {
   /** Asks of the board in hand what is wanted of it and not yet asked. */
   ask(): void {
     const { spec, measured: key } = this;
-    if (!spec || !(this.checking || this.wanted)) return;
+    if (!spec || !(this.checking || this.wanted || this.keep(spec))) return;
     this.instant ??= instantOf(spec);
     if (this.instant.error) return;
     const told = <T>(set: (facts: T | string) => void) => [

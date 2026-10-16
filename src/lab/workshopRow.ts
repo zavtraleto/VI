@@ -29,7 +29,7 @@ type BoardFile = { name: string; text: string; hash: string | null; time?: strin
 const HELP_LISTS: Readonly<Record<keyof Help, readonly string[]>> = { hint: HINT_KEYS, sign: SIGNS, plaques: PLAQUES, wait: WAITS, camera: CAMERAS };
 
 /** The line an answer of the server was refused in: what the row said, without the address and the status. */
-function refusal(error: Error): string {
+export function refusal(error: Error): string {
   const said = /^\S+ \S+: \d+ (.*)$/s.exec(error.message)?.[1];
   if (said === undefined) return error.message;
   try {
@@ -210,6 +210,8 @@ export class WorkshopRow implements RowList {
     this.busy = true;
     const stage = this.page.stage();
     const locked = stage.locked;
+    // The lock is put back only on the board it was taken of: another board opened meanwhile has its own.
+    const name = this.name;
     try {
       if (!(await this.page.save())) return;
       stage.locked = true;
@@ -217,7 +219,7 @@ export class WorkshopRow implements RowList {
     } catch (error) {
       return this.page.say(`${op.board}: ${refusal(error as Error)}`);
     } finally {
-      stage.locked = locked;
+      if (this.name === name) stage.locked = locked;
       this.busy = false;
     }
     this.removing = false;

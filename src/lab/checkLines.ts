@@ -1,3 +1,4 @@
+import type { BoardStatus } from '../levels/boardFile';
 import { LATER_RUNS, type Instant, type Later, type Seconds } from './labFacts';
 import { plural } from './workshopLists';
 
@@ -48,4 +49,20 @@ export function checkLines(instant: Instant | null, seconds: Seconds | string | 
     lines.push(later.spare.length === 0 ? 'лишних костей нет' : `лишних костей: ${later.spare.length}`);
   }
   return lines;
+}
+
+/**
+ * The line over a board of the row whose file keeps no shortest way yet (section 11.2): the row
+ * asks every board of it for one (`src/levels/row.test.ts`), and the page writes it as soon as the
+ * solver proves the fewest moves. `seconds` is null while the solver counts; a board not of the
+ * row, or one whose fewest moves are proved, has no line.
+ */
+export function rowPathLine(status: BoardStatus | undefined, seconds: Seconds | string | null): string | null {
+  if (status !== 'R') return null;
+  if (seconds === null) return 'ряд не соберётся, пока не записан путь';
+  if (typeof seconds === 'string') return `ряд не соберётся: ${seconds}`;
+  const { check } = seconds;
+  if (check.par === null) return `ряд не соберётся: ${check.exact ? 'решения нет' : 'решатель сдался, решения не нашёл'}`;
+  if (!check.exact || !check.way) return 'ряд не соберётся: решатель не доказал минимум';
+  return null;
 }

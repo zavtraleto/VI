@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibraryRowChapter } from '../levels/library';
 import { ROLES, type RowFile } from '../levels/row';
-import { ROLE_TITLES, batchTitle, batchesOf, chaptersOf, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
+import { ROLE_TITLES, batchTitle, batchesOf, chaptersOf, freeName, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
 
 const ROW: readonly LibraryRowChapter[] = [{ id: 0, title: 'prologue', faces: null, stops: ['R01'] }];
 const file = (name: string, head: string, time?: string) => rowOf({ name, text: `id: ${name}\n${head}faces: 2\n---\n21* 21\n .   .\n`, hash: null, time }, ROW);
@@ -101,5 +101,13 @@ describe('the chapters of «в кампании»', () => {
     expect(Object.keys(ROLE_TITLES).sort()).toEqual([...ROLES].sort());
     expect(ROLE_TITLES.meet).toBe('встреча');
     expect(ROLE_TITLES.rest).toBe('передышка');
+  });
+});
+
+describe('a name for a board begun anew', () => {
+  it('takes the first number free, in any letter case, as the disk of Windows does', () => {
+    expect(freeName('bridge', [])).toBe('bridge-1');
+    expect(freeName('bridge', ['bridge-1', 'Bridge-2', 'bridge-4'])).toBe('bridge-3');
+    expect(freeName('P06-try', ['P06', 'p06-try-1'])).toBe('P06-try-2');
   });
 });

@@ -129,6 +129,18 @@ export function nextInBatch(rows: readonly BoardRow[], name: string): string | n
   return batch?.rows[at + 1]?.name ?? null;
 }
 
+/**
+ * The name of a board begun anew from a stem: `<stem>-<n>`, the first `n` free among the names. A
+ * name is taken in any letters, small or great, as `batchFile` takes it: the disk of Windows does
+ * not tell `Bridge-1.txt` from `bridge-1.txt`.
+ */
+export function freeName(stem: string, names: Iterable<string>): string {
+  const taken = new Set([...names].map((name) => name.toLowerCase()));
+  let number = 1;
+  while (taken.has(`${stem}-${number}`.toLowerCase())) number++;
+  return `${stem}-${number}`;
+}
+
 /** The verdicts after a play as the bar under the board offers them, with their keys. */
 export const VERDICTS: readonly { verdict: Verdict; label: string; keys: readonly string[] }[] = [
   { verdict: 'good', label: '1 хорошая', keys: ['Digit1', 'Numpad1'] },
