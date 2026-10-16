@@ -22,7 +22,7 @@ import type { PlaceFields, RowOp } from '../levels/rowEdit';
  *   POST /__boards?export=<date>           a text given out by the library, kept in boards/.history/export-<date>.md
  *   GET  /__boards?row                     the text of boards/row.json
  *   POST /__boards?row                     an operation on the row (`RowOp`): laid, then written whole, or refused with nothing written
- *   POST /__boards/<code>/swap             { from }: the board of the file <from> goes into <code> and the board of <code> into <from>, laid, then written, or refused
+ *   POST /__boards/<code>/swap             { from }: the board of the file <from> goes into <code>, a board of the row, and the board of <code> into <from>, laid, then written, or refused
  *
  * A name is the name of a board and nothing more: letters, digits, `-` and `_`. A name with a
  * dot or a slash in it would be a path, and the page would write wherever it liked.

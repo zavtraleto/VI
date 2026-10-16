@@ -1,4 +1,3 @@
-import type { Violation } from '../levels/grammar';
 import type { RowOp } from '../levels/rowEdit';
 import type { HeadPatch, Version } from './boardsServer';
 
@@ -71,10 +70,11 @@ export async function readRow(): Promise<string> {
 
 /**
  * Does an operation on the row: the server writes the new row.json and the statuses it gives, or
- * nothing, and refuses with the line the row was refused in. What the fast grammar says of the row laid.
+ * nothing, and refuses with the line the row was refused in. The grammar of the row is the page's
+ * to read (`fastGrammar`), on the row it reads again.
  */
-export async function editRow(op: RowOp): Promise<{ violations: Violation[] }> {
-  return (await (await asked('/__boards?row', { method: 'POST', body: JSON.stringify(op) })).json()) as { violations: Violation[] };
+export async function editRow(op: RowOp): Promise<void> {
+  await asked('/__boards?row', { method: 'POST', body: JSON.stringify(op) });
 }
 
 /** Gives the board of the file `from` to the board `code`, and the board of `code` to `from`, as a candidate; both or neither. */
