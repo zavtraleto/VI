@@ -88,9 +88,10 @@ export interface Row {
   places: Place[];
 }
 
-const CHAPTER_KEYS = ['title', 'faces', 'floor', 'places'] as const;
-const PLACE_KEYS = ['board', 'role', 'teaches', 'archetype', 'event', 'note', 'help'] as const;
-const HELP_KEYS = ['hint', 'sign', 'plaques', 'wait', 'camera'] as const;
+/** The keys row.json knows, in the order it is written in (`rowFileText` of rowEdit.ts). */
+export const CHAPTER_KEYS = ['title', 'faces', 'floor', 'places'] as const;
+export const PLACE_KEYS = ['board', 'role', 'teaches', 'archetype', 'event', 'note', 'help'] as const;
+export const HELP_KEYS = ['hint', 'sign', 'plaques', 'wait', 'camera'] as const;
 
 /** Reads the text of row.json: JSON, with a list of chapters. What each holds is asked by `buildRow`. */
 export function readRowFile(text: string): RowFile {

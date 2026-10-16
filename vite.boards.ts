@@ -1,9 +1,11 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
-import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, renamedText, renameOf, safeName, versionOf } from './src/lab/boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, renamedText, renameOf, rowOpOf, safeName, swapOf, versionOf } from './src/lab/boardsServer';
 import { readBoardHead } from './src/levels/boardFile';
+import { fastGrammar } from './src/levels/grammar';
 import { buildRow, readRowFile, rowText, touchesRow } from './src/levels/row';
+import { rowEdit, rowFileText, swapBoardTexts, withStatus } from './src/levels/rowEdit';
 
 /**
  * The files of the lab of the levels for the page `?lab=levels`: the dev server reads and writes
@@ -23,6 +25,20 @@ export function viBoards(): Plugin {
         existsSync(history(name))
           ? readdirSync(history(name)).sort().flatMap((file) => versionOf(file) ?? [])
           : [];
+      // A version is kept where the text is a board, and is another board than the version before it.
+      const keep = (name: string, text: string): string | null => {
+        const hash = boardHash(text, name);
+        if (hash === null) return null;
+        if (versions(name).at(-1)?.hash !== hash) {
+          mkdirSync(history(name), { recursive: true });
+          writeFileSync(join(history(name), historyFile(hash, new Date())), text);
+        }
+        return hash;
+      };
+      const rowPath = join(dir, 'row.json');
+      // Every board of boards/ by its name, as `relay` reads them.
+      const boardTexts = (): Map<string, string> =>
+        new Map(readdirSync(dir).filter((one) => one.endsWith('.txt')).map((one) => [basename(one, '.txt'), readFileSync(join(dir, one), 'utf8')]));
 
       server.middlewares.use('/__boards', (request, response) => {
         const send = (status: number, body: string, type = 'application/json'): void => {
@@ -53,6 +69,30 @@ export function viBoards(): Plugin {
               const text = readFileSync(join(dir, `${name}.txt`), 'utf8');
               return { name, text, hash: boardHash(text, name), time: statSync(join(dir, `${name}.txt`)).mtime.toISOString() };
             })));
+          }
+          if (ask.kind === 'row-read') return existsSync(rowPath) ? send(200, readFileSync(rowPath, 'utf8'), 'application/json') : send(404, JSON.stringify({ error: 'no boards/row.json' }));
+          if (ask.kind === 'row') {
+            // An operation on the row, whole or not at all: the new row.json and the statuses it gives are laid together, and
+            // written only where the row is laid; a refusal says its line and nothing is written. `relay` lays row.gen.ts after.
+            const op = rowOpOf(await body());
+            if (!op) return send(400, JSON.stringify({ error: 'an operation on the row is insert, move, remove or edit, with the words of row.ts' }));
+            let written: { row: string; files: [string, string][]; violations: unknown };
+            try {
+              const { file, statuses } = rowEdit(readRowFile(readFileSync(rowPath, 'utf8')), op);
+              const texts = boardTexts();
+              const files = Object.entries(statuses).map(([code, status]): [string, string] => {
+                const text = texts.get(code);
+                if (text === undefined) throw new Error(`row: there is no file boards/${code}.txt`);
+                texts.set(code, withStatus(text, status));
+                return [code, texts.get(code)!];
+              });
+              written = { row: rowFileText(file), files, violations: fastGrammar(buildRow(file, texts).places) };
+            } catch (error) {
+              return send(409, JSON.stringify({ error: (error as Error).message }));
+            }
+            for (const [code, text] of written.files) writeFileSync(join(dir, `${code}.txt`), text);
+            writeFileSync(rowPath, written.row);
+            return send(200, JSON.stringify({ violations: written.violations }));
           }
           if (ask.kind === 'export') {
             // The text a session of the library gave out, kept beside the history: said once, however often it is given.
@@ -94,19 +134,45 @@ export function viBoards(): Plugin {
             if (existsSync(history(ask.name))) renameSync(history(ask.name), history(to));
             return send(200, JSON.stringify({ name: to }));
           }
+          if (ask.kind === 'swap') {
+            // The board of a copy goes into the file of the row and the board of that file into the copy, both or neither
+            // (section 11.2): the code, the place and the progress of the players stay. A copy of the row itself, the file
+            // swapped with itself in any letter case, a file that cannot be read and a row that is not laid are refused first.
+            const asked = swapOf(await body());
+            if (!asked) return send(400, JSON.stringify({ error: 'a swap is { from: <name of a board> }' }));
+            if (asked.toLowerCase() === ask.name.toLowerCase()) return send(409, JSON.stringify({ error: `${asked} is the file of ${ask.name} itself` }));
+            // Both by the names their files have: the row is laid on the texts by those names, whatever case the page said them in.
+            const texts = boardTexts();
+            const named = (name: string): string | undefined => [...texts.keys()].find((one) => one.toLowerCase() === name.toLowerCase());
+            const code = named(ask.name);
+            const from = named(asked);
+            if (code === undefined) return send(404, JSON.stringify({ error: `no board ${ask.name}` }));
+            if (from === undefined) return send(404, JSON.stringify({ error: `no board ${asked}` }));
+            let swapped: { kept: string; other: string };
+            try {
+              const row = readRowFile(readFileSync(rowPath, 'utf8'));
+              if (row.chapters.some((chapter) => chapter.places.some((place) => place.board.toLowerCase() === from.toLowerCase()))) throw new Error(`${from} is a board of the row: its board is not given away`);
+              const day = new Date().toISOString().slice(0, 10);
+              swapped = swapBoardTexts(texts.get(code)!, texts.get(from)!, `прежняя доска ${code}, заменена ${day}`);
+              texts.set(code, swapped.kept);
+              texts.set(from, swapped.other);
+              buildRow(row, texts);
+            } catch (error) {
+              return send(409, JSON.stringify({ error: (error as Error).message }));
+            }
+            writeFileSync(join(dir, `${code}.txt`), swapped.kept);
+            writeFileSync(join(dir, `${from}.txt`), swapped.other);
+            keep(code, swapped.kept);
+            keep(from, swapped.other);
+            return send(200, '{}');
+          }
           if (ask.kind === 'read') return existsSync(file) ? send(200, readFileSync(file, 'utf8'), 'text/plain') : send(404, JSON.stringify({ error: `no board ${ask.name}` }));
           if (ask.kind === 'write') {
             const text = await body();
             mkdirSync(dir, { recursive: true });
             writeFileSync(file, text);
-            // A version is kept where the text is a board, and is another board than the version before it.
-            const hash = boardHash(text, ask.name);
+            const hash = keep(ask.name, text);
             if (hash === null) return send(200, JSON.stringify({ error: 'the text is no board: written, and no version kept' }));
-            const last = versions(ask.name).at(-1);
-            if (last?.hash !== hash) {
-              mkdirSync(history(ask.name), { recursive: true });
-              writeFileSync(join(history(ask.name), historyFile(hash, new Date())), text);
-            }
             return send(200, JSON.stringify({ hash }));
           }
           if (ask.kind === 'history') return send(200, JSON.stringify(versions(ask.name)));
@@ -150,10 +216,9 @@ export function viBoards(): Plugin {
         const full = resolve(path);
         if (dirname(full) !== dir) return;
         try {
-          const file = readRowFile(readFileSync(join(dir, 'row.json'), 'utf8'));
+          const file = readRowFile(readFileSync(rowPath, 'utf8'));
           if (!touchesRow(basename(full), file)) return;
-          const texts = new Map(readdirSync(dir).filter((one) => one.endsWith('.txt')).map((one) => [basename(one, '.txt'), readFileSync(join(dir, one), 'utf8')]));
-          const text = rowText(buildRow(file, texts));
+          const text = rowText(buildRow(file, boardTexts()));
           if (!existsSync(genFile) || readFileSync(genFile, 'utf8') !== text) writeFileSync(genFile, text);
         } catch (error) {
           const message = (error as Error).message;

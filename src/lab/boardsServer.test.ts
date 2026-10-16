@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { printBoard, readBoardHead } from '../levels/boardFile';
 import { fileBoard } from '../levels/boardFiles';
-import { askOf, boardHash, exportFile, headPatchOf, historyPath, patchHead, renamedText, renameOf, safeName, versionOf } from './boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyPath, patchHead, renamedText, renameOf, rowOpOf, safeName, swapOf, versionOf } from './boardsServer';
 
 describe('safeName', () => {
   it('takes the name of a board and nothing that could be a path', () => {
@@ -129,5 +129,61 @@ describe('a board renamed', () => {
     const back = renamedText(renamedText('id: a-1\nfaces: 2\n---\n21* 21\n .   .\n', 'a-2'), 'a-1');
     expect(back.split('\n')[0]).toBe('id: a-1');
     expect(readBoardHead(back).was).toEqual(['a-2']);
+  });
+});
+
+describe('the row asked of the server', () => {
+  it('reads the addresses of the row and of a swap', () => {
+    expect(askOf('GET', '/?row')).toEqual({ kind: 'row-read' });
+    expect(askOf('GET', '?row')).toEqual({ kind: 'row-read' });
+    expect(askOf('POST', '/?row')).toEqual({ kind: 'row' });
+    expect(askOf('PUT', '/?row')).toMatchObject({ kind: 'refused', status: 405 });
+    expect(askOf('POST', '/R05/swap')).toEqual({ kind: 'swap', name: 'R05' });
+    expect(askOf('GET', '/R05/swap')).toMatchObject({ kind: 'refused', status: 405 });
+  });
+  const place = { role: 'apply', archetype: 'bridge', teaches: 'walk', event: 'first', note: 'для людей', help: { hint: 'roadHintWalk', sign: 'N', plaques: 'near', wait: 'free', camera: 'hold' } };
+  it('takes each of the four operations', () => {
+    const insert = { op: 'insert', board: 'P30', chapter: 1, after: 'P02', place };
+    expect(rowOpOf(JSON.stringify(insert))).toEqual(insert);
+    expect(rowOpOf(JSON.stringify({ ...insert, after: null, place: { role: 'meet', archetype: 'x' } }))).toEqual({ ...insert, after: null, place: { role: 'meet', archetype: 'x' } });
+    expect(rowOpOf('{"op":"move","board":"R05","way":"up"}')).toEqual({ op: 'move', board: 'R05', way: 'up' });
+    expect(rowOpOf('{"op":"remove","board":"R05","status":"X"}')).toEqual({ op: 'remove', board: 'R05', status: 'X' });
+    expect(rowOpOf(JSON.stringify({ op: 'edit', board: 'R05', place }))).toEqual({ op: 'edit', board: 'R05', place });
+  });
+  it('refuses an operation it does not know, and a word or a key that is none of the row', () => {
+    const insert = { op: 'insert', board: 'P30', chapter: 1, after: null, place };
+    for (const body of [
+      { op: 'swap', board: 'R05' },
+      { op: 'move', board: 'R05.txt', way: 'up' },
+      { op: 'move', board: '../x', way: 'up' },
+      { op: 'move', board: 'R05', way: 'left' },
+      { op: 'remove', board: 'R05', status: 'R' },
+      { op: 'remove', board: 'R05', status: 'D' },
+      { ...insert, place: { ...place, role: 'boss' } },
+      { ...insert, place: { ...place, teaches: 'fly' } },
+      { ...insert, place: { ...place, help: { sign: 'NE' } } },
+      { ...insert, place: { ...place, help: { plaques: 'some' } } },
+      { ...insert, place: { ...place, help: { color: 'red' } } },
+      { ...insert, place: { ...place, board: 'R06' } },
+      { ...insert, place: { ...place, extra: 1 } },
+      { ...insert, place: { role: 'apply' } },
+      { ...insert, place: { ...place, archetype: '' } },
+      { ...insert, place: { ...place, note: 3 } },
+      { ...insert, chapter: -1 },
+      { ...insert, chapter: 1.5 },
+      { ...insert, after: 'a/b' },
+      { ...insert, more: true },
+      { op: 'move', board: 'R05', way: 'up', status: 'X' },
+    ]) {
+      expect(rowOpOf(JSON.stringify(body)), JSON.stringify(body)).toBeNull();
+    }
+    expect(rowOpOf('torn')).toBeNull();
+    expect(rowOpOf('null')).toBeNull();
+  });
+  it('reads the copy a swap is asked with', () => {
+    expect(swapOf('{"from":"R05-try-1"}')).toBe('R05-try-1');
+    expect(swapOf('{"from":"../x"}')).toBeNull();
+    expect(swapOf('{"from":3}')).toBeNull();
+    expect(swapOf('torn')).toBeNull();
   });
 });

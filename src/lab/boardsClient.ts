@@ -1,3 +1,5 @@
+import type { Violation } from '../levels/grammar';
+import type { RowOp } from '../levels/rowEdit';
 import type { HeadPatch, Version } from './boardsServer';
 
 /**
@@ -60,6 +62,24 @@ export async function writeHead(name: string, patch: HeadPatch): Promise<void> {
 /** Gives a board a new name: its file, history and plays go over to it. Refused where the name is taken or the board is of the row. */
 export async function renameBoard(name: string, to: string): Promise<void> {
   await asked(at(name, '/rename'), { method: 'POST', body: JSON.stringify({ to }) });
+}
+
+/** The text of boards/row.json. */
+export async function readRow(): Promise<string> {
+  return (await asked('/__boards?row')).text();
+}
+
+/**
+ * Does an operation on the row: the server writes the new row.json and the statuses it gives, or
+ * nothing, and refuses with the line the row was refused in. What the fast grammar says of the row laid.
+ */
+export async function editRow(op: RowOp): Promise<{ violations: Violation[] }> {
+  return (await (await asked('/__boards?row', { method: 'POST', body: JSON.stringify(op) })).json()) as { violations: Violation[] };
+}
+
+/** Gives the board of the file `from` to the board `code`, and the board of `code` to `from`, as a candidate; both or neither. */
+export async function swapBoards(code: string, from: string): Promise<void> {
+  await asked(at(code, '/swap'), { method: 'POST', body: JSON.stringify({ from }) });
 }
 
 /** Keeps the text a session of the library gave out, in `boards/.history/export-<date>.md`; the path it is kept at. */

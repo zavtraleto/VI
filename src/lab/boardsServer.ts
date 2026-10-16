@@ -1,5 +1,7 @@
 import { isBoardName } from '../app/boardProbe';
 import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, withHead, type BoardMark, type BoardStatus, type BoardWords } from '../levels/boardFile';
+import { CAMERAS, HELP_KEYS, HINT_KEYS, PLACE_KEYS, PLAQUES, ROLES, SIGNS, TECHNIQUES, WAITS } from '../levels/row';
+import type { PlaceFields, RowOp } from '../levels/rowEdit';
 
 /**
  * What the dev server does for the lab of the levels, as far as it can be said without a disk:
@@ -18,6 +20,9 @@ import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, withHea
  *   PUT  /__boards/<name>/head             a status, a mark and words laid into the head of the file (`patchHead`); no version is kept
  *   POST /__boards/<name>/rename           { to }: the file, its history and its plays under the new name; refused where the name is taken or the board is of the row
  *   POST /__boards?export=<date>           a text given out by the library, kept in boards/.history/export-<date>.md
+ *   GET  /__boards?row                     the text of boards/row.json
+ *   POST /__boards?row                     an operation on the row (`RowOp`): laid, then written whole, or refused with nothing written
+ *   POST /__boards/<code>/swap             { from }: the board of the file <from> goes into <code> and the board of <code> into <from>, laid, then written, or refused
  *
  * A name is the name of a board and nothing more: letters, digits, `-` and `_`. A name with a
  * dot or a slash in it would be a path, and the page would write wherever it liked.
@@ -83,10 +88,11 @@ export function versionOf(file: string): Version | null {
 
 /** What an address of the plugin asks for. */
 export type BoardsAsk =
-  | { kind: 'list' | 'heads' }
+  | { kind: 'list' | 'heads' | 'row-read' | 'row' }
   | { kind: 'export'; date: string }
   | { kind: 'head'; name: string }
   | { kind: 'rename'; name: string }
+  | { kind: 'swap'; name: string }
   | { kind: 'read' | 'write' | 'history' | 'plays' | 'play'; name: string }
   | { kind: 'version'; name: string; file: string }
   | { kind: 'refused'; status: 400 | 404 | 405; why: string };
@@ -110,6 +116,7 @@ export function askOf(method: string, path: string): BoardsAsk {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return refused(400, `"${date}" is no date: YYYY-MM-DD`);
     return method === 'POST' ? { kind: 'export', date } : refused(405, 'an export is written with POST');
   }
+  if (parts.length === 0 && query.has('row')) return method === 'GET' ? { kind: 'row-read' } : method === 'POST' ? { kind: 'row' } : refused(405, 'the row is read with GET and changed with POST');
   if (parts.length === 0) return method === 'GET' ? { kind: 'list' } : refused(405, 'the list is only read');
   const name = safeName(parts[0]);
   if (name === null) return refused(400, `"${parts[0]}" is no name of a board: letters, digits, - and _`);
@@ -121,6 +128,7 @@ export function askOf(method: string, path: string): BoardsAsk {
   }
   if (parts[1] === 'head' && parts.length === 2) return method === 'PUT' ? { kind: 'head', name } : refused(405, 'a head is written with PUT');
   if (parts[1] === 'plays' && parts.length === 2) return method === 'GET' ? { kind: 'plays', name } : method === 'POST' ? { kind: 'play', name } : refused(405, 'the plays are read with GET and added to with POST');
+  if (parts[1] === 'swap' && parts.length === 2) return method === 'POST' ? { kind: 'swap', name } : refused(405, 'boards are swapped with POST');
   if (parts[1] === 'rename' && parts.length === 2) return method === 'POST' ? { kind: 'rename', name } : refused(405, 'a board is renamed with POST');
   return refused(404, 'no such address');
 }
@@ -188,6 +196,71 @@ export function renamedText(text: string, to: string): string {
   const id = /^id:\s*(.*)$/m.exec(text)?.[1]?.trim() ?? '';
   const was = [...(head.was ?? []), ...(id ? [id] : [])].filter((name) => name !== to);
   return withHead(text.replace(/^id:.*$/m, `id: ${to}`), { ...rest, was });
+}
+
+/** Whether an object has no key but those given, and has every key that must be there. */
+function keysOf(object: object, known: readonly string[], must: readonly string[]): boolean {
+  return Object.keys(object).every((key) => known.includes(key)) && must.every((key) => key in object);
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
+const oneOf = (value: unknown, of: readonly string[]): boolean => of.includes(value as string);
+const words = (value: unknown): boolean => value === undefined || typeof value === 'string';
+
+/** What a place says but its board, as the page sends it; null where a key or a word is none of the row (`row.ts`). */
+function placeOf(said: unknown): PlaceFields | null {
+  if (!isObject(said) || !keysOf(said, PLACE_KEYS.filter((key) => key !== 'board'), ['role', 'archetype'])) return null;
+  const { role, teaches, archetype, event, note, help } = said;
+  if (!oneOf(role, ROLES) || typeof archetype !== 'string' || archetype.trim() === '' || !words(event) || !words(note)) return null;
+  if (teaches !== undefined && !oneOf(teaches, TECHNIQUES)) return null;
+  if (help !== undefined) {
+    if (!isObject(help) || !keysOf(help, HELP_KEYS, [])) return null;
+    const lists = { hint: HINT_KEYS, sign: SIGNS, plaques: PLAQUES, wait: WAITS, camera: CAMERAS } as const;
+    if (!HELP_KEYS.every((key) => help[key] === undefined || oneOf(help[key], lists[key]))) return null;
+  }
+  return said as unknown as PlaceFields;
+}
+
+/**
+ * The operation a body of `POST /__boards?row` asks for, or null where it is none of the four:
+ * every board a name of a board, every word one of its list, no key the operation does not have.
+ * Whether it can be done to the row is `rowEdit`'s to say.
+ */
+export function rowOpOf(body: string): RowOp | null {
+  let said: unknown;
+  try {
+    said = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (!isObject(said) || typeof said.board !== 'string' || safeName(said.board) === null) return null;
+  const { op, board } = said;
+  if (op === 'insert') {
+    const { chapter, after } = said;
+    if (!keysOf(said, ['op', 'board', 'chapter', 'after', 'place'], ['chapter', 'after', 'place'])) return null;
+    if (typeof chapter !== 'number' || !Number.isInteger(chapter) || chapter < 0) return null;
+    if (after !== null && (typeof after !== 'string' || safeName(after) === null)) return null;
+    const place = placeOf(said.place);
+    return place ? { op, board, chapter, after, place } : null;
+  }
+  if (op === 'move') return keysOf(said, ['op', 'board', 'way'], ['way']) && (said.way === 'up' || said.way === 'down') ? { op, board, way: said.way } : null;
+  if (op === 'remove') return keysOf(said, ['op', 'board', 'status'], ['status']) && (said.status === 'RC' || said.status === 'X') ? { op, board, status: said.status } : null;
+  if (op === 'edit') {
+    if (!keysOf(said, ['op', 'board', 'place'], ['place'])) return null;
+    const place = placeOf(said.place);
+    return place ? { op, board, place } : null;
+  }
+  return null;
+}
+
+/** The copy a body of `POST …/swap` names, or null where it names no board. */
+export function swapOf(body: string): string | null {
+  try {
+    const { from } = JSON.parse(body) as { from?: unknown };
+    return typeof from === 'string' ? safeName(from) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The file of the history an export of a day is kept in. */
