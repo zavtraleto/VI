@@ -3,7 +3,7 @@ import type { LibraryRowChapter } from '../levels/library';
 import { batchTitle, batchesOf, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
 
 const ROW: readonly LibraryRowChapter[] = [{ id: 0, title: 'prologue', faces: null, stops: ['R01'] }];
-const file = (name: string, head: string) => rowOf({ name, text: `id: ${name}\n${head}faces: 2\n---\n21* 21\n .   .\n`, hash: null }, ROW);
+const file = (name: string, head: string, time?: string) => rowOf({ name, text: `id: ${name}\n${head}faces: 2\n---\n21* 21\n .   .\n`, hash: null, time }, ROW);
 const rows = [
   file('bridge-2', 'status: N\nbatch: bridge 2026-10-16\n'),
   file('bridge-1', 'status: N\nbatch: bridge 2026-10-16\n'),
@@ -38,6 +38,25 @@ describe('the lists of the workshop', () => {
   it('goes on to the next new board of the batch, and to none after the last', () => {
     expect(nextInBatch(rows, 'bridge-1')).toBe('bridge-2');
     expect(nextInBatch(rows, 'bridge-2')).toBeNull();
+  });
+  it('keeps the time of the file as the time the board was touched', () => {
+    expect(file('t-1', 'status: N\n', '2026-10-16T09:00:00.000Z').touched).toBe('2026-10-16T09:00:00.000Z');
+    expect(file('t-1', 'status: N\n').touched).toBe('');
+  });
+  it('puts first the board marked last, though no words were said of it', () => {
+    const good = [file('good-a', 'status: RC\nwords: 2026-10-15: ровная\n', '2026-10-15T08:00:00.000Z'), file('good-b', 'status: RC\n', '2026-10-16T10:00:00.000Z')];
+    expect(listRows(good, 'good', '').map((row) => row.name)).toEqual(['good-b', 'good-a']);
+    const redo = [file('old-a', 'status: D\nwords: 2026-10-14: почти\n'), file('old-b', 'status: D\nwords: 2026-10-10: длинно\n', '2026-10-16T07:00:00.000Z')];
+    expect(listRows(redo, 'redo', '').map((row) => row.name)).toEqual(['old-b', 'old-a']);
+  });
+  it('orders names by their numbers in «все»', () => {
+    const named = [file('bridge-10', 'status: N\n'), file('bridge-2', 'status: N\n'), file('arch-1', 'status: D\n')];
+    expect(listRows(named, 'all', '').map((row) => row.name)).toEqual(['arch-1', 'bridge-2', 'bridge-10']);
+  });
+  it('puts a board of the row with no place last in «в кампании»', () => {
+    const row = [file('R99', 'status: R\n'), file('R01', 'status: R\n')];
+    expect(row[0].place).toBeNull();
+    expect(listRows(row, 'row', '').map((one) => one.name)).toEqual(['R01', 'R99']);
   });
   it('says a number with its word', () => {
     expect([1, 2, 5, 11, 21, 22].map((n) => plural(n, ['доска', 'доски', 'досок']))).toEqual(['доска', 'доски', 'досок', 'досок', 'доска', 'доски']);

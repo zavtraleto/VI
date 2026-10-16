@@ -47,9 +47,9 @@ export async function addPlay(name: string, play: unknown): Promise<void> {
   await asked(at(name, '/plays'), { method: 'POST', body: JSON.stringify(play) });
 }
 
-/** Every board with its text and the hash of its version, for the library. */
-export async function listHeads(): Promise<{ name: string; text: string; hash: string | null }[]> {
-  return (await (await asked('/__boards?heads')).json()) as { name: string; text: string; hash: string | null }[];
+/** Every board with its text, the hash of its version and the time its file was last written. */
+export async function listHeads(): Promise<{ name: string; text: string; hash: string | null; time?: string }[]> {
+  return (await (await asked('/__boards?heads')).json()) as { name: string; text: string; hash: string | null; time?: string }[];
 }
 
 /** Lays a status, a mark and words into the head of a board's file; no version is kept, the board being the same. */

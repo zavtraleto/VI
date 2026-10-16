@@ -24,6 +24,8 @@ export interface BoardRow {
   error: string | null;
   head: BoardHead;
   place: Place | null;
+  /** When the file was last written, as an ISO time; empty where the server did not say. */
+  touched: string;
 }
 
 /** The new boards of one order: the word and the day of the batch, and its boards by number. */
@@ -46,11 +48,17 @@ const MONTHS = ['января', 'февраля', 'марта', 'апреля', 
 
 /** The number of a board in its batch: `bridge-12` is 12; a name with no number is 0. */
 const numberOf = (name: string): number => Number(/-(\d+)$/.exec(name)?.[1] ?? 0);
-/** The day the owner last said something of a board, for the lists that put the last touched first. */
-const lastSaid = (row: BoardRow): string => row.head.words?.at(-1)?.date ?? '';
+/** When a board was last touched: the later of the time of its file and the day of its last words (ISO texts compare as text). */
+const lastTouched = (row: BoardRow): string => {
+  const said = row.head.words?.at(-1)?.date ?? '';
+  return said > row.touched ? said : row.touched;
+};
+/** Names in the order of their numbers: `bridge-2` before `bridge-10`. */
+const byName = (a: BoardRow, b: BoardRow): number => a.name.localeCompare(b.name, undefined, { numeric: true });
 
 /** A file read as a row: the board strictly where it is one, as it is written where the rules refuse it. */
-export function rowOf(file: { name: string; text: string; hash: string | null }, chapters: readonly LibraryRowChapter[]): BoardRow {
+export function rowOf(file: { name: string; text: string; hash: string | null; time?: string }, chapters: readonly LibraryRowChapter[]): BoardRow {
+  const { time, ...kept } = file;
   const place = placeOf(file.name, chapters);
   let spec: LevelSpec | null = null;
   let error: string | null = null;
@@ -64,7 +72,7 @@ export function rowOf(file: { name: string; text: string; hash: string | null },
       spec = null;
     }
   }
-  return { ...file, spec: spec && asInRow(spec, place, chapters), error, head: readBoardHead(file.text), place };
+  return { ...kept, spec: spec && asInRow(spec, place, chapters), error, head: readBoardHead(file.text), place, touched: time ?? '' };
 }
 
 /** The word of a number in its Russian form: 1 доска, 2 доски, 5 досок, 21 доска. */
@@ -81,13 +89,13 @@ function found(row: BoardRow, search: string): boolean {
   return [row.name, ...(row.head.was ?? []), row.head.note ?? '', ...(row.head.words ?? []).map((word) => word.text)].some((text) => text.toLowerCase().includes(said));
 }
 
-/** The rows of a list the search finds, in its order: the new by batch, the row by place, all by name, the rest the last touched first. */
+/** The rows of a list the search finds, in its order: the new by batch, the row by place (no place last), all by name, the rest the last touched first. */
 export function listRows(rows: readonly BoardRow[], key: ListKey, search: string): BoardRow[] {
   const shown = rows.filter((row) => (key === 'all' || row.head.status === STATUS_OF[key]) && found(row, search));
   if (key === 'new') return batchesOf(shown).flatMap((batch) => batch.rows);
-  if (key === 'row') return shown.sort((a, b) => (a.place?.number ?? 0) - (b.place?.number ?? 0));
-  if (key === 'all') return shown.sort((a, b) => a.name.localeCompare(b.name));
-  return shown.sort((a, b) => lastSaid(b).localeCompare(lastSaid(a)) || a.name.localeCompare(b.name));
+  if (key === 'row') return shown.sort((a, b) => (a.place?.number ?? Infinity) - (b.place?.number ?? Infinity) || byName(a, b));
+  if (key === 'all') return shown.sort(byName);
+  return shown.sort((a, b) => lastTouched(b).localeCompare(lastTouched(a)) || byName(a, b));
 }
 
 /** The rows gathered by the batch they were laid in, the newest batch first, the boards of a batch by number. */
@@ -100,7 +108,7 @@ export function batchesOf(rows: readonly BoardRow[]): Batch[] {
     batch.rows.push(row);
     batches.set(key, batch);
   }
-  for (const batch of batches.values()) batch.rows.sort((a, b) => numberOf(a.name) - numberOf(b.name) || a.name.localeCompare(b.name));
+  for (const batch of batches.values()) batch.rows.sort((a, b) => numberOf(a.name) - numberOf(b.name) || byName(a, b));
   return [...batches.values()].sort((a, b) => b.date.localeCompare(a.date) || a.word.localeCompare(b.word));
 }
 

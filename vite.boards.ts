@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
 import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, renamedText, renameOf, safeName, versionOf } from './src/lab/boardsServer';
@@ -47,11 +47,11 @@ export function viBoards(): Plugin {
             return send(200, JSON.stringify(names));
           }
           if (ask.kind === 'heads') {
-            // Every board with its text and the hash of its version, for the table of the library.
+            // Every board with its text, the hash of its version and the time its file was last written.
             const names = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.txt')).map((file) => basename(file, '.txt')).filter((name) => safeName(name) !== null).sort() : [];
             return send(200, JSON.stringify(names.map((name) => {
               const text = readFileSync(join(dir, `${name}.txt`), 'utf8');
-              return { name, text, hash: boardHash(text, name) };
+              return { name, text, hash: boardHash(text, name), time: statSync(join(dir, `${name}.txt`)).mtime.toISOString() };
             })));
           }
           if (ask.kind === 'export') {

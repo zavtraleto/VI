@@ -14,7 +14,7 @@ import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, withHea
  *   GET  /__boards/<name>/history/<file>   the text of one of them
  *   GET  /__boards/<name>/plays            the plays written down, as JSON
  *   POST /__boards/<name>/plays            writes a play down: a line of JSON
- *   GET  /__boards?heads                   every board with its text and hash: [{ name, text, hash }], for the library
+ *   GET  /__boards?heads                   every board with its text, hash and file time: [{ name, text, hash, time }]
  *   PUT  /__boards/<name>/head             a status, a mark and words laid into the head of the file (`patchHead`); no version is kept
  *   POST /__boards/<name>/rename           { to }: the file, its history and its plays under the new name; refused where the name is taken or the board is of the row
  *   POST /__boards?export=<date>           a text given out by the library, kept in boards/.history/export-<date>.md
