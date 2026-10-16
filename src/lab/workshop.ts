@@ -12,6 +12,8 @@ import { BoardStage } from './boardStage';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
 import { PlayWatch, type Inside, type ToldPlay } from './playWatch';
+import { WayShow, wayToShow } from './showWay';
+import { BoardFacts } from './workshopFacts';
 import { WorkshopListView, buttonOf, fieldStyle, light } from './workshopListView';
 import { listRows, nextInBatch, rowOf, verdictPatch, type BoardRow, type Verdict } from './workshopLists';
 
@@ -43,6 +45,10 @@ function newHead(id: string): LevelSpec {
  * stage; `E` plays the board as it stands on the real rules, and `E` again stands it back. When
  * a play is written down, a bar under the board takes what the owner says of it: good, to be
  * done again, or to be dropped, and a line of words.
+ *
+ * Two things are counted of a board, and only when they are asked for: `V` plays the fewest moves
+ * from its start on the board of the game, and `C` says in plain lines under the board what the
+ * solver and the bots make of it. With nothing pressed, the page shows no number.
  *
  * The file is the truth, as on the lab of the levels before it. Every change is written to it a
  * moment later; a change of the file made by anyone else is read at once, unless a change made
@@ -83,6 +89,12 @@ class Workshop {
   private lastPlay: { name: string; at: string; wasNew: boolean } | null = null;
   private verdict: Verdict | null = null;
 
+  /** What is counted of the board in hand, by «проверить» and «показать решение». */
+  private readonly facts: BoardFacts;
+  /** A way is shown: the board of the game is played by it, and the stage is taken away. */
+  private showing = false;
+  private readonly show: WayShow;
+
   private readonly topBar = document.createElement('div');
   private readonly stageBox = document.createElement('div');
   private readonly nameInput = document.createElement('input');
@@ -94,6 +106,7 @@ class Workshop {
   /** What is wrong with the board in hand, or that its start is only lent. */
   private readonly boardLine = document.createElement('div');
   private readonly playButton: HTMLButtonElement;
+  private readonly checkButton: HTMLButtonElement;
   /** The place of the lines of «проверить», under the actions. */
   private readonly checkBox = document.createElement('pre');
   private readonly verdictBar = document.createElement('div');
@@ -107,6 +120,11 @@ class Workshop {
     // The page is worked on beside other windows: the game does not stand still when it is hidden.
     game.awake = true;
     this.watcher = new PlayWatch(this.inside, (record, of) => this.tellPlay(record, of.name));
+    // The way is shown on the game as keys, read off its run: it is no play of the owner, and nothing of it is written down.
+    // A key the game has not taken is dropped from its own input when the way is stopped, as `Inside` reads its run.
+    const { inside } = this;
+    const { controller } = game as unknown as { controller: { cancel(): void } };
+    this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller.cancel() }, (line) => this.say(line));
     const { palette } = this;
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
 
@@ -128,8 +146,10 @@ class Workshop {
     this.playButton = buttonOf(palette, 'играть (E)', () => this.togglePlay());
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
-    actions.append(this.playButton, buttonOf(palette, 'копировать для чата', () => void this.copy()));
+    this.checkButton = buttonOf(palette, 'проверить (C)', () => this.facts.toggle());
+    actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()));
     this.checkBox.style.cssText = 'display:none;margin:0;white-space:pre-wrap;font:inherit';
+    this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => this.showWay());
     this.buildVerdict();
     this.told.style.cssText = `color:${palette.dim};min-height:1.4em`;
     bottom.append(actions, this.checkBox, this.verdictBar, this.told);
@@ -139,6 +159,20 @@ class Workshop {
       // A key typed into a field is the field's: the fields stop it short of the game (below).
       if (typed(event)) return;
       const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
+      // While a way is shown, a key stops it where it stands, and goes no further: `E` goes back to the stage, `V` shows the way again once it is stopped.
+      if (this.showing) {
+        event.stopImmediatePropagation();
+        if (event.type !== 'keydown' || event.repeat) return;
+        const running = this.show.running;
+        this.show.stop(true);
+        if (!plain) return;
+        if (event.code === 'KeyE') this.endShow();
+        else if (event.code === 'KeyV' && !running) this.solution();
+        else if (event.code === 'KeyC') this.facts.toggle();
+        else return;
+        event.preventDefault();
+        return;
+      }
       // The verdict after a play is taken first, in a play and out of one alike.
       if (event.type === 'keydown' && plain && this.verdictKey(event.code)) {
         event.stopImmediatePropagation();
@@ -149,6 +183,14 @@ class Workshop {
         event.stopImmediatePropagation();
         event.preventDefault();
         if (!event.repeat) this.togglePlay();
+        return;
+      }
+      if (event.type === 'keydown' && plain && (event.code === 'KeyV' || event.code === 'KeyC')) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        if (event.repeat) return;
+        if (event.code === 'KeyV') this.solution();
+        else this.facts.toggle();
         return;
       }
       if (this.playing) return;
@@ -278,7 +320,7 @@ class Workshop {
 
   /** Opens a board by the name of its file: what waits to be written of the one in hand is written first. */
   private async open(name: string): Promise<void> {
-    if (this.playing) this.togglePlay();
+    this.leave();
     if (this.saveTimer !== 0) await this.save();
     try {
       this.load(name, await readBoard(name));
@@ -326,6 +368,9 @@ class Workshop {
       this.spec = null;
       this.error = (error as Error).message;
     }
+    // Another board: the way asked for was of the board that was.
+    const wanted = this.facts.wanted;
+    if (this.facts.of(this.spec, this.error) && wanted) this.say('');
   }
 
   /** The board in hand as the text of its file. */
@@ -380,7 +425,7 @@ class Workshop {
    * the rules lay nothing of leaves the scene as it was; what is wrong is said over the board.
    */
   private present(board: EditBoard): void {
-    if (this.playing) return;
+    if (this.playing || this.showing) return;
     const { spec } = displaySpecOf(board, this.head);
     if (!spec) return;
     const text = printBoard(normalSpec(spec));
@@ -429,7 +474,7 @@ class Workshop {
       this.nameInput.value = from;
       return this.say('имя: латинские буквы, цифры, - и _');
     }
-    if (this.playing) this.togglePlay();
+    this.leave();
     await this.save();
     // No change is taken while the file goes over: it would be written under the old name. A rename refused leaves the stage as it was.
     const locked = this.editor.locked;
@@ -459,7 +504,7 @@ class Workshop {
     while (taken.has(`${said}-${number}`.toLowerCase())) number++;
     const name = `${said}-${number}`;
     if (!isBoardName(name)) return this.say(`не имя доски: ${name}`);
-    if (this.playing) this.togglePlay();
+    this.leave();
     await this.save();
     const head = newHead(name);
     const text = textOf(emptyBoard(head.size), head, { status: 'D' });
@@ -481,9 +526,12 @@ class Workshop {
 
   /** `E`: the board as it stands is put on the board of the game and played; again, and the stage is back over the game. */
   private togglePlay(): void {
+    if (this.showing) return this.endShow();
     if (!this.playing) {
       const spec = this.playSpec();
       if (!spec) return this.say(this.error ? `не играется: ${this.error}` : 'нет доски');
+      // A way waited for is not shown over a play.
+      this.facts.wanted = false;
       this.playing = true;
       this.topBar.style.visibility = this.stageBox.style.visibility = 'hidden';
       this.inside.audio.setAway(false);
@@ -496,15 +544,65 @@ class Workshop {
     } else {
       this.watcher.stop();
       this.playing = false;
-      this.topBar.style.visibility = this.stageBox.style.visibility = '';
-      this.inside.audio.setAway(true);
-      // The board drawn is put back on the board of the game, as it was before it was played.
-      this.presented = '';
-      this.present(this.editor.current);
-      this.editor.canvas.focus();
-      this.say('');
+      this.backToStage();
     }
     this.playButton.textContent = this.playing ? 'расставлять (E)' : 'играть (E)';
+  }
+
+  /** The stage is back over the game, and the board drawn is put back on the board of the game, as it was before it was played or shown. */
+  private backToStage(): void {
+    this.topBar.style.visibility = this.stageBox.style.visibility = '';
+    this.inside.audio.setAway(true);
+    this.presented = '';
+    this.present(this.editor.current);
+    this.editor.canvas.focus();
+    this.say('');
+  }
+
+  /** A play, or a way shown, is left before another board is taken up. */
+  private leave(): void {
+    if (this.showing) this.endShow();
+    if (this.playing) this.togglePlay();
+  }
+
+  /** `V`: the fewest moves are played from the start of the board, once the solver has them; in the middle of a way shown, it is stopped. */
+  private solution(): void {
+    if (this.playing) return this.say('решение показывается из расстановки: E — к ней');
+    if (this.show.running) return this.show.stop(true);
+    if (!this.spec) return this.say(this.error ? `правила не принимают доску: ${this.error}` : 'нет доски');
+    this.facts.wanted = true;
+    this.facts.ask();
+    const refused = this.facts.instant?.error;
+    if (refused) {
+      this.facts.wanted = false;
+      return this.say(`правила не принимают доску: ${refused}`);
+    }
+    this.showWay();
+  }
+
+  /** The way asked for is shown once the solver has counted the board: put on from its start and played on the real rules, the stage taken away as in a play. */
+  private showWay(): void {
+    const { spec } = this;
+    const { seconds } = this.facts;
+    if (!this.facts.wanted || !spec || this.playing) return;
+    if (seconds === null) return this.say('решаю…');
+    this.facts.wanted = false;
+    const way = wayToShow(spec, seconds);
+    if (typeof way === 'string') return this.say(way);
+    this.showing = true;
+    this.topBar.style.visibility = this.stageBox.style.visibility = 'hidden';
+    this.inside.audio.setAway(false);
+    this.game.playBoard(spec);
+    this.show.start(way);
+    this.playButton.textContent = 'расставлять (E)';
+  }
+
+  /** `E` while a way is shown: the stage is back, as after a play, and nothing is written down. */
+  private endShow(): void {
+    this.show.stop();
+    this.showing = false;
+    this.backToStage();
+    this.playButton.textContent = 'играть (E)';
   }
 
   private tellPlay(record: ToldPlay, name: string): void {
