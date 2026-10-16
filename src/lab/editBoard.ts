@@ -201,6 +201,29 @@ export function moveDie(board: EditBoard, from: { x: number; z: number }, to: { 
   return withCell(withCell(board, from.x, from.z, { kind: 'empty' }), to.x, to.z, carried);
 }
 
+const STEP: Readonly<Record<string, Dir>> = { '1,0': 'E', '-1,0': 'W', '0,1': 'S', '0,-1': 'N' };
+
+/**
+ * A die rolled across the board cell by cell, as the game rolls it: each step is a roll to the
+ * next cell, and its faces turn with it. It goes only to the cell beside it, only onto an empty
+ * cell; before a die, a cell cut out, the player on the floor or the edge it stops, at the last
+ * cell it reached. A fixed die is not rolled. The player on the die goes with it.
+ */
+export function rollAlong(board: EditBoard, from: { x: number; z: number }, cells: readonly { x: number; z: number }[]): { board: EditBoard; at: { x: number; z: number } } {
+  const die = cellAt(board, from.x, from.z);
+  if (!die || die.kind !== 'die' || die.fixed) return { board, at: from };
+  let now = board;
+  let at = from;
+  for (const next of cells) {
+    const dir = STEP[`${next.x - at.x},${next.z - at.z}`];
+    const target = cellAt(now, next.x, next.z);
+    if (!dir || !target || target.kind !== 'empty' || target.floorStart) break;
+    now = moveDie(rollDie(now, at.x, at.z, dir), at, next);
+    at = next;
+  }
+  return { board: at === from ? board : now, at };
+}
+
 /** A die with a face on top dropped on a cell: an empty cell gets one, a die is turned to that face and keeps its marks. */
 export function setTop(board: EditBoard, x: number, z: number, top: number): EditBoard {
   const cell = cellAt(board, x, z);

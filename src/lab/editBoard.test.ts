@@ -4,7 +4,7 @@ import { normalSpec } from '../levels/boardFile';
 import { fileBoard } from '../levels/boardFiles';
 import { rowBoards } from '../levels/boardSets';
 import { ALL_ORIENTATIONS, roll } from '../rules/orientation';
-import { cellAt, clearCell, cycleLeaving, displaySpecOf, editBoardOf, emptyBoard, moveDie, putDie, putFixed, removeAt, resize, rollDie, setStart, setTop, specOf, spinDie, textOf, toggleFixed, toggleHole } from './editBoard';
+import { cellAt, clearCell, cycleLeaving, displaySpecOf, editBoardOf, emptyBoard, moveDie, putDie, putFixed, removeAt, resize, rollAlong, rollDie, setStart, setTop, specOf, spinDie, textOf, toggleFixed, toggleHole } from './editBoard';
 
 describe('editBoardOf', () => {
   it('holds a board cell for cell: a start on the floor, a fixed die, a die that is leaving', () => {
@@ -116,6 +116,32 @@ describe('the changes a drag makes', () => {
     expect(cellAt(removeAt(board, 1, 1), 1, 1)).toEqual({ kind: 'empty' });
     expect(cellAt(removeAt(board, 0, 0), 0, 0)).toEqual({ kind: 'empty' });
     expect(removeAt(board, 2, 2)).toBe(board);
+  });
+});
+
+describe('rollAlong', () => {
+  const lies = (top: number) => ALL_ORIENTATIONS.find((o) => o.top === top)!;
+  const start = putDie(emptyBoard(4), 0, 0); // a die with 1 on top at 0,0
+  it('rolls a die cell by cell as the game rolls it, and leaves the cells behind it empty', () => {
+    const { board, at } = rollAlong(start, { x: 0, z: 0 }, [{ x: 1, z: 0 }, { x: 2, z: 0 }, { x: 2, z: 1 }]);
+    const turned = roll(roll(roll(lies(1), 'E'), 'E'), 'S');
+    expect(at).toEqual({ x: 2, z: 1 });
+    expect(cellAt(board, 2, 1)).toMatchObject({ kind: 'die', top: turned.top, north: turned.north });
+    expect(cellAt(board, 0, 0)).toEqual({ kind: 'empty' });
+  });
+  it('stops at the last free cell: before a die, a cut cell, the player on the floor, or a step that is no step', () => {
+    const blocked = putDie(toggleHole(start, 1, 1), 2, 0);
+    expect(rollAlong(blocked, { x: 0, z: 0 }, [{ x: 1, z: 0 }, { x: 2, z: 0 }]).at).toEqual({ x: 1, z: 0 });
+    expect(rollAlong(blocked, { x: 0, z: 0 }, [{ x: 0, z: 1 }, { x: 1, z: 1 }]).at).toEqual({ x: 0, z: 1 });
+    expect(rollAlong(start, { x: 0, z: 0 }, [{ x: 2, z: 0 }]).at).toEqual({ x: 0, z: 0 });
+    const floor = setStart(start, 1, 0);
+    expect(rollAlong(floor, { x: 0, z: 0 }, [{ x: 1, z: 0 }]).at).toEqual({ x: 0, z: 0 });
+  });
+  it('takes the player on the die along with it, and does not roll a fixed die', () => {
+    const riding = setStart(start, 0, 0);
+    expect(cellAt(rollAlong(riding, { x: 0, z: 0 }, [{ x: 1, z: 0 }]).board, 1, 0)).toMatchObject({ kind: 'die', start: true });
+    const fixed = toggleFixed(start, 0, 0);
+    expect(rollAlong(fixed, { x: 0, z: 0 }, [{ x: 1, z: 0 }]).board).toBe(fixed);
   });
 });
 
