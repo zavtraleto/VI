@@ -1,11 +1,9 @@
 import type { Dir } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults, type Palette } from '../shell/theme';
-import type { Overlay } from './boardEditor';
 import { pickCell, reachOf, type CellPoint } from './cellPick';
 import { cellAt, cycleLeaving, emptyBoard, moveDie, putFixed, removeAt, rollAlong, rollDie, sameBoard, setStart, setTop, spinDie, toggleFixed, toggleHole, type EditBoard } from './editBoard';
 
 const ARROWS: Readonly<Record<string, Dir>> = { ArrowUp: 'N', ArrowRight: 'E', ArrowDown: 'S', ArrowLeft: 'W' };
-const TOWARDS: Readonly<Record<Dir, { dx: number; dz: number }>> = { N: { dx: 0, dz: -1 }, E: { dx: 1, dz: 0 }, S: { dx: 0, dz: 1 }, W: { dx: -1, dz: 0 } };
 /** A press that moves less than this before it is let go is a click, not a drag. */
 const DRAG_PX = 4;
 
@@ -19,7 +17,7 @@ export type Project = (x: number, z: number, y?: number) => { x: number; y: numb
  * The board of the lab as it is put together: on the board of the game itself, seen as the
  * player sees it. The scene is the game's; this is a clear layer over it that takes the mouse,
  * finds the cell under it and draws what the game does not: the cell the mouse is over, the die
- * picked, the views of the solver. Which cell is under a point is asked of the view of the game,
+ * picked, the marks of a file. Which cell is under a point is asked of the view of the game,
  * cell by cell (`project`), since the board is seen from a slant.
  *
  * In the corner at the bottom on the left is the list: six dice by the face on top, a fixed die
@@ -46,7 +44,6 @@ export class BoardStage {
   private board: EditBoard = emptyBoard(4);
   private before: EditBoard[] = [];
   private after: EditBoard[] = [];
-  private overlay: Overlay | null = null;
   private readonly palette: Palette = paletteAt(shellDefaults(), 0);
   private readonly list = document.createElement('div');
   private readonly ghost = document.createElement('div');
@@ -62,8 +59,6 @@ export class BoardStage {
    * is let go.
    */
   private rolling: { from: { x: number; z: number }; cells: { x: number; z: number }[]; board: EditBoard } | null = null;
-  /** The dice the owner has pinned, by their cells: what a generator asked to build about them, or to mend the board, leaves as it is. No file keeps them. */
-  private pinned = new Set<string>();
   /** The face a fixed die of the list is put with: the face of the die last taken. */
   private lastTop = 2;
 
@@ -72,8 +67,6 @@ export class BoardStage {
     private readonly project: Project,
     private readonly onChange: (board: EditBoard) => void,
     private readonly present: (board: EditBoard) => void,
-    /** Told when a die is pinned or let go. */
-    private readonly onPin: () => void = () => undefined,
   ) {
     const { canvas, palette } = this;
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;outline:none;cursor:default;touch-action:none';
@@ -124,14 +117,11 @@ export class BoardStage {
       if (rolling) {
         // The whole roll is one step, from the board in hand; a roll that came back as it went is none.
         const done = rolling.board;
-        const at = rolling.cells[rolling.cells.length - 1];
         this.rolling = null;
         if (sameBoard(done, this.board)) {
           this.present(this.board);
           return;
         }
-        // The pin of a die goes with it.
-        if (at && !this.locked && this.pinned.delete(`${rolling.from.x},${rolling.from.z}`)) this.pinned.add(`${at.x},${at.z}`);
         this.change(done);
         // A stage locked while the die was rolling takes no change: the board in hand is shown again.
         if (this.board !== done) this.present(this.board);
@@ -224,7 +214,6 @@ export class BoardStage {
     this.before.push(this.board);
     this.after = [];
     this.board = next;
-    this.prunePins();
     this.present(next);
     this.onChange(next);
   }
@@ -251,22 +240,6 @@ export class BoardStage {
     this.onChange(next);
   }
 
-  /** The cells of the dice that are pinned: a pin on a cell with no die any more is no pin. */
-  get pins(): { x: number; z: number }[] {
-    const pins: { x: number; z: number }[] = [];
-    this.board.cells.forEach((row, z) => row.forEach((cell, x) => cell.kind === 'die' && this.pinned.has(`${x},${z}`) && pins.push({ x, z })));
-    return pins;
-  }
-
-  setPins(cells: readonly { x: number; z: number }[]): void {
-    this.pinned = new Set(cells.map(({ x, z }) => `${x},${z}`));
-  }
-
-  /** What is drawn over the board of what the solver says; null for nothing. */
-  setOverlay(overlay: Overlay | null): void {
-    this.overlay = overlay;
-  }
-
   /** A key of the stage; true where it was one of them. */
   key(event: KeyboardEvent): boolean {
     // While a die is on its way the keys do nothing: they would change a board the roll is not of.
@@ -288,12 +261,7 @@ export class BoardStage {
     const picked = this.selected;
     if (ARROWS[event.code] && picked) this.change(rollDie(board, picked.x, picked.z, ARROWS[event.code]));
     else if (!at) return false;
-    else if (event.code === 'KeyK') {
-      if (cellAt(board, at.x, at.z)?.kind !== 'die') return true;
-      const key = `${at.x},${at.z}`;
-      if (!this.pinned.delete(key)) this.pinned.add(key);
-      this.onPin();
-    } else if (event.code === 'KeyH') this.change(toggleHole(board, at.x, at.z));
+    else if (event.code === 'KeyH') this.change(toggleHole(board, at.x, at.z));
     else if (event.code === 'KeyF') this.change(toggleFixed(board, at.x, at.z));
     else if (event.code === 'KeyP') this.change(setStart(board, at.x, at.z));
     else if (event.code === 'KeyL') this.change(cycleLeaving(board, at.x, at.z, this.sink));
@@ -357,22 +325,7 @@ export class BoardStage {
     if (carried.kind === 'die') this.change(setTop(board, cell.x, cell.z, carried.top));
     else if (carried.kind === 'fixed') this.change(putFixed(board, cell.x, cell.z, this.lastTop));
     else if (carried.kind === 'player') this.change(setStart(board, cell.x, cell.z));
-    else {
-      const moved = moveDie(board, carried.from, cell);
-      // The pin of a die goes with it.
-      if (moved !== board && this.pinned.delete(`${carried.from.x},${carried.from.z}`)) this.pinned.add(`${cell.x},${cell.z}`);
-      this.change(moved);
-    }
-  }
-
-  /** A pin on a cell that holds no die any more is taken off: a die put there later is not pinned for it. */
-  private prunePins(): void {
-    let changed = false;
-    for (const key of [...this.pinned]) {
-      const [x, z] = key.split(',').map(Number);
-      if (cellAt(this.board, x, z)?.kind !== 'die') changed = this.pinned.delete(key) || changed;
-    }
-    if (changed) this.onPin();
+    else this.change(moveDie(board, carried.from, cell));
   }
 
   /**
@@ -436,68 +389,14 @@ export class BoardStage {
     // What the scene of the game does not say of a board being drawn: the marks of a file.
     board.cells.forEach((row, z) =>
       row.forEach((cell, x) => {
-        const pin = this.pinned.has(`${x},${z}`);
-        if (cell.kind !== 'die' || (!cell.fixed && !cell.leaving && !pin)) return;
+        if (cell.kind !== 'die' || (!cell.fixed && !cell.leaving)) return;
         const at = this.project(x, z, 1.25);
         ctx.fillStyle = cell.leaving ? palette.signal : palette.ink;
         ctx.font = `13px ${PROGRAM_FONT}`;
         ctx.textAlign = 'center';
-        ctx.fillText(`${pin ? 'K' : ''}${cell.fixed ? 'F' : ''}${cell.leaving ? `~${cell.leaving}` : ''}`, at.x - box.left, at.y - box.top);
+        ctx.fillText(`${cell.fixed ? 'F' : ''}${cell.leaving ? `~${cell.leaving}` : ''}`, at.x - box.left, at.y - box.top);
       }),
     );
-
-    const { overlay } = this;
-    if (overlay) {
-      for (const { x, z } of overlay.spare) {
-        ctx.strokeStyle = palette.dim;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([3, 3]);
-        this.outline(ctx, box, x, z, 1, 0.12);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      for (const { x, z, change } of overlay.sensitive) {
-        ctx.strokeStyle = change === 'unsolved' ? palette.signal : palette.channels[1];
-        ctx.lineWidth = change === 'unsolved' ? 4 : 2;
-        this.outline(ctx, box, x, z, 1, 0.06);
-        ctx.stroke();
-      }
-      for (const { x, z } of overlay.changed ?? []) {
-        ctx.strokeStyle = palette.ink;
-        ctx.lineWidth = 3;
-        this.outline(ctx, box, x, z, this.heightAt(x, z));
-        ctx.stroke();
-      }
-      const colours = { par: palette.ink, longer: palette.dim, dead: palette.signal, unknown: palette.faint } as const;
-      for (const { x, z, dir, push, keeps } of overlay.arrows) {
-        const { dx, dz } = TOWARDS[dir];
-        // The arrow lies on top of the die, from its middle to its edge on the side it goes to.
-        const from = this.project(x + dx * 0.1, z + dz * 0.1, 1.02);
-        const to = this.project(x + dx * 0.62, z + dz * 0.62, 1.02);
-        const fx = from.x - box.left;
-        const fy = from.y - box.top;
-        const tx = to.x - box.left;
-        const ty = to.y - box.top;
-        const length = Math.hypot(tx - fx, ty - fy) || 1;
-        const ux = (tx - fx) / length;
-        const uy = (ty - fy) / length;
-        const head = Math.max(6, length * 0.3);
-        ctx.strokeStyle = ctx.fillStyle = colours[keeps];
-        ctx.lineWidth = keeps === 'par' ? 5 : 3;
-        ctx.setLineDash(push ? [5, 4] : []);
-        ctx.beginPath();
-        ctx.moveTo(fx, fy);
-        ctx.lineTo(tx - ux * head, ty - uy * head);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(tx, ty);
-        ctx.lineTo(tx - ux * head - uy * head * 0.6, ty - uy * head + ux * head * 0.6);
-        ctx.lineTo(tx - ux * head + uy * head * 0.6, ty - uy * head - ux * head * 0.6);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
 
     if (this.selected) {
       ctx.setLineDash([5, 4]);

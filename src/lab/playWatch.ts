@@ -2,9 +2,9 @@ import type { RunState } from '../rules/types';
 import { playRecordOf, type PlayRecord } from './playLog';
 
 /**
- * Watching a board played in the lab, to write the play down when it is over: the pages of the
- * levels (`?lab=levels`) and of the library (`?lab=library`) both put a board on the board of
- * the game (`Game.playBoard`) and watch it with this.
+ * Watching a board played in the lab, to write the play down when it is over: the workshop of
+ * the levels (`?lab=workshop`) puts a board on the board of the game (`Game.playBoard`) and
+ * watches it with this.
  */
 
 /** What the lab reaches inside the game. These are private to it: the lab is a tool and looks inside. */

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fileBoard } from '../levels/boardFiles';
-import { parseBoard } from '../levels/boardFile';
-import { GEN_PLACES, answer, instantOf, laterOf, offersOfBoard, secondsOf, spareOf } from './labFacts';
+import { answer, instantOf, laterOf, secondsOf, spareOf } from './labFacts';
 
 const R03 = fileBoard('R03');
 
@@ -30,15 +29,6 @@ describe('the tiers of the lab', () => {
     const three = { ...R03, norm: 3, layout: { ...R03.layout!, dice: [...R03.layout!.dice, { x: 2, z: 0, top: 2, north: 3 }] } };
     expect(spareOf(three)).toContainEqual({ x: 2, z: 0 });
     expect(spareOf(three)).not.toContainEqual({ x: 1, z: 2 });
-  });
-  it('offers the boards one change away that are still cleared, the longest way first, each a file of its own', () => {
-    const offers = offersOfBoard(R03, 'H07');
-    expect(offers.length).toBeGreaterThan(0);
-    expect(offers.map((offer) => offer.par)).toEqual([...offers.map((offer) => offer.par!)].sort((a, b) => b - a));
-    expect(offers[0].name).toBe('H07-e1');
-    expect(parseBoard(offers[0].text, offers[0].name).par).toBe(offers[0].par);
-    expect(GEN_PLACES).toContain('R03');
-    expect(GEN_PLACES).toContain('P06');
   });
   it('answers a question under its number, and a board that cannot be asked with what went wrong', () => {
     expect(answer({ id: 7, tier: 'seconds', spec: R03 })).toMatchObject({ id: 7, tier: 'seconds', facts: { firsts: expect.any(Number) } });

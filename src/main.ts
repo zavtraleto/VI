@@ -37,16 +37,14 @@ if (lab === 'shell') {
   const game = new Game(document.getElementById('app')!);
   (window as unknown as { vi: Game }).vi = game;
   void import('./lab/juiceLab').then(({ startJuiceLab }) => startJuiceLab(game));
-} else if (lab === 'levels') {
-  // The lab of the levels: the game itself, with an editor of boards laid over it and a key that plays the board drawn.
+} else if (lab === 'workshop' || lab === 'levels' || lab === 'library') {
+  // The workshop of the levels: the lists of the boards, the game in the middle to draw a board on and play it, and a verdict after the play.
   const game = new Game(document.getElementById('app')!);
   (window as unknown as { vi: Game }).vi = game;
-  void import('./lab/levelsLab').then(({ startLevelsLab }) => startLevelsLab(game));
-} else if (lab === 'library') {
-  // The library of the boards: every file of boards/ in a table, the game beside it to play one, mark it and say a word of it.
-  const game = new Game(document.getElementById('app')!);
-  (window as unknown as { vi: Game }).vi = game;
-  void import('./lab/libraryLab').then(({ startLibraryLab }) => startLibraryLab(game));
+  void import('./lab/workshop').then(({ startWorkshop }) => startWorkshop(game));
+} else if (lab === '') {
+  // `?lab` with nothing after it: the list of every lab, with what each is for.
+  void import('./lab/labIndex').then(({ startLabIndex }) => startLabIndex());
 } else if (lab === 'sound') {
   // The lab for the sound: no game, a button for everything that can be heard and a panel of its parameters.
   void import('./lab/soundLab').then(({ startSoundLab }) => startSoundLab());
