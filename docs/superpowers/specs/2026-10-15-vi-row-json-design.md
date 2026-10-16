@@ -1,6 +1,6 @@
 # VI — ряд уровней из файлов: `row.json` и файлы досок
 
-> Вид: решение. Статус: в силе. Дата: 2026-10-15. Принято владельцем 15 октября 2026 («продолжи работу» после спеки); не построено. Устно принято по частям 15 октября 2026 (чат уровней), раздел 2.
+> Вид: решение. Статус: построено. Дата: 2026-10-15. Принято владельцем 15 октября 2026 («продолжи работу» после спеки), устно по частям в тот же день (чат уровней), раздел 2. Построено 16 октября 2026, v0.2.63; что вышло иначе — раздел 11.
 > Что заменит: доски-литералы в `src/levels/road.ts` (`ROAD`, `ROAD_SPARES`) и `src/levels/levels.ts` (`CHAPTER_BOARDS`, `PARKED`, `SPARES`), `CHAPTERS` и `STOPS` в `src/levels/chapters.ts`, `ROAD_BLOCKS`, `ROAD_SIGNS`, `ROAD_IDLE`, `ROAD_LESSONS`, `ROAD_HINTS`, `HINTS`, `PIECES_COUNTED`, `COUNTERS_UNTIL`, деление «кусок дороги / уровень списка» в игре и сохранении. Что будет жить в коде: boards/row.json, src/levels/row.ts, src/levels/row.gen.ts, scripts/row.mjs, vite.boards.ts, src/levels/campaign.ts, src/app/game.ts, src/app/passage.ts, src/app/signWay.ts, src/app/hint.ts, src/platform/settings.ts, src/levels/library.ts, src/levels/grammar.ts.
 
 Исполнитель читает эту спеку и файлы, названные в разделе 10. Весь проект заново не изучается.
@@ -294,3 +294,14 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
 ## 10. Файлы, которые читает исполнитель
 
 `src/levels/road.ts`, `src/levels/levels.ts`, `src/levels/chapters.ts`, `src/levels/campaign.ts`, `src/levels/boardFile.ts`, `src/levels/library.ts`, `src/levels/grammar.ts`, `src/app/game.ts` (поиск по `piece`, `levelIndex`, `ROAD`, `LEVELS`, `PIECES_COUNTED`, `COUNTERS_UNTIL`, `startPassage`, `boardFrame`, `countLevel`, `showLevels`, `showStart`), `src/app/passage.ts`, `src/app/signWay.ts`, `src/app/hint.ts`, `src/app/roadCounters.ts`, `src/platform/settings.ts`, `vite.boards.ts`, `scripts/library.mjs`, `docs/VI_Levels_Lab.md` (разделы 1 и 15). Тесты, которые меняются, — раздел 7.
+
+## 11. Что вышло иначе
+
+- Файлы досок ряда исправлять не пришлось: переходный тест (ряд из файлов против ряда кода, доска в доску и помощь в помощь) прошёл с первого раза.
+- Проверка «какой записанный файл трогает ряд» вынесена из плагина дев-сервера в чистую `touchesRow` (`src/levels/row.ts`) с тестом: плагин вне `tsc` и `vitest`. Плагин проверен запуском Vite из worktree: правка пересобирает `row.gen.ts`, отказ оставляет прежний и говорит строку, возврат возвращает.
+- Отчёт (7.3) живёт не в отдельном `scripts/rowReport.mjs`, а в `scripts/row.mjs` и `placeRow`/`PLACE_HEAD` в `src/levels/table.ts` — там уже складывается таблица дороги; колонки `near` и `whole` (обход доски не больше девяти клеток). `report place=5` дал для `B01_s290` те же числа, что держал `road.test.ts`: торопливый 67 %, случайный 77 %, `near` 9 0 0 5, `whole` 8592 0 12.
+- Доски, что были в коде вне ряда (парковка, резерв проб), тесты и скрипты берут по кодам из `src/levels/boardSets.ts` (через `boardFiles.ts`); `import.meta.glob` работает и под `runnerImport` скриптов. Свойства ряда из удалённого `levels.test.ts` (комбо только рабочих граней, нет доски дважды и повёрнутой, нет предела ходов) перенесены в `row.test.ts`; тесты мест пробы (`P…`) по рецептам ушли вместе с ним.
+- `scripts/library.mjs`: самым новым источником истории стал коммит `66b1d22` (последний с досками в коде) с пометкой `newest` и псевдонимом `HEAD` для `scripts/library-words.json`. На чистом кэше всплыла старая ошибка: `tar` читал обратную косую перед цифрой в пути кэша как экранирование — путь отдаётся с прямыми косыми. После этого `import` кладёт новый файл `B01_s290e0` — доску курса, чьё имя владелец отдал новой доске; в коммит он не взят, решение за владельцем.
+- Размер сборки не изменился (`index` 565,75 кБ против 565,12 кБ, gzip 203,95 против 204,50): доски-литералы выпали из сборки, как только игра перестала их импортировать (шаг 2), а `row.gen.ts` — только 25 досок.
+- `grammar.test.ts` строит место ряда (`Place`), а не `Stop` с `board`; `Board` ушёл.
+
