@@ -2571,6 +2571,7 @@ export const ROW: Row = {
 
 if (import.meta.hot) {
   import.meta.hot.accept(() => {
+    if (typeof window === 'undefined') return;
     const lab = new URLSearchParams(window.location.search).get('lab') ?? '';
     if (["workshop","levels","library"].includes(lab)) window.dispatchEvent(new Event("vi:row"));
     else window.location.reload();

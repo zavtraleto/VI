@@ -177,7 +177,8 @@ export const ROW_EVENT = 'vi:row';
  * The text of `row.gen.ts` for a row: one literal, keys as they were laid, two spaces. On the dev
  * server the module takes its own update, so a row laid again does not load every page again: a
  * lab of the levels is told by an event and reads the row itself, any other page is loaded again
- * to play the new row. Elsewhere (a build, a test, a script) `import.meta.hot` is not there.
+ * to play the new row; a worker that reads the row takes the update and does nothing. Elsewhere (a
+ * build, a test, a script) `import.meta.hot` is not there.
  */
 export function rowText(row: Row): string {
   return [
@@ -188,6 +189,8 @@ export function rowText(row: Row): string {
     '',
     'if (import.meta.hot) {',
     '  import.meta.hot.accept(() => {',
+    // A worker that reads the row (the solver, through labText.ts) is given import.meta.hot too: it has no page to tell.
+    "    if (typeof window === 'undefined') return;",
     `    const lab = new URLSearchParams(window.location.search).get('lab') ?? '';`,
     `    if (${JSON.stringify(ROW_LABS)}.includes(lab)) window.dispatchEvent(new Event(${JSON.stringify(ROW_EVENT)}));`,
     '    else window.location.reload();',

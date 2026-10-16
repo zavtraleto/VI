@@ -6,6 +6,7 @@ import type { Palette } from '../shell/theme';
 import { onBoardChanged, swapBoards, writeBoard } from './boardsClient';
 import { rowPathLine } from './checkLines';
 import { textOf, type EditBoard } from './editBoard';
+import type { Seconds } from './labFacts';
 import type { BoardFacts } from './workshopFacts';
 import { buttonOf } from './workshopListView';
 import { freeName } from './workshopLists';
@@ -36,6 +37,17 @@ export interface CampaignPage extends RowPage {
 const keepsWay = (spec: LevelSpec): boolean => spec.par !== undefined && spec.exact === true && (spec.solution?.length ?? 0) > 0;
 /** The file a copy of a board of the row was made of, by its `origin`. */
 const COPY_OF = /^копия (\S+)$/;
+
+/**
+ * The way the board in hand is to keep now, or null: a board of the row, not locked, with no way
+ * kept in its head, and the fewest moves proved. An empty way is no way kept (`keepsWay`): written,
+ * it would have the solver asked again and again.
+ */
+export function wayToKeep(board: Pick<CampaignBoard, 'extra' | 'head' | 'locked'>, seconds: Seconds | string | null): Required<Pick<LevelSpec, 'par' | 'exact' | 'solution'>> | null {
+  if (board.extra.status !== 'R' || board.locked || keepsWay(board.head) || !seconds || typeof seconds === 'string') return null;
+  const { par, exact, way } = seconds.check;
+  return exact && par !== null && way && way.length > 0 ? { par, exact: true, solution: way } : null;
+}
 
 /**
  * A board of the campaign edited on the workshop (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md,
@@ -79,7 +91,11 @@ export class WorkshopCampaign {
     window.addEventListener(ROW_EVENT, () => this.laid());
   }
 
-  /** The board in hand was opened, changed or read again: the solver is asked of it where its way is wanted, and the line and the buttons are as it has them. */
+  /**
+   * The board in hand was opened, changed or read again, or its stage unlocked: the solver is asked
+   * of it where its way is wanted, a way proved before it was of the row or while it was locked is
+   * written now, and the line and the buttons are as it has them.
+   */
   show(): void {
     this.facts.ask();
     const { name, extra } = this.page.board();
@@ -87,18 +103,14 @@ export class WorkshopCampaign {
     const code = this.codeOf(name, extra);
     this.swapButton.style.display = code ? '' : 'none';
     if (code) this.swapButton.textContent = `заменить в ряду ${code}`;
-    this.showLine();
+    this.told();
   }
 
   /** A fact of the board in hand was counted: the fewest moves proved, a board of the row with no way keeps them. */
   told(): void {
-    const { extra, head, locked } = this.page.board();
-    const { seconds } = this.facts;
-    if (extra.status === 'R' && !locked && !keepsWay(head) && seconds && typeof seconds !== 'string') {
-      const { par, exact, way } = seconds.check;
-      // An empty way is no way kept (`keepsWay`): written, it would have the solver asked again and again.
-      if (exact && par !== null && way && way.length > 0) return this.page.keep({ par, exact: true, solution: way });
-    }
+    const way = wayToKeep(this.page.board(), this.facts.seconds);
+    // Kept, the board is changed and shown again (`show`), and the way kept stops it here.
+    if (way) return this.page.keep(way);
     this.showLine();
   }
 
@@ -119,8 +131,9 @@ export class WorkshopCampaign {
     this.line.style.display = line === null ? 'none' : '';
   }
 
-  /** The code of the board of the row a board is a copy of, where that board is in the row still. */
+  /** The code of the board of the row a board is a copy of, where that board is in the row still. A copy given the board of the row (`RC`) holds the board that was: it is not swapped back. */
   private codeOf(name: string, extra: BoardHead): string | null {
+    if (extra.status === 'RC') return null;
     const code = COPY_OF.exec(extra.origin ?? '')?.[1];
     return code && code.toLowerCase() !== name.toLowerCase() && this.row.holds(code) ? code : null;
   }
@@ -153,8 +166,8 @@ export class WorkshopCampaign {
    * «заменить в ряду <код>»: what waits to be written of the copy is written, then the server swaps
    * the boards of the two files (`swapBoards`), both or neither. While it works the stage is locked;
    * swapped, it stays locked until the board of the row is opened, so that no change made meanwhile
-   * writes the copy's board over the one the copy now holds. Refused, the line is said, and the lock
-   * is put back where the copy is still in hand.
+   * writes the copy's board over the one the copy now holds. Refused, the line is said; where the copy
+   * is still in hand the lock is put back, and what was counted meanwhile is taken.
    */
   private async replace(): Promise<void> {
     const { name, extra } = this.page.board();
@@ -168,8 +181,11 @@ export class WorkshopCampaign {
       stage.locked = true;
       await swapBoards(code, name);
     } catch (error) {
-      if (this.page.board().name === name) stage.locked = locked;
-      return this.page.say(`не заменено: ${refusal(error as Error)}`);
+      this.page.say(`не заменено: ${refusal(error as Error)}`);
+      if (this.page.board().name !== name) return;
+      stage.locked = locked;
+      // The file is as it was: what was counted while the stage was locked is taken now.
+      return this.show();
     } finally {
       this.busy = false;
     }

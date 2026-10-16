@@ -2,7 +2,7 @@ import { boardNameOf, isBoardName } from '../app/boardProbe';
 import type { Game } from '../app/game';
 import { normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead } from '../levels/boardFile';
 import { BATCH_WORD } from '../levels/labText';
-import { asInRow, resolveName } from '../levels/library';
+import { resolveName } from '../levels/library';
 import type { LevelSpec } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { addPlay, listHeads, onBoardChanged, readBoard, renameBoard, writeBoard, writeHead } from './boardsClient';
@@ -124,7 +124,7 @@ class Workshop {
     this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller?.cancel() }, (line) => this.say(line));
     const { palette } = this;
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
-    const page = { say: (line: string) => this.say(line), save: () => this.save(), stage: () => this.editor, readLists: () => this.readLists(), reread: (name: string) => this.changedOutside(name), open: (name: string) => this.open(name) };
+    const page = { say: (line: string) => this.say(line), save: () => this.save(), stage: () => this.editor, readLists: () => this.readLists(), reread: async (name: string) => (await this.changedOutside(name), this.showHead()), open: (name: string) => this.open(name) };
     this.row = new WorkshopRow(palette, this.lists, page);
 
     // The game stands to the right of the lists: its page is moved over, and the board is laid in what is left.
@@ -146,7 +146,13 @@ class Workshop {
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
     this.checkButton = buttonOf(palette, 'проверить (C)', () => this.facts.toggle());
     this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => (this.showWay(), this.campaign.told()));
-    this.campaign = new WorkshopCampaign(palette, this.facts, this.row, { ...page, board: () => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.editor.locked }), names: () => this.rows.map((row) => row.name), keep: (way) => ((this.head = { ...this.head, ...way }), this.keepWay(), this.edited(false)) });
+    this.campaign = new WorkshopCampaign(palette, this.facts, this.row, {
+      ...page,
+      board: () => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.editor.locked }),
+      names: () => this.rows.map((row) => row.name),
+      // The way proved is laid into the head and written, and remembered for the board as it stands.
+      keep: (way) => ((this.head = { ...this.head, ...way }), this.keepWay(), this.edited(false)),
+    });
     this.buildTop();
     actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()), this.row.insertButton, this.campaign.copyButton, this.campaign.swapButton);
     this.buildVerdict();
@@ -478,7 +484,7 @@ class Workshop {
     }
     this.leave();
     await this.save();
-    // No change is taken while the file goes over: it would be written under the old name. A rename refused leaves the stage as it was.
+    // No change is taken while the file goes over: it would be written under the old name. A rename refused leaves the stage as it was, and shows it again for what was counted meanwhile.
     const locked = this.editor.locked;
     this.editor.locked = true;
     try {
@@ -486,6 +492,7 @@ class Workshop {
     } catch (error) {
       this.editor.locked = locked;
       this.nameInput.value = from;
+      this.showHead();
       return this.say(`не переименовано: ${(error as Error).message}`);
     }
     if (this.lastPlay?.name === from) this.lastPlay = { ...this.lastPlay, name: to };
@@ -515,18 +522,11 @@ class Workshop {
     this.load(name, text);
   }
 
-  /** The board as it is played: a board of the row on the faces of its chapter, as the player meets it. */
-  private playSpec(): LevelSpec | null {
-    if (!this.spec) return null;
-    const place = this.rows.find((row) => row.name === this.name)?.place ?? null;
-    return asInRow(this.spec, place, this.row.chapters);
-  }
-
   /** `E`: the board as it stands is put on the board of the game and played; again, and the stage is back over the game. */
   private togglePlay(): void {
     if (this.showing) return this.endShow();
     if (!this.playing) {
-      const spec = this.playSpec();
+      const spec = this.spec && this.row.asPlayed(this.spec, this.name, this.rows);
       if (!spec) return this.say(this.error ? `не играется: ${this.error}` : 'нет доски');
       // A way waited for is not shown over a play.
       this.facts.wanted = false;

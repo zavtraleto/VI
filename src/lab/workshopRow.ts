@@ -1,8 +1,9 @@
 import { fastGrammar } from '../levels/grammar';
-import { rowChapters, type LibraryRowChapter } from '../levels/library';
+import { asInRow, rowChapters, type LibraryRowChapter } from '../levels/library';
 import { CAMERAS, HELP_KEYS, HINT_KEYS, PLAQUES, ROLES, ROW_EVENT, SIGNS, TECHNIQUES, WAITS, buildRow, readRowFile, type Help, type RowFile, type RowPlaceFile } from '../levels/row';
 import { ROW } from '../levels/row.gen';
 import { helpNear, type PlaceFields, type RowOp } from '../levels/rowEdit';
+import type { LevelSpec } from '../rules/types';
 import type { Palette } from '../shell/theme';
 import { editRow, readRow } from './boardsClient';
 import { boardLine, buttonOf, fieldStyle, type RowList, type WorkshopListView } from './workshopListView';
@@ -17,7 +18,7 @@ export interface RowPage {
   stage(): { locked: boolean };
   /** Reads every file and the row again (`WorkshopRow.lay`), and shows them. */
   readLists(): Promise<void>;
-  /** Reads a file changed on the disk again, and the board in hand with it where it is that one. */
+  /** Reads a file changed on the disk again, and the board in hand with it where it is that one; the board in hand is shown again either way. */
   reread(name: string): Promise<void>;
   open(name: string): Promise<void>;
 }
@@ -97,6 +98,11 @@ export class WorkshopRow implements RowList {
     lists.attachRow(this);
     // The dev server laid the row again (row.gen.ts): the files and the row are read anew, and the page is not loaded again.
     window.addEventListener(ROW_EVENT, () => void page.readLists());
+  }
+
+  /** A board as it is played: a board of the row on the faces of its chapter, as the player meets it. */
+  asPlayed(spec: LevelSpec, name: string, rows: readonly BoardRow[]): LevelSpec {
+    return asInRow(spec, rows.find((row) => row.name === name)?.place ?? null, this.chapters);
   }
 
   /** Whether a board has a place in row.json. */
@@ -203,7 +209,8 @@ export class WorkshopRow implements RowList {
    * since the operation may lay a status into its file; where it cannot be, nothing is sent. While
    * the server works the stage is locked, so that no change made meanwhile writes the old head back
    * over the status it lays. Done, the files and the row are read again and the board in hand with
-   * them; refused, its line is said and the form stays as it is.
+   * them; refused, its line is said and the form stays as it is. Either way the board is read and
+   * shown again once the lock is back, so that what was counted of it meanwhile is taken.
    */
   private async run(op: RowOp, done: string): Promise<void> {
     if (this.busy) return;
@@ -212,15 +219,20 @@ export class WorkshopRow implements RowList {
     const locked = stage.locked;
     // The lock is put back only on the board it was taken of: another board opened meanwhile has its own.
     const name = this.name;
+    let refused: string | null = null;
     try {
       if (!(await this.page.save())) return;
       stage.locked = true;
       await editRow(op);
     } catch (error) {
-      return this.page.say(`${op.board}: ${refusal(error as Error)}`);
+      refused = refusal(error as Error);
     } finally {
       if (this.name === name) stage.locked = locked;
       this.busy = false;
+    }
+    if (refused !== null) {
+      this.page.say(`${op.board}: ${refused}`);
+      return this.page.reread(op.board);
     }
     this.removing = false;
     this.shut();
