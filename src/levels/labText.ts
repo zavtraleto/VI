@@ -337,6 +337,18 @@ export function genFile(recipe: Recipe, fit: Pick<Fit, 'seed' | 'spec'>): { name
 export const BATCH_WORD = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/;
 
 /**
+ * The names a board of a batch may not take: the boards of its folder (the names of its `.txt`
+ * files), and, where the folder is `boards/`, every name a history is kept under in
+ * `boards/.history/`. The dev server gives the versions and the plays of a history to the board
+ * of its name, so a new board on that name would take another's. A history half moved by a
+ * rename (`.renaming-<name>`) and a kept export (`export-<date>.md`) are no names of boards.
+ */
+export function batchTaken(files: readonly string[], histories: readonly string[] = []): string[] {
+  const boards = files.filter((file) => /\.txt$/i.test(file)).map((file) => file.slice(0, -'.txt'.length));
+  return [...boards, ...histories.filter((name) => !name.startsWith('.renaming-') && !/^export-.*\.md$/.test(name))];
+}
+
+/**
  * A board laid for an order or a place as a board of a batch: `<word>-<n>` by the first free
  * number, new (`N`), with its batch and its note. A name is taken in any letters, small or great:
  * the disk of Windows does not tell `Bridge-1.txt` from `bridge-1.txt`.

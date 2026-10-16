@@ -143,12 +143,29 @@ function batchWord() {
   return named.batch;
 }
 
-/** The names of the boards a folder has: a board of a batch takes a number none of them has. */
-function boardNames(dir) {
-  return existsSync(dir) ? readdirSync(dir).filter((file) => /\.txt$/i.test(file)).map((file) => file.slice(0, -'.txt'.length)) : [];
+/** The names a board of a batch laid into a folder may not take: its boards, and in boards/ the names of the histories as well. */
+function batchTaken(dir) {
+  const boards = resolve(root, 'boards');
+  const histories = resolve(boards, '.history');
+  const inBoards = dir.toLowerCase() === boards.toLowerCase() && existsSync(histories);
+  return lab.batchTaken(existsSync(dir) ? readdirSync(dir) : [], inBoards ? readdirSync(histories) : []);
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+/**
+ * The boards of a batch laid into a folder, one by one: each takes the first number of its word
+ * that no board there, no history of boards/ and no board laid before it in this run has. Nothing
+ * is read where no batch is asked for.
+ */
+function batchLayer(word, dir) {
+  if (word === undefined) return undefined;
+  const taken = batchTaken(dir);
+  const date = new Date().toISOString().slice(0, 10);
+  return (spec, note) => {
+    const board = lab.batchFile(spec, word, taken, date, note);
+    taken.push(board.name);
+    return board;
+  };
+}
 
 if (command === 'show') {
   const { spec, head, from } = loadBoard();
@@ -253,12 +270,10 @@ if (command === 'show') {
     const fits = gather(recipe, verdicts).fits.slice(0, number('keep') ?? 20);
     const dir = resolve(process.cwd(), named.out ?? resolve(root, 'boards'));
     mkdirSync(dir, { recursive: true });
-    // A batch is laid among the boards there are: each board takes the first number of its word none of them has.
-    const taken = boardNames(dir);
+    const laid = batchLayer(word, dir);
     const written = fits.map((fit) => {
       const file = lab.genFile(recipe, fit);
-      const { name, text } = word === undefined ? file : lab.batchFile(fit.spec, word, taken, today(), readBoardHead(file.text).note);
-      taken.push(name);
+      const { name, text } = word === undefined ? file : laid(fit.spec, readBoardHead(file.text).note);
       writeFileSync(resolve(dir, `${name}.txt`), text);
       return { file: resolve(dir, `${name}.txt`), seed: fit.seed, par: fit.par, exact: fit.exact, route: fit.route };
     });
@@ -288,11 +303,10 @@ if (command === 'show') {
   mkdirSync(dir, { recursive: true });
   const stem = order.preset ?? 'order';
   const note = `заказ ${orderText(order)}`;
-  const taken = boardNames(dir);
+  const laid = batchLayer(word, dir);
   const written = offers.map((offer, index) => {
     const plain = `${stem}-${index + 1}`;
-    const { name, text } = word === undefined ? { name: plain, text: printBoard({ ...offer.spec, id: plain }, { status: 'D', note }) } : lab.batchFile(offer.spec, word, taken, today(), note);
-    taken.push(name);
+    const { name, text } = word === undefined ? { name: plain, text: printBoard({ ...offer.spec, id: plain }, { status: 'D', note }) } : laid(offer.spec, note);
     const file = resolve(dir, `${name}.txt`);
     writeFileSync(file, text);
     return { file, seed: offer.seed, par: offer.par, route: offer.route, misses: offer.misses };
