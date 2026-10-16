@@ -46,10 +46,14 @@ describe('the way a board of the row keeps by itself', () => {
 });
 
 describe('the way of a board of the row, proved on the faces of its chapter', () => {
-  // Three dice of 2 on the diagonal: seven moves on the face 2 alone, six where 3 works as well.
+  // Three dice of 2 on the diagonal: six moves on any faces, since every face works. A file that
+  // keeps a way of seven, proved before every face did, is proved anew as its chapter plays it.
   const grid = ['---', '21   .   .', ' .  21*  .', ' .   .  21'];
-  const onTwo = ['1,1,N', '0,0,S', '0,1,E', '1,0,E', '2,0,S', '1,1,S,p', '1,2,N'];
-  const file = parseBoard(['id: T', 'status: R', 'faces: 2', 'par: 7', 'exact: yes', `way: ${onTwo.join(' ')}`, ...grid].join('\n'), 'T');
+  const proved = ['1,1,W', '0,0,E', '1,0,S', '1,1,S', '2,2,N', '2,1,W'];
+  const longer = ['1,1,N', '0,0,S', '0,1,E', '1,0,E', '2,0,S', '1,1,S,p', '1,2,N'];
+  const fileOf = (way: string[]) => parseBoard(['id: T', 'status: R', 'faces: 2', `par: ${way.length}`, 'exact: yes', `way: ${way.join(' ')}`, ...grid].join('\n'), 'T');
+  const file = fileOf(proved);
+  const old = fileOf(longer);
   const chapters: LibraryRowChapter[] = [{ id: 0, title: 'road', faces: [2, 3], stops: ['T'] }];
   const rowFile = readRowFile(JSON.stringify({ chapters: [{ title: 'road', faces: [2, 3], floor: 'open', places: [{ board: 'T', role: 'meet', archetype: 'diagonal' }] }] }));
   const played = asInRow(file, placeOf('T', chapters), chapters);
@@ -63,11 +67,11 @@ describe('the way of a board of the row, proved on the faces of its chapter', ()
   });
 
   it('is the way proved there, written over the one the file keeps, and the row takes it as its test does', () => {
-    const seconds = secondsOf(played);
+    const seconds = secondsOf(asInRow(old, placeOf('T', chapters), chapters));
     expect(seconds.check.kept).toBe('shorter');
-    const way = wayToKeep(inHand(file), seconds)!;
+    const way = wayToKeep(inHand(old), seconds)!;
     expect(way.par).toBe(6);
-    const kept = { ...file, ...way };
+    const kept = { ...old, ...way };
     const { spec } = buildRow(rowFile, new Map([['T', printBoard(kept, { status: 'R' })]])).places[0];
     expect(spec.faces).toEqual([2, 3]);
     const { state } = tryWay(spec, spec.solution!.map(moveOf));

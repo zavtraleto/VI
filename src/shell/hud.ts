@@ -141,6 +141,8 @@ export interface HudBeat {
 export interface HudView {
   header: HudSession | HudLevel;
   seal: HudSeal | null;
+  /** On a level: the faces it asks for, in the corner where the seal lay. */
+  aim?: HudAim | null;
   labels: readonly HudLabel[];
   /** One line at the bottom: a hint. */
   note: { text: string; alarm: boolean } | null;
@@ -223,6 +225,12 @@ interface Zone {
   /** Held down for as long as the finger stays: a direction. Otherwise it acts when let go. */
   dir?: Dir;
   action?: () => void;
+}
+
+/** The faces a level asks for, and the moment they began to rise into sight. */
+export interface HudAim {
+  faces: readonly number[];
+  since: number;
 }
 
 /** What on the page takes presses of its own. */
@@ -566,7 +574,10 @@ export class GameHud {
     // A plaque that blinks is drawn anew each time it turns.
     const plaque = !still && (view.counters ?? []).some((counter) => counter.blink) ? Math.floor(timeMs / COUNTER_BLINK_MS) % 2 : 0;
     const signed = sign ? JSON.stringify(sign) : '';
-    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    // Faces of the aim that are still rising are drawn anew every frame.
+    const aim = view.aim ?? null;
+    const rising = aim && !still && timeMs < aim.since + this.aimTotal(aim) ? Math.floor(timeMs) : 0;
+    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       const turn = this.signTurnAt(sign, timeMs, still);
       if (turn === this.signTurned) return;
@@ -596,6 +607,7 @@ export class GameHud {
     if (decay.tears.length > 0) kit.tear(decay.tears, 0, layout.wide ? layout.column : kit.width);
     const stage = this.toPicture(view.stage);
     if (view.seal) this.drawSeal(view.seal, layout, blink);
+    if (aim) this.drawAim(aim, layout, timeMs, still);
     this.drawLabels(timeMs, still);
     this.drawFlyers(timeMs);
     // The stars of a pass keep under the readings and inside the window.
@@ -1136,7 +1148,7 @@ export class GameHud {
   private drawSeal(seal: HudSeal, layout: HudLayout, blink: number): void {
     const { kit, net } = this;
     const palette = kit.palette;
-    const side = Math.min(22, Math.max(13, Math.round(Math.min(kit.width, kit.height) * 0.075)));
+    const side = this.netSide();
     const bounds = netBounds({ x: 0, y: 0 }, side, seal.axes);
     const state = [JSON.stringify(seal), side, blink, palette.ink, palette.bg, palette.channels.join()].join('|');
     if (state !== this.netDrawn) {
@@ -1144,6 +1156,45 @@ export class GameHud {
       this.paintNet(seal, side, bounds, palette, blink);
     }
     kit.image(net, layout.net.x, layout.net.y);
+  }
+
+  /** The side of a face of the seal, and of a face of the aim that stands in its place, in dots. */
+  private netSide(): number {
+    const { kit } = this;
+    return Math.min(22, Math.max(13, Math.round(Math.min(kit.width, kit.height) * 0.075)));
+  }
+
+  /** How long the faces of an aim take to rise, the last of them included. */
+  private aimTotal(aim: HudAim): number {
+    const { kit } = this;
+    return kit.number('aimDelayMs') + Math.max(0, aim.faces.length - 1) * kit.number('aimStaggerMs') + kit.number('aimRiseMs');
+  }
+
+  /**
+   * The faces a level asks for, in a row where the seal lay, each in the colours it has on the die.
+   * At the start of a level they rise into sight as if from deep under the board seen from above:
+   * small and lost in the dark far down, full size and full colour at the top, one after another.
+   * With reduced motion they stand there at once.
+   */
+  private drawAim(aim: HudAim, layout: HudLayout, timeMs: number, still: boolean): void {
+    const { kit } = this;
+    const { palette } = kit;
+    const values = this.look.board;
+    const side = this.netSide();
+    const gap = kit.number('aimGap');
+    const from = kit.number('aimFrom');
+    aim.faces.forEach((value, index) => {
+      const begun = timeMs - aim.since - kit.number('aimDelayMs') - index * kit.number('aimStaggerMs');
+      const t = still ? 1 : clamp(begun / kit.number('aimRiseMs'), 0, 1);
+      if (t <= 0) return;
+      const up = 1 - (1 - t) ** 3;
+      const size = Math.max(1, Math.round(side * (from + (1 - from) * up)));
+      const cx = layout.net.x + index * (side + gap) + side / 2;
+      const cy = layout.net.y + side / 2;
+      const face = mixHex(palette.bg, faceColour(value, palette, values), up);
+      const pip = mixHex(palette.bg, pipColour(value, palette, values), up);
+      kit.face(value, Math.round(cx - size / 2), Math.round(cy - size / 2), size, face, pip);
+    });
   }
 
   private paintNet(seal: HudSeal, side: number, bounds: Box, palette: Palette, blink: number): void {

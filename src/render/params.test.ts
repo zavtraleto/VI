@@ -17,13 +17,8 @@ describe('board params', () => {
     }
   });
 
-  it('tells a face that does not work by a cross half the face wide, and does not dim it', () => {
-    const values = boardDefaults();
-    expect(values.crossSize).toBe(0.5);
-    expect(values.crossAlpha).toBe(0.8);
-    for (const name of ['crossSize', 'crossWidth', 'crossAlpha', 'crossRim']) expect(Object.keys(BOARD_GROUPS.die)).toContain(name);
-    // Neither the rings of the pips nor the dimming is a number of the look any more.
-    expect(Object.keys(BOARD_PARAMS).filter((name) => /pipRing|faceOff/i.test(name))).toEqual([]);
+  it('marks no face of a level: no cross, and no dimming', () => {
+    expect(Object.keys(BOARD_PARAMS).filter((name) => /cross|offPips|pipRing|faceOff/i.test(name))).toEqual([]);
   });
 
   it('writes down only what differs from the defaults', () => {

@@ -205,15 +205,14 @@ export function goalReached(state: RunState): boolean {
 
 /**
  * A board to be cleared has come to a dead end: nothing is going, and the dice that stand are
- * too few for any group the level lets them make. One die is always too few; where only 3s
- * work, so are two. The level ends there, and this goes on saying why.
+ * too few for any group: one die. The level ends there, and this goes on saying why.
  */
 export function levelStuck(state: RunState): boolean {
   const run = state.levelRun;
   if (!run || run.spec.goal.kind !== 'clear') return false;
   if (state.reactions.length > 0 || state.cubes.some((cube) => cube.state === 'moving')) return false;
   const left = standing(state);
-  // With nothing going, the dice that stand have to make a group of their own: fewer than the smallest working group cannot.
+  // With nothing going, the dice that stand have to make a group of their own: fewer than the smallest group cannot.
   return left > 0 && left < smallestGroup(run.spec);
 }
 
@@ -246,7 +245,7 @@ export function floorStuck(state: RunState): boolean {
 /** A board to be cleared that nothing comes to: what stands on it is all there will ever be, so a dead end of the floor is one for good. */
 const boardGiven = (spec: LevelSpec): boolean => spec.goal.kind === 'clear' && spec.arrival === 'none';
 
-/** The faces that make a combo where a level names none. */
+/** The faces that make a combo: every one but the 1, on every level. */
 const EVERY_FACE: readonly number[] = [2, 3, 4, 5, 6];
 
 /**
@@ -262,7 +261,7 @@ export function floorLost(state: RunState): boolean {
   const { size } = state.config;
   const { places } = scan(state);
   if (state.cubes.some((cube) => places[cellIndex(size, cube.x, cube.z)])) return false;
-  const faces = run.spec.faces ?? EVERY_FACE;
+  const faces = run.spec.only ?? EVERY_FACE;
   return !faces.some((face) => face >= 2 && state.cubes.filter((cube) => cube.ori.top === face).length >= face);
 }
 
@@ -281,9 +280,9 @@ export function levelDeadEnd(state: RunState): LevelDeadEnd | null {
   return floorLost(state) ? 'faces' : null;
 }
 
-/** Dice the smallest group of a level takes: two where every face works, else the least of its faces that makes groups. */
-export function smallestGroup(spec: Pick<LevelSpec, 'faces'>): number {
-  const groups = (spec.faces ?? [2]).filter((face) => face >= 2);
+/** Dice the smallest group takes: two, since every face from 2 up works (word of the owner, 16 October 2026); for a measure of some faces alone, the least of them. */
+export function smallestGroup(spec: Pick<LevelSpec, 'only'>): number {
+  const groups = (spec.only ?? [2]).filter((face) => face >= 2);
   return groups.length > 0 ? Math.min(...groups) : Infinity;
 }
 

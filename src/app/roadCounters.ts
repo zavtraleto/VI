@@ -1,23 +1,22 @@
 import { DELTA, DIRS, cubeAt } from '../rules/board';
-import { faceWorks } from '../rules/reactions';
 import type { Cube, RunState } from '../rules/types';
 import type { ShortGroup } from '../rules/level';
 
 /**
  * The plaques of the pieces of the road, from the board as it stands: over every standing
- * die of a face that works, and over every heap of such dice side by side, that is smaller than
+ * die of a face the level asks for (`goal`, as `goalFaces` gives it), and over every heap of such dice side by side, that is smaller than
  * the combo its face asks for, from the first moment. `shortGroups` starts at two dice and counts
  * the die the player stands on; here a lone die has its plaque too, and the die under the
  * player's feet has none, for it is not left as it is. A die that is going is not standing.
  */
-export function roadCounters(state: RunState): ShortGroup[] {
+export function roadCounters(state: RunState, goal: readonly number[]): ShortGroup[] {
   const own = state.player.level === 'top' ? cubeAt(state, state.player.x, state.player.z) : undefined;
   const standing = state.cubes.filter((cube) => cube.state === 'idle' && cube !== own).sort((a, b) => a.z - b.z || a.x - b.x);
   const groups: ShortGroup[] = [];
   const seen = new Set<number>();
   for (const first of standing) {
     const value = first.ori.top;
-    if (value < 2 || seen.has(first.id) || !faceWorks(state, value)) continue;
+    if (value < 2 || seen.has(first.id) || !goal.includes(value)) continue;
     const members: Cube[] = [first];
     seen.add(first.id);
     for (let i = 0; i < members.length; i++) {

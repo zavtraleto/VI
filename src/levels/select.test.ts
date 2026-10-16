@@ -302,7 +302,7 @@ describe('the parts of a route a board makes its player use', () => {
 
 describe('a trap of order, asked of a board', () => {
   /** Three dice where pairs go: the pair at hand is made with one roll, and the third die, a step away, has its 2 on the wrong side to join it in time. */
-  const wrongSide: Recipe = { slot: 903, id: 'X03', chapter: 0, size: 3, dice: 3, faces: [2], compact: false, par: [5, 5], sketch: [laid(die(1, 0, { top: 6, west: 2 }), die(2, 1, { top: 2 }), die(1, 1, { top: 6, east: 2 }))] };
+  const wrongSide: Recipe = { slot: 903, id: 'X03', chapter: 0, size: 3, dice: 3, faces: [2], compact: false, par: [5, 5], sketch: [laid(die(1, 0, { top: 4, west: 2 }), die(2, 1, { top: 2 }), die(1, 1, { top: 6, east: 2 }))] };
 
   it('turns away a board with no combo at hand that loses it', () => {
     expect(judge({ ...pairs, trap: 'any' }, twoPairs).why).toBe('no combo at hand that loses the board');

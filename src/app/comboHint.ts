@@ -2,6 +2,7 @@ import type { ShortGroup } from '../rules/level';
 import { movesAt, solveFrom, tellMove } from '../rules/levelSolver';
 import type { RunState } from '../rules/types';
 import { roadCounters } from './roadCounters';
+import { goalFaces } from '../levels/goalFaces';
 
 /**
  * The plaques of a level as a hint: of the dice and heaps that are short of their combo, those
@@ -40,7 +41,7 @@ function madeIn(after: RunState, dice: readonly { id: number; x: number; z: numb
 export function comboHints(state: RunState, maxStates = HINT_MAX_STATES): ComboHints {
   const none: ComboHints = { groups: [], states: 0, settled: true };
   if (!state.levelRun || state.over) return none;
-  const groups = roadCounters(state);
+  const groups = roadCounters(state, goalFaces(state.levelRun.spec));
   if (groups.length === 0) return none;
   const dice = groups.map((group) =>
     group.cells.map(({ x, z }) => {

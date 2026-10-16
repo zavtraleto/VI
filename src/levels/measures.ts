@@ -243,7 +243,7 @@ export function safeFirstOf(spec: LevelSpec, maxStates = SAFE_FIRST_MAX_STATES):
  * search could not settle is said to be: only a search that saw every board says it is not.
  */
 export function oneFaceClears(spec: LevelSpec, face: number, maxMoves: number, maxStates?: number): boolean {
-  const alone: LevelSpec = { ...spec, faces: [face], solution: undefined, par: undefined, exact: undefined };
+  const alone: LevelSpec = { ...spec, only: [face], solution: undefined, par: undefined, exact: undefined };
   const { solution, exhausted } = solveLevel(alone, { maxMoves, maxStates });
   return solution !== null || !exhausted;
 }

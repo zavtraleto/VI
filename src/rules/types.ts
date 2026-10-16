@@ -415,10 +415,16 @@ export interface LevelSpec {
   sinkMoves?: number;
   liftMoves?: number;
   /**
-   * The faces that work on the level: only dice showing one of them make a group or join one,
-   * and the 1s go together only where 1 is among them. Every face works when left out.
+   * The faces the level is about: those whose combos are on its way. Every face from 2 to 6 makes
+   * a group on every level (word of the owner, 16 October 2026); the 1s go together only where 1
+   * is among these, or where none are named.
    */
   faces?: readonly number[];
+  /**
+   * The only faces that make groups, for a measure that asks what they do alone: no level of the
+   * game sets it. Left out, the rule of `faces` holds.
+   */
+  only?: readonly number[];
   /** The board as given; when present, nothing is laid from the seed. */
   layout?: LevelLayout;
   /** Moves that may be taken back in one try. */

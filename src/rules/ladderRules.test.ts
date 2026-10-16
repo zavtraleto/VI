@@ -37,27 +37,36 @@ function idleMove(s: RunState): void {
   throw new Error('no roll that clears nothing');
 }
 
-describe('the faces that work on a level', () => {
-  it('are the only ones that make a group: two 2s side by side stay where only 3s work', () => {
+describe('the faces of a level', () => {
+  it('all make groups, whatever faces the level names: two 2s go where it names only 3s', () => {
     const s = levelRun({ ...THREES, norm: 4 });
     put(s, 0, 0, 2);
     putOri(s, 2, 0, { top: 6, east: 2 });
     put(s, 4, 4, 5);
     put(s, 4, 3, 4);
     place(s, 2, 0, 'top');
-    expect(previewMove(s, 'W').clears).toBe(false);
+    expect(previewMove(s, 'W').clears).toBe(true);
     act(s, 'W');
-    expect(s.cubes.every((cube) => cube.state === 'idle')).toBe(true);
-    expect(s.reactions).toHaveLength(0);
-    // The same roll makes the pair where every face works.
-    const open = levelRun({ goal: { kind: 'clear' }, arrival: 'none', norm: 4 });
-    put(open, 0, 0, 2);
-    putOri(open, 2, 0, { top: 6, east: 2 });
-    put(open, 4, 4, 5);
-    put(open, 4, 3, 4);
-    place(open, 2, 0, 'top');
-    act(open, 'W');
-    expect(open.reactions).toHaveLength(1);
+    expect(s.reactions).toHaveLength(1);
+  });
+
+  it('leave the 1s out where the level does not name them', () => {
+    const onesAfterCombo = (faces: number[]): boolean => {
+      const s = levelRun({ ...THREES, faces, norm: 5 });
+      put(s, 0, 0, 3);
+      put(s, 1, 0, 3);
+      putOri(s, 3, 0, { top: 6, east: 3 });
+      putOri(s, 2, 1, { top: 2, east: 1 });
+      put(s, 4, 4, 1);
+      place(s, 3, 0, 'top');
+      act(s, 'W');
+      // A 1 rolled up beside the leaving group.
+      place(s, 2, 1, 'top');
+      act(s, 'W');
+      return s.events.some((event) => event.type === 'happyOne');
+    };
+    expect(onesAfterCombo([3])).toBe(false);
+    expect(onesAfterCombo([1, 3])).toBe(true);
   });
 
   it('make their groups as anywhere: three 3s go', () => {
@@ -67,18 +76,16 @@ describe('the faces that work on a level', () => {
     expect(s.events).toContainEqual(expect.objectContaining({ type: 'match', value: 3, count: 3 }));
   });
 
-  it('are the only ones counted as a group that is short', () => {
+  it('are all counted as a group that is short', () => {
     const s = levelRun({ ...THREES, norm: 4 });
     put(s, 0, 0, 3);
     put(s, 1, 0, 3);
     put(s, 3, 3, 5);
     put(s, 4, 3, 5);
-    expect(shortGroups(s).map((group) => group.value)).toEqual([3]);
+    expect(shortGroups(s).map((group) => group.value).sort()).toEqual([3, 5]);
   });
 
-  it('set how few dice are a dead end: fewer than the smallest group that works', () => {
-    expect(smallestGroup(THREES)).toBe(3);
-    expect(smallestGroup({ faces: [2, 3] })).toBe(2);
+  it('set how few dice are a dead end: one, since a pair of any face goes', () => {
     expect(smallestGroup({})).toBe(2);
     const s = board();
     act(s, 'W');
@@ -86,10 +93,10 @@ describe('the faces that work on a level', () => {
     idleMove(s);
     expect(s.over).toBe(false);
     idleMove(s);
-    // The group is gone and two dice stand: where only 3s work they can make nothing.
+    // The group is gone and two dice stand: they may still make a pair.
     expect(s.cubes).toHaveLength(2);
-    expect(s.endReason).toBe('failed');
-    expect(levelStuck(s)).toBe(true);
+    expect(s.over).toBe(false);
+    expect(levelStuck(s)).toBe(false);
   });
 });
 

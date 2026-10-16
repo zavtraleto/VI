@@ -233,7 +233,7 @@ describe('what is said in the windows of the levels', () => {
     expect(levelStuck(state)).toBe(true);
     expect(levelDeadEnd(state)).toBe('count');
     expect(shortOf(state)).toBe(1);
-    expect(smallestGroup(chain)).toBe(3);
+    expect(smallestGroup({})).toBe(2);
   });
 
   it('says the two dead ends of the floor in a line each, in every language, with nothing to fill in', () => {

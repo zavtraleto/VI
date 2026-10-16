@@ -3,6 +3,7 @@ import { defaultConfig } from '../rules/config';
 import { createRun } from '../rules/sim';
 import type { LevelSpec, RunState } from '../rules/types';
 import { fileBoard } from '../levels/boardFiles';
+import { goalFaces } from '../levels/goalFaces';
 import { roadCounters } from './roadCounters';
 
 const pieceOf = (id: string): LevelSpec => fileBoard(id);
@@ -10,7 +11,7 @@ const start = (id: string): RunState => {
   const spec = pieceOf(id);
   return createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 };
-const places = (state: RunState) => roadCounters(state).map(({ value, have, need, cells }) => ({ value, have, need, cells: cells.map(({ x, z }) => `${x},${z}`).sort() }));
+const places = (state: RunState) => roadCounters(state, goalFaces(state.levelRun!.spec)).map(({ value, have, need, cells }) => ({ value, have, need, cells: cells.map(({ x, z }) => `${x},${z}`).sort() }));
 
 describe('the plaques of the road', () => {
   it('stand over the fixed 2 at the far end of the strip, and not over the 2 the player starts on', () => {
@@ -22,7 +23,7 @@ describe('the plaques of the road', () => {
     expect(places(start('R04'))).toEqual([{ value: 3, have: 2, need: 3, cells: ['2,1', '3,1'] }]);
   });
 
-  it('stand over a lone two, one for each, and not over the dice that show no face of the piece', () => {
+  it('stand over a lone two, one for each, and not over the dice that show no face it asks for', () => {
     expect(places(start('R03'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['1,1'] }]);
     expect(places(start('R07'))).toEqual([{ value: 2, have: 1, need: 2, cells: ['2,0'] }]);
     // Two 2s apart and two dice that show 4s: a plaque over each of the 2s.
@@ -64,6 +65,6 @@ describe('the plaques of the road', () => {
     state.grid.fill(0);
     for (const cube of state.cubes) state.grid[cube.z * state.config.size + cube.x] = cube.id;
     state.player = { x: 2, z: 3, level: 'ground' };
-    expect(roadCounters(state)).toEqual([]);
+    expect(roadCounters(state, [3])).toEqual([]);
   });
 });

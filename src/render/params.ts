@@ -37,19 +37,6 @@ export const BOARD_GROUPS = {
     pipSize: number(0.09, 0.05, 0.16, 0.002),
     pipOne: number(1.5, 1, 2.4, 0.05),
     pipDark: color('#171616'),
-    /**
-     * A face that does not work on the level in hand has a red cross over its pips, in the
-     * middle of it. How wide the cross is and how thick its strokes are, as shares of the face
-     * (a stroke is never drawn thinner than three pixels of the picture); how much of what is
-     * under it the cross hides; how thick the dark line around its strokes is, as a share of
-     * the face (never thinner than a pixel).
-     */
-    crossSize: number(0.5, 0.2, 0.9, 0.01),
-    crossWidth: number(0.08, 0.02, 0.2, 0.005),
-    crossAlpha: number(0.8, 0.2, 1, 0.01),
-    crossRim: number(0.02, 0, 0.08, 0.005),
-    /** A face that does not work has a small pale cross in the place of each pip and no cross over the face (1); at 0 it keeps its pips under the red cross. A probe. */
-    offPips: number(1, 0, 1, 1),
     /** The screen is a little less lit around a pip: how far that reaches, in radii of the pip, and how dark it is. */
     pipDusk: number(0.2, 0, 2, 0.05),
     pipDuskDark: number(0.3, 0, 1, 0.01),
