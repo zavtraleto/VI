@@ -1,7 +1,7 @@
 import { levelId } from '../levels/generate';
 import { QUICK_MAX_STATES, checkOf, genFile, genOf, movesOf, nearBoards, nearOf, type Check, type MoveFact, type NearFact } from '../levels/labText';
 import { completeFor, improveFor, offersFor, repairFor, type Mended, type OrderOffer } from '../levels/orderSearch';
-import type { Order } from '../levels/orders';
+import { trapDepthOf, type Order } from '../levels/orders';
 import { setFor, type SetBoard } from '../levels/sets';
 import { PLACES, type Recipe } from '../levels/recipes';
 import { ROAD_PLACES } from '../levels/roadRecipes';
@@ -45,11 +45,13 @@ export interface Seconds {
   /** First moves after which the board is still cleared within a move of the fewest; 0 where no way is known. */
   firsts: number;
   moves: MoveFact[];
+  /** How deep the trap is: moves after it before the board is seen lost (0 at once); null where there is none (`trapDepthOf`). */
+  trap: number | null;
 }
 
 export function secondsOf(spec: LevelSpec, maxStates = SOLVER_MAX_STATES): Seconds {
   const check = checkOf(spec, { maxStates });
-  return { check, firsts: check.par === null ? 0 : firstsOf(spec, check.par), moves: check.par === null ? [] : movesOf(spec) };
+  return { check, firsts: check.par === null ? 0 : firstsOf(spec, check.par), moves: check.par === null ? [] : movesOf(spec), trap: check.way ? trapDepthOf(spec, check.way) : null };
 }
 
 /**
