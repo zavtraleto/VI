@@ -7,7 +7,7 @@ import { buildRow, readRowFile, rowText, touchesRow } from './src/levels/row';
 import { rowEdit, rowFileText, swapBoardTexts, withStatus } from './src/levels/rowEdit';
 
 /**
- * The files of the lab of the levels for the page `?lab=levels`: the dev server reads and writes
+ * The files of the lab of the levels for the page `?lab=workshop`: the dev server reads and writes
  * the boards of `boards/`, keeps every version of a board in `boards/.history/` (which git does
  * not see), writes down the plays, and tells the page when a board is changed on the disk by
  * anyone else, an agent or an editor. What is asked and what is refused is `askOf` of

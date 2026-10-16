@@ -759,7 +759,7 @@ export class Game {
 
   /**
    * Puts a board that is in no list on the board and plays it by the rules as they are: the door
-   * of the lab of the levels (`?board=`, `?lab=levels`). Asked for before the program has opened,
+   * of the lab of the levels (`?board=`, `?lab=workshop`). Asked for before the program has opened,
    * the board is put on when it does.
    */
   playBoard(spec: LevelSpec): void {

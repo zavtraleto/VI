@@ -1,7 +1,7 @@
 // The lab of the levels from the command line: a board is a file of text in boards/, and every
 // command reads one, says something of it, and ends with a code that can be checked. The format
 // of the file is src/levels/boardFile.ts; what is said is made in src/levels/labText.ts; the page
-// that shows the same is ?lab=levels. The whole of it is told in docs/VI_Levels_Lab.md.
+// that shows the same is ?lab=workshop. The whole of it is told in docs/VI_Levels_Lab.md.
 //
 //   node scripts/level.mjs show file=boards/H01.txt     the board as it is read, or what is wrong with its file
 //   node scripts/level.mjs check file=H01               solved anew: the fewest moves, the score of the way, and

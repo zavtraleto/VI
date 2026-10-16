@@ -9,7 +9,7 @@ import { isBoardName } from '../app/boardProbe';
 /**
  * The library of the boards (docs/superpowers/specs/2026-10-14-vi-board-library-design.md): every
  * board ever made is a file of `boards/`, and the file is the truth of it. These are the pure
- * parts that the script `scripts/library.mjs`, the page `?lab=library` and the test of the library
+ * parts that the script `scripts/library.mjs`, the page `?lab=workshop` and the test of the library
  * share: the names of the boards, the heads merged, the place of a board in the row, what is
  * checked of the files against the code, and the text a session of marks is given out as.
  *
