@@ -2,8 +2,7 @@ import { boardNameOf, isBoardName } from '../app/boardProbe';
 import type { Game } from '../app/game';
 import { normalSpec, parseBoard, printBoard, readBoardHead, type BoardHead } from '../levels/boardFile';
 import { BATCH_WORD } from '../levels/labText';
-import { asInRow, resolveName, rowChapters } from '../levels/library';
-import { ROW } from '../levels/row.gen';
+import { asInRow, resolveName } from '../levels/library';
 import type { LevelSpec } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
 import { addPlay, listHeads, onBoardChanged, readBoard, renameBoard, writeBoard, writeHead } from './boardsClient';
@@ -15,19 +14,13 @@ import { PlayWatch, type Inside, type ToldPlay } from './playWatch';
 import { WayShow, wayToShow } from './showWay';
 import { BoardFacts } from './workshopFacts';
 import { WorkshopListView, buttonOf, fieldStyle, light } from './workshopListView';
-import { listRows, nextInBatch, rowOf, verdictPatch, type BoardRow, type Verdict } from './workshopLists';
+import { VERDICTS, listRows, nextInBatch, rowOf, verdictPatch, type BoardRow, type Verdict } from './workshopLists';
+import { WorkshopRow } from './workshopRow';
 
 /** The width of the column of the lists on the left: the board of the game stands to the right of it. */
 const LIST_WIDTH = 320;
 /** A change is written to its file this long after it is made, and after the last of several made together. */
 const SAVE_MS = 300;
-/** The chapters of the row, as the lists read them. */
-const CHAPTERS = rowChapters(ROW);
-const VERDICTS: readonly { verdict: Verdict; label: string; keys: readonly string[] }[] = [
-  { verdict: 'good', label: '1 хорошая', keys: ['Digit1', 'Numpad1'] },
-  { verdict: 'redo', label: '2 доделать', keys: ['Digit2', 'Numpad2'] },
-  { verdict: 'drop', label: '3 убрать', keys: ['Digit3', 'Numpad3'] },
-];
 
 const today = (): string => new Date().toISOString().slice(0, 10);
 /** Whether a key is typed into a field of the page: such a key is the field's, and goes nowhere else. */
@@ -64,6 +57,8 @@ class Workshop {
   private readonly inside: Inside;
   private readonly palette = paletteAt(shellDefaults(), 0);
   private readonly lists: WorkshopListView;
+  /** The row of the campaign: «в кампании», «поставить в ряд», and the chapters the boards are placed by. */
+  private readonly row: WorkshopRow;
   private readonly editor: BoardStage;
   private readonly watcher: PlayWatch;
   /** Every file of `boards/` as a row of the lists. */
@@ -127,6 +122,7 @@ class Workshop {
     this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller?.cancel() }, (line) => this.say(line));
     const { palette } = this;
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
+    this.row = new WorkshopRow(palette, this.lists, { say: (line) => this.say(line), save: () => this.save(), readLists: () => this.readLists(), reread: (name) => this.changedOutside(name), open: (name) => this.open(name) });
 
     // The game stands to the right of the lists: its page is moved over, and the board is laid in what is left.
     const app = document.getElementById('app');
@@ -147,12 +143,12 @@ class Workshop {
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
     this.checkButton = buttonOf(palette, 'проверить (C)', () => this.facts.toggle());
-    actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()));
+    actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()), this.row.insertButton);
     this.checkBox.style.cssText = 'display:none;margin:0;white-space:pre-wrap;font:inherit';
     this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => this.showWay());
     this.buildVerdict();
     this.told.style.cssText = `color:${palette.dim};min-height:1.4em`;
-    bottom.append(actions, this.checkBox, this.verdictBar, this.told);
+    bottom.append(actions, this.row.form, this.checkBox, this.verdictBar, this.told);
 
     // The keys are the stage's while the board is set out: the game under it gets none of them.
     const keys = (event: KeyboardEvent): void => {
@@ -277,16 +273,16 @@ class Workshop {
     const asked = boardNameOf(window.location.search);
     const named = asked ? resolveName(asked, this.rows) : null;
     const fresh = listRows(this.rows, 'new', '')[0]?.name;
-    if (!fresh) this.lists.list = 'all';
+    if (!fresh && this.lists.list === 'new') this.lists.list = 'all';
     const first = named ?? fresh ?? listRows(this.rows, 'all', '')[0]?.name;
     if (first) await this.open(first);
     else this.showAll();
   }
 
-  /** Reads every file anew, as the rows of the lists. */
+  /** Reads every file and the row anew, as the rows of the lists. */
   private async readLists(): Promise<void> {
     try {
-      this.rows = (await listHeads()).map((file) => rowOf(file, CHAPTERS));
+      this.rows = await this.row.lay(await listHeads());
     } catch (error) {
       this.say((error as Error).message);
     }
@@ -303,10 +299,12 @@ class Workshop {
       await this.readLists();
       return null;
     }
-    const row = rowOf({ name, text, hash: boardHash(text, name), time: new Date().toISOString() }, CHAPTERS);
+    const row = rowOf({ name, text, hash: boardHash(text, name), time: new Date().toISOString() }, this.row.chapters);
     const at = this.rows.findIndex((one) => one.name === name);
     if (at < 0) this.rows.push(row);
     else this.rows[at] = row;
+    // A board of the row changed: the row is laid again on it, row.json read anew with it.
+    if (this.row.holds(name)) this.rows = await this.row.relay(this.rows);
     this.lists.show(this.rows, this.name);
     return text;
   }
@@ -521,7 +519,7 @@ class Workshop {
   private playSpec(): LevelSpec | null {
     if (!this.spec) return null;
     const place = this.rows.find((row) => row.name === this.name)?.place ?? null;
-    return asInRow(this.spec, place, CHAPTERS);
+    return asInRow(this.spec, place, this.row.chapters);
   }
 
   /** `E`: the board as it stands is put on the board of the game and played; again, and the stage is back over the game. */
@@ -691,6 +689,7 @@ class Workshop {
   }
 
   private showAll(): void {
+    this.row.showFor(this.name);
     this.lists.show(this.rows, this.name);
     this.showHead();
   }

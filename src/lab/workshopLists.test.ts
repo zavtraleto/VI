@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibraryRowChapter } from '../levels/library';
-import { batchTitle, batchesOf, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
+import { ROLES, type RowFile } from '../levels/row';
+import { ROLE_TITLES, batchTitle, batchesOf, chaptersOf, listOf, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
 
 const ROW: readonly LibraryRowChapter[] = [{ id: 0, title: 'prologue', faces: null, stops: ['R01'] }];
 const file = (name: string, head: string, time?: string) => rowOf({ name, text: `id: ${name}\n${head}faces: 2\n---\n21* 21\n .   .\n`, hash: null, time }, ROW);
@@ -76,5 +77,34 @@ describe('a verdict written into the head', () => {
   it('writes words without a verdict, and nothing where nothing is said', () => {
     expect(verdictPatch('N', null, 'мост не виден', '2026-10-16')).toEqual({ words: [{ date: '2026-10-16', text: 'мост не виден' }] });
     expect(verdictPatch('N', null, '  ', '2026-10-16')).toBeNull();
+  });
+});
+
+describe('the chapters of «в кампании»', () => {
+  const sample: RowFile = {
+    chapters: [
+      { title: 'prologue', places: [{ board: 'R01', role: 'meet', archetype: 'roll' }] },
+      { title: 'road', faces: [2, 3], places: [{ board: 'gone-1', role: 'apply', archetype: 'bridge' }, { board: 'R03', role: 'rest', archetype: 'domino' }] },
+    ],
+  };
+  it('gives the chapters in order, the places numbered through the row from 1, each with the row of its board', () => {
+    const chapters = chaptersOf([file('R03', 'status: R\n'), file('R01', 'status: R\n')], sample);
+    expect(chapters.map((chapter) => [chapter.title, chapter.faces])).toEqual([['prologue', null], ['road', [2, 3]]]);
+    expect(chapters.flatMap((chapter) => chapter.places.map((place) => [place.number, place.place.board, place.row?.name ?? null]))).toEqual([
+      [1, 'R01', 'R01'],
+      [2, 'gone-1', null],
+      [3, 'R03', 'R03'],
+    ]);
+    expect(chapters[1].places[1].place.role).toBe('rest');
+  });
+  it('reads the list an address asks for, and none it does not know', () => {
+    expect(listOf('?lab=workshop&board=R01&list=row')).toBe('row');
+    expect(listOf('?lab=workshop&list=chairs')).toBeNull();
+    expect(listOf('?lab=workshop')).toBeNull();
+  });
+  it('has a Russian word for every role of the row', () => {
+    expect(Object.keys(ROLE_TITLES).sort()).toEqual([...ROLES].sort());
+    expect(ROLE_TITLES.meet).toBe('встреча');
+    expect(ROLE_TITLES.rest).toBe('передышка');
   });
 });

@@ -1,5 +1,6 @@
 import { parseBoard, readBoardHead, type BoardHead, type BoardStatus } from '../levels/boardFile';
 import { asInRow, placeOf, type Place, type LibraryRowChapter } from '../levels/library';
+import type { Role, RowFile, RowPlaceFile } from '../levels/row';
 import type { LevelSpec } from '../rules/types';
 import type { HeadPatch } from './boardsServer';
 
@@ -43,6 +44,11 @@ export const LISTS: readonly { key: ListKey; title: string }[] = [
   { key: 'row', title: 'в кампании' },
   { key: 'all', title: 'все' },
 ];
+/** The list an address asks for, `?lab=workshop&list=row`; null where it names none. */
+export function listOf(search: string): ListKey | null {
+  const asked = new URLSearchParams(search).get('list');
+  return LISTS.find((list) => list.key === asked)?.key ?? null;
+}
 const STATUS_OF: Readonly<Record<Exclude<ListKey, 'all'>, BoardStatus>> = { new: 'N', redo: 'D', good: 'RC', row: 'R' };
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
@@ -128,6 +134,12 @@ export function nextInBatch(rows: readonly BoardRow[], name: string): string | n
   return batch?.rows[at + 1]?.name ?? null;
 }
 
+/** The verdicts after a play as the bar under the board offers them, with their keys. */
+export const VERDICTS: readonly { verdict: Verdict; label: string; keys: readonly string[] }[] = [
+  { verdict: 'good', label: '1 хорошая', keys: ['Digit1', 'Numpad1'] },
+  { verdict: 'redo', label: '2 доделать', keys: ['Digit2', 'Numpad2'] },
+  { verdict: 'drop', label: '3 убрать', keys: ['Digit3', 'Numpad3'] },
+];
 const STATUS_OF_VERDICT: Readonly<Record<Verdict, Exclude<BoardStatus, 'R'>>> = { good: 'RC', redo: 'D', drop: 'X' };
 const WORD_OF_VERDICT: Readonly<Record<Verdict, string>> = { good: 'хорошая', redo: 'доделать', drop: 'убрать' };
 
@@ -141,4 +153,26 @@ export function verdictPatch(status: BoardStatus | undefined, verdict: Verdict |
   if (status === 'R' && verdict) return { words: [{ date, text: said ? `${WORD_OF_VERDICT[verdict]}: ${said}` : WORD_OF_VERDICT[verdict] }] };
   if (!verdict && !said) return null;
   return { ...(verdict ? { status: STATUS_OF_VERDICT[verdict] } : {}), ...(said ? { words: [{ date, text: said }] } : {}) };
+}
+
+/** The roles of the row as the page says them (section 11.1). */
+export const ROLE_TITLES: Readonly<Record<Role, string>> = { meet: 'встреча', learn: 'урок', apply: 'применение', event: 'событие', twist: 'поворот', peak: 'пик', rest: 'передышка' };
+
+/** A chapter of «в кампании»: its title, its faces where it has its own, and its places numbered through the row. */
+export interface ListChapter {
+  title: string;
+  faces: readonly number[] | null;
+  /** Each place with the row of its board; null where the board has no file. */
+  places: { number: number; row: BoardRow | null; place: RowPlaceFile }[];
+}
+
+/** The chapters of row.json as «в кампании» shows them: in order, the places numbered from 1 through the whole row. */
+export function chaptersOf(rows: readonly BoardRow[], file: RowFile): ListChapter[] {
+  const named = new Map(rows.map((row) => [row.name, row]));
+  let number = 0;
+  return file.chapters.map((chapter) => ({
+    title: chapter.title,
+    faces: chapter.faces ?? null,
+    places: chapter.places.map((place) => ({ number: ++number, row: named.get(place.board) ?? null, place })),
+  }));
 }
