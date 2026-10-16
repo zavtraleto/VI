@@ -313,6 +313,8 @@ export class Game {
    * drawn. False on every board that is played.
    */
   private labFrozen = false;
+  /** The lab keeps the board on while the page is hidden: no pause comes over it, and the sound falls silent as ever (`?lab=workshop`). */
+  awake = false;
   /** The program has opened: its boot is over, and a board can be put on at once. */
   private booted = false;
   /** The board waits under the one command the program opens on: nothing of the session is shown over it. */
@@ -639,7 +641,7 @@ export class Game {
       // What has been gathered so far is kept even if the page never comes back: the settings
       // and the run in hand, in one call to storage.
       this.keepAll();
-      this.pause();
+      if (!this.awake) this.pause();
       this.audio.setAway(true);
       return;
     }
@@ -776,6 +778,12 @@ export class Game {
     this.labFrozen = true;
     this.place = null;
     if (this.booted) this.runLevel(spec, false);
+  }
+
+  /** A move given as a key gives it, pressed and let go: the lab plays a way with it, a move at a time. */
+  press(dir: Dir): void {
+    this.controller.press(dir, this.now());
+    this.controller.release();
   }
 
   /** Where a cell of the board that is on lies on the page, in the pixels of the window, at the height `y` over the floor: for the lab, which is laid over the board. */
