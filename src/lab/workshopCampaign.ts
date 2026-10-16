@@ -1,5 +1,5 @@
 import { isBoardName } from '../app/boardProbe';
-import type { BoardHead } from '../levels/boardFile';
+import { normalSpec, printBoard, type BoardHead } from '../levels/boardFile';
 import { ROW_EVENT } from '../levels/row';
 import type { LevelSpec } from '../rules/types';
 import type { Palette } from '../shell/theme';
@@ -39,14 +39,30 @@ const keepsWay = (spec: LevelSpec): boolean => spec.par !== undefined && spec.ex
 const COPY_OF = /^копия (\S+)$/;
 
 /**
- * The way the board in hand is to keep now, or null: a board of the row, not locked, with no way
- * kept in its head, and the fewest moves proved. An empty way is no way kept (`keepsWay`): written,
- * it would have the solver asked again and again.
+ * Whether the solver is to be asked after a board of the row by itself: it keeps no way, or the
+ * board it plays as in its chapter (`played`, `WorkshopRow.asPlayed`) is not the board of its file,
+ * on other faces or with the floor opened, and the way the file keeps was proved on another board.
+ */
+export function wantsProof(file: LevelSpec | null, played: LevelSpec): boolean {
+  return !keepsWay(played) || file === null || printBoard(normalSpec(file)) !== printBoard(normalSpec(played));
+}
+
+/**
+ * The way the board in hand is to keep now, or null. `seconds` is counted of the board as the row
+ * plays it, on the faces of its chapter (`WorkshopRow.asPlayed`), as `src/levels/row.test.ts` holds
+ * its way. A board of the row, not locked, with the fewest moves proved, keeps the way proved
+ * unless the way its head keeps holds on that board: the same fewest moves (`kept: same`), in a
+ * way of as many moves. A head that keeps the very way proved keeps it already: it is not
+ * written again while the answer of the head before it stands. An empty way is no way kept
+ * (`keepsWay`): written, it would have the solver asked again and again.
  */
 export function wayToKeep(board: Pick<CampaignBoard, 'extra' | 'head' | 'locked'>, seconds: Seconds | string | null): Required<Pick<LevelSpec, 'par' | 'exact' | 'solution'>> | null {
-  if (board.extra.status !== 'R' || board.locked || keepsWay(board.head) || !seconds || typeof seconds === 'string') return null;
-  const { par, exact, way } = seconds.check;
-  return exact && par !== null && way && way.length > 0 ? { par, exact: true, solution: way } : null;
+  if (board.extra.status !== 'R' || board.locked || !seconds || typeof seconds === 'string') return null;
+  const { par, exact, way, kept } = seconds.check;
+  if (!exact || par === null || !way || way.length === 0) return null;
+  const { head } = board;
+  if (keepsWay(head) && head.par === par && head.solution!.length === par && (kept === 'same' || head.solution!.join(' ') === way.join(' '))) return null;
+  return { par, exact: true, solution: way };
 }
 
 /**
@@ -77,7 +93,7 @@ export class WorkshopCampaign {
     this.line.style.cssText = `flex-basis:100%;color:${palette.dim}`;
     this.copyButton = buttonOf(palette, 'копия', () => void this.copy());
     this.swapButton = buttonOf(palette, '', () => void this.replace());
-    facts.keep = (spec) => this.page.board().extra.status === 'R' && !keepsWay(spec);
+    facts.keep = (played) => this.page.board().extra.status === 'R' && wantsProof(this.page.board().spec, played);
     // The row the dev server could not lay is said here, and the overlay of Vite does not cover the page; an error of the code, which has a file to it, keeps its overlay.
     import.meta.hot?.on('vite:error', ({ err }) => {
       if (err.id || err.plugin || err.loc || err.frame) return;

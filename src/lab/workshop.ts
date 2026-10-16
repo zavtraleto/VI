@@ -124,7 +124,15 @@ class Workshop {
     this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller?.cancel() }, (line) => this.say(line));
     const { palette } = this;
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
-    const page = { say: (line: string) => this.say(line), save: () => this.save(), stage: () => this.editor, readLists: () => this.readLists(), reread: async (name: string) => (await this.changedOutside(name), this.showHead()), open: (name: string) => this.open(name) };
+    const page = {
+      say: (line: string) => this.say(line),
+      save: () => this.save(),
+      stage: () => this.editor,
+      readLists: () => this.readLists(),
+      reread: async (name: string) => (await this.changedOutside(name), this.showHead()),
+      show: () => this.showHead(),
+      open: (name: string) => this.open(name),
+    };
     this.row = new WorkshopRow(palette, this.lists, page);
 
     // The game stands to the right of the lists: its page is moved over, and the board is laid in what is left.
@@ -295,6 +303,7 @@ class Workshop {
     } catch (error) {
       this.say((error as Error).message);
     }
+    if (this.name !== '') this.measure();
     this.lists.show(this.rows, this.name);
   }
 
@@ -313,7 +322,10 @@ class Workshop {
     if (at < 0) this.rows.push(row);
     else this.rows[at] = row;
     // A board of the row changed: the row is laid again on it, row.json read anew with it.
-    if (this.row.holds(name)) this.rows = await this.row.relay(this.rows);
+    if (this.row.holds(name)) {
+      this.rows = await this.row.relay(this.rows);
+      if (this.name !== '') this.measure();
+    }
     this.lists.show(this.rows, this.name);
     return text;
   }
@@ -375,9 +387,23 @@ class Workshop {
       this.spec = null;
       this.error = (error as Error).message;
     }
+    this.measure();
+  }
+
+  /** The board in hand as the player meets it: a board of the row on the faces of its chapter, with the floor its chapter gives it (`WorkshopRow.asPlayed`). */
+  private played(): LevelSpec | null {
+    return this.spec && this.row.asPlayed(this.spec, this.name, this.rows);
+  }
+
+  /**
+   * The facts are of the board as it is played: the solver proves the way of a board of the row on
+   * the faces of its chapter, as the row is tested. Told again whenever the row is read, since a
+   * board moved to another chapter plays on other faces with its file the same.
+   */
+  private measure(): void {
     // Another board: the way asked for was of the board that was.
     const wanted = this.facts.wanted;
-    if (this.facts.of(this.spec, this.error) && wanted) this.say('');
+    if (this.facts.of(this.played(), this.error) && wanted) this.say('');
   }
 
   /** The board in hand as the text of its file. */
@@ -526,7 +552,7 @@ class Workshop {
   private togglePlay(): void {
     if (this.showing) return this.endShow();
     if (!this.playing) {
-      const spec = this.spec && this.row.asPlayed(this.spec, this.name, this.rows);
+      const spec = this.played();
       if (!spec) return this.say(this.error ? `не играется: ${this.error}` : 'нет доски');
       // A way waited for is not shown over a play.
       this.facts.wanted = false;
@@ -578,9 +604,9 @@ class Workshop {
     this.showWay();
   }
 
-  /** The way asked for is shown once the solver has counted the board: put on from its start and played on the real rules, the stage taken away as in a play. */
+  /** The way asked for is shown once the solver has counted the board: put on from its start and played on the real rules as the player meets it, the stage taken away as in a play. */
   private showWay(): void {
-    const { spec } = this;
+    const spec = this.played();
     const { seconds } = this.facts;
     if (!this.facts.wanted || !spec || this.playing) return;
     if (seconds === null) return this.say('решаю…');

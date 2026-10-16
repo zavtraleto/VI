@@ -20,6 +20,8 @@ export interface RowPage {
   readLists(): Promise<void>;
   /** Reads a file changed on the disk again, and the board in hand with it where it is that one; the board in hand is shown again either way. */
   reread(name: string): Promise<void>;
+  /** Shows the board in hand again, as it is now: what was counted of it while its stage was locked is taken. */
+  show(): void;
   open(name: string): Promise<void>;
 }
 
@@ -206,11 +208,14 @@ export class WorkshopRow implements RowList {
 
   /**
    * An operation sent to the server. What waits to be written of the board in hand is written first,
-   * since the operation may lay a status into its file; where it cannot be, nothing is sent. While
-   * the server works the stage is locked, so that no change made meanwhile writes the old head back
-   * over the status it lays. Done, the files and the row are read again and the board in hand with
-   * them; refused, its line is said and the form stays as it is. Either way the board is read and
-   * shown again once the lock is back, so that what was counted of it meanwhile is taken.
+   * since the operation may lay a status into its file; where it cannot be, nothing is sent. The
+   * stage is locked from then until the board is read again after the answer, so that no change
+   * made meanwhile, and no way the solver proves meanwhile, writes the old head back over the
+   * status the server lays: a file read again with its new head is taken by the page, and the
+   * stage unlocked on that head. Done, the files and the row are read again and the board in hand
+   * with them; refused, its line is said, the board is read again all the same, and the form stays
+   * as it is. Once the lock is back the board is shown again, so that what was counted of it while
+   * it was locked is taken.
    */
   private async run(op: RowOp, done: string): Promise<void> {
     if (this.busy) return;
@@ -219,28 +224,35 @@ export class WorkshopRow implements RowList {
     const locked = stage.locked;
     // The lock is put back only on the board it was taken of: another board opened meanwhile has its own.
     const name = this.name;
-    let refused: string | null = null;
+    let taken = false;
     try {
       if (!(await this.page.save())) return;
-      stage.locked = true;
-      await editRow(op);
-    } catch (error) {
-      refused = refusal(error as Error);
+      stage.locked = taken = true;
+      let refused: string | null = null;
+      try {
+        await editRow(op);
+      } catch (error) {
+        refused = refusal(error as Error);
+      }
+      if (refused !== null) {
+        this.page.say(`${op.board}: ${refused}`);
+        await this.page.reread(op.board);
+        return;
+      }
+      this.removing = false;
+      this.shut();
+      // The board is shown where it went, with the grammar under it.
+      this.lists.list = 'row';
+      await this.page.readLists();
+      await this.page.reread(op.board);
+      this.page.say(`${op.board}: ${done}`);
     } finally {
-      if (this.name === name) stage.locked = locked;
       this.busy = false;
+      if (taken && this.name === name) {
+        stage.locked = locked;
+        this.page.show();
+      }
     }
-    if (refused !== null) {
-      this.page.say(`${op.board}: ${refused}`);
-      return this.page.reread(op.board);
-    }
-    this.removing = false;
-    this.shut();
-    // The board is shown where it went, with the grammar under it.
-    this.lists.list = 'row';
-    await this.page.readLists();
-    await this.page.reread(op.board);
-    this.page.say(`${op.board}: ${done}`);
   }
 
   private shut(): void {
