@@ -120,4 +120,14 @@ describe('a board renamed', () => {
     expect(readBoardHead(renamed).was).toEqual(['P13old', 'P13_s1']);
     expect(boardHash(renamed, 'bridge-4')).not.toBeNull();
   });
+  it('starts the names it had where there were none', () => {
+    const renamed = renamedText('id: a-1\nfaces: 2\n---\n21* 21\n .   .\n', 'a-2');
+    expect(renamed.split('\n')[0]).toBe('id: a-2');
+    expect(readBoardHead(renamed).was).toEqual(['a-1']);
+  });
+  it('does not keep among the names it had the name it is given back', () => {
+    const back = renamedText(renamedText('id: a-1\nfaces: 2\n---\n21* 21\n .   .\n', 'a-2'), 'a-1');
+    expect(back.split('\n')[0]).toBe('id: a-1');
+    expect(readBoardHead(back).was).toEqual(['a-2']);
+  });
 });

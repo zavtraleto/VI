@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renam
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
 import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, renamedText, renameOf, safeName, versionOf } from './src/lab/boardsServer';
+import { readBoardHead } from './src/levels/boardFile';
 import { buildRow, readRowFile, rowText, touchesRow } from './src/levels/row';
 
 /**
@@ -76,17 +77,21 @@ export function viBoards(): Plugin {
             return send(200, '{}');
           }
           if (ask.kind === 'rename') {
-            // A board is given a new name: the file, and its history and plays with it. A name that is taken, or a board of the row, is refused.
+            // A board is given a new name: the file, and its history and plays with it, or none of them. A name that is taken, by a
+            // board or by a history, and a board of the row, by row.json or by its own R, are refused before anything is written.
             const to = renameOf(await body());
             if (!to) return send(400, JSON.stringify({ error: 'a rename is { to: <name of a board> }' }));
             if (!existsSync(file)) return send(404, JSON.stringify({ error: `no board ${ask.name}` }));
             const target = join(dir, `${to}.txt`);
             if (existsSync(target)) return send(409, JSON.stringify({ error: `there is a board ${to} already` }));
+            if (existsSync(history(to))) return send(409, JSON.stringify({ error: `there is a history of ${to} already: the history of ${ask.name} would be left behind` }));
+            const text = readFileSync(file, 'utf8');
+            if (readBoardHead(text).status === 'R') return send(409, JSON.stringify({ error: `${ask.name} is a board of the row by its status R: its code is what the players' progress keeps` }));
             const row = readRowFile(readFileSync(join(dir, 'row.json'), 'utf8'));
             if (row.chapters.some((chapter) => chapter.places.some((place) => place.board === ask.name))) return send(409, JSON.stringify({ error: `${ask.name} is a board of the row: its code is what the players' progress keeps` }));
-            writeFileSync(target, renamedText(readFileSync(file, 'utf8'), to));
+            writeFileSync(target, renamedText(text, to));
             unlinkSync(file);
-            if (existsSync(history(ask.name)) && !existsSync(history(to))) renameSync(history(ask.name), history(to));
+            if (existsSync(history(ask.name))) renameSync(history(ask.name), history(to));
             return send(200, JSON.stringify({ name: to }));
           }
           if (ask.kind === 'read') return existsSync(file) ? send(200, readFileSync(file, 'utf8'), 'text/plain') : send(404, JSON.stringify({ error: `no board ${ask.name}` }));

@@ -179,14 +179,15 @@ export function renameOf(body: string): string | null {
 
 /**
  * A file under a new name: its id is the new name, and the name it had goes to the end of the
- * names it had before (`was`). Nothing else of the file changes.
+ * names it had before (`was`). A name given back is its id again and no longer among them.
+ * Nothing else of the file changes.
  */
 export function renamedText(text: string, to: string): string {
   const head = readBoardHead(text);
   const { migrated: _migrated, ...rest } = head;
   const id = /^id:\s*(.*)$/m.exec(text)?.[1]?.trim() ?? '';
-  const was = [...(head.was ?? []), ...(id && id !== to ? [id] : [])];
-  return withHead(text.replace(/^id:.*$/m, `id: ${to}`), { ...rest, ...(was.length > 0 ? { was } : {}) });
+  const was = [...(head.was ?? []), ...(id ? [id] : [])].filter((name) => name !== to);
+  return withHead(text.replace(/^id:.*$/m, `id: ${to}`), { ...rest, was });
 }
 
 /** The file of the history an export of a day is kept in. */
