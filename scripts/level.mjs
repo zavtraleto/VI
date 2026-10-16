@@ -36,9 +36,10 @@
 //                                                       written as files: seeds=200 from=1, mode=random|solution|route|both
 //                                                       (the place's own way unless said), keep=20 the most that are written
 //
-// file= is a path, or the name of a file in boards/ without its .txt, or the code of a board the
-// game has: a level of the list (P06) or a piece of the road (R03). A file of boards/ stands before
-// a board of the game of the same name: file=game:P06 asks for the board of the game.
+// file= is a path, or the name of a file in boards/ without its .txt, or a name the board had before
+// (`was:`), or the code of a board the game has: a level of the list (P06) or a piece of the road (R03).
+// A file of boards/ stands before a board of the game of the same name: file=game:P06 asks for the
+// board of the game.
 //   json          the answer as JSON with keys that stay, in place of the text
 //   states=N      boards the solver may see before it gives up
 // A word or a key that is not known is a mistake and is said. What is asked for goes to stdout;
@@ -102,8 +103,9 @@ const number = (key) => {
 
 const { parseBoard, printBoard, readBoardHead } = await load('/src/levels/boardFile.ts');
 const lab = await load('/src/levels/labText.ts');
+const { resolveName } = await load('/src/levels/library.ts');
 
-/** The board a key names: a file by its path, a file of boards/ by its name, or a board of the game by its code. */
+/** The board a key names: a file by its path, a file of boards/ by its name or by a name it had, or a board of the game by its code. */
 function loadBoard(key = 'file') {
   const said = named[key];
   if (!said) refuse(`${command}: name a board, as in ${key}=boards/H01.txt, ${key}=H01 or ${key}=P06`);
@@ -116,6 +118,14 @@ function loadBoard(key = 'file') {
       return { spec: parseBoard(text, said), head: readBoardHead(text), from: 'file', path };
     }
     if (/[\\/.]/.test(said)) throw new Error(`no file ${said}`);
+    // A board renamed is found by a name it had, before a board of the game is looked for.
+    const boards = resolve(root, 'boards');
+    const files = existsSync(boards) ? readdirSync(boards).filter((file) => file.endsWith('.txt')).map((file) => ({ name: file.slice(0, -'.txt'.length), text: readFileSync(resolve(boards, file), 'utf8') })) : [];
+    const now = resolveName(said, files);
+    if (now !== null) {
+      const text = files.find((file) => file.name === now).text;
+      return { spec: parseBoard(text, now), head: readBoardHead(text), from: 'file', path: resolve(boards, `${now}.txt`) };
+    }
     return { ...lab.boardFrom(said), head: {} };
   } catch (error) {
     return refuse(error.message);

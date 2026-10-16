@@ -13,6 +13,8 @@ import {
   markOfKey,
   mergeHead,
   placeOf,
+  renameFaults,
+  resolveName,
   sameBoardAnyFaces,
   sameDice,
   spareName,
@@ -32,6 +34,28 @@ describe('the names of the library', () => {
   it('gives an older board of a code its edition, and a board of a reserve its seed', () => {
     expect(codeWithEdition('R07', 2)).toBe('R07e2');
     expect(spareName('P01', 30512)).toBe('P01_s30512');
+  });
+});
+
+describe('the renames of the library', () => {
+  const names = ['P13_s1', 'P13_s2', 'R01', 'bridge-1'];
+  it('takes a map that gives every board a free name of a board', () => {
+    expect(renameFaults({ P13_s1: 'bridge-2', P13_s2: 'bridge-3' }, names, ['R01'])).toEqual([]);
+  });
+  it('says every fault of a map: no such board, a board of the row, a name taken or given twice, no name of a board', () => {
+    expect(renameFaults({ nope: 'a-1', R01: 'road-1', P13_s1: 'bridge-1', P13_s2: 'x.y' }, names, ['R01'])).toEqual([
+      'nope: no such board',
+      'R01: a board of the row keeps its code',
+      'P13_s1: bridge-1 is taken',
+      'P13_s2: "x.y" is no name of a board',
+    ]);
+    expect(renameFaults({ P13_s1: 'b-1', P13_s2: 'b-1' }, names, [])).toEqual(['P13_s2: b-1 is given twice']);
+  });
+  it('finds a board by the name it has or by a name it had', () => {
+    const files = [{ name: 'bridge-2', text: 'id: bridge-2\nwas: P13_s1\nfaces: 2\n---\n21*\n' }];
+    expect(resolveName('bridge-2', files)).toBe('bridge-2');
+    expect(resolveName('P13_s1', files)).toBe('bridge-2');
+    expect(resolveName('P13_s9', files)).toBeNull();
   });
 });
 

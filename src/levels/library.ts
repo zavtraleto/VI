@@ -4,6 +4,7 @@ import { BOARD_MARKS, normalSpec, parseBoard, printBoard, readBoardHead, type Bo
 
 export { withHead } from './boardFile';
 import { sameBoard } from './variety';
+import { isBoardName } from '../app/boardProbe';
 
 /**
  * The library of the boards (docs/superpowers/specs/2026-10-14-vi-board-library-design.md): every
@@ -44,6 +45,33 @@ export function codeWithEdition(code: string, edition: number): string {
 /** The name of a board of a reserve: the code of its place and the seed it was laid from, `P01_s30512`. */
 export function spareName(code: string, seed: number): string {
   return `${code}_s${seed}`;
+}
+
+/**
+ * What is wrong with a map of renames (`library.mjs rename map=`), a line to a board: a board that
+ * is not there, a board of the row (its code is what the progress of the players keeps), a name
+ * taken by a board that is not renamed itself, a name given twice, a name that is no name of a
+ * board. Empty where the map can be done.
+ */
+export function renameFaults(map: Readonly<Record<string, string>>, names: readonly string[], rowCodes: readonly string[]): string[] {
+  const faults: string[] = [];
+  const given = new Set<string>();
+  const leaving = new Set(Object.keys(map));
+  for (const [from, to] of Object.entries(map)) {
+    if (!names.includes(from)) faults.push(`${from}: no such board`);
+    else if (rowCodes.includes(from)) faults.push(`${from}: a board of the row keeps its code`);
+    else if (!isBoardName(to)) faults.push(`${from}: "${to}" is no name of a board`);
+    else if (given.has(to)) faults.push(`${from}: ${to} is given twice`);
+    else if (names.includes(to) && !leaving.has(to)) faults.push(`${from}: ${to} is taken`);
+    given.add(to);
+  }
+  return faults;
+}
+
+/** The file a name is of: the file of that name, or the one that had the name before (`was`). */
+export function resolveName(name: string, files: readonly { name: string; text: string }[]): string | null {
+  if (files.some((file) => file.name === name)) return name;
+  return files.find((file) => readBoardHead(file.text).was?.includes(name))?.name ?? null;
 }
 
 /** The codes of the row in its order. */
