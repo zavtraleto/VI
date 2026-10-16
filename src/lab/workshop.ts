@@ -121,10 +121,10 @@ class Workshop {
     game.awake = true;
     this.watcher = new PlayWatch(this.inside, (record, of) => this.tellPlay(record, of.name));
     // The way is shown on the game as keys, read off its run: it is no play of the owner, and nothing of it is written down.
-    // A key the game has not taken is dropped from its own input when the way is stopped, as `Inside` reads its run.
+    // A key the game has not taken is dropped from its own input when the way is stopped, as `Inside` reads its run; a game without that input drops nothing.
     const { inside } = this;
-    const { controller } = game as unknown as { controller: { cancel(): void } };
-    this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller.cancel() }, (line) => this.say(line));
+    const { controller } = game as unknown as { controller?: { cancel(): void } };
+    this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller?.cancel() }, (line) => this.say(line));
     const { palette } = this;
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
 
@@ -591,10 +591,16 @@ class Workshop {
     if (typeof way === 'string') return this.say(way);
     this.showing = true;
     this.topBar.style.visibility = this.stageBox.style.visibility = 'hidden';
-    this.inside.audio.setAway(false);
-    this.game.playBoard(spec);
-    this.show.start(way);
     this.playButton.textContent = 'расставлять (E)';
+    // The way is often begun from the answer of the solver, where a failure would go unheard: it is said, and the stage is back.
+    try {
+      this.inside.audio.setAway(false);
+      this.game.playBoard(spec);
+      this.show.start(way);
+    } catch (error) {
+      this.endShow();
+      this.say(`решение не показать: ${(error as Error).message}`);
+    }
   }
 
   /** `E` while a way is shown: the stage is back, as after a play, and nothing is written down. */

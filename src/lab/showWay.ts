@@ -64,13 +64,15 @@ export function nextPress(state: RunState, way: readonly SolverMove[]): { dir: D
 
 /**
  * The way «показать решение» plays, once the solver has counted the board: the way the file
- * keeps, where it holds the fewest moves, or else the one the solver found. Where there is none
- * to play, the line that says why.
+ * keeps, where it holds the fewest moves, or else the one the solver found. `same` says only that
+ * the file and the solver agree on the fewest moves, and a file may keep them with no way, or a
+ * way of another length: the file's way is played where it is of that length. Where there is
+ * none to play, the line that says why.
  */
 export function wayToShow(spec: LevelSpec, seconds: Seconds | string): readonly SolverMove[] | string {
   if (typeof seconds === 'string') return `решатель: ${seconds}`;
   const { check } = seconds;
-  const way = check.kept === 'same' ? spec.solution : check.way;
+  const way = check.kept === 'same' && check.par !== null && spec.solution?.length === check.par ? spec.solution : check.way;
   if (!way) return check.exact ? 'решения нет' : 'решатель сдался, решения не нашёл';
   return way.map(moveOf);
 }
@@ -144,8 +146,8 @@ export class WayShow {
     const press = nextPress(state, this.way);
     if (press === 'done' || press === 'lost') {
       this.stop();
-      // A run over before the way is played out is not the run the way was found on, no more than one where a move cannot be got to.
-      const end = press === 'lost' ? `ход ${run.moves + 1} из ${this.way.length} не достать на доске —` : run.moves < this.way.length ? `партия кончилась на ${this.count()} —` : `${this.count()}, показано — V ещё раз,`;
+      // A way is said to be shown only where it cleared the board: a run that ended otherwise, or a move that cannot be got to, is not the run the way was found on.
+      const end = press === 'lost' ? `ход ${run.moves + 1} из ${this.way.length} не достать на доске —` : state.endReason !== 'passed' ? `партия кончилась на ${this.count()}, доска не очищена —` : `${this.count()}, показано — V ещё раз,`;
       this.say(`решение: ${end} E к расстановке`);
       return;
     }

@@ -64,6 +64,15 @@ describe('the presses that show a way', () => {
     expect(wayToShow(spec, 'the worker failed')).toBe('решатель: the worker failed');
   });
 
+  it('show the way found where the file keeps the fewest moves with no way, or with a way of another length', () => {
+    // `checkOf` says `same` of a file that keeps `par:` and the solver agrees, whatever way the file keeps.
+    const seconds = (way: string[]): Seconds => ({ check: { par: way.length, exact: true, states: 1, way, score: null, kept: 'same' }, firsts: 0, moves: [], trap: null });
+    const found = ['1,1,N', '2,1,W'];
+    expect(wayToShow({ ...board({}), par: 2 }, seconds(found))).toEqual(found.map(moveOf));
+    expect(wayToShow({ ...board({}), par: 2, solution: ['0,0,E', '0,1,S', '1,1,N'] }, seconds(found))).toEqual(found.map(moveOf));
+    expect(wayToShow({ ...board({}), par: 2, solution: ['0,0,E', '0,1,S'] }, seconds(found))).toEqual([moveOf('0,0,E'), moveOf('0,1,S')]);
+  });
+
   it('says a move it cannot get to', () => {
     const spec = board({ layout: { dice: [{ x: 0, z: 0, top: 2, north: 1 }, { x: 2, z: 0, top: 2, north: 1 }], start: { x: 0, z: 0 } } });
     const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
