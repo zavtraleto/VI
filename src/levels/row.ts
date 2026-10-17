@@ -18,6 +18,9 @@ export type Technique = (typeof TECHNIQUES)[number];
 /** The hints of the texts (`src/ui/i18n.ts`) a place can show in a window before its board. */
 export const HINT_KEYS = ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintClimb', 'hintSeven', 'hintLinkMove'] as const;
 export type HintKey = (typeof HINT_KEYS)[number];
+/** What a player is meant to feel on a place (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, 4.4): the words of rule 8 of the grammar. */
+export const EMOTIONS = ['gift', 'recognition', 'insight', 'flow', 'trick', 'surprise', 'tension', 'payoff', 'fiero', 'relief', 'mastery'] as const;
+export type Emotion = (typeof EMOTIONS)[number];
 export const PLAQUES = ['all', 'near'] as const;
 export const WAITS = ['first', 'lesson', 'free'] as const;
 export const CAMERAS = ['cells', 'hold'] as const;
@@ -42,6 +45,7 @@ export interface RowPlaceFile {
   role: Role;
   teaches?: Technique;
   archetype: string;
+  emotion?: Emotion;
   event?: string;
   /** A note for people, not read by the game. */
   note?: string;
@@ -70,6 +74,7 @@ export interface Place {
   role: Role;
   teaches?: Technique;
   archetype: string;
+  emotion?: Emotion;
   event?: string;
   help: Help;
 }
@@ -90,7 +95,7 @@ export interface Row {
 
 /** The keys row.json knows, in the order it is written in (`rowFileText` of rowEdit.ts). */
 export const CHAPTER_KEYS = ['title', 'faces', 'floor', 'places'] as const;
-export const PLACE_KEYS = ['board', 'role', 'teaches', 'archetype', 'event', 'note', 'help'] as const;
+export const PLACE_KEYS = ['board', 'role', 'teaches', 'archetype', 'emotion', 'event', 'note', 'help'] as const;
 export const HELP_KEYS = ['hint', 'sign', 'plaques', 'wait', 'camera'] as const;
 
 /** Reads the text of row.json: JSON, with a list of chapters. What each holds is asked by `buildRow`. */
@@ -122,6 +127,7 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
       unknownKeys(help, HELP_KEYS, where);
       oneOf(where, 'role', said.role, ROLES);
       if (said.teaches !== undefined) oneOf(where, 'teaches', said.teaches, TECHNIQUES);
+      if (said.emotion !== undefined) oneOf(where, 'emotion', said.emotion, EMOTIONS);
       if (help.hint !== undefined) oneOf(where, 'hint', help.hint, HINT_KEYS);
       if (help.sign !== undefined) oneOf(where, 'sign', help.sign, SIGNS);
       if (help.plaques !== undefined) oneOf(where, 'plaques', help.plaques, PLAQUES);
@@ -148,6 +154,7 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
         role: said.role,
         ...(said.teaches !== undefined ? { teaches: said.teaches } : {}),
         archetype: said.archetype,
+        ...(said.emotion !== undefined ? { emotion: said.emotion } : {}),
         ...(said.event !== undefined ? { event: said.event } : {}),
         help: { ...help },
       });

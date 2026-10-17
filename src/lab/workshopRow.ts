@@ -1,13 +1,13 @@
 import { fastGrammar } from '../levels/grammar';
 import { asInRow, rowChapters, type LibraryRowChapter } from '../levels/library';
-import { CAMERAS, HELP_KEYS, HINT_KEYS, PLAQUES, ROLES, ROW_EVENT, SIGNS, TECHNIQUES, WAITS, buildRow, readRowFile, type Help, type RowFile, type RowPlaceFile } from '../levels/row';
+import { CAMERAS, EMOTIONS, HELP_KEYS, HINT_KEYS, PLAQUES, ROLES, ROW_EVENT, SIGNS, TECHNIQUES, WAITS, buildRow, readRowFile, type Emotion, type Help, type RowFile, type RowPlaceFile } from '../levels/row';
 import { ROW } from '../levels/row.gen';
 import { helpNear, type PlaceFields, type RowOp } from '../levels/rowEdit';
 import type { LevelSpec } from '../rules/types';
 import type { Palette } from '../shell/theme';
 import { editRow, readRow } from './boardsClient';
 import { boardLine, buttonOf, fieldStyle, type RowList, type WorkshopListView } from './workshopListView';
-import { ROLE_TITLES, chaptersOf, listRows, rowOf, type BoardRow } from './workshopLists';
+import { EMOTION_TITLES, ROLE_TITLES, chaptersOf, listRows, rowOf, type BoardRow } from './workshopLists';
 
 /** What the row asks of the page it is on. */
 export interface RowPage {
@@ -282,6 +282,7 @@ export class WorkshopRow implements RowList {
     const archetypeField = Object.assign(document.createElement('input'), { placeholder: 'архетип', value: was.archetype ?? '' });
     archetypeField.style.cssText = fieldStyle(palette, 'width:140px');
     const teachesField = select(palette, [none, ...TECHNIQUES.map((one): [string, string] => [one, one])]);
+    const emotionField = select(palette, [none, ...EMOTIONS.map((one): [string, string] => [one, EMOTION_TITLES[one]])]);
     const eventField = Object.assign(document.createElement('input'), { placeholder: 'event', value: was.event ?? '' });
     const noteField = Object.assign(document.createElement('input'), { placeholder: 'note', value: was.note ?? '' });
     for (const field of [eventField, noteField]) field.style.cssText = fieldStyle(palette, 'width:140px');
@@ -290,6 +291,7 @@ export class WorkshopRow implements RowList {
     facesLine.style.color = palette.dim;
     roleField.value = was.role ?? '';
     teachesField.value = was.teaches ?? '';
+    emotionField.value = was.emotion ?? '';
     const chapterAt = (): number => Number(chapterField.value);
     const after = (): string | null => afterField.value || null;
     function fillAfter(): void {
@@ -326,6 +328,7 @@ export class WorkshopRow implements RowList {
         role,
         ...(teachesField.value ? { teaches: teachesField.value as RowPlaceFile['teaches'] } : {}),
         archetype,
+        ...(emotionField.value ? { emotion: emotionField.value as Emotion } : {}),
         ...(said(eventField) ? { event: said(eventField) } : {}),
         ...(said(noteField) ? { note: said(noteField) } : {}),
         ...(Object.keys(help).length > 0 ? { help } : {}),
@@ -339,6 +342,7 @@ export class WorkshopRow implements RowList {
       roleField,
       archetypeField,
       labelled('teaches', teachesField),
+      labelled('эмоция', emotionField),
       eventField,
       noteField,
       ...helpFields.map(([key, field]) => labelled(key, field)),

@@ -13,8 +13,8 @@ export const FIXTURE: Row = buildRow(
       {
         title: 'first',
         places: [
-          { board: 'F1', role: 'meet', archetype: 'a', help: { sign: 'N', plaques: 'all', wait: 'first', camera: 'hold' } },
-          { board: 'F2', role: 'learn', archetype: 'b', help: { plaques: 'near', wait: 'lesson', camera: 'hold' } },
+          { board: 'F1', role: 'meet', archetype: 'a', emotion: 'gift', help: { sign: 'N', plaques: 'all', wait: 'first', camera: 'hold' } },
+          { board: 'F2', role: 'learn', archetype: 'b', emotion: 'recognition', help: { plaques: 'near', wait: 'lesson', camera: 'hold' } },
           { board: 'F3', role: 'apply', archetype: 'c', help: { hint: 'roadHintChain', plaques: 'near', wait: 'free', camera: 'cells' } },
         ],
       },
@@ -23,7 +23,7 @@ export const FIXTURE: Row = buildRow(
         faces: [2, 3],
         floor: 'open',
         places: [
-          { board: 'G1', role: 'meet', archetype: 'd', help: { hint: 'roadHintWalk' } },
+          { board: 'G1', role: 'meet', archetype: 'd', emotion: 'surprise', help: { hint: 'roadHintWalk' } },
           { board: 'G2', role: 'rest', archetype: 'e' },
         ],
       },

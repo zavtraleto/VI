@@ -114,6 +114,10 @@ describe('rowFileText', () => {
     const file: RowFile = { chapters: [...sample().chapters, { title: 'c', floor: 'open', places: [] }] };
     expect(readRowFile(rowFileText(file))).toEqual(file);
   });
+  it('writes the emotion of a place between its archetype and its event', () => {
+    const file: RowFile = { chapters: [{ title: 'a', places: [{ event: 'e', emotion: 'gift', archetype: 'a', role: 'meet', board: 'A1' }] }] };
+    expect(rowFileText(file)).toContain('{ "board": "A1", "role": "meet", "archetype": "a", "emotion": "gift", "event": "e" }');
+  });
   it('lays the real row again after an insert of a board that is not of the row, once its file says R', () => {
     const file = readRowFile(rowJson);
     const name = [...BOARD_TEXTS.keys()].find((code) => readBoardHead(BOARD_TEXTS.get(code)!).status !== 'R' && !rowJson.includes(`"${code}"`) && (() => {

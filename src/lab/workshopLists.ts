@@ -1,6 +1,6 @@
 import { parseBoard, readBoardHead, type BoardHead, type BoardStatus } from '../levels/boardFile';
 import { asInRow, placeOf, type Place, type LibraryRowChapter } from '../levels/library';
-import type { Role, RowFile, RowPlaceFile } from '../levels/row';
+import type { Emotion, Role, RowFile, RowPlaceFile } from '../levels/row';
 import type { LevelSpec } from '../rules/types';
 import type { HeadPatch } from './boardsServer';
 
@@ -164,6 +164,20 @@ export function verdictPatch(status: BoardStatus | undefined, verdict: Verdict |
 
 /** The roles of the row as the page says them (section 11.1). */
 export const ROLE_TITLES: Readonly<Record<Role, string>> = { meet: 'встреча', learn: 'урок', apply: 'применение', event: 'событие', twist: 'поворот', peak: 'пик', rest: 'передышка' };
+/** The words of an emotion of a place as the form of the workshop says them (the spec of the third campaign, 4.4). */
+export const EMOTION_TITLES: Readonly<Record<Emotion, string>> = {
+  gift: 'подарок',
+  recognition: 'узнавание',
+  insight: 'догадка',
+  flow: 'поток',
+  trick: 'ложная простота',
+  surprise: 'удивление следствию',
+  tension: 'напряжение счёта',
+  payoff: 'развязка',
+  fiero: 'фиеро',
+  relief: 'облегчение',
+  mastery: 'мастерство',
+};
 
 /** A chapter of «в кампании»: its title, its faces where it has its own, and its places numbered through the row. */
 export interface ListChapter {

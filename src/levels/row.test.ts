@@ -55,6 +55,13 @@ describe('buildRow', () => {
     expect(buildRow(file({ floor: undefined }), boards).places[1].spec.floor).toBe(false);
   });
 
+  it('keeps the emotion of a place, and refuses a word that is none of EMOTIONS', () => {
+    const one = { chapters: [{ title: 'one', places: [{ board: 'A', role: 'meet', archetype: 'a', emotion: 'gift' }] }] };
+    expect(buildRow(one as RowFile, boards).places[0].emotion).toBe('gift');
+    const wrong = { chapters: [{ title: 'one', places: [{ board: 'A', role: 'meet', archetype: 'a', emotion: 'joy' }] }] };
+    expect(() => buildRow(wrong as RowFile, boards)).toThrow('row: place 1 (A): "emotion: joy" is none of gift, recognition, insight, flow, trick, surprise, tension, payoff, fiero, relief, mastery');
+  });
+
   it('refuses a row it cannot play, in one line that names the place', () => {
     const bad = (change: (row: RowFile) => void): string => {
       const row = file();
