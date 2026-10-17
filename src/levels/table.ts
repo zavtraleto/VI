@@ -126,7 +126,7 @@ const BAN_OF: Partial<Record<Technique, readonly Ban[]>> = { link: ['link'], wal
 /**
  * What the slow rules of the grammar ask of a board (`slowGrammar`): whether the walk over the
  * boards the player can come to finds one lost, the shares of the planner's and the casual persona's runs that clear it, whether
- * it is a trap of order (two combos on its way and `trapOf`), and,
+ * it is a trap of order (two combos or links on its way and `trapOf`), and,
  * for a board that teaches, the fewest moves it is cleared in without that move (up to two over its own).
  */
 export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): SlowFacts {
@@ -138,8 +138,9 @@ export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, wal
   }
   const ban = teaches ? BAN_OF[teaches] : undefined;
   const without = ban === undefined ? undefined : (solveLevel(spec, { ban: [...ban], maxMoves: (spec.par ?? 0) + 2 }).solution?.par ?? null);
-  const combos = scoreOf(spec, (spec.solution ?? []).map(moveOf)).beats.filter((beat) => beat.event === 'combo').length;
-  const order = combos >= 2 && trapOf(spec) !== null;
+  // A link is the second event of a trap of order as a combo is (third campaign, section 14): R05 is a combo and a link.
+  const events = scoreOf(spec, (spec.solution ?? []).map(moveOf)).beats.filter((beat) => beat.event === 'combo' || beat.event === 'link').length;
+  const order = events >= 2 && trapOf(spec) !== null;
   return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, casual: casual / runs, order, ...(without === undefined ? {} : { without }) };
 }
 

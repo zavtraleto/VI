@@ -1,5 +1,5 @@
 id: which-first-1
-status: R
+status: RC
 origin: третья редакция, слой 1
 note: напрашивающаяся пара первой бросает вторую
 faces: 2 3

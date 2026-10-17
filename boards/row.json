@@ -7,14 +7,14 @@
         { "board": "side-up-1", "role": "learn", "archetype": "ride", "emotion": "gift", "help": { "wait": "lesson", "camera": "hold" } },
         { "board": "R03", "role": "apply", "archetype": "first free board", "emotion": "insight", "event": "first free board", "help": { "wait": "free", "camera": "hold" } },
         { "board": "B01_s290", "role": "meet", "teaches": "loop", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "a straight roll turns the face away", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
         { "board": "H06", "role": "apply", "archetype": "three 3s: one roll, then the die beside", "emotion": "flow", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
         { "board": "H08", "role": "apply", "archetype": "the way round keeps the face", "emotion": "mastery", "help": { "wait": "free", "camera": "hold" } },
         { "board": "three-under-1", "role": "meet", "teaches": "seven", "archetype": "the face under", "emotion": "insight", "event": "the rule of seven", "help": { "hint": "hintSeven", "wait": "free", "camera": "hold" } },
-        { "board": "R04", "role": "event", "archetype": "free to fail", "emotion": "trick", "event": "first dead end", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "act-k17", "role": "apply", "archetype": "the face under, by a link", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
         { "board": "R05", "role": "meet", "teaches": "order", "archetype": "choose the first die", "emotion": "insight", "event": "choice of the first die", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "which-first-2", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "which-first-1", "role": "apply", "archetype": "which first", "emotion": "trick", "help": { "wait": "free", "camera": "hold" } }
+        { "board": "which-first-2", "role": "apply", "archetype": "which first", "emotion": "trick", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "which-first-3", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } }
       ]
     },
     {
@@ -22,38 +22,54 @@
       "floor": "open",
       "places": [
         { "board": "bridge-first-1", "role": "meet", "teaches": "walk", "archetype": "bridge", "emotion": "surprise", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk" } },
-        { "board": "P02", "role": "apply", "archetype": "bridge", "emotion": "recognition" },
+        { "board": "P02", "role": "apply", "archetype": "bridge to a link", "emotion": "recognition" },
+        { "board": "R11", "role": "meet", "teaches": "twoFaces", "archetype": "bridge", "emotion": "surprise", "event": "two faces on one board" },
+        { "board": "two-pairs-2", "role": "apply", "archetype": "bridge two faces", "emotion": "recognition" },
+        { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
+        { "board": "tight-room-4", "role": "peak", "archetype": "two combos, a link between", "emotion": "fiero" },
+        { "board": "C1-07", "role": "rest", "archetype": "collapse", "emotion": "payoff", "event": "first big clearing, with a way to it" },
         { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "emotion": "insight", "event": "first chain", "help": { "hint": "roadHintChain", "camera": "cells" } },
-        { "board": "R11", "role": "apply", "archetype": "bridge", "emotion": "recognition", "event": "two faces on one board" },
-        { "board": "R08", "role": "rest", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } },
+        { "board": "R08", "role": "apply", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } },
+        { "board": "two-pairs-1", "role": "apply", "archetype": "two pairs, the walk to a link", "emotion": "recognition" },
+        { "board": "domino-3", "role": "event", "archetype": "long domino over leaving dice", "emotion": "flow", "event": "a long chain" },
         { "board": "roll-in-1", "role": "twist", "teaches": "glass", "archetype": "roll into leaving", "emotion": "surprise", "event": "the leaving die is a cell" },
         { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "emotion": "insight" },
-        { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
-        { "board": "C1-07", "role": "rest", "archetype": "collapse", "emotion": "payoff", "event": "first big clearing, with a way to it" },
+        { "board": "P24", "role": "rest", "archetype": "domino in a corridor", "emotion": "flow", "event": "first corridor" },
         { "board": "P07", "role": "peak", "archetype": "two combos from one die", "emotion": "fiero" }
-      ]
-    },
-    {
-      "title": "order",
-      "floor": "open",
-      "places": [
-        { "board": "R09", "role": "meet", "teaches": "twoFaces", "archetype": "two heaps at once", "emotion": "surprise", "event": "heaps of both faces on one board" },
-        { "board": "P08", "role": "apply", "archetype": "two combos in any order", "emotion": "recognition" },
-        { "board": "C2-05", "role": "twist", "archetype": "decoy of the wrong channel", "emotion": "trick", "event": "first trap" },
-        { "board": "P24", "role": "rest", "archetype": "domino in a corridor", "emotion": "flow", "event": "first corridor" }
       ]
     },
     {
       "title": "floor",
       "floor": "open",
       "places": [
-        { "board": "R13", "role": "meet", "teaches": "push", "archetype": "push to a waiting die", "emotion": "relief", "event": "first push", "help": { "hint": "roadHintPush" } },
-        { "board": "R10", "role": "meet", "teaches": "lift", "archetype": "lift by a laid stair", "emotion": "surprise", "event": "first step down and up", "help": { "hint": "roadHintClimb" } },
+        { "board": "floor-first-1", "role": "meet", "teaches": "push", "archetype": "push to a waiting die", "emotion": "relief", "event": "first push", "help": { "hint": "roadHintPush" } },
+        { "board": "carry-1", "role": "apply", "archetype": "carry by pushes", "emotion": "recognition" },
+        { "board": "lift-first-1", "role": "meet", "teaches": "lift", "archetype": "lift by a combo made below", "emotion": "surprise", "event": "first way up", "help": { "hint": "roadHintClimb" } },
         { "board": "R14", "role": "apply", "archetype": "down and back", "emotion": "recognition" },
+        { "board": "roll-or-push-1", "role": "apply", "archetype": "roll for the face, push for the place", "emotion": "insight" },
+        { "board": "push-then-link-1", "role": "apply", "archetype": "push, climb, link", "emotion": "recognition" },
+        { "board": "three-at-once-1", "role": "rest", "archetype": "three at one push", "emotion": "gift" },
+        { "board": "P12", "role": "peak", "archetype": "down and back with two faces", "emotion": "fiero" },
+        { "board": "link-from-below-1", "role": "twist", "archetype": "a link pushed from below", "emotion": "surprise" },
+        { "board": "corridor-push-1", "role": "apply", "archetype": "push in a corridor", "emotion": "insight" },
+        { "board": "collapse-3", "role": "rest", "archetype": "a big clearing", "emotion": "payoff", "event": "the board clears at once" }
+      ]
+    },
+    {
+      "title": "order",
+      "floor": "open",
+      "places": [
+        { "board": "R09", "role": "apply", "archetype": "two heaps at once", "emotion": "surprise", "note": "twoFaces is brought in by R11 at place 15 (third campaign, section 14)" },
+        { "board": "C2-05", "role": "twist", "archetype": "decoy of the wrong channel", "emotion": "trick", "event": "first trap" }
+      ]
+    },
+    {
+      "title": "more",
+      "floor": "open",
+      "places": [
         { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" },
         { "board": "P09", "role": "apply", "archetype": "bridge with a link", "emotion": "recognition", "note": "its kept way is a bridge with a link (K ~ L), no floor and no push: the name of its probe place said otherwise" },
-        { "board": "R16", "role": "twist", "archetype": "everything at once", "emotion": "insight" },
-        { "board": "P12", "role": "peak", "archetype": "down and back with two faces", "emotion": "fiero" }
+        { "board": "R16", "role": "twist", "archetype": "everything at once", "emotion": "insight" }
       ]
     }
   ]

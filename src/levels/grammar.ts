@@ -21,18 +21,18 @@ import { sameBoard } from './variety';
 
 /** A rule broken: its number, the place in the row (from 1) it is broken at, and what is wrong, in words. */
 export interface Violation {
-  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10;
+  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11;
   at: number;
   text: string;
 }
 
 /**
- * The rules that hold the row before it is published, at step 1 of the third campaign
- * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, sections 7 and 13): 4, 8 and 10 are printed as
- * warnings until step 3, since the places that layer has not reached yet do not keep them. There is no
- * rule 9: the floor and the push before their lesson are the player's (the owner, 17 October 2026).
+ * The rules that hold the row before it is published, at step 3 of the third campaign
+ * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, sections 7, 13 and 14): 4, 8 and 10 are printed as
+ * warnings until the whole first hour is laid (step 4). There is no rule 9: the floor and the push before
+ * their lesson are the player's (the owner, 17 October 2026). Rule 11, the step of seven, holds from step 3.
  */
-export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7]);
+export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 11]);
 /** Whether a rule broken holds the row back, or is a warning for now. */
 export const held = (one: Violation): boolean => HELD.has(one.rule);
 /** What the line of a rule that does not hold the row back yet ends with, under the table and in the workshop. */
@@ -52,7 +52,7 @@ export interface SlowFacts {
    */
   without?: number | null;
   /**
-   * The board is a trap of order (third campaign, section 13): its way makes two combos at least, and a
+   * The board is a trap of order (third campaign, section 13): its way makes two combos or links at least (a link counts, section 14), and a
    * combo can be made first or second after which it cannot be cleared (`trapOf`). Rule 1 for a board
    * that teaches the order counts it; where it is not given, the board is no trap.
    */
@@ -232,9 +232,12 @@ function joinedBy(stop: Stop, order: boolean): string[] {
   return needs.sort();
 }
 
-/** Rule 10, of the moves given: each was brought in (`teaches`) at a place before this one. */
+/**
+ * Rule 10, of the moves given: each was brought in (`teaches`) at a place before this one or at this one:
+ * a twist that teaches (`roll-in-1`, the glass) counts its own move as brought in (third campaign, section 14).
+ */
 function taughtBefore(row: readonly Stop[], stop: Stop, needs: readonly string[]): Violation[] {
-  const taught = new Set(row.filter((other) => other.number < stop.number && other.teaches).map((other) => other.teaches as string));
+  const taught = new Set(row.filter((other) => other.number <= stop.number && other.teaches).map((other) => other.teaches as string));
   return needs.filter((one) => !taught.has(one)).map((one) => ({ rule: 10, at: stop.number, text: `${placeOf(stop)}: ${ROLE_WORD[stop.role]} требует ${one}, а его не вводили раньше` }));
 }
 
@@ -244,6 +247,31 @@ function taughtBefore(row: readonly Stop[], stop: Stop, needs: readonly string[]
  */
 function joinsTwo(row: readonly Stop[]): Violation[] {
   return row.filter((stop) => ROLE_WORD[stop.role]).flatMap((stop) => taughtBefore(row, stop, joinedBy(stop, false)));
+}
+
+/** Rule 11: the windows of the lessons that come a block apart; the climb is a beat of the block of the floor, the seven a lesson of the first layer. */
+const BLOCK_HINTS: ReadonlySet<HintKey> = new Set(['roadHintWalk', 'roadHintChain', 'roadHintPush']);
+/** Rule 11: the fewest places from one lesson with a window to the next. */
+export const LESSON_STEP = 7;
+
+/**
+ * Rule 11 (third campaign, section 14, the step of seven): the places with the window of a walk, a chain or
+ * a push stand seven places apart at least, and the place with the window of the climb stands one place
+ * after the nearest push before it at least. The seven and the move of a link are no part of it.
+ */
+function lessonsSevenApart(row: readonly Stop[]): Violation[] {
+  const out: Violation[] = [];
+  const lessons = row.filter((stop) => stop.help.hint !== undefined && BLOCK_HINTS.has(stop.help.hint));
+  lessons.forEach((stop, index) => {
+    const before = lessons[index - 1];
+    if (before && stop.number - before.number < LESSON_STEP) out.push({ rule: 11, at: stop.number, text: `места ${before.number} (${before.spec.id}) и ${stop.number} (${stop.spec.id}): уроки ближе семи мест` });
+  });
+  for (const stop of row) {
+    if (stop.help.hint !== 'roadHintClimb') continue;
+    const push = [...row].reverse().find((other) => other.number < stop.number && other.help.hint === 'roadHintPush');
+    if (push && stop.number - push.number < 2) out.push({ rule: 11, at: stop.number, text: `${placeOf(stop)}: подъём сразу после толчка на месте ${push.number}` });
+  }
+  return out;
 }
 
 /** Rule 5, its count of moves: the board after a meeting is cleared in at most a move more than the meeting. */
@@ -258,9 +286,9 @@ function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, and the moves taught before of 10. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, the moves taught before of 10, and 11. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row), ...joinsTwo(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [...taughtAndUsed(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row), ...joinsTwo(row), ...lessonsSevenApart(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;

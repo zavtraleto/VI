@@ -1,5 +1,5 @@
 id: two-pairs-2
-status: RC
+status: R
 origin: дорога, редакции 3–6; запас дороги, редакция 7; глава 1 «road»
 was: R15
 mark: норм

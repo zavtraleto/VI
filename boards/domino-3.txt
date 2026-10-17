@@ -1,5 +1,5 @@
 id: domino-3
-status: RC
+status: R
 origin: проба 7 октября; список 11 октября; список 12 октября; акт II; парковка
 was: P20
 mark: норм

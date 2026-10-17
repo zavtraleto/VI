@@ -104,6 +104,10 @@ describe('slowFactsOf', () => {
     expect(facts.casual).toBeGreaterThanOrEqual(0);
     expect(facts.casual! * 2).toBe(Math.round(facts.casual! * 2));
   });
+
+  it('counts a link as the second event of a trap of order: R05 is a combo and a link (third campaign, section 14)', () => {
+    expect(slowFactsOf(fileBoard('R05'), 'order', 50, 1).order).toBe(true);
+  });
 });
 
 describe('grammarText', () => {

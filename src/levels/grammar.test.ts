@@ -57,7 +57,21 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(CAMPAIGN).filter(held)).toEqual([]);
   });
 
-  it('prints what it does not hold yet as warnings: rules 4, 8 and 10', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7]));
+  it('prints what it does not hold yet as warnings: rules 4, 8 and 10', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 11]));
+
+  it('asks the lessons with a window to stand seven places apart, and the climb one place after the push: rule 11', () => {
+    const row = rowOf([['R11', { help: { hint: 'roadHintWalk' } }], 'R03', 'R04', ['R07', { help: { hint: 'roadHintChain' } }], ['R13', { help: { hint: 'roadHintPush' }, teaches: 'push' }], ['R10', { help: { hint: 'roadHintClimb' }, teaches: 'lift' }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 11).map((one) => one.text)).toEqual([
+      'места 1 (R11) и 4 (R07): уроки ближе семи мест',
+      'места 4 (R07) и 5 (R13): уроки ближе семи мест',
+      'место 6 (R10): подъём сразу после толчка на месте 5',
+    ]);
+  });
+
+  it('lets a twist that teaches count its own move as brought in: rule 10', () => {
+    const row = rowOf([['R07', { role: 'meet', teaches: 'link' }], ['roll-in-1', { role: 'twist', teaches: 'glass' }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 10 && one.text.includes('glass'))).toEqual([]);
+  });
 
   it('says where a move taught is not used after: rule 1', () => {
     const row = rowOf(['R01', 'R02', 'R03', 'R04', 'R05', 'R07', ['R11', { teaches: undefined }], 'two-pairs-2', 'R03']);
@@ -136,7 +150,7 @@ describe('the grammar of the row', () => {
 
   it('asks of a climb window a way up onto a leaving die, not only a way down: rule 7', () => {
     // R13 steps down and pushes (K v P): a way down is no climb.
-    const row = rowOf([['R13', { teaches: 'lift', help: { hint: 'roadHintClimb' } }], ['R10', { help: { hint: 'roadHintClimb' } }]]);
+    const row = rowOf([['R13', { teaches: 'lift', help: { hint: 'roadHintClimb' } }], ['R10', { teaches: 'lift', help: { hint: 'roadHintClimb' } }]]);
     expect(fastGrammar(row).filter((one) => one.rule === 7).map((one) => one.text)).toEqual(['место 1 (R13): окно roadHintClimb, а путь доски не требует lift (^)']);
   });
 
@@ -193,7 +207,7 @@ describe('the slow part of the grammar', () => {
   const easy = { lost: true, planner: 1, without: null };
 
   it('asks of a board that teaches that it can be lost and that its move is the short way: rule 2, past the first three places', () => {
-    const row = rowOf(['R01', ['R02', { chapter: 0, role: 'learn', archetype: 'ride' }], 'R03', 'R04', ['R05', { teaches: undefined }], ['R07', { chapter: 0 }], ['R08', { chapter: 0 }]]);
+    const row = rowOf(['R01', ['R02', { chapter: 0, role: 'learn', archetype: 'ride' }], 'R03', ['R04', { chapter: 0, role: 'event', archetype: 'free to fail' }], ['R05', { teaches: undefined }], ['R07', { chapter: 0 }], ['R08', { chapter: 0 }]]);
     // R07 is cleared in 4; without the link in 5 here, a move longer, where a link has to save two.
     const facts = (stop: Stop) => (stop.spec.id === 'R07' ? { lost: false, planner: 1, without: 5 } : easy);
     expect(slowGrammar(row, facts).filter((one) => one.rule === 2).map((one) => one.text)).toEqual([
