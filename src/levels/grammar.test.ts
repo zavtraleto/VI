@@ -52,7 +52,7 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(CAMPAIGN).filter(held)).toEqual([]);
   });
 
-  it('prints what it does not hold yet as warnings: rules 4, 8, 9', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7]));
+  it('prints what it does not hold yet as warnings: rules 4 and 8', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7]));
 
   it('says where a move taught is not used after: rule 1', () => {
     const row = rowOf(['R01', 'R02', 'R03', 'R04', 'R05', 'R07', ['R11', { teaches: undefined }], 'two-pairs-2', 'R03']);
@@ -155,31 +155,12 @@ describe('the grammar of the row', () => {
   });
 });
 
-describe('no push before its lesson (the owner, 14 October 2026)', () => {
-  it('finds no board before the meeting of the push whose way pushes', () => {
-    expect(fastGrammar(CAMPAIGN).filter((one) => one.text.includes(' толкает, '))).toEqual([]);
-    const row = rowOf(['R01', 'R02', 'R03', ['P06', { chapter: 1, role: 'apply', archetype: 'down and back' }]]);
-    expect(fastGrammar(row).filter((one) => one.rule === 9 && one.text.includes(' толкает, ')).map((one) => one.text)).toEqual(['место 4 (P06) толкает, а толкать ещё не учили']);
-    // After a meeting of the push a board may push.
-    const after = rowOf(['R01', 'R02', ['R13', { chapter: 1, role: 'meet', teaches: 'push', archetype: 'push' }], ['P06', { chapter: 1, role: 'apply', archetype: 'down and back' }]]);
-    expect(fastGrammar(after).filter((one) => one.text.includes(' толкает, '))).toEqual([]);
-  });
-
-  it('finds no board before the meeting of the push that a push makes shorter, by what the solver found', () => {
-    const row = rowOf(['R01', 'R02', 'R03', 'R04']);
-    const easy = { lost: true, planner: 1, without: null, pushSaves: 0 };
-    expect(slowGrammar(row, () => easy).filter((one) => one.rule === 9)).toEqual([]);
-    expect(slowGrammar(row, (stop) => (stop.spec.id === 'R04' ? { ...easy, pushSaves: 2 } : easy)).filter((one) => one.rule === 9).map((one) => one.text)).toEqual([
-      'место 4 (R04) толчком короче на 2 хода, а толкать ещё не учили',
-    ]);
-  });
-
-  it('asks the floor to be shut before the meeting of the push, and open from it on: rule 9', () => {
-    const row = rowOf([['R01', { spec: { ...boardOf('R01'), floor: undefined } }], ['R13', { role: 'meet', teaches: 'push', spec: { ...boardOf('R13'), floor: false } }]]);
-    expect(fastGrammar(row).filter((one) => one.rule === 9).map((one) => one.text)).toEqual([
-      'место 1 (R01): пол открыт, а толкать ещё не учили',
-      'место 2 (R13): пол закрыт, а здесь учат толчок',
-    ]);
+describe('the floor and the push before their lesson (the owner, 17 October 2026)', () => {
+  // «пол вообще не стоит насильно закрывать… пусть кто сможет, тот толкает сам»: neither is a rule of the row.
+  it('lets a board before the meeting of the push keep an open floor and a way that pushes', () => {
+    const row = rowOf(['R01', 'R03', ['P06', { chapter: 0, role: 'apply', archetype: 'down and back' }]]);
+    row[0] = { ...row[0], spec: { ...row[0].spec, floor: undefined } };
+    expect(fastGrammar(row).filter((one) => one.text.includes('толк') || one.text.includes('пол '))).toEqual([]);
   });
 });
 

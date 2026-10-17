@@ -21,15 +21,16 @@ import { sameBoard } from './variety';
 
 /** A rule broken: its number, the place in the row (from 1) it is broken at, and what is wrong, in words. */
 export interface Violation {
-  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 9;
+  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8;
   at: number;
   text: string;
 }
 
 /**
  * The rules that hold the row before it is published, at step 1 of the third campaign
- * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, section 7): 4, 8 and 9 are printed as
- * warnings until step 3, since the places that layer has not reached yet do not keep them.
+ * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, section 7): 4 and 8 are printed as
+ * warnings until step 3, since the places that layer has not reached yet do not keep them. There is no
+ * rule 9: the floor and the push before their lesson are the player's (the owner, 17 October 2026).
  */
 export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7]);
 /** Whether a rule broken holds the row back, or is a warning for now. */
@@ -50,8 +51,6 @@ export interface SlowFacts {
    * without that move, looked for up to two over its own; null where it is not cleared so.
    */
   without?: number | null;
-  /** How many moves a push saves on the board: 0 where it is cleared in its fewest moves without one. */
-  pushSaves?: number;
 }
 
 /**
@@ -221,37 +220,9 @@ function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** The places of the row before the first meeting of the push: all of it where there is none. */
-function beforePush(row: readonly Stop[]): readonly Stop[] {
-  const lesson = row.findIndex((stop) => stop.teaches === 'push');
-  return lesson < 0 ? row : row.slice(0, lesson);
-}
-
-/**
- * Rule 9, the push (the owner, 14 October 2026: «главное, что у нас нет полей, которые решаются
- * толканием»; was part of rule 1, third campaign, section 7): no board before the meeting of the push
- * keeps a way that pushes.
- */
-function noPushBeforeLesson(row: readonly Stop[]): Violation[] {
-  return beforePush(row)
-    .filter((stop) => needsOf(stop.spec).has('push'))
-    .map((stop) => ({ rule: 9 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
-}
-
-/** Rule 9, the floor: shut on every place before the meeting of the push, open on it and after. */
-function floorBeforePush(row: readonly Stop[]): Violation[] {
-  const before = beforePush(row).length;
-  const out: Violation[] = [];
-  row.forEach((stop, index) => {
-    if (index < before && stop.spec.floor !== false) out.push({ rule: 9, at: stop.number, text: `${placeOf(stop)}: пол открыт, а толкать ещё не учили` });
-    if (index >= before && stop.spec.floor === false) out.push({ rule: 9, at: stop.number, text: `${placeOf(stop)}: пол закрыт, а здесь учат толчок` });
-  });
-  return out;
-}
-
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, and 9 but for `pushSaves`. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, and the count of moves of 8. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row), ...floorBeforePush(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [...taughtAndUsed(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
@@ -267,10 +238,6 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
 export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFacts): Violation[] {
   const out: Violation[] = [];
   const known = new Map(row.map((stop) => [stop, facts(stop)]));
-  for (const stop of beforePush(row)) {
-    const saves = known.get(stop)!.pushSaves ?? 0;
-    if (saves > 0) out.push({ rule: 9, at: stop.number, text: `${placeOf(stop)} толчком короче на ${saves} ${saves === 1 ? 'ход' : 'хода'}, а толкать ещё не учили` });
-  }
   for (const stop of row) {
     const saves = stop.teaches ? SAVES[stop.teaches] : undefined;
     if (saves === undefined || stop.number <= 3) continue;
