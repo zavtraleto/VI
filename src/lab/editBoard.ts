@@ -241,6 +241,16 @@ export function sameBoard(a: EditBoard, b: EditBoard): boolean {
   );
 }
 
+/**
+ * The edits between the board in hand and the board saved, as steps of the history: `depth` is the
+ * steps taken to the board in hand, `saved` those to the board saved, and `fork` the deepest step
+ * the two share as it was when the history last branched (a new edit made below the board saved).
+ */
+export function stepsAway(depth: number, saved: number, fork: number): number {
+  const shared = Math.min(depth, fork);
+  return depth - shared + (saved - shared);
+}
+
 /** A die with a face on top dropped on a cell: an empty cell gets one, a die is turned to that face and keeps its marks. */
 export function setTop(board: EditBoard, x: number, z: number, top: number): EditBoard {
   const cell = cellAt(board, x, z);

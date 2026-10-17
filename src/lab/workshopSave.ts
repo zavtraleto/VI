@@ -30,7 +30,7 @@ export interface StateOf {
 const STATUS_WORDS: Readonly<Record<Exclude<BoardStatus, 'R' | 'N'>, string>> = { D: 'черновик', RC: 'хорошая', X: 'убрана' };
 
 /**
- * The state line over the field, in three parts: which board, and where it stands; whether it is
+ * The state line over the field, three short lines: which board, and where it stands; whether it is
  * saved; and what saving will do. A board of the row is said as the player meets it, by the number
  * of its place and the title of its chapter.
  */
@@ -49,17 +49,7 @@ export function stateLine(of: StateOf): string {
           : 'без статуса';
   const saved = of.unsaved === 0 ? 'сохранено' : `не сохранено: ${of.unsaved} ${plural(of.unsaved, ['правка', 'правки', 'правок'])}${of.outside ? '; файл изменён снаружи — сохранить перезапишет его' : ''}`;
   const does = of.locked ? 'файл не читается как доска — страница его не пишет' : status === 'R' && place ? `сохранить — изменит уровень ${place.number} в игре` : 'сохранить — запишет файл доски';
-  return `${of.name} — ${where} · ${saved} · ${does}`;
-}
-
-/**
- * The edits between the board in hand and the board saved, as steps of the history: `depth` is the
- * steps taken to the board in hand, `saved` those to the board saved, and `fork` the deepest step
- * the two share as it was when the history last branched (a new edit made below the board saved).
- */
-export function stepsAway(depth: number, saved: number, fork: number): number {
-  const shared = Math.min(depth, fork);
-  return depth - shared + (saved - shared);
+  return `${of.name} — ${where}\n${saved}\n${does}`;
 }
 
 /** What saving a board of the row comes to: wait for the solver, refuse with a line, or write the head given. */
@@ -83,6 +73,23 @@ export function rowSave(board: { extra: BoardHead; head: LevelSpec; locked: bool
   if (par === null || !exact || !way || way.length === 0) return { kind: 'refuse', line: `решатель не доказал минимум — не сохранено; ${TO_COPY}` };
   const proved = wayToKeep({ ...board, extra: { ...board.extra, status: 'R' } }, seconds);
   return { kind: 'write', head: proved ? { ...board.head, ...proved } : board.head };
+}
+
+/** The board a save of the row was pressed on: its name, and the board and head drawn then. */
+export interface Proof {
+  name: string;
+  board: EditBoard;
+  head: LevelSpec;
+}
+
+/**
+ * A save of a board of the row while its proof is counted: the stage is locked, and the very board
+ * the save was pressed on is written (`rowSave`). Another board in hand (opened, read again, or the
+ * board or head changed by anything) drops the save; names are compared in any letters.
+ */
+export function provedSave(at: Proof, now: Proof & { extra: BoardHead; locked: boolean }, seconds: Seconds | string | null, refused: string | null): RowSave {
+  if (now.name.toLowerCase() !== at.name.toLowerCase() || now.board !== at.board || now.head !== at.head) return { kind: 'refuse', line: 'сохранение прервано: доска в руках сменилась — не сохранено' };
+  return rowSave(now, seconds, refused);
 }
 
 /** The board of a text without what the library says of it (the status, the words, the mark): null where the text is no board. */
@@ -140,10 +147,12 @@ export class WorkshopSave {
   /** Changes of the head (the faces, the rules of the board) since the board was saved: they are no steps of the stage. */
   private headEdits = 0;
   private outside = false;
+  /** How many times a file was put on the stage: a write that comes back after another is no write of the board in hand. */
+  private loads = 0;
   /** What the last save said, or the stage: why it was refused, «сначала убери кость». */
   private note = '';
-  /** A board of the row waits for its proof to be saved. */
-  private proving: { promise: Promise<boolean>; resolve: (saved: boolean) => void } | null = null;
+  /** A save of a board of the row waits for its proof, the stage locked: the board it was pressed on, and whether it is being written. */
+  private proving: { promise: Promise<boolean>; resolve: (saved: boolean) => void; at: Proof; writing: boolean } | null = null;
   private readonly dialog = document.createElement('div');
   private readonly asked = document.createElement('div');
   private answer: ((choice: Choice) => void) | null = null;
@@ -173,7 +182,7 @@ export class WorkshopSave {
     });
   }
 
-  /** The board in hand differs from its file: by its cells, or by its head. A locked board has no edits. */
+  /** The board in hand differs from its file: by its cells, or by its head. A file that cannot be read (`locked`) has no edits. */
   get dirty(): boolean {
     const { base } = this;
     const { name, locked, board, head, extra } = this.page.board();
@@ -190,16 +199,17 @@ export class WorkshopSave {
     return this.dirty ? Math.max(1, this.page.stage().unsaved + this.headEdits) : 0;
   }
 
-  /** The file was read and put on the stage as the board in hand: no edit stands, and a save waited for is dropped. */
+  /** The file was read and put on the stage as the board in hand: no edit stands, and a save waiting for its proof is dropped. */
   opened(text: string): void {
     const { board, head } = this.page.board();
+    this.loads++;
     this.file = text;
     this.base = { board, head };
     this.headEdits = 0;
     this.outside = false;
     this.note = '';
     this.page.stage().markSaved();
-    this.endProof();
+    this.endProof(false, 'сохранение прервано: доска открыта заново — не сохранено');
     this.show();
   }
 
@@ -207,6 +217,11 @@ export class WorkshopSave {
   edited(head = false): void {
     if (head) this.headEdits++;
     this.note = '';
+    // Taken back to the board saved while its file was changed from outside: the file is read as it is now.
+    if (this.outside && !this.dirty) {
+      this.outside = false;
+      void this.page.reload();
+    }
   }
 
   /** Something the stage or a save says, shown on the line until the next edit. */
@@ -240,40 +255,42 @@ export class WorkshopSave {
   /**
    * «сохранить»: writes the board in hand where it has edits; true where it is written, or there was
    * nothing to write. A board of the row waits for the solver first, and is refused where its fewest
-   * moves are not proved: the line says why. It is proved with no edits too: a way proved anew on
-   * the faces of its chapter, which its file does not keep, is written.
+   * moves are not proved: the line says why. While the proof is counted the stage is locked, and
+   * the very board the save was pressed on is written (`provedSave`). It is proved with no edits
+   * too: a way proved anew on the faces of its chapter, which its file does not keep, is written.
+   * A stage locked for a moment (a row operation, a name, a swap) is not saved: it is busy.
    */
   save(): Promise<boolean> {
     if (this.proving) return this.proving.promise;
     const board = this.page.board();
+    const stage = this.page.stage();
     if (board.name === '' || board.locked) return Promise.resolve(true);
+    if (stage.locked) {
+      this.tell('доска занята — подожди');
+      return Promise.resolve(false);
+    }
     if (board.extra.status !== 'R') return this.dirty ? this.write(board.head) : Promise.resolve(true);
     let resolve: (saved: boolean) => void = () => {};
     const promise = new Promise<boolean>((done) => (resolve = done));
-    this.proving = { promise, resolve };
+    this.proving = { promise, resolve, at: { name: board.name, board: board.board, head: board.head }, writing: false };
+    stage.locked = true;
     this.page.facts().ask();
     this.told();
     return promise;
   }
 
-  /** A fact of the board in hand was counted: a save waiting for the proof is written or refused. */
+  /** A fact of the board in hand was counted: a save waiting for the proof is written or refused, and the stage unlocked. */
   told(): void {
-    if (!this.proving) return;
+    const { proving } = this;
+    if (!proving || proving.writing) return;
     const board = this.page.board();
-    const decision = rowSave(board, this.page.facts().seconds, this.page.refused());
+    const decision = provedSave(proving.at, board, this.page.facts().seconds, this.page.refused());
     if (decision.kind === 'wait') return this.show();
-    const { resolve } = this.proving;
-    this.proving = null;
-    if (decision.kind === 'refuse') {
-      this.tell(decision.line);
-      return resolve(false);
-    }
+    if (decision.kind === 'refuse') return this.endProof(false, decision.line);
     // No edits, and the way the file keeps holds: there is nothing to write.
-    if (decision.head === board.head && !this.dirty) {
-      this.show();
-      return resolve(true);
-    }
-    void this.write(decision.head).then(resolve);
+    if (decision.head === board.head && !this.dirty) return this.endProof(true);
+    proving.writing = true;
+    void this.write(decision.head).then((saved) => this.endProof(saved));
   }
 
   /** «отменить»: the board is put back as its file has it, read again; nothing is asked. */
@@ -287,6 +304,8 @@ export class WorkshopSave {
    * said in the dialog, under the question.
    */
   async settle(why = ''): Promise<boolean> {
+    // A save waiting for its proof is the answer: written, the page goes on; refused, it stays.
+    if (this.proving) return this.proving.promise;
     if (!this.dirty) return true;
     if (this.answer) return false;
     const { name } = this.page.board();
@@ -317,16 +336,26 @@ export class WorkshopSave {
     return true;
   }
 
-  /** The proof waited for will not come: the board was opened anew, or read again. */
-  private endProof(): void {
+  /**
+   * A save waiting for its proof is over: written, refused, or dropped since the board was opened
+   * anew. The lock is taken off only where the board it was put on is in hand still: a board opened
+   * meanwhile was given its own lock by the page.
+   */
+  private endProof(saved: boolean, line = ''): void {
     const { proving } = this;
+    if (!proving) return;
     this.proving = null;
-    proving?.resolve(false);
+    const { name, board } = this.page.board();
+    if (name.toLowerCase() === proving.at.name.toLowerCase() && board === proving.at.board) this.page.stage().locked = false;
+    if (line) this.note = line;
+    this.show();
+    proving.resolve(saved);
   }
 
   /** Writes the board in hand with the head given, in one write. */
   private async write(head: LevelSpec): Promise<boolean> {
     const { name, board, extra, head: was } = this.page.board();
+    const { loads } = this;
     const text = textOf(board, head, extra);
     const before = this.file;
     // The text is known before it is written: the server tells of the change of the file, and this one is no change from outside.
@@ -338,8 +367,8 @@ export class WorkshopSave {
       this.tell(`не сохранено: ${(error as Error).message}`);
       return false;
     }
-    // Another board was opened meanwhile: it has its own file.
-    if (this.page.board().name !== name) return true;
+    // A board was opened meanwhile, this one read again or another: it is as its file has it.
+    if (this.loads !== loads || this.page.board().name.toLowerCase() !== name.toLowerCase()) return true;
     this.base = { board, head };
     this.headEdits = 0;
     this.outside = false;

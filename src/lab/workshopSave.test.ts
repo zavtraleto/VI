@@ -1,38 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import type { Seconds } from './labFacts';
-import { headOnly, rowSave, stateLine, stepsAway, type StateOf } from './workshopSave';
+import { emptyBoard, stepsAway } from './editBoard';
+import { headOnly, provedSave, rowSave, stateLine, type StateOf } from './workshopSave';
 
-const line = (over: Partial<StateOf>): string => stateLine({ name: 'bridge-3', status: 'D', place: null, batch: undefined, unsaved: 0, outside: false, locked: false, ...over });
+const lines = (over: Partial<StateOf>): string[] => stateLine({ name: 'bridge-3', status: 'D', place: null, batch: undefined, unsaved: 0, outside: false, locked: false, ...over }).split('\n');
 
-describe('the state line over the field', () => {
-  it('says which board it is and where it stands', () => {
-    expect(line({ name: 'R05', status: 'R', place: { number: 6, chapter: 1, title: 'Дорога' } })).toMatch(/^R05 — в кампании, уровень 6, глава «Дорога» · /);
-    expect(line({ status: 'N', batch: 'bridge 2026-10-16' })).toMatch(/^bridge-3 — новая, пачка bridge · /);
-    expect(line({ status: 'N' })).toMatch(/^bridge-3 — новая · /);
-    expect(line({ name: 'collapse-5' })).toMatch(/^collapse-5 — черновик · /);
-    expect(line({ status: 'RC' })).toMatch(/^bridge-3 — хорошая · /);
-    expect(line({ status: 'X' })).toMatch(/^bridge-3 — убрана · /);
-    expect(line({ name: 'R40', status: 'R' })).toMatch(/^R40 — в кампании, без места в row\.json · /);
+describe('the state line over the field, three short lines', () => {
+  it('says which board it is and where it stands, first', () => {
+    expect(lines({ name: 'R05', status: 'R', place: { number: 6, chapter: 1, title: 'Дорога' } })[0]).toBe('R05 — в кампании, уровень 6, глава «Дорога»');
+    expect(lines({ status: 'N', batch: 'bridge 2026-10-16' })[0]).toBe('bridge-3 — новая, пачка bridge');
+    expect(lines({ status: 'N' })[0]).toBe('bridge-3 — новая');
+    expect(lines({ name: 'collapse-5' })[0]).toBe('collapse-5 — черновик');
+    expect(lines({ status: 'RC' })[0]).toBe('bridge-3 — хорошая');
+    expect(lines({ status: 'X' })[0]).toBe('bridge-3 — убрана');
+    expect(lines({ name: 'R40', status: 'R' })[0]).toBe('R40 — в кампании, без места в row.json');
   });
-  it('says whether it is saved, with the number of edits in its Russian form', () => {
-    expect(line({})).toContain(' · сохранено · ');
-    expect(line({ unsaved: 1 })).toContain(' · не сохранено: 1 правка · ');
-    expect(line({ unsaved: 3 })).toContain(' · не сохранено: 3 правки · ');
-    expect(line({ unsaved: 11 })).toContain(' · не сохранено: 11 правок · ');
+  it('says whether it is saved, second, with the number of edits in its Russian form', () => {
+    expect(lines({})[1]).toBe('сохранено');
+    expect(lines({ unsaved: 1 })[1]).toBe('не сохранено: 1 правка');
+    expect(lines({ unsaved: 3 })[1]).toBe('не сохранено: 3 правки');
+    expect(lines({ unsaved: 11 })[1]).toBe('не сохранено: 11 правок');
   });
   it('says that the file was changed from outside, only while there are edits to save over it', () => {
-    expect(line({ unsaved: 2, outside: true })).toContain('не сохранено: 2 правки; файл изменён снаружи — сохранить перезапишет его');
-    expect(line({ outside: true })).not.toContain('снаружи');
+    expect(lines({ unsaved: 2, outside: true })[1]).toBe('не сохранено: 2 правки; файл изменён снаружи — сохранить перезапишет его');
+    expect(lines({ outside: true })[1]).toBe('сохранено');
   });
-  it('says what saving will do: change the level in the game, or write the file', () => {
-    expect(line({ name: 'R05', status: 'R', place: { number: 6, chapter: 1, title: 'Дорога' } })).toMatch(/ · сохранить — изменит уровень 6 в игре$/);
-    expect(line({})).toMatch(/ · сохранить — запишет файл доски$/);
-    expect(line({ name: 'R40', status: 'R' })).toMatch(/ · сохранить — запишет файл доски$/);
-    expect(line({ locked: true })).toMatch(/ · файл не читается как доска — страница его не пишет$/);
+  it('says what saving will do, third: change the level in the game, or write the file', () => {
+    expect(lines({ name: 'R05', status: 'R', place: { number: 6, chapter: 1, title: 'Дорога' } })[2]).toBe('сохранить — изменит уровень 6 в игре');
+    expect(lines({})[2]).toBe('сохранить — запишет файл доски');
+    expect(lines({ name: 'R40', status: 'R' })[2]).toBe('сохранить — запишет файл доски');
+    expect(lines({ locked: true })[2]).toBe('файл не читается как доска — страница его не пишет');
+    expect(lines({})).toHaveLength(3);
   });
   it('is empty with no board in hand', () => {
-    expect(line({ name: '' })).toBe('');
+    expect(stateLine({ name: '', status: undefined, place: null, batch: undefined, unsaved: 0, outside: false, locked: false })).toBe('');
   });
 });
 
@@ -81,6 +83,25 @@ describe('saving a board of the row', () => {
   });
   it('never writes a locked board', () => {
     expect(rowSave(rowBoard({}, true), seconds(), null)).toEqual({ kind: 'refuse', line: expect.stringMatching(/не читается/) });
+  });
+});
+
+describe('a save of a board of the row while the proof is counted', () => {
+  const drawn = emptyBoard(3);
+  const at = { name: 'R05', board: drawn, head };
+  const now = (over: Partial<{ name: string; board: typeof drawn; head: LevelSpec }> = {}) => ({ ...rowBoard(), name: 'R05', board: drawn, ...over });
+  it('writes the very board the save was pressed on, with the way proved', () => {
+    expect(provedSave(at, now({ head }), seconds(), null)).toEqual({ kind: 'write', head: { ...head, par: 3, exact: true, solution: ['0,1,N', '0,0,E', '1,0,S'] } });
+    expect(provedSave(at, now({ head, name: 'r05' }), null, null)).toEqual({ kind: 'wait' });
+  });
+  it('is dropped where the board in hand is another: opened anew, read again or changed', () => {
+    const dropped = { kind: 'refuse', line: expect.stringMatching(/^сохранение прервано/) };
+    expect(provedSave(at, now({ head, name: 'R06' }), seconds(), null)).toEqual(dropped);
+    expect(provedSave(at, now({ head, board: emptyBoard(3) }), seconds(), null)).toEqual(dropped);
+    expect(provedSave(at, now({ head: { ...head } }), seconds(), null)).toEqual(dropped);
+  });
+  it('is refused where the proof fails, as any save of the row', () => {
+    expect(provedSave(at, now({ head }), seconds({ par: null, way: null }), null)).toEqual({ kind: 'refuse', line: expect.stringMatching(/^у доски нет решения/) });
   });
 });
 

@@ -1,8 +1,7 @@
 import type { Dir } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults, type Palette } from '../shell/theme';
 import { pickCell, reachOf, type CellPoint } from './cellPick';
-import { stepsAway } from './workshopSave';
-import { cellAt, cycleLeaving, emptyBoard, moveDie, putFixed, removeAt, rollAlong, rollDie, sameBoard, setStart, setTop, spinDie, toggleFixed, toggleHole, type EditBoard } from './editBoard';
+import { cellAt, cycleLeaving, emptyBoard, moveDie, putFixed, removeAt, rollAlong, rollDie, sameBoard, setStart, setTop, spinDie, stepsAway, toggleFixed, toggleHole, type EditBoard } from './editBoard';
 
 const ARROWS: Readonly<Record<string, Dir>> = { ArrowUp: 'N', ArrowRight: 'E', ArrowDown: 'S', ArrowLeft: 'W' };
 /** A press that moves less than this before it is let go is a click, not a drag. */

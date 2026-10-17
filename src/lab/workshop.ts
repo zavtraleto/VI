@@ -71,6 +71,8 @@ class Workshop {
 
   /** The file in hand, by its name; empty where there is none. */
   private name = '';
+  /** The file in hand cannot be read as a board: its stage is shut for good, not for a moment (`CampaignBoard.locked`). */
+  private unreadable = false;
   /** What the file says besides its cells: the head of the level, and the note, the status and the words. */
   private head: LevelSpec = newHead('H01');
   private extra: BoardHead = {};
@@ -152,8 +154,9 @@ class Workshop {
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
     this.checkButton = buttonOf(palette, 'проверить (C)', () => this.facts.toggle());
     this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => (this.showWay(), this.campaign.told(), this.saving.told()));
-    const board = (): CampaignBoard => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.editor.locked });
-    this.campaign = new WorkshopCampaign(palette, this.facts, this.row, { ...page, board, names: () => this.rows.map((row) => row.name), proving: () => this.saving.waiting });
+    const board = (): CampaignBoard => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.unreadable });
+    const drop = async (): Promise<void> => (this.saving.dirty ? this.reload() : undefined);
+    this.campaign = new WorkshopCampaign(palette, this.facts, this.row, { ...page, board, names: () => this.rows.map((row) => row.name), proving: () => this.saving.waiting, drop });
     this.saving = new WorkshopSave(palette, {
       board,
       place: () => this.rows.find((row) => row.name === this.name)?.place ?? null,
@@ -357,10 +360,12 @@ class Workshop {
   private load(name: string, text: string, sameBoard = false): void {
     // The verdict asked is of the board played: another board opened, it is asked no more.
     if (!sameBoard && this.verdict.play && this.verdict.play.name !== name) this.verdict.ask(null);
+    // The field mode is of the board it was turned on for: another board is opened for placing.
+    if (name.toLowerCase() !== this.name.toLowerCase()) this.editor.field = false;
     this.name = name;
     this.extra = readBoardHead(text);
     this.read(text);
-    this.editor.locked = false;
+    this.editor.locked = this.unreadable = false;
     // A board the rules refuse, one with no start as every new board is, is opened as it is written: only a file that cannot be read is shut.
     let shown = this.spec;
     if (!shown) {
@@ -377,7 +382,7 @@ class Workshop {
       this.keepWay();
     } else {
       this.editor.show(emptyBoard(SIZE_MIN));
-      this.editor.locked = true;
+      this.editor.locked = this.unreadable = true;
     }
     this.saving.opened(text);
     this.showAll();
@@ -484,7 +489,7 @@ class Workshop {
     const from = this.name;
     if (from === '' || to === from) return;
     // A file that cannot be read is shut on the stage, and is mended in the file itself: the page does not take it over to another name.
-    if (this.editor.locked) {
+    if (this.unreadable) {
       this.nameInput.value = from;
       return this.say('не переименовано: файл не читается как доска — сперва поправить его в самом файле');
     }
@@ -494,19 +499,25 @@ class Workshop {
     }
     this.leave();
     // The edits are saved or dropped first: the server takes the file over as it is on the disk.
-    if (!(await this.saving.settle())) {
-      this.nameInput.value = from;
+    if (!(await this.saving.settle()) || this.name !== from) {
+      if (this.name === from) this.nameInput.value = from;
       return;
     }
-    // No change is taken while the file goes over: it would be written under the old name. A rename refused leaves the stage as it was, and shows it again for what was counted meanwhile.
-    const locked = this.editor.locked;
+    // A stage locked for a moment (an operation of the row) holds the board: it is not taken over now.
+    if (this.editor.locked) {
+      this.nameInput.value = from;
+      return this.say('не переименовано: доска занята — подожди');
+    }
+    // No change is taken while the file goes over: it would be written under the old name. A rename refused unlocks the stage only where the board is in hand still, and shows it again for what was counted meanwhile.
     this.editor.locked = true;
     try {
       await renameBoard(from, to);
     } catch (error) {
-      this.editor.locked = locked;
-      this.nameInput.value = from;
-      this.showHead();
+      if (this.name === from) {
+        this.editor.locked = false;
+        this.nameInput.value = from;
+        this.showHead();
+      }
       return this.say(`не переименовано: ${(error as Error).message}`);
     }
     if (this.verdict.play?.name === from) this.verdict.play = { ...this.verdict.play, name: to };
@@ -654,7 +665,7 @@ class Workshop {
     this.saving.show();
     let line = '';
     if (this.name === '') line = 'нет досок: «новая доска» под списками';
-    else if (editor.locked) line = `${this.error ?? ''} — файл не читается как доска: править его надо в самом файле, страница его не перезапишет`;
+    else if (this.unreadable) line = `${this.error ?? ''} — файл не читается как доска: править его надо в самом файле, страница его не перезапишет`;
     else {
       const { stand, error } = displaySpecOf(editor.current, head);
       if (stand === 'lent') line = 'старта нет: фигурка на поле стоит условно — перетащите ○ из списка на кость или на пол';

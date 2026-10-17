@@ -31,6 +31,8 @@ export interface CampaignPage extends RowPage {
   names(): string[];
   /** A save of a board of the row waits for its fewest moves to be proved (`WorkshopSave`). */
   proving(): boolean;
+  /** The edits of the board in hand are dropped: where it has any, its file is read again. */
+  drop(): Promise<void>;
 }
 
 /** The way a level keeps: the fewest moves, proved, and the moves themselves. */
@@ -154,25 +156,21 @@ export class WorkshopCampaign {
   }
 
   /**
-   * «копия»: the board of the row in hand, as it is drawn, laid beside as `<код>-try-<n>` and opened;
-   * a board to be done, made of the code. With edits, the dialog asks of the board of the row first:
-   * saved, the copy has the way proved too; dropped, the file of the row is as it was, and the copy
-   * takes the edits away with it.
+   * «копия»: the board of the row in hand, as it is drawn, saved or not, laid beside as
+   * `<код>-try-<n>` and opened; a board to be done, made of the code. Nothing is asked: the board of
+   * the row keeps its file as it is on the disk, and its edits go away with the copy.
    */
   private async copy(): Promise<void> {
     if (this.busy) return;
-    const drawn = this.page.board();
-    const { name: code, locked } = drawn;
+    const { name: code, locked, head, board, extra } = this.page.board();
     if (locked) return this.page.say('не скопировано: файл не читается как доска');
+    // A save waiting for its proof, or an operation of the row, holds the board for a moment.
+    if (this.page.stage().locked) return this.page.say('не скопировано: доска занята — подожди');
     const name = freeName(`${code}-try`, this.page.names());
     if (!isBoardName(name)) return this.page.say(`не имя доски: ${name}`);
     this.busy = true;
     try {
-      if (!(await this.page.settle('копия возьмёт доску, как она нарисована'))) return;
-      const now = this.page.board();
-      const { head, board } = now.board === drawn.board ? now : drawn;
       // The words, the mark, the names it had and the batch are of the board of the row, not of its copy.
-      const { extra } = now;
       const { words: _words, mark: _mark, was: _was, batch: _batch, migrated: _migrated, ...rest } = extra;
       await writeBoard(name, textOf(board, { ...head, id: name }, { ...rest, status: 'D', origin: `копия ${code}` }));
     } catch (error) {
@@ -180,6 +178,8 @@ export class WorkshopCampaign {
     } finally {
       this.busy = false;
     }
+    // The edits went with the copy: the board of the row is as its file has it, and is left without a question.
+    await this.page.drop();
     await this.page.readLists();
     await this.page.open(name);
     this.page.say(`${name}: копия ${code}`);
