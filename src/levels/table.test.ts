@@ -3,7 +3,7 @@ import type { LevelSpec } from '../rules/types';
 import { MEASURE_HEAD } from './select';
 import { fileBoard } from './boardFiles';
 import { FIXTURE } from './rowFixture';
-import { PLACE_HEAD, ROAD_HEAD, measureBoard, placeRow, roadRow, roadTable, tableOf } from './table';
+import { PLACE_HEAD, ROAD_HEAD, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, tableOf } from './table';
 
 /**
  * A level as the list keeps one, written for this test: two pairs where 2s work. The die of the
@@ -95,5 +95,13 @@ describe('the passport of a place', () => {
   it('walks no board whole that has more than nine cells', () => {
     const big = { ...FIXTURE.places[0], spec: { ...FIXTURE.places[0].spec, size: 4 } };
     expect(placeRow(big, 50, 2)[PLACE_HEAD.indexOf('whole')]).toBe('-');
+  });
+});
+
+describe('slowFactsOf', () => {
+  it('counts the share of the casual persona beside that of the planner, for rule 8', () => {
+    const facts = slowFactsOf(TWO_PAIRS, undefined, 50, 2);
+    expect(facts.casual).toBeGreaterThanOrEqual(0);
+    expect(facts.casual! * 2).toBe(Math.round(facts.casual! * 2));
   });
 });

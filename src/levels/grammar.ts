@@ -41,6 +41,8 @@ export interface SlowFacts {
   lost: boolean;
   /** The share of the runs of the planning persona that clear the board. */
   planner: number;
+  /** The share of the runs of the casual persona that clear the board (rule 8); where it is not given, rule 8 asks nothing of it. */
+  casual?: number;
   /**
    * For a board that teaches a move the solver can be barred from: the fewest moves it is cleared in
    * without that move, looked for up to two over its own; null where it is not cleared so.
@@ -179,6 +181,25 @@ function windowTeaches(row: readonly Stop[]): Violation[] {
   return out;
 }
 
+/**
+ * Rule 8 (third campaign, section 7), what it asks of no search: every place says its emotion, no
+ * three alike in a row, and the board after a peak is cleared in a move fewer than the peak at least.
+ */
+function emotionRhythm(row: readonly Stop[]): Violation[] {
+  const out: Violation[] = [];
+  let from = 0;
+  row.forEach((stop, index) => {
+    if (!stop.emotion) out.push({ rule: 8, at: stop.number, text: `${placeOf(stop)} без эмоции` });
+    if (index > 0 && stop.emotion !== row[index - 1].emotion) from = index;
+    if (stop.emotion && index - from + 1 === 3) out.push({ rule: 8, at: stop.number, text: `места ${row[from].number}–${stop.number} — три доски с эмоцией ${stop.emotion} подряд` });
+    const peak = row[index - 1];
+    if (peak?.role !== 'peak') return;
+    const [top, after] = [peak.spec.par ?? 0, stop.spec.par ?? 0];
+    if (after > top - 1) out.push({ rule: 8, at: stop.number, text: `${placeOf(stop)} после пика на месте ${peak.number}: ${after} ходов, а пик — ${top}; после пика легче хотя бы на ход` });
+  });
+  return out;
+}
+
 /** Rule 5, its count of moves: the board after a meeting is cleared in at most a move more than the meeting. */
 function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
@@ -207,9 +228,9 @@ function noPushBeforeLesson(row: readonly Stop[]): Violation[] {
     .map((stop) => ({ rule: 1 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, and 7. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, and the count of moves of 8. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
@@ -219,7 +240,8 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
  * can be lost and its move is the short way (`SAVES`), past the first three places of the row; and rule 5,
  * the planner does as well after a meeting as on it (but for `PLANNER_SLACK`), and the hardest board of a chapter (the lowest
  * share of the planner, the latest of those alike) stands fourth in it or later. The prologue is
- * held to the first and not to the second: its order is the owner's.
+ * held to the first and not to the second: its order is the owner's. And rule 8: the casual persona
+ * does as well after a peak as on it.
  */
 export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFacts): Violation[] {
   const out: Violation[] = [];
@@ -244,6 +266,13 @@ export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFac
     if (stop.role !== 'meet' || !next) return;
     const [met, after] = [known.get(stop)!.planner, known.get(next)!.planner];
     if (after < met - PLANNER_SLACK - 1e-9) out.push({ rule: 5, at: next.number, text: `${placeOf(next)} после встречи на месте ${stop.number}: планирующий ${percent(after)}, а на встрече — ${percent(met)}` });
+  });
+  row.forEach((peak, index) => {
+    const next = row[index + 1];
+    if (peak.role !== 'peak' || !next) return;
+    const [top, after] = [known.get(peak)!.casual, known.get(next)!.casual];
+    if (top === undefined || after === undefined) return;
+    if (after < top - 1e-9) out.push({ rule: 8, at: next.number, text: `${placeOf(next)} после пика на месте ${peak.number}: обычный ${percent(after)}, а на пике — ${percent(top)}` });
   });
   for (const chapter of new Set(row.map((stop) => stop.chapter))) {
     if (chapter === 0) continue;

@@ -135,6 +135,15 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(row).filter((one) => one.rule === 1 && one.text.includes('seven'))).toEqual([]);
   });
 
+  it('names a place with no emotion, three alike in a row, and a board after a peak that is not lighter: rule 8', () => {
+    const row = rowOf([['R03', { emotion: 'gift' }], ['R04', { emotion: 'gift' }], ['B01_s290', { emotion: 'gift' }], ['R05', { emotion: undefined, role: 'peak' }], ['R07', { emotion: 'insight', teaches: undefined }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 8).map((one) => one.text)).toEqual([
+      'места 1–3 — три доски с эмоцией gift подряд',
+      'место 4 (R05) без эмоции',
+      'место 5 (R07) после пика на месте 4: 4 ходов, а пик — 3; после пика легче хотя бы на ход',
+    ]);
+  });
+
   it('says where the board after a meeting is more than a move longer: rule 5', () => {
     const row = rowOf([['R03', { role: 'meet', archetype: 'x' }], ['R08', { archetype: 'y' }]]);
     expect(fastGrammar(row).filter((one) => one.rule === 5)).toEqual([{ rule: 5, at: 2, text: 'место 2 (R08) после встречи на месте 1: 5 ходов, а встреча — 2' }]);
@@ -216,6 +225,12 @@ describe('the slow part of the grammar', () => {
     const near = (p02: number) => slowGrammar(row, (stop) => ({ ...easy, planner: stop.spec.id === 'P02' ? p02 : stop.spec.id === 'act-k22' ? 0.5 : 1 })).filter((one) => one.rule === 5);
     expect(near(28 / 30)).toEqual([]);
     expect(near(27 / 30)).toHaveLength(1);
+  });
+
+  it('asks the casual persona to do as well after a peak as on it: rule 8', () => {
+    const row = rowOf([['R05', { role: 'peak', emotion: 'insight' }], ['R03', { emotion: 'gift' }]]);
+    const facts = (stop: Stop) => ({ lost: true, planner: 1, casual: stop.spec.id === 'R03' ? 0.5 : 0.9 });
+    expect(slowGrammar(row, facts).filter((one) => one.rule === 8).map((one) => one.text)).toEqual(['место 2 (R03) после пика на месте 1: обычный 50%, а на пике — 90%']);
   });
 
   it('does not hold the meeting of a chapter to the rest that ends the chapter before it', () => {
