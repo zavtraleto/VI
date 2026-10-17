@@ -21,14 +21,14 @@ import { sameBoard } from './variety';
 
 /** A rule broken: its number, the place in the row (from 1) it is broken at, and what is wrong, in words. */
 export interface Violation {
-  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8;
+  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10;
   at: number;
   text: string;
 }
 
 /**
  * The rules that hold the row before it is published, at step 1 of the third campaign
- * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, section 7): 4 and 8 are printed as
+ * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, sections 7 and 13): 4, 8 and 10 are printed as
  * warnings until step 3, since the places that layer has not reached yet do not keep them. There is no
  * rule 9: the floor and the push before their lesson are the player's (the owner, 17 October 2026).
  */
@@ -223,6 +223,29 @@ function emotionRhythm(row: readonly Stop[]): Violation[] {
   return out;
 }
 
+const ROLE_WORD: Partial<Record<Stop['role'], string>> = { peak: 'пик', twist: 'поворот' };
+
+/** Rule 10: the moves the way of a peak or a twist asks for, the seven left out (it is asked for everywhere unsaid), and the order where the search found a trap. */
+function joinedBy(stop: Stop, order: boolean): string[] {
+  const needs = [...needsOf(stop.spec)].filter((one) => one !== 'seven');
+  if (order) needs.push('order');
+  return needs.sort();
+}
+
+/** Rule 10, of the moves given: each was brought in (`teaches`) at a place before this one. */
+function taughtBefore(row: readonly Stop[], stop: Stop, needs: readonly string[]): Violation[] {
+  const taught = new Set(row.filter((other) => other.number < stop.number && other.teaches).map((other) => other.teaches as string));
+  return needs.filter((one) => !taught.has(one)).map((one) => ({ rule: 10, at: stop.number, text: `${placeOf(stop)}: ${ROLE_WORD[stop.role]} требует ${one}, а его не вводили раньше` }));
+}
+
+/**
+ * Rule 10 (third campaign, section 13), what it asks of no search: every move the way of a peak or a
+ * twist asks for was taught before. That it joins two moves at least is the slow part's, which knows the order.
+ */
+function joinsTwo(row: readonly Stop[]): Violation[] {
+  return row.filter((stop) => ROLE_WORD[stop.role]).flatMap((stop) => taughtBefore(row, stop, joinedBy(stop, false)));
+}
+
 /** Rule 5, its count of moves: the board after a meeting is cleared in at most a move more than the meeting. */
 function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
@@ -235,9 +258,9 @@ function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, and the count of moves of 8. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, and the moves taught before of 10. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [...taughtAndUsed(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row), ...joinsTwo(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
@@ -249,7 +272,8 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
  * the planner does as well after a meeting as on it (but for `PLANNER_SLACK`), and the hardest board of a chapter (the lowest
  * share of the planner, the latest of those alike) stands fourth in it or later. The prologue is
  * held to the first and not to the second: its order is the owner's. And rule 8: the casual persona
- * does as well after a peak as on it.
+ * does as well after a peak as on it. And rule 10: a peak and a twist join two moves at least, the order
+ * among them where the search found a trap, and the order was taught before.
  */
 export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFacts): Violation[] {
   const out: Violation[] = [];
@@ -284,6 +308,17 @@ export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFac
     if (top === undefined || after === undefined) return;
     if (after < top - 1e-9) out.push({ rule: 8, at: next.number, text: `${placeOf(next)} после пика на месте ${peak.number}: обычный ${percent(after)}, а на пике — ${percent(top)}` });
   });
+  for (const stop of row) {
+    if (!ROLE_WORD[stop.role]) continue;
+    const order = known.get(stop)!.order === true;
+    const needs = joinedBy(stop, order);
+    // The moves read off the score are the fast part's; the order, found by a search, is said here.
+    if (order) out.push(...taughtBefore(row, stop, ['order']));
+    if (needs.length < 2) {
+      const what = needs.length === 0 ? 'не требует приёмов' : `требует один приём (${needs[0]})`;
+      out.push({ rule: 10, at: stop.number, text: `${placeOf(stop)}: ${ROLE_WORD[stop.role]} ${what}, а соединяет не меньше двух` });
+    }
+  }
   for (const chapter of new Set(row.map((stop) => stop.chapter))) {
     if (chapter === 0) continue;
     const boards = row.filter((stop) => stop.chapter === chapter);

@@ -57,7 +57,7 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(CAMPAIGN).filter(held)).toEqual([]);
   });
 
-  it('prints what it does not hold yet as warnings: rules 4 and 8', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7]));
+  it('prints what it does not hold yet as warnings: rules 4, 8 and 10', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7]));
 
   it('says where a move taught is not used after: rule 1', () => {
     const row = rowOf(['R01', 'R02', 'R03', 'R04', 'R05', 'R07', ['R11', { teaches: undefined }], 'two-pairs-2', 'R03']);
@@ -152,6 +152,26 @@ describe('the grammar of the row', () => {
       'место 4 (R05) без эмоции',
       'место 5 (R07) после пика на месте 4: 4 ходов, а пик — 3; после пика легче хотя бы на ход',
     ]);
+  });
+
+  it('asks of a peak and a twist that their way joins two moves taught before: rule 10', () => {
+    const row = rowOf([['R07', { role: 'meet', teaches: 'link' }], ['R11', { role: 'meet', teaches: 'walk' }], ['P12', { role: 'peak' }], ['R09', { role: 'twist', teaches: undefined }]]);
+    const facts = () => ({ lost: true, planner: 1, casual: 1, order: false });
+    expect(fastGrammar(row).filter((one) => one.rule === 10).map((one) => one.text)).toEqual([
+      'место 3 (P12): пик требует lift, а его не вводили раньше',
+      'место 3 (P12): пик требует push, а его не вводили раньше',
+      'место 3 (P12): пик требует twoFaces, а его не вводили раньше',
+      'место 4 (R09): поворот требует twoFaces, а его не вводили раньше',
+    ]);
+    expect(slowGrammar(row, facts).filter((one) => one.rule === 10).map((one) => one.text)).toEqual(['место 4 (R09): поворот требует один приём (twoFaces), а соединяет не меньше двух']);
+  });
+
+  it('counts the order the search found among the moves a twist joins, and asks that it be taught before: rule 10', () => {
+    const row = rowOf([['R05', { role: 'meet', teaches: 'order' }], ['R09', { role: 'meet', teaches: 'twoFaces' }], ['two-pairs-2', { role: 'twist' }]]);
+    const trap = (stop: Stop) => ({ lost: true, planner: 1, casual: 1, order: stop.spec.id === 'two-pairs-2' });
+    expect(slowGrammar(row, trap).filter((one) => one.rule === 10)).toEqual([]);
+    const late = [row[1], row[2]].map((stop, index) => ({ ...stop, number: index + 1 }));
+    expect(slowGrammar(late, trap).filter((one) => one.rule === 10).map((one) => one.text)).toEqual(['место 2 (two-pairs-2): поворот требует order, а его не вводили раньше']);
   });
 
   it('says where the board after a meeting is more than a move longer: rule 5', () => {
