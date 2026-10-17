@@ -168,7 +168,8 @@ function facesByWay(row: readonly Stop[]): Violation[] {
 
 /**
  * Rule 7 (third campaign, section 7): the window of a hint speaks of the board it stands before, so
- * the board teaches the move of the window and its way asks for it.
+ * the board teaches the move of the window and its way asks for that move. The climb window asks
+ * for a way up onto a leaving die (`^`): a way down alone is no climb.
  */
 function windowTeaches(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
@@ -177,10 +178,16 @@ function windowTeaches(row: readonly Stop[]): Violation[] {
     if (!hint) continue;
     const want = HINT_TECHNIQUE[hint];
     if (stop.teaches !== want) out.push({ rule: 7, at: stop.number, text: `${placeOf(stop)}: окно ${hint}, а доска учит ${stop.teaches ?? 'ничему'}` });
-    const taught = stop.teaches ?? want;
-    if (!needsOf(stop.spec).has(taught)) out.push({ rule: 7, at: stop.number, text: `${placeOf(stop)}: окно ${hint}, а путь доски не требует ${taught}` });
+    const climb = hint === 'roadHintClimb';
+    const asked = climb ? climbsUp(stop.spec) : needsOf(stop.spec).has(want);
+    if (!asked) out.push({ rule: 7, at: stop.number, text: `${placeOf(stop)}: окно ${hint}, а путь доски не требует ${want}${climb ? ' (^)' : ''}` });
   }
   return out;
+}
+
+/** Whether the way a board keeps goes up onto a leaving die (`^` in its score). */
+function climbsUp(spec: LevelSpec): boolean {
+  return scoreOf(spec, (spec.solution ?? []).map(moveOf)).route.split(' ').includes('^');
 }
 
 /**

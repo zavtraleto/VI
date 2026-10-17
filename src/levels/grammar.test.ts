@@ -124,10 +124,15 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(row).filter((one) => one.rule === 7).map((one) => one.text)).toEqual([
       'место 1 (R11): окно roadHintWalk, а доска учит ничему',
       'место 2 (R08): окно roadHintChain, а доска учит walk',
-      'место 2 (R08): окно roadHintChain, а путь доски не требует walk',
     ]);
     const right = rowOf([['R11', { help: { hint: 'roadHintWalk' } }]]); // teaches: walk, from the row
     expect(fastGrammar(right).filter((one) => one.rule === 7)).toEqual([]);
+  });
+
+  it('asks of a climb window a way up onto a leaving die, not only a way down: rule 7', () => {
+    // R13 steps down and pushes (K v P): a way down is no climb.
+    const row = rowOf([['R13', { teaches: 'lift', help: { hint: 'roadHintClimb' } }], ['R10', { help: { hint: 'roadHintClimb' } }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 7).map((one) => one.text)).toEqual(['место 1 (R13): окно roadHintClimb, а путь доски не требует lift (^)']);
   });
 
   it('does not hold a board that teaches the seven to rule 1 — the seven is needed everywhere unsaid', () => {
