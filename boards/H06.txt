@@ -1,6 +1,7 @@
 id: H06
 status: R
 origin: лаборатория, доска владельца 16 октября
+words: 2026-10-17: ок
 faces: 3
 par: 2
 exact: yes
