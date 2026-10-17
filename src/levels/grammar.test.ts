@@ -41,6 +41,11 @@ describe('what a board asks for', () => {
     expect(needsOf(boardOf('R07')).has('seven')).toBe(false); // starts on a 4: a 3 under, not a face it works
   });
 
+  it('reads the loop into what a board asks for', () => {
+    expect(needsOf(boardOf('B01_s290')).has('loop')).toBe(true);
+    expect(needsOf(boardOf('R05')).has('loop')).toBe(false);
+  });
+
   it('counts two faces where combos of two faces go on the way', () => {
     expect(needsOf(boardOf('R09')).has('twoFaces')).toBe(true);
     expect(needsOf(boardOf('R08')).has('twoFaces')).toBe(false);
@@ -219,6 +224,15 @@ describe('the slow part of the grammar', () => {
     const near = (p02: number) => slowGrammar(row, (stop) => ({ ...easy, planner: stop.spec.id === 'P02' ? p02 : stop.spec.id === 'act-k22' ? 0.5 : 1 })).filter((one) => one.rule === 5);
     expect(near(28 / 30)).toEqual([]);
     expect(near(27 / 30)).toHaveLength(1);
+  });
+
+  it('asks of a board that teaches the order that two of the next three are traps of order, by what the search found: rule 1', () => {
+    const row = rowOf([['R05', { role: 'meet', teaches: 'order' }], 'two-pairs-2', 'R03', 'R04']);
+    const facts = (stop: Stop) => ({ lost: true, planner: 1, casual: 1, order: stop.spec.id === 'two-pairs-2' });
+    expect(slowGrammar(row, facts).filter((one) => one.rule === 1).map((one) => one.text)).toEqual(['место 1 (R05) учит order, а из мест 2–4 его требует 1 досок']);
+    expect(slowGrammar(row, (stop) => ({ ...facts(stop), order: stop.spec.id !== 'R04' })).filter((one) => one.rule === 1)).toEqual([]);
+    // The fast part cannot see a trap, and leaves the count to the slow one.
+    expect(fastGrammar(row).filter((one) => one.rule === 1 && one.text.includes('order'))).toEqual([]);
   });
 
   it('asks the casual persona to do as well after a peak as on it: rule 8', () => {

@@ -13,7 +13,7 @@ import { parseBoard, readBoardHead } from './boardFile';
 export const ROLES = ['meet', 'learn', 'apply', 'event', 'twist', 'peak', 'rest'] as const;
 export type Role = (typeof ROLES)[number];
 /** A move a board can bring in (`teaches`) or ask for: the words of the grammar of the row (`grammar.ts`). */
-export const TECHNIQUES = ['link', 'walk', 'glass', 'lift', 'push', 'ones', 'twoFaces', 'seven', 'time'] as const;
+export const TECHNIQUES = ['link', 'walk', 'glass', 'lift', 'push', 'ones', 'twoFaces', 'seven', 'time', 'loop', 'order'] as const;
 export type Technique = (typeof TECHNIQUES)[number];
 /** The hints of the texts (`src/ui/i18n.ts`) a place can show in a window before its board. */
 export const HINT_KEYS = ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintClimb', 'hintSeven', 'hintLinkMove'] as const;

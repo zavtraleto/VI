@@ -3,7 +3,7 @@ import { moveOf } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import type { Stop } from './campaign';
 import { goalFaces } from './goalFaces';
-import { startsUnder, turnsOf } from './measures';
+import { loopOf, startsUnder, turnsOf } from './measures';
 import type { HintKey, Technique } from './row';
 import { sameBoard } from './variety';
 
@@ -51,6 +51,12 @@ export interface SlowFacts {
    * without that move, looked for up to two over its own; null where it is not cleared so.
    */
   without?: number | null;
+  /**
+   * The board is a trap of order (third campaign, section 13): its way makes two combos at least, and a
+   * combo can be made first or second after which it cannot be cleared (`trapOf`). Rule 1 for a board
+   * that teaches the order counts it; where it is not given, the board is no trap.
+   */
+  order?: boolean;
 }
 
 /**
@@ -77,7 +83,9 @@ export const HINT_TECHNIQUE: Readonly<Record<HintKey, Technique>> = {
  * The moves a board asks for, read off the score of the way it keeps (`scoreOf`): a link (`L`, `Q`),
  * a walk over a leaving die (`~`), a way down or up (`v`, `!`, `^`), a roll onto a leaving die
  * (`glass`), a push (`P`, `Q`, `U`), the 1s (`O`, `U`); two faces where combos of two faces go;
- * the seven where the way starts on a die with a working face under and turns it up.
+ * the seven where the way starts on a die with a working face under and turns it up; the loop where
+ * one die goes aside, across and back (`loopOf`). The order is no part of it: a trap is found by a
+ * search, and the slow part of the grammar is given it (`SlowFacts.order`).
  */
 export function needsOf(spec: LevelSpec): ReadonlySet<Technique> {
   const needs = new Set<Technique>();
@@ -92,27 +100,34 @@ export function needsOf(spec: LevelSpec): ReadonlySet<Technique> {
   if (signs.some((sign) => sign === 'O' || sign === 'U')) needs.add('ones');
   if (new Set(beats.filter((beat) => beat.event === 'combo').map((beat) => beat.face)).size > 1) needs.add('twoFaces');
   if (startsUnder(spec, way) && turnsOf(spec, way) >= 1) needs.add('seven');
+  if (loopOf(spec, way)) needs.add('loop');
   return needs;
 }
 
 const placeOf = (stop: Stop): string => `место ${stop.number} (${stop.spec.id})`;
 
+/** Rule 1, its first part: the move taught at a place is asked for by `using` of the boards after it, and that is two at least. */
+function usedAfter(stop: Stop, after: readonly Stop[], using: number): Violation | null {
+  if (using >= Math.min(2, after.length)) return null;
+  const span = after.length === 1 ? `места ${after[0].number}` : `мест ${after[0].number}–${after[after.length - 1].number}`;
+  return { rule: 1, at: stop.number, text: `${placeOf(stop)} учит ${stop.teaches}, а из ${span} его требует ${using} досок` };
+}
+
 /**
  * Rule 1: a move taught at N is asked for by at least two of N+1…N+3, and the next board that teaches
  * is not before N+2, but where the board at N already asked for the move that board brings in. The
- * seven is not held to the first part: reading a face is needed everywhere unsaid (third campaign, rule 7).
+ * seven is not held to the first part: reading a face is needed everywhere unsaid (third campaign, rule 7);
+ * nor is the order here, since a trap of order is found by a search: the slow part counts it (`slowGrammar`).
  */
 function taughtAndUsed(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   row.forEach((stop, index) => {
     if (!stop.teaches) return;
     const after = row.slice(index + 1, index + 4);
-    if (after.length > 0 && stop.teaches !== 'seven') {
+    if (after.length > 0 && stop.teaches !== 'seven' && stop.teaches !== 'order') {
       const using = after.filter((next) => needsOf(next.spec).has(stop.teaches!)).length;
-      if (using < Math.min(2, after.length)) {
-        const span = after.length === 1 ? `места ${after[0].number}` : `мест ${after[0].number}–${after[after.length - 1].number}`;
-        out.push({ rule: 1, at: stop.number, text: `${placeOf(stop)} учит ${stop.teaches}, а из ${span} его требует ${using} досок` });
-      }
+      const broken = usedAfter(stop, after, using);
+      if (broken) out.push(broken);
     }
     const next = row[index + 1];
     // Two meetings side by side are let be where the first already asked for the move the second names (spec, section 3).
@@ -228,7 +243,8 @@ export function fastGrammar(row: readonly Stop[]): Violation[] {
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
 /**
- * The rules that ask what the walk and the personas found (`facts`): rule 2, a board that teaches
+ * The rules that ask what the walk and the personas found (`facts`): rule 1 for the order, two of the
+ * three boards after the place that teaches it are traps of order; rule 2, a board that teaches
  * can be lost and its move is the short way (`SAVES`), past the first three places of the row; and rule 5,
  * the planner does as well after a meeting as on it (but for `PLANNER_SLACK`), and the hardest board of a chapter (the lowest
  * share of the planner, the latest of those alike) stands fourth in it or later. The prologue is
@@ -238,6 +254,12 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
 export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFacts): Violation[] {
   const out: Violation[] = [];
   const known = new Map(row.map((stop) => [stop, facts(stop)]));
+  row.forEach((stop, index) => {
+    if (stop.teaches !== 'order') return;
+    const after = row.slice(index + 1, index + 4);
+    const broken = after.length > 0 ? usedAfter(stop, after, after.filter((next) => known.get(next)!.order === true).length) : null;
+    if (broken) out.push(broken);
+  });
   for (const stop of row) {
     const saves = stop.teaches ? SAVES[stop.teaches] : undefined;
     if (saves === undefined || stop.number <= 3) continue;

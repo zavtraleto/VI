@@ -5,7 +5,7 @@ import { createRun } from '../rules/sim';
 import { ori } from '../rules/testkit';
 import type { LevelSpec, Orientation, PuzzleDie } from '../rules/types';
 import { boardOf } from './boardSets';
-import { decoyOf, farOf, firstsOf, islandsOf, lostOf, nearOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf } from './measures';
+import { decoyOf, farOf, firstsOf, islandsOf, loopOf, lostOf, nearOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf } from './measures';
 import { fileBoard } from './boardFiles';
 
 /** A die of a board, lying as the faces given say. */
@@ -297,5 +297,23 @@ describe('the boards near the start and the whole of a small board', () => {
 
   it('counts the boards of R03 whole: none lost, twelve moves from the farthest', () => {
     expect(lostOf(fileBoard('R03'))).toEqual({ boards: 8592, lost: 0, said: 0, worst: 12 });
+  });
+});
+
+describe('the loop', () => {
+  const wayOf = (id: string) => (boardOf(id).solution ?? []).map(moveOf);
+
+  it('reads a loop off a way: aside, across and back by one die', () => {
+    expect(loopOf(boardOf('B01_s290'), wayOf('B01_s290'))).toBe(true); // N E S
+    expect(loopOf(boardOf('H07'), wayOf('H07'))).toBe(true); // N W S …
+    expect(loopOf(boardOf('R05'), wayOf('R05'))).toBe(false); // N W W
+    expect(loopOf(boardOf('R04'), wayOf('R04'))).toBe(false); // N W
+  });
+
+  it('does not read a loop where another die moves between the three rolls', () => {
+    // Two dice side by side: the first rolls north, the second rolls, then the first goes on west and south.
+    const board = open(4, [2], [die(1, 2, { top: 4, north: 1 }), die(2, 2, { top: 4, north: 1 })]);
+    expect(loopOf(board, way('1,2,N', '2,2,N', '1,1,W', '0,1,S'))).toBe(false);
+    expect(loopOf(board, way('1,2,N', '1,1,W', '0,1,S'))).toBe(true);
   });
 });

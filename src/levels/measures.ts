@@ -179,6 +179,30 @@ export function turnsOf(spec: LevelSpec, way: readonly SolverMove[]): number {
   return state.cubes.filter((cube) => hidden.has(cube.id) && works(cube.ori.top)).length;
 }
 
+/**
+ * The way goes round with one die: three rolls of it in a row, aside, across and back (the second
+ * across the first, the third the opposite of the first), each made from where the one before it
+ * came to. The face that was on top comes back to the side it started on, where a straight roll
+ * would have turned it away. A push breaks the loop, and so does a move of another die between.
+ */
+export function loopOf(spec: LevelSpec, way: readonly SolverMove[]): boolean {
+  let state = startOf(spec);
+  /** The die each move rolled, or -1 for a push. */
+  const rolled: number[] = [];
+  for (const move of way) {
+    rolled.push(move.push ? -1 : (cubeAt(state, move.x, move.z)?.id ?? -1));
+    state = tellMove(state, move).state;
+  }
+  for (let i = 0; i + 2 < way.length; i++) {
+    const [a, b, c] = [way[i], way[i + 1], way[i + 2]];
+    if (rolled[i] < 0 || rolled[i] !== rolled[i + 1] || rolled[i] !== rolled[i + 2]) continue;
+    const from = (move: SolverMove, next: SolverMove): boolean => next.x === move.x + DELTA[move.dir].dx && next.z === move.z + DELTA[move.dir].dz;
+    if (!from(a, b) || !from(b, c)) continue;
+    if (across(b.dir, a.dir) && c.dir === OPPOSITE[a.dir]) return true;
+  }
+  return false;
+}
+
 /** Boards a search may see to say that a board with a combo made cannot be cleared. */
 const TRAP_MAX_STATES = 150_000;
 

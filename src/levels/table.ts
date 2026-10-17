@@ -5,7 +5,7 @@ import type { Ban } from '../rules/reach';
 import type { LevelSpec } from '../rules/types';
 import type { Place, Technique } from './row';
 import { WARNING, held, type SlowFacts, type Violation } from './grammar';
-import { firstsOf, lostOf, nearOf, tailOf, turnsOf } from './measures';
+import { firstsOf, lostOf, nearOf, tailOf, trapOf, turnsOf } from './measures';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { walkBoards } from './walk';
 
@@ -125,7 +125,8 @@ const BAN_OF: Partial<Record<Technique, readonly Ban[]>> = { link: ['link'], wal
 
 /**
  * What the slow rules of the grammar ask of a board (`slowGrammar`): whether the walk over the
- * boards the player can come to finds one lost, the shares of the planner's and the casual persona's runs that clear it, and,
+ * boards the player can come to finds one lost, the shares of the planner's and the casual persona's runs that clear it, whether
+ * it is a trap of order (two combos on its way and `trapOf`), and,
  * for a board that teaches, the fewest moves it is cleared in without that move (up to two over its own).
  */
 export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): SlowFacts {
@@ -137,7 +138,9 @@ export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, wal
   }
   const ban = teaches ? BAN_OF[teaches] : undefined;
   const without = ban === undefined ? undefined : (solveLevel(spec, { ban: [...ban], maxMoves: (spec.par ?? 0) + 2 }).solution?.par ?? null);
-  return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, casual: casual / runs, ...(without === undefined ? {} : { without }) };
+  const combos = scoreOf(spec, (spec.solution ?? []).map(moveOf)).beats.filter((beat) => beat.event === 'combo').length;
+  const order = combos >= 2 && trapOf(spec) !== null;
+  return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, casual: casual / runs, order, ...(without === undefined ? {} : { without }) };
 }
 
 /**
