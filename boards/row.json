@@ -51,7 +51,7 @@
         { "board": "three-at-once-1", "role": "rest", "archetype": "three at one push", "emotion": "gift" },
         { "board": "P12", "role": "peak", "archetype": "down and back with two faces", "emotion": "fiero" },
         { "board": "link-from-below-1", "role": "twist", "archetype": "a link pushed from below", "emotion": "surprise" },
-        { "board": "corridor-push-1", "role": "apply", "archetype": "push in a corridor", "emotion": "insight" },
+        { "board": "corridor-push-1", "role": "apply", "archetype": "push in a corridor", "emotion": "insight", "help": { "camera": "cells" } },
         { "board": "collapse-3", "role": "rest", "archetype": "a big clearing", "emotion": "payoff", "event": "the board clears at once" }
       ]
     },

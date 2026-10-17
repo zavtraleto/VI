@@ -3265,7 +3265,9 @@ export const ROW: Row = {
       "role": "apply",
       "archetype": "push in a corridor",
       "emotion": "insight",
-      "help": {}
+      "help": {
+        "camera": "cells"
+      }
     },
     {
       "number": 38,
