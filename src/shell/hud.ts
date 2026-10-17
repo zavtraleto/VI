@@ -227,10 +227,14 @@ interface Zone {
   action?: () => void;
 }
 
-/** The faces a level asks for, and the moment they began to rise into sight. */
+/**
+ * The faces a level asks for, and the moment they began to rise into sight. A face that is done
+ * has the moment it began to leave; one that a move taken back brought back, the moment it began
+ * to rise again.
+ */
 export interface HudAim {
-  faces: readonly number[];
   since: number;
+  faces: readonly { value: number; left: number | null; back: number | null }[];
 }
 
 /** What on the page takes presses of its own. */
@@ -574,9 +578,9 @@ export class GameHud {
     // A plaque that blinks is drawn anew each time it turns.
     const plaque = !still && (view.counters ?? []).some((counter) => counter.blink) ? Math.floor(timeMs / COUNTER_BLINK_MS) % 2 : 0;
     const signed = sign ? JSON.stringify(sign) : '';
-    // Faces of the aim that are still rising are drawn anew every frame.
+    // Faces of the aim that are rising or leaving are drawn anew every frame.
     const aim = view.aim ?? null;
-    const rising = aim && !still && timeMs < aim.since + this.aimTotal(aim) ? Math.floor(timeMs) : 0;
+    const rising = aim && !still && this.aimMoves(aim, timeMs) ? Math.floor(timeMs) : 0;
     const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       const turn = this.signTurnAt(sign, timeMs, still);
@@ -1164,17 +1168,26 @@ export class GameHud {
     return Math.min(22, Math.max(13, Math.round(Math.min(kit.width, kit.height) * 0.075)));
   }
 
-  /** How long the faces of an aim take to rise, the last of them included. */
-  private aimTotal(aim: HudAim): number {
+  /** When a face of an aim begins to rise: one after another from the start of the level, or at once where it comes back. */
+  private aimRose(aim: HudAim, index: number): number {
     const { kit } = this;
-    return kit.number('aimDelayMs') + Math.max(0, aim.faces.length - 1) * kit.number('aimStaggerMs') + kit.number('aimRiseMs');
+    return aim.faces[index].back ?? aim.since + kit.number('aimDelayMs') + index * kit.number('aimStaggerMs');
+  }
+
+  /** Whether a face of an aim is rising or leaving at this moment. */
+  private aimMoves(aim: HudAim, timeMs: number): boolean {
+    const { kit } = this;
+    const leave = kit.number('aimFlashMs') + kit.number('aimSinkMs');
+    return aim.faces.some((face, index) => (face.left !== null ? timeMs < face.left + leave : timeMs < this.aimRose(aim, index) + kit.number('aimRiseMs')));
   }
 
   /**
    * The faces a level asks for, in a row where the seal lay, each in the colours it has on the die.
    * At the start of a level they rise into sight as if from deep under the board seen from above:
    * small and lost in the dark far down, full size and full colour at the top, one after another.
-   * With reduced motion they stand there at once.
+   * A face that is done flares up for a moment, and then goes back down the way it came, as the
+   * dice of its combo go; the others keep their places. With reduced motion they stand there at
+   * once, and a face that is done is gone at once.
    */
   private drawAim(aim: HudAim, layout: HudLayout, timeMs: number, still: boolean): void {
     const { kit } = this;
@@ -1183,16 +1196,34 @@ export class GameHud {
     const side = this.netSide();
     const gap = kit.number('aimGap');
     const from = kit.number('aimFrom');
-    aim.faces.forEach((value, index) => {
-      const begun = timeMs - aim.since - kit.number('aimDelayMs') - index * kit.number('aimStaggerMs');
-      const t = still ? 1 : clamp(begun / kit.number('aimRiseMs'), 0, 1);
-      if (t <= 0) return;
-      const up = 1 - (1 - t) ** 3;
+    const flashMs = kit.number('aimFlashMs');
+    const sinkMs = kit.number('aimSinkMs');
+    aim.faces.forEach(({ value, left }, index) => {
+      // How far up the face is, from 0 deep down to 1 at the top, and how much of the flare it has.
+      let up: number;
+      let flare = 0;
+      if (left !== null) {
+        const gone = timeMs - left;
+        if (still || gone >= flashMs + sinkMs) return;
+        if (gone < flashMs) {
+          up = 1;
+          flare = Math.sin((gone / flashMs) * (Math.PI / 2));
+        } else {
+          const t = (gone - flashMs) / sinkMs;
+          up = 1 - t ** 3;
+          flare = 1 - t;
+        }
+      } else {
+        const t = still ? 1 : clamp((timeMs - this.aimRose(aim, index)) / kit.number('aimRiseMs'), 0, 1);
+        if (t <= 0) return;
+        up = 1 - (1 - t) ** 3;
+      }
       const size = Math.max(1, Math.round(side * (from + (1 - from) * up)));
       const cx = layout.net.x + index * (side + gap) + side / 2;
       const cy = layout.net.y + side / 2;
-      const face = mixHex(palette.bg, faceColour(value, palette, values), up);
-      const pip = mixHex(palette.bg, pipColour(value, palette, values), up);
+      const bright = kit.number('aimFlash') * flare;
+      const face = mixHex(mixHex(palette.bg, faceColour(value, palette, values), up), palette.ink, bright);
+      const pip = mixHex(mixHex(palette.bg, pipColour(value, palette, values), up), palette.ink, bright * 0.5);
       kit.face(value, Math.round(cx - size / 2), Math.round(cy - size / 2), size, face, pip);
     });
   }

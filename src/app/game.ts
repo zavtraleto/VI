@@ -78,7 +78,7 @@ import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
 import { roadCounters } from './roadCounters';
-import { goalFaces } from '../levels/goalFaces';
+import { goalOf } from '../levels/goalFaces';
 import { roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
@@ -273,8 +273,12 @@ export class Game {
   private lastFrame = 0;
   /** Where a swipe has to point for each board direction; follows the camera. */
   private swipeDirs: ScreenDirs = CARDINAL_DIRS;
-  /** The faces the level in hand asks for, and the moment they began to rise in the corner: none until the board takes its first move. */
-  private aim: { faces: number[]; since: number | null } | null = null;
+  /**
+   * The faces the level in hand asks for, and the moment they began to rise in the corner: none
+   * until the board takes its first move. Each face keeps the dice of it its way sends, the moment
+   * it began to leave, and the moment it began to rise again where a move taken back brought it back.
+   */
+  private aim: { since: number | null; faces: { face: number; dice: number | null; left: number | null; back: number | null }[] } | null = null;
   /** The direction the last swipe was read as, lit on the seal for a moment after it. */
   private sealLight: { dir: Dir; until: number } | null = null;
   /** The breath the game holds on a beat. */
@@ -944,7 +948,7 @@ export class Game {
     this.view.drawGrid(1, true);
     this.history = [];
     this.trails = [];
-    this.aim = state.levelRun ? { faces: goalFaces(state.levelRun.spec), since: null } : null;
+    this.aim = state.levelRun ? { since: null, faces: goalOf(state.levelRun.spec).map((goal) => ({ ...goal, left: null, back: null })) } : null;
     this.undosMade = 0;
     this.beforeCommand = null;
     this.levelTicks = 0;
@@ -2307,7 +2311,7 @@ export class Game {
     // lab has the near ones. They blink on a place that waits with the player, when the player has waited.
     const help = levelRun !== null && this.labSpec === null && this.place !== null ? CAMPAIGN[this.place].help : null;
     const plaques = levelRun === null ? null : help === null ? 'near' : plaquesOf(help);
-    const short = !levelRun || state.over || this.passage || plaques === null ? [] : plaques === 'all' ? roadCounters(state, this.aim?.faces ?? []) : this.hintedGroups(state);
+    const short = !levelRun || state.over || this.passage || plaques === null ? [] : plaques === 'all' ? roadCounters(state, this.aim?.faces.map((goal) => goal.face) ?? []) : this.hintedGroups(state);
     const counters: HudCounter[] = short.map((group) => {
       const cx = group.cells.reduce((sum, cell) => sum + cell.x, 0) / group.cells.length;
       const cz = group.cells.reduce((sum, cell) => sum + cell.z, 0) / group.cells.length;
@@ -2342,7 +2346,7 @@ export class Game {
       // The net of the die under the player is not shown: it confused the players (word of the owner, 13 October 2026). What drew it is kept.
       seal: SEAL_SHOWN ? this.sealView(state, lit) : null,
       // The faces the level asks for stand where the seal lay (word of the owner, 16 October 2026).
-      aim: this.aim && this.aim.since !== null ? { faces: this.aim.faces, since: this.aim.since } : null,
+      aim: this.aim && this.aim.since !== null ? { since: this.aim.since, faces: this.aim.faces.map(({ face, left, back }) => ({ value: face, left, back })) } : null,
       labels,
       note,
       counters,
@@ -2494,6 +2498,17 @@ export class Game {
     span('wait', waitFrom);
     // The faces a level asks for rise once the board is there to be played: not under a window or the command it opens on.
     if (this.aim && this.aim.since === null && shown && !this.starting && this.inputEnabled()) this.aim.since = time;
+    // A face leaves once as many of its dice are gone as its way sends, and on the pass whatever is left; a move taken back brings it back.
+    if (this.aim && this.aim.since !== null && state.levelRun) {
+      for (const goal of this.aim.faces) {
+        const done = state.endReason === 'passed' || (goal.dice !== null && state.levelRun.sent[goal.face - 1] >= goal.dice);
+        if (done && goal.left === null) goal.left = time;
+        else if (!done && goal.left !== null) {
+          goal.left = null;
+          goal.back = time;
+        }
+      }
+    }
     const hudFrom = performance.now();
     // Under the command the program opens on, the readings keep their room and are not shown: nothing is on that screen but the board and the command.
     this.hud.frame(shown ? this.hudView(state, stage, lit, reducedMotion) : null, time, this.starting);

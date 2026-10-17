@@ -90,13 +90,18 @@ export const SHELL_GROUPS = {
      * The faces a level asks for, in the corner where the seal lay: at the start of a level they
      * rise into sight as if from deep under the board seen from above. They wait this long after
      * the board takes its first move, rise for this long, one this long after the one before;
-     * first seen, a face is this share of its size; they stand this many dots apart.
+     * first seen, a face is this share of its size; they stand this many dots apart. A face that
+     * is done flares up for this long, towards the tone of the tube by this share, and goes back
+     * down for this long.
      */
     aimDelayMs: number(250, 0, 2000, 10),
     aimRiseMs: number(700, 100, 3000, 10),
     aimStaggerMs: number(140, 0, 1000, 10),
     aimFrom: number(0.15, 0, 1, 0.01),
     aimGap: number(3, 0, 12, 1),
+    aimFlashMs: number(160, 0, 1000, 10),
+    aimFlash: number(0.6, 0, 1, 0.01),
+    aimSinkMs: number(600, 100, 3000, 10),
   },
   motion: {
     /** How long a pressed zone answers before its action, in milliseconds. */
