@@ -136,8 +136,8 @@ const R03 = fileBoard('R03');
 describe('boardFrom', () => {
   it('finds a board of the row by its code, as the row plays it', () => {
     expect(boardFrom('R03')).toMatchObject({ from: 'row', spec: { id: 'R03' } });
-    // A board of a chapter is played on the faces of the chapter.
-    expect(boardFrom('R11')).toMatchObject({ from: 'row', spec: { id: 'R11', faces: [2, 3] } });
+    // A board is played on the faces its file names: no chapter names faces since the third campaign (2026-10-17).
+    expect(boardFrom('R11')).toMatchObject({ from: 'row', spec: { id: 'R11', faces: [3, 2] } });
     expect(boardFrom('C1-05')).toMatchObject({ from: 'row', spec: { id: 'C1-05', faces: [2, 3] } });
     // A board out of the row is read by its file, and the refusal says how.
     expect(() => boardFrom('K23')).toThrow(/file=K23/);

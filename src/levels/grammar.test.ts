@@ -182,7 +182,7 @@ describe('the slow part of the grammar', () => {
   const easy = { lost: true, planner: 1, without: null };
 
   it('asks of a board that teaches that it can be lost and that its move is the short way: rule 2, past the first three places', () => {
-    const row = rowOf(['R01', 'R02', 'R03', 'R04', 'R05', 'R07', 'R08']);
+    const row = rowOf(['R01', ['R02', { chapter: 0, role: 'learn', archetype: 'ride' }], 'R03', 'R04', 'R05', 'R07', 'R08']);
     // R07 is cleared in 4; without the link in 5 here, a move longer, where a link has to save two.
     const facts = (stop: Stop) => (stop.spec.id === 'R07' ? { lost: false, planner: 1, without: 5 } : easy);
     expect(slowGrammar(row, facts).filter((one) => one.rule === 2).map((one) => one.text)).toEqual([

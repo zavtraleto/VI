@@ -8,37 +8,28 @@ export const ROW: Row = {
       "title": "prologue",
       "faces": null,
       "first": 0,
-      "last": 10
+      "last": 11
     },
     {
       "id": 1,
       "title": "road",
-      "faces": [
-        2,
-        3
-      ],
-      "first": 11,
-      "last": 15
+      "faces": null,
+      "first": 12,
+      "last": 16
     },
     {
       "id": 2,
       "title": "order",
-      "faces": [
-        2,
-        3
-      ],
-      "first": 16,
-      "last": 20
+      "faces": null,
+      "first": 17,
+      "last": 21
     },
     {
       "id": 3,
       "title": "floor",
-      "faces": [
-        2,
-        3
-      ],
-      "first": 21,
-      "last": 27
+      "faces": null,
+      "first": 22,
+      "last": 28
     }
   ],
   "places": [
@@ -220,6 +211,7 @@ export const ROW: Row = {
       },
       "role": "meet",
       "archetype": "roll",
+      "emotion": "gift",
       "help": {
         "sign": "N",
         "wait": "first",
@@ -229,169 +221,11 @@ export const ROW: Row = {
     {
       "number": 2,
       "chapter": 0,
-      "code": "R02",
+      "code": "side-up-1",
       "spec": {
-        "id": "R02",
-        "seed": 8102,
-        "size": 7,
-        "holes": [
-          {
-            "x": 0,
-            "z": 0
-          },
-          {
-            "x": 1,
-            "z": 0
-          },
-          {
-            "x": 5,
-            "z": 0
-          },
-          {
-            "x": 6,
-            "z": 0
-          },
-          {
-            "x": 0,
-            "z": 1
-          },
-          {
-            "x": 1,
-            "z": 1
-          },
-          {
-            "x": 3,
-            "z": 1
-          },
-          {
-            "x": 5,
-            "z": 1
-          },
-          {
-            "x": 6,
-            "z": 1
-          },
-          {
-            "x": 0,
-            "z": 2
-          },
-          {
-            "x": 1,
-            "z": 2
-          },
-          {
-            "x": 2,
-            "z": 2
-          },
-          {
-            "x": 3,
-            "z": 2
-          },
-          {
-            "x": 5,
-            "z": 2
-          },
-          {
-            "x": 6,
-            "z": 2
-          },
-          {
-            "x": 0,
-            "z": 3
-          },
-          {
-            "x": 1,
-            "z": 3
-          },
-          {
-            "x": 2,
-            "z": 3
-          },
-          {
-            "x": 3,
-            "z": 3
-          },
-          {
-            "x": 5,
-            "z": 3
-          },
-          {
-            "x": 6,
-            "z": 3
-          },
-          {
-            "x": 0,
-            "z": 4
-          },
-          {
-            "x": 1,
-            "z": 4
-          },
-          {
-            "x": 2,
-            "z": 4
-          },
-          {
-            "x": 3,
-            "z": 4
-          },
-          {
-            "x": 5,
-            "z": 4
-          },
-          {
-            "x": 6,
-            "z": 4
-          },
-          {
-            "x": 0,
-            "z": 5
-          },
-          {
-            "x": 1,
-            "z": 5
-          },
-          {
-            "x": 2,
-            "z": 5
-          },
-          {
-            "x": 3,
-            "z": 5
-          },
-          {
-            "x": 5,
-            "z": 5
-          },
-          {
-            "x": 6,
-            "z": 5
-          },
-          {
-            "x": 0,
-            "z": 6
-          },
-          {
-            "x": 1,
-            "z": 6
-          },
-          {
-            "x": 2,
-            "z": 6
-          },
-          {
-            "x": 3,
-            "z": 6
-          },
-          {
-            "x": 5,
-            "z": 6
-          },
-          {
-            "x": 6,
-            "z": 6
-          }
-        ],
+        "id": "side-up-1",
+        "seed": 0,
+        "size": 4,
         "goal": {
           "kind": "clear"
         },
@@ -399,7 +233,7 @@ export const ROW: Row = {
         "values": [
           3
         ],
-        "norm": 5,
+        "norm": 3,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
@@ -408,69 +242,41 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 4,
-            "z": 6
+            "x": 2,
+            "z": 2
           },
           "dice": [
             {
-              "x": 2,
-              "z": 0,
+              "x": 1,
+              "z": 1,
               "top": 3,
-              "north": 1,
-              "fixed": true
+              "north": 1
             },
             {
               "x": 2,
               "z": 1,
               "top": 3,
-              "north": 1,
-              "fixed": true
+              "north": 1
             },
             {
-              "x": 4,
-              "z": 3,
+              "x": 2,
+              "z": 2,
               "top": 1,
-              "north": 5
-            },
-            {
-              "x": 4,
-              "z": 4,
-              "top": 6,
-              "north": 2
-            },
-            {
-              "x": 4,
-              "z": 5,
-              "top": 6,
-              "north": 2
+              "north": 4
             }
-          ],
-          "leaving": [
-            {
-              "die": 3,
-              "moves": 2
-            },
-            {
-              "die": 4,
-              "moves": 1
-            }
-          ],
-          "onFloor": true
+          ]
         },
-        "undos": 3,
-        "chapter": 0,
-        "par": 4,
+        "floor": false,
+        "par": 2,
         "exact": true,
         "solution": [
-          "4,3,N",
-          "4,2,N",
-          "4,1,N",
-          "4,0,W"
+          "2,2,E",
+          "3,2,N"
         ]
       },
       "role": "learn",
-      "archetype": "ride",
-      "event": "stair and floor",
+      "archetype": "side up",
+      "emotion": "gift",
       "help": {
         "wait": "lesson",
         "camera": "hold"
@@ -530,6 +336,7 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "first free board",
+      "emotion": "insight",
       "help": {
         "wait": "free",
         "camera": "hold"
@@ -537,6 +344,131 @@ export const ROW: Row = {
     },
     {
       "number": 4,
+      "chapter": 0,
+      "code": "B01_s290",
+      "spec": {
+        "id": "B01_s290",
+        "seed": 290,
+        "size": 3,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2
+        ],
+        "norm": 2,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 0,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 1,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 2,
+              "north": 1
+            }
+          ]
+        },
+        "undos": 3,
+        "chapter": 0,
+        "floor": false,
+        "par": 3,
+        "exact": true,
+        "solution": [
+          "0,1,N",
+          "0,0,E",
+          "1,0,S"
+        ]
+      },
+      "role": "apply",
+      "archetype": "the way round keeps the face",
+      "emotion": "surprise",
+      "event": "first mistake possible",
+      "help": {
+        "wait": "free",
+        "camera": "hold"
+      }
+    },
+    {
+      "number": 5,
+      "chapter": 0,
+      "code": "H06",
+      "spec": {
+        "id": "H06",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 3,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 1,
+              "top": 1,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 1,
+              "north": 4
+            }
+          ]
+        },
+        "par": 2,
+        "exact": true,
+        "solution": [
+          "2,1,W",
+          "2,2,N"
+        ]
+      },
+      "role": "apply",
+      "archetype": "three 3s: one roll, then the die beside",
+      "emotion": "flow",
+      "help": {
+        "wait": "free",
+        "camera": "hold"
+      }
+    },
+    {
+      "number": 6,
       "chapter": 0,
       "code": "R04",
       "spec": {
@@ -611,8 +543,9 @@ export const ROW: Row = {
           "1,2,W"
         ]
       },
-      "role": "apply",
+      "role": "event",
       "archetype": "free to fail",
+      "emotion": "trick",
       "event": "first dead end",
       "help": {
         "wait": "free",
@@ -620,72 +553,11 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 5,
+      "number": 7,
       "chapter": 0,
-      "code": "B01_s290",
+      "code": "three-under-1",
       "spec": {
-        "id": "B01_s290",
-        "seed": 290,
-        "size": 3,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          2
-        ],
-        "norm": 2,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          2
-        ],
-        "layout": {
-          "start": {
-            "x": 0,
-            "z": 1
-          },
-          "dice": [
-            {
-              "x": 0,
-              "z": 1,
-              "top": 2,
-              "north": 3
-            },
-            {
-              "x": 2,
-              "z": 1,
-              "top": 2,
-              "north": 1
-            }
-          ]
-        },
-        "undos": 3,
-        "chapter": 0,
-        "floor": false,
-        "par": 3,
-        "exact": true,
-        "solution": [
-          "0,1,N",
-          "0,0,E",
-          "1,0,S"
-        ]
-      },
-      "role": "apply",
-      "archetype": "the way round keeps the face",
-      "event": "a straight roll turns the face away",
-      "help": {
-        "wait": "free",
-        "camera": "hold"
-      }
-    },
-    {
-      "number": 6,
-      "chapter": 0,
-      "code": "H06",
-      "spec": {
-        "id": "H06",
+        "id": "three-under-1",
         "seed": 0,
         "size": 4,
         "goal": {
@@ -705,14 +577,14 @@ export const ROW: Row = {
         "layout": {
           "start": {
             "x": 2,
-            "z": 1
+            "z": 3
           },
           "dice": [
             {
-              "x": 2,
+              "x": 1,
               "z": 1,
-              "top": 1,
-              "north": 5
+              "top": 3,
+              "north": 1
             },
             {
               "x": 1,
@@ -722,28 +594,33 @@ export const ROW: Row = {
             },
             {
               "x": 2,
-              "z": 2,
-              "top": 1,
-              "north": 4
+              "z": 3,
+              "top": 4,
+              "north": 2
             }
           ]
         },
+        "floor": false,
         "par": 2,
         "exact": true,
         "solution": [
-          "2,1,W",
+          "2,3,N",
           "2,2,N"
         ]
       },
-      "role": "apply",
-      "archetype": "three 3s: one roll, then the die beside",
+      "role": "meet",
+      "teaches": "seven",
+      "archetype": "the face under",
+      "emotion": "insight",
+      "event": "the rule of seven",
       "help": {
+        "hint": "hintSeven",
         "wait": "free",
         "camera": "hold"
       }
     },
     {
-      "number": 7,
+      "number": 8,
       "chapter": 0,
       "code": "R05",
       "spec": {
@@ -827,6 +704,7 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "choose the first die",
+      "emotion": "insight",
       "event": "choice of the first die",
       "help": {
         "wait": "free",
@@ -834,7 +712,7 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 8,
+      "number": 9,
       "chapter": 0,
       "code": "H07",
       "spec": {
@@ -892,13 +770,14 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "the way round to a 3, and the third rolled to the pair",
+      "emotion": "recognition",
       "help": {
         "wait": "free",
         "camera": "hold"
       }
     },
     {
-      "number": 9,
+      "number": 10,
       "chapter": 0,
       "code": "H08",
       "spec": {
@@ -951,13 +830,14 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "the way round, for both dice",
+      "emotion": "mastery",
       "help": {
         "wait": "free",
         "camera": "hold"
       }
     },
     {
-      "number": 10,
+      "number": 11,
       "chapter": 0,
       "code": "R07",
       "spec": {
@@ -1019,6 +899,7 @@ export const ROW: Row = {
       "role": "meet",
       "teaches": "link",
       "archetype": "chain",
+      "emotion": "insight",
       "help": {
         "hint": "roadHintChain",
         "wait": "free",
@@ -1026,7 +907,7 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 11,
+      "number": 12,
       "chapter": 0,
       "code": "R08",
       "spec": {
@@ -1100,6 +981,7 @@ export const ROW: Row = {
       },
       "role": "rest",
       "archetype": "domino",
+      "emotion": "flow",
       "event": "domino",
       "help": {
         "wait": "free",
@@ -1107,7 +989,7 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 12,
+      "number": 13,
       "chapter": 1,
       "code": "R11",
       "spec": {
@@ -1119,16 +1001,16 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          3,
+          2
         ],
         "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          3,
+          2
         ],
         "layout": {
           "start": {
@@ -1181,13 +1063,14 @@ export const ROW: Row = {
       "role": "meet",
       "teaches": "walk",
       "archetype": "bridge",
+      "emotion": "recognition",
       "event": "first walk over leaving dice",
       "help": {
         "hint": "roadHintWalk"
       }
     },
     {
-      "number": 13,
+      "number": 14,
       "chapter": 1,
       "code": "P02",
       "spec": {
@@ -1233,16 +1116,14 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          2
         ],
         "norm": 4,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          2
         ],
         "layout": {
           "start": {
@@ -1288,10 +1169,11 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "bridge",
+      "emotion": "recognition",
       "help": {}
     },
     {
-      "number": 14,
+      "number": 15,
       "chapter": 1,
       "code": "C1-05",
       "spec": {
@@ -1363,11 +1245,11 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "roll onto leaving",
-      "event": "the rule of seven",
+      "emotion": "insight",
       "help": {}
     },
     {
-      "number": 15,
+      "number": 16,
       "chapter": 1,
       "code": "C1-06",
       "spec": {
@@ -1447,11 +1329,12 @@ export const ROW: Row = {
       },
       "role": "twist",
       "archetype": "bridge both ways",
+      "emotion": "tension",
       "event": "the road goes both ways, briefly",
       "help": {}
     },
     {
-      "number": 16,
+      "number": 17,
       "chapter": 1,
       "code": "C1-07",
       "spec": {
@@ -1530,11 +1413,12 @@ export const ROW: Row = {
       },
       "role": "rest",
       "archetype": "collapse",
+      "emotion": "payoff",
       "event": "first big clearing, with a way to it",
       "help": {}
     },
     {
-      "number": 17,
+      "number": 18,
       "chapter": 2,
       "code": "R09",
       "spec": {
@@ -1546,16 +1430,16 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          3,
+          2
         ],
         "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          3,
+          2
         ],
         "layout": {
           "start": {
@@ -1608,11 +1492,12 @@ export const ROW: Row = {
       "role": "meet",
       "teaches": "twoFaces",
       "archetype": "two heaps at once",
+      "emotion": "surprise",
       "event": "heaps of both faces on one board",
       "help": {}
     },
     {
-      "number": 18,
+      "number": 19,
       "chapter": 2,
       "code": "P07",
       "spec": {
@@ -1685,10 +1570,11 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "two combos from one die",
+      "emotion": "fiero",
       "help": {}
     },
     {
-      "number": 19,
+      "number": 20,
       "chapter": 2,
       "code": "P08",
       "spec": {
@@ -1767,10 +1653,11 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "two combos in any order",
+      "emotion": "recognition",
       "help": {}
     },
     {
-      "number": 20,
+      "number": 21,
       "chapter": 2,
       "code": "C2-05",
       "spec": {
@@ -1844,11 +1731,12 @@ export const ROW: Row = {
       },
       "role": "twist",
       "archetype": "decoy of the wrong channel",
+      "emotion": "trick",
       "event": "first trap",
       "help": {}
     },
     {
-      "number": 21,
+      "number": 22,
       "chapter": 2,
       "code": "P24",
       "spec": {
@@ -1922,16 +1810,14 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          2
         ],
         "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          2
         ],
         "layout": {
           "start": {
@@ -1984,11 +1870,12 @@ export const ROW: Row = {
       },
       "role": "rest",
       "archetype": "domino",
+      "emotion": "flow",
       "event": "first corridor",
       "help": {}
     },
     {
-      "number": 22,
+      "number": 23,
       "chapter": 3,
       "code": "R13",
       "spec": {
@@ -2063,13 +1950,14 @@ export const ROW: Row = {
       "role": "meet",
       "teaches": "push",
       "archetype": "push to a waiting die",
+      "emotion": "relief",
       "event": "first push",
       "help": {
         "hint": "roadHintPush"
       }
     },
     {
-      "number": 23,
+      "number": 24,
       "chapter": 3,
       "code": "R10",
       "spec": {
@@ -2081,16 +1969,14 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          2
         ],
         "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          2
         ],
         "layout": {
           "start": {
@@ -2152,13 +2038,14 @@ export const ROW: Row = {
       "role": "meet",
       "teaches": "lift",
       "archetype": "lift by a laid stair",
+      "emotion": "surprise",
       "event": "first step down and up",
       "help": {
         "hint": "roadHintClimb"
       }
     },
     {
-      "number": 24,
+      "number": 25,
       "chapter": 3,
       "code": "R14",
       "spec": {
@@ -2237,10 +2124,11 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "down and back",
+      "emotion": "recognition",
       "help": {}
     },
     {
-      "number": 25,
+      "number": 26,
       "chapter": 3,
       "code": "P06",
       "spec": {
@@ -2252,16 +2140,14 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          2
         ],
         "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          2
         ],
         "layout": {
           "start": {
@@ -2313,10 +2199,11 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "down and back",
+      "emotion": "fiero",
       "help": {}
     },
     {
-      "number": 26,
+      "number": 27,
       "chapter": 3,
       "code": "P09",
       "spec": {
@@ -2328,7 +2215,6 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
           3
         ],
         "norm": 6,
@@ -2336,7 +2222,6 @@ export const ROW: Row = {
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
           3
         ],
         "layout": {
@@ -2396,10 +2281,11 @@ export const ROW: Row = {
       },
       "role": "apply",
       "archetype": "bridge with a link",
+      "emotion": "recognition",
       "help": {}
     },
     {
-      "number": 27,
+      "number": 28,
       "chapter": 3,
       "code": "R16",
       "spec": {
@@ -2411,16 +2297,16 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          3,
+          2
         ],
         "norm": 6,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          3,
+          2
         ],
         "layout": {
           "start": {
@@ -2479,10 +2365,11 @@ export const ROW: Row = {
       },
       "role": "twist",
       "archetype": "everything at once",
+      "emotion": "insight",
       "help": {}
     },
     {
-      "number": 28,
+      "number": 29,
       "chapter": 3,
       "code": "P12",
       "spec": {
@@ -2561,6 +2448,7 @@ export const ROW: Row = {
       },
       "role": "peak",
       "archetype": "down and back with two faces",
+      "emotion": "fiero",
       "help": {}
     }
   ]
