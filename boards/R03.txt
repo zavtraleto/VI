@@ -11,7 +11,7 @@ seed: 8103
 chapter: 0
 par: 2
 exact: yes
-way: 1,2,W 0,2,N
+way: 1,2,E 2,2,N
 ---
  .   .   .
  .  23   .

@@ -119,10 +119,10 @@ describe('frameOfPiece', () => {
   const first = CAMPAIGN.filter((place) => place.help.camera === 'hold').map((place) => place.spec);
 
   it('counts the rectangle of the cells that are left of a square', () => {
-    expect(cellsOf(piece('R01'))).toEqual({ minX: 3, maxX: 3, minZ: 0, maxZ: 5 });
+    expect(cellsOf(piece('R01'))).toEqual({ minX: 2, maxX: 2, minZ: 0, maxZ: 5 });
     expect(cellsOf(piece('R03'))).toEqual({ minX: 0, maxX: 2, minZ: 0, maxZ: 2 });
-    // Three cells wide and four long: the west column of its square is cut off.
-    expect(cellsOf(piece('R04'))).toEqual({ minX: 1, maxX: 3, minZ: 0, maxZ: 3 });
+    // Three cells wide and four long: the east column of its square is cut off.
+    expect(cellsOf(piece('R04'))).toEqual({ minX: 0, maxX: 2, minZ: 0, maxZ: 3 });
     // Four cells wide and three long: the north row of its square is cut off.
     expect(cellsOf(piece('R05'))).toEqual({ minX: 0, maxX: 3, minZ: 1, maxZ: 3 });
     expect(cellsOf(board(5))).toEqual({ minX: 0, maxX: 4, minZ: 0, maxZ: 4 });
@@ -143,8 +143,8 @@ describe('frameOfPiece', () => {
       const strip = frameOfPiece(piece('R01'), [], a, width, height, 0);
       const square = frameOf(piece('R01'), a, width, height, 0);
       expect(strip.cell).toBeGreaterThanOrEqual(square.cell - 1e-9);
-      // Column 3, between rows 2 and 3: the picture is over the middle of the strip.
-      expect(sightOf(strip, a, height).r).toBeCloseTo(toPlane(a, 3, 2.5).r);
+      // Column 2, between rows 2 and 3: the picture is over the middle of the strip.
+      expect(sightOf(strip, a, height).r).toBeCloseTo(toPlane(a, 2, 2.5).r);
     }
     // Seen from a corner a strip is far narrower and lower than its square, and its cell is larger.
     expect(frameOfPiece(piece('R01'), [], DIAMOND, width, height, 0).cell).toBeGreaterThan(frameOf(piece('R01'), DIAMOND, width, height, 0).cell * 1.2);

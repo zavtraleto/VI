@@ -112,7 +112,7 @@ describe('the way the swipe sign points', () => {
 
   it('is the step towards the die of the way, where the player is not on it: up the stair of two, over, and then the rolls', () => {
     const { state, dirs, left } = follow(pieceOf('R02'));
-    expect(dirs).toEqual(['N', 'N', 'N', 'N', 'N', 'N', 'E']);
+    expect(dirs).toEqual(['N', 'N', 'N', 'N', 'N', 'N', 'W']);
     // Steps are not moves: the way is as long after them as before.
     expect(left).toEqual([4, 4, 4, 4, 3, 2, 1]);
     expect(state.endReason).toBe('passed');
@@ -186,14 +186,14 @@ describe('the way the swipe sign points', () => {
 describe('the steps to a place', () => {
   it('are none to where the player is', () => {
     const state = start(pieceOf('R02'));
-    expect(stepsTo(state, { x: 2, z: 6, level: 'ground' })).toEqual([]);
+    expect(stepsTo(state, { x: 4, z: 6, level: 'ground' })).toEqual([]);
   });
 
   it('lead from the floor up the dice that are leaving and on over the dice', () => {
     const state = start(pieceOf('R02'));
-    expect(stepsTo(state, { x: 2, z: 5, level: 'top' })).toEqual(['N']);
-    expect(stepsTo(state, { x: 2, z: 4, level: 'top' })).toEqual(['N', 'N']);
-    expect(stepsTo(state, { x: 2, z: 3, level: 'top' })).toEqual(['N', 'N', 'N']);
+    expect(stepsTo(state, { x: 4, z: 5, level: 'top' })).toEqual(['N']);
+    expect(stepsTo(state, { x: 4, z: 4, level: 'top' })).toEqual(['N', 'N']);
+    expect(stepsTo(state, { x: 4, z: 3, level: 'top' })).toEqual(['N', 'N', 'N']);
   });
 
   it('are never a roll: a cell with no die is not stepped to from a die that stands', () => {
@@ -202,16 +202,16 @@ describe('the steps to a place', () => {
     go(state, 'N');
     go(state, 'N');
     go(state, 'N');
-    expect(state.player).toEqual({ x: 2, z: 3, level: 'top' });
-    expect(stepsTo(state, { x: 2, z: 2, level: 'top' })).toBeNull();
-    expect(stepsTo(state, { x: 4, z: 0, level: 'top' })).toBeNull();
+    expect(state.player).toEqual({ x: 4, z: 3, level: 'top' });
+    expect(stepsTo(state, { x: 4, z: 2, level: 'top' })).toBeNull();
+    expect(stepsTo(state, { x: 2, z: 0, level: 'top' })).toBeNull();
     expect(state.levelRun!.moves).toBe(0);
   });
 
   it('leave the board as it was', () => {
     const state = start(pieceOf('R02'));
     const before = JSON.stringify(state);
-    stepsTo(state, { x: 2, z: 3, level: 'top' });
+    stepsTo(state, { x: 4, z: 3, level: 'top' });
     signAt(state);
     expect(JSON.stringify(state)).toBe(before);
   });
@@ -252,20 +252,20 @@ describe('what the sign stands beside', () => {
     const state = start(pieceOf('R01'));
     const body = signBody(state);
     expect(body).toHaveLength(8);
-    expect(spans(body)).toEqual({ x: [2.5, 3.5], y: [0, 1], z: [4.5, 5.5] });
+    expect(spans(body)).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [4.5, 5.5] });
   });
 
   it('is the cell of a figure on the floor, as high as a die: the figure stands in it', () => {
     const state = start(pieceOf('R02'));
     expect(state.player.level).toBe('ground');
-    expect(spans(signBody(state))).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [5.5, 6.5] });
+    expect(spans(signBody(state))).toEqual({ x: [3.5, 4.5], y: [0, 1], z: [5.5, 6.5] });
   });
 
   it('is as high as the die is shown: the last step of a die that leaves on the lower stair of the second piece, the middle one on the upper', () => {
     const state = start(pieceOf('R02'));
     go(state, 'N');
     const { x, y, z } = spans(signBody(state));
-    expect(x).toEqual([1.5, 2.5]);
+    expect(x).toEqual([3.5, 4.5]);
     expect(z).toEqual([4.5, 5.5]);
     expect(y[0]).toBe(0);
     expect(y[1]).toBeCloseTo(0.12, 2);
@@ -276,7 +276,7 @@ describe('what the sign stands beside', () => {
   it('goes with the figure: after a roll it is the cell the figure has come to', () => {
     const state = start(pieceOf('R01'));
     go(state, 'N');
-    expect(spans(signBody(state))).toEqual({ x: [2.5, 3.5], y: [0, 1], z: [3.5, 4.5] });
+    expect(spans(signBody(state))).toEqual({ x: [1.5, 2.5], y: [0, 1], z: [3.5, 4.5] });
   });
 });
 
@@ -290,13 +290,13 @@ describe('how high the sign stands', () => {
   it('is the last step on the lower stair of the second piece, which has a move left to it, the middle step on the upper, which has two, and a whole die on the die beyond them', () => {
     const stair = start(pieceOf('R02'));
     go(stair, 'N');
-    expect(stair.player).toMatchObject({ x: 2, z: 5, level: 'top' });
+    expect(stair.player).toMatchObject({ x: 4, z: 5, level: 'top' });
     // The rules have the stair half down; it is shown as low as a die with its last move left (src/render/leaving.ts).
     expect(signHeight(stair)).toBeCloseTo(0.12, 2);
     expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { leaveLast: 0.2 }))).toBeCloseTo(0.2, 2);
     go(stair, 'N');
     // The rules have the upper stair nearly whole; it is shown half way up.
-    expect(stair.player).toMatchObject({ x: 2, z: 4, level: 'top' });
+    expect(stair.player).toMatchObject({ x: 4, z: 4, level: 'top' });
     expect(signHeight(stair)).toBeCloseTo(0.5, 2);
     expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { stairMiddle: 0.4 }))).toBeCloseTo(0.4, 2);
     go(stair, 'N');
