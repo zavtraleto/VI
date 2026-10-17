@@ -23,7 +23,7 @@
       "places": [
         { "board": "R11", "role": "meet", "teaches": "walk", "archetype": "bridge", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk" } },
         { "board": "P02", "role": "apply", "archetype": "bridge" },
-        { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "event": "the rule of seven", "help": { "hint": "hintSeven" } },
+        { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "event": "the rule of seven" },
         { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "event": "the road goes both ways, briefly" },
         { "board": "C1-07", "role": "rest", "archetype": "collapse", "event": "first big clearing, with a way to it" }
       ]

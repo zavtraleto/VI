@@ -1365,9 +1365,7 @@ export const ROW: Row = {
       "role": "apply",
       "archetype": "roll onto leaving",
       "event": "the rule of seven",
-      "help": {
-        "hint": "hintSeven"
-      }
+      "help": {}
     },
     {
       "number": 15,

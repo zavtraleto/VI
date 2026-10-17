@@ -3,7 +3,8 @@ import { moveOf } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import type { Stop } from './campaign';
 import { goalFaces } from './goalFaces';
-import type { Technique } from './row';
+import { startsUnder, turnsOf } from './measures';
+import type { HintKey, Technique } from './row';
 import { sameBoard } from './variety';
 
 /**
@@ -59,14 +60,26 @@ export const SAVES: Partial<Record<Technique, number>> = { walk: 1, link: 2, gla
 /** Rule 5: the planner after a meeting may clear its board this much less often than on the meeting, two runs of thirty (уточнено 14 октября по шагу 1). */
 export const PLANNER_SLACK = 2 / 30;
 
+/** Rule 7: the move a window of a hint tells of, which the board after it teaches and asks for. */
+export const HINT_TECHNIQUE: Readonly<Record<HintKey, Technique>> = {
+  roadHintChain: 'link',
+  roadHintWalk: 'walk',
+  roadHintPush: 'push',
+  roadHintClimb: 'lift',
+  hintSeven: 'seven',
+  hintLinkMove: 'link',
+};
+
 /**
  * The moves a board asks for, read off the score of the way it keeps (`scoreOf`): a link (`L`, `Q`),
  * a walk over a leaving die (`~`), a way down or up (`v`, `!`, `^`), a roll onto a leaving die
- * (`glass`), a push (`P`, `Q`, `U`), the 1s (`O`, `U`); two faces where combos of two faces go.
+ * (`glass`), a push (`P`, `Q`, `U`), the 1s (`O`, `U`); two faces where combos of two faces go;
+ * the seven where the way starts on a die with a working face under and turns it up.
  */
 export function needsOf(spec: LevelSpec): ReadonlySet<Technique> {
   const needs = new Set<Technique>();
-  const { beats, route } = scoreOf(spec, (spec.solution ?? []).map(moveOf));
+  const way = (spec.solution ?? []).map(moveOf);
+  const { beats, route } = scoreOf(spec, way);
   const signs = route.split(' ');
   if (signs.some((sign) => sign === 'L' || sign === 'Q')) needs.add('link');
   if (signs.includes('~')) needs.add('walk');
@@ -75,6 +88,7 @@ export function needsOf(spec: LevelSpec): ReadonlySet<Technique> {
   if (signs.some((sign) => sign === 'P' || sign === 'Q' || sign === 'U')) needs.add('push');
   if (signs.some((sign) => sign === 'O' || sign === 'U')) needs.add('ones');
   if (new Set(beats.filter((beat) => beat.event === 'combo').map((beat) => beat.face)).size > 1) needs.add('twoFaces');
+  if (startsUnder(spec, way) && turnsOf(spec, way) >= 1) needs.add('seven');
   return needs;
 }
 
@@ -82,14 +96,15 @@ const placeOf = (stop: Stop): string => `место ${stop.number} (${stop.spec.
 
 /**
  * Rule 1: a move taught at N is asked for by at least two of N+1…N+3, and the next board that teaches
- * is not before N+2, but where the board at N already asked for the move that board brings in.
+ * is not before N+2, but where the board at N already asked for the move that board brings in. The
+ * seven is not held to the first part: reading a face is needed everywhere unsaid (third campaign, rule 7).
  */
 function taughtAndUsed(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   row.forEach((stop, index) => {
     if (!stop.teaches) return;
     const after = row.slice(index + 1, index + 4);
-    if (after.length > 0) {
+    if (after.length > 0 && stop.teaches !== 'seven') {
       const using = after.filter((next) => needsOf(next.spec).has(stop.teaches!)).length;
       if (using < Math.min(2, after.length)) {
         const span = after.length === 1 ? `места ${after[0].number}` : `мест ${after[0].number}–${after[after.length - 1].number}`;
@@ -147,6 +162,23 @@ function facesByWay(row: readonly Stop[]): Violation[] {
   return out;
 }
 
+/**
+ * Rule 7 (third campaign, section 7): the window of a hint speaks of the board it stands before, so
+ * the board teaches the move of the window and its way asks for it.
+ */
+function windowTeaches(row: readonly Stop[]): Violation[] {
+  const out: Violation[] = [];
+  for (const stop of row) {
+    const hint = stop.help.hint;
+    if (!hint) continue;
+    const want = HINT_TECHNIQUE[hint];
+    if (stop.teaches !== want) out.push({ rule: 7, at: stop.number, text: `${placeOf(stop)}: окно ${hint}, а доска учит ${stop.teaches ?? 'ничему'}` });
+    const taught = stop.teaches ?? want;
+    if (!needsOf(stop.spec).has(taught)) out.push({ rule: 7, at: stop.number, text: `${placeOf(stop)}: окно ${hint}, а путь доски не требует ${taught}` });
+  }
+  return out;
+}
+
 /** Rule 5, its count of moves: the board after a meeting is cleared in at most a move more than the meeting. */
 function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
@@ -175,9 +207,9 @@ function noPushBeforeLesson(row: readonly Stop[]): Violation[] {
     .map((stop) => ({ rule: 1 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4 and the count of moves of 5. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, and 7. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;

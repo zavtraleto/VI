@@ -36,6 +36,11 @@ describe('what a board asks for', () => {
     expect(p06.has('push')).toBe(true);
   });
 
+  it('reads the seven off a way that starts on a die with a working face under and turns it up', () => {
+    expect(needsOf(boardOf('act-k17')).has('seven')).toBe(true); // act I, the opening of the seven: a 3 under at the start
+    expect(needsOf(boardOf('R07')).has('seven')).toBe(false); // starts on a 4: a 3 under, not a face it works
+  });
+
   it('counts two faces where combos of two faces go on the way', () => {
     expect(needsOf(boardOf('R09')).has('twoFaces')).toBe(true);
     expect(needsOf(boardOf('R08')).has('twoFaces')).toBe(false);
@@ -112,6 +117,22 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(row).filter((one) => one.rule === 4)).toEqual([]);
     row[1] = { ...row[1], spec: { ...row[1].spec, only: [3] } };
     expect(fastGrammar(row).filter((one) => one.rule === 4).map((one) => one.text)).toEqual(['место 2 (act-k22) ставит only, а доска ряда его не ставит']);
+  });
+
+  it('asks of a place with a window that its board teaches the move of the window and needs it: rule 7', () => {
+    const row = rowOf([['R11', { teaches: undefined, help: { hint: 'roadHintWalk' } }], ['R08', { help: { hint: 'roadHintChain' }, teaches: 'walk' }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 7).map((one) => one.text)).toEqual([
+      'место 1 (R11): окно roadHintWalk, а доска учит ничему',
+      'место 2 (R08): окно roadHintChain, а доска учит walk',
+      'место 2 (R08): окно roadHintChain, а путь доски не требует walk',
+    ]);
+    const right = rowOf([['R11', { help: { hint: 'roadHintWalk' } }]]); // teaches: walk, from the row
+    expect(fastGrammar(right).filter((one) => one.rule === 7)).toEqual([]);
+  });
+
+  it('does not hold a board that teaches the seven to rule 1 — the seven is needed everywhere unsaid', () => {
+    const row = rowOf([['R03', { teaches: 'seven', role: 'meet' }], 'R04', 'R05', 'R07']);
+    expect(fastGrammar(row).filter((one) => one.rule === 1 && one.text.includes('seven'))).toEqual([]);
   });
 
   it('says where the board after a meeting is more than a move longer: rule 5', () => {
