@@ -2,8 +2,8 @@ import { scoreOf } from '../rules/levelScore';
 import { moveOf } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import type { Stop } from './campaign';
-import type { RowChapter, Technique } from './row';
-import { ROW } from './row.gen';
+import { goalFaces } from './goalFaces';
+import type { Technique } from './row';
 import { sameBoard } from './variety';
 
 /**
@@ -20,10 +20,19 @@ import { sameBoard } from './variety';
 
 /** A rule broken: its number, the place in the row (from 1) it is broken at, and what is wrong, in words. */
 export interface Violation {
-  rule: 1 | 2 | 3 | 4 | 5;
+  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 9;
   at: number;
   text: string;
 }
+
+/**
+ * The rules that hold the row before it is published, at step 1 of the third campaign
+ * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, section 7): 4, 8 and 9 are printed as
+ * warnings until step 3, since the places that layer has not reached yet do not keep them.
+ */
+export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7]);
+/** Whether a rule broken holds the row back, or is a warning for now. */
+export const held = (one: Violation): boolean => HELD.has(one.rule);
 
 /** What the walk and the personas found of a board, for the slow rules. */
 export interface SlowFacts {
@@ -123,16 +132,17 @@ function oneThought(row: readonly Stop[]): Violation[] {
 }
 
 /**
- * Rule 4: a board of a chapter with faces works on the faces of its chapter; the prologue (`faces: null`) has its own.
- * The chapters are those of the row the places were laid in.
+ * Rule 4 (third campaign, section 7): the faces a board names are those of the combos and links on
+ * the way it keeps (`goalFaces`), but for the 1s it may name besides; and no board of the row plays
+ * on `only`, since every face works (0.2.66).
  */
-function facesOfChapter(row: readonly Stop[], chapters: readonly Pick<RowChapter, 'faces'>[]): Violation[] {
+function facesByWay(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   for (const stop of row) {
-    const faces = chapters[stop.chapter]?.faces;
-    if (!faces) continue;
-    const own = stop.spec.faces ?? [];
-    if (String(own) !== String(faces)) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} на гранях ${own.join(' ')}, а глава ${stop.chapter} — на гранях ${faces.join(' ')}` });
+    const named = (stop.spec.faces ?? []).filter((face) => face >= 2).sort((x, y) => x - y);
+    const way = goalFaces(stop.spec);
+    if (String(named) !== String(way)) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} называет грани ${named.join(' ')}, а на пути — ${way.join(' ')}` });
+    if (stop.spec.only) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} ставит only, а доска ряда его не ставит` });
   }
   return out;
 }
@@ -165,12 +175,9 @@ function noPushBeforeLesson(row: readonly Stop[]): Violation[] {
     .map((stop) => ({ rule: 1 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
 }
 
-/**
- * The rules that ask nothing of a search: 1, 3, 4 and the count of moves of 5. The chapters are those
- * of the row the places were laid in: the row of the game unless another is given (the workshop lays its own).
- */
-export function fastGrammar(row: readonly Stop[], chapters: readonly Pick<RowChapter, 'faces'>[] = ROW.chapters): Violation[] {
-  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesOfChapter(row, chapters), ...easyAfterMeeting(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+/** The rules that ask nothing of a search: 1, 3, 4 and the count of moves of 5. */
+export function fastGrammar(row: readonly Stop[]): Violation[] {
+  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;

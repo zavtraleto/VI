@@ -123,7 +123,7 @@ export class WorkshopRow implements RowList {
       this.file = readRowFile(await readRow());
       const row = buildRow(this.file, new Map(files.map((file) => [file.name, file.text])));
       this.chapters = rowChapters(row);
-      const broken = fastGrammar(row.places, row.chapters);
+      const broken = fastGrammar(row.places);
       lines = broken.length === 0 ? ['грамматика держится'] : broken.map((one) => `правило ${one.rule}: ${one.text}`);
     } catch (error) {
       lines = [refusal(error as Error)];

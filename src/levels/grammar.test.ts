@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
-import { fastGrammar, needsOf, slowGrammar } from './grammar';
+import { HELD, fastGrammar, held, needsOf, slowGrammar } from './grammar';
 import { boardOf as anyBoard } from './boardSets';
 
 /**
@@ -44,8 +44,10 @@ describe('what a board asks for', () => {
 
 describe('the grammar of the row', () => {
   it('holds on the row as it is built', () => {
-    expect(fastGrammar(CAMPAIGN)).toEqual([]);
+    expect(fastGrammar(CAMPAIGN).filter(held)).toEqual([]);
   });
+
+  it('prints what it does not hold yet as warnings: rules 4, 8, 9', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7]));
 
   it('says where a move taught is not used after: rule 1', () => {
     const row = rowOf(['R01', 'R02', 'R03', 'R04', 'R05', 'R07', ['R11', { teaches: undefined }], 'two-pairs-2', 'R03']);
@@ -98,18 +100,18 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(twist).filter((one) => one.rule === 3)).toEqual([]);
   });
 
-  it('says where a board of a chapter has faces not of its chapter: rule 4', () => {
+  it('says where the faces a board names are not those of its way: rule 4', () => {
     const row = rowOf([['R11', { teaches: undefined }], 'act-k22']);
-    row[1] = { ...row[1], spec: { ...row[1].spec, faces: [3], values: [3] } };
-    expect(fastGrammar(row).filter((one) => one.rule === 4)).toEqual([{ rule: 4, at: 2, text: 'место 2 (act-k22) на гранях 3, а глава 1 — на гранях 2 3' }]);
+    row[1] = { ...row[1], spec: { ...row[1].spec, faces: [2, 3], values: [2, 3] } };
+    expect(fastGrammar(row).filter((one) => one.rule === 4)).toEqual([{ rule: 4, at: 2, text: 'место 2 (act-k22) называет грани 2 3, а на пути — 3' }]);
   });
 
-  it('holds rule 4 to the chapters of the row it is given, not to the row of the game', () => {
+  it('lets a board name the 1s besides the faces of its way, and refuses `only`: rule 4', () => {
     const row = rowOf([['R11', { teaches: undefined }], 'act-k22']);
-    row[1] = { ...row[1], spec: { ...row[1].spec, faces: [3], values: [3] } };
-    const rule4 = (chapters: { faces: readonly number[] | null }[]) => fastGrammar(row, chapters).filter((one) => one.rule === 4);
-    expect(rule4([{ faces: null }, { faces: [3] }]).map((one) => one.text)).toEqual(['место 1 (R11) на гранях 2 3, а глава 1 — на гранях 3']);
-    expect(rule4([{ faces: null }, { faces: null }])).toEqual([]);
+    row[1] = { ...row[1], spec: { ...row[1].spec, faces: [1, 3], values: [1, 3] } };
+    expect(fastGrammar(row).filter((one) => one.rule === 4)).toEqual([]);
+    row[1] = { ...row[1], spec: { ...row[1].spec, only: [3] } };
+    expect(fastGrammar(row).filter((one) => one.rule === 4).map((one) => one.text)).toEqual(['место 2 (act-k22) ставит only, а доска ряда его не ставит']);
   });
 
   it('says where the board after a meeting is more than a move longer: rule 5', () => {
