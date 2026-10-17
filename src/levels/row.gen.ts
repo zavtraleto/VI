@@ -196,8 +196,7 @@ export const ROW: Row = {
               "x": 2,
               "z": 0,
               "top": 2,
-              "north": 1,
-              "fixed": true
+              "north": 1
             },
             {
               "x": 2,
