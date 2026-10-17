@@ -34,6 +34,8 @@ export interface Violation {
 export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7]);
 /** Whether a rule broken holds the row back, or is a warning for now. */
 export const held = (one: Violation): boolean => HELD.has(one.rule);
+/** What the line of a rule that does not hold the row back yet ends with, under the table and in the workshop. */
+export const WARNING = ' (предупреждение)';
 
 /** What the walk and the personas found of a board, for the slow rules. */
 export interface SlowFacts {
@@ -219,18 +221,30 @@ function beforePush(row: readonly Stop[]): readonly Stop[] {
 }
 
 /**
- * Rule 1, the push (the owner, 14 October 2026: «главное, что у нас нет полей, которые решаются
- * толканием»): no board before the meeting of the push keeps a way that pushes.
+ * Rule 9, the push (the owner, 14 October 2026: «главное, что у нас нет полей, которые решаются
+ * толканием»; was part of rule 1, third campaign, section 7): no board before the meeting of the push
+ * keeps a way that pushes.
  */
 function noPushBeforeLesson(row: readonly Stop[]): Violation[] {
   return beforePush(row)
     .filter((stop) => needsOf(stop.spec).has('push'))
-    .map((stop) => ({ rule: 1 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
+    .map((stop) => ({ rule: 9 as const, at: stop.number, text: `${placeOf(stop)} толкает, а толкать ещё не учили` }));
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, and the count of moves of 8. */
+/** Rule 9, the floor: shut on every place before the meeting of the push, open on it and after. */
+function floorBeforePush(row: readonly Stop[]): Violation[] {
+  const before = beforePush(row).length;
+  const out: Violation[] = [];
+  row.forEach((stop, index) => {
+    if (index < before && stop.spec.floor !== false) out.push({ rule: 9, at: stop.number, text: `${placeOf(stop)}: пол открыт, а толкать ещё не учили` });
+    if (index >= before && stop.spec.floor === false) out.push({ rule: 9, at: stop.number, text: `${placeOf(stop)}: пол закрыт, а здесь учат толчок` });
+  });
+  return out;
+}
+
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, and 9 but for `pushSaves`. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [...taughtAndUsed(row), ...noPushBeforeLesson(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row), ...floorBeforePush(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
@@ -248,7 +262,7 @@ export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFac
   const known = new Map(row.map((stop) => [stop, facts(stop)]));
   for (const stop of beforePush(row)) {
     const saves = known.get(stop)!.pushSaves ?? 0;
-    if (saves > 0) out.push({ rule: 1, at: stop.number, text: `${placeOf(stop)} толчком короче на ${saves} ${saves === 1 ? 'ход' : 'хода'}, а толкать ещё не учили` });
+    if (saves > 0) out.push({ rule: 9, at: stop.number, text: `${placeOf(stop)} толчком короче на ${saves} ${saves === 1 ? 'ход' : 'хода'}, а толкать ещё не учили` });
   }
   for (const stop of row) {
     const saves = stop.teaches ? SAVES[stop.teaches] : undefined;

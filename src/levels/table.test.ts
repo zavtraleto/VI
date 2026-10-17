@@ -3,7 +3,7 @@ import type { LevelSpec } from '../rules/types';
 import { MEASURE_HEAD } from './select';
 import { fileBoard } from './boardFiles';
 import { FIXTURE } from './rowFixture';
-import { PLACE_HEAD, ROAD_HEAD, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, tableOf } from './table';
+import { PLACE_HEAD, ROAD_HEAD, grammarText, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, tableOf } from './table';
 
 /**
  * A level as the list keeps one, written for this test: two pairs where 2s work. The die of the
@@ -103,5 +103,12 @@ describe('slowFactsOf', () => {
     const facts = slowFactsOf(TWO_PAIRS, undefined, 50, 2);
     expect(facts.casual).toBeGreaterThanOrEqual(0);
     expect(facts.casual! * 2).toBe(Math.round(facts.casual! * 2));
+  });
+});
+
+describe('grammarText', () => {
+  it('says the rules broken in the order of the row, and marks those that do not hold it back yet as warnings', () => {
+    expect(grammarText([{ rule: 4, at: 2, text: 'x' }, { rule: 1, at: 1, text: 'y' }])).toBe('grammar:\n  1  y\n  4  x (предупреждение)');
+    expect(grammarText([])).toBe('grammar: clean');
   });
 });

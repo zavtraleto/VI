@@ -1,4 +1,4 @@
-import { fastGrammar } from '../levels/grammar';
+import { WARNING, fastGrammar, held } from '../levels/grammar';
 import { asInRow, rowChapters, type LibraryRowChapter } from '../levels/library';
 import { CAMERAS, EMOTIONS, HELP_KEYS, HINT_KEYS, PLAQUES, ROLES, ROW_EVENT, SIGNS, TECHNIQUES, WAITS, buildRow, readRowFile, type Emotion, type Help, type RowFile, type RowPlaceFile } from '../levels/row';
 import { ROW } from '../levels/row.gen';
@@ -124,7 +124,7 @@ export class WorkshopRow implements RowList {
       const row = buildRow(this.file, new Map(files.map((file) => [file.name, file.text])));
       this.chapters = rowChapters(row);
       const broken = fastGrammar(row.places);
-      lines = broken.length === 0 ? ['грамматика держится'] : broken.map((one) => `правило ${one.rule}: ${one.text}`);
+      lines = broken.length === 0 ? ['грамматика держится'] : broken.map((one) => `правило ${one.rule}: ${one.text}${held(one) ? '' : WARNING}`);
     } catch (error) {
       lines = [refusal(error as Error)];
     }

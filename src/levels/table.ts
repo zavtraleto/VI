@@ -4,7 +4,7 @@ import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
 import type { Ban } from '../rules/reach';
 import type { LevelSpec } from '../rules/types';
 import type { Place, Technique } from './row';
-import type { SlowFacts, Violation } from './grammar';
+import { WARNING, held, type SlowFacts, type Violation } from './grammar';
 import { firstsOf, lostOf, nearOf, tailOf, turnsOf } from './measures';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { walkBoards } from './walk';
@@ -145,8 +145,12 @@ export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, wal
   return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, casual: casual / runs, pushSaves, ...(without === undefined ? {} : { without }) };
 }
 
-/** The rules of the grammar broken, one to a line under the table of the campaign, or that none is. */
+/**
+ * The rules of the grammar broken, one to a line under the table of the campaign in the order of the
+ * row, or that none is; a rule that does not hold the row back yet (`HELD`) is marked a warning.
+ */
 export function grammarText(violations: readonly Violation[]): string {
   if (violations.length === 0) return 'grammar: clean';
-  return ['grammar:', ...violations.map((one) => `  ${one.rule}  ${one.text}`)].join('\n');
+  const lines = [...violations].sort((a, b) => a.at - b.at || a.rule - b.rule).map((one) => `  ${one.rule}  ${one.text}${held(one) ? '' : WARNING}`);
+  return ['grammar:', ...lines].join('\n');
 }
