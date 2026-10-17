@@ -8,9 +8,9 @@ describe('the faces a level asks for', () => {
   it('are those on the way of the board, smallest first, whatever faces its chapter names', () => {
     expect(goalFaces(placed('H06'))).toEqual([3]);
     expect(goalFaces(placed('R11'))).toEqual([2, 3]);
-    // Its chapter names 2 and 3; the way makes one combo.
-    expect(placed('C1-05').faces).toEqual([2, 3]);
-    expect(goalFaces(placed('C1-05'))).toHaveLength(1);
+    // Named 2 and 3 (as its file did before step 2 of the third campaign), the way makes one combo of 3s.
+    expect(placed('C1-05').faces).toEqual([3]);
+    expect(goalFaces({ ...placed('C1-05'), faces: [2, 3] })).toEqual([3]);
   });
 
   it('are one face or more on every place of the row', () => {

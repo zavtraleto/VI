@@ -1,31 +1,36 @@
 {
   "chapters": [
     {
-      "title": "prologue",
+      "title": "die",
       "places": [
         { "board": "R01", "role": "meet", "archetype": "roll", "emotion": "gift", "help": { "sign": "N", "wait": "first", "camera": "hold" } },
-        { "board": "side-up-1", "role": "learn", "archetype": "side up", "emotion": "gift", "help": { "wait": "lesson", "camera": "hold" } },
-        { "board": "R03", "role": "apply", "archetype": "first free board", "emotion": "insight", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "B01_s290", "role": "apply", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "first mistake possible", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "side-up-1", "role": "learn", "archetype": "ride", "emotion": "gift", "help": { "wait": "lesson", "camera": "hold" } },
+        { "board": "R03", "role": "apply", "archetype": "first free board", "emotion": "insight", "event": "first free board", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "B01_s290", "role": "meet", "teaches": "loop", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "a straight roll turns the face away", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
         { "board": "H06", "role": "apply", "archetype": "three 3s: one roll, then the die beside", "emotion": "flow", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "R04", "role": "event", "archetype": "free to fail", "emotion": "trick", "event": "first dead end", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "H08", "role": "apply", "archetype": "the way round keeps the face", "emotion": "mastery", "help": { "wait": "free", "camera": "hold" } },
         { "board": "three-under-1", "role": "meet", "teaches": "seven", "archetype": "the face under", "emotion": "insight", "event": "the rule of seven", "help": { "hint": "hintSeven", "wait": "free", "camera": "hold" } },
-        { "board": "R05", "role": "apply", "archetype": "choose the first die", "emotion": "insight", "event": "choice of the first die", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "H07", "role": "apply", "archetype": "the way round to a 3, and the third rolled to the pair", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "H08", "role": "apply", "archetype": "the way round, for both dice", "emotion": "mastery", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "emotion": "insight", "help": { "hint": "roadHintChain", "wait": "free", "camera": "cells" } },
-        { "board": "R08", "role": "rest", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } }
+        { "board": "R04", "role": "event", "archetype": "free to fail", "emotion": "trick", "event": "first dead end", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "R05", "role": "meet", "teaches": "order", "archetype": "choose the first die", "emotion": "insight", "event": "choice of the first die", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "which-first-2", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
+        { "board": "which-first-1", "role": "apply", "archetype": "which first", "emotion": "trick", "help": { "wait": "free", "camera": "hold" } }
       ]
     },
     {
-      "title": "road",
+      "title": "leaving",
       "floor": "open",
       "places": [
-        { "board": "R11", "role": "meet", "teaches": "walk", "archetype": "bridge", "emotion": "recognition", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk" } },
+        { "board": "bridge-first-1", "role": "meet", "teaches": "walk", "archetype": "bridge", "emotion": "surprise", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk" } },
         { "board": "P02", "role": "apply", "archetype": "bridge", "emotion": "recognition" },
+        { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "emotion": "insight", "event": "first chain", "help": { "hint": "roadHintChain", "camera": "cells" } },
+        { "board": "R11", "role": "apply", "archetype": "bridge", "emotion": "recognition", "event": "two faces on one board" },
+        { "board": "R08", "role": "rest", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } },
+        { "board": "roll-in-1", "role": "twist", "teaches": "glass", "archetype": "roll into leaving", "emotion": "surprise", "event": "the leaving die is a cell" },
         { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "emotion": "insight" },
         { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
-        { "board": "C1-07", "role": "rest", "archetype": "collapse", "emotion": "payoff", "event": "first big clearing, with a way to it" }
+        { "board": "C1-07", "role": "rest", "archetype": "collapse", "emotion": "payoff", "event": "first big clearing, with a way to it" },
+        { "board": "P07", "role": "peak", "archetype": "two combos from one die", "emotion": "fiero" }
       ]
     },
     {
@@ -33,10 +38,9 @@
       "floor": "open",
       "places": [
         { "board": "R09", "role": "meet", "teaches": "twoFaces", "archetype": "two heaps at once", "emotion": "surprise", "event": "heaps of both faces on one board" },
-        { "board": "P07", "role": "apply", "archetype": "two combos from one die", "emotion": "fiero" },
         { "board": "P08", "role": "apply", "archetype": "two combos in any order", "emotion": "recognition" },
         { "board": "C2-05", "role": "twist", "archetype": "decoy of the wrong channel", "emotion": "trick", "event": "first trap" },
-        { "board": "P24", "role": "rest", "archetype": "domino", "emotion": "flow", "event": "first corridor" }
+        { "board": "P24", "role": "rest", "archetype": "domino in a corridor", "emotion": "flow", "event": "first corridor" }
       ]
     },
     {
