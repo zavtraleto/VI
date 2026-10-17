@@ -3509,81 +3509,6 @@ export const ROW: Row = {
     {
       "number": 41,
       "chapter": 4,
-      "code": "P06",
-      "spec": {
-        "id": "P06",
-        "seed": 30282,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          2
-        ],
-        "norm": 5,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          2
-        ],
-        "layout": {
-          "start": {
-            "x": 3,
-            "z": 0
-          },
-          "dice": [
-            {
-              "x": 3,
-              "z": 0,
-              "top": 5,
-              "north": 3
-            },
-            {
-              "x": 1,
-              "z": 1,
-              "top": 2,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 2,
-              "top": 6,
-              "north": 3
-            },
-            {
-              "x": 3,
-              "z": 2,
-              "top": 2,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 3,
-              "top": 2,
-              "north": 3
-            }
-          ]
-        },
-        "chapter": 0,
-        "par": 4,
-        "exact": true,
-        "solution": [
-          "3,0,W",
-          "2,0,W",
-          "3,2,S,p",
-          "2,2,E"
-        ]
-      },
-      "role": "apply",
-      "archetype": "down and back",
-      "emotion": "fiero",
-      "help": {}
-    },
-    {
-      "number": 42,
-      "chapter": 4,
       "code": "P09",
       "spec": {
         "id": "P09",
@@ -3664,7 +3589,7 @@ export const ROW: Row = {
       "help": {}
     },
     {
-      "number": 43,
+      "number": 42,
       "chapter": 4,
       "code": "R16",
       "spec": {
@@ -3745,6 +3670,81 @@ export const ROW: Row = {
       "role": "twist",
       "archetype": "everything at once",
       "emotion": "insight",
+      "help": {}
+    },
+    {
+      "number": 43,
+      "chapter": 4,
+      "code": "P06",
+      "spec": {
+        "id": "P06",
+        "seed": 30282,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 0
+          },
+          "dice": [
+            {
+              "x": 3,
+              "z": 0,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 6,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 2,
+              "north": 3
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "3,0,W",
+          "2,0,W",
+          "3,2,S,p",
+          "2,2,E"
+        ]
+      },
+      "role": "apply",
+      "archetype": "down and back",
+      "emotion": "fiero",
       "help": {}
     }
   ]

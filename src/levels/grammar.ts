@@ -354,9 +354,11 @@ export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFac
     boards.forEach((stop, index) => {
       if (known.get(stop)!.planner <= known.get(boards[hardest])!.planner) hardest = index;
     });
-    if (hardest < 3) {
+    // A chapter shorter than four (the tail of the first hour, third campaign, section 14) has its hardest board last.
+    const short = boards.length < 4;
+    if (hardest < (short ? boards.length - 1 : 3)) {
       const stop = boards[hardest];
-      out.push({ rule: 5, at: stop.number, text: `самая трудная доска главы ${chapter} — ${placeOf(stop)}, ${hardest + 1}-я в главе, а должна стоять не раньше 4-й` });
+      out.push({ rule: 5, at: stop.number, text: `самая трудная доска главы ${chapter} — ${placeOf(stop)}, ${hardest + 1}-я в главе, а должна стоять ${short ? 'последней' : 'не раньше 4-й'}` });
     }
   }
   return out.sort((a, b) => a.at - b.at || a.rule - b.rule);

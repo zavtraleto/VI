@@ -276,6 +276,13 @@ describe('the slow part of the grammar', () => {
     expect(slowGrammar(row, facts).filter((one) => one.rule === 8).map((one) => one.text)).toEqual(['место 2 (R03) после пика на месте 1: обычный 50%, а на пике — 90%']);
   });
 
+  it('asks the hardest board of a chapter shorter than four to stand last in it: rule 5 (third campaign, section 14, the tail)', () => {
+    const row = rowOf([['R09', { chapter: 3, archetype: 'a' }], ['P06', { chapter: 3, archetype: 'b' }], ['R16', { chapter: 3, role: 'twist', archetype: 'c' }]]);
+    const shares = (hard: string) => (stop: Stop) => ({ ...easy, planner: stop.spec.id === hard ? 0.5 : 1 });
+    expect(slowGrammar(row, shares('R16')).filter((one) => one.rule === 5)).toEqual([]);
+    expect(slowGrammar(row, shares('P06')).filter((one) => one.rule === 5).map((one) => one.text)).toEqual(['самая трудная доска главы 3 — место 2 (P06), 2-я в главе, а должна стоять последней']);
+  });
+
   it('does not hold the meeting of a chapter to the rest that ends the chapter before it', () => {
     const row = rowOf(['R01', 'R02', 'R03', 'act-k22', ['R09', { chapter: 2, role: 'meet', teaches: 'twoFaces', archetype: 'two heaps' }], 'two-pairs-1']);
     expect(slowGrammar(row, (stop) => ({ ...easy, planner: stop.spec.id === 'R09' ? 0.6 : 1 })).filter((one) => one.rule === 5 && one.text.includes('после встречи'))).toEqual([]);

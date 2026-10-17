@@ -67,9 +67,9 @@
       "title": "more",
       "floor": "open",
       "places": [
-        { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" },
         { "board": "P09", "role": "apply", "archetype": "bridge with a link", "emotion": "recognition", "note": "its kept way is a bridge with a link (K ~ L), no floor and no push: the name of its probe place said otherwise" },
-        { "board": "R16", "role": "twist", "archetype": "everything at once", "emotion": "insight" }
+        { "board": "R16", "role": "twist", "archetype": "everything at once", "emotion": "insight" },
+        { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" }
       ]
     }
   ]
