@@ -180,4 +180,10 @@ describe('checkOf', () => {
     expect(checkText(R02, check)).toContain('turns 1  away 0');
     expect(checkJson(R02, check)).toMatchObject({ turns: 1, away: 0 });
   });
+  it('says whether a combo made first or second loses the board: the trap of order', () => {
+    const R05 = fileBoard('R05');
+    expect(checkText(R05, checkOf(R05))).toContain('trap floor');
+    const pairs = fileBoard('two-pairs-2');
+    expect(checkText(pairs, checkOf(pairs))).toContain('trap none');
+  });
 });

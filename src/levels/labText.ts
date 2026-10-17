@@ -5,6 +5,7 @@ import { levelDeadEnd, type LevelDeadEnd } from '../rules/level';
 import { moveOf, moveText, movesAt, playMove, solveFrom, solveLevel, tryWay } from '../rules/levelSolver';
 import { boardSigns, printBoard } from './boardFile';
 import { editsOf } from './edits';
+import { trapOf } from './measures';
 import { FROM_ROUTE, FROM_SOLUTION, SKETCH, levelId } from './generate';
 import type { Recipe } from './recipes';
 import { gather, judge, type Fit, type JudgeOptions } from './select';
@@ -97,6 +98,8 @@ export function checkText(spec: LevelSpec, check: Check): string {
     lines.push(`moves ${check.par}${check.exact ? '' : ' (not proved the fewest)'}: ${check.way.join(' ')}`);
     lines.push(`route ${check.score.route}  (${check.score.kind})`);
     lines.push(`turns ${check.score.turns}  away ${check.score.away}`);
+    // A combo made first or second that loses the board (`trapOf`): what a board of order is (third campaign, section 13).
+    lines.push(`trap ${trapOf(spec) ?? 'none'}`);
     lines.push(`boards seen ${check.states}`, '', scoreText(check.score));
   }
   lines.push('', `kept: ${check.kept ?? 'nothing to hold against'}${check.kept === null || spec.par === undefined ? '' : ` (the board says ${spec.par})`}`);

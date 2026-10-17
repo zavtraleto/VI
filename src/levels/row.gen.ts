@@ -242,36 +242,37 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 2,
-            "z": 2
+            "x": 1,
+            "z": 3
           },
           "dice": [
             {
+              "x": 2,
+              "z": 0,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 3,
+              "north": 2
+            },
+            {
               "x": 1,
-              "z": 1,
-              "top": 3,
+              "z": 3,
+              "top": 5,
               "north": 1
-            },
-            {
-              "x": 2,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 2,
-              "top": 1,
-              "north": 4
             }
           ]
         },
         "floor": false,
-        "par": 2,
+        "par": 3,
         "exact": true,
         "solution": [
-          "2,2,E",
-          "3,2,N"
+          "1,3,N",
+          "1,2,N",
+          "1,1,E"
         ]
       },
       "role": "learn",
