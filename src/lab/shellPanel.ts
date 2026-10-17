@@ -65,6 +65,7 @@ const LABELS: Record<string, string> = {
   aimFlashMs: 'вспышка при уходе, мс',
   aimFlash: 'сила вспышки',
   aimSinkMs: 'уход в глубину, мс',
+  aimSlideMs: 'сдвиг на место ушедшей, мс',
   logoNodes: 'число узлов',
   logoArrange: 'расположение узлов',
   bootLogoScale: 'размер логотипа в boot, ×',

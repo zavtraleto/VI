@@ -1174,11 +1174,36 @@ export class GameHud {
     return aim.faces[index].back ?? aim.since + kit.number('aimDelayMs') + index * kit.number('aimStaggerMs');
   }
 
-  /** Whether a face of an aim is rising or leaving at this moment. */
+  /** Whether a face of an aim is rising, leaving, or making room at this moment. */
   private aimMoves(aim: HudAim, timeMs: number): boolean {
     const { kit } = this;
     const leave = kit.number('aimFlashMs') + kit.number('aimSinkMs');
-    return aim.faces.some((face, index) => (face.left !== null ? timeMs < face.left + leave : timeMs < this.aimRose(aim, index) + kit.number('aimRiseMs')));
+    const slide = kit.number('aimSlideMs');
+    return aim.faces.some((face, index) =>
+      face.left !== null ? timeMs < face.left + leave + slide : timeMs < this.aimRose(aim, index) + Math.max(kit.number('aimRiseMs'), face.back !== null ? slide : 0),
+    );
+  }
+
+  /**
+   * Where in the row a face of an aim stands, in places: one for every face before it that is
+   * there. A face that has gone gives up its place, and the faces after it slide over into it
+   * once it is out of sight; one that comes back takes its place again, and they slide back.
+   */
+  private aimSlot(aim: HudAim, index: number, timeMs: number, still: boolean): number {
+    const { kit } = this;
+    const leave = kit.number('aimFlashMs') + kit.number('aimSinkMs');
+    const slide = kit.number('aimSlideMs');
+    const eased = (since: number): number => {
+      const t = slide > 0 ? clamp(since / slide, 0, 1) : since >= 0 ? 1 : 0;
+      return t * t * (3 - 2 * t);
+    };
+    let slot = 0;
+    for (const face of aim.faces.slice(0, index)) {
+      if (face.left !== null) slot += still ? 0 : 1 - eased(timeMs - face.left - leave);
+      else if (face.back !== null) slot += still ? 1 : eased(timeMs - face.back);
+      else slot += 1;
+    }
+    return slot;
   }
 
   /**
@@ -1186,8 +1211,8 @@ export class GameHud {
    * At the start of a level they rise into sight as if from deep under the board seen from above:
    * small and lost in the dark far down, full size and full colour at the top, one after another.
    * A face that is done flares up for a moment, and then goes back down the way it came, as the
-   * dice of its combo go; the others keep their places. With reduced motion they stand there at
-   * once, and a face that is done is gone at once.
+   * dice of its combo go; the faces after it then slide over into its place. With reduced motion
+   * they stand there at once, and a face that is done is gone at once.
    */
   private drawAim(aim: HudAim, layout: HudLayout, timeMs: number, still: boolean): void {
     const { kit } = this;
@@ -1219,7 +1244,7 @@ export class GameHud {
         up = 1 - (1 - t) ** 3;
       }
       const size = Math.max(1, Math.round(side * (from + (1 - from) * up)));
-      const cx = layout.net.x + index * (side + gap) + side / 2;
+      const cx = layout.net.x + this.aimSlot(aim, index, timeMs, still) * (side + gap) + side / 2;
       const cy = layout.net.y + side / 2;
       const bright = kit.number('aimFlash') * flare;
       const face = mixHex(mixHex(palette.bg, faceColour(value, palette, values), up), palette.ink, bright);

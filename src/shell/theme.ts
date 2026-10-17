@@ -92,7 +92,7 @@ export const SHELL_GROUPS = {
      * the board takes its first move, rise for this long, one this long after the one before;
      * first seen, a face is this share of its size; they stand this many dots apart. A face that
      * is done flares up for this long, towards the tone of the tube by this share, and goes back
-     * down for this long.
+     * down for this long; then the faces after it slide over into its place for this long.
      */
     aimDelayMs: number(250, 0, 2000, 10),
     aimRiseMs: number(700, 100, 3000, 10),
@@ -102,6 +102,7 @@ export const SHELL_GROUPS = {
     aimFlashMs: number(160, 0, 1000, 10),
     aimFlash: number(0.6, 0, 1, 0.01),
     aimSinkMs: number(600, 100, 3000, 10),
+    aimSlideMs: number(260, 0, 2000, 10),
   },
   motion: {
     /** How long a pressed zone answers before its action, in milliseconds. */
