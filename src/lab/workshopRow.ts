@@ -12,8 +12,12 @@ import { EMOTION_TITLES, ROLE_TITLES, chaptersOf, listRows, rowOf, type BoardRow
 /** What the row asks of the page it is on. */
 export interface RowPage {
   say(line: string): void;
-  /** Writes what waits to be written of the board in hand; false where it could not be written, and what was wrong is said. */
-  save(): Promise<boolean>;
+  /**
+   * The board in hand is to be left: where it has edits, the owner is asked to save them, drop them
+   * or stay (`WorkshopSave.settle`); `why` is said with the question. False where the page is to stay:
+   * he stayed, or the save was refused, and the line says why.
+   */
+  settle(why?: string): Promise<boolean>;
   /** The stage of the board in hand: it takes no change while it is locked. */
   stage(): { locked: boolean };
   /** Reads every file and the row again (`WorkshopRow.lay`), and shows them. */
@@ -68,14 +72,14 @@ const labelled = (text: string, field: HTMLElement): HTMLLabelElement => {
  * The row of the campaign on the workshop (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md,
  * section 11.1): «в кампании» shows the chapters of row.json and their places, numbered through the
  * row; the place of the board in hand has «выше», «ниже», «правка места» and «убрать из ряда»; a
- * board not in the row is put in it by «поставить в ряд» and its form. Each is one operation the
+ * board not in the row is put in it by «в кампанию» and the form of a place. Each is one operation the
  * server does whole or not at all (`editRow`); after it, and whenever the row is read, the fast
  * grammar of the row is said under the list. The row is read from row.json as it is on the disk,
  * and the chapters the lists place the boards by are those of the row as it was last laid.
  */
 export class WorkshopRow implements RowList {
   readonly foot = document.createElement('div');
-  /** The button «поставить в ряд», beside «копировать для чата»: shown for a board that is not in the row. */
+  /** The button «в кампанию», beside «сохранить»: shown for a board that is not in the row; it saves the board first, and opens the form of a place. */
   readonly insertButton: HTMLButtonElement;
   /** The form of a place, under the actions; empty where it is shut. */
   readonly form = document.createElement('div');
@@ -96,7 +100,7 @@ export class WorkshopRow implements RowList {
   ) {
     this.foot.style.cssText = `max-height:30%;overflow:auto;padding:6px 10px;border-top:1px solid ${palette.faint}`;
     this.form.style.cssText = 'display:none;flex-wrap:wrap;gap:6px;align-items:center';
-    this.insertButton = buttonOf(palette, 'поставить в ряд', () => this.openForm(null));
+    this.insertButton = buttonOf(palette, 'в кампанию', () => void this.toCampaign());
     lists.attachRow(this);
     // The dev server laid the row again (row.gen.ts): the files and the row are read anew, and the page is not loaded again.
     window.addEventListener(ROW_EVENT, () => void page.readLists());
@@ -138,7 +142,15 @@ export class WorkshopRow implements RowList {
     return this.lay(rows.map((row) => ({ name: row.name, text: row.text, hash: row.hash, ...(row.touched ? { time: row.touched } : {}) })));
   }
 
-  /** The board in hand: «поставить в ряд» is shown for it where it is not in the row; another board shuts the form. */
+  /** «в кампанию»: the board in hand is saved first, its edits asked of, and the form of a place is opened for it. */
+  private async toCampaign(): Promise<void> {
+    const name = this.name;
+    if (this.busy || !(await this.page.settle())) return;
+    // Another board was opened while the owner was asked: the form is not of it.
+    if (this.name.toLowerCase() === name.toLowerCase()) this.openForm(null);
+  }
+
+  /** The board in hand: «в кампанию» is shown for it where it is not in the row; another board shuts the form. */
   showFor(name: string): void {
     if (name !== this.name) {
       this.removing = false;
@@ -207,8 +219,9 @@ export class WorkshopRow implements RowList {
   }
 
   /**
-   * An operation sent to the server. What waits to be written of the board in hand is written first,
-   * since the operation may lay a status into its file; where it cannot be, nothing is sent. The
+   * An operation sent to the server. The edits of the board in hand are saved or dropped first
+   * (`settle`), since the operation may lay a status into its file; where the owner stays, or the
+   * save is refused, nothing is sent. The
    * stage is locked from then until the board is read again after the answer, so that no change
    * made meanwhile, and no way the solver proves meanwhile, writes the old head back over the
    * status the server lays: a file read again with its new head is taken by the page, and the
@@ -221,12 +234,14 @@ export class WorkshopRow implements RowList {
     if (this.busy) return;
     this.busy = true;
     const stage = this.page.stage();
-    const locked = stage.locked;
     // The lock is put back only on the board it was taken of: another board opened meanwhile has its own.
     const name = this.name;
     let taken = false;
+    let locked = stage.locked;
     try {
-      if (!(await this.page.save())) return;
+      if (!(await this.page.settle())) return;
+      // Dropped, the edits were read away and the stage is as the file opened it.
+      locked = stage.locked;
       stage.locked = taken = true;
       let refused: string | null = null;
       try {

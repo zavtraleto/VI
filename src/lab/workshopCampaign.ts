@@ -9,7 +9,7 @@ import { textOf, type EditBoard } from './editBoard';
 import type { Seconds } from './labFacts';
 import type { BoardFacts } from './workshopFacts';
 import { buttonOf } from './workshopListView';
-import { freeName } from './workshopLists';
+import { freeName, plural } from './workshopLists';
 import { refusal, type RowPage, type WorkshopRow } from './workshopRow';
 
 /** The board in hand as the page has it. */
@@ -29,8 +29,8 @@ export interface CampaignBoard {
 export interface CampaignPage extends RowPage {
   board(): CampaignBoard;
   names(): string[];
-  /** Lays the way the solver proved into the head of the board in hand, and writes the file. */
-  keep(way: Required<Pick<LevelSpec, 'par' | 'exact' | 'solution'>>): void;
+  /** A save of a board of the row waits for its fewest moves to be proved (`WorkshopSave`). */
+  proving(): boolean;
 }
 
 /** The way a level keeps: the fewest moves, proved, and the moves themselves. */
@@ -52,9 +52,8 @@ export function wantsProof(file: LevelSpec | null, played: LevelSpec): boolean {
  * plays it, on the faces of its chapter (`WorkshopRow.asPlayed`), as `src/levels/row.test.ts` holds
  * its way. A board of the row, not locked, with the fewest moves proved, keeps the way proved
  * unless the way its head keeps holds on that board: the same fewest moves (`kept: same`), in a
- * way of as many moves. A head that keeps the very way proved keeps it already: it is not
- * written again while the answer of the head before it stands. An empty way is no way kept
- * (`keepsWay`): written, it would have the solver asked again and again.
+ * way of as many moves. A head that keeps the very way proved keeps it already. An empty way is
+ * no way kept (`keepsWay`). It is written only by a save (`rowSave` in `workshopSave.ts`).
  */
 export function wayToKeep(board: Pick<CampaignBoard, 'extra' | 'head' | 'locked'>, seconds: Seconds | string | null): Required<Pick<LevelSpec, 'par' | 'exact' | 'solution'>> | null {
   if (board.extra.status !== 'R' || board.locked || !seconds || typeof seconds === 'string') return null;
@@ -68,12 +67,12 @@ export function wayToKeep(board: Pick<CampaignBoard, 'extra' | 'head' | 'locked'
 /**
  * A board of the campaign edited on the workshop (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md,
  * section 11.2). Edited directly, a board of the row (`R`) that keeps no shortest way has the
- * solver ask after it by itself, and the way is written into its file as soon as the fewest moves
- * are proved: the row asks every board of it for one. Until then a line over the board says why
- * the row will not be laid; the same line says the row the dev server could not lay, in place of
- * the overlay of Vite. «копия» lays the board beside, as `<код>-try-<n>`, to be changed and played
- * as any; on such a copy «заменить в ряду <код>» gives its board to the file of the row, whose
- * code, place and the progress of the players stay, and the copy takes the board that was.
+ * solver ask after it by itself, and a line over the board says why the row will not be laid; the
+ * way is written into its file by a save, which waits for the proof (`WorkshopSave`): the row
+ * asks every board of it for one. The same line says the row the dev server could not lay, in
+ * place of the overlay of Vite. «копия» lays the board beside, as `<код>-try-<n>`, to be changed
+ * and played as any; on such a copy «заменить в ряду <код>» gives its board to the file of the
+ * row, whose code, place and the progress of the players stay, and the copy takes the board that was.
  */
 export class WorkshopCampaign {
   /** The line over the board: why the row will not be laid; empty where nothing stops it. */
@@ -93,7 +92,7 @@ export class WorkshopCampaign {
     this.line.style.cssText = `flex-basis:100%;color:${palette.dim}`;
     this.copyButton = buttonOf(palette, 'копия', () => void this.copy());
     this.swapButton = buttonOf(palette, '', () => void this.replace());
-    facts.keep = (played) => this.page.board().extra.status === 'R' && wantsProof(this.page.board().spec, played);
+    facts.keep = (played) => this.page.proving() || (this.page.board().extra.status === 'R' && wantsProof(this.page.board().spec, played));
     // The row the dev server could not lay is said here, and the overlay of Vite does not cover the page; an error of the code, which has a file to it, keeps its overlay.
     import.meta.hot?.on('vite:error', ({ err }) => {
       if (err.id || err.plugin || err.loc || err.frame) return;
@@ -109,8 +108,7 @@ export class WorkshopCampaign {
 
   /**
    * The board in hand was opened, changed or read again, or its stage unlocked: the solver is asked
-   * of it where its way is wanted, a way proved before it was of the row or while it was locked is
-   * written now, and the line and the buttons are as it has them.
+   * of it where its way is wanted, and the line and the buttons are as it has them.
    */
   show(): void {
     this.facts.ask();
@@ -122,11 +120,8 @@ export class WorkshopCampaign {
     this.told();
   }
 
-  /** A fact of the board in hand was counted: the fewest moves proved, a board of the row with no way keeps them. */
+  /** A fact of the board in hand was counted: the line says it. */
   told(): void {
-    const way = wayToKeep(this.page.board(), this.facts.seconds);
-    // Kept, the board is changed and shown again (`show`), and the way kept stops it here.
-    if (way) return this.page.keep(way);
     this.showLine();
   }
 
@@ -137,12 +132,16 @@ export class WorkshopCampaign {
   }
 
   private showLine(): void {
-    const { extra, head, spec } = this.page.board();
+    const board = this.page.board();
+    const { extra, head, spec } = board;
     let line = this.refused === null ? null : `ряд не соберётся: ${this.refused}`;
     if (line === null && extra.status === 'R' && !keepsWay(head)) {
       const refused = !spec || this.facts.instant?.error;
       line = rowPathLine(extra.status, refused ? 'правила не принимают доску' : this.facts.seconds);
     }
+    // A way proved that the file does not keep is written by a save, and by nothing else.
+    const way = line === null ? wayToKeep(board, this.facts.seconds) : null;
+    if (way) line = `доказан путь в ${way.par} ${plural(way.par, ['ход', 'хода', 'ходов'])} — «сохранить» запишет его в файл`;
     this.line.textContent = line ?? '';
     this.line.style.display = line === null ? 'none' : '';
   }
@@ -154,18 +153,26 @@ export class WorkshopCampaign {
     return code && code.toLowerCase() !== name.toLowerCase() && this.row.holds(code) ? code : null;
   }
 
-  /** «копия»: the board of the row in hand, as it stands, laid beside as `<код>-try-<n>` and opened; a board to be done, made of the code. */
+  /**
+   * «копия»: the board of the row in hand, as it is drawn, laid beside as `<код>-try-<n>` and opened;
+   * a board to be done, made of the code. With edits, the dialog asks of the board of the row first:
+   * saved, the copy has the way proved too; dropped, the file of the row is as it was, and the copy
+   * takes the edits away with it.
+   */
   private async copy(): Promise<void> {
     if (this.busy) return;
-    const { name: code, locked } = this.page.board();
+    const drawn = this.page.board();
+    const { name: code, locked } = drawn;
     if (locked) return this.page.say('не скопировано: файл не читается как доска');
     const name = freeName(`${code}-try`, this.page.names());
     if (!isBoardName(name)) return this.page.say(`не имя доски: ${name}`);
     this.busy = true;
     try {
-      if (!(await this.page.save())) return;
+      if (!(await this.page.settle('копия возьмёт доску, как она нарисована'))) return;
+      const now = this.page.board();
+      const { head, board } = now.board === drawn.board ? now : drawn;
       // The words, the mark, the names it had and the batch are of the board of the row, not of its copy.
-      const { head, board, extra } = this.page.board();
+      const { extra } = now;
       const { words: _words, mark: _mark, was: _was, batch: _batch, migrated: _migrated, ...rest } = extra;
       await writeBoard(name, textOf(board, { ...head, id: name }, { ...rest, status: 'D', origin: `копия ${code}` }));
     } catch (error) {
@@ -179,7 +186,7 @@ export class WorkshopCampaign {
   }
 
   /**
-   * «заменить в ряду <код>»: what waits to be written of the copy is written, then the server swaps
+   * «заменить в ряду <код>»: the edits of the copy are saved or dropped (`settle`), then the server swaps
    * the boards of the two files (`swapBoards`), both or neither. While it works the stage is locked;
    * swapped, it stays locked until the board of the row is opened, so that no change made meanwhile
    * writes the copy's board over the one the copy now holds. Refused, the line is said; where the copy
@@ -191,9 +198,11 @@ export class WorkshopCampaign {
     if (this.busy || !code) return;
     this.busy = true;
     const stage = this.page.stage();
-    const locked = stage.locked;
+    let locked = stage.locked;
     try {
-      if (!(await this.page.save())) return;
+      if (!(await this.page.settle())) return;
+      // Dropped, the edits were read away and the stage is as the file opened it.
+      locked = stage.locked;
       stage.locked = true;
       await swapBoards(code, name);
     } catch (error) {

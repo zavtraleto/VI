@@ -5,25 +5,24 @@ import { BATCH_WORD } from '../levels/labText';
 import { resolveName } from '../levels/library';
 import type { LevelSpec } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
-import { addPlay, listHeads, onBoardChanged, readBoard, renameBoard, writeBoard, writeHead } from './boardsClient';
+import { listHeads, onBoardChanged, readBoard, renameBoard, writeBoard } from './boardsClient';
 import { boardHash } from './boardsServer';
 import { BoardStage } from './boardStage';
 import { copyText } from './clipboard';
 import { SIZE_MAX, SIZE_MIN, displaySpecOf, editBoardOf, emptyBoard, resize, textOf, type EditBoard } from './editBoard';
-import { PlayWatch, type Inside, type ToldPlay } from './playWatch';
+import { PlayWatch, type Inside } from './playWatch';
 import { WayShow, wayToShow } from './showWay';
 import { BoardFacts } from './workshopFacts';
-import { WorkshopCampaign } from './workshopCampaign';
+import { WorkshopCampaign, type CampaignBoard } from './workshopCampaign';
 import { WorkshopListView, buttonOf, fieldStyle, light } from './workshopListView';
-import { VERDICTS, freeName, listRows, nextInBatch, rowOf, verdictPatch, type BoardRow, type Verdict } from './workshopLists';
+import { freeName, listRows, rowOf, type BoardRow } from './workshopLists';
 import { WorkshopRow } from './workshopRow';
+import { WorkshopSave } from './workshopSave';
+import { WorkshopVerdict } from './workshopVerdict';
 
 /** The width of the column of the lists on the left: the board of the game stands to the right of it. */
 const LIST_WIDTH = 320;
-/** A change is written to its file this long after it is made, and after the last of several made together. */
-const SAVE_MS = 300;
 
-const today = (): string => new Date().toISOString().slice(0, 10);
 /** Whether a key is typed into a field of the page: such a key is the field's, and goes nowhere else. */
 const typed = (event: Event): boolean => event.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName);
 
@@ -44,10 +43,11 @@ function newHead(id: string): LevelSpec {
  * from its start on the board of the game, and `C` says in plain lines under the board what the
  * solver and the bots make of it. With nothing pressed, the page shows no number.
  *
- * The file is the truth, as on the lab of the levels before it. Every change is written to it a
- * moment later; a change of the file made by anyone else is read at once, unless a change made
- * here is still waiting to be written. A file that is no board is shown with what is wrong with
- * it and is not written over.
+ * The file is the truth, as on the lab of the levels before it. The edits stay on the page until
+ * they are saved, and a line over the field says which board is in hand, whether it is saved and
+ * what saving will do (`WorkshopSave`); a change of the file made by anyone else is read at once
+ * where there are no edits. A file that is no board is shown with what is wrong with it and is
+ * not written over.
  */
 export function startWorkshop(game: Game): void {
   // The page in hand, for whoever looks at it from the console: `window.viWorkshop`.
@@ -61,6 +61,9 @@ class Workshop {
   /** The row of the campaign: «в кампании», «поставить в ряд», and the chapters the boards are placed by. */
   private readonly row: WorkshopRow;
   private readonly campaign: WorkshopCampaign;
+  /** The edits, «сохранить» and «отменить», and the state line over the field. */
+  private readonly saving: WorkshopSave;
+  private readonly verdict: WorkshopVerdict;
   private readonly editor: BoardStage;
   private readonly watcher: PlayWatch;
   /** Every file of `boards/` as a row of the lists. */
@@ -74,17 +77,11 @@ class Workshop {
   /** The board as a level, where the rules take it for one; what they say, where they do not. */
   private spec: LevelSpec | null = null;
   private error: string | null = null;
-  /** The text the file is known to hold. */
-  private saved = '';
-  private saveTimer = 0;
   /** The ways of the boards that were in hand with one, each under its board as text with no way in it. */
   private readonly ways = new Map<string, Pick<LevelSpec, 'par' | 'exact' | 'solution'>>();
   /** The board the scene of the game shows, as text: a board is put on anew only when it is another. */
   private presented = '';
   private playing = false;
-  /** The play last written down, while the owner is asked of it; and the verdict he has chosen and not yet written. */
-  private lastPlay: { name: string; at: string; wasNew: boolean } | null = null;
-  private verdict: Verdict | null = null;
 
   /** What is counted of the board in hand, by «проверить» and «показать решение». */
   private readonly facts: BoardFacts;
@@ -96,6 +93,8 @@ class Workshop {
   private readonly stageBox = document.createElement('div');
   private readonly nameInput = document.createElement('input');
   private readonly sizeLabel = document.createElement('span');
+  /** «поле»: a click on a cell cuts it out or puts it back (`BoardStage.field`). */
+  private readonly fieldButton: HTMLButtonElement;
   private readonly faceButtons: HTMLButtonElement[] = [];
   private readonly shutBox = document.createElement('input');
   private readonly sinkInput = document.createElement('input');
@@ -106,17 +105,13 @@ class Workshop {
   private readonly checkButton: HTMLButtonElement;
   /** The place of the lines of «проверить», under the actions. */
   private readonly checkBox = document.createElement('pre');
-  private readonly verdictBar = document.createElement('div');
-  private readonly verdictTitle = document.createElement('span');
-  private readonly verdictButtons = new Map<Verdict, HTMLButtonElement>();
-  private readonly wordsInput = document.createElement('input');
   private readonly told = document.createElement('div');
 
   constructor(private readonly game: Game) {
     this.inside = game as unknown as Inside;
     // The page is worked on beside other windows: the game does not stand still when it is hidden.
     game.awake = true;
-    this.watcher = new PlayWatch(this.inside, (record, of) => this.tellPlay(record, of.name));
+    this.watcher = new PlayWatch(this.inside, (record, of) => this.verdict.told(record, of.name));
     // The way is shown on the game as keys, read off its run: it is no play of the owner, and nothing of it is written down.
     // A key the game has not taken is dropped from its own input when the way is stopped, as `Inside` reads its run; a game without that input drops nothing.
     const { inside } = this;
@@ -126,7 +121,7 @@ class Workshop {
     this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
     const page = {
       say: (line: string) => this.say(line),
-      save: () => this.save(),
+      settle: (why?: string) => this.saving.settle(why),
       stage: () => this.editor,
       readLists: () => this.readLists(),
       reread: async (name: string) => (await this.changedOutside(name), this.showHead()),
@@ -134,6 +129,7 @@ class Workshop {
       open: (name: string) => this.open(name),
     };
     this.row = new WorkshopRow(palette, this.lists, page);
+    this.verdict = new WorkshopVerdict(palette, { ...page, rows: () => this.rows });
 
     // The game stands to the right of the lists: its page is moved over, and the board is laid in what is left.
     const app = document.getElementById('app');
@@ -148,27 +144,43 @@ class Workshop {
     frame.append(this.topBar, this.stageBox, bottom);
     document.body.append(this.lists.root, frame);
 
-    this.editor = new BoardStage(this.stageBox, (x, z, y) => game.cellPoint(x, z, y), () => this.edited(true), (board) => this.present(board));
+    this.editor = new BoardStage(this.stageBox, (x, z, y) => game.cellPoint(x, z, y), () => this.edited(), (board) => this.present(board), (line) => this.saving.tell(line));
     this.playButton = buttonOf(palette, 'играть (E)', () => this.togglePlay());
+    this.fieldButton = buttonOf(palette, 'поле', () => ((this.editor.field = !this.editor.field), this.showHead()));
+    this.fieldButton.title = 'щелчок по клетке вырезает её или возвращает';
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
     this.checkButton = buttonOf(palette, 'проверить (C)', () => this.facts.toggle());
-    this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => (this.showWay(), this.campaign.told()));
-    this.campaign = new WorkshopCampaign(palette, this.facts, this.row, {
-      ...page,
-      board: () => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.editor.locked }),
-      names: () => this.rows.map((row) => row.name),
-      // The way proved is laid into the head and written, and remembered for the board as it stands.
-      keep: (way) => ((this.head = { ...this.head, ...way }), this.keepWay(), this.edited(false)),
+    this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => (this.showWay(), this.campaign.told(), this.saving.told()));
+    const board = (): CampaignBoard => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.editor.locked });
+    this.campaign = new WorkshopCampaign(palette, this.facts, this.row, { ...page, board, names: () => this.rows.map((row) => row.name), proving: () => this.saving.waiting });
+    this.saving = new WorkshopSave(palette, {
+      board,
+      place: () => this.rows.find((row) => row.name === this.name)?.place ?? null,
+      stage: () => this.editor,
+      facts: () => this.facts,
+      refused: () => (this.spec ? (this.facts.instant?.error ?? null) : (this.error ?? 'нет доски')),
+      // The way proved and written is laid into the head, where the head is the one the write was begun with, and remembered for the board.
+      wrote: (head, written, was) => {
+        if (this.editor.current === written && this.head === was) {
+          this.head = head;
+          this.keepWay();
+          this.read(this.text());
+        }
+        this.showHead();
+      },
+      takeHead: (extra) => (this.extra = extra),
+      reload: () => this.reload(),
     });
     this.buildTop();
-    actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()), this.row.insertButton, this.campaign.copyButton, this.campaign.swapButton);
-    this.buildVerdict();
+    actions.append(this.playButton, buttonOf(palette, 'показать решение (V)', () => this.solution()), this.checkButton, buttonOf(palette, 'копировать для чата', () => void this.copy()), this.campaign.copyButton, this.campaign.swapButton);
     this.told.style.cssText = `color:${palette.dim};min-height:1.4em`;
-    bottom.append(actions, this.row.form, this.checkBox, this.verdictBar, this.told);
+    bottom.append(actions, this.row.form, this.checkBox, this.verdict.bar, this.told);
 
     // The keys are the stage's while the board is set out: the game under it gets none of them.
     const keys = (event: KeyboardEvent): void => {
+      // `Ctrl+S` saves wherever it is pressed, and the dialog of leaving takes every key while it asks.
+      if (this.saving.key(event)) return;
       // A key typed into a field is the field's: the fields stop it short of the game (below).
       if (typed(event)) return;
       const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
@@ -187,7 +199,7 @@ class Workshop {
         return;
       }
       // The verdict after a play is taken first, in a play and out of one alike.
-      if (event.type === 'keydown' && plain && this.verdictKey(event.code)) {
+      if (event.type === 'keydown' && plain && this.verdict.key(event.code)) {
         event.stopImmediatePropagation();
         event.preventDefault();
         return;
@@ -213,7 +225,6 @@ class Workshop {
     window.addEventListener('keydown', keys, true);
     window.addEventListener('keyup', keys, true);
     for (const box of [this.lists.root, frame]) for (const type of ['keydown', 'keyup'] as const) box.addEventListener(type, (event) => typed(event) && event.stopPropagation());
-    window.addEventListener('beforeunload', () => void this.save());
 
     onBoardChanged((name) => void this.changedOutside(name));
     this.inside.audio.setAway(true);
@@ -261,27 +272,11 @@ class Workshop {
     for (const input of [this.shutBox, this.sinkInput, this.liftInput]) input.addEventListener('change', () => this.rulesChanged());
     rules.append(summary, label('пол закрыт', this.shutBox), label('sink: ходов до ухода', this.sinkInput), label('lift: ходов подъёма', this.liftInput));
     this.boardLine.style.cssText = `flex-basis:100%;color:${palette.dim};min-height:1.4em`;
-    topBar.append(this.nameInput, buttonOf(palette, '−', () => side(-1)), this.sizeLabel, buttonOf(palette, '+', () => side(1)), faces, rules, this.boardLine, this.campaign.line);
-  }
-
-  /** The bar of the verdict, shown when a play has been written down: three buttons, a line of words, and the button that writes them. */
-  private buildVerdict(): void {
-    const { palette, verdictBar } = this;
-    verdictBar.style.cssText = 'display:none;flex-wrap:wrap;gap:6px;align-items:center';
-    verdictBar.append(this.verdictTitle);
-    for (const { verdict, label } of VERDICTS) {
-      const button = buttonOf(palette, label, () => this.choose(verdict));
-      this.verdictButtons.set(verdict, button);
-      verdictBar.append(button);
-    }
-    this.wordsInput.placeholder = 'слова о доске; Enter — записать';
-    this.wordsInput.style.cssText = fieldStyle(palette, 'flex:1;min-width:160px');
-    this.wordsInput.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter') return;
-      event.preventDefault();
-      void this.writeVerdict();
-    });
-    verdictBar.append(this.wordsInput, buttonOf(palette, 'записать', () => void this.writeVerdict()));
+    // The state line, with «сохранить», «отменить» and «в кампанию» before it, on a line of its own.
+    const saving = document.createElement('div');
+    saving.style.cssText = 'flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+    saving.append(this.saving.saveButton, this.saving.cancelButton, this.row.insertButton, this.saving.line);
+    topBar.append(this.nameInput, buttonOf(palette, '−', () => side(-1)), this.sizeLabel, buttonOf(palette, '+', () => side(1)), this.fieldButton, faces, rules, saving, this.boardLine, this.campaign.line);
   }
 
   /** Opens the board the address names, `?lab=workshop&board=bridge-3` (or a name it had), or the first of the new boards, or the first there is. */
@@ -330,19 +325,29 @@ class Workshop {
     return text;
   }
 
-  /** A file of `boards/` was changed on the disk. The one in hand is read again too, unless a change made here waits to be written. */
+  /** A file of `boards/` was changed on the disk. The one in hand is read again too where it has no edits (`WorkshopSave.changed`). */
   private async changedOutside(name: string): Promise<void> {
     const text = await this.reread(name);
-    if (text === null || name !== this.name || this.saveTimer !== 0 || text === this.saved) return;
-    this.load(name, text, true);
+    if (text !== null && name === this.name && this.saving.changed(text)) this.load(name, text, true);
   }
 
-  /** Opens a board by the name of its file: what waits to be written of the one in hand is written first. */
+  /** Opens a board by the name of its file: the edits of the one in hand are asked of first. The board in hand clicked again keeps its edits. */
   private async open(name: string): Promise<void> {
     this.leave();
-    if (this.saveTimer !== 0) await this.save();
+    if (name === this.name && this.saving.dirty) return;
+    if (!(await this.saving.settle())) return;
     try {
       this.load(name, await readBoard(name));
+    } catch (error) {
+      this.say((error as Error).message);
+    }
+  }
+
+  /** «отменить»: the board in hand as its file has it, read again with nothing to take back. */
+  private async reload(): Promise<void> {
+    if (this.name === '') return;
+    try {
+      this.load(this.name, await readBoard(this.name));
     } catch (error) {
       this.say((error as Error).message);
     }
@@ -351,9 +356,8 @@ class Workshop {
   /** Takes a text as the board in hand. A text that is no board is shown with what is wrong, and the stage is shut on it. The head is read first: the solver asks after a board of the row by its status. */
   private load(name: string, text: string, sameBoard = false): void {
     // The verdict asked is of the board played: another board opened, it is asked no more.
-    if (!sameBoard && this.lastPlay && this.lastPlay.name !== name) this.ask(null);
+    if (!sameBoard && this.verdict.play && this.verdict.play.name !== name) this.verdict.ask(null);
     this.name = name;
-    this.saved = text;
     this.extra = readBoardHead(text);
     this.read(text);
     this.editor.locked = false;
@@ -375,6 +379,7 @@ class Workshop {
       this.editor.show(emptyBoard(SIZE_MIN));
       this.editor.locked = true;
     }
+    this.saving.opened(text);
     this.showAll();
   }
 
@@ -419,38 +424,17 @@ class Workshop {
   }
 
   /**
-   * The board or its head has been changed here. A change of the board itself makes what the file
-   * kept of its way a thing of another board: it is dropped, and comes back if the board does.
-   * The file is written a moment later.
+   * The board or its head (`head`: the faces, the rules of the board) has been changed here. The
+   * way the file kept is a thing of another board now: it is dropped, and comes back if the board
+   * does. The edit stays on the page until it is saved.
    */
-  private edited(board: boolean): void {
+  private edited(head = false): void {
     if (this.name === '' || this.editor.locked) return;
-    if (board) {
-      const { par: _par, exact: _exact, solution: _solution, ...rest } = this.head;
-      this.head = { ...rest, ...this.ways.get(textOf(this.editor.current, rest)) };
-    }
+    const { par: _par, exact: _exact, solution: _solution, ...rest } = this.head;
+    this.head = { ...rest, ...this.ways.get(textOf(this.editor.current, rest)) };
+    this.saving.edited(head);
     this.read(this.text());
-    window.clearTimeout(this.saveTimer);
-    this.saveTimer = window.setTimeout(() => void this.save(), SAVE_MS);
     this.showHead();
-  }
-
-  private async save(): Promise<boolean> {
-    window.clearTimeout(this.saveTimer);
-    this.saveTimer = 0;
-    const text = this.name === '' || this.editor.locked ? this.saved : this.text();
-    if (text === this.saved) return true;
-    const before = this.saved;
-    this.saved = text;
-    try {
-      await writeBoard(this.name, text);
-    } catch (error) {
-      // Not written: the next change, or the next try, writes it.
-      if (this.saved === text) this.saved = before;
-      this.say((error as Error).message);
-      return false;
-    }
-    return true;
   }
 
   /**
@@ -509,7 +493,11 @@ class Workshop {
       return this.say('имя: латинские буквы, цифры, - и _');
     }
     this.leave();
-    await this.save();
+    // The edits are saved or dropped first: the server takes the file over as it is on the disk.
+    if (!(await this.saving.settle())) {
+      this.nameInput.value = from;
+      return;
+    }
     // No change is taken while the file goes over: it would be written under the old name. A rename refused leaves the stage as it was, and shows it again for what was counted meanwhile.
     const locked = this.editor.locked;
     this.editor.locked = true;
@@ -521,7 +509,7 @@ class Workshop {
       this.showHead();
       return this.say(`не переименовано: ${(error as Error).message}`);
     }
-    if (this.lastPlay?.name === from) this.lastPlay = { ...this.lastPlay, name: to };
+    if (this.verdict.play?.name === from) this.verdict.play = { ...this.verdict.play, name: to };
     this.name = to;
     this.nameInput.blur();
     await this.readLists();
@@ -536,7 +524,7 @@ class Workshop {
     const name = freeName(said, this.rows.map((row) => row.name));
     if (!isBoardName(name)) return this.say(`не имя доски: ${name}`);
     this.leave();
-    await this.save();
+    if (!(await this.saving.settle())) return;
     const head = newHead(name);
     const text = textOf(emptyBoard(head.size), head, { status: 'D' });
     try {
@@ -560,7 +548,7 @@ class Workshop {
       this.topBar.style.visibility = this.stageBox.style.visibility = 'hidden';
       this.inside.audio.setAway(false);
       // A new play: what was asked of the one before is asked no more.
-      this.ask(null);
+      this.verdict.ask(null);
       this.game.playBoard(spec);
       // The plays of the board as it stands are watched, to be written down as each is over.
       this.watcher.start({ name: this.name, hash: boardHash(this.text(), this.name) ?? '', par: spec.par ?? null, measures: { size: spec.size, dice: spec.norm } });
@@ -635,75 +623,6 @@ class Workshop {
     this.playButton.textContent = 'играть (E)';
   }
 
-  private tellPlay(record: ToldPlay, name: string): void {
-    void addPlay(name, record).catch((error: Error) => this.say(error.message));
-    const row = this.rows.find((one) => one.name === name);
-    this.ask({ name, at: record.at, wasNew: row?.head.status === 'N' });
-  }
-
-  /** Begins to ask the verdict of a play, or stops asking: the bar is shown while it is asked. */
-  private ask(play: Workshop['lastPlay']): void {
-    this.lastPlay = play;
-    this.verdict = null;
-    this.wordsInput.value = '';
-    this.verdictBar.style.display = play ? 'flex' : 'none';
-    if (play) this.verdictTitle.textContent = `${play.name}:`;
-    else if (document.activeElement === this.wordsInput) this.wordsInput.blur();
-    this.showVerdict();
-  }
-
-  /** A key while the verdict is asked; true where it was the verdict's. */
-  private verdictKey(code: string): boolean {
-    if (!this.lastPlay) return false;
-    const chosen = VERDICTS.find((one) => one.keys.includes(code));
-    if (chosen) this.choose(chosen.verdict);
-    else if ((code === 'Enter' || code === 'NumpadEnter') && this.verdict) void this.writeVerdict();
-    else return false;
-    return true;
-  }
-
-  /** A verdict is chosen: it is lit, and the line of the words takes the keys next. */
-  private choose(verdict: Verdict): void {
-    if (!this.lastPlay) return;
-    this.verdict = verdict;
-    this.showVerdict();
-    this.wordsInput.focus();
-  }
-
-  private showVerdict(): void {
-    for (const [verdict, button] of this.verdictButtons) light(this.palette, button, verdict === this.verdict);
-  }
-
-  /**
-   * The verdict and the words are written into the head of the file (a board of the row keeps R:
-   * it gets the verdict as a word, `verdictPatch`), and over the play in `plays.jsonl`. A new
-   * board done with, the next board of its batch is opened.
-   */
-  private async writeVerdict(): Promise<void> {
-    const play = this.lastPlay;
-    const row = play && this.rows.find((one) => one.name === play.name);
-    if (!play || !row) return;
-    const { verdict } = this;
-    const said = this.wordsInput.value.replace(/\s+/g, ' ').trim();
-    const patch = verdictPatch(row.head.status, verdict, said, today());
-    if (!patch) return;
-    // The next board is taken before the verdict moves this one out of the new. Words alone leave the board where it is, and the page with it.
-    const next = play.wasNew && verdict ? nextInBatch(this.rows, play.name) : null;
-    // What waits to be written of the board in hand is written first: the head is laid over the file as it is.
-    if (play.name === this.name) await this.save();
-    try {
-      await writeHead(play.name, patch);
-      await addPlay(play.name, { at: play.at, patch: { ...(verdict ? { verdict } : {}), ...(said ? { words: said } : {}) } });
-    } catch (error) {
-      return this.say((error as Error).message);
-    }
-    this.ask(null);
-    this.say(`${play.name}: записано${verdict ? ` — ${VERDICTS.find((one) => one.verdict === verdict)?.label.slice(2)}` : ''}${said ? ', слова' : ''}`);
-    // The head of the file is read back at once, so that the next change here does not write the old one over it.
-    await this.changedOutside(play.name);
-    if (next) await this.open(next);
-  }
-
   private async copy(): Promise<void> {
     if (this.name === '') return;
     const done = await copyText(`${this.name} — поставить на место: …\n${this.text()}`);
@@ -730,7 +649,9 @@ class Workshop {
     this.shutBox.checked = head.floor === false;
     this.sinkInput.value = String(head.sinkMoves ?? 2);
     this.liftInput.value = String(head.liftMoves ?? 1);
+    light(this.palette, this.fieldButton, editor.field);
     this.campaign.show();
+    this.saving.show();
     let line = '';
     if (this.name === '') line = 'нет досок: «новая доска» под списками';
     else if (editor.locked) line = `${this.error ?? ''} — файл не читается как доска: править его надо в самом файле, страница его не перезапишет`;

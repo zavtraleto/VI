@@ -1,6 +1,7 @@
 import type { Dir } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults, type Palette } from '../shell/theme';
 import { pickCell, reachOf, type CellPoint } from './cellPick';
+import { stepsAway } from './workshopSave';
 import { cellAt, cycleLeaving, emptyBoard, moveDie, putFixed, removeAt, rollAlong, rollDie, sameBoard, setStart, setTop, spinDie, toggleFixed, toggleHole, type EditBoard } from './editBoard';
 
 const ARROWS: Readonly<Record<string, Dir>> = { ArrowUp: 'N', ArrowRight: 'E', ArrowDown: 'S', ArrowLeft: 'W' };
@@ -28,6 +29,10 @@ export type Project = (x: number, z: number, y?: number) => { x: number; y: numb
  * makes it leave a move later, `H` cuts the cell out or puts it back, `P` puts the start there,
  * `Delete` takes it off. Every one of these is one step to take back (`Ctrl+Z`) and to make
  * again (`Ctrl+Y`).
+ *
+ * In the field mode (`field`) a click cuts a cell out of the board or puts it back, and the dice
+ * stay as they are: they are not dragged, rolled or turned, the list is put away, and a click on
+ * a die is refused (`tell`). The cells cut out are outlined on the layer while the mode is on.
  *
  * The board itself is `EditBoard` (`editBoard.ts`), and every change is told to whoever made
  * the stage: `onChange` for a change made here, `present` for any board that is to be seen.
@@ -61,12 +66,17 @@ export class BoardStage {
   private rolling: { from: { x: number; z: number }; cells: { x: number; z: number }[]; board: EditBoard } | null = null;
   /** The face a fixed die of the list is put with: the face of the die last taken. */
   private lastTop = 2;
+  private cutting = false;
+  /** The steps of the history to the board last saved, and the deepest step it shares with the history as it now goes (`stepsAway`). */
+  private savedDepth = 0;
+  private fork = 0;
 
   constructor(
     parent: HTMLElement,
     private readonly project: Project,
     private readonly onChange: (board: EditBoard) => void,
     private readonly present: (board: EditBoard) => void,
+    private readonly tell: (line: string) => void = () => {},
   ) {
     const { canvas, palette } = this;
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;outline:none;cursor:default;touch-action:none';
@@ -84,6 +94,11 @@ export class BoardStage {
       }
       if (event.button !== 0 || !cell) return;
       this.selected = cell;
+      if (this.cutting) {
+        if (cellAt(this.board, cell.x, cell.z)?.kind !== 'die') this.change(toggleHole(this.board, cell.x, cell.z));
+        else if (!this.locked) this.tell('сначала убери кость');
+        return;
+      }
       if (!this.locked && cellAt(this.board, cell.x, cell.z)?.kind === 'die') {
         if (event.shiftKey) this.rolling = { from: cell, cells: [], board: this.board };
         else this.pressed = { at: cell, px: event.clientX, py: event.clientY };
@@ -152,8 +167,8 @@ export class BoardStage {
     canvas.addEventListener(
       'wheel',
       (event) => {
-        // The wheel turns no die of the board in hand while another is on its way.
-        if (this.rolling) return;
+        // The wheel turns no die of the board in hand while another is on its way, nor in the field mode.
+        if (this.rolling || this.cutting) return;
         const cell = this.cellOf(event);
         if (!cell || cellAt(this.board, cell.x, cell.z)?.kind !== 'die') return;
         event.preventDefault();
@@ -190,6 +205,33 @@ export class BoardStage {
     return this.rolling?.board ?? this.board;
   }
 
+  /** The field mode: a click cuts a cell out or puts it back, and the dice are left as they are. */
+  get field(): boolean {
+    return this.cutting;
+  }
+
+  set field(on: boolean) {
+    this.cutting = on;
+    this.list.style.display = on ? 'none' : 'flex';
+    // Whatever was being carried or rolled is let go.
+    this.pressed = this.carried = null;
+    this.ghost.style.display = 'none';
+    if (this.rolling) {
+      this.rolling = null;
+      this.present(this.board);
+    }
+  }
+
+  /** The steps of the history between the board in hand and the board last saved. */
+  get unsaved(): number {
+    return stepsAway(this.before.length, this.savedDepth, this.fork);
+  }
+
+  /** The board in hand is the board of the file now: it was saved, or read again. */
+  markSaved(): void {
+    this.savedDepth = this.fork = this.before.length;
+  }
+
   /** Puts a board on the stage as the one in hand: it is no change, and nothing before it can be taken back to unless `keepSteps` is said. */
   show(board: EditBoard, keepSteps = false): void {
     // Whatever was being carried was of the board before.
@@ -201,6 +243,7 @@ export class BoardStage {
     if (!keepSteps) {
       this.before = [];
       this.after = [];
+      this.markSaved();
     }
     if (this.selected && !cellAt(board, this.selected.x, this.selected.z)) this.selected = null;
     this.present(board);
@@ -211,6 +254,8 @@ export class BoardStage {
     if (this.locked || next === this.board) return;
     // A roll on its way was of the board before this change.
     this.rolling = null;
+    // A change made below the board saved branches the history off the way to it.
+    this.fork = Math.min(this.fork, this.before.length);
     this.before.push(this.board);
     this.after = [];
     this.board = next;
@@ -259,8 +304,10 @@ export class BoardStage {
     // The keys that mark a cell act on the cell under the mouse, and on the die picked where the mouse is off the board.
     const at = this.hover ?? this.selected;
     const picked = this.selected;
-    if (ARROWS[event.code] && picked) this.change(rollDie(board, picked.x, picked.z, ARROWS[event.code]));
-    else if (!at) return false;
+    // The field mode rolls no die.
+    if (ARROWS[event.code] && picked) {
+      if (!this.cutting) this.change(rollDie(board, picked.x, picked.z, ARROWS[event.code]));
+    } else if (!at) return false;
     else if (event.code === 'KeyH') this.change(toggleHole(board, at.x, at.z));
     else if (event.code === 'KeyF') this.change(toggleFixed(board, at.x, at.z));
     else if (event.code === 'KeyP') this.change(setStart(board, at.x, at.z));
@@ -397,6 +444,19 @@ export class BoardStage {
         ctx.fillText(`${cell.fixed ? 'F' : ''}${cell.leaving ? `~${cell.leaving}` : ''}`, at.x - box.left, at.y - box.top);
       }),
     );
+
+    // The field mode: the cells cut out, where the scene shows nothing, are outlined to be put back.
+    if (this.cutting) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = palette.signal;
+      board.cells.forEach((row, z) =>
+        row.forEach((cell, x) => {
+          if (cell.kind !== 'hole') return;
+          this.outline(ctx, box, x, z, 0, 0.08);
+          ctx.stroke();
+        }),
+      );
+    }
 
     if (this.selected) {
       ctx.setLineDash([5, 4]);
