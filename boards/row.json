@@ -3,27 +3,27 @@
     {
       "title": "die",
       "places": [
-        { "board": "R01", "role": "meet", "archetype": "roll", "emotion": "gift", "help": { "sign": "N", "wait": "first", "camera": "hold" } },
-        { "board": "side-up-1", "role": "learn", "archetype": "ride", "emotion": "gift", "help": { "wait": "lesson", "camera": "hold" } },
-        { "board": "R03", "role": "apply", "archetype": "first free board", "emotion": "insight", "event": "first free board", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "B01_s290", "role": "meet", "teaches": "loop", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "a straight roll turns the face away", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "H06", "role": "apply", "archetype": "three 3s: one roll, then the die beside", "emotion": "flow", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "H08", "role": "apply", "archetype": "the way round keeps the face", "emotion": "mastery", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "three-under-1", "role": "meet", "teaches": "seven", "archetype": "the face under", "emotion": "insight", "event": "the rule of seven", "help": { "hint": "hintSeven", "wait": "free", "camera": "hold" } },
-        { "board": "act-k17", "role": "apply", "archetype": "the face under, by a link", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "R05", "role": "meet", "teaches": "order", "archetype": "choose the first die", "emotion": "insight", "event": "choice of the first die", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "which-first-2", "role": "apply", "archetype": "which first", "emotion": "trick", "help": { "wait": "free", "camera": "hold" } },
-        { "board": "which-first-3", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "wait": "free", "camera": "hold" } }
+        { "board": "R01", "role": "meet", "archetype": "roll", "emotion": "gift", "help": { "sign": "N", "plaques": "near", "wait": "first", "camera": "hold" } },
+        { "board": "side-up-1", "role": "learn", "archetype": "ride", "emotion": "gift", "help": { "plaques": "near", "wait": "lesson", "camera": "hold" } },
+        { "board": "R03", "role": "apply", "archetype": "first free board", "emotion": "insight", "event": "first free board", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "B01_s290", "role": "meet", "teaches": "loop", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "a straight roll turns the face away", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "H06", "role": "apply", "archetype": "three 3s: one roll, then the die beside", "emotion": "flow", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "H08", "role": "apply", "archetype": "the way round keeps the face", "emotion": "mastery", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "three-under-1", "role": "meet", "teaches": "seven", "archetype": "the face under", "emotion": "insight", "event": "the rule of seven", "help": { "hint": "hintSeven", "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "act-k17", "role": "apply", "archetype": "the face under, by a link", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "R05", "role": "meet", "teaches": "order", "archetype": "choose the first die", "emotion": "insight", "event": "choice of the first die", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "which-first-2", "role": "apply", "archetype": "which first", "emotion": "trick", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "which-first-3", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } }
       ]
     },
     {
       "title": "leaving",
       "floor": "open",
       "places": [
-        { "board": "bridge-first-1", "role": "meet", "teaches": "walk", "archetype": "bridge", "emotion": "surprise", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk" } },
-        { "board": "P02", "role": "apply", "archetype": "bridge to a link", "emotion": "recognition" },
-        { "board": "R11", "role": "meet", "teaches": "twoFaces", "archetype": "bridge", "emotion": "surprise", "event": "two faces on one board" },
+        { "board": "bridge-first-1", "role": "meet", "teaches": "walk", "archetype": "bridge", "emotion": "surprise", "event": "first walk over leaving dice", "help": { "hint": "roadHintWalk", "plaques": "near" } },
+        { "board": "P02", "role": "apply", "archetype": "bridge to a link", "emotion": "recognition", "help": { "plaques": "near" } },
+        { "board": "R11", "role": "meet", "teaches": "twoFaces", "archetype": "bridge", "emotion": "surprise", "event": "two faces on one board", "help": { "plaques": "near" } },
         { "board": "two-pairs-2", "role": "apply", "archetype": "bridge two faces", "emotion": "recognition" },
         { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
         { "board": "tight-room-4", "role": "peak", "archetype": "two combos, a link between", "emotion": "fiero" },

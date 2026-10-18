@@ -221,6 +221,7 @@ export const ROW: Row = {
       "emotion": "gift",
       "help": {
         "sign": "N",
+        "plaques": "near",
         "wait": "first",
         "camera": "hold"
       }
@@ -286,6 +287,7 @@ export const ROW: Row = {
       "archetype": "ride",
       "emotion": "gift",
       "help": {
+        "plaques": "near",
         "wait": "lesson",
         "camera": "hold"
       }
@@ -347,6 +349,7 @@ export const ROW: Row = {
       "emotion": "insight",
       "event": "first free board",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -410,6 +413,7 @@ export const ROW: Row = {
       "emotion": "surprise",
       "event": "a straight roll turns the face away",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -473,6 +477,7 @@ export const ROW: Row = {
       "archetype": "three 3s: one roll, then the die beside",
       "emotion": "flow",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -538,6 +543,7 @@ export const ROW: Row = {
       "archetype": "the way round keeps the face",
       "emotion": "recognition",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -598,6 +604,7 @@ export const ROW: Row = {
       "archetype": "the way round keeps the face",
       "emotion": "mastery",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -665,6 +672,7 @@ export const ROW: Row = {
       "event": "the rule of seven",
       "help": {
         "hint": "hintSeven",
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -754,6 +762,7 @@ export const ROW: Row = {
       "archetype": "the face under, by a link",
       "emotion": "recognition",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -847,6 +856,7 @@ export const ROW: Row = {
       "emotion": "insight",
       "event": "choice of the first die",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -925,6 +935,7 @@ export const ROW: Row = {
       "archetype": "which first",
       "emotion": "trick",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -1003,6 +1014,7 @@ export const ROW: Row = {
       "archetype": "which first",
       "emotion": "recognition",
       "help": {
+        "plaques": "near",
         "wait": "free",
         "camera": "hold"
       }
@@ -1075,7 +1087,8 @@ export const ROW: Row = {
       "emotion": "surprise",
       "event": "first walk over leaving dice",
       "help": {
-        "hint": "roadHintWalk"
+        "hint": "roadHintWalk",
+        "plaques": "near"
       }
     },
     {
@@ -1179,7 +1192,9 @@ export const ROW: Row = {
       "role": "apply",
       "archetype": "bridge to a link",
       "emotion": "recognition",
-      "help": {}
+      "help": {
+        "plaques": "near"
+      }
     },
     {
       "number": 15,
@@ -1258,7 +1273,9 @@ export const ROW: Row = {
       "archetype": "bridge",
       "emotion": "surprise",
       "event": "two faces on one board",
-      "help": {}
+      "help": {
+        "plaques": "near"
+      }
     },
     {
       "number": 16,

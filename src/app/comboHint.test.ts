@@ -13,9 +13,11 @@ const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config
 const along = (spec: LevelSpec, moves: readonly string[]): RunState => moves.reduce((state, move) => playMove(state, moveOf(move)), start(spec));
 
 describe('the plaques of a level as a hint', () => {
-  it('stands over the heap whose combo is two moves away with the board still to be cleared', () => {
-    // hidden-face-3 (was P04): four 5s in a row, the fifth two rolls off, and the way of the level begins with those two rolls.
-    const hint = comboHints(start(levelOf('hidden-face-3')));
+  it('stand over a heap only when one roll of the die under the player makes its combo', () => {
+    // hidden-face-3 (was P04): four 5s in a column, the fifth two rolls off; the way begins with those two rolls.
+    const spec = levelOf('hidden-face-3');
+    expect(comboHints(start(spec)).groups).toEqual([]);
+    const hint = comboHints(along(spec, ['3,0,W']));
     expect(hint.settled).toBe(true);
     expect(hint.groups.map(({ value, have, need }) => ({ value, have, need }))).toEqual([{ value: 5, have: 4, need: 5 }]);
   });
@@ -27,17 +29,21 @@ describe('the plaques of a level as a hint', () => {
     expect(comboHints(dead).groups).toEqual([]);
   });
 
-  it('names only heaps a combo is made of within two moves, on a board that can then be cleared', () => {
-    for (const { spec } of CAMPAIGN.filter((place) => place.chapter > 0)) {
-      const state = start(spec);
-      for (const group of comboHints(state).groups) {
-        const made = (after: RunState): boolean => group.cells.every(({ x, z }) => after.cubes.some((cube) => cube.x === x && cube.z === z && cube.state === 'sinking' && cube.ori.top === group.value));
-        const good = (after: RunState): boolean => made(after) && (after.endReason === 'passed' || (!after.over && solveFrom(after).solution !== null));
-        const reached = movesAt(state).some((first) => {
-          const one = playMove(state, first);
-          return good(one) || (!one.over && movesAt(one).some((second) => good(playMove(one, second))));
-        });
-        expect(reached, `${spec.id}: the heap of ${group.value}s`).toBe(true);
+  it('stand along the way of every place of the row only over a heap the next roll completes on a shortest way, and never under the player', () => {
+    for (const { spec } of CAMPAIGN) {
+      let state = start(spec);
+      for (const text of spec.solution!) {
+        const { player } = state;
+        const plaques = comboHints(state).groups;
+        const now = solveFrom(state).solution!.par;
+        for (const group of plaques) {
+          expect(group.cells.some(({ x, z }) => x === player.x && z === player.z), `${spec.id}: a plaque under the player`).toBe(false);
+          const made = (after: RunState): boolean => group.cells.every(({ x, z }) => after.cubes.some((cube) => cube.x === x && cube.z === z && cube.state === 'sinking' && cube.ori.top === group.value));
+          const keeps = (after: RunState): boolean => after.endReason === 'passed' || (!after.over && solveFrom(after).solution?.par === now - 1);
+          const roll = movesAt(state).some((move) => !move.push && move.x === player.x && move.z === player.z && made(playMove(state, move)) && keeps(playMove(state, move)));
+          expect(roll, `${spec.id}: the heap of ${group.value}s`).toBe(true);
+        }
+        state = playMove(state, moveOf(text));
       }
     }
   });
@@ -53,12 +59,12 @@ describe('the plaques of a level as a hint', () => {
 describe('a plaque kept while the next board is counted', () => {
   it('stays over a heap that has not changed, and goes from one that has', () => {
     const spec = levelOf('hidden-face-3');
-    const state = start(spec);
+    const state = along(spec, ['3,0,W']);
     const [heap] = comboHints(state).groups;
     expect(stillShort(state, heap)).toBe(true);
-    // The first move of the way rolls another die: the heap stands as it stood.
-    expect(stillShort(playMove(state, moveOf('3,0,W')), heap)).toBe(true);
-    // The whole way of the level sends the heap off.
-    expect(stillShort(along(spec, spec.solution!.slice(0, 3)), heap)).toBe(false);
+    // A step to another die rolls nothing: the heap stands as it stood.
+    expect(stillShort(start(spec), heap)).toBe(true);
+    // The way of the level sends the heap off.
+    expect(stillShort(along(spec, spec.solution!.slice(0, 2)), heap)).toBe(false);
   });
 });

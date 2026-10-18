@@ -2270,8 +2270,8 @@ export class Game {
   }
 
   /**
-   * The heaps of a level a plaque stands over: those a combo can be made of within two moves,
-   * with the board still one that can be cleared. They are counted aside once the board stands,
+   * The heaps of a level a plaque stands over: those one roll of the player's die makes the combo
+   * of, on a shortest way from the board as it stands (`comboHints`). They are counted aside once the board stands,
    * and until the count of a board has come the plaques of the board before stay over the heaps
    * that have not changed.
    */
@@ -2306,9 +2306,9 @@ export class Game {
     }
 
     const levelRun = state.levelRun ?? null;
-    // A place says its plaques: over every die and heap of a working face from the start, over a heap whose combo is near,
-    // or none (the owner, 15 October 2026: the first ten places, until the plaques are talked over again). A board of the
-    // lab has the near ones. They blink on a place that waits with the player, when the player has waited.
+    // A place says its plaques: over every die and heap of a goal face from the start, over the heap one roll of the
+    // player's die completes on a shortest way (`near`; the owner, 17 October 2026: places 1 to 15), or none. A board of
+    // the lab has the near ones. They blink on a place that waits with the player, when the player has waited.
     const help = levelRun !== null && this.labSpec === null && this.place !== null ? CAMPAIGN[this.place].help : null;
     const plaques = levelRun === null ? null : help === null ? 'near' : plaquesOf(help);
     const short = !levelRun || state.over || this.passage || plaques === null ? [] : plaques === 'all' ? roadCounters(state, this.aim?.faces.map((goal) => goal.face) ?? []) : this.hintedGroups(state);
