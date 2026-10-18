@@ -1,8 +1,9 @@
 import { measure, personaPlay } from '../rules/levelBot';
 import { scoreOf } from '../rules/levelScore';
-import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
-import { partsOf } from '../rules/levelProof';
-import type { Ban } from '../rules/reach';
+import { defaultConfig } from '../rules/config';
+import { moveOf, solveLevel, tellMove, tryWay, type SolverMove } from '../rules/levelSolver';
+import { scan, type Ban } from '../rules/reach';
+import { createRun } from '../rules/sim';
 import type { LevelSpec } from '../rules/types';
 import type { Place, Technique } from './row';
 import { BARRED, WARNING, held, type Barred, type SlowFacts, type Violation } from './grammar';
@@ -135,18 +136,36 @@ const CLEARED_SLACK = 3;
 const CLEARED_MAX_STATES = 400_000;
 
 /**
+ * Whether the kept way clears the board with the parts banned: every move is one the player can come to
+ * without them (`scan`, as the solver looks for moves), and no link or 1s are made where those are banned.
+ * Played again move by move, not read off the score: the score marks a walk or a climb only on the roll
+ * the player makes from that die, and a walk to a push or a walk over two leaving dice is missed by it.
+ */
+function wayHolds(spec: LevelSpec, way: readonly SolverMove[], ban: readonly Ban[]): boolean {
+  let state = createRun({ seed: spec.seed, config: defaultConfig(), level: { ...spec, moves: 0 } });
+  for (const move of way) {
+    const can = scan(state, ban).moves.some((one) => one.x === move.x && one.z === move.z && one.dir === move.dir && one.push === move.push);
+    if (!can) return false;
+    const told = tellMove(state, move);
+    if ((ban.includes('link') && told.outcome.link) || (ban.includes('ones') && told.outcome.ones)) return false;
+    state = told.state;
+  }
+  return state.endReason === 'passed';
+}
+
+/**
  * Rule 12: for each move the solver can be barred from, the fewest moves the board is cleared in without it,
  * up to three over its own, null where there is none; a move the search could not settle is left out. A board
- * whose kept way does not lean on the move keeps its own count, with no search.
+ * whose kept way holds with the move banned (`wayHolds`) keeps the count of that way, with no search.
  */
 export function clearedWithout(spec: LevelSpec): Partial<Record<Barred, number | null>> {
   const par = spec.par ?? 0;
-  const leans = new Set(partsOf(scoreOf(spec, (spec.solution ?? []).map(moveOf))));
+  const way = (spec.solution ?? []).map(moveOf);
   const out: Partial<Record<Barred, number | null>> = {};
   for (const one of BARRED) {
     const ban = BEFORE_LESSON_BAN[one];
-    if (!ban.some((part) => leans.has(part))) {
-      out[one] = par;
+    if (way.length > 0 && wayHolds(spec, way, ban)) {
+      out[one] = way.length;
       continue;
     }
     const { solution, exhausted } = solveLevel(spec, { ban: [...ban], maxMoves: par + CLEARED_SLACK, maxStates: CLEARED_MAX_STATES });

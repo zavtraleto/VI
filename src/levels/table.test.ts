@@ -3,7 +3,7 @@ import type { LevelSpec } from '../rules/types';
 import { MEASURE_HEAD } from './select';
 import { fileBoard } from './boardFiles';
 import { FIXTURE } from './rowFixture';
-import { PLACE_HEAD, ROAD_HEAD, grammarText, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, tableOf } from './table';
+import { PLACE_HEAD, ROAD_HEAD, clearedWithout, grammarText, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, tableOf } from './table';
 
 /**
  * A level as the list keeps one, written for this test: two pairs where 2s work. The die of the
@@ -115,6 +115,12 @@ describe('slowFactsOf', () => {
     // act-k17 is not cleared without its link at all; a board that leans on no barred move keeps its own count.
     expect(slowFactsOf(fileBoard('act-k17'), undefined, 50, 1).cleared?.link).toBeNull();
     expect(slowFactsOf(fileBoard('R03'), undefined, 50, 1).cleared).toEqual({ walk: 2, link: 2, glass: 2, lift: 2, push: 2 });
+  });
+
+  it('plays the kept way again under each ban, not by its score: carry-1 crosses a leaving die to its push, and is not cleared without the walk', () => {
+    // The score marks a walk only on a roll from a leaving die; carry-1 walks over one on its way to a push.
+    expect(clearedWithout(fileBoard('carry-1')).walk).toBeNull();
+    expect(clearedWithout(fileBoard('carry-1')).glass).toBe(3);
   });
 
   it('reads the lift of rule 12 as the climb: floor-first-1 steps down and pushes, and is cleared in its count without a way up', () => {
