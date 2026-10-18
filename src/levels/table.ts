@@ -1,10 +1,11 @@
 import { measure, personaPlay } from '../rules/levelBot';
 import { scoreOf } from '../rules/levelScore';
 import { moveOf, solveLevel, tryWay } from '../rules/levelSolver';
+import { partsOf } from '../rules/levelProof';
 import type { Ban } from '../rules/reach';
 import type { LevelSpec } from '../rules/types';
 import type { Place, Technique } from './row';
-import { WARNING, held, type SlowFacts, type Violation } from './grammar';
+import { BARRED, WARNING, held, type Barred, type SlowFacts, type Violation } from './grammar';
 import { firstsOf, lostOf, nearOf, tailOf, trapOf, turnsOf } from './measures';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { walkBoards } from './walk';
@@ -124,16 +125,49 @@ export function placeTable(rows: readonly string[][]): string {
 const BAN_OF: Partial<Record<Technique, readonly Ban[]>> = { link: ['link'], walk: ['bridge', 'up'], glass: ['glass'], lift: ['floor'], push: ['push'], ones: ['ones'] };
 
 /**
+ * Rule 12: the bans that take away a move before its lesson. As `BAN_OF`, but the lift is the climb onto
+ * a leaving die alone: a push goes down to the floor, and a board of the push before the lesson of the climb
+ * is not one that climbs.
+ */
+const BEFORE_LESSON_BAN: Readonly<Record<Barred, readonly Ban[]>> = { link: ['link'], walk: ['bridge', 'up'], glass: ['glass'], lift: ['up'], push: ['push'] };
+/** Rule 12: the moves over its own a board is looked for in without a move, and the boards the search may see. */
+const CLEARED_SLACK = 3;
+const CLEARED_MAX_STATES = 400_000;
+
+/**
+ * Rule 12: for each move the solver can be barred from, the fewest moves the board is cleared in without it,
+ * up to three over its own, null where there is none; a move the search could not settle is left out. A board
+ * whose kept way does not lean on the move keeps its own count, with no search.
+ */
+export function clearedWithout(spec: LevelSpec): Partial<Record<Barred, number | null>> {
+  const par = spec.par ?? 0;
+  const leans = new Set(partsOf(scoreOf(spec, (spec.solution ?? []).map(moveOf))));
+  const out: Partial<Record<Barred, number | null>> = {};
+  for (const one of BARRED) {
+    const ban = BEFORE_LESSON_BAN[one];
+    if (!ban.some((part) => leans.has(part))) {
+      out[one] = par;
+      continue;
+    }
+    const { solution, exhausted } = solveLevel(spec, { ban: [...ban], maxMoves: par + CLEARED_SLACK, maxStates: CLEARED_MAX_STATES });
+    if (solution) out[one] = solution.par;
+    else if (exhausted) out[one] = null;
+  }
+  return out;
+}
+
+/**
  * What the slow rules of the grammar ask of a board (`slowGrammar`): whether the walk over the
  * boards the player can come to finds one lost, the shares of the planner's and the casual persona's runs that clear it, whether
  * it is a trap of order (two combos or links on its way and `trapOf`), and,
- * for a board that teaches, the fewest moves it is cleared in without that move (up to two over its own).
+ * for a board that teaches, the fewest moves it is cleared in without that move (up to two over its own);
+ * and, for rule 12, the fewest without each move the solver can be barred from (`clearedWithout`).
  */
 export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): SlowFacts {
-  let cleared = 0;
+  let planned = 0;
   let casual = 0;
   for (let run = 1; run <= runs; run++) {
-    if (personaPlay(spec, 'planner', run).endReason === 'passed') cleared++;
+    if (personaPlay(spec, 'planner', run).endReason === 'passed') planned++;
     if (personaPlay(spec, 'casual', run).endReason === 'passed') casual++;
   }
   const ban = teaches ? BAN_OF[teaches] : undefined;
@@ -141,7 +175,7 @@ export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, wal
   // A link is the second event of a trap of order as a combo is (third campaign, section 14): R05 is a combo and a link.
   const events = scoreOf(spec, (spec.solution ?? []).map(moveOf)).beats.filter((beat) => beat.event === 'combo' || beat.event === 'link').length;
   const order = events >= 2 && trapOf(spec) !== null;
-  return { lost: walkBoards(spec, walkLimit).lost > 0, planner: cleared / runs, casual: casual / runs, order, ...(without === undefined ? {} : { without }) };
+  return { lost: walkBoards(spec, walkLimit).lost > 0, planner: planned / runs, casual: casual / runs, order, cleared: clearedWithout(spec), ...(without === undefined ? {} : { without }) };
 }
 
 /**

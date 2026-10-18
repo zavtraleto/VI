@@ -180,10 +180,12 @@ export function turnsOf(spec: LevelSpec, way: readonly SolverMove[]): number {
 }
 
 /**
- * The way goes round with one die: three rolls of it in a row, aside, across and back (the second
- * across the first, the third the opposite of the first), each made from where the one before it
- * came to. The face that was on top comes back to the side it started on, where a straight roll
- * would have turned it away. A push breaks the loop, and so does a move of another die between.
+ * The way goes round with one die: rolls of it in a row, aside, across once or more the same way, and
+ * back (the across rolls across the first, the last the opposite of the first), each made from where
+ * the one before it came to. The face that was on top goes to the side of the first roll, stays there
+ * however far the die goes across, and comes back on top, where a straight roll would have turned it
+ * away. A push breaks the loop, and so does a move of another die between. Widened 18 October 2026 for
+ * the owner's `H07` (aside, across twice, back).
  */
 export function loopOf(spec: LevelSpec, way: readonly SolverMove[]): boolean {
   let state = startOf(spec);
@@ -193,14 +195,35 @@ export function loopOf(spec: LevelSpec, way: readonly SolverMove[]): boolean {
     rolled.push(move.push ? -1 : (cubeAt(state, move.x, move.z)?.id ?? -1));
     state = tellMove(state, move).state;
   }
+  const from = (move: SolverMove, next: SolverMove): boolean => next.x === move.x + DELTA[move.dir].dx && next.z === move.z + DELTA[move.dir].dz;
   for (let i = 0; i + 2 < way.length; i++) {
-    const [a, b, c] = [way[i], way[i + 1], way[i + 2]];
-    if (rolled[i] < 0 || rolled[i] !== rolled[i + 1] || rolled[i] !== rolled[i + 2]) continue;
-    const from = (move: SolverMove, next: SolverMove): boolean => next.x === move.x + DELTA[move.dir].dx && next.z === move.z + DELTA[move.dir].dz;
-    if (!from(a, b) || !from(b, c)) continue;
-    if (across(b.dir, a.dir) && c.dir === OPPOSITE[a.dir]) return true;
+    const a = way[i];
+    if (rolled[i] < 0 || !across(way[i + 1].dir, a.dir)) continue;
+    // Across as far as the die goes the same way, each roll from where the one before came to.
+    let j = i + 1;
+    while (j < way.length && rolled[j] === rolled[i] && from(way[j - 1], way[j]) && way[j].dir === way[i + 1].dir) j++;
+    const back = way[j];
+    if (j > i + 1 && back && rolled[j] === rolled[i] && from(way[j - 1], back) && back.dir === OPPOSITE[a.dir]) return true;
   }
   return false;
+}
+
+/**
+ * The faces a player sees at the start (third campaign, section 15, the owner's word: the faces one sees
+ * can lead and hint): of every die the top and the south and east sides, which the camera looks at from
+ * the south-east (0.2.67). A face on a die the die before it hides from the camera is counted as seen:
+ * the measure knows no cover — a bound, not a fault.
+ */
+export function visibleFaces(spec: LevelSpec): Set<number> {
+  const seen = new Set<number>();
+  for (const die of spec.layout?.dice ?? []) {
+    const lie = ALL_ORIENTATIONS.find((one) => one.top === die.top && one.north === die.north);
+    if (!lie) continue;
+    seen.add(lie.top);
+    seen.add(lie.south);
+    seen.add(lie.east);
+  }
+  return seen;
 }
 
 /** Boards a search may see to say that a board with a combo made cannot be cleared. */

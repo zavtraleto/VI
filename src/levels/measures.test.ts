@@ -5,7 +5,7 @@ import { createRun } from '../rules/sim';
 import { ori } from '../rules/testkit';
 import type { LevelSpec, Orientation, PuzzleDie } from '../rules/types';
 import { boardOf } from './boardSets';
-import { decoyOf, farOf, firstsOf, islandsOf, loopOf, lostOf, nearOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf } from './measures';
+import { decoyOf, farOf, firstsOf, islandsOf, loopOf, lostOf, nearOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf, visibleFaces } from './measures';
 import { fileBoard } from './boardFiles';
 
 /** A die of a board, lying as the faces given say. */
@@ -305,7 +305,7 @@ describe('the loop', () => {
 
   it('reads a loop off a way: aside, across and back by one die', () => {
     expect(loopOf(boardOf('B01_s290'), wayOf('B01_s290'))).toBe(true); // N E S
-    expect(loopOf(boardOf('H07'), wayOf('H07'))).toBe(true); // N W S …
+    expect(loopOf(boardOf('H07'), wayOf('H07'))).toBe(true); // N E E S: aside, across twice, back (widened 18 October 2026)
     expect(loopOf(boardOf('R05'), wayOf('R05'))).toBe(false); // N W W
     expect(loopOf(boardOf('R04'), wayOf('R04'))).toBe(false); // N W
   });
@@ -315,5 +315,25 @@ describe('the loop', () => {
     const board = open(4, [2], [die(1, 2, { top: 4, north: 1 }), die(2, 2, { top: 4, north: 1 })]);
     expect(loopOf(board, way('1,2,N', '2,2,N', '1,1,W', '0,1,S'))).toBe(false);
     expect(loopOf(board, way('1,2,N', '1,1,W', '0,1,S'))).toBe(true);
+  });
+});
+
+describe('the faces seen at the start', () => {
+  it('names the faces the camera sees at the start: top, south and east of every die', () => {
+    const board = open(3, [2], [die(1, 1, { top: 2, north: 1 })]);
+    const seen = visibleFaces(board);
+    expect(seen.has(2)).toBe(true);
+    expect(seen.has(6)).toBe(true); // south, the face opposite the north
+    expect(seen.has(1)).toBe(false); // north
+    expect(seen.has(5)).toBe(false); // under
+    expect(seen.size).toBe(3);
+  });
+
+  it('reads them off a board of the row: side-up-1 shows no 4', () => {
+    // side-up-1: 32, 31 and 21 — the 3 on top, the 5 to the south of the first, and no 4 on top, south or east.
+    const seen = visibleFaces(boardOf('side-up-1'));
+    expect(seen.has(3)).toBe(true);
+    expect(seen.has(5)).toBe(true);
+    expect(seen.has(4)).toBe(false);
   });
 });

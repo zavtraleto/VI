@@ -3,7 +3,7 @@ import { moveOf } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import type { Stop } from './campaign';
 import { goalFaces } from './goalFaces';
-import { loopOf, startsUnder, turnsOf } from './measures';
+import { loopOf, startsUnder, turnsOf, visibleFaces } from './measures';
 import type { HintKey, Technique } from './row';
 import { sameBoard } from './variety';
 
@@ -21,20 +21,23 @@ import { sameBoard } from './variety';
 
 /** A rule broken: its number, the place in the row (from 1) it is broken at, and what is wrong, in words. */
 export interface Violation {
-  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11;
+  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11 | 12 | 13;
   at: number;
   text: string;
+  /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps. */
+  warning?: true;
 }
 
 /**
- * The rules that hold the row before it is published, at step 3 of the third campaign
- * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, sections 7, 13 and 14): 4, 8 and 10 are printed as
- * warnings until the whole first hour is laid (step 4). There is no rule 9: the floor and the push before
- * their lesson are the player's (the owner, 17 October 2026). Rule 11, the step of seven, holds from step 3.
+ * The rules that hold the row before it is published, at step 4 of the third campaign
+ * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, sections 7, 13, 14 and 15): 4, 8, 10, 11 and 13
+ * are printed as warnings. There is no rule 9: the floor and the push before their lesson are the
+ * player's (the owner, 17 October 2026). Rule 11, the step of seven, is a warning from step 4: «7 это
+ * скорее примерное измерение» (the owner, 18 October 2026). Rule 12 holds, but for its fast part.
  */
-export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 11]);
+export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 12]);
 /** Whether a rule broken holds the row back, or is a warning for now. */
-export const held = (one: Violation): boolean => HELD.has(one.rule);
+export const held = (one: Violation): boolean => HELD.has(one.rule) && !one.warning;
 /** What the line of a rule that does not hold the row back yet ends with, under the table and in the workshop. */
 export const WARNING = ' (предупреждение)';
 
@@ -51,6 +54,12 @@ export interface SlowFacts {
    * without that move, looked for up to two over its own; null where it is not cleared so.
    */
   without?: number | null;
+  /**
+   * Rule 12: for each move the solver can be barred from, the fewest moves the board is cleared in
+   * without it, looked for up to three over its own; null where it is not cleared so. A move left out
+   * asks nothing of the board.
+   */
+  cleared?: Partial<Record<Barred, number | null>>;
   /**
    * The board is a trap of order (third campaign, section 13): its way makes two combos or links at least (a link counts, section 14), and a
    * combo can be made first or second after which it cannot be cleared (`trapOf`). Rule 1 for a board
@@ -106,6 +115,56 @@ export function needsOf(spec: LevelSpec): ReadonlySet<Technique> {
 
 const placeOf = (stop: Stop): string => `место ${stop.number} (${stop.spec.id})`;
 
+/** Rule 12: the moves the solver can be barred from, and so the moves a board can be shown to need. */
+export const BARRED = ['walk', 'link', 'glass', 'lift', 'push'] as const;
+export type Barred = (typeof BARRED)[number];
+/** Rule 12: what the line says of the lesson of a move: «звену учат на месте 16». */
+const LESSON_WORD: Readonly<Record<Barred, string>> = { link: 'звену', walk: 'проходу', glass: 'накату', lift: 'подъёму', push: 'толчку' };
+
+/** The number of the first place that teaches a move, or Infinity where none does. */
+export function lessonOf(row: readonly Stop[], technique: Technique): number {
+  return row.find((stop) => stop.teaches === technique)?.number ?? Infinity;
+}
+
+const lessonText = (row: readonly Stop[], technique: Barred): string => {
+  const at = lessonOf(row, technique);
+  return at === Infinity ? `а ${LESSON_WORD[technique]} в ряду не учат` : `а ${LESSON_WORD[technique]} учат на месте ${at}`;
+};
+
+/**
+ * The moves of rule 12 the way a board keeps asks for: as `needsOf`, but the lift is the climb onto a
+ * leaving die alone (`^`), as for the window of the climb (rule 7): a way down and a push are the push's.
+ */
+function barredNeeds(spec: LevelSpec): Barred[] {
+  const needs = needsOf(spec);
+  return BARRED.filter((one) => (one === 'lift' ? climbsUp(spec) : needs.has(one)));
+}
+
+/**
+ * Rule 12 (third campaign, section 15), its fast part, a warning: a board before the lesson of a move
+ * whose kept way uses it. That it cannot be cleared in its count without the move is the slow part's.
+ */
+function nothingBeforeLesson(row: readonly Stop[]): Violation[] {
+  return row.flatMap((stop) =>
+    barredNeeds(stop.spec)
+      .filter((one) => stop.number < lessonOf(row, one))
+      .map((one): Violation => ({ rule: 12, at: stop.number, text: `${placeOf(stop)} по записанному пути требует ${one}, ${lessonText(row, one)}`, warning: true })),
+  );
+}
+
+/**
+ * Rule 13 (third campaign, section 15), a warning: every goal face of a board is to be seen at the start
+ * on one die at least, on its top or its south or east side (`visibleFaces`): the faces the player sees lead.
+ */
+function goalFacesSeen(row: readonly Stop[]): Violation[] {
+  return row.flatMap((stop) => {
+    const seen = visibleFaces(stop.spec);
+    return goalFaces(stop.spec)
+      .filter((face) => !seen.has(face))
+      .map((face): Violation => ({ rule: 13, at: stop.number, text: `${placeOf(stop)}: грань ${face} не видна в начале` }));
+  });
+}
+
 /** Rule 1, its first part: the move taught at a place is asked for by `using` of the boards after it, and that is two at least. */
 function usedAfter(stop: Stop, after: readonly Stop[], using: number): Violation | null {
   if (using >= Math.min(2, after.length)) return null;
@@ -117,14 +176,15 @@ function usedAfter(stop: Stop, after: readonly Stop[], using: number): Violation
  * Rule 1: a move taught at N is asked for by at least two of N+1…N+3, and the next board that teaches
  * is not before N+2, but where the board at N already asked for the move that board brings in. The
  * seven is not held to the first part: reading a face is needed everywhere unsaid (third campaign, rule 7);
- * nor is the order here, since a trap of order is found by a search: the slow part counts it (`slowGrammar`).
+ * nor is the order here, since a trap of order is found by a search: the slow part counts it (`slowGrammar`);
+ * nor two faces, which is no lesson from step 4 (third campaign, section 15).
  */
 function taughtAndUsed(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   row.forEach((stop, index) => {
     if (!stop.teaches) return;
     const after = row.slice(index + 1, index + 4);
-    if (after.length > 0 && stop.teaches !== 'seven' && stop.teaches !== 'order') {
+    if (after.length > 0 && stop.teaches !== 'seven' && stop.teaches !== 'order' && stop.teaches !== 'twoFaces') {
       const using = after.filter((next) => needsOf(next.spec).has(stop.teaches!)).length;
       const broken = usedAfter(stop, after, using);
       if (broken) out.push(broken);
@@ -286,9 +346,20 @@ function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, the moves taught before of 10, and 11. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, the moves taught before of 10, 11, the kept way of 12, and 13. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
-  return [...taughtAndUsed(row), ...oneThought(row), ...facesByWay(row), ...easyAfterMeeting(row), ...windowTeaches(row), ...emotionRhythm(row), ...joinsTwo(row), ...lessonsSevenApart(row)].sort((a, b) => a.at - b.at || a.rule - b.rule);
+  return [
+    ...taughtAndUsed(row),
+    ...oneThought(row),
+    ...facesByWay(row),
+    ...easyAfterMeeting(row),
+    ...windowTeaches(row),
+    ...emotionRhythm(row),
+    ...joinsTwo(row),
+    ...lessonsSevenApart(row),
+    ...nothingBeforeLesson(row),
+    ...goalFacesSeen(row),
+  ].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
@@ -301,7 +372,8 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
  * share of the planner, the latest of those alike) stands fourth in it or later. The prologue is
  * held to the first and not to the second: its order is the owner's. And rule 8: the casual persona
  * does as well after a peak as on it. And rule 10: a peak and a twist join two moves at least, the order
- * among them where the search found a trap, and the order was taught before.
+ * among them where the search found a trap, and the order was taught before. And rule 12: a board before
+ * the lesson of a move the solver can be barred from is cleared without it in its own count.
  */
 export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFacts): Violation[] {
   const out: Violation[] = [];
@@ -345,6 +417,15 @@ export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFac
     if (needs.length < 2) {
       const what = needs.length === 0 ? 'не требует приёмов' : `требует один приём (${needs[0]})`;
       out.push({ rule: 10, at: stop.number, text: `${placeOf(stop)}: ${ROLE_WORD[stop.role]} ${what}, а соединяет не меньше двух` });
+    }
+  }
+  for (const stop of row) {
+    const cleared = known.get(stop)!.cleared ?? {};
+    const par = stop.spec.par ?? 0;
+    for (const one of BARRED) {
+      const without = cleared[one];
+      if (without === undefined || stop.number >= lessonOf(row, one)) continue;
+      if (without === null || without > par) out.push({ rule: 12, at: stop.number, text: `${placeOf(stop)} без ${one} не проходится в ${par} хода, ${lessonText(row, one)}` });
     }
   }
   for (const chapter of new Set(row.map((stop) => stop.chapter))) {

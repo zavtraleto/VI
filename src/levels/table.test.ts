@@ -108,6 +108,18 @@ describe('slowFactsOf', () => {
   it('counts a link as the second event of a trap of order: R05 is a combo and a link (third campaign, section 14)', () => {
     expect(slowFactsOf(fileBoard('R05'), 'order', 50, 1).order).toBe(true);
   });
+
+  it('counts the moves of each board without each move the solver can be barred from, for rule 12', () => {
+    // R05 keeps a combo and a link (K L): without the link it is cleared in five, not three.
+    expect(slowFactsOf(fileBoard('R05'), 'order', 50, 1).cleared).toEqual({ walk: 3, link: 5, glass: 3, lift: 3, push: 3 });
+    // act-k17 is not cleared without its link at all; a board that leans on no barred move keeps its own count.
+    expect(slowFactsOf(fileBoard('act-k17'), undefined, 50, 1).cleared?.link).toBeNull();
+    expect(slowFactsOf(fileBoard('R03'), undefined, 50, 1).cleared).toEqual({ walk: 2, link: 2, glass: 2, lift: 2, push: 2 });
+  });
+
+  it('reads the lift of rule 12 as the climb: floor-first-1 steps down and pushes, and is cleared in its count without a way up', () => {
+    expect(slowFactsOf(fileBoard('floor-first-1'), 'push', 50, 1).cleared?.lift).toBe(2);
+  });
 });
 
 describe('grammarText', () => {

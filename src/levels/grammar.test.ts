@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
-import { HELD, fastGrammar, held, needsOf, slowGrammar } from './grammar';
+import { HELD, fastGrammar, held, lessonOf, needsOf, slowGrammar } from './grammar';
 import { boardOf as anyBoard } from './boardSets';
 
 /**
@@ -57,7 +57,57 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(CAMPAIGN).filter(held)).toEqual([]);
   });
 
-  it('prints what it does not hold yet as warnings: rules 4, 8 and 10', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 11]));
+  it('prints what it does not hold yet as warnings: rules 4, 8, 10, 11 and 13', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 12]));
+
+  it('finds the place a move is taught at, or none', () => {
+    const row = rowOf([['act-k17', { role: 'apply' }], ['R07', { role: 'meet', teaches: 'link' }]]);
+    expect(lessonOf(row, 'link')).toBe(2);
+    expect(lessonOf(row, 'push')).toBe(Infinity);
+  });
+
+  it('does not let a board stand before the lesson of a move it cannot do without: rule 12', () => {
+    const row = rowOf([['act-k17', { role: 'apply' }], ['R07', { role: 'meet', teaches: 'link' }]]);
+    const facts = (stop: Stop) => ({ lost: true, planner: 1, casual: 1, order: false, cleared: stop.spec.id === 'act-k17' ? { link: null } : {} });
+    const breach = ['место 1 (act-k17) без link не проходится в 3 хода, а звену учат на месте 2'];
+    expect(slowGrammar(row, facts).filter((one) => one.rule === 12).map((one) => one.text)).toEqual(breach);
+    // A move longer without the move is a breach too: a board before the lesson is cleared in its own count without it.
+    expect(slowGrammar(row, (stop) => ({ ...facts(stop), cleared: { link: 4 } })).filter((one) => one.rule === 12).map((one) => one.text)).toEqual(breach);
+    expect(slowGrammar(row, (stop) => ({ ...facts(stop), cleared: { link: 3 } })).filter((one) => one.rule === 12)).toEqual([]);
+    // Past the lesson the board may need the move.
+    const after = rowOf([['R07', { role: 'meet', teaches: 'link' }], ['act-k17', { role: 'apply' }]]);
+    expect(slowGrammar(after, facts).filter((one) => one.rule === 12)).toEqual([]);
+  });
+
+  it('warns where the way a board keeps uses a move before its lesson: rule 12, the fast part', () => {
+    const row = rowOf([['act-k17', { role: 'apply' }], ['R07', { role: 'meet', teaches: 'link' }]]);
+    const warned = fastGrammar(row).filter((one) => one.rule === 12);
+    expect(warned.map((one) => one.text)).toEqual(['место 1 (act-k17) по записанному пути требует link, а звену учат на месте 2']);
+    expect(warned.some(held)).toBe(false);
+    // R05 keeps a way with a link, but its facts say it is cleared as short without one: the slow part is clean.
+    const r05 = rowOf([['R05', { role: 'meet', teaches: undefined }], ['R07', { role: 'meet', teaches: 'link' }]]);
+    expect(fastGrammar(r05).filter((one) => one.rule === 12).map((one) => one.text)).toEqual(['место 1 (R05) по записанному пути требует link, а звену учат на месте 2']);
+    expect(slowGrammar(r05, () => ({ lost: true, planner: 1, casual: 1, order: false, cleared: { link: 3 } })).filter((one) => one.rule === 12)).toEqual([]);
+  });
+
+  it('reads the climb alone as the lift of rule 12: a way down and a push are not it', () => {
+    // floor-first-1 steps down and pushes (K v P) before the climb is taught.
+    const row = rowOf([['floor-first-1', { role: 'meet', teaches: 'push' }], ['lift-first-1', { role: 'meet', teaches: 'lift' }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 12)).toEqual([]);
+  });
+
+  it('warns where a goal face is not to be seen at the start: rule 13', () => {
+    const r03 = rowOf(['R03']);
+    expect(fastGrammar(r03).filter((one) => one.rule === 13)).toEqual([]);
+    // R03 shows a 2, 4 and 6 at the start; a goal of 5s is nowhere to be seen.
+    const hidden = [{ ...r03[0], spec: { ...r03[0].spec, faces: [5], values: [5], solution: undefined } }];
+    expect(fastGrammar(hidden).filter((one) => one.rule === 13).map((one) => one.text)).toEqual(['место 1 (R03): грань 5 не видна в начале']);
+    expect(fastGrammar(hidden).filter((one) => one.rule === 13).some(held)).toBe(false);
+  });
+
+  it('does not hold two faces to rule 1: it is no lesson', () => {
+    const row = rowOf([['R11', { role: 'meet', teaches: 'twoFaces' }], 'R03', 'R01', 'R03']);
+    expect(fastGrammar(row).filter((one) => one.rule === 1 && one.text.includes('twoFaces'))).toEqual([]);
+  });
 
   it('asks the lessons with a window to stand seven places apart, and the climb one place after the push: rule 11', () => {
     const row = rowOf([['R11', { help: { hint: 'roadHintWalk' } }], 'R03', 'R04', ['R07', { help: { hint: 'roadHintChain' } }], ['R13', { help: { hint: 'roadHintPush' }, teaches: 'push' }], ['R10', { help: { hint: 'roadHintClimb' }, teaches: 'lift' }]]);
