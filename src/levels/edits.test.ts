@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { moveOf, tryWay } from '../rules/levelSolver';
 import type { LevelSpec, PuzzleDie } from '../rules/types';
-import { editsOf, probeEdits } from './edits';
+import { boardSigns, normalSpec } from './boardFile';
+import { fileBoard } from './boardFiles';
+import { DOWN_AND_UP, LESSON } from './boardSamples';
+import { editsOf, probeEdits, turnedBoard } from './edits';
 import { parkedBoards, rowBoards } from './boardSets';
 
 /** A board of the ladder where 2s work: three cells a side, the player on the first die named. */
@@ -105,4 +109,30 @@ describe('the edits a rating takes', () => {
     }, { runs: 1 });
     expect(seen).toContain('die 2,0 moved west');
   }, 120_000);
+});
+
+describe('the board turned half round', () => {
+  it('comes back to itself turned twice', () => {
+    for (const spec of [LESSON, DOWN_AND_UP, fileBoard('which-first-2')]) expect(normalSpec(turnedBoard(turnedBoard(spec)))).toEqual(normalSpec(spec));
+  });
+
+  it('carries the start on the floor, the leaving die, the fixed dice and the cells cut out to their turned places', () => {
+    // R02 of the lesson: f at 2,5, 62~1 at 2,4, 31+ at 4,0 and 4,1, a cell cut out at 5,5; on a board of six they go to 3,0, 3,1, 1,5, 1,4 and 0,0.
+    const signs = boardSigns(turnedBoard(LESSON));
+    expect(signs[0][3]).toBe('f');
+    expect(signs[1][3]).toBe('65~1'); // the top stays, the face to the north is the one that was to the south
+    expect(signs[5][1]).toBe('36+');
+    expect(signs[4][1]).toBe('36+');
+    expect(signs[0][0]).toBe('-');
+    expect(turnedBoard(LESSON).layout?.onFloor).toBe(true);
+  });
+
+  it('keeps its way turned, a push with it, and clears in the same count', () => {
+    for (const spec of [LESSON, DOWN_AND_UP, fileBoard('which-first-2')]) {
+      const turned = turnedBoard(spec);
+      expect(tryWay(turned, turned.solution!.map(moveOf)).state.endReason, spec.id).toBe('passed');
+      expect(turned.par).toBe(spec.par);
+    }
+    expect(turnedBoard(DOWN_AND_UP).solution).toEqual(['3,3,W', '2,3,W', '3,1,N,p', '2,1,E']);
+  });
 });

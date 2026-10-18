@@ -7,6 +7,8 @@
 //   node scripts/level.mjs check file=H01               solved anew: the fewest moves, the score of the way, and
 //                                                       whether that is what the file keeps
 //   node scripts/level.mjs export file=P06 out=boards/P06.txt   a board written as a file
+//   node scripts/level.mjs turn file=R11                the file of boards/ turned half round in place: the board and
+//                                                       its way, the rest of the head as it was (then check it)
 //   node scripts/level.mjs regress                      every board there is solved anew, and what it keeps held
 //                                                       against it: the list, its reserve, the road, the files of boards/
 //                                                       (not the drafts the library laid from the history, nor those taken off)
@@ -63,6 +65,7 @@ const COMMANDS = {
   show: { keys: ['file'], flags: ['json'] },
   check: { keys: ['file', 'states'], flags: ['json'] },
   export: { keys: ['file', 'out'], flags: [] },
+  turn: { keys: ['file'], flags: [] },
   regress: { keys: ['states', 'workers', 'share'], flags: ['json'] },
   moves: { keys: ['file', 'after', 'states'], flags: ['json'] },
   near: { keys: ['file', 'states'], flags: ['json'] },
@@ -182,6 +185,19 @@ if (command === 'show') {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, printBoard(spec, head));
   console.log(out);
+} else if (command === 'turn') {
+  const { spec, head, from, path } = loadBoard();
+  if (from !== 'file') refuse('turn: a file of boards/ is turned, not a board of the game');
+  const { turnedBoard } = await load('/src/levels/edits.ts');
+  const turned = turnedBoard(spec);
+  // The head stays line by line, comments and all; the way and the rows are written anew.
+  const lines = readFileSync(path, 'utf8').split(/\r?\n/);
+  const end = lines.findIndex((line) => /^-{3,}$/.test(line.trim()));
+  const printed = printBoard(turned, head).split('\n');
+  const rows = printed.slice(printed.findIndex((line) => /^-{3,}$/.test(line.trim())) + 1);
+  const kept = lines.slice(0, end).map((line) => (/^way:/.test(line.trim()) && turned.solution ? `way: ${turned.solution.join(' ')}` : line));
+  writeFileSync(path, [...kept, '---', ...rows].join('\n'));
+  console.log(path);
 } else if (command === 'moves') {
   const { spec } = loadBoard();
   // after= is the moves made before the board is asked, with a space, a plus or a semicolon between them.

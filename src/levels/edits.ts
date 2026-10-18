@@ -60,6 +60,40 @@ export function editsOf(spec: LevelSpec): Edit[] {
   return edits;
 }
 
+const HALF_ROUND: Readonly<Record<string, string>> = { N: 'S', S: 'N', E: 'W', W: 'E' };
+
+/**
+ * The board turned half round, as the camera would see it from the other side (the owner's word of
+ * 18 October 2026: the faces a player sees at the start lead him): every cell to `size − 1 − x`,
+ * `size − 1 − z`; a die keeps its top and shows to the north the face it showed to the south; the start,
+ * on a die or on the floor, the dice that are leaving and those that are fixed, and the cells cut out go
+ * with their cells; the way it keeps is the same moves turned (N and S, E and W swapped), so its count stays.
+ */
+export function turnedBoard(spec: LevelSpec): LevelSpec {
+  const far = spec.size - 1;
+  const cell = <T extends { x: number; z: number }>(at: T): T => ({ ...at, x: far - at.x, z: far - at.z });
+  const turnMove = (move: string): string => {
+    const [x, z, dir, ...rest] = move.split(',');
+    return [far - Number(x), far - Number(z), HALF_ROUND[dir], ...rest].join(',');
+  };
+  const { layout } = spec;
+  return {
+    ...spec,
+    ...(spec.holes ? { holes: spec.holes.map(cell) } : {}),
+    ...(layout
+      ? {
+          layout: {
+            ...layout,
+            dice: layout.dice.map((die) => ({ ...cell(die), north: 7 - die.north })),
+            start: cell(layout.start),
+            ...(layout.leaving ? { leaving: layout.leaving.map((one) => ({ ...one })) } : {}),
+          },
+        }
+      : {}),
+    ...(spec.solution ? { solution: spec.solution.map(turnMove) } : {}),
+  };
+}
+
 /**
  * The edits a rating takes, the best first. `rate` is given the report of an edited board and
  * says how good it is, or null to turn it away. An edit whose board cannot be reported on, a
