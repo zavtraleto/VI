@@ -87,6 +87,7 @@ export const FR: Texts = {
   roadHintClimb: 'Les dés qui partent permettent de monter et descendre.',
   hintSeven: 'Les faces opposées font toujours 7 au total.',
   hintLinkMove: 'Un maillon offre un tour au combo.',
+  hintRollIn: 'On peut aussi rouler dans un dé qui part.',
   campaignEnd: 'À suivre. En attendant de nouveaux niveaux, tu peux essayer le {mode infini}.',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLevels: 'NETTOYAGE DU CHAMP',

@@ -84,6 +84,7 @@ export const TR: Texts = {
   roadHintClimb: 'Giden zarlar inip çıkmanı sağlar.',
   hintSeven: 'Karşılıklı yüzlerin toplamı her zaman 7 eder.',
   hintLinkMove: 'Bir halka komboya bir hamle verir.',
+  hintRollIn: 'Giden bir zarın içine de yuvarlanabilirsin.',
   campaignEnd: 'Devamı gelecek. Yeni bölümler gelene kadar {sonsuz modu} deneyebilirsin.',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLevels: 'ALAN TEMİZLİĞİ',

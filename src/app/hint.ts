@@ -39,6 +39,7 @@ const PROBE: Readonly<Record<string, Hint>> = {
   climb: { key: 'roadHintClimb' },
   seven: { key: 'hintSeven' },
   linkmove: { key: 'hintLinkMove' },
+  rollin: { key: 'hintRollIn' },
 };
 
 /**

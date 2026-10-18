@@ -86,6 +86,7 @@ export const HINT_TECHNIQUE: Readonly<Record<HintKey, Technique>> = {
   roadHintClimb: 'lift',
   hintSeven: 'seven',
   hintLinkMove: 'link',
+  hintRollIn: 'glass',
 };
 
 /**

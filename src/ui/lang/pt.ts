@@ -84,6 +84,7 @@ export const PT: Texts = {
   roadHintClimb: 'Os dados que saem deixam você subir e descer.',
   hintSeven: 'Faces opostas sempre somam 7.',
   hintLinkMove: 'Um elo dá ao combo mais um lance.',
+  hintRollIn: 'Também dá para rolar para dentro de um dado que sai.',
   campaignEnd: 'Continua. Enquanto novos níveis não chegam, você pode experimentar o {modo infinito}.',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLevels: 'LIMPEZA DO CAMPO',

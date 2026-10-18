@@ -84,6 +84,7 @@ export const DE: Texts = {
   roadHintClimb: 'Gehende Würfel lassen dich hinauf- und hinabsteigen.',
   hintSeven: 'Gegenüberliegende Seiten ergeben zusammen immer 7.',
   hintLinkMove: 'Ein Glied schenkt dem Combo einen Zug.',
+  hintRollIn: 'In einen gehenden Würfel kann man auch hineinrollen.',
   campaignEnd: 'Fortsetzung folgt. Bis neue Level kommen, kannst du den {Endlosmodus} ausprobieren.',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLevels: 'FELDRÄUMUNG',

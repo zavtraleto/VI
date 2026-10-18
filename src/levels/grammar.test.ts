@@ -198,6 +198,16 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(right).filter((one) => one.rule === 7)).toEqual([]);
   });
 
+  it('asks of the window of the roll-in a board that teaches the glass: rule 7', () => {
+    const right = rowOf([['roll-in-1', { role: 'meet', teaches: 'glass', help: { hint: 'hintRollIn' } }]]);
+    expect(fastGrammar(right).filter((one) => one.rule === 7)).toEqual([]);
+    const bare = rowOf([['roll-in-1', { role: 'meet', teaches: undefined, help: { hint: 'hintRollIn' } }]]);
+    expect(fastGrammar(bare).filter((one) => one.rule === 7).map((one) => one.text)).toEqual(['место 1 (roll-in-1): окно hintRollIn, а доска учит ничему']);
+    // A board whose way rolls into no leaving die does not stand behind the window.
+    const wrong = rowOf([['R07', { role: 'meet', teaches: 'glass', help: { hint: 'hintRollIn' } }]]);
+    expect(fastGrammar(wrong).filter((one) => one.rule === 7).map((one) => one.text)).toEqual(['место 1 (R07): окно hintRollIn, а путь доски не требует glass']);
+  });
+
   it('asks of a climb window a way up onto a leaving die, not only a way down: rule 7', () => {
     // R13 steps down and pushes (K v P): a way down is no climb.
     const row = rowOf([['R13', { teaches: 'lift', help: { hint: 'roadHintClimb' } }], ['R10', { teaches: 'lift', help: { hint: 'roadHintClimb' } }]]);

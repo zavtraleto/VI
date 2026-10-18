@@ -117,6 +117,8 @@ const RU = {
   hintSeven: 'Сумма точек на противоположных гранях всегда равна 7.',
   // The line act II opened with, a draft of 13 October 2026: no board carries it now.
   hintLinkMove: 'Звено даёт комбо ещё ход.',
+  // The window of the roll into a leaving die (third campaign, section 15, the owner's words of 18 October 2026).
+  hintRollIn: 'В уходящую кость тоже можно вкатиться.',
   // The window after the last board of the row: the words in braces lead to the endless session (the owner, 15 October 2026).
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
@@ -219,6 +221,7 @@ const EN: typeof RU = {
   roadHintClimb: 'Leaving dice let you climb up and down.',
   hintSeven: 'Opposite faces always add up to 7.',
   hintLinkMove: 'A link gives the combo a move.',
+  hintRollIn: 'You can roll into a leaving die, too.',
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLevels: 'CLEAR THE BOARD',
