@@ -268,9 +268,9 @@ describe('what the sign stands beside', () => {
     expect(x).toEqual([3.5, 4.5]);
     expect(z).toEqual([4.5, 5.5]);
     expect(y[0]).toBe(0);
-    expect(y[1]).toBeCloseTo(0.12, 2);
+    expect(y[1]).toBeCloseTo(0.3, 2);
     go(state, 'N');
-    expect(spans(signBody(state)).y[1]).toBeCloseTo(0.5, 2);
+    expect(spans(signBody(state)).y[1]).toBeCloseTo(0.53, 2);
   });
 
   it('goes with the figure: after a roll it is the cell the figure has come to', () => {
@@ -292,12 +292,12 @@ describe('how high the sign stands', () => {
     go(stair, 'N');
     expect(stair.player).toMatchObject({ x: 4, z: 5, level: 'top' });
     // The rules have the stair half down; it is shown as low as a die with its last move left (src/render/leaving.ts).
-    expect(signHeight(stair)).toBeCloseTo(0.12, 2);
+    expect(signHeight(stair)).toBeCloseTo(0.3, 2);
     expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { leaveLast: 0.2 }))).toBeCloseTo(0.2, 2);
     go(stair, 'N');
     // The rules have the upper stair nearly whole; it is shown half way up.
     expect(stair.player).toMatchObject({ x: 4, z: 4, level: 'top' });
-    expect(signHeight(stair)).toBeCloseTo(0.5, 2);
+    expect(signHeight(stair)).toBeCloseTo(0.53, 2);
     expect(signHeight(stair, (cube) => shownHeight(cube, stair, 0, { stairMiddle: 0.4 }))).toBeCloseTo(0.4, 2);
     go(stair, 'N');
     expect(signHeight(stair)).toBe(1);

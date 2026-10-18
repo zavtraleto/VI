@@ -363,18 +363,20 @@ export const BOARD_GROUPS = {
      * have it: as low as this the moment it leaves, and as low as this with its last move left to
      * it, where it can still be stepped up onto; with no move left it is gone. From one to the next
      * it comes down with the roll of the figure, as the group `leaving` below has it. Only the look: the rules, and a session, are as
-     * they were (the owner, 12 October: «сразу 75–80%, после первого хода 10–15%»).
+     * they were (the owner, 12 October: «сразу 75–80%, после первого хода 10–15%»; 18 October:
+     * «две ступени: 75 - 30, или примерно такие», the last step a step and not a slab on the floor).
      */
-    leaveFirst: number(0.78, 0.3, 1, 0.01),
-    leaveLast: number(0.12, 0, 0.5, 0.01),
+    leaveFirst: number(0.75, 0.3, 1, 0.01),
+    leaveLast: number(0.3, 0, 0.6, 0.01),
     /**
      * A stair, a die the board is laid with as leaving, stands this high while it has two moves
      * left, and goes down to the last step with the first move as any die that leaves; a stair
      * with one move left stands on the last step. So the stair of the second piece is two steps
      * up from the floor (the owner, 12 October: «первая ступень — самое низкое положение кости.
-     * вторая ступень — посередине»).
+     * вторая ступень — посередине»). Half way between the last step and the first, so that the
+     * floor, the two steps of a stair and a die that has just left stand at even intervals.
      */
-    stairMiddle: number(0.5, 0, 1, 0.01),
+    stairMiddle: number(0.53, 0, 1, 0.01),
     /**
      * The swipe sign: a small bright star that runs beside the die of the figure and leaves a
      * thin line behind it. How long the rays of the star are, in pixels of the picture; how much

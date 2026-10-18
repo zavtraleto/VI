@@ -21,64 +21,64 @@ function go(state: RunState, dir: Dir): void {
 }
 
 describe('the height a die that leaves a level is shown at', () => {
-  it('is by steps on a board whose dice go in two moves: 0.78 when it leaves, 0.12 with a move left, and nothing then', () => {
-    expect(leavingHeight(1, 2)).toBeCloseTo(0.78);
-    expect(leavingHeight(0.5, 2)).toBeCloseTo(0.12);
+  it('is by steps on a board whose dice go in two moves: 0.75 when it leaves, 0.3 with a move left, and nothing then', () => {
+    expect(leavingHeight(1, 2)).toBeCloseTo(0.75);
+    expect(leavingHeight(0.5, 2)).toBeCloseTo(0.3);
     expect(leavingHeight(0, 2)).toBe(0);
     // In between, the straight line from one step to the next.
-    expect(leavingHeight(0.75, 2)).toBeCloseTo(0.45);
-    expect(leavingHeight(0.25, 2)).toBeCloseTo(0.06);
+    expect(leavingHeight(0.75, 2)).toBeCloseTo(0.525);
+    expect(leavingHeight(0.25, 2)).toBeCloseTo(0.15);
     // Past either end it stays at that end.
-    expect(leavingHeight(1.1, 2)).toBeCloseTo(0.78);
+    expect(leavingHeight(1.1, 2)).toBeCloseTo(0.75);
     expect(leavingHeight(-0.1, 2)).toBe(0);
   });
 
   it('is the middle step for a stair with two moves left, down to the last step through the move, and nothing then', () => {
-    expect(leavingHeight(1, 2, leavingSteps(), true)).toBeCloseTo(0.5);
-    expect(leavingHeight(0.75, 2, leavingSteps(), true)).toBeCloseTo(0.31);
-    expect(leavingHeight(0.5, 2, leavingSteps(), true)).toBeCloseTo(0.12);
+    expect(leavingHeight(1, 2, leavingSteps(), true)).toBeCloseTo(0.53);
+    expect(leavingHeight(0.75, 2, leavingSteps(), true)).toBeCloseTo(0.415);
+    expect(leavingHeight(0.5, 2, leavingSteps(), true)).toBeCloseTo(0.3);
     expect(leavingHeight(0, 2, leavingSteps(), true)).toBe(0);
   });
 
   it('keeps its steps in the look, where the lab can turn them', () => {
-    expect(leavingSteps()).toEqual({ first: 0.78, last: 0.12, middle: 0.5 });
-    expect(leavingSteps(boardDefaults())).toEqual({ first: 0.78, last: 0.12, middle: 0.5 });
+    expect(leavingSteps()).toEqual({ first: 0.75, last: 0.3, middle: 0.53 });
+    expect(leavingSteps(boardDefaults())).toEqual({ first: 0.75, last: 0.3, middle: 0.53 });
     expect(leavingHeight(1, 2, leavingSteps({ stairMiddle: 0.4 }), true)).toBeCloseTo(0.4);
     expect(leavingHeight(1, 2, leavingSteps({ leaveFirst: 0.8, leaveLast: 0.15 }))).toBeCloseTo(0.8);
     expect(leavingHeight(0.5, 2, leavingSteps({ leaveFirst: 0.8, leaveLast: 0.15 }))).toBeCloseTo(0.15);
   });
 
   it('goes over the window of a board whose dice go in more moves: the last step with the last move left', () => {
-    expect(leavingHeight(1, 3)).toBeCloseTo(0.78);
-    expect(leavingHeight(1 / 3, 3)).toBeCloseTo(0.12);
-    expect(leavingHeight(2 / 3, 3)).toBeCloseTo(0.45);
-    expect(leavingHeight(1, 1)).toBeCloseTo(0.78);
+    expect(leavingHeight(1, 3)).toBeCloseTo(0.75);
+    expect(leavingHeight(1 / 3, 3)).toBeCloseTo(0.3);
+    expect(leavingHeight(2 / 3, 3)).toBeCloseTo(0.525);
+    expect(leavingHeight(1, 1)).toBeCloseTo(0.75);
   });
 
   it('is so on a piece of the road: the pair made, a move after it, and the stair laid as leaving in two moves and in one', () => {
     // The lesson of the way up: its stair is laid as leaving in two moves, and stands half way up, not as a die that has just left.
     const climb = start(pieceOf('R10'));
     expect(isStair(cubeAt(climb, 2, 1)!, climb)).toBe(true);
-    expect(shownHeight(cubeAt(climb, 2, 1)!, climb, 0)).toBeCloseTo(0.5);
+    expect(shownHeight(cubeAt(climb, 2, 1)!, climb, 0)).toBeCloseTo(0.53);
     go(climb, 'N');
     // The pair has just left, and the stair has a move left to it. The pair is no stair, though it is as far from going.
     expect(isStair(cubeAt(climb, 0, 2)!, climb)).toBe(false);
-    expect(shownHeight(cubeAt(climb, 0, 2)!, climb, 0)).toBeCloseTo(0.78);
-    expect(shownHeight(cubeAt(climb, 0, 1)!, climb, 0)).toBeCloseTo(0.78);
-    expect(shownHeight(cubeAt(climb, 2, 1)!, climb, 0)).toBeCloseTo(0.12);
+    expect(shownHeight(cubeAt(climb, 0, 2)!, climb, 0)).toBeCloseTo(0.75);
+    expect(shownHeight(cubeAt(climb, 0, 1)!, climb, 0)).toBeCloseTo(0.75);
+    expect(shownHeight(cubeAt(climb, 2, 1)!, climb, 0)).toBeCloseTo(0.3);
     // The rules have them otherwise, and are not changed: nearly whole, and about half.
     expect(cubeHeight(cubeAt(climb, 0, 2)!, climb.config)).toBeGreaterThan(0.9);
     expect(cubeHeight(cubeAt(climb, 2, 1)!, climb.config)).toBeGreaterThan(0.45);
     // The stair of two of the second piece: the lower laid as leaving in one move, near the floor, the upper in two, half way up.
     const stair = start(pieceOf('R02'));
-    expect(shownHeight(cubeAt(stair, 4, 5)!, stair, 0)).toBeCloseTo(0.12);
-    expect(shownHeight(cubeAt(stair, 4, 4)!, stair, 0)).toBeCloseTo(0.5);
+    expect(shownHeight(cubeAt(stair, 4, 5)!, stair, 0)).toBeCloseTo(0.3);
+    expect(shownHeight(cubeAt(stair, 4, 4)!, stair, 0)).toBeCloseTo(0.53);
     // A die that stands is whole.
     expect(shownHeight(cubeAt(stair, 4, 3)!, stair, 0)).toBe(1);
     // Up the stair, over, and the first roll: the lower is gone, and the upper has come down to where the lower was.
     for (const dir of ['N', 'N', 'N', 'N'] as const) go(stair, dir);
     expect(cubeAt(stair, 4, 5)).toBeUndefined();
-    expect(shownHeight(cubeAt(stair, 4, 4)!, stair, 0)).toBeCloseTo(0.12);
+    expect(shownHeight(cubeAt(stair, 4, 4)!, stair, 0)).toBeCloseTo(0.3);
     // With the second roll it is gone too.
     go(stair, 'N');
     expect(cubeAt(stair, 4, 4)).toBeUndefined();
@@ -148,8 +148,8 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     };
     const first = at(1);
     const second = at(11);
-    expect(first).toBeCloseTo(0.78);
-    expect(second).toBeCloseTo(0.648);
+    expect(first).toBeCloseTo(0.75);
+    expect(second).toBeCloseTo(0.66);
     // On a step it is what the look has always had there.
     for (const t of [1, 11, 21, 31, 41, 51]) expect(at(t), `t ${t}`).toBeCloseTo(shownHeight({ ...a, t }, state, 0, values));
     // Half way through the move, half way down; a fifth of the way through, hardly begun; four fifths, nearly there.
@@ -157,8 +157,8 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     expect(first - at(3)).toBeLessThan((first - second) * 0.12);
     expect(at(9) - second).toBeLessThan((first - second) * 0.12);
     // With its last move it goes down into the floor, and is there as the move ends.
-    expect(at(51)).toBeCloseTo(0.12);
-    expect(at(56)).toBeCloseTo(0.06);
+    expect(at(51)).toBeCloseTo(0.3);
+    expect(at(56)).toBeCloseTo(0.15);
     expect(at(61)).toBe(0);
     // Down only, tick by tick, over the whole of its window.
     neverUp(Array.from({ length: 61 }, (_, i) => at(i + 1)));
@@ -185,14 +185,14 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     const heights = run(show, state, a, 150, kinds);
     // Quick off the mark and soft at the end: half its time gone, most of the way done.
     expect(heights[heights.length - 1]).toBeLessThan(1 - 0.22 * 0.8);
-    expect(heights[heights.length - 1]).toBeGreaterThan(0.78);
+    expect(heights[heights.length - 1]).toBeGreaterThan(0.75);
     expect(show.height(b, state, 0, values)).toBeCloseTo(show.height(a, state, 0, values));
     heights.push(...run(show, state, a, 400, kinds));
     neverUp(heights);
     // It comes to its step and stays: nothing under it, nothing back.
-    expect(Math.min(...heights)).toBeCloseTo(0.78);
-    expect(heights[heights.length - 1]).toBeCloseTo(0.78);
-    expect(heights[14 + 15]).toBeCloseTo(0.78);
+    expect(Math.min(...heights)).toBeCloseTo(0.75);
+    expect(heights[heights.length - 1]).toBeCloseTo(0.75);
+    expect(heights[14 + 15]).toBeCloseTo(0.75);
     expect(kinds).toEqual([]);
   });
 
@@ -206,13 +206,13 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     expect(show.height(a, state, 0, values)).toBeCloseTo(0.9);
     const heights = run(show, state, a, 400);
     neverUp([0.9, ...heights]);
-    expect(heights[heights.length - 1]).toBeCloseTo(0.78);
+    expect(heights[heights.length - 1]).toBeCloseTo(0.75);
   });
 
   it('with less motion puts a die that is sent on its step at once, and still says it was sent', () => {
     const { state, a, show } = sentPair();
     expect(show.frame(state, 0, true, noDip).map((e) => e.kind)).toEqual(['sent']);
-    expect(show.height(a, state, 0, values)).toBeCloseTo(0.78);
+    expect(show.height(a, state, 0, values)).toBeCloseTo(0.75);
   });
 
   it('leaves a chain that is added to where it is: only the die that joins it comes down', () => {
@@ -229,8 +229,8 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     expect(sent[0].cubeIds).toEqual([c.id]);
     const kinds: string[] = [];
     const pair = run(show, state, a, 400, kinds);
-    for (const height of pair) expect(height).toBeCloseTo(0.78);
-    expect(show.height(c, state, 0, values)).toBeCloseTo(0.78);
+    for (const height of pair) expect(height).toBeCloseTo(0.75);
+    expect(show.height(c, state, 0, values)).toBeCloseTo(0.75);
     expect(kinds).toEqual([]);
   });
 
@@ -238,7 +238,7 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     const { state, a, b, show } = sentPair();
     show.frame(state, 0, false, noDip);
     const heights = run(show, state, a, 100);
-    expect(heights[heights.length - 1]).toBeGreaterThan(0.78);
+    expect(heights[heights.length - 1]).toBeGreaterThan(0.75);
     // The roll of the figure, tick by tick, while the die is still on its way to its first step.
     for (let t = 2; t <= 11; t++) {
       a.t = b.t = t;
@@ -286,7 +286,7 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     run(show, state, a, 400);
     show.reset();
     expect(show.frame(state, 0, false, noDip)).toEqual([]);
-    expect(show.height(a, state, 0, values)).toBeCloseTo(0.78);
+    expect(show.height(a, state, 0, values)).toBeCloseTo(0.75);
   });
 
   it('sinks the dice of the move that lost a board as any dice that are sent, and says nothing of dice that go when the board is over', () => {
@@ -302,7 +302,7 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     expect(show.height(c, state, 0, values)).toBeCloseTo(1);
     const heights = run(show, state, c, 400);
     neverUp(heights);
-    expect(heights[heights.length - 1]).toBeCloseTo(0.78);
+    expect(heights[heights.length - 1]).toBeCloseTo(0.75);
     a.t = b.t = 60;
     show.frame(state, 0, false, noDip);
     state.cubes = [c];
@@ -328,7 +328,7 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     land(state, a, b);
     show.frame(state, 0, false, noDip);
     const step = show.height(a, state, 0, values);
-    expect(step).toBeCloseTo(0.648);
+    expect(step).toBeCloseTo(0.66);
     // The combo that passes the board: two dice more are sent, one of them under the figure, and a die that stands is left.
     const c = put(state, 3, 1, 2);
     const d = put(state, 3, 2, 2);
@@ -399,8 +399,8 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     const stair = start(pieceOf('R02'));
     const show = new LeavingShow();
     expect(show.frame(stair, 0, false, noDip)).toEqual([]);
-    expect(show.height(cubeAt(stair, 4, 5)!, stair, 0, values)).toBeCloseTo(0.12);
-    expect(show.height(cubeAt(stair, 4, 4)!, stair, 0, values)).toBeCloseTo(0.5);
+    expect(show.height(cubeAt(stair, 4, 5)!, stair, 0, values)).toBeCloseTo(0.3);
+    expect(show.height(cubeAt(stair, 4, 4)!, stair, 0, values)).toBeCloseTo(0.53);
   });
 
   /**
@@ -484,7 +484,7 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     expect(sent[0].cubeIds).toEqual([joined.id]);
     const kinds: string[] = [];
     for (const height of run(show, state, pair, 400, kinds)) expect(height).toBeCloseTo(before);
-    expect(show.height(joined, state, 0, values)).toBeCloseTo(0.78);
+    expect(show.height(joined, state, 0, values)).toBeCloseTo(0.75);
     expect(kinds).toEqual([]);
   });
 });
