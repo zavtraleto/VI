@@ -13,8 +13,13 @@ describe('the faces a level asks for', () => {
     expect(goalFaces({ ...placed('C1-05'), faces: [2, 3] })).toEqual([3]);
   });
 
-  it('are one face or more on every place of the row', () => {
-    for (const place of ROW.places) expect(goalFaces(place.spec).length, place.code).toBeGreaterThan(0);
+  it('are taken from the way of the board on every place of the row, never from the faces it names', () => {
+    for (const place of ROW.places) {
+      const goal = goalOf(place.spec);
+      expect(goal.length, place.code).toBeGreaterThan(0);
+      // A count of dice is there only where the goal was read off the way.
+      for (const { dice } of goal) expect(dice, place.code).not.toBeNull();
+    }
   });
 
   it('count the dice of each that go on the way', () => {
