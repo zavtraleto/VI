@@ -8,13 +8,13 @@ export const ROW: Row = {
       "title": "die",
       "faces": null,
       "first": 0,
-      "last": 11
+      "last": 10
     },
     {
       "id": 1,
       "title": "leaving",
       "faces": null,
-      "first": 12,
+      "first": 11,
       "last": 26
     },
     {
@@ -234,6 +234,40 @@ export const ROW: Row = {
         "id": "side-up-1",
         "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 1
+          },
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 1,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
@@ -261,8 +295,8 @@ export const ROW: Row = {
               "north": 2
             },
             {
-              "x": 1,
-              "z": 0,
+              "x": 0,
+              "z": 1,
               "top": 3,
               "north": 1
             },
@@ -426,6 +460,24 @@ export const ROW: Row = {
         "id": "H06",
         "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
@@ -485,138 +537,29 @@ export const ROW: Row = {
     {
       "number": 6,
       "chapter": 0,
-      "code": "H07",
-      "spec": {
-        "id": "H07",
-        "seed": 0,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          3
-        ],
-        "norm": 3,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          3
-        ],
-        "layout": {
-          "start": {
-            "x": 3,
-            "z": 1
-          },
-          "dice": [
-            {
-              "x": 1,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 3,
-              "z": 1,
-              "top": 3,
-              "north": 5
-            },
-            {
-              "x": 1,
-              "z": 2,
-              "top": 6,
-              "north": 5
-            }
-          ]
-        },
-        "par": 4,
-        "exact": true,
-        "solution": [
-          "3,1,N",
-          "3,0,W",
-          "2,0,S",
-          "1,2,E"
-        ]
-      },
-      "role": "apply",
-      "archetype": "the way round keeps the face",
-      "emotion": "recognition",
-      "help": {
-        "plaques": "near",
-        "wait": "free",
-        "camera": "hold"
-      }
-    },
-    {
-      "number": 7,
-      "chapter": 0,
-      "code": "H08",
-      "spec": {
-        "id": "H08",
-        "seed": 0,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          2
-        ],
-        "norm": 2,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          2
-        ],
-        "layout": {
-          "start": {
-            "x": 0,
-            "z": 2
-          },
-          "dice": [
-            {
-              "x": 0,
-              "z": 2,
-              "top": 2,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 2,
-              "top": 4,
-              "north": 1
-            }
-          ]
-        },
-        "par": 5,
-        "exact": true,
-        "solution": [
-          "0,2,N",
-          "0,1,E",
-          "1,1,S",
-          "2,2,N",
-          "2,1,W"
-        ]
-      },
-      "role": "apply",
-      "archetype": "the way round keeps the face",
-      "emotion": "mastery",
-      "help": {
-        "plaques": "near",
-        "wait": "free",
-        "camera": "hold"
-      }
-    },
-    {
-      "number": 8,
-      "chapter": 0,
       "code": "three-under-1",
       "spec": {
         "id": "three-under-1",
         "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 1
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
@@ -678,11 +621,90 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 9,
+      "number": 7,
       "chapter": 0,
-      "code": "act-k17",
+      "code": "H08",
       "spec": {
-        "id": "act-k17",
+        "id": "H08",
+        "seed": 0,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2
+        ],
+        "norm": 2,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 0,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 2,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 4,
+              "north": 1
+            }
+          ]
+        },
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "0,2,N",
+          "0,1,E",
+          "1,1,S",
+          "2,2,N",
+          "2,1,W"
+        ]
+      },
+      "role": "apply",
+      "archetype": "the way round keeps the face",
+      "emotion": "mastery",
+      "help": {
+        "plaques": "near",
+        "wait": "free",
+        "camera": "hold"
+      }
+    },
+    {
+      "number": 8,
+      "chapter": 0,
+      "code": "H07",
+      "spec": {
+        "id": "H07",
         "seed": 0,
         "size": 4,
         "holes": [
@@ -710,7 +732,7 @@ export const ROW: Row = {
         "values": [
           3
         ],
-        "norm": 4,
+        "norm": 3,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
@@ -720,46 +742,41 @@ export const ROW: Row = {
         "layout": {
           "start": {
             "x": 0,
-            "z": 3
+            "z": 2
           },
           "dice": [
             {
-              "x": 2,
+              "x": 3,
               "z": 1,
-              "top": 3,
+              "top": 6,
               "north": 2
             },
             {
-              "x": 2,
+              "x": 0,
               "z": 2,
               "top": 3,
-              "north": 6
-            },
-            {
-              "x": 0,
-              "z": 3,
-              "top": 4,
-              "north": 1
+              "north": 5
             },
             {
               "x": 3,
-              "z": 3,
-              "top": 5,
-              "north": 4
+              "z": 2,
+              "top": 3,
+              "north": 1
             }
           ]
         },
-        "chapter": 0,
-        "par": 3,
+        "par": 5,
         "exact": true,
         "solution": [
-          "0,3,E",
-          "1,3,E",
-          "3,3,N"
+          "0,2,N",
+          "0,1,E",
+          "1,1,E",
+          "2,1,S",
+          "3,1,W"
         ]
       },
       "role": "apply",
-      "archetype": "the face under, by a link",
+      "archetype": "the way round keeps the face",
       "emotion": "recognition",
       "help": {
         "plaques": "near",
@@ -768,7 +785,7 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 10,
+      "number": 9,
       "chapter": 0,
       "code": "R05",
       "spec": {
@@ -862,7 +879,7 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 11,
+      "number": 10,
       "chapter": 0,
       "code": "which-first-2",
       "spec": {
@@ -941,13 +958,47 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 12,
+      "number": 11,
       "chapter": 0,
       "code": "which-first-3",
       "spec": {
         "id": "which-first-3",
         "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 1,
+            "z": 2
+          },
+          {
+            "x": 2,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
@@ -967,7 +1018,7 @@ export const ROW: Row = {
         "layout": {
           "start": {
             "x": 0,
-            "z": 1
+            "z": 0
           },
           "dice": [
             {
@@ -1020,7 +1071,7 @@ export const ROW: Row = {
       }
     },
     {
-      "number": 13,
+      "number": 12,
       "chapter": 1,
       "code": "bridge-first-1",
       "spec": {
@@ -1089,6 +1140,96 @@ export const ROW: Row = {
       "help": {
         "hint": "roadHintWalk",
         "plaques": "near"
+      }
+    },
+    {
+      "number": 13,
+      "chapter": 1,
+      "code": "act-k17",
+      "spec": {
+        "id": "act-k17",
+        "seed": 0,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 0,
+            "z": 3
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 5,
+              "north": 4
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 3,
+        "exact": true,
+        "solution": [
+          "0,3,E",
+          "1,3,E",
+          "3,3,N"
+        ]
+      },
+      "role": "apply",
+      "archetype": "the face under, by a link",
+      "emotion": "recognition",
+      "help": {
+        "plaques": "near",
+        "wait": "free",
+        "camera": "hold"
       }
     },
     {
@@ -1397,7 +1538,7 @@ export const ROW: Row = {
         "layout": {
           "start": {
             "x": 0,
-            "z": 3
+            "z": 1
           },
           "dice": [
             {
@@ -1636,6 +1777,40 @@ export const ROW: Row = {
         "id": "R07",
         "seed": 8107,
         "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 1,
+            "z": 2
+          },
+          {
+            "x": 2,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
@@ -1874,6 +2049,7 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
+          2,
           3
         ],
         "norm": 7,
@@ -1881,11 +2057,12 @@ export const ROW: Row = {
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
+          2,
           3
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 3
           },
           "dice": [
@@ -1938,11 +2115,11 @@ export const ROW: Row = {
         "exact": true,
         "solution": [
           "1,3,N",
+          "0,2,S",
+          "0,3,E",
           "1,2,E",
-          "1,1,S",
           "3,2,S",
-          "3,1,S",
-          "0,2,E"
+          "1,1,E"
         ]
       },
       "role": "event",
@@ -1965,28 +2142,20 @@ export const ROW: Row = {
             "z": 0
           },
           {
-            "x": 1,
-            "z": 0
-          },
-          {
-            "x": 2,
-            "z": 0
-          },
-          {
-            "x": 3,
-            "z": 0
-          },
-          {
             "x": 0,
             "z": 1
           },
           {
-            "x": 2,
+            "x": 0,
             "z": 2
           },
           {
-            "x": 3,
-            "z": 2
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
           },
           {
             "x": 2,
@@ -2061,6 +2230,22 @@ export const ROW: Row = {
         "size": 5,
         "holes": [
           {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
             "x": 4,
             "z": 0
           },
@@ -2075,6 +2260,22 @@ export const ROW: Row = {
           {
             "x": 4,
             "z": 3
+          },
+          {
+            "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
+            "z": 4
           },
           {
             "x": 4,
@@ -2371,6 +2572,24 @@ export const ROW: Row = {
         "id": "floor-first-1",
         "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
@@ -2387,30 +2606,30 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 1,
             "z": 0
           },
           "dice": [
             {
-              "x": 0,
+              "x": 1,
               "z": 0,
               "top": 3,
               "north": 1
             },
             {
-              "x": 2,
+              "x": 3,
               "z": 0,
               "top": 2,
               "north": 1
             },
             {
-              "x": 1,
+              "x": 0,
               "z": 2,
               "top": 2,
               "north": 1
             },
             {
-              "x": 3,
+              "x": 2,
               "z": 2,
               "top": 2,
               "north": 1
@@ -2420,8 +2639,8 @@ export const ROW: Row = {
         "par": 2,
         "exact": true,
         "solution": [
-          "0,0,E",
-          "1,2,E,p"
+          "1,0,E",
+          "2,2,W,p"
         ]
       },
       "role": "meet",
