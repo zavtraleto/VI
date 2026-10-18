@@ -308,7 +308,8 @@ describe('the slow part of the grammar', () => {
   });
 
   it('asks the planner to do as well after a meeting, but for two runs of thirty, and the hardest board of a chapter to stand fourth or later: rule 5', () => {
-    const row = rowOf([['R11', { role: 'meet', teaches: 'walk' }], 'P02', 'two-pairs-2', 'act-k22']);
+    // One chapter, whatever chapters the row puts these boards in.
+    const row = rowOf([['R11', { role: 'meet', teaches: 'walk', chapter: 1 }], ['P02', { chapter: 1 }], ['two-pairs-2', { chapter: 1 }], ['act-k22', { chapter: 1 }]]);
     const shares: Record<string, number> = { R11: 0.9, P02: 0.5, 'two-pairs-2': 0.8, 'act-k22': 1 };
     const facts = (stop: Stop) => ({ ...easy, planner: shares[stop.spec.id] });
     expect(slowGrammar(row, facts).filter((one) => one.rule === 5).map((one) => one.text)).toEqual([
