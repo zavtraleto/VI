@@ -10,6 +10,8 @@ const SCALE = 2;
 /** Room kept on each side of the word, for the mark of the seventh on the left. */
 const PAD = 24;
 const MARGIN = 8;
+/** On a phone held upright the button stands one such part of the screen above its bottom edge. */
+const THUMB = 8;
 
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
 
@@ -61,20 +63,24 @@ export class StartScreen implements ShellScreen {
     kit.rect(box.x + 8, box.y + Math.round(box.h / 2) - 4, 8, 8, signal);
   }
 
-  /** Where the button stands, in pixels of the picture: in the middle of what the edges of the screen leave. */
+  /**
+   * Where the button stands, in pixels of the picture: in the middle of what the edges of the screen
+   * leave. On a screen held upright, a phone, it stands low instead, under the thumb, an eighth of
+   * the screen above its bottom edge.
+   */
   private box(): Box {
+    const window = this.context.window();
     const picture = this.context.picture();
     const safe = this.context.safe();
-    const zoom = this.context.window().height / Math.max(1, picture.height);
+    const zoom = window.height / Math.max(1, picture.height);
     const room = picture.width - safe.left - safe.right;
     const wordWidth = textWidth(word(COMMANDS.start.name), SCALE);
     const w = Math.min(room - 2 * MARGIN, Math.max(Math.round(picture.width / 2), wordWidth + 2 * PAD));
     const h = Math.max(CELL_H * SCALE + 16, ceilTo((2 * MIN_ZONE) / Math.max(0.1, zoom), 4));
-    return {
-      x: Math.round(safe.left + (room - w) / 2),
-      y: Math.round(safe.top + (picture.height - safe.top - safe.bottom - h) / 2),
-      w,
-      h,
-    };
+    const upright = window.height > window.width;
+    const y = upright
+      ? picture.height - safe.bottom - Math.round(picture.height / THUMB) - h
+      : safe.top + (picture.height - safe.top - safe.bottom - h) / 2;
+    return { x: Math.round(safe.left + (room - w) / 2), y: Math.round(y), w, h };
   }
 }

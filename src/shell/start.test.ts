@@ -44,7 +44,7 @@ describe('the screen the program opens on', () => {
     expect(started).toBe(1);
   });
 
-  it('has a button two fingers tall and half the scene wide, in the middle, on a phone and on a desk', () => {
+  it('has a button two fingers tall and half the scene wide, in the middle across, on a phone and on a desk', () => {
     setLanguage('en');
     for (const [name, window, ratio] of SCREENS) {
       const { rect } = new StartScreen(context(window, ratio), nothing).items()[0];
@@ -52,8 +52,26 @@ describe('the screen the program opens on', () => {
       expect(rect.width, name).toBeGreaterThanOrEqual(window.width / 2 - 4);
       expect(rect.width, name).toBeLessThanOrEqual(window.width / 2 + 4);
       expect(Math.abs(rect.x + rect.width / 2 - window.width / 2), name).toBeLessThanOrEqual(4);
-      expect(Math.abs(rect.y + rect.height / 2 - window.height / 2), name).toBeLessThanOrEqual(4);
     }
+  });
+
+  it('stands in the middle on a desk and low, under the thumb, on a phone held upright', () => {
+    setLanguage('en');
+    const [, phone, phoneRatio] = SCREENS[0];
+    const [, desk, deskRatio] = SCREENS[1];
+    const low = new StartScreen(context(phone, phoneRatio), nothing).items()[0].rect;
+    expect(low.y, 'phone').toBeGreaterThan(phone.height * 0.6);
+    expect(low.y + low.height, 'phone').toBeLessThanOrEqual(phone.height * 0.9);
+    const middle = new StartScreen(context(desk, deskRatio), nothing).items()[0].rect;
+    expect(Math.abs(middle.y + middle.height / 2 - desk.height / 2), 'desk').toBeLessThanOrEqual(4);
+  });
+
+  it('stays above the safe edge at the bottom of a phone', () => {
+    const [, phone, ratio] = SCREENS[0];
+    const made = context(phone, ratio);
+    const bare = new StartScreen(made, nothing).items()[0].rect;
+    const notched = new StartScreen({ ...made, safe: () => ({ top: 0, right: 0, bottom: 20, left: 0 }) }, nothing).items()[0].rect;
+    expect(notched.y).toBeLessThan(bare.y);
   });
 
   it('has room for its word at twice the size in every language, and stays on the screen', () => {
