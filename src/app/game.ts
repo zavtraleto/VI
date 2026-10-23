@@ -210,10 +210,12 @@ const UNDO_LIMIT: number | null = null;
  */
 const UNDOS_PER_AD = 3;
 /**
- * A board of the row failed this many times (its failed tries) offers its way for an advertisement of the
- * platform, on the window of a lost try (the owner, 23 October 2026; docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md).
+ * A board of the row the player has been stuck on this many times (its dead ends and its failed tries, counted
+ * together) offers its way for an advertisement of the platform, in the pause of the board (the owner,
+ * 23 October 2026; docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md). A dead end opens no window
+ * while moves can be taken back, so its failed tries alone hardly grow.
  */
-const WAY_AFTER_FAILS = 3;
+const WAY_AFTER_STUCK = 3;
 /**
  * The stars of a pass stand in the one place whatever the board is: in the middle of the stage,
  * this share of its height down from its top. It is where they stood over a board of three by
@@ -1029,15 +1031,16 @@ export class Game {
     else platform.track('progression_failed', { ...summary, reason: 'full' });
     platform.tell(done ? 'level_completed' : 'level_failed', this.levelName());
     this.frames.flush(this.lastFrame);
+    // The score may be doubled for an advertisement, once on this result, where the platform shows rewarded ones.
+    let doubled = false;
     // The panel is left once: after that, nothing that comes back for it shows it again.
     let gone = false;
     const answered = (next: () => void): void => {
       gone = true;
       this.shell.hide();
-      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, () => interstitial(next));
+      // An advertisement watched for the doubled score is the advertisement of this result: none comes after it.
+      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, () => (doubled ? next() : interstitial(next)));
     };
-    // The score may be doubled for an advertisement, once on this result, where the platform shows rewarded ones.
-    let doubled = false;
     let offered = platform.rewardedSupported;
     const double = (): void => {
       if (this.rewardAsked) return;
@@ -1871,7 +1874,6 @@ export class Game {
           onAgain: () => this.startRun('level'),
           onLevels: () => this.showLevels(),
           onUndo: () => this.undoLevel(),
-          onWay: this.wayOffered() ? () => this.askWay() : undefined,
         },
       ),
       false,
@@ -1880,21 +1882,21 @@ export class Game {
 
   /**
    * The way of the board in hand, if it is to be offered for an advertisement: on a board of the row
-   * failed `WAY_AFTER_FAILS` times, where the platform shows rewarded advertisements and a way is
-   * known, from the file of the board or from the solver within the bound of the sign.
+   * the player has been stuck on `WAY_AFTER_STUCK` times, where the platform shows rewarded
+   * advertisements and a way is known, from the file of the board or from the solver within the bound of the sign.
    */
   private wayOffered(): ShownWay['moves'] | null {
     const stat = this.levelRecord();
-    if (this.labSpec !== null || this.place === null || !platform.rewardedSupported || !stat || stat.fails < WAY_AFTER_FAILS) return null;
+    if (this.labSpec !== null || this.place === null || !platform.rewardedSupported || !stat || stat.stuck + stat.fails < WAY_AFTER_STUCK) return null;
     const { spec } = this.state.levelRun!;
     if (!this.ways.has(spec.id)) this.ways.set(spec.id, wayOf(spec, SIGN_MAX_STATES));
     return this.ways.get(spec.id) ?? null;
   }
 
   /**
-   * The way for an advertisement: the platform shows one over the window of the lost try, and only
+   * The way for an advertisement: the platform shows one over the pause of the board, and only
    * where it was watched to its end is the board started anew with its way shown. Closed before
-   * that, the window stays as it was.
+   * that, the pause stays as it was.
    */
   private askWay(): void {
     const way = this.wayOffered();
@@ -1904,8 +1906,8 @@ export class Game {
     platform.rewarded('show_way', (rewarded) => {
       this.rewardAsked = false;
       takeFocus();
-      // The window that asked has to be the one still up: nothing else is started from under the player.
-      if (!rewarded || this.runner !== runner || this.inMenu || !this.resultShown) return;
+      // The pause that asked has to be the one still up: nothing else is started from under the player.
+      if (!rewarded || this.runner !== runner || this.inMenu || !this.paused) return;
       const stat = this.levelRecord();
       if (stat) stat.hinted++;
       saveSettings(this.settings);
@@ -2019,7 +2021,8 @@ export class Game {
   }
 
   private showPause(): void {
-    this.shell.showPanel(pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu() }), false);
+    const onWay = this.wayOffered() ? () => this.askWay() : undefined;
+    this.shell.showPanel(pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu(), onWay }), false);
   }
 
   /** Asks the platform for its table of players. The log is drawn again when it comes. */

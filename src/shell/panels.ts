@@ -13,18 +13,19 @@ function clock(ticks: number, tickMs: number): string {
   return `${digits(Math.floor(seconds / 60), 2)}:${digits(seconds % 60, 2)}`;
 }
 
-/** The session waits: it goes on, starts over, or is left for the menu. Nothing else is in this window. */
-export function pausePanel(actions: { onResume: () => void; onRestart: () => void; onMenu: () => void }): PanelSpec {
-  return {
-    title: PANELS.pause,
-    home: 'resume',
-    back: actions.onResume,
-    rows: [
-      { kind: 'command', id: 'resume', label: COMMANDS.resume, action: actions.onResume },
-      { kind: 'command', id: 'restart', label: COMMANDS.restart, action: actions.onRestart },
-      { kind: 'command', id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
-    ],
-  };
+/**
+ * The session waits: it goes on, starts over, or is left for the menu. On a board the player has
+ * been stuck on, the way of the board may stand after starting over, for an advertisement (`onWay`,
+ * given only then). Nothing else is in this window.
+ */
+export function pausePanel(actions: { onResume: () => void; onRestart: () => void; onMenu: () => void; onWay?: () => void }): PanelSpec {
+  const rows: PanelRow[] = [
+    { kind: 'command', id: 'resume', label: COMMANDS.resume, action: actions.onResume },
+    { kind: 'command', id: 'restart', label: COMMANDS.restart, action: actions.onRestart },
+  ];
+  if (actions.onWay) rows.push({ kind: 'command', id: 'way', label: COMMANDS.showWay, action: actions.onWay });
+  rows.push({ kind: 'command', id: 'menu', label: COMMANDS.menu, action: actions.onMenu });
+  return { title: PANELS.pause, home: 'resume', back: actions.onResume, rows };
 }
 
 /** What the player can set. */
@@ -495,7 +496,7 @@ export interface LevelResult {
  */
 export function levelResultPanel(
   data: LevelResult,
-  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void; onWay?: () => void },
+  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void },
 ): PanelSpec {
   const rows: PanelRow[] = [];
   if (data.reason) rows.push({ kind: 'say', text: data.reason, large: true });
@@ -515,9 +516,7 @@ export function levelResultPanel(
   if (undo) rows.push({ kind: 'command', id: 'undo', label: { native: COMMANDS.undo.native, name: `${word(COMMANDS.undo.name)} ${data.undos}` }, action: onUndo });
   rows.push(
     { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
+    { kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels },
   );
-  // The way of the board, shown for an advertisement: given only where it may be offered.
-  if (!data.passed && actions.onWay) rows.push({ kind: 'command', id: 'way', label: COMMANDS.showWay, action: actions.onWay });
-  rows.push({ kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels });
   return { title: data.passed ? PANELS.cleared : PANELS.failed, home: next ? 'next' : undo ? 'undo' : 'again', rows };
 }

@@ -1,7 +1,7 @@
 # VI — реклама по желанию: путь за рекламу на доске, удвоение счёта сеанса; пауза между межстраничными 180 секунд
 
 > Вид: решение. Статус: в силе (принято владельцем 23 октября 2026 в чате планирования релиза на Fable; построено 23 октября 2026, v0.2.80; что вышло иначе — раздел 6). Дата: 2026-10-23.
-> Что заменило: —. Что живёт в коде: `src/platform/platform.ts` (`rewardedSupported`, `rewarded`), `platforms/playgama/adapter.ts`, `platforms/playgama/playgama-bridge-config.json`, `src/app/game.ts` (`wayOffered`, `askWay`, `wayShown`, `WAY_AFTER_FAILS`, `showLiveResult`), `src/app/wayPress.ts`, `src/shell/panels.ts`, `src/platform/settings.ts` (`hinted`, `raiseLive`).
+> Что заменило: —. Что живёт в коде: `src/platform/platform.ts` (`rewardedSupported`, `rewarded`), `platforms/playgama/adapter.ts`, `platforms/playgama/playgama-bridge-config.json`, `src/app/game.ts` (`wayOffered`, `askWay`, `wayShown`, `WAY_AFTER_STUCK`, `showPause`, `showLiveResult`), `src/app/wayPress.ts`, `src/shell/panels.ts`, `src/platform/settings.ts` (`hinted`, `raiseLive`).
 
 Исполнитель читает эту спеку и файлы раздела 4. Строится после [сеансов вживую](2026-10-22-vi-live-sessions-design.md) и [рекламы за отмены](2026-10-23-vi-ads-after-undos-design.md), которые уже в `main` (0.2.79).
 
@@ -67,4 +67,10 @@ rewarded(placement: 'show_way' | 'double_score', done: (rewarded: boolean) => vo
 - **Японские половины команд** — `順路` («маршрут») и `倍増` («удвоение»): `手順` уже занято `HOW TO PLAY`. Шрифт пересобран `node scripts/subset-fonts.mjs` (кириллицу не трогали): прибавились `倍`, `増`, `路`, и ушли десять знаков, которых в `src/shell/text.ts` давно нет (`切少日本標正目課較題`); в других файлах их тоже нет. Слова на шести языках — исполнителя: es `CAMINO · ANUNCIO` / `DOBLAR · ANUNCIO`, pt `CAMINHO · ANÚNCIO` / `DOBRAR · ANÚNCIO`, tr `YOL · REKLAM` / `İKİ KAT · REKLAM`, de `WEG · WERBUNG` / `VERDOPPELN · WERBUNG`, fr `CHEMIN · PUB` / `DOUBLER · PUB`.
 - **Место команд на панелях**: «путь» — после `AGAIN`, перед `LEVELS`, фокус остаётся на `AGAIN`; «удвоить» — после `NEXT`, перед `MENU`, фокус на `NEXT`. Реклама фокус не получает.
 - **Строка в [логике мира](../../art/VI_World_Logic.md)** добавлена (знак свайпа ведёт по пути), хотя раздел 4 её не называл: так велит правило нового элемента геймплея.
-- **Превью `vi-build` не смотрено** (вызовы `showRewarded('show_way')` и `showRewarded('double_score')` в консоли): исполнителю превью запускать не велели. Команду «путь» в превью и не увидеть — см. первый пункт.
+- **Превью `vi-build` не смотрено** (вызовы `showRewarded('show_way')` и `showRewarded('double_score')` в консоли): исполнителю превью запускать не велели.
+
+Второй коммит того же дня — по решению, которое владелец делегировал координатору после отчёта о первом:
+
+- **«Путь за рекламу» переехал в паузу доски.** Четвёртой командой `順路 SHOW WAY · AD`, после `再試行 RESTART`, перед `終了 MENU` (`pausePanel`, `onWay`); с окна проигранной попытки она убрана (`levelResultPanel` снова без неё). Тем самым первый пункт выше снят. Слово владельца 13 октября о трёх командах паузы — четвёртая стоит только по условию. В тупике пауза не открывается (`pause` молчит, пока партия кончена), так что команду видят во время игры, не в самом тупике. Реклама идёт поверх паузы; закрыта раньше — пауза стоит, досмотрена — доска заново, знак ведёт по пути.
+- **«Застревал три раза» — `stuck + fails >= 3`** (`WAY_AFTER_STUCK`), а не одни `fails`: тупик, из которого ход отменён, `fails` возвращает, а `stuck` — нет. Тупик, после которого начато заново, считается дважды (и тупиком, и неудачей) — так решил координатор.
+- **После досмотренного удвоения межстраничной нет.** Уход с итога сеанса вживую (`AGAIN`, `NEXT`, `MENU`), на котором удвоение досмотрено, идёт без `interstitial`: флаг `doubled` живёт в итоге и с новым итогом начинается заново. Вопрос из пункта о двух рекламах подряд снят.
