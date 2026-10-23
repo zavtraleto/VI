@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
 import { FIXTURE } from '../levels/rowFixture';
-import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, loadSettings, noteLive, noteUndoForAd, saveSettings, toRowEdition, type RowKept } from './settings';
+import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, levelStat, loadSettings, noteLive, noteUndoForAd, raiseLive, saveSettings, toRowEdition, type RowKept } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -148,6 +148,15 @@ describe('the live sessions a player has played', () => {
     expect(settings.levels.lives).toEqual({ 'live-2': { best: 450, plays: 3 } });
   });
 
+  it('take a score doubled for an advertisement as the best where it is, with no play added', () => {
+    saved(null);
+    const settings = loadSettings();
+    noteLive(settings, 'live-1', 400);
+    noteLive(settings, 'live-1', 300);
+    expect(raiseLive(settings, 'live-1', 600)).toEqual({ best: 600, plays: 2 });
+    expect(raiseLive(settings, 'live-1', 500)).toEqual({ best: 600, plays: 2 });
+  });
+
   it('are not dropped where a save of the row is brought to its edition', () => {
     const kept = { passed: {}, stats: {}, rowEdition: ROW_EDITION, lives: { 'live-1': { best: 5, plays: 1 } } };
     expect(toRowEdition(kept, FIXTURE.places).lives).toEqual({ 'live-1': { best: 5, plays: 1 } });
@@ -208,5 +217,27 @@ describe('what a save of the road becomes in the row', () => {
     expect(toRowEdition({ passed: { F1: true }, stats: {}, road: 'F2', roadEdition: 6 }, row)).toEqual({ passed: {}, stats: {}, at: undefined, rowEdition: ROW_EDITION });
     const fresh = { passed: { F1: true }, stats: {}, at: 'F2', rowEdition: ROW_EDITION };
     expect(toRowEdition(fresh, row)).toBe(fresh);
+  });
+});
+
+describe('the way shown on a level for an advertisement', () => {
+  it('is shown on none in a new save, and on none in a save from before it', () => {
+    saved(null);
+    expect(levelStat(loadSettings(), 'R01').hinted).toBe(0);
+    const old = { tries: 4, passes: 0, fails: 4, firstPassTry: null, bestLeft: null, bestMoves: null, undos: 2, stuck: 4, short: [], playMs: 9000 };
+    saved({ levels: { passed: {}, stats: { R05: old }, rowEdition: ROW_EDITION, told: [] } });
+    const settings = loadSettings();
+    const stat = levelStat(settings, 'R05');
+    expect(stat.hinted).toBe(0);
+    expect(stat.fails).toBe(4);
+  });
+
+  it('is counted, and kept through a save and a load', () => {
+    const kept = new Map<string, string>();
+    vi.stubGlobal('window', { localStorage: { getItem: (key: string) => kept.get(key) ?? null, setItem: (key: string, value: string) => kept.set(key, value) } });
+    const first = loadSettings();
+    levelStat(first, 'R07').hinted++;
+    expect(saveSettings(first)).toBe(true);
+    expect(levelStat(loadSettings(), 'R07').hinted).toBe(1);
   });
 });

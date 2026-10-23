@@ -187,6 +187,50 @@ export const platform = {
       finish();
     }
   },
+  get rewardedSupported() {
+    return sdk?.advertisement.isRewardedSupported ?? false;
+  },
+  /**
+   * An advertisement the player has asked for, for something in the game (docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md).
+   * What it is for is given only where the platform says it was watched (`rewarded`), and the
+   * game hears of it once the advertisement is closed: a close with no `rewarded` before it, a
+   * failure, and an advertisement that never comes give nothing.
+   */
+  rewarded(placement, done) {
+    const bridge = sdk;
+    if (!bridge || !bridge.advertisement.isRewardedSupported) {
+      done(false);
+      return;
+    }
+    const { LOADING, OPENED, REWARDED, CLOSED, FAILED } = bridge.REWARDED_STATE;
+    let finished = false;
+    let earned = false;
+    const finish = (): void => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(timer);
+      bridge.advertisement.off(bridge.EVENT_NAME.REWARDED_STATE_CHANGED, onState);
+      done(earned);
+    };
+    let timer = window.setTimeout(finish, AD_SILENCE_MS);
+    const onState = (state: string): void => {
+      if (state === REWARDED) earned = true;
+      if (state === CLOSED || state === FAILED) {
+        finish();
+        return;
+      }
+      // While it is being fetched it is given some time; once it is on screen, only its end counts.
+      window.clearTimeout(timer);
+      if (state === LOADING) timer = window.setTimeout(finish, AD_LOADING_MS);
+      else if (state !== OPENED && state !== REWARDED) timer = window.setTimeout(finish, AD_SILENCE_MS);
+    };
+    bridge.advertisement.on(bridge.EVENT_NAME.REWARDED_STATE_CHANGED, onState);
+    try {
+      bridge.advertisement.showRewarded(placement);
+    } catch {
+      finish();
+    }
+  },
   track,
   // The sample of frames goes the way of the game's own events until the SDK has a way of its own for it.
   trackPerformance: (sample) => track('performance_sample', sample),

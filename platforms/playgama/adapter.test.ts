@@ -24,6 +24,11 @@ describe('Playgama without its SDK', () => {
     const done = vi.fn();
     platform.interstitial(done);
     expect(done).toHaveBeenCalledTimes(1);
+    expect(platform.rewardedSupported).toBe(false);
+    const rewarded = vi.fn();
+    platform.rewarded('show_way', rewarded);
+    expect(rewarded).toHaveBeenCalledTimes(1);
+    expect(rewarded).toHaveBeenCalledWith(false);
     const listener = vi.fn();
     platform.onPause(listener);
     platform.onAudio(listener);
@@ -62,5 +67,102 @@ describe('Playgama with its SDK', () => {
     expect(await platform.storage!.read(['a', 'b', 'c', 'd'])).toEqual(['text', null, '{"a":1}', null]);
     expect(platform.leaderboard).toBeNull();
     expect(platform.auth).toBeNull();
+  });
+});
+
+/** An SDK that shows rewarded advertisements: the states it goes through are given by the test, as the platform would send them. */
+function rewardedSdk(supported = true) {
+  const listeners = new Map<string, (state: string) => void>();
+  const shown: (string | null | undefined)[] = [];
+  const bridge = {
+    initialize: () => Promise.resolve(),
+    gameVersion: '',
+    EVENT_NAME: { REWARDED_STATE_CHANGED: 'rewarded_state_changed' },
+    REWARDED_STATE: { LOADING: 'loading', OPENED: 'opened', CLOSED: 'closed', FAILED: 'failed', REWARDED: 'rewarded' },
+    platform: { language: 'en', getServerTime: () => Promise.reject(new Error('no clock')) },
+    leaderboards: { type: 'not_available' },
+    player: { isAuthorizationSupported: false, isGuest: true },
+    advertisement: {
+      isRewardedSupported: supported,
+      on: (event: string, listener: (state: string) => void) => listeners.set(event, listener),
+      off: (event: string) => listeners.delete(event),
+      showRewarded: (placement?: string | null) => shown.push(placement),
+    },
+  };
+  // The adapter keeps its time by the clock of the page, which a test in Node has as its own.
+  vi.stubGlobal('window', globalThis);
+  const send = (...states: string[]): void => {
+    for (const state of states) listeners.get('rewarded_state_changed')?.(state);
+  };
+  return { bridge, shown, send, listening: () => listeners.size > 0 };
+}
+
+describe('a rewarded advertisement on Playgama', () => {
+  it('gives what it is for once it is watched and closed', async () => {
+    const sdk = rewardedSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    expect(platform.rewardedSupported).toBe(true);
+    const done = vi.fn();
+    platform.rewarded('show_way', done);
+    expect(sdk.shown).toEqual(['show_way']);
+    sdk.send('loading', 'opened', 'rewarded');
+    expect(done).not.toHaveBeenCalled();
+    sdk.send('closed');
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(done).toHaveBeenCalledWith(true);
+    expect(sdk.listening()).toBe(false);
+  });
+
+  it('gives nothing when it is closed before the end', async () => {
+    const sdk = rewardedSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    const done = vi.fn();
+    platform.rewarded('double_score', done);
+    expect(sdk.shown).toEqual(['double_score']);
+    sdk.send('loading', 'opened', 'closed');
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(done).toHaveBeenCalledWith(false);
+    expect(sdk.listening()).toBe(false);
+  });
+
+  it('gives nothing when it fails', async () => {
+    const sdk = rewardedSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    const done = vi.fn();
+    platform.rewarded('show_way', done);
+    sdk.send('loading', 'failed', 'closed');
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(done).toHaveBeenCalledWith(false);
+  });
+
+  it('gives nothing, and shows none, where the platform has no rewarded advertisement', async () => {
+    const sdk = rewardedSdk(false);
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    expect(platform.rewardedSupported).toBe(false);
+    const done = vi.fn();
+    platform.rewarded('show_way', done);
+    expect(sdk.shown).toEqual([]);
+    expect(done).toHaveBeenCalledWith(false);
+  });
+
+  it('gives nothing where nothing is heard of it', async () => {
+    const sdk = rewardedSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    vi.useFakeTimers();
+    const done = vi.fn();
+    platform.rewarded('show_way', done);
+    vi.advanceTimersByTime(1500);
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(done).toHaveBeenCalledWith(false);
   });
 });

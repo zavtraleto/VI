@@ -16,6 +16,7 @@ describe('level report', () => {
     stuck: 0,
     short: [],
     playMs: 0,
+    hinted: 0,
     ...over,
   });
   const levels: { id: string; goal: LevelGoal; moves: number; par?: number }[] = [

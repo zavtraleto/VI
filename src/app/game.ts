@@ -10,7 +10,7 @@ import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, nearestDir, type
 import { bindKeyboard } from '../input/keyboard';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
-import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, noteUndoForAd, prefersReducedMotion, saveSettings, type LevelStat, type Settings } from '../platform/settings';
+import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, noteUndoForAd, prefersReducedMotion, raiseLive, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { LevelScene } from '../render/levelScene';
@@ -81,7 +81,8 @@ import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
 import { roadCounters } from './roadCounters';
 import { goalOf } from '../levels/goalFaces';
-import { roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
+import { SIGN_MAX_STATES, roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
+import { madeMove, wayBack, wayDir, wayMoved, wayOf, type ShownWay } from './wayPress';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
 
 // What the game asks of the table and the sign-in of the platform, where it has them, and how it sends a result out.
@@ -208,6 +209,11 @@ const UNDO_LIMIT: number | null = null;
  * advertisement once the move is back (the owner, 23 October 2026: «3 отмены - реклама - 3 отмены»).
  */
 const UNDOS_PER_AD = 3;
+/**
+ * A board of the row failed this many times (its failed tries) offers its way for an advertisement of the
+ * platform, on the window of a lost try (the owner, 23 October 2026; docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md).
+ */
+const WAY_AFTER_FAILS = 3;
 /**
  * The stars of a pass stand in the one place whatever the board is: in the middle of the stage,
  * this share of its height down from its top. It is where they stood over a board of three by
@@ -405,6 +411,15 @@ export class Game {
   private readonly deadEnds = new DeadEnds();
   /** What that wait shows on this frame: the way the swipe sign points, and whether the plaque over the target blinks. */
   private waiting: Waiting = { dir: null, blink: false };
+  /**
+   * The way of the board shown for an advertisement, on this try: the swipe sign points along it
+   * for as long as the player keeps to it. Null on a try that was not given one.
+   */
+  private wayShown: ShownWay | null = null;
+  /** The ways of the boards that have been offered one, by the code of the board; null for a board that has none to show. */
+  private readonly ways = new Map<string, ReturnType<typeof wayOf>>();
+  /** An advertisement the player asked for is on its way: a second press asks for none. */
+  private rewardAsked = false;
   /** What the player last played with: the swipe sign is a key for those who press keys. */
   private lastInput: 'keys' | 'pointer' | null = null;
   /** When the level on the board was lost: it stands as it is for a moment before its window. Null on a level that is not. */
@@ -834,6 +849,8 @@ export class Game {
       par: spec.par ?? 0,
       undos: this.undosMade,
       try: this.levelRecord()?.tries ?? 1,
+      // The way of the board was shown on this try, for an advertisement.
+      hinted: this.wayShown !== null,
     };
   }
 
@@ -1012,21 +1029,47 @@ export class Game {
     else platform.track('progression_failed', { ...summary, reason: 'full' });
     platform.tell(done ? 'level_completed' : 'level_failed', this.levelName());
     this.frames.flush(this.lastFrame);
+    // The panel is left once: after that, nothing that comes back for it shows it again.
+    let gone = false;
     const answered = (next: () => void): void => {
+      gone = true;
       this.shell.hide();
       this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, () => interstitial(next));
     };
-    this.shell.showPanel(
-      liveResultPanel(
-        { score: state.score, best: stat.best, maxChain: state.maxChain },
-        {
-          onAgain: () => answered(() => this.startLive(live, this.liveFrom)),
-          onNext: () => answered(() => this.afterLive(live)),
-          onMenu: () => answered(() => this.showMenu()),
-        },
-      ),
-      false,
-    );
+    // The score may be doubled for an advertisement, once on this result, where the platform shows rewarded ones.
+    let doubled = false;
+    let offered = platform.rewardedSupported;
+    const double = (): void => {
+      if (this.rewardAsked) return;
+      this.rewardAsked = true;
+      platform.rewarded('double_score', (rewarded) => {
+        this.rewardAsked = false;
+        offered = false;
+        takeFocus();
+        if (rewarded) {
+          // The session stays as it ended (the rules are not touched): what is doubled is the score the panel shows and the best it is kept as.
+          doubled = true;
+          raiseLive(this.settings, live.code, state.score * 2);
+          saveSettings(this.settings);
+          platform.track('reward_double', { ...liveStep(live), score: state.score * 2 });
+        }
+        if (!gone) show();
+      });
+    };
+    const show = (): void =>
+      this.shell.showPanel(
+        liveResultPanel(
+          { score: state.score, best: stat.best, maxChain: state.maxChain, doubled },
+          {
+            onAgain: () => answered(() => this.startLive(live, this.liveFrom)),
+            onNext: () => answered(() => this.afterLive(live)),
+            onMenu: () => answered(() => this.showMenu()),
+            onDouble: offered ? double : undefined,
+          },
+        ),
+        false,
+      );
+    show();
   }
 
   /** On from a live session to the board after the one it stands after; after the last, the end of the row is said, and then the menu. */
@@ -1080,6 +1123,8 @@ export class Game {
     // A place whose help says so waits with the player; every start of it waits anew. A board of the lab waits for nothing.
     this.wait = state.levelRun && this.labSpec === null && this.place !== null ? roadWait(CAMPAIGN[this.place].help, this.deadEnds.hurries) : null;
     this.waiting = { dir: null, blink: false };
+    // A try is shown the way only when an advertisement has been watched for it: whoever starts that try sets it after.
+    this.wayShown = null;
     // Where every step may be a move that counts, a held direction is one step.
     this.controller.setRepeat(!state.levelRun);
     this.inMenu = false;
@@ -1153,6 +1198,8 @@ export class Game {
       this.levelCounted = false;
     }
     this.runner = new Runner(previous);
+    // A board from before the move that left the way shown is on the way again: the sign comes back.
+    if (this.wayShown) wayBack(this.wayShown, previous.levelRun?.moves ?? 0);
     this.beforeCommand = null;
     // The level goes on: its end is played anew when it comes.
     this.failedAt = null;
@@ -1824,10 +1871,47 @@ export class Game {
           onAgain: () => this.startRun('level'),
           onLevels: () => this.showLevels(),
           onUndo: () => this.undoLevel(),
+          onWay: this.wayOffered() ? () => this.askWay() : undefined,
         },
       ),
       false,
     );
+  }
+
+  /**
+   * The way of the board in hand, if it is to be offered for an advertisement: on a board of the row
+   * failed `WAY_AFTER_FAILS` times, where the platform shows rewarded advertisements and a way is
+   * known, from the file of the board or from the solver within the bound of the sign.
+   */
+  private wayOffered(): ShownWay['moves'] | null {
+    const stat = this.levelRecord();
+    if (this.labSpec !== null || this.place === null || !platform.rewardedSupported || !stat || stat.fails < WAY_AFTER_FAILS) return null;
+    const { spec } = this.state.levelRun!;
+    if (!this.ways.has(spec.id)) this.ways.set(spec.id, wayOf(spec, SIGN_MAX_STATES));
+    return this.ways.get(spec.id) ?? null;
+  }
+
+  /**
+   * The way for an advertisement: the platform shows one over the window of the lost try, and only
+   * where it was watched to its end is the board started anew with its way shown. Closed before
+   * that, the window stays as it was.
+   */
+  private askWay(): void {
+    const way = this.wayOffered();
+    if (!way || this.rewardAsked) return;
+    this.rewardAsked = true;
+    const runner = this.runner;
+    platform.rewarded('show_way', (rewarded) => {
+      this.rewardAsked = false;
+      takeFocus();
+      // The window that asked has to be the one still up: nothing else is started from under the player.
+      if (!rewarded || this.runner !== runner || this.inMenu || !this.resultShown) return;
+      const stat = this.levelRecord();
+      if (stat) stat.hinted++;
+      saveSettings(this.settings);
+      this.startRun('level');
+      this.wayShown = { moves: way, off: null };
+    });
   }
 
   /** The part of the window the board has, in CSS pixels. */
@@ -2339,6 +2423,8 @@ export class Game {
         this.ghosts.push({ x: over.x, z: over.z, value: over.ori.top, reactionId: over.reactionId, moves: run.moves });
       }
     }
+    // A move that is not the move of the way shown leaves the way: the sign goes out until it is taken back.
+    if (this.wayShown && this.beforeCommand) wayMoved(this.wayShown, run.moves - 1, madeMove(this.beforeCommand, player.action!.dir, kind === 'push'));
     if (this.undoable && this.beforeCommand) {
       this.history.push(this.beforeCommand);
       this.trails.push([]);
@@ -2645,6 +2731,11 @@ export class Game {
     // Under a panel, and while the board takes no input, a piece shows no sign and its wait is not counted.
     const waitFrom = performance.now();
     this.waiting = this.wait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };
+    // A way shown for an advertisement points the sign along it, while the board stands and the player keeps to the way.
+    if (this.wayShown) {
+      const standing = shown && this.inputEnabled() && !state.player.action && !worldRuns(state);
+      this.waiting = { dir: standing ? wayDir(state, this.wayShown) : null, blink: this.waiting.blink };
+    }
     span('wait', waitFrom);
     // The faces a level asks for rise once the board is there to be played: not under a window or the command it opens on.
     if (this.aim && this.aim.since === null && shown && !this.starting && this.inputEnabled()) this.aim.since = time;

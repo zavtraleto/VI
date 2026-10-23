@@ -236,6 +236,13 @@ export const COMMANDS = {
   copied: { native: '複写済', name: 'COPIED' },
   sent: { native: '送信済', name: 'SENT' },
   failed: { native: '失敗', name: 'FAILED' },
+  /**
+   * "Route": the way of a board shown by the swipe sign, for an advertisement of the platform; and
+   * "doubling": the score of a live session doubled for one. `AD` says beforehand that one comes
+   * (docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md).
+   */
+  showWay: { native: '順路', name: 'SHOW WAY · AD' },
+  double: { native: '倍増', name: 'DOUBLE · AD' },
 } as const satisfies Record<string, PanelName>;
 
 /** The readings of a result. */

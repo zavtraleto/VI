@@ -39,6 +39,8 @@ export interface LevelStat {
   short: number[];
   /** Time spent playing the level, in milliseconds. */
   playMs: number;
+  /** Times the way was shown on the level for an advertisement (docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md). */
+  hinted: number;
 }
 
 export interface LevelProgress {
@@ -243,12 +245,13 @@ const MAX_SHORT = 20;
 
 export function levelStat(settings: Settings, id: string): LevelStat {
   const stats = settings.levels.stats;
-  stats[id] ??= { tries: 0, passes: 0, fails: 0, firstPassTry: null, bestLeft: null, bestMoves: null, undos: 0, stuck: 0, short: [], playMs: 0 };
+  stats[id] ??= { tries: 0, passes: 0, fails: 0, firstPassTry: null, bestLeft: null, bestMoves: null, undos: 0, stuck: 0, short: [], playMs: 0, hinted: 0 };
   const stat = stats[id];
   // What was saved before these were counted has none of them.
   stat.undos ??= 0;
   stat.bestMoves ??= null;
   stat.stuck ??= 0;
+  stat.hinted ??= 0;
   return stat;
 }
 
@@ -267,6 +270,16 @@ export function noteUndoForAd(settings: Settings, every: number): boolean {
 export function noteLive(settings: Settings, code: string, score: number): LiveStat {
   const stat = (settings.levels.lives[code] ??= { best: 0, plays: 0 });
   stat.plays++;
+  stat.best = Math.max(stat.best, score);
+  return stat;
+}
+
+/**
+ * The score of a live session already noted, doubled for an advertisement: the best is counted
+ * from it as it now stands, and no play is added, for the session was counted when it ended.
+ */
+export function raiseLive(settings: Settings, code: string, score: number): LiveStat {
+  const stat = (settings.levels.lives[code] ??= { best: 0, plays: 0 });
   stat.best = Math.max(stat.best, score);
   return stat;
 }

@@ -1,66 +1,16 @@
-import { DELTA, DIRS, cellIndex } from '../rules/board';
+import { nextPress } from '../app/wayPress';
 import { worldRuns } from '../rules/level';
 import { moveOf, type SolverMove } from '../rules/levelSolver';
-import { resolveMove } from '../rules/movement';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
 import type { Seconds } from './labFacts';
+
+// The press is found by the game as well, which shows a way for an advertisement: it lives there.
+export { nextPress };
 
 /** A move of the way shown is pressed this long after the one before it, at the least. */
 export const SHOW_MOVE_MS = 600;
 /** How often the run is looked at while a way is shown: a press waits for the player to stand free. */
 const LOOK_MS = 50;
-
-/**
- * The press that plays on a way from the run as it stands: the next free step towards where its
- * next move is made from, or that move itself. A move of the solver is made from its place, a
- * die to roll from on top or to push from the floor, and the player is put there for free; on
- * the board of the game he walks there, a key a step, and the steps are found here, on the rules
- * as they are, nothing stepped. The next move is the one after as many as the run has made.
- * `move` says the press is the move itself. `done` where the way is played out or the run is
- * over, `lost` where its next move cannot be got to: the run is not the one the way was found on.
- */
-export function nextPress(state: RunState, way: readonly SolverMove[]): { dir: Dir; move: boolean } | 'done' | 'lost' {
-  const run = state.levelRun;
-  if (!run || state.over || run.moves >= way.length) return 'done';
-  const move = way[run.moves];
-  const { dx, dz } = DELTA[move.dir];
-  const { size } = state.config;
-  const cells = size * size;
-  // A place is a cell up on the dice, or the same cell on the floor `cells` further on, as `scan` counts them.
-  const goal = move.push ? cellIndex(size, move.x - dx, move.z - dz) + cells : cellIndex(size, move.x, move.z);
-  const { x, z, level } = state.player;
-  const start = cellIndex(size, x, z) + (level === 'ground' ? cells : 0);
-  const board: RunState = { ...state, player: { x, z, level } };
-  // The first step of the shortest walk to every place reached: the walk goes on from where the first step led.
-  const first = new Map<number, Dir | null>([[start, null]]);
-  const queue = [start];
-  for (let at = 0; at < queue.length; at++) {
-    const place = queue[at];
-    const up = place < cells;
-    const cell = up ? place : place - cells;
-    board.player.x = cell % size;
-    board.player.z = Math.floor(cell / size);
-    board.player.level = up ? 'top' : 'ground';
-    if (place === goal) {
-      const made = resolveMove(board, move.dir).kind;
-      if (made === (move.push ? 'push' : 'roll')) {
-        const step = first.get(place);
-        return step ? { dir: step, move: false } : { dir: move.dir, move: true };
-      }
-    }
-    for (const dir of DIRS) {
-      const intent = resolveMove(board, dir);
-      // A roll or a push is a move of its own: the walk goes by free steps only.
-      if (intent.kind === 'blocked' || intent.kind === 'roll' || intent.kind === 'push') continue;
-      const down = intent.kind === 'descend' || intent.kind === 'walk';
-      const next = cellIndex(size, intent.tx, intent.tz) + (down ? cells : 0);
-      if (first.has(next)) continue;
-      first.set(next, first.get(place) ?? dir);
-      queue.push(next);
-    }
-  }
-  return 'lost';
-}
 
 /**
  * The way «показать решение» plays, once the solver has counted the board: the way the file

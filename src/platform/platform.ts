@@ -14,6 +14,9 @@ export type PlatformMessage =
   | 'level_resumed'
   | 'player_got_achievement';
 
+/** Where a rewarded advertisement stands, as `platforms/playgama/playgama-bridge-config.json` names it: the way on a board, the doubled score of a live session. */
+export type RewardedPlacement = 'show_way' | 'double_score';
+
 /** Plain values of an analytics event. */
 export type PlatformData = Record<string, string | number | boolean>;
 
@@ -77,6 +80,10 @@ export interface Platform {
   onAudio(listener: (enabled: boolean) => void): void;
   /** An advertisement between sessions. `done` is called once: closed, failed, or not shown. */
   interstitial(done: () => void): void;
+  /** Whether the platform shows rewarded advertisements: a button for one is drawn only then. */
+  readonly rewardedSupported: boolean;
+  /** Shows a rewarded advertisement; `done(true)` only when the platform says it was watched to the end. Called once. */
+  rewarded(placement: RewardedPlacement, done: (rewarded: boolean) => void): void;
   /** An event of the game for the analytics of the platform. */
   track(event: string, data?: PlatformData): void;
   /** The sample of frames the platform asks for (`FrameSampler` in src/app/telemetry.ts). */
@@ -162,6 +169,8 @@ export const none: Platform = {
   onPause: () => undefined,
   onAudio: () => undefined,
   interstitial: (done) => done(),
+  rewardedSupported: false,
+  rewarded: (_, done) => done(false),
   track: () => undefined,
   trackPerformance: () => undefined,
   leaderboard: null,

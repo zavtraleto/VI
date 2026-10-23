@@ -1,11 +1,22 @@
 {
   "advertisement": {
-    "minimumDelayBetweenInterstitial": 120,
+    "minimumDelayBetweenInterstitial": 180,
     "interstitial": {
       "placementFallback": "session_end",
       "placements": [
         {
           "id": "session_end"
+        }
+      ]
+    },
+    "rewarded": {
+      "placementFallback": "show_way",
+      "placements": [
+        {
+          "id": "show_way"
+        },
+        {
+          "id": "double_score"
         }
       ]
     }

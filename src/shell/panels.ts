@@ -169,12 +169,17 @@ export function resultPanel(data: ResultData, actions: { onAgain: () => void; on
  * chain. It goes up no log and has no records: it is counted apart. Again, on to the board after
  * it, or the menu.
  */
-export function liveResultPanel(data: { score: number; best: number; maxChain: number }, actions: { onAgain: () => void; onNext: () => void; onMenu: () => void }): PanelSpec {
+export function liveResultPanel(
+  data: { score: number; best: number; maxChain: number; doubled?: boolean },
+  actions: { onAgain: () => void; onNext: () => void; onMenu: () => void; onDouble?: () => void },
+): PanelSpec {
+  // The score doubled for an advertisement is shown doubled; the session itself is as it ended.
+  const score = data.doubled ? data.score * 2 : data.score;
   return {
     title: PANELS.result,
     home: 'next',
     rows: [
-      { kind: 'number', label: RESULT.score, value: data.score, places: 6 },
+      { kind: 'number', label: RESULT.score, value: score, places: 6 },
       { kind: 'field', label: RESULT.best, value: digits(data.best, 6) },
       { kind: 'field', label: RESULT.chain, value: `×${digits(data.maxChain, 2)}` },
       { kind: 'gap' },
@@ -184,6 +189,8 @@ export function liveResultPanel(data: { score: number; best: number; maxChain: n
         commands: [
           { id: 'again', label: COMMANDS.again, action: actions.onAgain },
           { id: 'next', label: COMMANDS.next, action: actions.onNext },
+          // Where the platform has an advertisement to watch for it, and the score has not been doubled yet.
+          ...(actions.onDouble ? [{ id: 'double', label: COMMANDS.double, action: actions.onDouble }] : []),
           { id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
         ],
       },
@@ -488,7 +495,7 @@ export interface LevelResult {
  */
 export function levelResultPanel(
   data: LevelResult,
-  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void },
+  actions: { onNext: () => void; onAgain: () => void; onLevels: () => void; onUndo?: () => void; onWay?: () => void },
 ): PanelSpec {
   const rows: PanelRow[] = [];
   if (data.reason) rows.push({ kind: 'say', text: data.reason, large: true });
@@ -508,7 +515,9 @@ export function levelResultPanel(
   if (undo) rows.push({ kind: 'command', id: 'undo', label: { native: COMMANDS.undo.native, name: `${word(COMMANDS.undo.name)} ${data.undos}` }, action: onUndo });
   rows.push(
     { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
-    { kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels },
   );
+  // The way of the board, shown for an advertisement: given only where it may be offered.
+  if (!data.passed && actions.onWay) rows.push({ kind: 'command', id: 'way', label: COMMANDS.showWay, action: actions.onWay });
+  rows.push({ kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels });
   return { title: data.passed ? PANELS.cleared : PANELS.failed, home: next ? 'next' : undo ? 'undo' : 'again', rows };
 }

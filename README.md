@@ -64,8 +64,9 @@ npm run fonts   # пересобрать набор японских знако�
 | `performance_sample` | каждые 30 секунд игры | кадры активной игры: средний FPS, перцентили времени кадра, число долгих кадров, ошибки |
 | `settings_changed`, `records_opened`, `player_registered` | настройка, журнал, вход | что изменено |
 | `result_shared` | игрок поделился результатом | `mode`, `score`, `how` (`sent`, `copied`, `failed`) |
+| `reward_double` | игрок досмотрел рекламу за удвоение счёта в итоге сеанса вживую (с 0.2.80) | `step_id`, `step_index` сеанса, `score` — удвоенный счёт |
 
-Значения обучения Endless (`tutorial`, `tutorial_step`) и пазлов (`task`) ушли вместе с их кодом 15 октября 2026. У уровня `step_id` — `level_<id>`, например `level_P06`.
+Значения обучения Endless (`tutorial`, `tutorial_step`) и пазлов (`task`) ушли вместе с их кодом 15 октября 2026. У уровня `step_id` — `level_<id>`, например `level_P06`; в событиях попытки уровня (`progression_completed`, `progression_failed`) с 0.2.80 есть `hinted` — показан ли на этой попытке путь доски за рекламу.
 
 Сеанс вживую (с 0.2.79): `step_id` — код сеанса `live-<ступень>` (`live-1`, `live-2`, `live-3`), `step_index` — номер места, после которого он стоит (16, 26, 37). `progression_started` — начало сеанса; `progression_completed` — сеанс дошёл до конца по часам, со сводкой сессии и `ticks`; `progression_failed` с `reason`: `full` — поле заполнилось раньше часов, `skipped` — ссылка «пропустить» в окне перед сеансом (только `step_id` и `step_index`), `left` — уход в меню, `restart` — заново из паузы. `session_checkpoint` и уровни сессии (`endless_level`) сеанс не шлёт.
 
