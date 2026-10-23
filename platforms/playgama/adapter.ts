@@ -149,7 +149,8 @@ export const platform = {
     listener(sdk.platform.isAudioEnabled);
   },
   /**
-   * An advertisement over the whole screen, at a break between sessions and never over play.
+   * An advertisement over the whole screen, at a break between sessions, and on a level after every
+   * third move taken back, once the move is back (the owner, 23 October 2026).
    * The platform keeps its own count of how often one may come. One that is on its way is
    * waited for, so it does not open over the session that comes next.
    */

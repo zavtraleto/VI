@@ -10,7 +10,7 @@ import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, nearestDir, type
 import { bindKeyboard } from '../input/keyboard';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
-import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, prefersReducedMotion, saveSettings, type LevelStat, type Settings } from '../platform/settings';
+import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, noteUndoForAd, prefersReducedMotion, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { LevelScene } from '../render/levelScene';
@@ -203,6 +203,11 @@ const SEAL_SHOWN: boolean = false;
  * Word of the owner, 15 October 2026: no limit for the playtest; later three to five, for an advert.
  */
 const UNDO_LIMIT: number | null = null;
+/**
+ * Every so many moves taken back on the levels, through levels and visits, the platform shows its
+ * advertisement once the move is back (the owner, 23 October 2026: «3 отмены - реклама - 3 отмены»).
+ */
+const UNDOS_PER_AD = 3;
 /**
  * The stars of a pass stand in the one place whatever the board is: in the middle of the stage,
  * this share of its height down from its top. It is where they stood over a board of three by
@@ -1158,6 +1163,11 @@ export class Game {
     // With motion kept low the board is put back as it was, with nothing played.
     if (trail.length === 0 || prefersReducedMotion(this.settings)) this.view.reset();
     else this.rewind = { frames: trail, at: trail.length - 1 };
+    // Every third move taken back brings the advertisement of the platform, once the move is back. The game and
+    // its sound wait while it is on by the events of the platform (`setAway`); where it shows none, nothing waits.
+    const advert = noteUndoForAd(this.settings, UNDOS_PER_AD);
+    this.later.after(() => saveSettings(this.settings), 'settings');
+    if (advert) interstitial(() => undefined);
   }
 
   /**

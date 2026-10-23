@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
 import { FIXTURE } from '../levels/rowFixture';
-import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, loadSettings, noteLive, toRowEdition, type RowKept } from './settings';
+import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, loadSettings, noteLive, noteUndoForAd, saveSettings, toRowEdition, type RowKept } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -91,6 +91,39 @@ describe('the windows a player has closed', () => {
   it('leave nothing of the line about a dim die, which is said no more', () => {
     saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, fixedSaid: true } });
     expect('fixedSaid' in loadSettings().levels).toBe(false);
+  });
+});
+
+describe('the moves taken back towards an advertisement', () => {
+  /** The browser's storage, keeping what is written to it. */
+  function storage(): void {
+    const kept = new Map<string, string>();
+    vi.stubGlobal('window', { localStorage: { getItem: (key: string) => kept.get(key) ?? null, setItem: (key: string, value: string) => kept.set(key, value) } });
+  }
+
+  it('call for one on the third, not on the fourth, again on the sixth: three, an advertisement, three', () => {
+    storage();
+    const settings = loadSettings();
+    expect(settings.undosForAd).toBe(0);
+    const calls = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(() => noteUndoForAd(settings, 3));
+    expect(calls).toEqual([false, false, true, false, false, true, false, false, true]);
+    expect(settings.undosForAd).toBe(0);
+  });
+
+  it('are counted through visits: the count outlives a save and a load', () => {
+    storage();
+    const first = loadSettings();
+    noteUndoForAd(first, 3);
+    noteUndoForAd(first, 3);
+    expect(saveSettings(first)).toBe(true);
+    const second = loadSettings();
+    expect(second.undosForAd).toBe(2);
+    expect(noteUndoForAd(second, 3)).toBe(true);
+  });
+
+  it('start from none in a save from before them', () => {
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [] } });
+    expect(loadSettings().undosForAd).toBe(0);
   });
 });
 

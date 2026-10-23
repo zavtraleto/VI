@@ -94,6 +94,11 @@ export interface Settings {
    */
   runs: Record<string, RunRecord[]>;
   levels: LevelProgress;
+  /**
+   * Moves taken back on the levels since the last advertisement, through levels and visits: every
+   * so many of them the platform shows one (docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md).
+   */
+  undosForAd: number;
 }
 
 /** The one key everything the game keeps is under. */
@@ -123,6 +128,7 @@ export function loadSettings(): Settings {
     debugPanel: false,
     runs: {},
     levels: { passed: {}, stats: {}, told: [], lives: {} },
+    undosForAd: 0,
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
@@ -147,6 +153,8 @@ export function loadSettings(): Settings {
   loaded.language ??= null;
   // A save from before the place behind the board has it off, as a new one does.
   loaded.backdrop ??= false;
+  // A save from before the advertisement after undos has taken none back since one.
+  if (typeof loaded.undosForAd !== 'number') loaded.undosForAd = 0;
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
   }
@@ -242,6 +250,17 @@ export function levelStat(settings: Settings, id: string): LevelStat {
   stat.bestMoves ??= null;
   stat.stuck ??= 0;
   return stat;
+}
+
+/**
+ * Counts a move taken back on a level towards the advertisement. True on every `every`-th: the
+ * count starts over, and the platform is to show one, whether it can or not.
+ */
+export function noteUndoForAd(settings: Settings, every: number): boolean {
+  settings.undosForAd = (settings.undosForAd ?? 0) + 1;
+  if (settings.undosForAd < every) return false;
+  settings.undosForAd = 0;
+  return true;
 }
 
 /** Notes a live session played to its end: one more play, and its score as the best where it is. */
