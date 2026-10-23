@@ -10,7 +10,7 @@ import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, nearestDir, type
 import { bindKeyboard } from '../input/keyboard';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
-import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteShort, prefersReducedMotion, saveSettings, type LevelStat, type Settings } from '../platform/settings';
+import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, prefersReducedMotion, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { LevelScene } from '../render/levelScene';
@@ -21,7 +21,8 @@ import { boardDefaults, readView, type BoardLook } from '../render/params';
 import type { DicePassing } from '../render/passing';
 import { finaleMs, type LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
-import { CAMPAIGN, campaignCells, campaignDone, campaignFocus, plaquesOf } from '../levels/campaign';
+import { CAMPAIGN, LIVES, campaignDone, campaignFocus, campaignList, plaquesOf } from '../levels/campaign';
+import type { Live } from '../levels/row';
 import { STAR_POINTS, levelStars, starScore, starsHeld } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
 import { messagesOf } from '../levels/voices';
@@ -30,6 +31,7 @@ import {
   cubeAt,
   getCube,
   defaultConfig,
+  liveConfig,
   goalLines,
   levelDeadEnd,
   smallestGroup,
@@ -53,7 +55,7 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, systemPanel, type SystemValues } from '../shell/panels';
+import { languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, systemPanel, type LevelsEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -63,7 +65,7 @@ import { h } from '../ui/dom';
 import { readmePages } from '../ui/readme';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive } from './archive';
-import { secondsLeft } from './clock';
+import { clockLeft, secondsLeft } from './clock';
 import { Hints } from './hints';
 import { levelReport, shortOf } from './levelStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
@@ -73,7 +75,7 @@ import { Runner, frameBound } from './runner';
 import { mark, span } from './spans';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
-import { FILE_LEADS, atAfter, orderOf, passageAt, passageMarks, placeAfterIndex, startPlace as openingPlace, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
+import { FILE_LEADS, atAfter, liveDue, liveKey, orderOf, passageAt, passageMarks, placeAfterIndex, startPlace as openingPlace, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
@@ -127,10 +129,15 @@ function interstitial(next: () => void): void {
   });
 }
 
+/** A live session of the row as the analytics name it: its code, and the number of the board it stands after. */
+function liveStep(live: Live): EventData {
+  return { step_id: live.code, step_index: CAMPAIGN[live.after].number };
+}
+
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
-/** What the player picked in the menu, or in the list of levels. */
-type RunKind = 'endless' | 'level';
+/** What the player picked in the menu, or in the list of levels; a live session of the row is come to from the row or the list. */
+type RunKind = 'endless' | 'live' | 'level';
 
 /**
  * The levels are a file of the menu. Asked for in the address, `?levels`, the program opens on
@@ -166,7 +173,7 @@ const LAB = import.meta.env.DEV && new URLSearchParams(window.location.search).h
  * are rolled, then what a level asks for and what a session does. Where a window of the levels
  * already says a rule in words that hold everywhere, the words are the same ones.
  */
-const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'lessonGlass', 'lessonFloor', 'howOnes', 'howLevels', 'howProtocol'];
+const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'lessonGlass', 'lessonFloor', 'howOnes', 'howLevels', 'howLive', 'howProtocol'];
 /** A window lower than this, in CSS pixels, and lying on its side shows the note that came with the program so many signs at a time. */
 const README_LOW = 520;
 const README_SIGNS = 330;
@@ -270,6 +277,9 @@ export class Game {
   private paused = false;
   private inMenu = false;
   private kind: RunKind = 'endless';
+  /** The live session of the row in hand, or last in hand, and whether it was come to from the row or from the list. */
+  private live: Live | null = null;
+  private liveFrom: 'row' | 'list' = 'list';
   private lastFrame = 0;
   /** Where a swipe has to point for each board direction; follows the camera. */
   private swipeDirs: ScreenDirs = CARDINAL_DIRS;
@@ -345,6 +355,8 @@ export class Game {
     struck: boolean;
     /** Whether the end of the row has been looked for: once, when the dice of the board are under the floor. */
     endAsked: boolean;
+    /** Whether a live session after the board has been looked for: once, before the end of the row. */
+    liveAsked: boolean;
     /** The clock of the passage has been set to the frame the dice were seen under. */
     aligned: boolean;
     beaten: boolean;
@@ -802,6 +814,7 @@ export class Game {
 
   /** What the platform calls the thing being played: the session, or a level. */
   private levelName(): string {
+    if (this.kind === 'live' && this.live) return this.live.code;
     return this.kind === 'level' ? `level_${this.levelId()}` : this.kind;
   }
 
@@ -833,6 +846,7 @@ export class Game {
       const number = this.boardNumber();
       return number === null ? { step_id: `level_${this.levelId()}` } : { step_id: `level_${this.levelId()}`, step_index: number };
     }
+    if (this.kind === 'live' && this.live) return liveStep(this.live);
     return { step_id: this.kind };
   }
 
@@ -903,6 +917,10 @@ export class Game {
       else this.startPlace(this.place ?? 0);
       return;
     }
+    if (kind === 'live') {
+      if (this.live) this.startLive(this.live, this.liveFrom);
+      return;
+    }
     this.kind = kind;
     const { experiments } = this.settings;
     const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
@@ -922,6 +940,105 @@ export class Game {
     // Now and then something is seen before the session, for less than a second. Not before
     // the first frame: that run is only set up behind the boot.
     if (this.lastFrame > 0) this.signal.glimpse();
+  }
+
+  /**
+   * A live session of the row begins (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md):
+   * Endless on its clock, by the rules of its step as they are, whatever the player has set. It stands
+   * after its board: that place is the one in hand, and the one after it is where `NEXT` leads.
+   */
+  private startLive(live: Live, from: 'row' | 'list'): void {
+    this.kind = 'live';
+    this.live = live;
+    this.liveFrom = from;
+    this.place = live.after;
+    this.labSpec = null;
+    this.labFrozen = false;
+    const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
+    this.begin(createRun({ seed, config: liveConfig(live.step), live: true }), true);
+    this.resumed = false;
+    platform.track('progression_started', this.step());
+    platform.tell('level_started', this.levelName());
+  }
+
+  /**
+   * The window before the live session that stands after the place just passed, once for a player:
+   * a tap after its words starts the session, its link skips it and the passage goes on. True when
+   * the window is up: the passage waits under it.
+   */
+  private offerLive(): boolean {
+    if (this.labSpec !== null || this.place === null) return false;
+    const { levels } = this.settings;
+    const live = liveDue(this.place, levels.told, LIVES);
+    if (!live) return false;
+    const mark = (): void => {
+      levels.told.push(liveKey(live));
+      this.later.after(() => saveSettings(this.settings), 'settings');
+    };
+    this.signal.tell({
+      text: t('liveIntro'),
+      wordMs: Number(this.look.board.hintWordMs),
+      reduced: prefersReducedMotion(this.settings),
+      // The link skips: a key that closes the window starts the session, and Enter is no way to skip it.
+      linkByKey: false,
+      onDone: () => {
+        mark();
+        this.startLive(live, 'row');
+      },
+      onLink: () => {
+        mark();
+        platform.track('progression_failed', { ...liveStep(live), reason: 'skipped' });
+      },
+    });
+    return this.signal.busy;
+  }
+
+  /** The result of a live session: what it came to is kept and told, and the panel says it. After it the platform may show its advertisement, as after a session of Endless. */
+  private showLiveResult(): void {
+    const { state } = this;
+    const live = this.live!;
+    if (import.meta.env.DEV) this.lastStats = statsText(state);
+    const stat = noteLive(this.settings, live.code, state.score);
+    saveSettings(this.settings);
+    const summary: EventData = { ...this.step(), ...runSummary(state, this.tally), ticks: state.tick };
+    // A session the clock ends is completed; one the board fills before it is failed.
+    const done = state.endReason === 'time';
+    if (done) platform.track('progression_completed', summary);
+    else platform.track('progression_failed', { ...summary, reason: 'full' });
+    platform.tell(done ? 'level_completed' : 'level_failed', this.levelName());
+    this.frames.flush(this.lastFrame);
+    const answered = (next: () => void): void => {
+      this.shell.hide();
+      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, () => interstitial(next));
+    };
+    this.shell.showPanel(
+      liveResultPanel(
+        { score: state.score, best: stat.best, maxChain: state.maxChain },
+        {
+          onAgain: () => answered(() => this.startLive(live, this.liveFrom)),
+          onNext: () => answered(() => this.afterLive(live)),
+          onMenu: () => answered(() => this.showMenu()),
+        },
+      ),
+      false,
+    );
+  }
+
+  /** On from a live session to the board after the one it stands after; after the last, the end of the row is said, and then the menu. */
+  private afterLive(live: Live): void {
+    const next = live.after + 1;
+    if (next < CAMPAIGN.length) {
+      this.startPlace(next, true);
+      return;
+    }
+    // The window may be closed before it is up, where the program shows none: the menu comes once.
+    let gone = false;
+    const menu = (): void => {
+      if (gone) return;
+      gone = true;
+      this.showMenu();
+    };
+    if (!this.tellEnd(menu)) menu();
   }
 
   /** Puts a new run on the board and clears away what the previous one left on screen. */
@@ -1125,9 +1242,10 @@ export class Game {
   /**
    * Every board of the row is passed: a window says that more is to come, and its link leads to
    * the endless session (the owner, 15 October 2026). It is said once for a row of this length.
-   * True when the window is up: the passage waits under it.
+   * True when the window is up: the passage waits under it. `after` is what comes once the window
+   * is closed, other than by its link.
    */
-  private tellEnd(): boolean {
+  private tellEnd(after?: () => void): boolean {
     if (this.labSpec !== null) return false;
     const ids = CAMPAIGN.map(({ spec }) => spec.id);
     const { levels } = this.settings;
@@ -1140,7 +1258,10 @@ export class Game {
       text: t('campaignEnd'),
       wordMs: Number(this.look.board.hintWordMs),
       reduced: prefersReducedMotion(this.settings),
-      onDone: mark,
+      onDone: () => {
+        mark();
+        after?.();
+      },
       onLink: () => {
         mark();
         this.open(FILE_LEADS.protocol);
@@ -1268,6 +1389,7 @@ export class Game {
       swapped: false,
       struck: false,
       endAsked: false,
+      liveAsked: false,
       aligned: false,
       beaten: true,
       lit: 0,
@@ -1324,6 +1446,11 @@ export class Game {
         now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
       }
       if (now.phase === 'combo' || now.phase === 'sink') return;
+      // A live session stands after the board that is passed: it is offered before anything after it, the end of the row too.
+      if (!passage.liveAsked) {
+        passage.liveAsked = true;
+        if (this.offerLive() || this.passage !== passage) return;
+      }
       // The last board of the row that was left is passed: the end of the row is said before what comes after it.
       if (!passage.endAsked) {
         passage.endAsked = true;
@@ -1568,11 +1695,21 @@ export class Game {
     const { levels } = this.settings;
     // The list opens where the player stands: on the prologue, the place kept of them, whatever they play out of turn; past it, the
     // place of a chapter being played, or the first of the chapters not passed (`campaignFocus`).
-    const current = campaignFocus(levels, CAMPAIGN, this.kind === 'level' && this.labSpec === null ? this.place : null);
+    const focus = campaignFocus(levels, CAMPAIGN, this.kind === 'level' && this.labSpec === null ? this.place : null);
+    // The live sessions stand among the boards with no number: the cell in focus is counted through them.
+    const list = campaignList(levels);
+    const entries: LevelsEntry[] = list.map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best, note: t('liveNote') } }));
+    let boards = -1;
+    const current = Math.max(0, list.findIndex((item) => item.kind === 'board' && ++boards === focus));
     this.shell.showPanel(
-      levelsPanel(campaignCells(levels), current, {
+      levelsPanel(entries, current, {
         // A place starts as it does by its address, with no screen before it, and the row goes on from it.
         onPick: (index) => this.startPlace(index, true),
+        // A live session starts at once from its cell, with no window before it.
+        onLive: (code) => {
+          const live = LIVES.find((one) => one.code === code);
+          if (live) this.startLive(live, 'list');
+        },
         // What was played, as text to pass on: the report of the playtest.
         share: { label: () => this.shareLabel(), action: () => this.shareLevels() },
         onBack: () => this.showMenu(),
@@ -2336,8 +2473,10 @@ export class Game {
         : {
             kind: 'session',
             score: state.score,
-            best: this.bestScore(),
+            // A live session is measured against its own best, not against Endless.
+            best: state.mode === 'live' && this.live ? (this.settings.levels.lives[this.live.code]?.best ?? 0) : this.bestScore(),
             level: state.level,
+            clock: clockLeft(state),
             danger: secondsLeft(state),
             stage: this.ritual.stage,
             steps: CONTACT_STEPS.length,
@@ -2409,7 +2548,8 @@ export class Game {
       const held = lost && this.undoable && this.history.length > 0 && this.undosLeft > 0 && deadEnd(state);
       if (!held && (!lost || this.failHeld(time))) {
         this.resultShown = true;
-        if (!state.levelRun) this.showResult();
+        if (state.mode === 'live') this.showLiveResult();
+        else if (!state.levelRun) this.showResult();
         else if (lost) this.showLevelResult();
         else this.startPassage();
       }

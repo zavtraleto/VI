@@ -86,6 +86,8 @@ export const ES: Texts = {
   hintLinkMove: 'Un eslabón da al combo un turno más.',
   hintRollIn: 'También puedes rodar dentro de un dado que se va.',
   campaignEnd: 'Continuará. Mientras llegan nuevos niveles, puedes probar el {modo infinito}.',
+  liveIntro: 'No es un nivel: una sesión en directo. Los dados llegan solos. Tres minutos, con su propia puntuación. {Saltar}',
+  liveNote: 'Sesión en directo: tres minutos, los dados llegan solos',
   shellProtocol: 'SESIÓN SIN LÍMITE',
   shellLevels: 'LIMPIEZA DEL CAMPO',
   shellRecords: 'REGISTRO DE SESIONES',
@@ -97,6 +99,7 @@ export const ES: Texts = {
   howChain: 'Un combo no se va enseguida.\nMientras se va, acércale otro dado con la misma cara: se irá con el combo. Esto es una cadena.',
   howOnes: 'Los 1 no forman combo.\nLleva un 1 a un combo que se va, y se irán todos los demás 1 del tablero.',
   howLevels: 'NIVELES: quita todos los dados del tablero.\nLas caras de la esquina son las que hay que juntar.\nEl suelo tiene aquí sus propias reglas: solo se sube por un dado que se va.',
+  howLive: 'SESIÓN EN DIRECTO: tres minutos con las reglas de PROTOCOLO, entre capítulos.\nSe puede saltar.',
   howProtocol: 'PROTOCOLO: los dados llegan solos.\nUna cadena multiplica los puntos.\nSi el tablero se llena y sigue lleno, la sesión termina.',
   shareScore: 'VI — enviado al otro lado: {score}',
 };

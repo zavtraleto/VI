@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CAMPAIGN, campaignCells, campaignDone, campaignFocus, placeOfCode, plaquesOf } from './campaign';
+import { CAMPAIGN, LIVES, campaignCells, campaignDone, campaignFocus, campaignList, liveAfter, placeOfCode, plaquesOf } from './campaign';
 import { FIXTURE } from './rowFixture';
 import { ROW } from './row.gen';
 
@@ -35,6 +35,29 @@ describe('the cells of the list', () => {
     expect(campaignCells(none, row)[0].faces).toEqual([2]);
     expect(campaignCells(none, row)[3].faces).toEqual([2, 3]);
     expect(campaignCells(none, row)[3].goal.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the live sessions in the list', () => {
+  const lives = [{ code: 'live-1', step: 1, after: 1 }];
+
+  it('stand after the board they are after, with no number of their own: the boards keep theirs', () => {
+    const list = campaignList(none, row, lives);
+    expect(list).toHaveLength(row.length + 1);
+    expect(list.slice(0, 3).map((cell) => (cell.kind === 'board' ? cell.cell.number : cell.code))).toEqual([1, 2, 'live-1']);
+    expect(list[3]).toMatchObject({ kind: 'board', cell: { number: 3 } });
+    expect(list[2]).toEqual({ kind: 'live', code: 'live-1', step: 1, best: null, played: false });
+  });
+
+  it('show the best score of a session once it is played', () => {
+    const list = campaignList({ ...none, lives: { 'live-1': { best: 420, plays: 2 } } }, row, lives);
+    expect(list[2]).toMatchObject({ kind: 'live', best: 420, played: true });
+  });
+
+  it('are found by the place they stand after', () => {
+    expect(liveAfter(1, lives)).toEqual(lives[0]);
+    expect(liveAfter(0, lives)).toBeNull();
+    expect(LIVES).toBe(ROW.lives);
   });
 });
 

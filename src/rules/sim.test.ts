@@ -24,7 +24,7 @@ function fill(s: RunState, count: number): void {
 
 /** Ticks until the next regular spawn is announced, for the board as it is now. */
 function interval(s: RunState): number {
-  return paceIntervalTicks(s.config, s.level, population(s));
+  return paceIntervalTicks(s.config, s.mode, s.level, s.tick, population(s));
 }
 
 function collect(s: RunState, ticks: number): GameEvent[] {
@@ -166,7 +166,7 @@ describe('cube lifecycle', () => {
 describe('spawn and pressure', () => {
   it('refills a board below its target sooner and gives a crowded one more room', () => {
     const c = defaultConfig();
-    const at = (cubes: number) => paceIntervalTicks(c, 1, cubes);
+    const at = (cubes: number) => paceIntervalTicks(c, 'endless', 1, 0, cubes);
     expect(c.targetCubes).toBe(14);
     expect(at(0)).toBe(110); // 2.2 s
     expect(at(10)).toBe(110);
@@ -181,7 +181,7 @@ describe('spawn and pressure', () => {
 
   it('refills faster as the level rises: from 2.2 s to 1 s by level 15', () => {
     const c = defaultConfig();
-    const at = (level: number) => paceIntervalTicks(c, level, 0);
+    const at = (level: number) => paceIntervalTicks(c, 'endless', level, 0, 0);
     expect(at(3)).toBe(110);
     expect(at(9)).toBe(80); // half way
     expect(at(15)).toBe(50);
@@ -189,8 +189,8 @@ describe('spawn and pressure', () => {
   });
 
   it('never refills slower than the level itself spawns', () => {
-    expect(paceIntervalTicks(defaultConfig({}, { paceStartMs: 1500 }), 1, 0)).toBe(75);
-    expect(paceIntervalTicks(defaultConfig({}, { targetCubes: 0 }), 1, 0)).toBe(250);
+    expect(paceIntervalTicks(defaultConfig({}, { paceStartMs: 1500 }), 'endless', 1, 0, 0)).toBe(75);
+    expect(paceIntervalTicks(defaultConfig({}, { targetCubes: 0 }), 'endless', 1, 0, 0)).toBe(250);
   });
 
   it('counts a sinking cube as gone: what is cleared starts coming back at once', () => {
@@ -204,7 +204,7 @@ describe('spawn and pressure', () => {
 
   it('speeds up from the 2nd level on, down to the minimum', () => {
     const c = defaultConfig();
-    const crowded = (level: number) => paceIntervalTicks(c, level, 30);
+    const crowded = (level: number) => paceIntervalTicks(c, 'endless', level, 0, 30);
     expect(crowded(1)).toBe(300);
     expect(crowded(2)).toBeLessThan(300);
     expect(crowded(200)).toBe(30); // 0.5 s x 1.2
@@ -224,7 +224,7 @@ describe('spawn and pressure', () => {
 
   it('applies tuning, marks it as custom and keeps presentation flags out of the record key', () => {
     const c = defaultConfig({}, { paceStartMs: 2000, sinkStartMs: 1000 });
-    expect(paceIntervalTicks(c, 1, 30)).toBe(120);
+    expect(paceIntervalTicks(c, 'endless', 1, 0, 30)).toBe(120);
     expect(c.sinkingTicks).toBe(50);
     expect(c.custom).toBe(true);
     expect(defaultConfig().custom).toBe(false);

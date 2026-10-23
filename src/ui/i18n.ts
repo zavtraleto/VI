@@ -121,6 +121,8 @@ const RU = {
   hintRollIn: 'В уходящую кость тоже можно вкатиться.',
   // The window after the last board of the row: the words in braces lead to the endless session (the owner, 15 October 2026).
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
+  liveIntro: 'Это не уровень: прямой сеанс. Кости приходят сами. Три минуты, счёт отдельный. {Пропустить}',
+  liveNote: 'Прямой сеанс: три минуты, кости приходят сами',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
   shellRecords: 'ЖУРНАЛ СЕАНСОВ',
@@ -134,6 +136,7 @@ const RU = {
   howChain: 'Комбо уходит не сразу.\nПока оно уходит, докати к нему ещё кость с той же гранью: она уйдёт вместе с ним. Это цепочка.',
   howOnes: 'Единицы в комбо не собираются.\nПодведи единицу к уходящему комбо — и уйдут все остальные единицы на поле.',
   howLevels: 'УРОВНИ: убери с поля все кости.\nГрани в углу — те, которые нужно собрать.\nПравила пола здесь свои: наверх — только по уходящей кости.',
+  howLive: 'ПРЯМОЙ СЕАНС: три минуты по правилам ПРОТОКОЛА, между главами.\nМожно пропустить.',
   howProtocol: 'ПРОТОКОЛ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — сеанс окончен.',
   // What a player sends out with a link to the game: the score is what was sent to the other side.
   shareScore: 'VI — передано на ту сторону: {score}',
@@ -223,6 +226,8 @@ const EN: typeof RU = {
   hintLinkMove: 'A link gives the combo a move.',
   hintRollIn: 'You can roll into a leaving die, too.',
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
+  liveIntro: 'Not a level: a live session. The dice come by themselves. Three minutes, scored on its own. {Skip}',
+  liveNote: 'Live session: three minutes, the dice come by themselves',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLevels: 'CLEAR THE BOARD',
   shellRecords: 'SESSION LOG',
@@ -234,6 +239,7 @@ const EN: typeof RU = {
   howChain: 'A combo does not leave at once.\nWhile it is leaving, roll one more die with the same face up to it: it leaves with the combo. This is a chain.',
   howOnes: 'Ones make no combo.\nBring a 1 to a leaving combo, and every other 1 on the board leaves.',
   howLevels: 'LEVELS: clear every die off the board.\nThe faces in the corner are the ones to put together.\nThe floor has rules of its own here: the only way up is a leaving die.',
+  howLive: 'LIVE SESSION: three minutes by the rules of PROTOCOL, between chapters.\nCan be skipped.',
   howProtocol: 'PROTOCOL: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the session is over.',
   shareScore: 'VI — sent to the other side: {score}',
 };

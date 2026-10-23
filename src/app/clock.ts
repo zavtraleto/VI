@@ -1,5 +1,12 @@
 import type { RunState } from '../rules';
 
+/** Whole seconds left in a live session, or null in other modes. */
+export function clockLeft(state: RunState): number | null {
+  if (state.mode !== 'live') return null;
+  const { config } = state;
+  return Math.max(0, Math.ceil(((config.liveTicks - state.tick) * config.tickMs) / 1000));
+}
+
 /** Seconds left on the countdown of a full board, or null when it is not running. */
 export function secondsLeft(state: RunState): number | null {
   if (state.fullTicks <= 0 || state.over) return null;

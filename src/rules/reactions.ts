@@ -1,5 +1,5 @@
 import { cellIndex, cubeAt, inChain, neighbours } from './board';
-import { sinkTicksAt, timeLevel } from './config';
+import { livePhase, sinkTicksAt, timeLevel } from './config';
 import type { Cube, LevelStats, Overrun, RulesConfig, RunState } from './types';
 
 function startSinking(cube: Cube, reactionId: number): void {
@@ -46,9 +46,9 @@ export function levelStats(state: RunState): LevelStats {
   return levels[state.level - 1];
 }
 
-/** Endless follows the pace of its level. */
+/** Endless and a live session follow the pace of their level. */
 function isPaced(state: RunState): boolean {
-  return state.mode === 'endless';
+  return state.mode === 'endless' || state.mode === 'live';
 }
 
 /**
@@ -72,14 +72,16 @@ function enterLevel(state: RunState, level: number): void {
 }
 
 /**
- * What the clock does to the level. In Endless the clock is a floor under the level the cubes
- * give: the run is on the greater of the two, so an unhurried player is not left on the first
- * levels for good.
+ * What the clock does to the level. A live session takes its level from the clock, not from the
+ * cubes removed: the pressure is the same on every run of it. In Endless the clock is a floor
+ * under the level the cubes give: the run is on the greater of the two, so an unhurried player
+ * is not left on the first levels for good.
  */
 export function runPhase(state: RunState): void {
   const { config } = state;
   let level = state.level;
-  if (state.mode === 'endless' && config.experiments.timeFloor) level = timeLevel(config, state.tick);
+  if (state.mode === 'live') level = livePhase(config, state.tick);
+  else if (state.mode === 'endless' && config.experiments.timeFloor) level = timeLevel(config, state.tick);
   if (level > state.level) enterLevel(state, level);
 }
 
@@ -99,7 +101,7 @@ export function removeCube(state: RunState, cube: Cube): void {
     state.stats.falls++;
     state.events.push({ type: 'fell' });
   }
-  if (state.mode === 'level') return;
+  if (state.mode === 'level' || state.mode === 'live') return;
   const level = 1 + Math.floor(state.removed / config.cubesPerLevel);
   if (level > state.level) enterLevel(state, level);
 }

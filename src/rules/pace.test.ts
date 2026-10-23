@@ -19,7 +19,7 @@ const warned = (e: GameEvent) => e.type === 'warned';
 
 /** Ticks until the next regular spawn is announced, for the board as it is now. */
 function interval(s: RunState): number {
-  return paceIntervalTicks(s.config, s.level, population(s));
+  return paceIntervalTicks(s.config, s.mode, s.level, s.tick, population(s));
 }
 
 /** Takes the last cube that the level is short of off the board: one step, and the run is on `level`. */
@@ -32,7 +32,7 @@ function reach(s: RunState, level: number): void {
 
 describe('endless curve', () => {
   const c = defaultConfig();
-  const at = (level: number, config = c) => paceIntervalTicks(config, level, config.targetCubes);
+  const at = (level: number, config = c) => paceIntervalTicks(config, 'endless', level, 0, config.targetCubes);
 
   /** Cubes in a tick at a level: the flow, where the interval is the time between two of them. */
   const flow = (level: number, config = c) => 1 / at(level, config);

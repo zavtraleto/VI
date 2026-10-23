@@ -61,8 +61,21 @@ export interface RowChapterFile {
   places: RowPlaceFile[];
 }
 
+/**
+ * A live session of the row (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md): Endless on a
+ * clock, after the board `after`, of the step `step` of `LIVE_STEPS` (src/rules/live.ts). Not a place:
+ * the numbers of the boards stay as they are. Written in row.json by hand; the workshop keeps them.
+ */
+export interface RowLiveFile {
+  after: string;
+  step: number;
+  /** A note for people, not read by the game. */
+  note?: string;
+}
+
 export interface RowFile {
   chapters: RowChapterFile[];
+  lives?: RowLiveFile[];
 }
 
 /** A place of the laid row: its number from 1 through the whole row, its chapter from 0, and the board as it is played. */
@@ -88,13 +101,27 @@ export interface RowChapter {
   last: number;
 }
 
+/** A live session of the laid row: its code (`live-<step>`), its step, and the index in `places` of the board it stands after. */
+export interface Live {
+  code: string;
+  step: number;
+  after: number;
+}
+
 export interface Row {
   chapters: RowChapter[];
   places: Place[];
+  lives: Live[];
+}
+
+/** The code of a live session of a step: what saves, analytics and the window know it by. */
+export function liveCode(step: number): string {
+  return `live-${step}`;
 }
 
 /** The keys row.json knows, in the order it is written in (`rowFileText` of rowEdit.ts). */
 export const CHAPTER_KEYS = ['title', 'faces', 'floor', 'places'] as const;
+export const LIVE_KEYS = ['after', 'step', 'note'] as const;
 export const PLACE_KEYS = ['board', 'role', 'teaches', 'archetype', 'emotion', 'event', 'note', 'help'] as const;
 export const HELP_KEYS = ['hint', 'sign', 'plaques', 'wait', 'camera'] as const;
 
@@ -161,7 +188,28 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
     }
     chapters.push({ id, title: chapter.title, faces: chapter.faces ? [...chapter.faces] : null, first, last: places.length - 1 });
   });
-  return { chapters, places };
+  return { chapters, places, lives: buildLives(file.lives ?? [], places) };
+}
+
+/**
+ * The live sessions of the row in the order of the places they stand after. Refuses, in one line
+ * that begins `row: live after <code>: `, a session after a board that is not in the row, a step
+ * that is not a whole number from 1, a step twice, and a key it does not know.
+ */
+function buildLives(said: readonly RowLiveFile[], places: readonly Place[]): Live[] {
+  if (!Array.isArray(said)) throw new Error('row: "lives" is a list of live sessions');
+  const lives: Live[] = [];
+  for (const live of said) {
+    const where = `row: live after ${String(live.after)}`;
+    unknownKeys(live, LIVE_KEYS, where);
+    const after = places.findIndex((place) => place.code === live.after);
+    if (after < 0) throw new Error(`${where}: there is no board ${String(live.after)} in the row`);
+    if (!Number.isInteger(live.step) || live.step < 1) throw new Error(`${where}: "step: ${String(live.step)}" is a whole number from 1`);
+    if (lives.some((other) => other.step === live.step)) throw new Error(`${where}: step ${live.step} is in the row twice`);
+    if (lives.some((other) => other.after === after)) throw new Error(`${where}: the board has a live session after it already`);
+    lives.push({ code: liveCode(live.step), step: live.step, after });
+  }
+  return lives.sort((a, b) => a.after - b.after);
 }
 
 /** Whether a file of `boards/` written anew changes the row: row.json itself, or the file of a board in it. */

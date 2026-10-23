@@ -111,6 +111,17 @@ export function digits(value: number, places: number): string {
   return String(Math.max(0, Math.round(value))).padStart(places, '0');
 }
 
+/** What a live session of the row is called in the list of the levels, where a board has its number. */
+export const LIVE_WORD = 'LIVE';
+
+/** A score in four signs at most, where a cell has no more room: 2471, 24K, 710K, 1M. */
+export function shortScore(score: number): string {
+  const value = Math.max(0, Math.round(score));
+  if (value < 10_000) return String(value);
+  if (value < 1_000_000) return `${Math.floor(value / 1000)}K`;
+  return `${Math.floor(value / 1_000_000)}M`;
+}
+
 /** What the session shows while it runs: the names of its readings. */
 export const HUD = {
   /** "Score". */

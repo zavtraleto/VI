@@ -89,6 +89,8 @@ export const FR: Texts = {
   hintLinkMove: 'Un maillon offre un tour au combo.',
   hintRollIn: 'On peut aussi rouler dans un dé qui part.',
   campaignEnd: 'À suivre. En attendant de nouveaux niveaux, tu peux essayer le {mode infini}.',
+  liveIntro: 'Pas un niveau : une session en direct. Les dés arrivent tout seuls. Trois minutes, un score à part. {Passer}',
+  liveNote: 'Session en direct : trois minutes, les dés arrivent tout seuls',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLevels: 'NETTOYAGE DU CHAMP',
   shellRecords: 'JOURNAL DES SESSIONS',
@@ -100,6 +102,7 @@ export const FR: Texts = {
   howChain: "Un combo ne s'en va pas tout de suite.\nPendant qu'il s'en va, amène-lui un dé de plus avec la même face : il part avec le combo. C'est une chaîne.",
   howOnes: "Les 1 ne forment pas de combo.\nAmène un 1 à un combo qui s'en va, et tous les autres 1 du plateau s'en vont.",
   howLevels: "NIVEAUX : enlève tous les dés du plateau.\nLes faces dans le coin sont celles à réunir.\nLe sol a ici ses propres règles : on ne remonte que par un dé qui s'en va.",
+  howLive: 'SESSION EN DIRECT : trois minutes selon les règles du PROTOCOLE, entre les chapitres.\nPeut être passée.',
   howProtocol: 'PROTOCOLE : les dés arrivent tout seuls.\nUne chaîne multiplie le score.\nSi le plateau se remplit et reste plein, la session est finie.',
   shareScore: "VI — envoyé de l'autre côté : {score}",
 };

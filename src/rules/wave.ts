@@ -50,9 +50,9 @@ export function swellAt(config: RulesConfig, wave: Wave, tick: number): number {
   return config.waveEase + (config.wavePeak - config.waveEase) * gathered;
 }
 
-/** Endless comes in waves. */
+/** Endless and a live session come in waves. */
 function hasWaves(state: RunState): boolean {
-  return state.config.experiments.waves && state.mode === 'endless';
+  return state.config.experiments.waves && state.mode !== 'level';
 }
 
 /** Moves the run on to its next wave when the rest of this one is over. */

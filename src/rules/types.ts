@@ -181,6 +181,10 @@ export interface Tuning {
   liftMs: number;
   gentleSec: number;
   rescueMs: number;
+  /** A live session: how long it lasts, and the interval at the target at its start and at its end. */
+  liveSec: number;
+  liveStartMs: number;
+  liveEndMs: number;
   helpRate: number;
   targetCubes: number;
   /** Interval below the target on the first levels, and from level 15 on. */
@@ -289,6 +293,10 @@ export interface RulesConfig {
   easyLevels: number;
   gentleTicks: number;
   floorLiftTicks: number;
+  /** A live session: its length, and the interval at the target at its start and at its end. */
+  liveTicks: number;
+  liveStartMs: number;
+  liveEndMs: number;
   /** True when any tuning value differs from the defaults. */
   custom: boolean;
   experiments: ExperimentConfig;
@@ -359,7 +367,8 @@ export interface RunStats {
   longestChainQuiet: number;
 }
 
-export type RunMode = 'endless' | 'level';
+/** Endless; a live session of the row, Endless on a clock; a level of the game. */
+export type RunMode = 'endless' | 'live' | 'level';
 
 /**
  * What a level asks for: dice sent, of any face or of faces ordered; a chain of so many links;
@@ -532,9 +541,10 @@ export interface RunState {
   levelRun: LevelRun | null;
   over: boolean;
   /**
-   * Why the run ended: the board stayed full, or a level was passed or failed.
+   * Why the run ended: the board stayed full, the clock of a live session ran out, or a level
+   * was passed or failed.
    */
-  endReason: null | 'full' | 'passed' | 'failed';
+  endReason: null | 'full' | 'time' | 'passed' | 'failed';
   stats: RunStats;
   /** Events produced by the most recent step. */
   events: GameEvent[];

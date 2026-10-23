@@ -35,6 +35,8 @@ export interface Telling {
   onDone: () => void;
   /** The link has been pressed: called instead of `onDone`. */
   onLink?: () => void;
+  /** Enter follows the link, as a press on it does; false: Enter closes the window as any other key. True when left out. */
+  linkByKey?: boolean;
   /** Milliseconds a word; 0 puts the words there at once. */
   wordMs: number;
   /** Motion kept low: the words stand whole at once, and make no sound. */
@@ -220,7 +222,8 @@ export class SignalPlayer {
     }
     if (playing.elapsed < SKIP_AFTER_MS) return;
     const onLink = told.links.some((box) => at !== null && at.x >= box.x && at.x <= box.x + box.w && at.y >= box.y && at.y <= box.y + box.h);
-    this.finish(told.links.length > 0 && (onLink || code === 'Enter'));
+    const byKey = code === 'Enter' && told.telling.linkByKey !== false;
+    this.finish(told.links.length > 0 && (onLink || byKey));
   }
 
   /** The size of the interface's picture on the screen as it is now. */

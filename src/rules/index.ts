@@ -28,3 +28,4 @@ export {
 export { canAcceptCommand, resolveMove } from './movement';
 export { previewAll, previewMove, type MovePreview } from './preview';
 export { createRun, step, type RunOptions } from './sim';
+export { LIVE_STEPS, liveConfig } from './live';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE } from '../levels/rowFixture';
 import { MENU_FILES } from '../shell/text';
-import { FILE_LEADS, atAfter, orderOf, passageAt, passageEnd, placeAfterIndex, startPlace, type PassageTimes } from './passage';
+import { FILE_LEADS, atAfter, liveDue, liveKey, orderOf, passageAt, passageEnd, placeAfterIndex, startPlace, type PassageTimes } from './passage';
 
 /** The numbers the look has for the passage as it is first laid out. */
 const TIMES: PassageTimes = { comboStepMs: 140, comboHoldMs: 350, sinkMs: 1300, eraseMs: 700, cameraMs: 900, drawMs: 1100, riseMs: 600, riseStepMs: 90 };
@@ -42,6 +42,23 @@ describe('the place after a place', () => {
     const seen: string[] = [];
     for (let place: number | null = startPlace(undefined, {}, row); place !== null; place = placeAfterIndex(place, row.length)) seen.push(row[place].code);
     expect(seen).toEqual(['F1', 'F2', 'F3', 'G1', 'G2']);
+  });
+});
+
+describe('a live session after a place', () => {
+  const lives = [{ code: 'live-1', step: 1, after: 2 }];
+
+  it('holds the passage from the place it stands after for its window, once for a player', () => {
+    expect(liveDue(2, [], lives)).toEqual(lives[0]);
+    expect(liveDue(1, [], lives)).toBeNull();
+    expect(liveDue(3, [], lives)).toBeNull();
+    expect(liveKey(lives[0])).toBe('live:live-1');
+  });
+
+  it('lets the passage go on to the place after once its window is closed, played or skipped', () => {
+    const told = [liveKey(lives[0])];
+    expect(liveDue(2, told, lives)).toBeNull();
+    expect(placeAfterIndex(2, row.length)).toBe(3);
   });
 });
 

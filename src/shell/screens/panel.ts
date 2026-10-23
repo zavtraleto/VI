@@ -1,10 +1,10 @@
 import type { ClimbRow } from '../climb';
 import type { Kit } from '../kit';
-import { CELL_H, CELL_W, MIN_ZONE, type Box } from '../layout';
+import { CELL_H, CELL_W, MIN_ZONE, textWidth, type Box } from '../layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { word } from '../../ui/i18n';
 import { PANEL_SAY_SIZE } from '../theme';
-import { digits, type PanelName } from '../text';
+import { LIVE_WORD, digits, shortScore, type PanelName } from '../text';
 
 /** Something a panel can be told to do: a line that is pressed. */
 export interface PanelCommand {
@@ -46,17 +46,20 @@ export type PanelRow =
   /**
    * The boards of the levels, as numbered cells with what each has earned; `note` is said under them for the cell
    * in focus. `marks` is how many a cell can earn, three when left out. With `program` the note
-   * is the program's own text and is written in its font, not said in the voice.
+   * is the program's own text and is written in its font, not said in the voice, but for a cell
+   * `said` names: its note is said. A cell with `live` is a live session of the row: it has no
+   * number, and the boards after it keep theirs (`liveCell` draws it).
    */
   | {
       kind: 'levels';
       id: string;
-      levels: readonly { stars: number }[];
+      levels: readonly { stars: number; live?: { best: number | null } }[];
       current: number;
       pick: (index: number) => void;
       note: (index: number) => string;
       marks?: number;
       program?: boolean;
+      said?: (index: number) => boolean;
     }
   /** What a level has earned, out of three. */
   | { kind: 'stars'; count: number }
@@ -310,6 +313,8 @@ export class PanelScreen implements ShellScreen {
         }
         case 'levels': {
           let noted = row.current;
+          // A live session has no number: the boards are numbered as if it were not there.
+          let number = 0;
           this.levelCells(row, box).forEach((cell, i) => {
             const id = `${row.id}-${i}`;
             const on = focus.focus === id;
@@ -317,12 +322,18 @@ export class PanelScreen implements ShellScreen {
             const filled = on && focus.pressed !== id;
             if (filled) kit.box(cell, ink);
             else kit.frame(cell, on || i === row.current ? ink : faint);
-            kit.text(digits(i + 1, 2), cell.x + cell.w / 2, cell.y + 2, filled ? bg : ink, { align: 'center' });
+            const { live } = row.levels[i];
+            if (live) {
+              this.liveCell(kit, cell, live.best, filled ? bg : ink, filled ? bg : faint);
+              return;
+            }
+            number++;
+            kit.text(digits(number, 2), cell.x + cell.w / 2, cell.y + 2, filled ? bg : ink, { align: 'center' });
             this.stars(kit, row.levels[i].stars, cell.x + cell.w / 2, cell.y + cell.h - 7, 4, filled ? bg : ink, filled ? bg : faint, row.marks);
           });
           const note = row.note(noted);
           const line: Box = { x: left, y: box.y + box.h - CELL_H - 2, w: right - left, h: CELL_H + 2 };
-          if (row.program) kit.text(note, Math.round(line.x + line.w / 2), line.y + 1, dim, { align: 'center' });
+          if (row.program && !row.said?.(noted)) kit.text(note, Math.round(line.x + line.w / 2), line.y + 1, dim, { align: 'center' });
           else this.context.voice.say({ text: note, box: kit.toWindow(line), size: PANEL_SAY_SIZE - 2, dim: true, anchor: 'middle' });
           break;
         }
@@ -344,6 +355,23 @@ export class PanelScreen implements ShellScreen {
   /** The red mark of the seventh, on the line it stands at. */
   private mark(kit: Kit, box: Box): void {
     kit.rect(box.x + 5, box.y + Math.round(box.h / 2) - 2, 5, 5, kit.palette.signal);
+  }
+
+  /**
+   * The cell of a live session in the list of the levels: the word in place of a number, and the
+   * best score in place of the stars where the cell has a line for it, else one square, filled
+   * once the session is played. A proposal (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md,
+   * section 8): the owner leads the look, and this is the one place it is drawn.
+   */
+  private liveCell(kit: Kit, cell: Box, best: number | null, on: string, off: string): void {
+    const centre = cell.x + cell.w / 2;
+    kit.text(LIVE_WORD, centre, cell.y + 2, on, { align: 'center' });
+    const score = best === null ? '' : shortScore(best);
+    if (best !== null && cell.h >= CELL_H * 2 + 2 && kit.measure(score) <= cell.w - 4) {
+      kit.text(score, centre, cell.y + CELL_H + 1, on, { align: 'center' });
+      return;
+    }
+    this.stars(kit, best === null ? 0 : 1, centre, cell.y + cell.h - 7, 4, on, off, 1);
   }
 
   /** Squares in a row around `centre`, three unless `of` says otherwise: as many filled as there are stars. */
@@ -386,16 +414,36 @@ export class PanelScreen implements ShellScreen {
     return picture.width > picture.height ? LEVELS_WIDE : LEVELS_TALL;
   }
 
+  /**
+   * The cells of the list, row after row. A cell of a live session is as wide as a cell of a board
+   * where the word fits it, and two cells wide where it does not; one that would not fit at the
+   * end of a row begins the next.
+   */
   private levelCells(row: Extract<PanelRow, { kind: 'levels' }>, box: Box): Box[] {
     const columns = this.levelColumns();
     const tall = this.zone();
     const wide = Math.floor((box.w - GAP * (columns - 1)) / columns);
-    return row.levels.map((_, i) => ({
-      x: box.x + (i % columns) * (wide + GAP),
-      y: box.y + Math.floor(i / columns) * (tall + GAP),
-      w: wide,
-      h: tall,
-    }));
+    const liveSpan = textWidth(LIVE_WORD) + 4 <= wide ? 1 : 2;
+    let slot = 0;
+    return row.levels.map((level) => {
+      const span = level.live ? Math.min(columns, liveSpan) : 1;
+      if ((slot % columns) + span > columns) slot += columns - (slot % columns);
+      const cell = {
+        x: box.x + (slot % columns) * (wide + GAP),
+        y: box.y + Math.floor(slot / columns) * (tall + GAP),
+        w: wide * span + GAP * (span - 1),
+        h: tall,
+      };
+      slot += span;
+      return cell;
+    });
+  }
+
+  /** Rows of cells the list of the levels takes. */
+  private levelRows(row: Extract<PanelRow, { kind: 'levels' }>, width: number): number {
+    const cells = this.levelCells(row, { x: 0, y: 0, w: width, h: 0 });
+    const tall = this.zone();
+    return cells.length === 0 ? 0 : Math.round(cells[cells.length - 1].y / (tall + GAP)) + 1;
   }
 
   /** Height of a line that is pressed: what a finger needs, whatever the picture is. */
@@ -444,7 +492,7 @@ export class PanelScreen implements ShellScreen {
         case 'climb':
           return 4 + Math.min(lines, row.lines) * CELL_H;
         case 'levels':
-          return Math.ceil(row.levels.length / this.levelColumns()) * (zone + GAP) + CELL_H + 4;
+          return this.levelRows(row, inner) * (zone + GAP) + CELL_H + 4;
         case 'stars':
           return CELL_H + 4;
         case 'say': {

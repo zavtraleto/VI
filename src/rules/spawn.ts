@@ -183,7 +183,7 @@ export function fallbackLayout(count = FALLBACK_CELLS.length): Placement[] {
 
 export function placeStartLayout(state: RunState, forceFallback = false): void {
   const { startCubes, startX, startZ } = state.config;
-  const opening = state.config.experiments.opening && state.mode === 'endless';
+  const opening = state.config.experiments.opening && state.mode !== 'level';
   let layout: Placement[] | null = null;
   for (let attempt = 0; attempt < 100 && !forceFallback && !layout; attempt++) {
     layout = tryStartLayout(state, opening);
@@ -368,11 +368,11 @@ function restingGroup(state: RunState, start: Cube): Cube[] {
  * taking it is the player's doing. Where it can, it comes up beside a die that stands, so
  * that it can be stepped onto. The longer nothing has been cleared, the likelier it is;
  * a clear starts the count over, so gifts do not come to a player who is doing well. Only in
- * Endless.
+ * Endless and a live session.
  */
 function gift(state: RunState, free: readonly { x: number; z: number }[]): Placement | null {
   const { config } = state;
-  if (!config.experiments.gift || state.mode !== 'endless') return null;
+  if (!config.experiments.gift || state.mode === 'level') return null;
   const chance = Math.min(config.giftMax, config.giftRate * state.sinceClear);
   if (chance <= 0 || nextRandom(state) >= chance) return null;
 
@@ -747,7 +747,7 @@ export function runSpawn(state: RunState): void {
     return;
   }
   state.spawnTimer++;
-  if (state.spawnTimer < paceIntervalTicks(config, state.level, population(state), swell(state))) return;
+  if (state.spawnTimer < paceIntervalTicks(config, state.mode, state.level, state.tick, population(state), swell(state))) return;
   state.spawnTimer = 0;
   const feeder = chainFeeder(state, free);
   if (feeder) {

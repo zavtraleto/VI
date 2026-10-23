@@ -21,7 +21,7 @@ function collect(s: RunState, ticks: number): GameEvent[] {
 }
 
 function interval(s: RunState): number {
-  return paceIntervalTicks(s.config, s.level, population(s));
+  return paceIntervalTicks(s.config, s.mode, s.level, s.tick, population(s));
 }
 
 /** A board one cube under the danger mark, with nothing on it that goes together. */
@@ -33,7 +33,7 @@ function crowded(experiments: Partial<ExperimentConfig> = {}, tuning: Partial<Tu
 
 describe('the last sliver', () => {
   const c = defaultConfig();
-  const at = (cubes: number, config = c) => paceIntervalTicks(config, 1, cubes);
+  const at = (cubes: number, config = c) => paceIntervalTicks(config, 'endless', 1, 0, cubes);
 
   it('leaves the pace alone up to the danger mark', () => {
     expect(c.warnOccupied).toBe(42);

@@ -86,6 +86,8 @@ export const TR: Texts = {
   hintLinkMove: 'Bir halka komboya bir hamle verir.',
   hintRollIn: 'Giden bir zarın içine de yuvarlanabilirsin.',
   campaignEnd: 'Devamı gelecek. Yeni bölümler gelene kadar {sonsuz modu} deneyebilirsin.',
+  liveIntro: 'Bu bir seviye değil: canlı bir oturum. Zarlar kendiliğinden gelir. Üç dakika, puanı ayrı sayılır. {Atla}',
+  liveNote: 'Canlı oturum: üç dakika, zarlar kendiliğinden gelir',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLevels: 'ALAN TEMİZLİĞİ',
   shellRecords: 'OTURUM KAYDI',
@@ -97,6 +99,7 @@ export const TR: Texts = {
   howChain: 'Kombo hemen gitmez.\nO giderken yanına aynı yüzlü bir zar daha yuvarla: komboyla birlikte gider. Buna zincir denir.',
   howOnes: "1'ler kombo oluşturmaz.\nBir 1'i giden bir komboya getir: tahtadaki diğer bütün 1'ler gider.",
   howLevels: 'SEVİYELER: tahtadaki bütün zarları temizle.\nKöşedeki yüzler, bir araya getirmen gerekenlerdir.\nBurada zeminin kuralları ayrıdır: yukarı yalnızca giden bir zarın üstünden çıkılır.',
+  howLive: 'CANLI OTURUM: PROTOKOL kurallarıyla üç dakika, bölümler arasında.\nAtlanabilir.',
   howProtocol: 'PROTOKOL: zarlar kendiliğinden gelir.\nZincir puanı katlar.\nAlan dolar ve dolu kalırsa oturum biter.',
   shareScore: 'VI — karşı tarafa gönderildi: {score}',
 };

@@ -10,7 +10,7 @@ export function statsText(state: RunState): string {
   // One entry for a level: how long it lasted, how many cubes came and how many were removed.
   const levels = stats.levels.map((l, i) => `${i + 1}: ${seconds(l.ticks)} +${l.spawned} -${l.removed}`);
   // A session changes its chain window with the level; a level of the game keeps one of its own.
-  const paced = state.mode === 'endless';
+  const paced = state.mode !== 'level';
   const sink = paced ? `${ms(config.sinkStartTicks)} to ${ms(config.sinkFloorTicks)}` : `${ms(config.sinkingTicks)}`;
   return [
     `VI · rules ${ruleKey(config)} · ${state.mode} · seed ${state.seed}`,

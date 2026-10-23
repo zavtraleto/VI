@@ -1,5 +1,5 @@
 import { RULES_VERSION, defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
-import { CAMPAIGN, placeOfCode } from '../levels/campaign';
+import { CAMPAIGN, placeOfCode, type LiveStat } from '../levels/campaign';
 import type { Place } from '../levels/row';
 import { loadJson, saveJson } from './storage';
 
@@ -54,9 +54,12 @@ export interface LevelProgress {
   rowEdition?: number;
   /**
    * The windows this player has closed and is not shown again: the hints of boards by their codes
-   * (`tellsHint` in `src/app/hint.ts`), and the end of the row by its length (`endKey`).
+   * (`tellsHint` in `src/app/hint.ts`), the end of the row by its length (`endKey`), and the window
+   * before a live session by its code (`live:<code>`).
    */
   told: string[];
+  /** The live sessions of the row by their codes: the best score and how many were played. */
+  lives: Record<string, LiveStat>;
 }
 
 export interface Settings {
@@ -119,7 +122,7 @@ export function loadSettings(): Settings {
     camera: { ...DEFAULT_CAMERA },
     debugPanel: false,
     runs: {},
-    levels: { passed: {}, stats: {}, told: [] },
+    levels: { passed: {}, stats: {}, told: [], lives: {} },
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
@@ -134,7 +137,8 @@ export function loadSettings(): Settings {
   // The tasks are gone from the game (the owner, 15 October 2026): what was kept of them goes.
   delete (loaded as Partial<{ puzzle: unknown }>).puzzle;
   // What was kept under the codes of an earlier edition of the road is of other boards, and a save of the last road is the row's (`toRowEdition`).
-  // A save from before the windows of hints has closed none: it takes `told` of the fallback. The line about a dim
+  // A save from before the windows of hints has closed none: it takes `told` of the fallback, and one from before
+  // the live sessions has played none: it takes `lives`. The line about a dim
   // die is said no more (the owner, 15 October 2026), and what was kept of it goes.
   loaded.levels = toRowEdition({ ...fallback.levels, ...loaded.levels });
   delete (loaded.levels as Partial<{ fixedSaid: boolean }>).fixedSaid;
@@ -237,6 +241,14 @@ export function levelStat(settings: Settings, id: string): LevelStat {
   stat.undos ??= 0;
   stat.bestMoves ??= null;
   stat.stuck ??= 0;
+  return stat;
+}
+
+/** Notes a live session played to its end: one more play, and its score as the best where it is. */
+export function noteLive(settings: Settings, code: string, score: number): LiveStat {
+  const stat = (settings.levels.lives[code] ??= { best: 0, plays: 0 });
+  stat.plays++;
+  stat.best = Math.max(stat.best, score);
   return stat;
 }
 

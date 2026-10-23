@@ -3,7 +3,7 @@ import { LANGUAGES, languageOf, setLanguage, t, word } from '../ui/i18n';
 import { WORDS } from '../ui/lang/words';
 import kanji from './fonts/kanji.txt?raw';
 import { textWidth } from './layout';
-import { COMMANDS, EXEC_NAME, MENU_FILES, PANELS, RECORDS, RESULT, SYSTEM } from './text';
+import { COMMANDS, EXEC_NAME, LIVE_WORD, MENU_FILES, PANELS, RECORDS, RESULT, SYSTEM, shortScore } from './text';
 import source from './text.ts?raw';
 import { dayAmount, mixHex, paletteAt, shellDefaults } from './theme';
 
@@ -61,6 +61,17 @@ describe('the language of the player', () => {
     setLanguage('en');
   });
 
+  it('says the window before a live session with one link, to skip it, in every language', () => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      expect(t('liveIntro').match(/\{[^}]+\}/g), code).toHaveLength(1);
+      expect(t('liveIntro').endsWith('}'), code).toBe(true);
+      expect(t('liveNote').length, code).toBeGreaterThan(0);
+      expect(t('howLive').length, code).toBeGreaterThan(0);
+    }
+    setLanguage('en');
+  });
+
   it('keeps the space French puts before a colon from ending a line', () => {
     setLanguage('fr');
     expect(t('levelShort')).toContain('\u00a0:');
@@ -113,6 +124,15 @@ describe('the words of the program a player presses', () => {
       // Two readings share a line of a result: the score and the place it took.
       expect(textWidth(`${RESULT.score.native} ${word(RESULT.score.name)}`) + 16 + textWidth(`${RESULT.rank.native} ${word(RESULT.rank.name)}`), code).toBeLessThanOrEqual(248);
     });
+  });
+});
+
+describe('the cell of a live session in the list of the levels', () => {
+  it('has its word and a short best score, each narrower than a cell of a phone (36 dots)', () => {
+    expect(LIVE_WORD).toBe('LIVE');
+    expect(textWidth(LIVE_WORD) + 4).toBeLessThanOrEqual(36);
+    for (const score of [0, 2471, 9999, 24261, 710201, 999999, 1_000_000, 34_000_000]) expect(textWidth(shortScore(score)), String(score)).toBeLessThanOrEqual(32);
+    expect([shortScore(2471), shortScore(24261), shortScore(710201), shortScore(1_250_000)]).toEqual(['2471', '24K', '710K', '1M']);
   });
 });
 

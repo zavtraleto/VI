@@ -3909,6 +3909,23 @@ export const ROW: Row = {
       "emotion": "fiero",
       "help": {}
     }
+  ],
+  "lives": [
+    {
+      "code": "live-1",
+      "step": 1,
+      "after": 15
+    },
+    {
+      "code": "live-2",
+      "step": 2,
+      "after": 25
+    },
+    {
+      "code": "live-3",
+      "step": 3,
+      "after": 36
+    }
   ]
 };
 

@@ -1,7 +1,7 @@
 import { goalOf } from '../rules/level';
 import type { GoalLine } from '../rules/types';
 import { starsHeld } from './progress';
-import type { Help, Place } from './row';
+import type { Help, Live, Place } from './row';
 import { ROW } from './row.gen';
 
 /**
@@ -17,11 +17,30 @@ export type Stop = Place;
 
 export const CAMPAIGN: readonly Place[] = ROW.places;
 
+/**
+ * The live sessions of the row (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md): Endless
+ * on a clock between chapters, each after a board of the row. Not places: the boards keep their numbers.
+ */
+export const LIVES: readonly Live[] = ROW.lives;
+
+/** What is kept of a live session: the best score of it and how many times it was played. */
+export interface LiveStat {
+  best: number;
+  plays: number;
+}
+
 /** What is kept of the player that the row is read against. */
 export interface CampaignKept {
   passed: Readonly<Record<string, boolean | undefined>>;
   stats: Readonly<Record<string, { bestMoves?: number | null } | undefined>>;
   at?: string;
+  /** The live sessions by their codes. */
+  lives?: Readonly<Record<string, LiveStat | undefined>>;
+}
+
+/** The live session that stands after the place of this index, or null. */
+export function liveAfter(placeIndex: number, lives: readonly Live[] = LIVES): Live | null {
+  return lives.find((live) => live.after === placeIndex) ?? null;
 }
 
 /** A cell of the list of the levels: a board of the row with what the player holds on it. */
@@ -40,6 +59,25 @@ export function campaignCells(kept: CampaignKept, row: readonly Place[] = CAMPAI
     const stars = passed ? starsHeld(kept.stats[spec.id]?.bestMoves ?? null, spec.par) || 1 : 0;
     return { number, passed, stars, goal: goalOf(spec), faces: spec.faces };
   });
+}
+
+/** A cell of the list of the levels: a board, or a live session after the board it stands after. */
+export type CampaignListCell =
+  | { kind: 'board'; cell: CampaignCell }
+  | { kind: 'live'; code: string; step: number; best: number | null; played: boolean };
+
+/** The cells of the list of the levels in their order: the boards, and each live session after its board. */
+export function campaignList(kept: CampaignKept, row: readonly Place[] = CAMPAIGN, lives: readonly Live[] = LIVES): CampaignListCell[] {
+  const list: CampaignListCell[] = [];
+  campaignCells(kept, row).forEach((cell, index) => {
+    list.push({ kind: 'board', cell });
+    const live = liveAfter(index, lives);
+    if (!live) return;
+    const stat = kept.lives?.[live.code];
+    const played = (stat?.plays ?? 0) > 0;
+    list.push({ kind: 'live', code: live.code, step: live.step, best: played ? stat!.best : null, played });
+  });
+  return list;
 }
 
 /** The index of the place with this code; -1 for a code that is not in the row. */

@@ -86,6 +86,8 @@ export const PT: Texts = {
   hintLinkMove: 'Um elo dá ao combo mais um lance.',
   hintRollIn: 'Também dá para entrar rolando num dado que sai.',
   campaignEnd: 'Continua. Enquanto novos níveis não chegam, você pode experimentar o {modo infinito}.',
+  liveIntro: 'Não é um nível: uma sessão ao vivo. Os dados chegam sozinhos. Três minutos, com pontuação à parte. {Pular}',
+  liveNote: 'Sessão ao vivo: três minutos, os dados chegam sozinhos',
   shellProtocol: 'SESSÃO SEM LIMITE',
   shellLevels: 'LIMPEZA DO CAMPO',
   shellRecords: 'REGISTRO DE SESSÕES',
@@ -97,6 +99,7 @@ export const PT: Texts = {
   howChain: 'Um combo não sai na hora.\nEnquanto ele sai, role até ele mais um dado com a mesma face: ele sai junto com o combo. Isso é uma corrente.',
   howOnes: 'Os 1 não formam combo.\nLeve um 1 até um combo que está saindo, e todos os outros 1 do tabuleiro saem.',
   howLevels: 'NÍVEIS: tire todos os dados do tabuleiro.\nAs faces no canto são as que você precisa juntar.\nAqui o chão tem regras próprias: só se sobe por um dado que está saindo.',
+  howLive: 'SESSÃO AO VIVO: três minutos pelas regras do PROTOCOLO, entre capítulos.\nPode ser pulada.',
   howProtocol: 'PROTOCOLO: os dados chegam sozinhos.\nUma corrente multiplica os pontos.\nSe o tabuleiro encher e continuar cheio, a sessão acaba.',
   shareScore: 'VI — enviado para o outro lado: {score}',
 };

@@ -82,5 +82,10 @@
         { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" }
       ]
     }
+  ],
+  "lives": [
+    { "after": "act-k17", "step": 1 },
+    { "after": "domino-3", "step": 2 },
+    { "after": "collapse-3", "step": 3 }
   ]
 }

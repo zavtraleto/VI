@@ -11,6 +11,8 @@ export interface RunOptions {
   config: RulesConfig;
   /** A level of the game: its board, its dice, its goal and its moves. */
   level?: LevelSpec;
+  /** A live session of the row: Endless on a clock. Ignored for a level. */
+  live?: boolean;
   /** Start with no cubes and the player on the ground. Used by tests. */
   empty?: boolean;
   forceFallback?: boolean;
@@ -22,7 +24,7 @@ export function createRun(opts: RunOptions): RunState {
   const config = level ? levelConfig(opts.config, level) : { ...opts.config };
   const state: RunState = {
     config,
-    mode: level ? 'level' : 'endless',
+    mode: level ? 'level' : opts.live ? 'live' : 'endless',
     seed: opts.seed,
     tick: 0,
     rng: opts.seed | 0,
@@ -142,6 +144,15 @@ function checkFill(state: RunState): void {
   }
 }
 
+/** A live session ends when its clock runs out. */
+function checkClock(state: RunState): void {
+  if (state.over || state.mode !== 'live') return;
+  if (state.tick + 1 < state.config.liveTicks) return;
+  state.over = true;
+  state.endReason = 'time';
+  state.events.push({ type: 'gameOver' });
+}
+
 /** Counters of the run report: what the pace is tuned by. */
 function countStats(state: RunState): void {
   const { config, stats } = state;
@@ -218,6 +229,7 @@ export function step(state: RunState, cmd: Dir | null): boolean {
   countChainQuiet(state);
   runSpawn(state);
   checkFill(state);
+  checkClock(state);
 
   countStats(state);
   state.tick++;

@@ -88,6 +88,28 @@ describe('buildRow', () => {
   });
 });
 
+describe('the live sessions of a row', () => {
+  const two = (lives: unknown[]): RowFile => ({ ...file(), lives } as RowFile);
+
+  it('stand after the boards they name, with the codes of their steps', () => {
+    const row = buildRow(two([{ after: 'B', step: 2 }, { after: 'A', step: 1, note: 'first' }]), boards);
+    expect(row.lives).toEqual([
+      { code: 'live-1', step: 1, after: 0 },
+      { code: 'live-2', step: 2, after: 1 },
+    ]);
+    expect(buildRow(file(), boards).lives).toEqual([]);
+  });
+
+  it('are refused after a board that is not in the row, on a step twice, on a step that is not a whole number from 1', () => {
+    expect(refusal(two([{ after: 'C', step: 1 }]))).toBe('row: live after C: there is no board C in the row');
+    expect(refusal(two([{ after: 'A', step: 1 }, { after: 'B', step: 1 }]))).toBe('row: live after B: step 1 is in the row twice');
+    expect(refusal(two([{ after: 'A', step: 0 }]))).toBe('row: live after A: "step: 0" is a whole number from 1');
+    expect(refusal(two([{ after: 'A', step: 1.5 }]))).toBe('row: live after A: "step: 1.5" is a whole number from 1');
+    expect(refusal(two([{ after: 'A', step: 1 }, { after: 'A', step: 2 }]))).toBe('row: live after A: the board has a live session after it already');
+    expect(refusal(two([{ after: 'A', step: 1, when: 'now' }]))).toBe('row: live after A: unknown key "when"');
+  });
+});
+
 describe('touchesRow', () => {
   it('is row.json and the file of a board of the row, and no other file', () => {
     expect(touchesRow('row.json', file())).toBe(true);
@@ -101,6 +123,12 @@ describe('touchesRow', () => {
 describe('the row of the game', () => {
   it('is what row.json and the files of the boards lay: run node scripts/row.mjs where it is not', () => {
     expect(rowText(buildRow(readRowFile(rowJson), BOARD_TEXTS))).toBe(rowText(ROW));
+  });
+
+  it('has its live sessions after boards of the row, each step once: after places 16, 26 and 37, the ends of their chapters', () => {
+    expect(ROW.lives.map((live) => [live.code, ROW.places[live.after].number])).toEqual([['live-1', 16], ['live-2', 26], ['live-3', 37]]);
+    expect(new Set(ROW.lives.map((live) => live.step)).size).toBe(ROW.lives.length);
+    for (const live of ROW.lives) expect(ROW.chapters[ROW.places[live.after].chapter].last, live.code).toBe(live.after);
   });
 
   it('clears every place by the way its file keeps, in as many moves as it says, and the solver finds none shorter', { timeout: 120_000 }, () => {

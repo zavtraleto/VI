@@ -164,6 +164,33 @@ export function resultPanel(data: ResultData, actions: { onAgain: () => void; on
   };
 }
 
+/**
+ * The result of a live session of the row: its score, the best of this session, the longest
+ * chain. It goes up no log and has no records: it is counted apart. Again, on to the board after
+ * it, or the menu.
+ */
+export function liveResultPanel(data: { score: number; best: number; maxChain: number }, actions: { onAgain: () => void; onNext: () => void; onMenu: () => void }): PanelSpec {
+  return {
+    title: PANELS.result,
+    home: 'next',
+    rows: [
+      { kind: 'number', label: RESULT.score, value: data.score, places: 6 },
+      { kind: 'field', label: RESULT.best, value: digits(data.best, 6) },
+      { kind: 'field', label: RESULT.chain, value: `×${digits(data.maxChain, 2)}` },
+      { kind: 'gap' },
+      {
+        kind: 'commands',
+        stacked: true,
+        commands: [
+          { id: 'again', label: COMMANDS.again, action: actions.onAgain },
+          { id: 'next', label: COMMANDS.next, action: actions.onNext },
+          { id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
+        ],
+      },
+    ],
+  };
+}
+
 /** A line of the log of sessions. */
 export interface RecordLine {
   rank: number;
@@ -253,19 +280,34 @@ function liveLabel(label: () => PanelName): PanelName {
   };
 }
 
+/** A cell of the list of the levels: a board, or a live session of the row with what is said under it. */
+export type LevelsEntry =
+  | { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number }
+  | { live: { code: string; best: number | null; note: string } };
+
 /**
  * Every board of the campaign in one list, the pieces of the road first: a cell to a board,
  * numbered from one, with the stars of the ones passed, out of three: those of its best pass,
  * and one where `stars` is not said. Under them the faces and the goal of the board in focus
  * are written as the readings of a level write them, with nothing counted yet. Every cell is
- * open.
+ * open. A live session of the row (`live`) stands among them with no number: the boards keep
+ * theirs, `onPick` is given the index of a board among the boards, and `onLive` the code of a
+ * session. Under a session its note is said, in the language of the player, with its best score
+ * once it is played. `current` is the index of a cell of the list as it is given.
  * `share` sends out what the player did on the levels, as text: the report of the playtest.
  */
 export function levelsPanel(
-  levels: readonly { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number }[],
+  levels: readonly LevelsEntry[],
   current: number,
-  actions: { onPick: (index: number) => void; share: { label: () => PanelName; action: () => void }; onBack: () => void },
+  actions: { onPick: (index: number) => void; onLive?: (code: string) => void; share: { label: () => PanelName; action: () => void }; onBack: () => void },
 ): PanelSpec {
+  // The index of every board among the boards, -1 for a live session.
+  let boards = 0;
+  const boardOf = levels.map((level) => ('live' in level ? -1 : boards++));
+  const liveOf = (index: number) => {
+    const level = levels[index];
+    return level && 'live' in level ? level.live : null;
+  };
   return {
     title: PANELS.levels,
     home: `level-${current}`,
@@ -274,17 +316,23 @@ export function levelsPanel(
       {
         kind: 'levels',
         id: 'level',
-        levels: levels.map((level) => ({ stars: level.stars ?? (level.passed ? 1 : 0) })),
+        levels: levels.map((level) => ('live' in level ? { stars: 0, live: { best: level.live.best } } : { stars: level.stars ?? (level.passed ? 1 : 0) })),
         marks: 3,
         current,
-        pick: actions.onPick,
+        pick: (index) => {
+          const live = liveOf(index);
+          if (live) actions.onLive?.(live.code);
+          else if (boardOf[index] !== undefined) actions.onPick(boardOf[index]);
+        },
         // The faces that work on the level come first.
         note: (index) => {
           const level = levels[index];
           if (!level) return '';
+          if ('live' in level) return level.live.best === null ? level.live.note : `${level.live.note} · ${word(RESULT.best.name)} ${digits(level.live.best, 6)}`;
           return level.faces ? `${GOAL.face} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
         },
         program: true,
+        said: (index) => liveOf(index) !== null,
       },
       {
         kind: 'commands',

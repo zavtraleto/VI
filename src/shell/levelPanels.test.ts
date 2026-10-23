@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import type { Size } from '../display/sizing';
 import { fileBoard } from '../levels/boardFiles';
-import { campaignCells } from '../levels/campaign';
+import { campaignCells, campaignList } from '../levels/campaign';
 import { FIXTURE } from '../levels/rowFixture';
 import { MIN_ZONE, pictureSize, textWidth } from './layout';
 import { LANGUAGES, setLanguage } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
-import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, pausePanel, readmePanel } from './panels';
+import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel } from './panels';
 import type { ShellContext } from './screen';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
 import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
@@ -145,6 +145,49 @@ describe('the list of levels', () => {
   });
 });
 
+describe('a live session in the list of levels', () => {
+  const share = { label: (): PanelName => COMMANDS.share, action: nothing };
+  const live = (best: number | null) => ({ live: { code: 'live-1', best, note: 'Live session' } });
+  const levels = [{ passed: true, goal: SEND }, live(null), { passed: false, goal: ORDER }];
+
+  it('stands among the boards with no number: a board picked is told by its index among the boards, a session by its code', () => {
+    const picked: (number | string)[] = [];
+    const spec = levelsPanel(levels, 2, { onPick: (index) => picked.push(index), onLive: (code) => picked.push(code), share, onBack: nothing });
+    const cells = row(spec, 'levels');
+    expect(cells.levels).toEqual([{ stars: 1 }, { stars: 0, live: { best: null } }, { stars: 0 }]);
+    expect(spec.home).toBe('level-2');
+    cells.pick(0);
+    cells.pick(1);
+    cells.pick(2);
+    expect(picked).toEqual([0, 'live-1', 1]);
+  });
+
+  it('says its note in the voice, with its best score once it is played', () => {
+    const cells = row(levelsPanel(levels, 0, { onPick: nothing, share, onBack: nothing }), 'levels');
+    expect(cells.note(1)).toBe('Live session');
+    expect(cells.said?.(1)).toBe(true);
+    expect(cells.said?.(0)).toBe(false);
+    const played = row(levelsPanel([live(2471)], 0, { onPick: nothing, share, onBack: nothing }), 'levels');
+    expect(played.note(0)).toBe('Live session · BEST 002471');
+    expect(played.levels[0]).toEqual({ stars: 0, live: { best: 2471 } });
+  });
+});
+
+describe('the result of a live session', () => {
+  it('reads its score, its best and its chain, and leads again, on, or to the menu: no log, no records', () => {
+    const done: string[] = [];
+    const spec = liveResultPanel({ score: 1200, best: 2471, maxChain: 5 }, { onAgain: () => done.push('again'), onNext: () => done.push('next'), onMenu: () => done.push('menu') });
+    expect(spec.title).toBe(PANELS.result);
+    expect(spec.home).toBe('next');
+    expect(row(spec, 'number')).toMatchObject({ label: RESULT.score, value: 1200 });
+    expect(spec.rows.filter((one) => one.kind === 'field').map((one) => (one as { value: string }).value)).toEqual(['002471', '×05']);
+    expect(spec.rows.some((one) => one.kind === 'climb' || one.kind === 'standing')).toBe(false);
+    expect(commands(spec)).toEqual(['again', 'next', 'menu']);
+    for (const command of row(spec, 'commands').commands) command.action();
+    expect(done).toEqual(['again', 'next', 'menu']);
+  });
+});
+
 /** A phone held upright and a desk screen: the window in CSS pixels and the pixels of the canvas to one of them. */
 const SCREENS: readonly [name: string, window: Size, ratio: number][] = [
   ['phone', { width: 360, height: 640 }, 3],
@@ -194,6 +237,40 @@ describe('the list of the levels on a screen', () => {
         expect(apart).toBe(true);
       }
     }
+  });
+});
+
+describe('the list of the levels with its live sessions on a screen', () => {
+  const share = { label: (): PanelName => COMMANDS.share, action: nothing };
+  const kept = { passed: { R01: true }, stats: {}, lives: { 'live-2': { best: 24261, plays: 1 } } };
+  const entries = campaignList(kept).map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best, note: 'Live session' } }));
+  const actions = { onPick: nothing, share, onBack: nothing };
+
+  it.each(SCREENS)('fits the window of a %s: a cell for every board and session, none over another, each large enough for a finger', (_name, window, ratio) => {
+    const screen = new PanelScreen(context(window, ratio), levelsPanel(entries, 0, actions), true);
+    const items = screen.items().filter((item) => item.id.startsWith('level-'));
+    expect(items).toHaveLength(entries.length);
+    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(3);
+    for (const item of items) {
+      expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(item.rect.x + item.rect.width).toBeLessThanOrEqual(window.width);
+      expect(item.rect.y + item.rect.height).toBeLessThanOrEqual(window.height);
+    }
+    for (let a = 0; a < items.length; a++) {
+      for (let b = a + 1; b < items.length; b++) {
+        const one = items[a].rect;
+        const other = items[b].rect;
+        expect(one.x + one.width <= other.x || other.x + other.width <= one.x || one.y + one.height <= other.y || other.y + other.height <= one.y).toBe(true);
+      }
+    }
+    // A session's cell holds its word: as wide as a board's where the word fits, two of them where it does not.
+    const picture = context(window, ratio).picture();
+    const zoom = window.height / picture.height;
+    const board = items[0].rect.width / zoom;
+    const live = items[entries.findIndex((entry) => 'live' in entry)].rect.width / zoom;
+    expect(live).toBeGreaterThanOrEqual(textWidth('LIVE') + 4 - 0.5);
+    expect(live === board || live > board * 2).toBe(true);
   });
 });
 

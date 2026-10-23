@@ -1,5 +1,5 @@
-import { campaignFocus } from '../levels/campaign';
-import type { Place } from '../levels/row';
+import { campaignFocus, liveAfter } from '../levels/campaign';
+import type { Live, Place } from '../levels/row';
 import { riseSpan, stoodBy } from '../render/passing';
 
 /**
@@ -190,6 +190,22 @@ export const FILE_LEADS = {
  */
 export function placeAfterIndex(place: number, count: number): number | null {
   return place + 1 < count ? place + 1 : null;
+}
+
+/** The key of `told` under which the window before a live session is kept as shown. */
+export function liveKey(live: Live): string {
+  return `live:${live.code}`;
+}
+
+/**
+ * The live session the passage from a passed place waits on (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md):
+ * the one that stands after the place, while the window before it has not been shown to the player.
+ * Null where none stands there, or its window was shown: played or skipped, the passage goes on to
+ * the place after (`placeAfterIndex`), and the session waits in the list.
+ */
+export function liveDue(place: number, told: readonly string[], lives: readonly Live[]): Live | null {
+  const live = liveAfter(place, lives);
+  return live && !told.includes(liveKey(live)) ? live : null;
 }
 
 /**

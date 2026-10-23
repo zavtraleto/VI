@@ -1,5 +1,6 @@
 import { RUSH, SKILL_NAMES, STYLE_NAMES, botCommand, createBot, skillOf, styled, type HandsName, type SkillName, type StyleName } from './bot';
 import { defaultConfig } from './config';
+import { LIVE_STEPS } from './live';
 import { createRun, step } from './sim';
 import { chainQuiet } from './spawn';
 import type { ExperimentConfig, RunState, Tuning } from './types';
@@ -90,6 +91,8 @@ export interface PaceOptions {
   rush?: boolean;
   /** Nobody plays: what the pace does to a board left alone. */
   nobody?: boolean;
+  /** A live session of this step instead of Endless: its tuning, under the one given, and its clock. */
+  live?: number;
   seed?: number;
   /** The trial gives up on a run that lasts this long. */
   limitMinutes?: number;
@@ -99,8 +102,9 @@ export interface PaceOptions {
 
 export function playPace(opts: PaceOptions): PaceRun {
   const { skill, seed = 1, limitMinutes = 30 } = opts;
-  const config = defaultConfig(opts.experiments, opts.tuning);
-  const state = createRun({ seed, config });
+  const live = opts.live ? LIVE_STEPS[Math.min(LIVE_STEPS.length, Math.max(1, opts.live)) - 1] : null;
+  const config = defaultConfig(opts.experiments, { ...live, ...opts.tuning });
+  const state = createRun({ seed, config, live: live !== null });
   const head = opts.head ?? skill;
   const hands = opts.hands ?? skill;
   const style = opts.style ?? 'plain';

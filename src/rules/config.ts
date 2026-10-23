@@ -1,4 +1,4 @@
-import type { ExperimentConfig, RulesConfig, Tuning } from './types';
+import type { ExperimentConfig, RulesConfig, RunMode, Tuning } from './types';
 
 export const TICK_MS = 20;
 
@@ -72,6 +72,9 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   liftMs: 3000,
   gentleSec: 180,
   rescueMs: 3000,
+  liveSec: 180,
+  liveStartMs: 3000,
+  liveEndMs: 1500,
   helpRate: 0.65,
   targetCubes: 14,
   refillMs: 2200,
@@ -121,6 +124,9 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   liftMs: [500, 10000, 250],
   gentleSec: [0, 600, 15],
   rescueMs: [1000, 10000, 500],
+  liveSec: [30, 600, 15],
+  liveStartMs: [500, 8000, 100],
+  liveEndMs: [300, 8000, 100],
   helpRate: [0, 1, 0.05],
   targetCubes: [0, 30, 1],
   refillMs: [300, 5000, 100],
@@ -195,6 +201,9 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     easyLevels: Math.max(1, Math.round(t.easyLevels)),
     gentleTicks: Math.round((t.gentleSec * 1000) / TICK_MS),
     floorLiftTicks: msToTicks(t.liftMs),
+    liveTicks: msToTicks(t.liveSec * 1000),
+    liveStartMs: t.liveStartMs,
+    liveEndMs: t.liveEndMs,
     custom: isCustomTuning(tuning),
     experiments: exp,
   };
@@ -229,6 +238,8 @@ const FLAT_LEVELS = 3;
 /** Levels by which the refill and the chain window have come to their last values. */
 const REFILL_LEVEL = 15;
 const SINK_LEVEL = 20;
+/** A phase of a live session lasts a minute: the level of the session is the number of the phase. */
+const LIVE_PHASE_MS = 60_000;
 
 /** How far a value that changes with the level has come by `level`: 0 on the flat start, 1 from `last` on. */
 function ramp(level: number, last: number): number {
@@ -253,20 +264,42 @@ export function timeLevel(config: RulesConfig, tick: number): number {
   return 1 + Math.floor(tick / config.levelTicks);
 }
 
+/** A live session: how many phases it has, one for every minute it lasts. */
+export function livePhases(config: RulesConfig): number {
+  return Math.max(1, Math.ceil((config.liveTicks * config.tickMs) / LIVE_PHASE_MS));
+}
+
+/** A live session: the phase of the clock, the same on every run of it. */
+export function livePhase(config: RulesConfig, tick: number): number {
+  return Math.min(livePhases(config), 1 + Math.floor((tick * config.tickMs) / LIVE_PHASE_MS));
+}
+
+/** A live session: time between spawns at the target, falling evenly from the first tick to the last. */
+function livePaceMs(config: RulesConfig, tick: number): number {
+  const done = Math.min(1, tick / config.liveTicks);
+  return config.liveStartMs + (config.liveEndMs - config.liveStartMs) * done;
+}
+
 /**
- * Time between spawns for a number of cubes in play. The interval is given at the target and
- * taken from the level. `swell` is what the wave the run is on multiplies it by; the interval
- * stays above its lowest whatever the wave. Below the target what the
+ * Time between spawns for a number of cubes in play. The interval is given at the target:
+ * Endless takes it from the level, a live session from its clock alone, so that its pressure
+ * is the same on every run of it. `swell` is what the wave the run is on multiplies it by; the
+ * interval stays above its floor whatever the wave: the lowest one of Endless, the one a live
+ * session ends at. Below the target what the
  * player clears comes back sooner, so there is always something to build with; above it the
  * interval stretches as the board crowds, to give the player room to clear. Past the danger
  * mark it stretches much further, the more the nearer the board is to full: the last sliver
  * of the board is thicker than the rest of it.
  */
-export function paceIntervalTicks(config: RulesConfig, level: number, cubes: number, swell = 1): number {
-  const atTarget = Math.max(config.paceMinMs, endlessPaceMs(config, level) * swell);
+export function paceIntervalTicks(config: RulesConfig, mode: RunMode, level: number, tick: number, cubes: number, swell = 1): number {
+  const live = mode === 'live';
+  const atTarget = live
+    ? Math.max(Math.min(config.liveStartMs, config.liveEndMs), livePaceMs(config, tick) * swell)
+    : Math.max(config.paceMinMs, endlessPaceMs(config, level) * swell);
   const target = config.targetCubes;
   if (cubes < target) {
-    const refill = config.refillMs + (config.refillEndMs - config.refillMs) * ramp(level, REFILL_LEVEL);
+    const refillLevel = live ? livePhase(config, tick) : level;
+    const refill = config.refillMs + (config.refillEndMs - config.refillMs) * ramp(refillLevel, REFILL_LEVEL);
     const short = Math.min(1, (target - cubes) / REFILL_FULL);
     return msToTicks(atTarget + (Math.min(refill, atTarget) - atTarget) * short);
   }

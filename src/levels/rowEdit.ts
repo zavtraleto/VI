@@ -1,5 +1,5 @@
 import { parseBoard, printBoard, readBoardHead, withHead, type BoardHead, type BoardStatus } from './boardFile';
-import { CHAPTER_KEYS, HELP_KEYS, PLACE_KEYS, type Help, type RowChapterFile, type RowFile, type RowPlaceFile } from './row';
+import { CHAPTER_KEYS, HELP_KEYS, LIVE_KEYS, PLACE_KEYS, type Help, type RowChapterFile, type RowFile, type RowPlaceFile } from './row';
 
 /**
  * The operations the workshop does on the row (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md,
@@ -126,7 +126,8 @@ function line(object: object, keys: readonly string[]): string {
 /**
  * The text of row.json as the file is written: a chapter over lines, its title, faces and floor a
  * line each, a place a line with its keys in their order, two spaces to a level, a line feed at the
- * end. A help that says nothing is not written: it is the same as none.
+ * end. A help that says nothing is not written: it is the same as none. The live sessions, which the
+ * workshop does not edit, are written after the chapters as they were, a line each.
  */
 export function rowFileText(file: RowFile): string {
   const chapters = file.chapters.map((chapter) => {
@@ -138,7 +139,8 @@ export function rowFileText(file: RowFile): string {
     lines.push(places.length === 0 ? '      "places": []' : `      "places": [\n${places.join(',\n')}\n      ]`);
     return `    {\n${lines.join(',\n')}\n    }`;
   });
-  return `{\n  "chapters": [\n${chapters.join(',\n')}\n  ]\n}\n`;
+  const lives = file.lives === undefined ? '' : `,\n  "lives": [\n${file.lives.map((live) => `    ${line(live, LIVE_KEYS)}`).join(',\n')}\n  ]`;
+  return `{\n  "chapters": [\n${chapters.join(',\n')}\n  ]${lives}\n}\n`;
 }
 
 /** The head of a file as `withHead` takes it back: what it says, without the note that it was read from old words. */

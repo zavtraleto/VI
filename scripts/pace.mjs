@@ -6,6 +6,7 @@
 //   node scripts/pace.mjs                          the pace as it is
 //   node scripts/pace.mjs paceGrowth=0.08 restMs=0 with variables of the debug panel changed
 //   node scripts/pace.mjs waves=false              with an experiment switched
+//   node scripts/pace.mjs live=2                   a live session of the row, of its step 2, on its clock
 //   node scripts/pace.mjs seeds=9 minutes=45       more runs to a row, a longer trial
 //   node scripts/pace.mjs players=newbie,esports   some of the players only
 //   node scripts/pace.mjs grid                     heads against hands: time and score of every pair
@@ -28,6 +29,7 @@ for (const arg of process.argv.slice(2)) {
   const [key, value] = arg.split('=');
   if (['grid', 'styles', 'survival', 'edges'].includes(arg)) which = arg;
   else if (arg === 'rush') table.rush = true;
+  else if (key === 'live') table.live = Number(value ?? 1);
   else if (key === 'seeds') table.seeds = Array.from({ length: Number(value) }, (_, i) => i + 1);
   else if (key === 'players') table.skills = value.split(',');
   else if (key === 'minutes') table.limitMinutes = Number(value);

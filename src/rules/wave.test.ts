@@ -103,7 +103,7 @@ describe('a wave of the pace', () => {
 });
 
 describe('the swell of a wave', () => {
-  const endless = (level: number, by?: number) => paceIntervalTicks(c, level, c.targetCubes, by);
+  const endless = (level: number, by?: number) => paceIntervalTicks(c, 'endless', level, 0, c.targetCubes, by);
 
   it('stretches and squeezes the interval of the level', () => {
     expect(endless(1)).toBe(250); // 5 s
@@ -213,7 +213,7 @@ describe('waves in a run', () => {
 
   it('come back slower after the rest, and every crest is at least as fast as the last', () => {
     const s = swelling();
-    const interval = () => paceIntervalTicks(s.config, s.level, s.config.targetCubes, swell(s));
+    const interval = () => paceIntervalTicks(s.config, s.mode, s.level, s.tick, s.config.targetCubes, swell(s));
     const crests: number[] = [];
     for (let i = 0; i < 6; i++) {
       const { start, build, rest } = s.wave;

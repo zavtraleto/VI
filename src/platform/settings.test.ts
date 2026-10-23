@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
 import { FIXTURE } from '../levels/rowFixture';
-import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, loadSettings, toRowEdition, type RowKept } from './settings';
+import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, loadSettings, noteLive, toRowEdition, type RowKept } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -94,10 +94,37 @@ describe('the windows a player has closed', () => {
   });
 });
 
+describe('the live sessions a player has played', () => {
+  it('are none in a new save nor in one from before them, and come back as they were kept', () => {
+    saved(null);
+    expect(loadSettings().levels.lives).toEqual({});
+    saved({ levels: { passed: { R01: true }, stats: {}, at: 'R02', rowEdition: ROW_EDITION, told: [] } });
+    expect(loadSettings().levels.lives).toEqual({});
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: ['live:live-1'], lives: { 'live-1': { best: 900, plays: 3 } } } });
+    const { levels } = loadSettings();
+    expect(levels.lives).toEqual({ 'live-1': { best: 900, plays: 3 } });
+    expect(levels.told).toEqual(['live:live-1']);
+  });
+
+  it('count every play and keep the best score', () => {
+    saved(null);
+    const settings = loadSettings();
+    expect(noteLive(settings, 'live-2', 300)).toEqual({ best: 300, plays: 1 });
+    expect(noteLive(settings, 'live-2', 120)).toEqual({ best: 300, plays: 2 });
+    expect(noteLive(settings, 'live-2', 450)).toEqual({ best: 450, plays: 3 });
+    expect(settings.levels.lives).toEqual({ 'live-2': { best: 450, plays: 3 } });
+  });
+
+  it('are not dropped where a save of the row is brought to its edition', () => {
+    const kept = { passed: {}, stats: {}, rowEdition: ROW_EDITION, lives: { 'live-1': { best: 5, plays: 1 } } };
+    expect(toRowEdition(kept, FIXTURE.places).lives).toEqual({ 'live-1': { best: 5, plays: 1 } });
+  });
+});
+
 describe('the place in the row a player has saved', () => {
   it('is none where nothing was saved, and none in a save from before the road, whose levels are of other boards', () => {
     saved(null);
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], rowEdition: ROW_EDITION });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], lives: {}, rowEdition: ROW_EDITION });
     saved({ levels: { passed: { F1: true, P01: true }, stats: {} } });
     const { levels } = loadSettings();
     expect(levels.at).toBeUndefined();
@@ -115,15 +142,15 @@ describe('the place in the row a player has saved', () => {
   it('is the piece a save of the seventh edition of the road stood on, with all it passed', () => {
     saved({ levels: { passed: { R01: true, R02: true }, stats: {}, road: 'R03', roadEdition: 7 } });
     const { levels } = loadSettings();
-    expect(levels).toEqual({ passed: { R01: true, R02: true }, stats: {}, told: [], at: 'R03', rowEdition: ROW_EDITION });
+    expect(levels).toEqual({ passed: { R01: true, R02: true }, stats: {}, told: [], lives: {}, at: 'R03', rowEdition: ROW_EDITION });
   });
 
   it('starts again in a save of any edition before the seventh: the stars and the place dropped, what the player was told kept', () => {
     const stat = { tries: 2, passes: 1, fails: 0, firstPassTry: 1, bestLeft: null, bestMoves: 3, undos: 0, stuck: 0, short: [], playMs: 100 };
     saved({ levels: { passed: { R01: true, R08: true, P01: true, P02: true }, stats: { R01: stat, R08: stat, P01: stat }, road: 'R09' } });
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], rowEdition: ROW_EDITION });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], lives: {}, rowEdition: ROW_EDITION });
     saved({ levels: { passed: { R01: true, P13: true, K17: true }, stats: { R01: stat, K17: stat }, road: 'R12', roadEdition: 6, told: ['R07'] } });
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: ['R07'], rowEdition: ROW_EDITION });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: ['R07'], lives: {}, rowEdition: ROW_EDITION });
   });
 });
 

@@ -86,6 +86,8 @@ export const DE: Texts = {
   hintLinkMove: 'Ein Glied schenkt dem Combo einen Zug.',
   hintRollIn: 'In einen gehenden Würfel kann man auch hineinrollen.',
   campaignEnd: 'Fortsetzung folgt. Bis neue Level kommen, kannst du den {Endlosmodus} ausprobieren.',
+  liveIntro: 'Keine Stufe: eine Live-Sitzung. Die Würfel kommen von selbst. Drei Minuten, eigene Wertung. {Überspringen}',
+  liveNote: 'Live-Sitzung: drei Minuten, die Würfel kommen von selbst',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLevels: 'FELDRÄUMUNG',
   shellRecords: 'SITZUNGSPROTOKOLL',
@@ -97,6 +99,7 @@ export const DE: Texts = {
   howChain: 'Ein Combo geht nicht sofort.\nSolange es geht, rolle noch einen Würfel mit derselben Seite heran: Er geht mit dem Combo. Das ist eine Kette.',
   howOnes: 'Einsen bilden kein Combo.\nBring eine 1 an ein gehendes Combo, und alle anderen 1er auf dem Feld gehen.',
   howLevels: 'STUFEN: Räume alle Würfel vom Feld.\nDie Seiten in der Ecke sind die, die du zusammenbringen musst.\nAm Boden gelten hier eigene Regeln: Nach oben geht es nur über einen gehenden Würfel.',
+  howLive: 'LIVE-SITZUNG: drei Minuten nach den Regeln von PROTOKOLL, zwischen den Kapiteln.\nKann übersprungen werden.',
   howProtocol: 'PROTOKOLL: Die Würfel kommen von selbst.\nEine Kette vervielfacht die Punkte.\nLäuft das Feld voll und bleibt voll, ist die Sitzung vorbei.',
   shareScore: 'VI — auf die andere Seite gesendet: {score}',
 };
