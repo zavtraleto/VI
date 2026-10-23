@@ -29,6 +29,7 @@ const FOLDERS: Record<keyof typeof SOUND_GROUPS, string> = {
   program: 'Щелчок программы',
   lines: 'Линии доски',
   other: 'Голос той стороны',
+  told: 'Подсказка',
   limits: 'Пределы',
 };
 
@@ -85,6 +86,9 @@ const LABELS: Record<string, string> = {
   replyChance: 'ответ: как часто при полном контакте',
   replyGain: 'ответ: громкость',
   replyFrom: 'ответ: с какого контакта',
+  toldGain: 'громкость',
+  toldTail: 'длина звона, с',
+  toldGap: 'между двумя нотами, с',
   maxVoices: 'голосов одновременно, не больше',
 };
 
@@ -304,12 +308,17 @@ export function startSoundLab(): void {
     },
     answerWindow: () => {
       halt();
-      engine.signal({ kind: 'open', figure: head.figure, contact: head.contact, seconds: 5, glimpse: false });
+      engine.signal({ kind: 'open', figure: head.figure, contact: head.contact, seconds: 5, glimpse: false, told: false });
       later(5000, () => engine.signal({ kind: 'close' }));
+    },
+    hint: () => {
+      halt();
+      engine.signal({ kind: 'open', figure: head.figure, contact: 0, seconds: Infinity, glimpse: false, told: true });
+      later(6000, () => engine.signal({ kind: 'close' }));
     },
     glimpse: () => {
       halt();
-      engine.signal({ kind: 'open', figure: head.figure, contact: 0, seconds: 3, glimpse: true });
+      engine.signal({ kind: 'open', figure: head.figure, contact: 0, seconds: 3, glimpse: true, told: false });
       later(3000, () => engine.signal({ kind: 'close' }));
     },
     reply: () => {
@@ -442,6 +451,7 @@ export function startSoundLab(): void {
   program.add(head, 'figure', 1, 9, 1).name('номер снимка');
   program.add(actions, 'answerWindow').name('Окно передачи: ответ');
   program.add(actions, 'glimpse').name('Окно передачи: проблеск');
+  program.add(actions, 'hint').name('Окно подсказки');
 
   const control = (folder: GUI, values: ParamValues, name: string, spec: ParamSpec): void => {
     const added =

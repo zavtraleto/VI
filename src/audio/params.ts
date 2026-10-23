@@ -131,6 +131,12 @@ export const SOUND_GROUPS = {
     /** The contact below which nothing answers. */
     replyFrom: number(0.25, 0, 1, 0.01),
   },
+  told: {
+    /** A hint opens: two soft bells in tune, the one and an open note of the mode over it; nothing is held. */
+    toldGain: number(1, 0, 2, 0.01),
+    toldTail: number(3, 0.5, 8, 0.1),
+    toldGap: number(0.5, 0, 2, 0.01),
+  },
   limits: {
     /** The most voices that sound at once: the oldest are taken off quietly. */
     maxVoices: number(24, 8, 48, 1),

@@ -567,6 +567,10 @@ export class AudioEngine {
 
   /** The window of a transmission opens, or shuts: the note held while it stood open is let go. */
   signal(event: SignalSound): void {
+    if (event.kind === 'open' && event.told) {
+      this.play({ kind: 'told' });
+      return;
+    }
     if (event.kind === 'open') {
       this.play({ kind: 'window', figure: event.figure, seconds: event.seconds, glimpse: event.glimpse });
       return;

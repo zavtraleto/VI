@@ -9,40 +9,34 @@ const seq = (seed: number) => {
 };
 
 describe('the scene of a hint', () => {
-  it('puts the pole and the sun on two sides of the frame, each on its third', () => {
+  it('puts the pole on a third of the frame, nearer the middle on a tall screen', () => {
     for (let i = 1; i < 200; i++) {
-      const wide = hintComposition(seq(i), 16 / 9);
-      expect(Math.sign(wide.pole)).toBe(-Math.sign(wide.sun));
-      expect(Math.abs(wide.pole)).toBeGreaterThanOrEqual(0.25);
-      expect(Math.abs(wide.pole)).toBeLessThanOrEqual(0.45);
-      expect(Math.abs(wide.sun)).toBeGreaterThanOrEqual(0.2);
-      expect(Math.abs(wide.sun)).toBeLessThanOrEqual(0.45);
-      expect(wide.elevation).toBeGreaterThanOrEqual(2);
-      expect(wide.elevation).toBeLessThanOrEqual(14);
+      const wide = Math.abs(hintComposition(seq(i), 16 / 9).pole);
+      expect(wide).toBeGreaterThanOrEqual(0.25);
+      expect(wide).toBeLessThanOrEqual(0.45);
+      const tall = Math.abs(hintComposition(seq(i), 9 / 16).pole);
+      expect(tall).toBeGreaterThanOrEqual(0.15);
+      expect(tall).toBeLessThanOrEqual(0.3);
     }
   });
 
-  it('keeps the pole nearer the middle and the sun higher on a tall screen', () => {
-    for (let i = 1; i < 200; i++) {
-      const tall = hintComposition(seq(i), 9 / 16);
-      expect(Math.abs(tall.pole)).toBeGreaterThanOrEqual(0.15);
-      expect(Math.abs(tall.pole)).toBeLessThanOrEqual(0.3);
-      expect(Math.sign(tall.pole)).toBe(-Math.sign(tall.sun));
-      expect(tall.elevation).toBeGreaterThanOrEqual(4);
-      expect(tall.elevation).toBeLessThanOrEqual(18);
-    }
-  });
-
-  it('is the sea with the pole and the sun, light, and the same for the same chance', () => {
+  it('is the sea with the pole alone, calm, and the same for the same chance', () => {
     const a = hintCard(seq(7), 1.5, 'x');
     expect(a.frame.recipe).toEqual(HINT_RECIPE);
-    expect(a.frame.recipe.things[0]).toBe('pole');
+    expect(a.frame.recipe.things).toEqual(['pole']);
     expect(a.frame.mixing).toBe(1);
-    expect(a.contact).toBeGreaterThanOrEqual(0);
-    expect(a.contact).toBeLessThanOrEqual(0.25);
+    expect(a.contact).toBe(0);
     expect(a.caption).toBe('x');
     expect(a.seconds).toBe(Infinity);
     expect(hintCard(seq(7), 1.5, 'x')).toEqual(a);
+  });
+
+  it('has no light on the water and nothing glowing', () => {
+    for (let i = 1; i < 50; i++) {
+      const { values } = hintCard(seq(i), 1.5, 'x').frame;
+      expect(values.glint).toBe(0);
+      expect(values.glow).toBe(0);
+    }
   });
 
   it('takes its colours as one set of the table', () => {
@@ -55,13 +49,10 @@ describe('the scene of a hint', () => {
     }
   });
 
-  it('turns the light to the side of the sun and moves the pole to the other', () => {
+  it('moves the pole to the side the composition puts it on', () => {
     for (let i = 1; i < 50; i++) {
-      const random = seq(i);
       const comp = hintComposition(seq(i), 1.5);
-      const { values } = hintCard(random, 1.5, 'x').frame;
-      // The camera looks down -z; the light comes from straight ahead at 180, from the right below it.
-      expect(Math.sign(180 - Number(values.lightAngle))).toBe(Math.sign(comp.sun));
+      const { values } = hintCard(seq(i), 1.5, 'x').frame;
       expect(Math.sign(Number(values[thingParam('pole', 'x')]))).toBe(Math.sign(comp.pole));
     }
   });

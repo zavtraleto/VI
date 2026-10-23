@@ -105,7 +105,9 @@ export type Cue =
   | { kind: 'typed'; code: number }
   // The window of a transmission: the picture is filed under `figure` and stays for `seconds`.
   | { kind: 'window'; figure: number; seconds: number; glimpse: boolean }
-  | { kind: 'windowShut' };
+  | { kind: 'windowShut' }
+  // A hint is told: the program says something of its own, calmly.
+  | { kind: 'told' };
 
 /** What a cue is turned into notes with: the values of the panel, the contact, and the sound's own chance. */
 export interface Setup {
@@ -212,6 +214,7 @@ export const INTERFACE: readonly Cue['kind'][] = [
   'typed',
   'window',
   'windowShut',
+  'told',
 ];
 
 /** The clicks of the way up the log rise by this many octaves from its last line to its top. */
@@ -816,6 +819,17 @@ function play(cue: Cue, kit: Kit): Note[] {
       if (cue.glimpse) return [opened, other(HELD, hz, { at: 0.04, gain: 0.13 * far, attack: 0.3, decay: seconds * 1.5, bright: 1.5 })];
       const attack = Math.min(1.6, seconds * 0.32);
       return [opened, other(HELD, hz, { at: 0.35, gain: 0.085 * far, attack, decay: Math.max(0.5, seconds - attack - 0.5), bright: 1.5 })];
+    }
+    case 'told': {
+      // A hint is the program's own word, not the other side's: in tune, soft, high and short
+      // of strike, the one and an open note of the mode over it, and nothing held under the words.
+      const gain = 0.07 * num('toldGain') * bells;
+      const tail = num('toldTail');
+      const soft = { decay: tail, bright: 0.3, echo: 1.4, wide: 0.4 };
+      return [
+        bell('told', kit.bell(0), { ...soft, gain, pan: -0.15 }),
+        bell('told', kit.bell(2), { ...soft, at: num('toldGap'), gain: gain * 0.85, pan: 0.15 }),
+      ];
     }
     case 'windowShut':
       return [click('close', degreeHz(tune, 0, clickOctave), { gain: 0.1 * program, decay: num('clickLen') * 0.8 })];

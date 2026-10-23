@@ -80,6 +80,7 @@ const EVERY: Cue[] = [
   { kind: 'window', figure: 1, seconds: 5, glimpse: false },
   { kind: 'window', figure: 4, seconds: 3, glimpse: true },
   { kind: 'windowShut' },
+  { kind: 'told' },
 ];
 
 describe('a group sent', () => {
@@ -689,6 +690,18 @@ describe('the program', () => {
     expect(other.hz).not.toBe(held.hz);
   });
 
+  it('opens a hint with two soft bells in tune and holds nothing of the other side', () => {
+    const notes = notesFor({ kind: 'told' }, setup());
+    expect(notes).toHaveLength(2);
+    for (const note of notes) {
+      expect(note.voice).toBe('bell');
+      expect(note.bright).toBeLessThan(0.5);
+      expect(note.gain).toBeLessThan(0.1);
+    }
+    expect(part(notes, HELD)).toHaveLength(0);
+    expect(notes[1].at).toBeGreaterThan(notes[0].at);
+  });
+
   it('gives a glimpse one note that would outlast its frame: it is cut off with it', () => {
     const [held] = part(notesFor({ kind: 'window', figure: 4, seconds: 3, glimpse: true }, setup()), HELD);
     expect(held.voice).toBe('other');
@@ -742,7 +755,7 @@ describe('the program', () => {
   });
 
   it('is heard while a session waits; the session is not', () => {
-    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'logo', 'rank', 'rankPast', 'rankSet', 'sign', 'typed', 'window', 'windowShut'] as const) expect(INTERFACE).toContain(kind);
+    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'logo', 'rank', 'rankPast', 'rankSet', 'sign', 'typed', 'window', 'windowShut', 'told'] as const) expect(INTERFACE).toContain(kind);
     for (const kind of ['roll', 'group', 'chain', 'danger', 'points', 'reply'] as const) expect(INTERFACE).not.toContain(kind);
   });
 });

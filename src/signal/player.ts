@@ -85,7 +85,7 @@ interface Playing {
 
 /** What a transmission does that can be heard: its window opens, and closes. */
 export type SignalSound =
-  | { kind: 'open'; figure: number; contact: number; seconds: number; glimpse: boolean }
+  | { kind: 'open'; figure: number; contact: number; seconds: number; glimpse: boolean; told: boolean }
   | { kind: 'close' };
 
 /**
@@ -181,7 +181,7 @@ export class SignalPlayer {
   }
 
   /**
-   * Tells the player something before a board: the sea with the pole at sundown fills the
+   * Tells the player something before a board: the light sea with the pole fills the
    * screen, and the words come one at a time on a dark band. A press puts all of them there, the
    * next one closes the window; a press on the link follows it.
    */
@@ -247,7 +247,7 @@ export class SignalPlayer {
     this.leak?.frame(timeMs, this.enabled && !playing ? session : null);
     if (!playing || !playing.ready) return;
     if (playing.start === null) {
-      this.onSound?.({ kind: 'open', figure: playing.card.figure, contact: playing.contact, seconds: playing.card.seconds, glimpse: playing.glimpse });
+      this.onSound?.({ kind: 'open', figure: playing.card.figure, contact: playing.contact, seconds: playing.card.seconds, glimpse: playing.glimpse, told: playing.told !== null });
     }
     playing.start ??= timeMs;
     const elapsed = timeMs - playing.start;
