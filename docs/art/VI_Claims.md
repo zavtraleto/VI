@@ -155,16 +155,19 @@
 
 ## Вне игры: страница на Playgama
 
-Добавлено 3 октября. Описание и «как играть» на странице игры — тоже свидетельства: игрок читает их до первой сессии. Тексты целиком — в [VI_Playgama_Page.md](../VI_Playgama_Page.md). Голос — программа; ступень 1.
+Добавлено 3 октября, переписано 23 октября 2026 вместе с текстами страницы: режимов LIMITED, EXERCISE и TASKS в игре нет, есть LEVELS и PROTOCOL. Описание и «как играть» на странице игры — тоже свидетельства: игрок читает их до первой сессии. Тексты целиком — в [VI_Playgama_Page.md](../VI_Playgama_Page.md). Голос — программа; ступень 1. Программа на странице названа `VIZAVI`, как игра в кабинете; в игре она `VI` (README).
 
 | № | Что видит игрок | Голос | Поддерживает | Противоречит |
 |---|---|---|---|---|
 | P.1 | `Link device: NOT FOUND. The program runs in emulation mode` | П | То же, что 1.1: устройства нет, игра — эмуляция стола | — |
 | P.2 | `written at a Japanese institute for sessions with the other side` | П | Твёрдые факты 1 и 3. «Скептик»: программа называет цель, а не результат | — |
 | P.3 | `Previous start: H13.03.21`, `Subject file No.07: UNREGISTERED` | П | То же, что 1.2 и 1.3 | — |
-| P.4 | `the group goes under the surface: sent`, `What comes up from below is noise`, `the link is lost` | П | Поверхность — граница; сессия кончается шумом (1.8) | — |
-| P.5 | `dealt the same to every subject`, `one table of results for the day` | П | «Седьмой — место»: испытуемых много, окно сеанса у всех одно | «Был седьмой» — не затронуто |
+| P.4 | `the combo goes under the surface: sent`, `What comes up is noise`, `the link is lost` (до 23 октября — `the group goes under the surface`) | П | Поверхность — граница; сессия кончается шумом (1.8) | — |
+| P.5 | (снято со страницы 23 октября 2026 вместе с LIMITED; заменено P.7) `dealt the same to every subject`, `one table of results for the day` | П | «Седьмой — место»: испытуемых много, окно сеанса у всех одно | «Был седьмой» — не затронуто |
 | P.6 | `After a session something may come through. The program does not say what it is` | П | «С игроком»: что-то приходит. «Скептик»: программа не называет это сообщением | Сам себе, по замыслу |
+| P.7 | `The results of all subjects go into one table` (PROTOCOL: таблица игроков площадки) | П | «Седьмой — место»: испытуемых много, и каждый из них седьмой (Манекен: у программы много игроков) | «Был седьмой» — не затронуто |
+| P.8 | `The menu is a die. Six files on its faces` | П | Шесть граней, шесть каналов, шесть файлов: программа раскладывает всё по шести (твёрдый факт 4). Седьмого файла нет, как нет записи 07 | — |
+| P.9 | `Nothing comes up and there is no clock: the board moves only when a die moves` (LEVELS) | П | Правило как запись программы, без говорящего. Созвучно твёрдому факту 6, но о той стороне не говорит | — |
 
 Чего на странице нет намеренно: кто собрал эмуляцию, что стало с институтом, кто такие шестеро.
 
