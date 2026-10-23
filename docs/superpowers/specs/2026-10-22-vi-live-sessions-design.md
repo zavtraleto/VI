@@ -1,0 +1,164 @@
+# VI — сеансы вживую: бонус Endless на три минуты в ряду кампании
+
+> Вид: решение. Статус: в силе (принято владельцем 22 октября 2026 в чате планирования релиза на Fable; не построено). Дата: 2026-10-22.
+> Что заменило: слово владельца 8 октября 2026 о том, что режим на три минуты не вернётся ([VI_Endless_Rules.md](../../VI_Endless_Rules.md), раздел 10; [ROADMAP.md](../../ROADMAP.md), «Сеанс дня»). Что живёт в коде: после сборки — `src/rules/live.ts`, `boards/row.json` (`lives`), `src/levels/row.ts`, `src/app/game.ts`.
+
+Исполнитель читает эту спеку, файлы раздела 7 и коммит `2edc558` (удаление сеанса дня: там лежит код трёхминутного режима, который возвращается). Весь проект заново не изучается. Модель исполнителя — Opus, в worktree.
+
+## 1. Слова владельца, 22 октября 2026
+
+Дословно: «каждые 10-15 уровней одна сессия endless на три минуты, которую можно пропустить. сессии становятся сложнее, первая должна быть довольно простой и уступчивой для игрока, чтобы было классно играть (по относительно новым правилам). первая сессия после 16 уровня, важно сказать игроку, что правила отличаются от уровней и это как бы „прямой эфир“, поэтому он проще, но учитывается отдельно».
+
+Ответы на вопросы в том же чате:
+
+- Форма — **место в ряду**: бонус виден в списке LEVELS, его можно пропустить и вернуться к нему позже, переиграть, рекорд виден на месте.
+- Где — **после мест 16, 26 и 37**: бонус закрывает главы «уходящая кость», «цепочка» и «пол». Когда ряд вырастет, следующий бонус закроет следующую главу.
+
+Опора: «письмо и звонок» (7 октября 2026, [VI_Owner_Words.md](../../VI_Owner_Words.md), раздел 2): уровни — письмо, Endless — живой звонок. Слово «письмо» на экран не выносится, отправитель не называется.
+
+## 2. Что это для игрока
+
+Игрок проходит место 16. Вместо передачи к месту 17 открывается окно передачи (море, столб, текст по словам, как окна подсказок): это не уровень, кости приходят сами, идёт три минуты, считается отдельно; в окне ссылка «пропустить». Тап по окну после текста — сеанс начинается на поле 7×7 по правилам Endless с часами в HUD. Сеанс кончается по часам или по заполненному полю. Итог: счёт, лучший счёт этого места, кнопки «ещё раз», «дальше», «меню». «Дальше» — передача к месту 17. После итога площадка может показать рекламу, как после сессии Endless.
+
+В списке LEVELS между клетками 16 и 17 стоит клетка сеанса без номера; номера досок не меняются (владелец зовёт доски по номерам). Клетка открывает сеанс в любой момент, сыгранный или пропущенный. Окно перед сеансом показывается один раз на место, как подсказки досок; с клетки списка окно не показывается.
+
+Три сеанса — три ступени: первая мягкая (весь сеанс в мягком старте Endless), вторая как прежний сеанс дня, третья жёстче. Числа — раздел 5, владелец правит их сам.
+
+PROTOCOL в меню остаётся свободным Endless без срока, с таблицей площадки; окно конца ряда по-прежнему ведёт в него. Счёт сеансов в таблицу площадки и в журнал RECORDS не идёт: числа другие, сравнивать не с чем.
+
+## 3. Правила: режим `live`
+
+Возвращается код режима `timed` из коммита до `2edc558` под именем `live`, без общего сида на сутки и без таблицы дня. Что именно (всё — в `git show 2edc558`):
+
+- `src/rules/types.ts`: `RunMode` снова с `'live'` (было `'timed'`); `endReason` снова с `'time'`; в `Tuning` и `RulesConfig` поля `liveStartMs`, `liveEndMs`, `liveSec` / `liveTicks` (были `timedStartMs`, `timedEndMs`, `timedSec` / `timedTicks`).
+- `src/rules/config.ts`: числа по умолчанию и диапазоны ползунков; `liveTicks` из `liveSec`.
+- `src/rules/pace.ts`: `livePhase`, `livePaceMs`, ветка `paceIntervalTicks` от часов, а не от уровня (давление одинаково на каждом запуске, усложнение — только числами ступени); `timeLevel` для `live` — фаза часов, по минуте на фазу.
+- `src/rules/sim.ts`: `RunOptions.live?: boolean`, `mode: … opts.live ? 'live' : 'endless'`, `checkClock` — конец по часам с `endReason: 'time'` и событием `gameOver`.
+- `src/rules/spawn.ts`, `wave.ts`, `reactions.ts`: `live` идёт темпом уровня и волнами, как Endless. Мягкий старт (`gentleStart`) в `live` **действует**, в отличие от сеанса дня: первая ступень на нём и держится (раздел 5).
+- Тесты: вернуть из `2edc558` части `pace.test.ts`, `sim.test.ts`, `wave.test.ts` о часах и фазах, под новыми именами.
+
+Новое — `src/rules/live.ts`:
+
+```ts
+import type { Tuning } from './types';
+/** The steps of the live sessions of the row: the tuning each plays with, over the default. Step 1 is the first the row offers. */
+export const LIVE_STEPS: readonly Partial<Tuning>[] = [ /* раздел 5 */ ];
+/** The config of a live session of a step (1-based); a step past the last plays the last. */
+export function liveConfig(step: number, experiments?: Partial<ExperimentConfig>): RulesConfig;
+```
+
+`liveConfig` строится через `defaultConfig(experiments, LIVE_STEPS[i])`. Сеанс играется по правилам как они есть, настройки игрока из `SYSTEM` (`experiments`) не применяются, как у уровней (`runLevel`: `defaultConfig()`). Записи `isCustomTuning` не касаются: рекорд сеанса хранится отдельно (раздел 6), не в `runs`.
+
+`src/app/savedRun.ts`: `packRun` для `mode === 'live'` возвращает `null` — сеанс на три минуты не возвращается после ухода со страницы, как и уровень. `src/app/clock.ts`: вернуть `clockLeft(state)` для `live` (из `2edc558`).
+
+## 4. Ряд: сеансы в `row.json`
+
+Сеансы — не места `places`, а отдельный список в файле ряда: номера досок не сдвигаются, грамматика, боты и скрипты по доскам не меняются.
+
+```json
+{
+  "chapters": [ … ],
+  "lives": [
+    { "after": "act-k17", "step": 1 },
+    { "after": "domino-3", "step": 2 },
+    { "after": "collapse-3", "step": 3 }
+  ]
+}
+```
+
+`after` — код доски, после которой стоит сеанс (сейчас места 16, 26, 37: последние доски глав «уходящая кость», «цепочка», «пол»); `step` — ступень из `LIVE_STEPS`. Код сеанса для сохранений, аналитики и окна — `live-<step>`; `step` в ряду уникален.
+
+`src/levels/row.ts`:
+
+- `RowFile.lives?: RowLiveFile[]`, `RowLiveFile { after: string; step: number; note?: string }`, `LIVE_KEYS = ['after', 'step', 'note']`.
+- `Row.lives: Live[]`, `Live { code: string; step: number; after: number }` — `after` здесь индекс места в `places`. `buildRow` проверяет: `after` — код доски ряда, `step` — целое от 1, без повторов; иначе ошибка одной строкой `row: live after <код>: …`, как остальные.
+- `rowText` печатает `lives` в `row.gen.ts` как есть. `touchesRow` без изменений. `rowEdit.ts` и мастерская сеансы не трогают: они правятся руками в `row.json` (сказать в [VI_Levels_Lab.md](../../VI_Levels_Lab.md), раздел о ряде).
+
+`src/levels/campaign.ts`:
+
+- `export const LIVES: readonly Live[] = ROW.lives`.
+- `liveAfter(placeIndex): Live | null` — сеанс, стоящий после этого места.
+- `campaignCells` остаётся списком досок; новая `campaignList(kept)` отдаёт клетки списка по порядку: `{ kind: 'board', cell: CampaignCell }` и `{ kind: 'live', code, step, best: number | null, played: boolean }` после доски, за которой стоит сеанс. `campaignFocus` считает по доскам, как сейчас.
+- `CampaignKept.lives?: Readonly<Record<string, LiveStat | undefined>>`.
+
+Скрипты `scripts/row.mjs`, `ladder.mjs`, `stars.mjs`, `bots.mjs`, `teach.mjs`, `library.mjs` читают `places` и не меняются; `node scripts/row.mjs` после правки `row.json` перекладывает `row.gen.ts` вместе с `lives`. Тест `row.test.ts`: `lives` ряда игры указывают на доски ряда, ступени без повторов; `buildRow` отказывает сеансу после доски, которой нет.
+
+## 5. Ступени
+
+Начальные числа; владелец правит их в лаборатории по игре. Всё, что не названо, — как в Endless по умолчанию (`DEFAULT_TUNING`).
+
+| Ступень | `liveSec` | `gentleSec` | `liveStartMs` | `liveEndMs` | `giftRate` | Смысл |
+|---|---|---|---|---|---|---|
+| 1 | 180 | 180 | 3500 | 2500 | 0,08 | весь сеанс в мягком старте, подарки как в Endless: «классно играть» |
+| 2 | 180 | 60 | 3000 | 1500 | 0,08 | темп прежнего сеанса дня, мягкая первая минута |
+| 3 | 180 | 0 | 2500 | 1000 | 0,04 | без поблажек, подарков вдвое меньше |
+
+Проверка числами до игры владельца: `node scripts/pace.mjs` с ботами Endless на конфиге каждой ступени (в `2edc558` у `pace.mjs` был режим `timed` — вернуть под именем `live`): средний счёт персон ступени 1 ниже ступени 2, ступени 2 ниже 3; слабая персона на ступени 1 не теряет поле за три минуты.
+
+## 6. Сохранение, рекорд, аналитика
+
+`src/platform/settings.ts`, `LevelProgress`:
+
+```ts
+/** The live sessions of the row by their codes: the best score and how many were played. */
+lives: Record<string, { best: number; plays: number }>;
+```
+
+По умолчанию `{}`; старые сохранения получают его при загрузке (как `told`). Окно перед сеансом показано один раз: ключ `live:<code>` в `levels.told`. `RowKept` и `toRowEdition` не трогать: смена редакции ряда `lives` не сбрасывает.
+
+Аналитика (`README.md`, «Аналитика»): `progression_started` / `progression_completed` / `progression_failed` с `step_id: 'live-1'` и `step_index` — номер места, после которого сеанс стоит (`step()` в `game.ts`: ветка для `kind === 'live'`). `completed` — конец по часам, с `score`, `maxChain`, `ticks`; `failed` с `reason: 'full'` — поле заполнилось раньше часов; `'skipped'` — ссылка «пропустить» в окне; `'left'` — уход в меню. Строки таблицы в README дополнить.
+
+## 7. Игра: поток
+
+`src/app/game.ts`. Читать: `startPlace`, `runLevel`, `tellHint`, `tellEnd`, `answerPassed`, `putNext`, `runPassage`, `showLevels`, `showResult`, `startRun`, `begin`, `step`, `leaveRun`.
+
+- `RunKind` получает `'live'`; поле `live: Live | null` — сеанс в руках.
+- **Предложение после доски.** В `runPassage`, там, где передача решает, куда идти после пройденного места (`passage.next` из `placeAfterIndex`): если `liveAfter(this.place)` есть и `levels.told` не содержит `live:<code>`, передача останавливается после ухода костей (как перед окном конца ряда, `tellEnd`), и открывается окно `this.signal.tell({ text: t('liveIntro'), …, onDone: () => this.startLive(live, 'row'), onLink: skip })`. `skip` пишет `live:<code>` в `told`, шлёт `progression_failed` с `reason: 'skipped'` и продолжает передачу к следующему месту. `onDone` тоже пишет `live:<code>`. Окно конца ряда (`tellEnd`) по-прежнему после последнего места; если сеанс стоит после последнего места, сначала окно сеанса, потом окно конца.
+- **Из списка.** `campaignList` даёт клетки двух видов; `showLevels` для клетки сеанса зовёт `startLive(live, 'list')` без окна. `onPick` для досок как был.
+- **`startLive(live, from)`**: `this.kind = 'live'`, `this.live = live`, `this.place` — индекс доски `live.after` (для `step_index` и для передачи «дальше»), `begin(createRun({ seed: случайный, как в startRun('endless'), config: liveConfig(live.step), live: true }), true)`, `sayLevelStarted` не зовётся — вместо него `progression_started` через `step()`. Звук, камера, HUD — как у Endless (`startRun('endless')`), плюс часы.
+- **Конец.** В `onEvent` на `gameOver` при `kind === 'live'`: `lives[code].plays++`, `best = max`, `progression_completed` или `failed`, `showLiveResult()`. Панель итога — `resultPanel` без подъёма по журналу (`climb` не передаётся) и без «записей»: показания `得点 SCORE`, `最高 BEST` (лучший этого места), `連鎖 CHAIN`; команды `AGAIN` → `startLive(live, from)`, `NEXT` → передача к месту `live.after + 1` (`startPlace(after + 1, true)`; после последнего места — `tellEnd`, затем меню), `MENU`. После ухода с итога — `answered(...)`, как у Endless: `signal.answer` и межстраничная реклама (`interstitial`).
+- **Уход.** Пауза и меню работают как в Endless; `leaveRun('menu')` шлёт `failed` с `'left'`. Сеанс не хранится (`packRun` → `null`).
+- **Первое место после сеанса.** `atAfter` считается по доскам и не меняется: `at` после места 16 уже стоит на 17 с момента прохода 16.
+
+## 8. Интерфейс
+
+Всё — в канвасе через `src/shell`, цвета и размеры из `src/shell/theme.ts`. Каждая строка ниже — строка в [VI_Interface_Layer.md](../../art/VI_Interface_Layer.md) в том же коммите.
+
+- **Клетка сеанса в списке LEVELS** (`src/shell/screens/panel.ts`, ряд `levels`; `src/shell/panels.ts`, `levelsPanel`): клетка той же величины между 16 и 17, вместо номера — слово `LIVE` шрифтом программы, вместо звёзд — лучший счёт (пусто, пока не сыгран). Под списком в строке заметки для этой клетки — `t('liveNote')`. Вид клетки — **предложение**: владелец ведёт вид и может заменить его своим; строить так, чтобы замена была правкой одного места.
+- **Часы в HUD** (`src/shell/hud.ts`, `HudSession.clock`): вернуть из `2edc558` — `MM:SS` в середине строки сеанса, последние десять секунд мигают.
+- **Окно перед сеансом** — та же передача, что окна подсказок (`signal.tell`); ссылка в тексте как `{бесконечный режим}` в `campaignEnd`.
+- **Итог сеанса** — панель `RESULT` с тремя показаниями и тремя командами (раздел 7); `NEXT` — новое слово панели в `words.ts` на семи языках.
+
+Проверить глазами на 360×640 и 1920×1080: окно, часы, клетка, итог.
+
+## 9. Тексты
+
+`src/ui/i18n.ts` (`RU`, `EN`), остальные пять языков в `src/ui/lang/`, слова панелей в `src/ui/lang/words.ts`. Голос — программа: сухо, прямо, лёгкая загадочность; «письмо» не произносится, отправитель не называется. Из двух вариантов владелец 23 октября 2026 выбрал **А**; Б остаётся для истории:
+
+- А. RU: «Это не уровень: прямой сеанс. Кости приходят сами. Три минуты, счёт отдельный. {Пропустить}». EN: «Not a level: a live session. The dice come by themselves. Three minutes, scored on its own. {Skip}».
+- Б. RU: «Три минуты связи вживую. Кости приходят сами; заполнится поле — связь прервётся. Считается отдельно от уровней. {Пропустить}». EN: «Three minutes of live link. The dice come by themselves; a full board breaks the link. Counted apart from the levels. {Skip}».
+
+Ещё: `liveNote` под клеткой списка («Прямой сеанс: три минуты, кости приходят сами» / «Live session: three minutes, the dice come by themselves»); строка в `HOW TO PLAY` после `howLevels` (`howLive`): «ПРЯМОЙ СЕАНС: три минуты по правилам ПРОТОКОЛА, между главами. Можно пропустить» / «LIVE SESSION: three minutes by the rules of PROTOCOL, between chapters. Can be skipped».
+
+Лор: каждая строка — запись в [VI_Claims.md](../../art/VI_Claims.md), новый раздел «Сеансы вживую» по образцу «Уровни: окна правил»; сверка с [VI_Lore.md](../../art/VI_Lore.md): твёрдые факты о сеансах за столом, «тёмные места» не трогать. Строка в [VI_World_Logic.md](../../art/VI_World_Logic.md): сеанс между главами — та сторона выходит на связь вживую, пока письмо ещё пишется.
+
+## 10. Документы в том же коммите
+
+- [VI_Endless_Rules.md](../../VI_Endless_Rules.md): раздел 10 — убрать «не вернётся», добавить раздел «Сеансы вживую» (режим `live`, ступени, где стоят, что не хранится).
+- [ROADMAP.md](../../ROADMAP.md): «Сделано» — строка о сеансах; журнал — у строки «Сеанс дня» дописать, что режим вернулся 22 октября как сеансы вживую.
+- [VI_Levels_Lab.md](../../VI_Levels_Lab.md): `lives` в `row.json` правятся руками, мастерская их не показывает.
+- [VI_Interface_Layer.md](../../art/VI_Interface_Layer.md), [VI_World_Logic.md](../../art/VI_World_Logic.md), [VI_Claims.md](../../art/VI_Claims.md) — раздел 8 и 9.
+- `README.md`: «Аналитика», `step_id` сеансов.
+- Индекс [docs/README.md](../../README.md): статус этой спеки — «построено, v…».
+
+## 11. Порядок сборки и проверки
+
+1. Правила: режим `live`, часы, темп от часов, `live.ts`, тесты (раздел 3, 5). `npm test`.
+2. Ряд: `lives` в `row.ts`, `row.json`, `row.mjs`, `campaign.ts`, тесты (раздел 4). `node scripts/row.mjs`, `npm test`, `node scripts/ladder.mjs campaign` и `node scripts/stars.mjs` работают как прежде.
+3. Сохранение и аналитика (раздел 6), тест `settings.test.ts`.
+4. Игра: поток (раздел 7). Тест `passage.test.ts`: после места с сеансом передача ждёт окна; после пропуска идёт дальше.
+5. Интерфейс (раздел 8), тексты на семи языках (раздел 9), `text.test.ts` на ширину слов.
+6. Документы (раздел 10), `node scripts/docs-check.mjs`.
+7. `npm run typecheck`, `npm run build`, версия в `package.json`; превью `vi-dev` на 360×640 и 1920×1080: пройти место 16, увидеть окно, сыграть и пропустить, вернуться с клетки списка. `npm run pack -- playgama` — архив; загрузка в кабинет только после «ок» владельца.
+
+Что вышло иначе — записать последним разделом здесь.
