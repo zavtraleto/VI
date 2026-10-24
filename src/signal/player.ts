@@ -24,7 +24,7 @@ const LINK_CELLS = 5;
 const LINK_LABEL = '接続';
 /** The letters of what a board is told are no smaller than the line over the board was on a phone, in CSS pixels. */
 const TOLD_MIN_SIZE = 19;
-/** A window that is told something stands in the middle of the screen and fills it. */
+/** A window that is told something, or answers a session, stands in the middle of the screen and fills it. */
 const TOLD_PLACE: WindowPlace = { x: 0.5, y: 0.5 };
 
 /** Words the game has to tell the player before a board, in a window of their own. */
@@ -163,10 +163,17 @@ export class SignalPlayer {
       onDone();
       return;
     }
-    this.play(randomCard(this.random, contact), contact, () => {
-      this.answered = true;
-      onDone();
-    });
+    this.play(
+      randomCard(this.random, contact),
+      contact,
+      () => {
+        this.answered = true;
+        onDone();
+      },
+      false,
+      1,
+      TOLD_PLACE,
+    );
   }
 
   /** Before a session, once in a few: a transmission for some seconds, with nothing to answer. */
