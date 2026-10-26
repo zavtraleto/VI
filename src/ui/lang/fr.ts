@@ -88,6 +88,8 @@ export const FR: Texts = {
   hintSeven: 'Les faces opposées font toujours 7 au total.',
   hintLinkMove: 'Un maillon offre un tour au combo.',
   hintRollIn: 'On peut aussi rouler dans un dé qui part.',
+  hintOnes: 'Un près du combo emmène les uns. Le tien reste.',
+  hintOnesPush: 'Pousse un un vers le combo, et il part aussi.',
   campaignEnd: 'À suivre. En attendant de nouveaux niveaux, tu peux essayer le {mode infini}.',
   liveIntro: 'Pas un niveau : une session en direct. Les dés arrivent tout seuls. Trois minutes, un score à part. {Passer}',
   liveNote: 'Session en direct : trois minutes, les dés arrivent tout seuls',

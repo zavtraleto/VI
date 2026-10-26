@@ -85,6 +85,8 @@ export const TR: Texts = {
   hintSeven: 'Karşılıklı yüzlerin toplamı her zaman 7 eder.',
   hintLinkMove: 'Bir halka komboya bir hamle verir.',
   hintRollIn: 'Giden bir zarın içine de yuvarlanabilirsin.',
+  hintOnes: 'Giden zarların yanındaki bir bir, bütün birleri götürür. Seninki kalır.',
+  hintOnesPush: 'Bir biri gidenlere it, o da gider.',
   campaignEnd: 'Devamı gelecek. Yeni bölümler gelene kadar {sonsuz modu} deneyebilirsin.',
   liveIntro: 'Bu bir seviye değil: canlı bir oturum. Zarlar kendiliğinden gelir. Üç dakika, puanı ayrı sayılır. {Atla}',
   liveNote: 'Canlı oturum: üç dakika, zarlar kendiliğinden gelir',

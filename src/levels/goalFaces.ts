@@ -7,21 +7,23 @@ export interface GoalFace {
   dice: number | null;
 }
 
-const ascending = (faces: Iterable<number>): number[] => [...new Set(faces)].filter((face) => face >= 2).sort((a, b) => a - b);
+/** The faces, each once and smallest first; the 1s with them only where `ones` says (those the way sends). */
+const ascending = (faces: Iterable<number>, ones = false): number[] => [...new Set(faces)].filter((face) => face >= (ones ? 1 : 2)).sort((a, b) => a - b);
 
 /**
  * The faces a level asks the player to put together, shown in the corner where the seal lay (word
  * of the owner, 16 October 2026): those whose combos and links are on the way the board keeps,
  * smallest first, so that they do not tell which goes first, each with the dice of it that go on
  * that way. A board that keeps no way, or a way that no longer holds, shows the faces it names,
- * with no count. The 1s are not among them.
+ * with no count. The 1s are among them where the way sends them (the 1s go on every level since 26 October
+ * 2026); a board that keeps no way does not show a 1 it names.
  */
 export function goalOf(spec: LevelSpec): GoalFace[] {
   const named = ascending(spec.faces ?? []).map((face) => ({ face, dice: null }));
   if (!spec.solution || spec.solution.length === 0) return named;
   try {
     const { state, values } = tryWay(spec, spec.solution.map(moveOf));
-    const found = ascending(values);
+    const found = ascending(values, true);
     if (state.endReason !== 'passed' || found.length === 0) return named;
     const sent = state.levelRun!.sent;
     return found.map((face) => ({ face, dice: sent[face - 1] }));

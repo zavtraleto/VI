@@ -119,6 +119,10 @@ const RU = {
   hintLinkMove: 'Звено даёт комбо ещё ход.',
   // The window of the roll into a leaving die (third campaign, section 15, the owner's words of 18 October 2026).
   hintRollIn: 'В уходящую кость тоже можно вкатиться.',
+  // The windows of the 1s (the levels to a hundred, decision 7): the owner's words of 26 October 2026, «единица под
+  // игроком не уходит, а пододвинутая единица — уходит»; the lines are the executor's.
+  hintOnes: 'Единица у уходящих костей уводит все единицы. Твоя остаётся.',
+  hintOnesPush: 'Толкни единицу к уходящим, и уйдёт она сама.',
   // The window after the last board of the row: the words in braces lead to the endless session (the owner, 15 October 2026).
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
   liveIntro: 'Это не уровень: прямой сеанс. Кости приходят сами. Три минуты, счёт отдельный. {Пропустить}',
@@ -225,6 +229,8 @@ const EN: typeof RU = {
   hintSeven: 'Opposite faces always add up to 7.',
   hintLinkMove: 'A link gives the combo a move.',
   hintRollIn: 'You can roll into a leaving die, too.',
+  hintOnes: 'A one by leaving dice takes all ones. Yours stays.',
+  hintOnesPush: 'Push a one to leaving dice, and it goes too.',
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
   liveIntro: 'Not a level: a live session. The dice come by themselves. Three minutes, scored on its own. {Skip}',
   liveNote: 'Live session: three minutes, the dice come by themselves',

@@ -188,6 +188,10 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(row).filter((one) => one.rule === 4).map((one) => one.text)).toEqual(['место 2 (act-k22) ставит only, а доска ряда его не ставит']);
   });
 
+  it('does not count the 1s a way sends among the faces of rule 4: broom-3 names 1 4 and its way sends both', () => {
+    expect(fastGrammar(rowOf(['broom-3'])).filter((one) => one.rule === 4)).toEqual([]);
+  });
+
   it('asks of a place with a window that its board teaches the move of the window and needs it: rule 7', () => {
     const row = rowOf([['R11', { teaches: undefined, help: { hint: 'roadHintWalk' } }], ['R08', { help: { hint: 'roadHintChain' }, teaches: 'walk' }]]);
     expect(fastGrammar(row).filter((one) => one.rule === 7).map((one) => one.text)).toEqual([

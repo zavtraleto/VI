@@ -11,7 +11,12 @@ import { roadWait } from './signWay';
 
 describe('the hints of the boards', () => {
   // The hints of the boards that teach a move, shown in a window before the board starts.
-  const pieces: [string, { key: string }][] = CAMPAIGN.flatMap((place) => (place.help.hint ? [[place.code, { key: place.help.hint }] as [string, { key: string }]] : []));
+  // The windows of the 1s are held to the same before their places are laid (the levels to a hundred, step 1).
+  const pieces: [string, { key: string }][] = [
+    ...CAMPAIGN.flatMap((place) => (place.help.hint ? [[place.code, { key: place.help.hint }] as [string, { key: string }]] : [])),
+    ['ones', { key: 'hintOnes' }],
+    ['onesPush', { key: 'hintOnesPush' }],
+  ];
 
   it('have their text in every one of the seven languages, in at most ten words, with no exclamation mark', () => {
     for (const code of LANGUAGES) {
@@ -29,8 +34,8 @@ describe('the hints of the boards', () => {
   it('differ from one another and from the lines of a session that have names close to theirs', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      const lines = [t('roadHintChain'), t('roadHintWalk'), t('roadHintPush'), t('roadHintClimb'), t('hintSeven'), t('hintRollIn')];
-      expect(new Set(lines).size, code).toBe(6);
+      const lines = [t('roadHintChain'), t('roadHintWalk'), t('roadHintPush'), t('roadHintClimb'), t('hintSeven'), t('hintRollIn'), t('hintOnes'), t('hintOnesPush')];
+      expect(new Set(lines).size, code).toBe(8);
       expect(lines, code).not.toContain(t('hintChain'));
     }
     setLanguage('en');
@@ -77,6 +82,8 @@ describe('the hint of the address of development', () => {
     expect(probeHint('hintLinkMove')).toEqual({ key: 'hintLinkMove' });
     expect(probeHint('rollin')).toEqual({ key: 'hintRollIn' });
     expect(probeHint('hintRollIn')).toEqual({ key: 'hintRollIn' });
+    expect(probeHint('ones')).toEqual({ key: 'hintOnes' });
+    expect(probeHint('onesPush')).toEqual({ key: 'hintOnesPush' });
     expect(probeHint('hintOne')).toBeNull();
     expect(probeHint('')).toBeNull();
     expect(probeHint(null)).toBeNull();
@@ -150,7 +157,7 @@ describe('the words of a hint', () => {
   it('are always the start of the line as it is written, so each stands where it will in the whole line', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      for (const key of ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintClimb', 'hintSeven', 'hintLinkMove', 'hintRollIn'] as const) {
+      for (const key of ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintClimb', 'hintSeven', 'hintLinkMove', 'hintRollIn', 'hintOnes', 'hintOnesPush'] as const) {
         const text = t(key);
         const count = text.split(' ').length;
         for (let n = 0; n <= count; n++) expect(text.startsWith(wordsShown(text, n * HINT_WORD_MS)), `${key} ${code}`).toBe(true);

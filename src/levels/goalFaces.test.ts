@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { boardOf } from './boardSets';
 import { goalFaces, goalOf } from './goalFaces';
 import { ROW } from './row.gen';
 
@@ -35,5 +36,15 @@ describe('the faces a level asks for', () => {
     const spec = placed('R11');
     expect(goalFaces({ ...spec, solution: undefined, faces: [3, 2, 1] })).toEqual([2, 3]);
     expect(goalFaces({ ...spec, solution: ['0,0,N'], faces: [4] })).toEqual([4]);
+  });
+
+  it('take the 1s where the way of the board sends them, and only there (the 1s on every level, 26 October 2026)', () => {
+    const broom = boardOf('broom-3');
+    expect(goalFaces(broom)).toEqual([1, 4]);
+    const ones = goalOf(broom).find((goal) => goal.face === 1)!;
+    expect(ones.dice).toBeGreaterThan(0);
+    expect(goalFaces(placed('R03'))).not.toContain(1);
+    // A board that keeps no way shows the faces it names, and a 1 among them does not come up.
+    expect(goalFaces({ ...placed('R03'), solution: undefined, faces: [1, 3] })).toEqual([3]);
   });
 });

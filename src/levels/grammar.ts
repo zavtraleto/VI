@@ -87,6 +87,8 @@ export const HINT_TECHNIQUE: Readonly<Record<HintKey, Technique>> = {
   hintSeven: 'seven',
   hintLinkMove: 'link',
   hintRollIn: 'glass',
+  hintOnes: 'ones',
+  hintOnesPush: 'ones',
 };
 
 /**
@@ -234,7 +236,8 @@ function facesByWay(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
   for (const stop of row) {
     const named = (stop.spec.faces ?? []).filter((face) => face >= 2).sort((x, y) => x - y);
-    const way = goalFaces(stop.spec);
+    // The 1s the way sends are not counted, as those the board names are not.
+    const way = goalFaces(stop.spec).filter((face) => face >= 2);
     if (String(named) !== String(way)) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} называет грани ${named.join(' ')}, а на пути — ${way.join(' ')}` });
     if (stop.spec.only) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} ставит only, а доска ряда его не ставит` });
   }

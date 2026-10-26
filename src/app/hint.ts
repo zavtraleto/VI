@@ -40,6 +40,8 @@ const PROBE: Readonly<Record<string, Hint>> = {
   seven: { key: 'hintSeven' },
   linkmove: { key: 'hintLinkMove' },
   rollin: { key: 'hintRollIn' },
+  ones: { key: 'hintOnes' },
+  onespush: { key: 'hintOnesPush' },
 };
 
 /**

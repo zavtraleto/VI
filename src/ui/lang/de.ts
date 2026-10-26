@@ -85,6 +85,8 @@ export const DE: Texts = {
   hintSeven: 'Gegenüberliegende Seiten ergeben zusammen immer 7.',
   hintLinkMove: 'Ein Glied schenkt dem Combo einen Zug.',
   hintRollIn: 'In einen gehenden Würfel kann man auch hineinrollen.',
+  hintOnes: 'Eine Eins am Combo nimmt alle Einsen mit. Deine bleibt.',
+  hintOnesPush: 'Schieb eine Eins zum Combo, dann geht sie mit.',
   campaignEnd: 'Fortsetzung folgt. Bis neue Level kommen, kannst du den {Endlosmodus} ausprobieren.',
   liveIntro: 'Keine Stufe: eine Live-Sitzung. Die Würfel kommen von selbst. Drei Minuten, eigene Wertung. {Überspringen}',
   liveNote: 'Live-Sitzung: drei Minuten, die Würfel kommen von selbst',

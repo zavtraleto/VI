@@ -85,6 +85,8 @@ export const PT: Texts = {
   hintSeven: 'Faces opostas sempre somam 7.',
   hintLinkMove: 'Um elo dá ao combo mais um lance.',
   hintRollIn: 'Também dá para entrar rolando num dado que sai.',
+  hintOnes: 'Um junto ao combo leva os uns. O teu fica.',
+  hintOnesPush: 'Empurra um um até o combo, e ele sai também.',
   campaignEnd: 'Continua. Enquanto novos níveis não chegam, você pode experimentar o {modo infinito}.',
   liveIntro: 'Não é um nível: uma sessão ao vivo. Os dados chegam sozinhos. Três minutos, com pontuação à parte. {Pular}',
   liveNote: 'Sessão ao vivo: três minutos, os dados chegam sozinhos',

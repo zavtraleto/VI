@@ -16,7 +16,7 @@ export type Role = (typeof ROLES)[number];
 export const TECHNIQUES = ['link', 'walk', 'glass', 'lift', 'push', 'ones', 'twoFaces', 'seven', 'time', 'loop', 'order'] as const;
 export type Technique = (typeof TECHNIQUES)[number];
 /** The hints of the texts (`src/ui/i18n.ts`) a place can show in a window before its board. */
-export const HINT_KEYS = ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintClimb', 'hintSeven', 'hintLinkMove', 'hintRollIn'] as const;
+export const HINT_KEYS = ['roadHintChain', 'roadHintWalk', 'roadHintPush', 'roadHintClimb', 'hintSeven', 'hintLinkMove', 'hintRollIn', 'hintOnes', 'hintOnesPush'] as const;
 export type HintKey = (typeof HINT_KEYS)[number];
 /** What a player is meant to feel on a place (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, 4.4): the words of rule 8 of the grammar. */
 export const EMOTIONS = ['gift', 'recognition', 'insight', 'flow', 'trick', 'surprise', 'tension', 'payoff', 'fiero', 'relief', 'mastery'] as const;
