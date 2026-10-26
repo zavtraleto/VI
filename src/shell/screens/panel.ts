@@ -165,6 +165,8 @@ export class PanelScreen implements ShellScreen {
   private typed = 0;
   /** The first row of the cells of the levels in sight, where the list scrolls; null till the panel is laid out. */
   private top: number | null = null;
+  /** CSS pixels the wheel has turned the list that do not make a row yet, down counted up: the small steps of a touchpad add up. */
+  private wheeled = 0;
 
   constructor(
     private readonly context: ShellContext,
@@ -513,24 +515,35 @@ export class PanelScreen implements ShellScreen {
     const index = Number(focus.slice(row.id.length + 1));
     const target = view.rowOf[index] + (dir === 'down' ? 1 : -1);
     if (target < 0 || target >= view.rows || (target >= view.from && target < view.from + view.shown)) return undefined;
-    this.top = view.from + (dir === 'down' ? 1 : -1);
+    // The row that way comes in sight at the edge it is reached from, wherever the list stood (a turned window moves it).
+    this.top = Math.max(0, Math.min(view.rows - view.shown, dir === 'down' ? target - view.shown + 1 : target));
     return `${row.id}-${this.nearestIn(view, target, index)}`;
   }
 
   /**
-   * A finger drawn up or down over the panel, or the wheel of a mouse, so many CSS pixels of the
-   * window: the list goes that many rows that way, one at least. The focus stays where it is still in
-   * sight, and goes to the nearest row in sight where it is not. Null where nothing moves: the list
-   * fits, or is at its end that way.
+   * A finger drawn up or down over the panel, or the wheel of a mouse (`wheel`), so many CSS pixels of
+   * the window: the list goes that many rows that way, a finger one at least, the wheel as its steps add
+   * up to rows. The focus stays where it is still in sight, and goes to the nearest row in sight where it
+   * is not. A finger drawn on a list at its end that way is taken all the same, and starts no level. Null
+   * where the list fits, and where the wheel has not turned it a row.
    */
-  scroll(dir: 'up' | 'down', pixels: number, focus: string | null): string | null {
+  scroll(dir: 'up' | 'down', pixels: number, focus: string | null, wheel = false): string | null {
     const list = this.levels();
     if (!list || list.view.shown >= list.view.rows) return null;
     const { row, view } = list;
     const zoom = this.context.window().height / Math.max(1, this.context.picture().height);
-    const by = Math.max(1, Math.round(pixels / ((this.zone() + GAP) * zoom)));
+    const rowPixels = (this.zone() + GAP) * zoom;
+    let by: number;
+    if (wheel) {
+      // A turn the other way drops what was added up this way.
+      const signed = dir === 'down' ? pixels : -pixels;
+      this.wheeled = Math.sign(this.wheeled) === -Math.sign(signed) ? signed : this.wheeled + signed;
+      by = Math.trunc(Math.abs(this.wheeled) / rowPixels);
+      if (by === 0) return null;
+      this.wheeled -= Math.sign(this.wheeled) * by * rowPixels;
+    } else by = Math.max(1, Math.round(pixels / rowPixels));
     const from = Math.max(0, Math.min(view.rows - view.shown, view.from + (dir === 'down' ? by : -by)));
-    if (from === view.from) return null;
+    if (from === view.from) return wheel ? null : focus;
     this.top = from;
     const index = focus !== null && focus.startsWith(`${row.id}-`) ? Number(focus.slice(row.id.length + 1)) : -1;
     if (index < 0) return focus ?? `${row.id}-${view.cells.findIndex((_cell, i) => view.rowOf[i] === from)}`;

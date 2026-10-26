@@ -110,7 +110,7 @@ export interface InputHost {
   /** Where a swipe that began at a point of the window takes the focus; null or undefined where the screen makes nothing of it. */
   swipe(dir: 'left' | 'right', x: number, y: number): string | null | undefined;
   /** Where a press drawn up or down, or the wheel, so many CSS pixels, takes the focus; null or undefined where nothing scrolls. */
-  scroll?(dir: 'up' | 'down', pixels: number, focus: string | null): string | null | undefined;
+  scroll?(dir: 'up' | 'down', pixels: number, focus: string | null, wheel?: boolean): string | null | undefined;
   /** A key asked for a step, and there is nowhere to go that way. */
   stuck(): void;
   back(): void;
@@ -214,10 +214,11 @@ export class ShellInput {
   }
 
   private onWheel(e: WheelEvent): void {
-    if (this.taken(e)) return;
+    // A pinch on a touchpad comes as the wheel with Ctrl held: it is no scroll.
+    if (this.taken(e) || e.ctrlKey) return;
     const pixels = e.deltaY * (e.deltaMode === 1 ? WHEEL_LINE : e.deltaMode === 2 ? window.innerHeight : 1);
     if (pixels === 0) return;
-    const told = this.host.scroll?.(pixels > 0 ? 'down' : 'up', Math.abs(pixels), this.focus);
+    const told = this.host.scroll?.(pixels > 0 ? 'down' : 'up', Math.abs(pixels), this.focus, true);
     if (told == null) return;
     this.focus = told;
     this.host.changed();

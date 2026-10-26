@@ -95,10 +95,10 @@ export interface ShellScreen {
   /** Where a key takes the focus from a zone, on a screen that knows better than the places of its zones; undefined leaves it to them. */
   move?(focus: string | null, dir: Dir4): string | null | undefined;
   /**
-   * A finger drawn up or down, or the wheel of a mouse, so many CSS pixels of the window, on a screen
-   * with something that scrolls: where the focus goes then. Null where nothing moves.
+   * A finger drawn up or down, or the wheel of a mouse (`wheel`), so many CSS pixels of the window, on a
+   * screen with something that scrolls: where the focus goes then. Null where the screen makes nothing of it.
    */
-  scroll?(dir: 'up' | 'down', pixels: number, focus: string | null): string | null;
+  scroll?(dir: 'up' | 'down', pixels: number, focus: string | null, wheel?: boolean): string | null;
   /** The face of the die a zone stands on, on a screen that is made of dice. */
   face?(id: string): number | null;
   /**

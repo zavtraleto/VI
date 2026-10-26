@@ -267,13 +267,34 @@ describe('the list of the levels on a screen', () => {
     const ids = () => screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.id);
     const first = ids();
     expect(first.length).toBeLessThan(cells.length);
-    expect(screen.scroll('up', 400, 'level-0')).toBeNull();
-    const focus = screen.scroll('down', 2000, 'level-0');
+    // A finger drawn at the end of the list is taken all the same: it starts no level.
+    expect(screen.scroll('up', 400, 'level-0')).toBe('level-0');
+    const focus = screen.scroll('down', 2000, 'level-0')!;
     expect(ids()).toContain(`level-${cells.length - 1}`);
     expect(ids()).toContain(focus);
-    expect(screen.scroll('down', 400, focus)).toBeNull();
+    expect(screen.scroll('down', 400, focus)).toBe(focus);
     screen.scroll('up', 4000, focus);
     expect(ids()).toEqual(first);
+  });
+
+  it('scrolls the list on a phone by the wheel row by row as the small steps of a touchpad add up', () => {
+    const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, 0, actions), true);
+    const ids = () => screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.id);
+    const first = ids();
+    expect(screen.scroll('down', 10, 'level-0', true)).toBeNull();
+    expect(ids()).toEqual(first);
+    for (let i = 0; i < 9; i++) screen.scroll('down', 10, 'level-0', true);
+    expect(ids()).not.toEqual(first);
+    expect(ids()).toContain('level-6');
+    expect(ids()).not.toContain(`level-${cells.length - 1}`);
+  });
+
+  it('brings a cell out of sight back with a key, as after the window was turned', () => {
+    const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, 0, actions), true);
+    screen.scroll('down', 4000, 'level-0');
+    const next = screen.move('level-0', 'down');
+    expect(next).toBe('level-6');
+    expect(screen.items().map((item) => item.id)).toContain(next);
   });
 
   it('opens the list on a phone with the cell of the place in sight, though it is the last', () => {
