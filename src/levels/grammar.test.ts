@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
-import { HELD, fastGrammar, held, lessonOf, needsOf, slowGrammar } from './grammar';
+import { BARRED, HELD, fastGrammar, held, lessonOf, needsOf, slowGrammar } from './grammar';
 import { boardOf as anyBoard } from './boardSets';
 
 /**
@@ -57,7 +57,7 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(CAMPAIGN).filter(held)).toEqual([]);
   });
 
-  it('prints what it does not hold yet as warnings: rules 4, 8, 10, 11 and 13', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 12]));
+  it('prints what it does not hold yet as warnings: rules 4, 8, 10, 11, 13, 14 and 15', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 12]));
 
   it('finds the place a move is taught at, or none', () => {
     const row = rowOf([['act-k17', { role: 'apply' }], ['R07', { role: 'meet', teaches: 'link' }]]);
@@ -116,6 +116,64 @@ describe('the grammar of the row', () => {
       'места 4 (R07) и 5 (R13): уроки ближе семи мест',
       'место 6 (R10): подъём сразу после толчка на месте 5',
     ]);
+  });
+
+  it('asks the window of the pushed 1 for the 1s and the push both: rule 7', () => {
+    const row = rowOf([['R07', { role: 'meet', teaches: 'ones', help: { hint: 'hintOnesPush' } }]]);
+    expect(fastGrammar(row).filter((one) => one.rule === 7).map((one) => one.text)).toEqual([
+      'место 1 (R07): окно hintOnesPush, а путь доски не требует ones',
+      'место 1 (R07): окно hintOnesPush, а путь доски не требует push',
+    ]);
+  });
+
+  it('puts the window of the pushed 1 after that of the 1s, and counts the 1s among the lessons a block apart: rule 11', () => {
+    const rule11 = (row: Stop[]) => fastGrammar(row).filter((one) => one.rule === 11).map((one) => one.text);
+    expect(rule11(rowOf([['R11', { help: { hint: 'hintOnes' } }], ['R03', { help: { hint: 'hintOnesPush' } }]]))).toEqual(['место 2 (R03): окно толчка единицы сразу после окна единиц на месте 1']);
+    expect(rule11(rowOf([['R03', { help: { hint: 'hintOnesPush' } }]]))).toEqual(['место 1 (R03): окно толчка единицы, а окна единиц раньше нет']);
+    expect(rule11(rowOf([['R11', { help: { hint: 'hintOnes' } }], 'R04', ['R03', { help: { hint: 'hintOnesPush' } }]]))).toEqual([]);
+    expect(rule11(rowOf([['R11', { help: { hint: 'roadHintWalk' } }], 'R03', ['R07', { help: { hint: 'hintOnes' } }]]))).toEqual(['места 1 (R11) и 3 (R07): уроки ближе семи мест']);
+  });
+
+  it('bars the 1s before their lesson as the other moves: rule 12', () => {
+    expect(BARRED).toContain('ones');
+    const row = rowOf([['R03', { role: 'apply' }], ['R07', { role: 'meet', teaches: 'ones' }]]);
+    const facts = (stop: Stop) => ({ lost: true, planner: 1, casual: 1, order: false, cleared: stop.number === 1 ? { ones: null } : {} });
+    expect(slowGrammar(row, facts).filter((one) => one.rule === 12).map((one) => one.text)).toEqual(['место 1 (R03) без ones не проходится в 2 хода, а единицам учат на месте 2']);
+    const none = rowOf([['R03', { role: 'apply' }]]);
+    expect(slowGrammar(none, facts).filter((one) => one.rule === 12).map((one) => one.text)).toEqual(['место 1 (R03) без ones не проходится в 2 хода, а единицам в ряду не учат']);
+  });
+
+  // R03 makes 2s, H06 3s, R11 2s and 3s, broom-3 1s and 4s: rule 14 counts the 4 alone.
+  const rule14 = (codes: readonly string[]) => fastGrammar(rowOf(codes)).filter((one) => one.rule === 14);
+
+  it('asks ten places in a row from the twentieth for three goal faces: rule 14, a warning', () => {
+    const first = Array.from({ length: 19 }, (_, i) => (i % 2 === 0 ? 'R03' : 'H06'));
+    const twos = rule14([...first, ...Array.from({ length: 10 }, () => 'R03')]);
+    expect(twos.filter((one) => !one.text.includes('подряд')).map((one) => one.text)).toEqual(['места 20–29: грани цели только 2']);
+    expect(twos.some(held)).toBe(false);
+    const spread = ['R03', 'H06', 'broom-3', 'R03', 'H06', 'broom-3', 'R03', 'H06', 'broom-3', 'R03'];
+    expect(rule14([...first, ...spread])).toEqual([]);
+    // Fewer than twenty places: no window to ask of.
+    expect(rule14(first)).toEqual([]);
+  });
+
+  it('says three boards in a row with the same goal faces: rule 14, a warning', () => {
+    const found = rule14(['R03', 'H06', 'R03', 'H06', 'R11', 'R11', 'R11', 'H06']);
+    expect(found.map((one) => one.text)).toEqual(['места 5–7 — три доски подряд с гранями 2 3']);
+    expect(found.some(held)).toBe(false);
+  });
+
+  it('asks twelve places in a row for five emotions and no archetype more than three times: rule 15, a warning', () => {
+    const emotions = ['gift', 'flow', 'insight', 'trick'] as const;
+    const four = rowOf(Array.from({ length: 12 }, (_, i): [string, Partial<Stop>] => ['R03', { emotion: emotions[i % 4], archetype: `a${i}` }]));
+    const found = fastGrammar(four).filter((one) => one.rule === 15);
+    expect(found.map((one) => one.text)).toEqual(['места 1–12: эмоций четыре (gift, flow, insight, trick), а нужно пять']);
+    expect(found.some(held)).toBe(false);
+    const all = ['gift', 'flow', 'insight', 'trick', 'surprise'] as const;
+    const bridges = rowOf(Array.from({ length: 12 }, (_, i): [string, Partial<Stop>] => ['R03', { emotion: all[i % 5], archetype: i % 3 === 0 ? 'bridge' : `a${i}` }]));
+    expect(fastGrammar(bridges).filter((one) => one.rule === 15).map((one) => one.text)).toEqual(['места 1–12: архетип bridge четыре раза']);
+    // A row shorter than twelve is not asked.
+    expect(fastGrammar(four.slice(0, 11)).filter((one) => one.rule === 15)).toEqual([]);
   });
 
   it('lets a twist that teaches count its own move as brought in: rule 10', () => {

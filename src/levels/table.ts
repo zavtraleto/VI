@@ -130,7 +130,7 @@ const BAN_OF: Partial<Record<Technique, readonly Ban[]>> = { link: ['link'], wal
  * a leaving die alone: a push goes down to the floor, and a board of the push before the lesson of the climb
  * is not one that climbs.
  */
-const BEFORE_LESSON_BAN: Readonly<Record<Barred, readonly Ban[]>> = { link: ['link'], walk: ['bridge', 'up'], glass: ['glass'], lift: ['up'], push: ['push'] };
+const BEFORE_LESSON_BAN: Readonly<Record<Barred, readonly Ban[]>> = { link: ['link'], walk: ['bridge', 'up'], glass: ['glass'], lift: ['up'], push: ['push'], ones: ['ones'] };
 /** Rule 12: the moves over its own a board is looked for in without a move, and the boards the search may see. */
 const CLEARED_SLACK = 3;
 const CLEARED_MAX_STATES = 400_000;

@@ -111,11 +111,11 @@ describe('slowFactsOf', () => {
 
   it('counts the moves of each board without each move the solver can be barred from, for rule 12', () => {
     // R05 keeps a combo and a link (K L): without the link it is cleared in five, not three.
-    expect(slowFactsOf(fileBoard('R05'), 'order', 50, 1).cleared).toEqual({ walk: 3, link: 5, glass: 3, lift: 3, push: 3 });
+    expect(slowFactsOf(fileBoard('R05'), 'order', 50, 1).cleared).toEqual({ walk: 3, link: 5, glass: 3, lift: 3, push: 3, ones: 3 });
     // act-k17 is cleared without its link only by sending the 1s, in six over its three (the 1s go on every
     // level since 26 October 2026); a board that leans on no barred move keeps its own count.
     expect(slowFactsOf(fileBoard('act-k17'), undefined, 50, 1).cleared?.link).toBe(6);
-    expect(slowFactsOf(fileBoard('R03'), undefined, 50, 1).cleared).toEqual({ walk: 2, link: 2, glass: 2, lift: 2, push: 2 });
+    expect(slowFactsOf(fileBoard('R03'), undefined, 50, 1).cleared).toEqual({ walk: 2, link: 2, glass: 2, lift: 2, push: 2, ones: 2 });
   });
 
   it('plays the kept way again under each ban, not by its score: carry-1 crosses a leaving die to its push, and is not cleared without the walk', () => {

@@ -21,7 +21,7 @@ import { sameBoard } from './variety';
 
 /** A rule broken: its number, the place in the row (from 1) it is broken at, and what is wrong, in words. */
 export interface Violation {
-  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11 | 12 | 13;
+  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15;
   at: number;
   text: string;
   /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps. */
@@ -33,7 +33,8 @@ export interface Violation {
  * (docs/superpowers/specs/2026-10-16-vi-campaign-3-design.md, sections 7, 13, 14 and 15): 4, 8, 10, 11 and 13
  * are printed as warnings. There is no rule 9: the floor and the push before their lesson are the
  * player's (the owner, 17 October 2026). Rule 11, the step of seven, is a warning from step 4: «7 это
- * скорее примерное измерение» (the owner, 18 October 2026). Rule 12 holds, but for its fast part.
+ * скорее примерное измерение» (the owner, 18 October 2026). Rule 12 holds, but for its fast part. Rules 14 and 15,
+ * the spread of faces, emotions and archetypes (the levels to a hundred, section 5), are warnings till the owner's playtest.
  */
 export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 12]);
 /** Whether a rule broken holds the row back, or is a warning for now. */
@@ -119,10 +120,10 @@ export function needsOf(spec: LevelSpec): ReadonlySet<Technique> {
 const placeOf = (stop: Stop): string => `место ${stop.number} (${stop.spec.id})`;
 
 /** Rule 12: the moves the solver can be barred from, and so the moves a board can be shown to need. */
-export const BARRED = ['walk', 'link', 'glass', 'lift', 'push'] as const;
+export const BARRED = ['walk', 'link', 'glass', 'lift', 'push', 'ones'] as const;
 export type Barred = (typeof BARRED)[number];
 /** Rule 12: what the line says of the lesson of a move: «звену учат на месте 16». */
-const LESSON_WORD: Readonly<Record<Barred, string>> = { link: 'звену', walk: 'проходу', glass: 'накату', lift: 'подъёму', push: 'толчку' };
+const LESSON_WORD: Readonly<Record<Barred, string>> = { link: 'звену', walk: 'проходу', glass: 'накату', lift: 'подъёму', push: 'толчку', ones: 'единицам' };
 
 /** The number of the first place that teaches a move, or Infinity where none does. */
 export function lessonOf(row: readonly Stop[], technique: Technique): number {
@@ -247,7 +248,8 @@ function facesByWay(row: readonly Stop[]): Violation[] {
 /**
  * Rule 7 (third campaign, section 7): the window of a hint speaks of the board it stands before, so
  * the board teaches the move of the window and its way asks for that move. The climb window asks
- * for a way up onto a leaving die (`^`): a way down alone is no climb.
+ * for a way up onto a leaving die (`^`): a way down alone is no climb. The window of the pushed 1 asks for
+ * the 1s and the push both.
  */
 function windowTeaches(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
@@ -259,6 +261,8 @@ function windowTeaches(row: readonly Stop[]): Violation[] {
     const climb = hint === 'roadHintClimb';
     const asked = climb ? climbsUp(stop.spec) : needsOf(stop.spec).has(want);
     if (!asked) out.push({ rule: 7, at: stop.number, text: `${placeOf(stop)}: окно ${hint}, а путь доски не требует ${want}${climb ? ' (^)' : ''}` });
+    // The window of the pushed 1 tells of the push as well (the levels to a hundred, decision 7).
+    if (hint === 'hintOnesPush' && !needsOf(stop.spec).has('push')) out.push({ rule: 7, at: stop.number, text: `${placeOf(stop)}: окно ${hint}, а путь доски не требует push` });
   }
   return out;
 }
@@ -314,14 +318,16 @@ function joinsTwo(row: readonly Stop[]): Violation[] {
 }
 
 /** Rule 11: the windows of the lessons that come a block apart; the climb is a beat of the block of the floor, the seven a lesson of the first layer. */
-const BLOCK_HINTS: ReadonlySet<HintKey> = new Set(['roadHintWalk', 'roadHintChain', 'roadHintPush']);
+const BLOCK_HINTS: ReadonlySet<HintKey> = new Set(['roadHintWalk', 'roadHintChain', 'roadHintPush', 'hintOnes']);
 /** Rule 11: the fewest places from one lesson with a window to the next. */
 export const LESSON_STEP = 7;
 
 /**
  * Rule 11 (third campaign, section 14, the step of seven): the places with the window of a walk, a chain or
  * a push stand seven places apart at least, and the place with the window of the climb stands one place
- * after the nearest push before it at least. The seven and the move of a link are no part of it.
+ * after the nearest push before it at least. The window of the 1s is a lesson of a block as those are, and the
+ * window of the pushed 1 stands one place after the nearest window of the 1s before it at least, as the climb
+ * after the push (the levels to a hundred, section 5). The seven and the move of a link are no part of it.
  */
 function lessonsSevenApart(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
@@ -334,6 +340,67 @@ function lessonsSevenApart(row: readonly Stop[]): Violation[] {
     if (stop.help.hint !== 'roadHintClimb') continue;
     const push = [...row].reverse().find((other) => other.number < stop.number && other.help.hint === 'roadHintPush');
     if (push && stop.number - push.number < 2) out.push({ rule: 11, at: stop.number, text: `${placeOf(stop)}: подъём сразу после толчка на месте ${push.number}` });
+  }
+  for (const stop of row) {
+    if (stop.help.hint !== 'hintOnesPush') continue;
+    const ones = [...row].reverse().find((other) => other.number < stop.number && other.help.hint === 'hintOnes');
+    if (!ones) out.push({ rule: 11, at: stop.number, text: `${placeOf(stop)}: окно толчка единицы, а окна единиц раньше нет` });
+    else if (stop.number - ones.number < 2) out.push({ rule: 11, at: stop.number, text: `${placeOf(stop)}: окно толчка единицы сразу после окна единиц на месте ${ones.number}` });
+  }
+  return out;
+}
+
+/** Rule 14: from this place on, every window of this many places shows at least this many goal faces (2 to 6). */
+export const SPREAD_FACES = { from: 20, window: 10, distinct: 3 } as const;
+/** Rule 15: every window of this many places has at least this many emotions, and no archetype more often than this. */
+export const SPREAD_EMOTIONS = { window: 12, distinct: 5, archetypeMax: 3 } as const;
+
+/** How many, in a word, for the lines of rules 14 and 15. */
+const COUNT_WORD = ['ноль', 'одна', 'две', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять', 'одиннадцать', 'двенадцать'];
+const countWord = (n: number): string => COUNT_WORD[n] ?? String(n);
+const spanOf = (from: Stop, to: Stop): string => `места ${from.number}–${to.number}`;
+
+/**
+ * Rule 14 (the levels to a hundred, section 5), a warning: the goal faces go in spread. Every window of
+ * `SPREAD_FACES.window` places that starts at the place `from` or later shows `distinct` goal faces at
+ * least (the 1s not counted), said at the last place of the window; and three boards in a row with the same
+ * goal faces are a fault, said at the third. One line for each window and for each three.
+ */
+function facesSpread(row: readonly Stop[]): Violation[] {
+  const out: Violation[] = [];
+  const faces = row.map((stop) => goalFaces(stop.spec).filter((face) => face >= 2));
+  const { from, window, distinct } = SPREAD_FACES;
+  for (let start = row.findIndex((stop) => stop.number >= from); start >= 0 && start + window <= row.length; start++) {
+    const seen = [...new Set(faces.slice(start, start + window).flat())].sort((a, b) => a - b);
+    const last = row[start + window - 1];
+    if (seen.length < distinct) out.push({ rule: 14, at: last.number, text: `${spanOf(row[start], last)}: грани цели только ${seen.join(' ')}` });
+  }
+  for (let index = 2; index < row.length; index++) {
+    const [a, b, c] = [faces[index - 2], faces[index - 1], faces[index]].map(String);
+    if (a === b && b === c) out.push({ rule: 14, at: row[index].number, text: `${spanOf(row[index - 2], row[index])} — три доски подряд с гранями ${faces[index].join(' ')}` });
+  }
+  return out;
+}
+
+/**
+ * Rule 15 (the levels to a hundred, section 5), a warning: emotions and archetypes go in spread. Every window
+ * of `SPREAD_EMOTIONS.window` places has `distinct` emotions at least, and no archetype stands in it more often
+ * than `archetypeMax`; a window shorter at the end of the row is not asked. One line for the emotions of a
+ * window and one for each archetype, said at its last place.
+ */
+function emotionsSpread(row: readonly Stop[]): Violation[] {
+  const out: Violation[] = [];
+  const { window, distinct, archetypeMax } = SPREAD_EMOTIONS;
+  for (let start = 0; start + window <= row.length; start++) {
+    const part = row.slice(start, start + window);
+    const [first, last] = [part[0], part[part.length - 1]];
+    const emotions = [...new Set(part.flatMap((stop) => (stop.emotion ? [stop.emotion] : [])))];
+    if (emotions.length < distinct) out.push({ rule: 15, at: last.number, text: `${spanOf(first, last)}: эмоций ${countWord(emotions.length)} (${emotions.join(', ')}), а нужно ${countWord(distinct)}` });
+    const counts = new Map<string, number>();
+    for (const stop of part) counts.set(stop.archetype, (counts.get(stop.archetype) ?? 0) + 1);
+    for (const [archetype, count] of counts) {
+      if (count > archetypeMax) out.push({ rule: 15, at: last.number, text: `${spanOf(first, last)}: архетип ${archetype} ${countWord(count)} раза` });
+    }
   }
   return out;
 }
@@ -350,7 +417,7 @@ function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, the moves taught before of 10, 11, the kept way of 12, and 13. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, the moves taught before of 10, 11, the kept way of 12, 13, 14 and 15. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
   return [
     ...taughtAndUsed(row),
@@ -363,6 +430,8 @@ export function fastGrammar(row: readonly Stop[]): Violation[] {
     ...lessonsSevenApart(row),
     ...nothingBeforeLesson(row),
     ...goalFacesSeen(row),
+    ...facesSpread(row),
+    ...emotionsSpread(row),
   ].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 
