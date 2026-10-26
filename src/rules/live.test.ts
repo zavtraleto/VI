@@ -141,25 +141,29 @@ describe('the pace of a live session', () => {
 });
 
 describe('the steps of the live sessions', () => {
-  it('are three, every one three minutes long', () => {
-    expect(LIVE_STEPS).toHaveLength(3);
-    for (let step = 1; step <= 3; step++) expect(liveConfig(step).liveTicks).toBe(3 * minute);
+  it('are seven, every one three minutes long', () => {
+    expect(LIVE_STEPS).toHaveLength(7);
+    for (let step = 1; step <= 7; step++) expect(liveConfig(step).liveTicks).toBe(3 * minute);
   });
 
   it('grow harder: a faster pace, a shorter gentle start, fewer gifts', () => {
     const [one, two, three] = [1, 2, 3].map((step) => liveConfig(step));
-    expect(one.liveStartMs).toBeGreaterThan(two.liveStartMs);
-    expect(two.liveStartMs).toBeGreaterThan(three.liveStartMs);
-    expect(one.liveEndMs).toBeGreaterThan(two.liveEndMs);
-    expect(two.liveEndMs).toBeGreaterThan(three.liveEndMs);
     expect(one.gentleTicks).toBeGreaterThanOrEqual(one.liveTicks);
     expect(two.gentleTicks).toBeLessThan(one.gentleTicks);
-    expect(three.gentleTicks).toBe(0);
     expect(three.giftRate).toBeLessThan(two.giftRate);
+    for (let step = 1; step < 7; step++) {
+      const [now, next] = [liveConfig(step), liveConfig(step + 1)];
+      expect(next.liveStartMs, `step ${step + 1}`).toBeLessThanOrEqual(now.liveStartMs);
+      expect(next.liveEndMs, `step ${step + 1}`).toBeLessThanOrEqual(now.liveEndMs);
+      expect(next.giftRate, `step ${step + 1}`).toBeLessThanOrEqual(now.giftRate);
+      const harder = next.liveStartMs < now.liveStartMs || next.liveEndMs < now.liveEndMs || next.giftRate < now.giftRate;
+      expect(harder, `step ${step + 1}`).toBe(true);
+    }
+    for (let step = 3; step <= 7; step++) expect(liveConfig(step).gentleTicks, `step ${step}`).toBe(0);
   });
 
   it('play the last step past the last, and the first below the first', () => {
-    expect(liveConfig(9)).toEqual(liveConfig(3));
+    expect(liveConfig(9)).toEqual(liveConfig(7));
     expect(liveConfig(0)).toEqual(liveConfig(1));
   });
 
@@ -169,10 +173,12 @@ describe('the steps of the live sessions', () => {
     expect(s.endReason).toBe('time');
   });
 
-  it('let the last one be lost: with nobody at it the board fills before the clock runs out', () => {
-    const s = createRun({ seed: 5, config: liveConfig(3, { floorLift: false }), live: true });
-    run(s, s.config.liveTicks);
-    expect(s.endReason).toBe('full');
-    expect(s.tick).toBeLessThan(s.config.liveTicks);
+  it('let the third one and those after it be lost: with nobody at it the board fills before the clock runs out', () => {
+    for (const at of [3, 4, 7]) {
+      const s = createRun({ seed: 5, config: liveConfig(at, { floorLift: false }), live: true });
+      run(s, s.config.liveTicks);
+      expect(s.endReason, `step ${at}`).toBe('full');
+      expect(s.tick, `step ${at}`).toBeLessThan(s.config.liveTicks);
+    }
   });
 });
