@@ -8,6 +8,7 @@ import { MIN_ZONE, pictureSize, textWidth } from './layout';
 import { LANGUAGES, setLanguage } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
 import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel } from './panels';
+import { nextFocus } from './input';
 import type { ShellContext } from './screen';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
 import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
@@ -215,10 +216,12 @@ describe('the list of the levels on a screen', () => {
   const cells = campaignCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: fileBoard('R01').par! }, R02: { bestMoves: 99 } } });
   const actions = { onPick: nothing, share, onBack: nothing };
 
-  it.each(SCREENS)('fits the window of a %s: a cell for every board of the campaign and two commands, each large enough for a finger', (_name, window, ratio) => {
+  it.each(SCREENS)('fits the window of a %s: the cells in sight from the first and two commands, each large enough for a finger', (_name, window, ratio) => {
     const screen = new PanelScreen(context(window, ratio), levelsPanel(cells, 0, actions), true);
     const items = screen.items();
-    expect(items.map((item) => item.id)).toEqual([...cells.map((_, index) => `level-${index}`), 'share', 'back']);
+    const shown = items.filter((item) => item.id.startsWith('level-')).length;
+    expect(shown).toBeGreaterThan(0);
+    expect(items.map((item) => item.id)).toEqual([...cells.slice(0, shown).map((_, index) => `level-${index}`), 'share', 'back']);
     expect(screen.home).toBe('level-0');
     for (const item of items) {
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
@@ -238,6 +241,53 @@ describe('the list of the levels on a screen', () => {
       }
     }
   });
+
+  it.each(SCREENS)('scrolls on a %s where the cells do not fit: the keys walk down to the last cell, every cell comes in sight', (_name, window, ratio) => {
+    const screen = new PanelScreen(context(window, ratio), levelsPanel(cells, 0, actions), true);
+    const seen = new Set<string>();
+    let focus: string | null = 'level-0';
+    for (let step = 0; step < cells.length; step++) {
+      for (const item of screen.items()) if (item.id.startsWith('level-')) seen.add(item.id);
+      const told: string | null | undefined = screen.move(focus, 'down');
+      const next: string | null = told === undefined ? nextFocus(screen.items(), focus, 'down') : told;
+      if (next === null || !next.startsWith('level-') || next === focus) break;
+      expect(screen.items().map((item) => item.id), next).toContain(next);
+      focus = next;
+    }
+    for (const item of screen.items()) if (item.id.startsWith('level-')) seen.add(item.id);
+    expect(seen.size).toBe(cells.length);
+    for (const item of screen.items()) {
+      expect(item.rect.y).toBeGreaterThanOrEqual(0);
+      expect(item.rect.y + item.rect.height).toBeLessThanOrEqual(window.height);
+    }
+  });
+
+  it('scrolls the list on a phone by a finger drawn up and down, and keeps the focus in sight', () => {
+    const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, 0, actions), true);
+    const ids = () => screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.id);
+    const first = ids();
+    expect(first.length).toBeLessThan(cells.length);
+    expect(screen.scroll('up', 400, 'level-0')).toBeNull();
+    const focus = screen.scroll('down', 2000, 'level-0');
+    expect(ids()).toContain(`level-${cells.length - 1}`);
+    expect(ids()).toContain(focus);
+    expect(screen.scroll('down', 400, focus)).toBeNull();
+    screen.scroll('up', 4000, focus);
+    expect(ids()).toEqual(first);
+  });
+
+  it('opens the list on a phone with the cell of the place in sight, though it is the last', () => {
+    const last = cells.length - 1;
+    const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, last, actions), true);
+    expect(screen.home).toBe(`level-${last}`);
+    expect(screen.items().map((item) => item.id)).toContain(`level-${last}`);
+  });
+
+  it('does not scroll on a desk, where every cell is in sight', () => {
+    const screen = new PanelScreen(context(SCREENS[1][1], SCREENS[1][2]), levelsPanel(cells, 0, actions), true);
+    expect(screen.items().filter((item) => item.id.startsWith('level-'))).toHaveLength(cells.length);
+    expect(screen.scroll('down', 400, 'level-0')).toBeNull();
+  });
 });
 
 describe('the list of the levels with its live sessions on a screen', () => {
@@ -249,8 +299,9 @@ describe('the list of the levels with its live sessions on a screen', () => {
   it.each(SCREENS)('fits the window of a %s: a cell for every board and session, none over another, each large enough for a finger', (_name, window, ratio) => {
     const screen = new PanelScreen(context(window, ratio), levelsPanel(entries, 0, actions), true);
     const items = screen.items().filter((item) => item.id.startsWith('level-'));
-    expect(items).toHaveLength(entries.length);
-    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(3);
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.length).toBeLessThanOrEqual(entries.length);
+    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(4);
     for (const item of items) {
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextFocus, swipeOf, zoneAt } from './input';
+import { dragOf, nextFocus, swipeOf, zoneAt } from './input';
 
 /** Three rows, the middle one split in two: enough to walk in every direction. */
 const zones = [
@@ -67,5 +67,19 @@ describe('swipeOf', () => {
     expect(swipeOf(-12, 2)).toBeNull();
     expect(swipeOf(40, 40)).toBeNull();
     expect(swipeOf(10, -80)).toBeNull();
+  });
+});
+
+describe('dragOf', () => {
+  it('is a press drawn far enough up or down, and upright enough: drawn up, it brings what is below into sight', () => {
+    expect(dragOf(4, -60)).toBe('down');
+    expect(dragOf(-10, 60)).toBe('up');
+  });
+
+  it('is not a press that stays where it is, nor one drawn sideways', () => {
+    expect(dragOf(0, 0)).toBeNull();
+    expect(dragOf(2, -12)).toBeNull();
+    expect(dragOf(40, 40)).toBeNull();
+    expect(dragOf(-80, 10)).toBeNull();
   });
 });

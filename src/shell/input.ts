@@ -14,6 +14,18 @@ export function swipeOf(dx: number, dy: number): 'left' | 'right' | null {
   return dx < 0 ? 'left' : 'right';
 }
 
+/**
+ * The way a press drawn up or down scrolls, where it was drawn far enough and upright enough: a
+ * finger drawn up brings what is below into sight.
+ */
+export function dragOf(dx: number, dy: number): 'up' | 'down' | null {
+  if (Math.abs(dy) < SWIPE_MIN || Math.abs(dy) < Math.abs(dx) * SWIPE_LEAN) return null;
+  return dy < 0 ? 'down' : 'up';
+}
+
+/** CSS pixels of a line and of a page of the wheel of a mouse that counts in lines or pages. */
+const WHEEL_LINE = 16;
+
 const KEY_DIR: Record<string, FocusDir> = {
   ArrowUp: 'up',
   KeyW: 'up',
@@ -97,6 +109,8 @@ export interface InputHost {
   move(focus: string | null, dir: FocusDir): string | null | undefined;
   /** Where a swipe that began at a point of the window takes the focus; null or undefined where the screen makes nothing of it. */
   swipe(dir: 'left' | 'right', x: number, y: number): string | null | undefined;
+  /** Where a press drawn up or down, or the wheel, so many CSS pixels, takes the focus; null or undefined where nothing scrolls. */
+  scroll?(dir: 'up' | 'down', pixels: number, focus: string | null): string | null | undefined;
   /** A key asked for a step, and there is nowhere to go that way. */
   stuck(): void;
   back(): void;
@@ -109,7 +123,8 @@ export interface InputHost {
  * canvas and takes the events first. A mouse moves the focus as it goes; a zone acts when it
  * is let go inside the zone it was pressed in. A zone that asks for it acts only when it was
  * in focus before the press: the first press steps onto it, the second runs it. A press drawn
- * sideways is offered to the screen as a swipe first, and runs nothing where the screen takes it.
+ * sideways is offered to the screen as a swipe first, and runs nothing where the screen takes it;
+ * a press drawn up or down, and the wheel of a mouse, are offered to it as a scroll.
  */
 export class ShellInput {
   focus: string | null = null;
@@ -124,6 +139,7 @@ export class ShellInput {
     window.addEventListener('pointerup', (e) => this.onUp(e));
     window.addEventListener('pointercancel', () => this.release());
     window.addEventListener('keydown', (e) => this.onKey(e));
+    window.addEventListener('wheel', (e) => this.onWheel(e), { passive: true });
   }
 
   /** A new screen: nothing is held, the focus is where the screen wants it. */
@@ -180,12 +196,31 @@ export class ShellInput {
       this.host.changed();
       return;
     }
+    const lift = from && !this.taken(e) ? dragOf(e.clientX - from.x, e.clientY - from.y) : null;
+    const scrolled = lift && from ? this.host.scroll?.(lift, Math.abs(e.clientY - from.y), this.focus) : null;
+    if (scrolled != null) {
+      // The screen has scrolled: whatever was under the finger is not run.
+      this.down = null;
+      this.focus = scrolled;
+      this.host.changed();
+      return;
+    }
     if (held === null) return;
     this.down = null;
     this.host.changed();
     if (this.taken(e)) return;
     const item = zoneAt(this.host.items(), e.clientX, e.clientY);
     if (item && item.id === held) this.host.activate(item);
+  }
+
+  private onWheel(e: WheelEvent): void {
+    if (this.taken(e)) return;
+    const pixels = e.deltaY * (e.deltaMode === 1 ? WHEEL_LINE : e.deltaMode === 2 ? window.innerHeight : 1);
+    if (pixels === 0) return;
+    const told = this.host.scroll?.(pixels > 0 ? 'down' : 'up', Math.abs(pixels), this.focus);
+    if (told == null) return;
+    this.focus = told;
+    this.host.changed();
   }
 
   private release(): void {

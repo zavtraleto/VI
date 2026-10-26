@@ -40,10 +40,12 @@
         { "board": "P02", "role": "apply", "archetype": "bridge to a link", "emotion": "recognition", "help": { "plaques": "near" } },
         { "board": "which-first-3", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
         { "board": "R08", "role": "apply", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } },
+        { "board": "first-sixes-1", "role": "event", "archetype": "ready heap", "emotion": "payoff", "event": "first sixes" },
         { "board": "roll-in-1", "role": "meet", "teaches": "glass", "archetype": "roll into leaving", "emotion": "surprise", "event": "the leaving die is a cell", "help": { "hint": "hintRollIn" } },
         { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "emotion": "insight" },
         { "board": "two-pairs-1", "role": "apply", "archetype": "two pairs, the walk to a link", "emotion": "recognition" },
         { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
+        { "board": "first-fours-1", "role": "event", "archetype": "a heap and a link over leaving dice", "emotion": "payoff", "event": "first fours" },
         { "board": "P24", "role": "rest", "archetype": "domino in a corridor", "emotion": "flow", "event": "first corridor" },
         { "board": "domino-3", "role": "event", "archetype": "long domino over leaving dice", "emotion": "flow", "event": "a long chain" }
       ]
@@ -58,11 +60,55 @@
         { "board": "R14", "role": "apply", "archetype": "down and back", "emotion": "recognition" },
         { "board": "roll-or-push-1", "role": "apply", "archetype": "roll for the face, push for the place", "emotion": "insight" },
         { "board": "push-then-link-1", "role": "apply", "archetype": "push, climb, link", "emotion": "recognition" },
+        { "board": "rescue-5", "role": "rest", "archetype": "five fours go", "emotion": "relief" },
         { "board": "three-at-once-1", "role": "rest", "archetype": "three at one push", "emotion": "gift" },
-        { "board": "P12", "role": "peak", "archetype": "down and back with two faces", "emotion": "fiero" },
+        { "board": "P12", "role": "peak", "archetype": "down and back with two faces", "emotion": "fiero" }
+      ]
+    },
+    {
+      "title": "ones",
+      "floor": "open",
+      "places": [
+        { "board": "ones-roll-1", "role": "meet", "teaches": "ones", "archetype": "ones by roll", "emotion": "surprise", "event": "first ones", "help": { "hint": "hintOnes" } },
+        { "board": "ones-apply-1", "role": "apply", "archetype": "ones by roll", "emotion": "recognition" },
+        { "board": "chain-1", "role": "rest", "archetype": "a short chain", "emotion": "gift" },
+        { "board": "ones-push-1", "role": "meet", "teaches": "ones", "archetype": "ones by push", "emotion": "insight", "event": "a pushed one goes", "help": { "hint": "hintOnesPush" } },
+        { "board": "dd-10-three-ones", "role": "apply", "archetype": "ones by push", "emotion": "gift" },
+        { "board": "collapse-3", "role": "rest", "archetype": "a big clearing", "emotion": "payoff", "event": "the board clears at once" },
+        { "board": "broom-3", "role": "twist", "archetype": "broom", "emotion": "trick" },
         { "board": "link-from-below-1", "role": "twist", "archetype": "a link pushed from below", "emotion": "surprise" },
-        { "board": "corridor-push-1", "role": "apply", "archetype": "push in a corridor", "emotion": "insight", "help": { "camera": "cells" } },
-        { "board": "collapse-3", "role": "rest", "archetype": "a big clearing", "emotion": "payoff", "event": "the board clears at once" }
+        { "board": "corridor-push-1", "role": "apply", "archetype": "push in a corridor", "emotion": "insight", "help": { "camera": "cells" } }
+      ]
+    },
+    {
+      "title": "faces",
+      "floor": "open",
+      "places": [
+        { "board": "rescue-3", "role": "apply", "archetype": "five fours go, with a trap", "emotion": "payoff" },
+        { "board": "dd-04-three-on-six", "role": "rest", "archetype": "the face on the side", "emotion": "relief" },
+        { "board": "hidden-face-3", "role": "rest", "archetype": "fives head on", "emotion": "gift", "event": "first fives" },
+        { "board": "two-combos-3", "role": "apply", "archetype": "which first", "emotion": "recognition" },
+        { "board": "two-combos-5", "role": "peak", "archetype": "which first", "emotion": "fiero" }
+      ]
+    },
+    {
+      "title": "reading",
+      "floor": "open",
+      "places": [
+        { "board": "seven-1", "role": "apply", "archetype": "seven", "emotion": "recognition" },
+        { "board": "dd-06-find-the-two", "role": "apply", "archetype": "find the face", "emotion": "flow" },
+        { "board": "bridge-5", "role": "apply", "archetype": "re-place the die", "emotion": "mastery" },
+        { "board": "hidden-face-1", "role": "peak", "archetype": "hidden face", "emotion": "insight" }
+      ]
+    },
+    {
+      "title": "fifty",
+      "floor": "open",
+      "places": [
+        { "board": "dd-09-push-link", "role": "rest", "archetype": "a link pushed from below", "emotion": "gift" },
+        { "board": "collapse-5", "role": "event", "archetype": "a big clearing", "emotion": "payoff", "event": "sixes again" },
+        { "board": "pair-and-fours-1", "role": "peak", "archetype": "which first", "emotion": "fiero" },
+        { "board": "ready-fours-1", "role": "rest", "archetype": "ready heap", "emotion": "gift" }
       ]
     },
     {
@@ -86,6 +132,7 @@
   "lives": [
     { "after": "act-k17", "step": 1 },
     { "after": "domino-3", "step": 2 },
-    { "after": "collapse-3", "step": 3 }
+    { "after": "collapse-3", "step": 3 },
+    { "after": "dd-09-push-link", "step": 4, "note": "about the 56th place, after a rest; step 4" }
   ]
 }

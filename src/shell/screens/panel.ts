@@ -1,6 +1,6 @@
 import type { ClimbRow } from '../climb';
 import type { Kit } from '../kit';
-import { CELL_H, CELL_W, MIN_ZONE, textWidth, type Box } from '../layout';
+import { CELL_H, CELL_W, MIN_ZONE, textWidth, type Box, type Dir4 } from '../layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { word } from '../../ui/i18n';
 import { PANEL_SAY_SIZE } from '../theme';
@@ -117,6 +117,8 @@ const SAY_LARGE_WIDE = 12;
 /** Cells of the levels across a tall picture and across a wide one. */
 const LEVELS_TALL = 6;
 const LEVELS_WIDE = 10;
+/** The fewest rows of cells of the levels a panel shows where the list does not fit and scrolls. */
+const LEVELS_SHOWN_MIN = 3;
 /** Half a blink of the bar of the name, in milliseconds. */
 const BLINK_MS = 110;
 /** Rows a log keeps for the line of the one who plays and the lines next to it. */
@@ -125,6 +127,16 @@ const NEAR_ROWS = 5;
 interface Placed {
   row: PanelRow;
   box: Box;
+}
+
+/** The cells of the list of the levels as they lie: every cell, the row of the list each is in, and the rows in sight. */
+interface LevelView {
+  cells: Box[];
+  rowOf: number[];
+  /** The first row in sight, how many are, and how many the list has. */
+  from: number;
+  shown: number;
+  rows: number;
 }
 
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
@@ -151,6 +163,8 @@ export class PanelScreen implements ShellScreen {
   private blink = -1;
   /** Signs of the words that are typed out that are there. */
   private typed = 0;
+  /** The first row of the cells of the levels in sight, where the list scrolls; null till the panel is laid out. */
+  private top: number | null = null;
 
   constructor(
     private readonly context: ShellContext,
@@ -315,22 +329,28 @@ export class PanelScreen implements ShellScreen {
           let noted = row.current;
           // A live session has no number: the boards are numbered as if it were not there.
           let number = 0;
-          this.levelCells(row, box).forEach((cell, i) => {
+          const view = this.levelView(row, box);
+          view.cells.forEach((cell, i) => {
+            const { live } = row.levels[i];
+            if (!live) number++;
+            if (!this.inSight(view, i)) return;
             const id = `${row.id}-${i}`;
             const on = focus.focus === id;
             if (on) noted = i;
             const filled = on && focus.pressed !== id;
             if (filled) kit.box(cell, ink);
             else kit.frame(cell, on || i === row.current ? ink : faint);
-            const { live } = row.levels[i];
             if (live) {
               this.liveCell(kit, cell, live.best, filled ? bg : ink, filled ? bg : faint);
               return;
             }
-            number++;
             kit.text(digits(number, 2), cell.x + cell.w / 2, cell.y + 2, filled ? bg : ink, { align: 'center' });
             this.stars(kit, row.levels[i].stars, cell.x + cell.w / 2, cell.y + cell.h - 7, 4, filled ? bg : ink, filled ? bg : faint, row.marks);
           });
+          // Where rows of cells are out of sight, a broken line at that edge of the list, as a log is cut.
+          const step = this.zone() + GAP;
+          if (view.from > 0) kit.dither(box.x, box.y - GAP / 2 - 1, box.w, 1, dim, 4);
+          if (view.from + view.shown < view.rows) kit.dither(box.x, box.y + view.shown * step - GAP / 2 - 1, box.w, 1, dim, 4);
           const note = row.note(noted);
           const line: Box = { x: left, y: box.y + box.h - CELL_H - 2, w: right - left, h: CELL_H + 2 };
           if (row.program && !row.said?.(noted)) kit.text(note, Math.round(line.x + line.w / 2), line.y + 1, dim, { align: 'center' });
@@ -446,6 +466,78 @@ export class PanelScreen implements ShellScreen {
     return cells.length === 0 ? 0 : Math.round(cells[cells.length - 1].y / (tall + GAP)) + 1;
   }
 
+  /**
+   * The cells of the list as they stand in its box: the rows out of sight above it are taken off the
+   * top, so that the first row in sight lies at the top of the box (`top`, laid out by `plan`).
+   */
+  private levelView(row: Extract<PanelRow, { kind: 'levels' }>, box: Box): LevelView {
+    const step = this.zone() + GAP;
+    const laid = this.levelCells(row, { x: box.x, y: 0, w: box.w, h: 0 });
+    const rowOf = laid.map((cell) => Math.round(cell.y / step));
+    const rows = rowOf.length === 0 ? 0 : rowOf[rowOf.length - 1] + 1;
+    const shown = Math.min(rows, Math.max(1, Math.floor((box.h - CELL_H - 4) / step)));
+    const from = Math.max(0, Math.min(this.top ?? 0, rows - shown));
+    const cells = laid.map((cell, i) => ({ ...cell, y: box.y + (rowOf[i] - from) * step }));
+    return { cells, rowOf, from, shown, rows };
+  }
+
+  private inSight(view: LevelView, index: number): boolean {
+    return view.rowOf[index] >= view.from && view.rowOf[index] < view.from + view.shown;
+  }
+
+  /** The list of the levels, where the panel has one, and how it lies. */
+  private levels(): { row: Extract<PanelRow, { kind: 'levels' }>; view: LevelView } | null {
+    const placed = this.plan().placed.find((one) => one.row.kind === 'levels');
+    if (!placed || placed.row.kind !== 'levels') return null;
+    return { row: placed.row, view: this.levelView(placed.row, placed.box) };
+  }
+
+  /** The cell of a row of the list nearest across to a cell, by the middles. */
+  private nearestIn(view: LevelView, target: number, index: number): number {
+    const middle = (i: number): number => view.cells[i].x + view.cells[i].w / 2;
+    let best = -1;
+    view.cells.forEach((_cell, i) => {
+      if (view.rowOf[i] === target && (best < 0 || Math.abs(middle(i) - middle(index)) < Math.abs(middle(best) - middle(index)))) best = i;
+    });
+    return best;
+  }
+
+  /**
+   * A key up or down on a cell of a list that scrolls: where the row that way lies out of sight,
+   * the list goes a row that way and the focus with it. Else the places of the zones say.
+   */
+  move(focus: string | null, dir: Dir4): string | null | undefined {
+    const list = this.levels();
+    if (!list || (dir !== 'up' && dir !== 'down') || focus === null || !focus.startsWith(`${list.row.id}-`)) return undefined;
+    const { row, view } = list;
+    const index = Number(focus.slice(row.id.length + 1));
+    const target = view.rowOf[index] + (dir === 'down' ? 1 : -1);
+    if (target < 0 || target >= view.rows || (target >= view.from && target < view.from + view.shown)) return undefined;
+    this.top = view.from + (dir === 'down' ? 1 : -1);
+    return `${row.id}-${this.nearestIn(view, target, index)}`;
+  }
+
+  /**
+   * A finger drawn up or down over the panel, or the wheel of a mouse, so many CSS pixels of the
+   * window: the list goes that many rows that way, one at least. The focus stays where it is still in
+   * sight, and goes to the nearest row in sight where it is not. Null where nothing moves: the list
+   * fits, or is at its end that way.
+   */
+  scroll(dir: 'up' | 'down', pixels: number, focus: string | null): string | null {
+    const list = this.levels();
+    if (!list || list.view.shown >= list.view.rows) return null;
+    const { row, view } = list;
+    const zoom = this.context.window().height / Math.max(1, this.context.picture().height);
+    const by = Math.max(1, Math.round(pixels / ((this.zone() + GAP) * zoom)));
+    const from = Math.max(0, Math.min(view.rows - view.shown, view.from + (dir === 'down' ? by : -by)));
+    if (from === view.from) return null;
+    this.top = from;
+    const index = focus !== null && focus.startsWith(`${row.id}-`) ? Number(focus.slice(row.id.length + 1)) : -1;
+    if (index < 0) return focus ?? `${row.id}-${view.cells.findIndex((_cell, i) => view.rowOf[i] === from)}`;
+    const near = Math.max(from, Math.min(from + view.shown - 1, view.rowOf[index]));
+    return near === view.rowOf[index] ? focus : `${row.id}-${this.nearestIn(view, near, index)}`;
+  }
+
   /** Height of a line that is pressed: what a finger needs, whatever the picture is. */
   private zone(): number {
     const picture = this.context.picture();
@@ -475,6 +567,8 @@ export class PanelScreen implements ShellScreen {
     const inner = width - PAD * 2;
     const room = picture.height - safe.top - safe.bottom - MARGIN * 2;
 
+    // Rows of cells of the levels in sight: all of them, unless the panel would grow past the screen.
+    let shown = Infinity;
     const height = (row: PanelRow, lines: number): number => {
       switch (row.kind) {
         case 'field':
@@ -492,7 +586,7 @@ export class PanelScreen implements ShellScreen {
         case 'climb':
           return 4 + Math.min(lines, row.lines) * CELL_H;
         case 'levels':
-          return this.levelRows(row, inner) * (zone + GAP) + CELL_H + 4;
+          return Math.min(this.levelRows(row, inner), shown) * (zone + GAP) + CELL_H + 4;
         case 'stars':
           return CELL_H + 4;
         case 'say': {
@@ -509,6 +603,18 @@ export class PanelScreen implements ShellScreen {
     let lines = Math.max(0, ...rows.map((row) => (row.kind === 'table' || row.kind === 'climb' ? row.lines : 0)));
     const total = (): number => CELL_H + 2 + PAD + rows.reduce((sum, row) => sum + height(row, lines), 0) + PAD - GAP;
     while (lines > 3 && total() > room) lines--;
+    // The list of the levels gives up rows and scrolls, before the panel grows past the screen.
+    const list = rows.find((row) => row.kind === 'levels');
+    if (list?.kind === 'levels') {
+      shown = this.levelRows(list, inner);
+      while (shown > LEVELS_SHOWN_MIN && total() > room) shown--;
+      // The first time, the row of the cell of the place stands in sight, about the middle.
+      if (this.top === null) {
+        const step = zone + GAP;
+        const rowOf = this.levelCells(list, { x: 0, y: 0, w: inner, h: 0 }).map((cell) => Math.round(cell.y / step));
+        this.top = Math.max(0, (rowOf[list.current] ?? 0) - Math.floor(shown / 2));
+      }
+    }
 
     const tall = total();
     const plate: Box = {
@@ -548,8 +654,9 @@ export class PanelScreen implements ShellScreen {
         const count = row.labels().length;
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });
       } else if (row.kind === 'levels') {
-        this.levelCells(row, box).forEach((cell, i) => {
-          items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: () => row.pick(i) });
+        const view = this.levelView(row, box);
+        view.cells.forEach((cell, i) => {
+          if (this.inSight(view, i)) items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: () => row.pick(i) });
         });
       }
     }
