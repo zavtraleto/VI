@@ -424,9 +424,9 @@ export interface LevelSpec {
   sinkMoves?: number;
   liftMoves?: number;
   /**
-   * The faces the level is about: those whose combos are on its way. Every face from 2 to 6 makes
-   * a group on every level (word of the owner, 16 October 2026); the 1s go together only where 1
-   * is among these, or where none are named.
+   * The faces the level is about: those whose combos are on its way. Every face makes a group on
+   * every level (words of the owner, 16 and 26 October 2026), the 1s too; a 1 named here makes it
+   * a board of the 1s.
    */
   faces?: readonly number[];
   /**

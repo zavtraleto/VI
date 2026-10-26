@@ -4,7 +4,7 @@ import { chainWindows, floorLost, floorStuck, levelDeadEnd, levelStranded, level
 import { resolveMove } from './movement';
 import { previewMove } from './preview';
 import { act, levelRun, place, put, putOri } from './testkit';
-import type { LevelSpec, RunState } from './types';
+import type { Cube, LevelSpec, RunState } from './types';
 
 /** The rules of the ladder: only 3s work, and a die that has joined a group goes in two moves. */
 const THREES: Partial<LevelSpec> = { goal: { kind: 'clear' }, arrival: 'none', faces: [3], sinkMoves: 2, liftMoves: 1 };
@@ -50,23 +50,59 @@ describe('the faces of a level', () => {
     expect(s.reactions).toHaveLength(1);
   });
 
-  it('leave the 1s out where the level does not name them', () => {
-    const onesAfterCombo = (faces: number[]): boolean => {
-      const s = levelRun({ ...THREES, faces, norm: 5 });
+  /** Three 3s go; then the player rolls the die at (2,1) west, so it shows a 1 beside them. */
+  const onesAfterCombo = (spec: Partial<LevelSpec>): boolean => {
+    const s = levelRun({ ...THREES, norm: 5, ...spec });
+    put(s, 0, 0, 3);
+    put(s, 1, 0, 3);
+    putOri(s, 3, 0, { top: 6, east: 3 });
+    putOri(s, 2, 1, { top: 2, east: 1 });
+    put(s, 4, 4, 1);
+    place(s, 3, 0, 'top');
+    act(s, 'W');
+    // A 1 rolled up beside the leaving group.
+    place(s, 2, 1, 'top');
+    act(s, 'W');
+    return s.events.some((event) => event.type === 'happyOne');
+  };
+
+  it('take the 1s on every level, whatever faces it names (the owner, 26 October 2026)', () => {
+    expect(onesAfterCombo({ faces: [3] })).toBe(true);
+    expect(onesAfterCombo({ faces: [1, 3] })).toBe(true);
+  });
+
+  it('leave the 1s out only where `only` says so', () => {
+    expect(onesAfterCombo({ faces: [3], only: [3] })).toBe(false);
+  });
+
+  it("let the player's own 1 stay and a pushed 1 go", () => {
+    // The die that is to show the 1 stands before the combo: with one die left the run is over.
+    const setUp = (lay: (s: RunState) => Cube): [RunState, Cube] => {
+      const s = levelRun({ ...THREES, norm: 6 });
       put(s, 0, 0, 3);
       put(s, 1, 0, 3);
       putOri(s, 3, 0, { top: 6, east: 3 });
-      putOri(s, 2, 1, { top: 2, east: 1 });
       put(s, 4, 4, 1);
+      const die = lay(s);
       place(s, 3, 0, 'top');
       act(s, 'W');
-      // A 1 rolled up beside the leaving group.
-      place(s, 2, 1, 'top');
-      act(s, 'W');
-      return s.events.some((event) => event.type === 'happyOne');
+      return [s, die];
     };
-    expect(onesAfterCombo([3])).toBe(false);
-    expect(onesAfterCombo([1, 3])).toBe(true);
+    // (a) The player's own die, rolled west, shows a 1 beside the leaving group and stays.
+    const [own, mine] = setUp((s) => putOri(s, 2, 1, { top: 2, east: 1 }));
+    place(own, 2, 1, 'top');
+    act(own, 'W');
+    expect(own.events).toContainEqual(expect.objectContaining({ type: 'happyOne', count: 1 }));
+    expect(mine.ori.top).toBe(1);
+    expect(mine.state).toBe('idle');
+    // (b) From the floor, a 1 pushed north beside the leaving group goes with the far one.
+    const [pushed, one] = setUp((s) => put(s, 1, 2, 1));
+    place(pushed, 1, 3, 'ground');
+    act(pushed, 'N');
+    expect(one.x).toBe(1);
+    expect(one.z).toBe(1);
+    expect(pushed.events).toContainEqual(expect.objectContaining({ type: 'happyOne', count: 2 }));
+    expect(pushed.cubes.filter((c) => c.state === 'idle')).not.toContain(one);
   });
 
   it('make their groups as anywhere: three 3s go', () => {

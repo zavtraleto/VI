@@ -345,14 +345,17 @@ describe('a candidate of a place', () => {
     // not among them: its way is still one of the fewest moves, but the solver tries the rolls in the
     // order N, E, S, W, so on the mirrored board it first finds another way as short, a bridge, which
     // its place does not take. Their files took names by their idea on 16 October 2026; the code of
-    // the place is the name they had.
-    for (const code of ['P03', 'P04']) {
+    // the place is the name they had. P04 is turned away since the 1s go on every level (the owner,
+    // 26 October 2026): without its link it is cleared in five, one over its four, by sending the 1s.
+    const verdictOf = (code: string) => {
       const level = { ...boardOf(code), id: code };
       const place = PLACES.find((other) => levelId(other) === code)!;
-      const verdict = judge({ ...place, sketch: [level.layout!] }, SKETCH + 1);
-      expect(verdict.why, code).toBe('');
-      expect(verdict.fit?.spec, code).toEqual({ ...level, seed: SKETCH + 1 });
-    }
+      return { level, verdict: judge({ ...place, sketch: [level.layout!] }, SKETCH + 1) };
+    };
+    const { level, verdict } = verdictOf('P03');
+    expect(verdict.why).toBe('');
+    expect(verdict.fit?.spec).toEqual({ ...level, seed: SKETCH + 1 });
+    expect(verdictOf('P04').verdict.why).toBe('cleared without link');
   });
 
   it('is turned away for the first bound it does not meet, and the reasons are counted', () => {

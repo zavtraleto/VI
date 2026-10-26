@@ -228,16 +228,14 @@ function happyOne(state: RunState, trigger: Cube): void {
 }
 
 /**
- * Whether dice showing `value` make groups in this run. Every face from 2 to 6 does, on a level as
- * in Endless (word of the owner, 16 October 2026: no face of a level is out of play); the 1s go
- * only where the level names them among its faces, or where it names none.
+ * Whether dice showing `value` make groups in this run. Every face does, on a level as in Endless:
+ * no face from 2 to 6 is out of play (word of the owner, 16 October 2026), and the 1s go on every
+ * level too (word of the owner, 26 October 2026). Only a measure that names `only` leaves some out.
  */
 export function faceWorks(state: RunState, value: number): boolean {
   const only = state.levelRun?.spec.only;
   if (only) return only.includes(value);
-  if (value !== 1) return true;
-  const faces = state.levelRun?.spec.faces;
-  return !faces || faces.includes(1);
+  return true;
 }
 
 /**
@@ -247,7 +245,7 @@ export function faceWorks(state: RunState, value: number): boolean {
  */
 export function resolveLanded(state: RunState, cube: Cube, over?: Overrun): void {
   if (cube.state !== 'idle') return;
-  // A 1 makes nothing and joins nothing on a level that does not name the 1s.
+  // A face a measure leaves out with `only` makes nothing and joins nothing.
   if (!faceWorks(state, cube.ori.top)) return;
   if (cube.ori.top === 1) {
     // Only a chain counts: 1s that are themselves sinking do not set off another Happy One.
