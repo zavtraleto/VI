@@ -54,7 +54,7 @@ export interface Recipe {
    * half with another face; 1 excluded: ones are counted apart.
    */
   faces: readonly number[];
-  /** Dice that start showing a 1; on a board built from its route, a mark that the 1s work. */
+  /** Dice that start showing a 1; on a board built from its route, a mark that it is a board of the 1s. */
   ones?: number;
   /** Dice that stand assembled at the start: so many of a value, side by side, fewer than its group. */
   standing?: readonly { value: number; count: number }[];

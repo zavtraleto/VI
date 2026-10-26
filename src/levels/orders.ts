@@ -23,7 +23,7 @@ export interface Order {
   dice: number;
   /** Dice the board may hold over `dice`. */
   more?: number;
-  /** The faces that work; with a 1 among them the 1s work. */
+  /** The faces the board is about; with a 1 among them it is a board of the 1s (every face works, the 1s too). */
   faces: readonly number[];
   floorShut?: boolean;
   /** Fewest moves the board is cleared in, from so many to so many. */
