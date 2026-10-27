@@ -23,6 +23,9 @@ const STEPS_A_FRAME = 2;
 const NOISE_SIDE = 128;
 /** The far and the near of the camera of the water, in cells: the plane runs off the frame at any pitch. */
 const DEEP = 400;
+/** Dark shapes under the water at one time, and rings from past the frame. */
+const SHADOWS = 6;
+const OUTER = 3;
 
 const FULL_VERTEX = /* glsl */ `
 varying vec2 vUv;
@@ -144,10 +147,18 @@ uniform vec4 uField;
 uniform vec4 uCalm;
 /** The mirror: how strong, and how far the slope moves it. The dice are drawn into it fading up from the water. */
 uniform vec4 uMirrorLook;
-/** The light on a wave; what shows under the water; how far the slope moves that; how fast it drifts. */
-uniform vec4 uLook;
-/** Where on the floor the frame is: what is under the water goes after it slower than the board does. */
-uniform vec2 uUnder;
+/** The light on a wave; how far the slope moves what is under the water. */
+uniform vec2 uLook;
+/** The middle of the frame on the floor, and half of the frame across and in depth, in cells. */
+uniform vec4 uFrame;
+/** What the water gives back of the sky: how light it is, how large its shapes are in cells, how fast they go in cells a second, how far a slope moves them in cells. */
+uniform vec4 uSky;
+/** What lies dark under the water: how dark, how large in cells, how fast it drifts in cells a second, how long one is there in seconds. */
+uniform vec4 uShade;
+/** Rings that come from past the frame: where each started in the world, how far it has run, and how high it is now. */
+uniform vec4 uOuter[${OUTER}];
+/** How wide such a ring is, in cells. */
+uniform float uOuterWidth;
 /** A lamp over the water and the eye it is seen by, in the world: the glints of the lamp lie between the two. */
 uniform vec3 uLampAt;
 uniform vec3 uEyeAt;
@@ -163,6 +174,35 @@ uniform sampler2D uMirror;
 uniform sampler2D uBelow;
 
 varying vec3 vWorld;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+/**
+ * What is dark under the water: shapes that come up out of the dark, drift, change their
+ * outline and go down again, each on a time of its own, so that no two come and go together.
+ * Nothing says what they are.
+ */
+float shadows(vec2 at) {
+  float clear = 1.0;
+  for (int i = 0; i < ${SHADOWS}; i++) {
+    float fi = float(i);
+    float life = uShade.w * (0.7 + 0.6 * hash(vec2(fi, 1.7)));
+    float age = uTime / life + hash(vec2(fi, 2.3));
+    vec2 seed = vec2(fi, floor(age));
+    float u = fract(age);
+    vec2 where = uFrame.xy + (vec2(hash(seed + 0.11), hash(seed + 0.37)) * 2.0 - 1.0) * uFrame.zw * 0.9;
+    float turn = hash(seed + 0.73) * 6.2832;
+    where += vec2(cos(turn), sin(turn)) * (uShade.z * life * (u - 0.5));
+    float size = uShade.y * mix(0.4, 1.6, hash(seed + 0.91));
+    vec2 from = at - where;
+    // Its edge is near or far as a slow noise has it, read around its middle: the outline swells and sinks as it goes.
+    float edge = size * (0.55 + 0.9 * texture2D(uBelow, from * (0.1 / size) + seed * 0.173 + uTime * 0.003).r);
+    float body = 1.0 - smoothstep(0.15 * edge, edge, length(from));
+    float shown = smoothstep(0.0, 0.35, u) * (1.0 - smoothstep(0.6, 1.0, u));
+    clear *= 1.0 - body * shown;
+  }
+  return 1.0 - clear;
+}
 
 float rings(vec2 at) {
   // The rings of the steps and the rings of the dice are one water to the eye.
@@ -205,6 +245,20 @@ void main() {
   float texel = 1.0 / ${RIPPLE_SIDE.toFixed(1)};
   vec2 ringed = vec2(rings(ring + vec2(texel, 0.0)) - rings(ring - vec2(texel, 0.0)), rings(ring + vec2(0.0, texel)) - rings(ring - vec2(0.0, texel)));
   ringed *= (uCalm.w / (2.0 * texel * span)) * (1.0 - quiet * uFar.z);
+  // Rings that come from past the frame, from nothing that is seen: a few crests and troughs
+  // that run slowly through the frame and die out on the way.
+  vec2 outer = vec2(0.0);
+  for (int i = 0; i < ${OUTER}; i++) {
+    vec4 o = uOuter[i];
+    if (o.w == 0.0) continue;
+    vec2 from = at - o.xy;
+    float r = max(length(from), 0.001);
+    float x = (r - o.z) / uOuterWidth;
+    // The slope of exp(-x * x) * cos(2.4 x) across the ring.
+    float rise = exp(-x * x) * (-2.0 * x * cos(2.4 * x) - 2.4 * sin(2.4 * x)) / uOuterWidth;
+    outer += from * (o.w * rise / r);
+  }
+  ringed += outer * (1.0 - quiet * uFar.z);
   slope = slope * (1.0 - quiet) + ringed;
   vec3 normal = normalize(vec3(-slope.x, 1.0, -slope.y));
 
@@ -213,11 +267,19 @@ void main() {
   float far = smoothstep(0.15, 1.0, gl_FragCoord.y * uFar.y);
   colour += uTone * (uFar.x * far * far);
 
-  // Something large and dim under the surface, and dark shapes that pass through it.
-  vec2 deep = (at - uUnder) + normal.xz * uLook.z;
-  float drift = uTime * uLook.w;
-  float shape = texture2D(uBelow, deep * 0.031 + vec2(drift, drift * 0.6)).r * 0.65 + texture2D(uBelow, deep * 0.083 - vec2(drift * 0.7, -drift * 1.3)).r * 0.35;
-  colour += uTone * (uLook.y * 0.2 * smoothstep(0.42, 0.7, shape));
+  // The sky it gives back has no lamp and no moon in it, and nothing in it is a cloud: lighter
+  // and darker shapes, large and soft, that go slowly and turn into one another. The sky is far
+  // off, so what of it is seen goes with the frame; a slope moves it, so it rocks on the swell.
+  vec2 sky = (at - uFrame.xy) + normal.xz * uSky.w;
+  float wide = 1.0 / (8.0 * max(uSky.y, 0.1));
+  float go = uTime * uSky.z * wide;
+  vec2 bend = vec2(texture2D(uNoise, sky * wide * 0.6 + vec2(go, go * 0.3)).r, texture2D(uNoise, sky * wide * 0.6 + vec2(0.37, 0.71) - vec2(go * 0.4, go * 0.8)).r);
+  float lit = smoothstep(0.35, 0.85, texture2D(uNoise, sky * wide + (bend - 0.5) * 0.9 + vec2(-go * 0.5, go * 0.2)).r);
+  colour += uTone * (uSky.x * lit * (0.55 + 0.45 * far) * (1.0 - uCalm.y * sheet));
+
+  // Under the surface something is dark, and what the water gives back is lost over it.
+  float shade = shadows(at + normal.xz * uLook.y);
+  colour *= 1.0 - uShade.x * shade * (1.0 - 0.5 * uCalm.y * sheet);
 
   // The dice, stood on their heads: bright at the foot, fainter up the die.
   vec4 seen = uReflect * vec4(vWorld, 1.0);
@@ -366,6 +428,18 @@ export class Water {
   /** The time the swell is counted from, in seconds: it stands while motion is kept low. */
   private clock = 0;
   private fade = 0;
+  /**
+   * Rings that come from past the frame: where each started in the world, in cells, when by the
+   * clock of the water, and how high. When the next one comes; where the frame was last.
+   */
+  private readonly outer: { x: number; z: number; at: number; height: number }[] = [];
+  private readonly outerRings: THREE.Vector4[] = Array.from({ length: OUTER }, () => new THREE.Vector4());
+  private nextOuter = -1;
+  /** How far past the frame they start, in cells. */
+  private far = 0;
+  private readonly seen = { x: 0, z: 0, reach: 1 };
+  /** The same rings on every page: when and where they come is counted, not left to chance. */
+  private seed = 0x51ab3c7;
   private readonly forward = new THREE.Vector3();
   private readonly look = new THREE.Vector3();
   private readonly bias = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
@@ -431,8 +505,12 @@ export class Water {
           uField: { value: new THREE.Vector4(0, 0, 1, MARGIN) },
           uCalm: { value: new THREE.Vector4() },
           uMirrorLook: { value: new THREE.Vector4() },
-          uLook: { value: new THREE.Vector4() },
-          uUnder: { value: new THREE.Vector2() },
+          uLook: { value: new THREE.Vector2() },
+          uFrame: { value: new THREE.Vector4() },
+          uSky: { value: new THREE.Vector4() },
+          uShade: { value: new THREE.Vector4() },
+          uOuter: { value: this.outerRings },
+          uOuterWidth: { value: 1 },
           uLampAt: { value: new THREE.Vector3() },
           uEyeAt: { value: new THREE.Vector3() },
           uGlint: { value: new THREE.Vector2() },
@@ -442,7 +520,7 @@ export class Water {
           uMask: { value: this.mask },
           uRipple: { value: this.ripples[0].texture },
           uMirror: { value: null },
-          // A hook: a picture of anything can be given here to be what is under the water.
+          // A hook: a picture of anything can be given here to be the outline of what is under the water.
           uBelow: { value: this.noise },
         },
         vertexShader: WATER_VERTEX,
@@ -549,15 +627,28 @@ export class Water {
     (uniforms.uCalm.value as THREE.Vector4).set(n('calm'), n('calmReflect'), n('holeCalm'), from.still ? 0 : 1);
     (uniforms.uMirrorLook.value as THREE.Vector4).set(reflects ? n('reflectStrength') : 0, from.still ? 0 : n('reflectWarp'), 0, 0);
     (uniforms.uFar.value as THREE.Vector3).set(n('farLight'), 1 / Math.max(1, layer.height), n('ringCalm'));
-    (uniforms.uLook.value as THREE.Vector4).set(n('crestLight'), n('belowStrength'), n('refract'), n('belowSpeed'));
+    (uniforms.uLook.value as THREE.Vector2).set(n('crestLight'), n('refract'));
+    (uniforms.uSky.value as THREE.Vector4).set(n('skyLight'), n('skySize'), n('skySpeed'), n('skyWarp'));
+    (uniforms.uShade.value as THREE.Vector4).set(n('shadeDark'), n('shadeSize'), n('shadeSpeed'), Math.max(1, n('shadeLife')));
     uniforms.uRipple.value = this.ripples[0].texture;
-    // The middle of the frame on the floor: what is under the water follows it at a part of its pace.
     const { look, forward } = this;
+    // The middle of the whole frame on the floor, and how far the frame reaches from it across and in depth.
+    const own = this.camera;
+    look.set((own.left + own.right) / 2, (own.top + own.bottom) / 2, 0).applyMatrix4(own.matrixWorld);
+    const sunk = forward.y !== 0 ? -look.y / forward.y : 0;
+    const across = (own.right - own.left) / 2;
+    const depth = (own.top - own.bottom) / 2 / Math.max(0.3, Math.abs(forward.y));
+    (uniforms.uFrame.value as THREE.Vector4).set(look.x + forward.x * sunk, look.z + forward.z * sunk, across, depth);
+    this.seen.x = look.x + forward.x * sunk;
+    this.seen.z = look.z + forward.z * sunk;
+    this.seen.reach = Math.hypot(across, depth);
+    this.outerFrame(n, from.still ? 0 : quiet);
+    uniforms.uOuterWidth.value = Math.max(0.1, n('outerWidth'));
+    // The middle of the frame of the board on the floor: the lamp and the eye stand by it.
     look.set((camera.left + camera.right) / 2, (camera.top + camera.bottom) / 2, 0).applyMatrix4(camera.matrixWorld);
     const down = forward.y !== 0 ? -look.y / forward.y : 0;
     const midX = look.x + forward.x * down;
     const midZ = look.z + forward.z * down;
-    (uniforms.uUnder.value as THREE.Vector2).set(midX * 0.7, midZ * 0.7);
     // The lamp stands far off to the left, on the side the dice are lit from, and the eye near, below the frame.
     const flat = Math.hypot(forward.x, forward.z) || 1;
     const awayX = forward.x / flat;
@@ -576,6 +667,56 @@ export class Water {
     this.plane.scale.set(reach, reach, 1);
     layer.render(this.scene, this.camera);
     void timeMs;
+  }
+
+  /** A ring comes from past the frame now, out of turn: the lab asks for one to look at. */
+  outerRing(): void {
+    this.startOuter();
+  }
+
+  private random(): number {
+    this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0;
+    return this.seed / 0x100000000;
+  }
+
+  /** A ring starts past the frame, on a side of it as chance has it, far enough off that where it starts is never seen. */
+  private startOuter(): void {
+    const turn = this.random() * Math.PI * 2;
+    const off = this.seen.reach + this.far;
+    if (this.outer.length >= OUTER) this.outer.shift();
+    this.outer.push({ x: this.seen.x + Math.cos(turn) * off, z: this.seen.z + Math.sin(turn) * off, at: this.clock, height: 0.7 + 0.6 * this.random() });
+  }
+
+  /**
+   * The rings from past the frame on this frame: one comes when its time is up, now and then and
+   * never on a beat; each runs and dies out by the clock of the water, and stands while it does.
+   * `quiet` is what of their height is shown: none while motion is kept low.
+   */
+  private outerFrame(n: (name: string) => number, quiet: number): void {
+    const every = n('outerEvery');
+    const speed = n('outerSpeed');
+    const life = Math.max(0.1, n('outerLife'));
+    this.far = n('outerFar');
+    if (every <= 0) this.nextOuter = -1;
+    else {
+      if (this.nextOuter < 0 || this.nextOuter > this.clock + every * 1.5) this.nextOuter = this.clock + every * (0.3 + this.random());
+      if (this.clock >= this.nextOuter) {
+        this.startOuter();
+        this.nextOuter = this.clock + every * (0.5 + this.random());
+      }
+    }
+    // A ring that has died out is let go.
+    while (this.outer.length > 0 && this.clock - this.outer[0].at > life * 5) this.outer.shift();
+    this.outerRings.forEach((ring, i) => {
+      const one = this.outer[i];
+      if (!one) {
+        ring.set(0, 0, 0, 0);
+        return;
+      }
+      const age = this.clock - one.at;
+      const height = n('outerHeight') * one.height * quiet * Math.min(1, age / 2) * Math.exp(-age / life);
+      ring.set(one.x, one.z, speed * age, height);
+    });
   }
 
   /** Nothing of the water is on screen. */

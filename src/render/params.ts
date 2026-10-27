@@ -211,10 +211,41 @@ export const BOARD_GROUPS = {
     /** The light of a ring, and how much darker than the dark of the board the water is. */
     crestLight: number(0.2, 0, 2, 0.01),
     waterDeep: number(0.15, 0, 0.3, 0.01),
-    /** What passes under the water: how much of it shows, how fast it drifts, and how far the slope of a wave moves it. */
-    belowStrength: number(0.06, 0, 1, 0.01),
-    belowSpeed: number(0.002, 0, 0.05, 0.001),
+    /**
+     * What the water gives back of the sky: no lamp and no moon, nothing that reads as a cloud,
+     * lighter and darker shapes that go slowly and turn into one another. How light, 0 for none;
+     * how large, in cells; how fast they go, in cells a second; how far the slope of a wave moves
+     * them, in cells (the owner, 27 October: «источника света в отражении не должно быть видно.
+     * облака тоже не должны "читаться" как облака»).
+     */
+    skyLight: number(0.02, 0, 0.5, 0.005),
+    skySize: number(10, 0.5, 30, 0.5),
+    skySpeed: number(0.06, 0, 1, 0.005),
+    skyWarp: number(10, 0, 40, 0.5),
+    /**
+     * Dark shapes under the water, small and large, that come up, drift, change their outline and
+     * go down, each on a time of its own («как будто под водой что-то происходит, но неясно что»).
+     * How dark, 0 for none; how large, in cells; how fast they drift, in cells a second; how long
+     * one is there, in seconds; how far the slope of a wave moves them.
+     */
+    shadeDark: number(0.6, 0, 1, 0.01),
+    shadeSize: number(3, 0.3, 10, 0.1),
+    shadeSpeed: number(0.04, 0, 0.5, 0.005),
+    shadeLife: number(45, 5, 200, 1),
     refract: number(0.6, 0, 3, 0.05),
+    /**
+     * Rings that come from past the frame, from nothing that is seen («игрок делает круги сам, а
+     * странные затухающие волны/круги могут приходить "из вне"»), slower than the player's: about
+     * how many seconds from one to the next, 0 for none; how high; how fast they run, in cells a
+     * second; how wide, in cells; in how many seconds one dies out to a third; how far past the
+     * frame one starts, in cells.
+     */
+    outerEvery: number(40, 0, 240, 1),
+    outerHeight: number(0.1, 0, 0.5, 0.005),
+    outerSpeed: number(0.4, 0.05, 3, 0.05),
+    outerWidth: number(1.2, 0.2, 5, 0.1),
+    outerLife: number(45, 1, 120, 1),
+    outerFar: number(2, 0, 20, 0.5),
   },
   signs: {
     /**
