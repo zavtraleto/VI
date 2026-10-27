@@ -125,9 +125,9 @@ describe('the row of the game', () => {
     expect(rowText(buildRow(readRowFile(rowJson), BOARD_TEXTS))).toBe(rowText(ROW));
   });
 
-  it('has its live sessions after boards of the row, each step once and in order: after places 16, 28, 43 and 56, each the end of its chapter or a rest', () => {
-    expect(ROW.lives.map((live) => [live.code, ROW.places[live.after].number])).toEqual([['live-1', 16], ['live-2', 28], ['live-3', 43], ['live-4', 56]]);
-    expect(ROW.lives.map((live) => live.step)).toEqual([1, 2, 3, 4]);
+  it('has its live sessions after boards of the row, each step once and in order: after places 16, 28, 43, 56, 71 and 85, each the end of its chapter or a rest', () => {
+    expect(ROW.lives.map((live) => [live.code, ROW.places[live.after].number])).toEqual([['live-1', 16], ['live-2', 28], ['live-3', 43], ['live-4', 56], ['live-5', 71], ['live-6', 85]]);
+    expect(ROW.lives.map((live) => live.step)).toEqual([1, 2, 3, 4, 5, 6]);
     for (const live of ROW.lives) {
       const place = ROW.places[live.after];
       expect(ROW.chapters[place.chapter].last === live.after || place.role === 'rest', live.code).toBe(true);

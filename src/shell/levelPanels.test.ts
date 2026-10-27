@@ -322,7 +322,7 @@ describe('the list of the levels with its live sessions on a screen', () => {
     const items = screen.items().filter((item) => item.id.startsWith('level-'));
     expect(items.length).toBeGreaterThan(0);
     expect(items.length).toBeLessThanOrEqual(entries.length);
-    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(4);
+    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(6);
     for (const item of items) {
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);

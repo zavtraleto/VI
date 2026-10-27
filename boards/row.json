@@ -112,19 +112,52 @@
       ]
     },
     {
-      "title": "order",
+      "title": "sixty",
       "floor": "open",
       "places": [
         { "board": "R09", "role": "apply", "archetype": "two heaps at once", "emotion": "surprise", "note": "twoFaces is brought in by R11 at place 15 (third campaign, section 14)" },
-        { "board": "C2-05", "role": "twist", "archetype": "decoy of the wrong channel", "emotion": "trick", "event": "first trap" }
+        { "board": "fixed-wall-1", "role": "meet", "archetype": "wall", "emotion": "surprise", "event": "first fixed die" },
+        { "board": "dd-62-fours-around", "role": "apply", "archetype": "wall as a stop", "emotion": "recognition" },
+        { "board": "fixed-combo-1", "role": "apply", "archetype": "fixed die in a combo", "emotion": "insight" },
+        { "board": "C2-05", "role": "twist", "archetype": "decoy of the wrong channel", "emotion": "trick", "event": "first trap" },
+        { "board": "collapse-4", "role": "event", "archetype": "six sixes", "emotion": "payoff", "event": "sixes, all at once" }
       ]
     },
     {
-      "title": "more",
+      "title": "seventy",
+      "floor": "open",
+      "places": [
+        { "board": "two-lifts-1", "role": "twist", "archetype": "two lifts", "emotion": "tension" },
+        { "board": "dd-25-pocket", "role": "apply", "archetype": "the form leads", "emotion": "insight" },
+        { "board": "probe-25", "role": "apply", "archetype": "the form leads", "emotion": "recognition" },
+        { "board": "act-k23", "role": "twist", "archetype": "early link", "emotion": "tension" },
+        { "board": "dd-11-wood-pushes", "role": "apply", "archetype": "three sides to one face", "emotion": "flow" },
+        { "board": "rescue-1", "role": "rest", "archetype": "ready heap", "emotion": "gift" }
+      ]
+    },
+    {
+      "title": "time",
+      "floor": "open",
+      "places": [
+        { "board": "chaser-1", "role": "peak", "archetype": "the chasing die", "emotion": "fiero" },
+        { "board": "P08", "role": "apply", "archetype": "which first", "emotion": "recognition" },
+        { "board": "act-k25", "role": "twist", "archetype": "greed loses", "emotion": "trick" },
+        { "board": "dd-12-ice-corridor", "role": "apply", "archetype": "corridor", "emotion": "insight" },
+        { "board": "roll-in-transfer-1", "role": "twist", "archetype": "roll in as transfer", "emotion": "surprise" }
+      ]
+    },
+    {
+      "title": "eighty",
       "floor": "open",
       "places": [
         { "board": "P09", "role": "apply", "archetype": "bridge with a link", "emotion": "recognition", "note": "its kept way is a bridge with a link (K ~ L), no floor and no push: the name of its probe place said otherwise" },
+        { "board": "far-faces-1", "role": "peak", "archetype": "which first, far faces", "emotion": "fiero" },
         { "board": "R16", "role": "twist", "archetype": "everything at once", "emotion": "insight" },
+        { "board": "dd-15-no-way-down", "role": "apply", "archetype": "all from above", "emotion": "mastery" },
+        { "board": "trap-5", "role": "event", "archetype": "greed on the first move", "emotion": "trick", "event": "first-move trap" },
+        { "board": "dd-21-wood-fives", "role": "apply", "archetype": "turn to fives", "emotion": "recognition" },
+        { "board": "dd-14-turn-to-fours", "role": "apply", "archetype": "turn to fours", "emotion": "mastery" },
+        { "board": "dd-72-fours-and-one", "role": "apply", "archetype": "fixed die in a combo", "emotion": "flow" },
         { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" }
       ]
     }
@@ -133,6 +166,8 @@
     { "after": "act-k17", "step": 1 },
     { "after": "domino-3", "step": 2 },
     { "after": "collapse-3", "step": 3 },
-    { "after": "dd-09-push-link", "step": 4, "note": "about the 56th place, after a rest; step 4" }
+    { "after": "dd-09-push-link", "step": 4, "note": "about the 56th place, after a rest; step 4" },
+    { "after": "rescue-1", "step": 5, "note": "about the 71st place, after a rest; step 5" },
+    { "after": "P06", "step": 6, "note": "about the 85th place, the end of the chapter eighty; step 6" }
   ]
 }

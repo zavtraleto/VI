@@ -68,17 +68,31 @@ export const ROW: Row = {
     },
     {
       "id": 9,
-      "title": "order",
+      "title": "sixty",
       "faces": null,
       "first": 59,
-      "last": 60
+      "last": 64
     },
     {
       "id": 10,
-      "title": "more",
+      "title": "seventy",
       "faces": null,
-      "first": 61,
-      "last": 63
+      "first": 65,
+      "last": 70
+    },
+    {
+      "id": 11,
+      "title": "time",
+      "faces": null,
+      "first": 71,
+      "last": 75
+    },
+    {
+      "id": 12,
+      "title": "eighty",
+      "faces": null,
+      "first": 76,
+      "last": 84
     }
   ],
   "places": [
@@ -5359,6 +5373,233 @@ export const ROW: Row = {
     {
       "number": 61,
       "chapter": 9,
+      "code": "fixed-wall-1",
+      "spec": {
+        "id": "fixed-wall-1",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 0,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 3,
+              "north": 6,
+              "fixed": true
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            }
+          ]
+        },
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "0,1,S",
+          "0,2,E",
+          "1,2,E",
+          "2,2,N"
+        ]
+      },
+      "role": "meet",
+      "archetype": "wall",
+      "emotion": "surprise",
+      "event": "first fixed die",
+      "help": {}
+    },
+    {
+      "number": 62,
+      "chapter": 9,
+      "code": "dd-62-fours-around",
+      "spec": {
+        "id": "dd-62-fours-around",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          4
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 4,
+              "north": 1,
+              "fixed": true
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 4,
+              "north": 1
+            }
+          ]
+        },
+        "par": 3,
+        "exact": true,
+        "solution": [
+          "3,2,W",
+          "2,2,W",
+          "2,1,W,p"
+        ]
+      },
+      "role": "apply",
+      "archetype": "wall as a stop",
+      "emotion": "recognition",
+      "help": {}
+    },
+    {
+      "number": 63,
+      "chapter": 9,
+      "code": "fixed-combo-1",
+      "spec": {
+        "id": "fixed-combo-1",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 0,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 0,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 4,
+              "north": 6,
+              "fixed": true
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 5,
+              "north": 1
+            }
+          ]
+        },
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "2,1,W",
+          "1,0,E",
+          "2,0,S",
+          "0,0,E"
+        ]
+      },
+      "role": "apply",
+      "archetype": "fixed die in a combo",
+      "emotion": "insight",
+      "help": {}
+    },
+    {
+      "number": 64,
+      "chapter": 9,
       "code": "C2-05",
       "spec": {
         "id": "C2-05",
@@ -5436,8 +5677,1075 @@ export const ROW: Row = {
       "help": {}
     },
     {
-      "number": 62,
+      "number": 65,
+      "chapter": 9,
+      "code": "collapse-4",
+      "spec": {
+        "id": "collapse-4",
+        "seed": 30065,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          6
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          6
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 3
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 1,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 6,
+              "north": 2
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "2,1,E",
+          "3,1,S",
+          "3,2,W",
+          "1,1,W",
+          "0,1,S"
+        ]
+      },
+      "role": "event",
+      "archetype": "six sixes",
+      "emotion": "payoff",
+      "event": "sixes, all at once",
+      "help": {}
+    },
+    {
+      "number": 66,
       "chapter": 10,
+      "code": "two-lifts-1",
+      "spec": {
+        "id": "two-lifts-1",
+        "seed": 0,
+        "size": 5,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 4,
+            "z": 0
+          },
+          {
+            "x": 0,
+            "z": 1
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 4,
+            "z": 4
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 4,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 4,
+              "z": 4,
+              "top": 5,
+              "north": 6
+            }
+          ]
+        },
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "4,4,W",
+          "3,3,E",
+          "4,3,S",
+          "1,3,N,p",
+          "2,1,W"
+        ]
+      },
+      "role": "twist",
+      "archetype": "two lifts",
+      "emotion": "tension",
+      "help": {}
+    },
+    {
+      "number": 67,
+      "chapter": 10,
+      "code": "dd-25-pocket",
+      "spec": {
+        "id": "dd-25-pocket",
+        "seed": 0,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 1,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2
+        ],
+        "norm": 2,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 0,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 1,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            }
+          ]
+        },
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "1,1,E",
+          "2,1,S",
+          "2,2,E",
+          "3,2,N",
+          "3,1,W",
+          "2,1,W"
+        ]
+      },
+      "role": "apply",
+      "archetype": "the form leads",
+      "emotion": "insight",
+      "help": {}
+    },
+    {
+      "number": 68,
+      "chapter": 10,
+      "code": "probe-25",
+      "spec": {
+        "id": "probe-25",
+        "seed": 30768,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 0,
+            "z": 1
+          },
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 5,
+              "north": 6
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "3,2,N",
+          "3,1,W",
+          "2,0,S",
+          "2,1,W"
+        ]
+      },
+      "role": "apply",
+      "archetype": "the form leads",
+      "emotion": "recognition",
+      "help": {}
+    },
+    {
+      "number": 69,
+      "chapter": 10,
+      "code": "act-k23",
+      "spec": {
+        "id": "act-k23",
+        "seed": 0,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 0,
+            "z": 1
+          },
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 3
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 6,
+              "north": 5
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "3,3,N",
+          "2,2,N",
+          "2,0,S",
+          "2,1,S"
+        ]
+      },
+      "role": "twist",
+      "archetype": "early link",
+      "emotion": "tension",
+      "help": {}
+    },
+    {
+      "number": 70,
+      "chapter": 10,
+      "code": "dd-11-wood-pushes",
+      "spec": {
+        "id": "dd-11-wood-pushes",
+        "seed": 0,
+        "size": 3,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 0
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 1,
+              "north": 2
+            }
+          ]
+        },
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "2,0,W",
+          "1,0,S",
+          "2,2,W",
+          "0,1,S"
+        ]
+      },
+      "role": "apply",
+      "archetype": "three sides to one face",
+      "emotion": "flow",
+      "help": {}
+    },
+    {
+      "number": 71,
+      "chapter": 10,
+      "code": "rescue-1",
+      "spec": {
+        "id": "rescue-1",
+        "seed": 30207,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          5
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          5
+        ],
+        "layout": {
+          "start": {
+            "x": 0,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 1,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 5,
+              "north": 6
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "0,1,E",
+          "1,1,E",
+          "3,1,S",
+          "3,2,S"
+        ]
+      },
+      "role": "rest",
+      "archetype": "ready heap",
+      "emotion": "gift",
+      "help": {}
+    },
+    {
+      "number": 72,
+      "chapter": 11,
+      "code": "chaser-1",
+      "spec": {
+        "id": "chaser-1",
+        "seed": 30762,
+        "size": 3,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 1,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 5,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 6,
+              "north": 4
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "1,1,N",
+          "1,0,E",
+          "2,2,W",
+          "1,2,N",
+          "2,0,W",
+          "2,1,W"
+        ]
+      },
+      "role": "peak",
+      "archetype": "the chasing die",
+      "emotion": "fiero",
+      "help": {}
+    },
+    {
+      "number": 73,
+      "chapter": 11,
+      "code": "P08",
+      "spec": {
+        "id": "P08",
+        "seed": 10110,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 2,
+              "north": 4
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "2,1,N",
+          "3,0,S",
+          "3,1,W",
+          "2,2,S"
+        ]
+      },
+      "role": "apply",
+      "archetype": "which first",
+      "emotion": "recognition",
+      "help": {}
+    },
+    {
+      "number": 74,
+      "chapter": 11,
+      "code": "act-k25",
+      "spec": {
+        "id": "act-k25",
+        "seed": 0,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 3
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 5,
+              "north": 4
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 4,
+              "north": 1
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "3,3,N",
+          "3,2,W",
+          "2,1,W",
+          "1,1,S",
+          "1,3,N"
+        ]
+      },
+      "role": "twist",
+      "archetype": "greed loses",
+      "emotion": "trick",
+      "help": {}
+    },
+    {
+      "number": 75,
+      "chapter": 11,
+      "code": "dd-12-ice-corridor",
+      "spec": {
+        "id": "dd-12-ice-corridor",
+        "seed": 0,
+        "size": 5,
+        "holes": [
+          {
+            "x": 0,
+            "z": 1
+          },
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 1,
+            "z": 2
+          },
+          {
+            "x": 2,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 4,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          },
+          {
+            "x": 4,
+            "z": 3
+          },
+          {
+            "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
+            "z": 4
+          },
+          {
+            "x": 4,
+            "z": 4
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2
+        ],
+        "norm": 3,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 0
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            }
+          ]
+        },
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "1,0,S",
+          "2,1,N",
+          "2,0,W",
+          "3,0,W,p"
+        ]
+      },
+      "role": "apply",
+      "archetype": "corridor",
+      "emotion": "insight",
+      "help": {}
+    },
+    {
+      "number": 76,
+      "chapter": 11,
+      "code": "roll-in-transfer-1",
+      "spec": {
+        "id": "roll-in-transfer-1",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 0,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 3,
+              "north": 5
+            }
+          ]
+        },
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "2,3,N",
+          "2,1,W",
+          "1,1,S",
+          "0,3,E"
+        ]
+      },
+      "role": "twist",
+      "archetype": "roll in as transfer",
+      "emotion": "surprise",
+      "help": {}
+    },
+    {
+      "number": 77,
+      "chapter": 12,
       "code": "P09",
       "spec": {
         "id": "P09",
@@ -5518,8 +6826,98 @@ export const ROW: Row = {
       "help": {}
     },
     {
-      "number": 63,
-      "chapter": 10,
+      "number": 78,
+      "chapter": 12,
+      "code": "far-faces-1",
+      "spec": {
+        "id": "far-faces-1",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          5
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          5
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 0,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 4,
+              "z": 2,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 4,
+              "top": 2,
+              "north": 1
+            }
+          ]
+        },
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "3,1,N",
+          "3,0,W",
+          "4,2,S,p",
+          "4,3,S,p",
+          "1,4,E,p",
+          "2,4,E,p"
+        ]
+      },
+      "role": "peak",
+      "archetype": "which first, far faces",
+      "emotion": "fiero",
+      "help": {}
+    },
+    {
+      "number": 79,
+      "chapter": 12,
       "code": "R16",
       "spec": {
         "id": "R16",
@@ -5602,8 +7000,486 @@ export const ROW: Row = {
       "help": {}
     },
     {
-      "number": 64,
-      "chapter": 10,
+      "number": 80,
+      "chapter": 12,
+      "code": "dd-15-no-way-down",
+      "spec": {
+        "id": "dd-15-no-way-down",
+        "seed": 0,
+        "size": 4,
+        "holes": [
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 1
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 1,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 4,
+              "north": 6
+            }
+          ]
+        },
+        "par": 7,
+        "exact": true,
+        "solution": [
+          "2,2,N",
+          "2,1,N",
+          "2,0,W",
+          "1,0,W",
+          "0,0,S",
+          "0,2,E",
+          "0,1,S"
+        ]
+      },
+      "role": "apply",
+      "archetype": "all from above",
+      "emotion": "mastery",
+      "help": {}
+    },
+    {
+      "number": 81,
+      "chapter": 12,
+      "code": "trap-5",
+      "spec": {
+        "id": "trap-5",
+        "seed": 30263,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 3
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 0,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 0,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 3,
+              "north": 1
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "1,3,W",
+          "0,3,N",
+          "0,2,N",
+          "2,1,E,p",
+          "3,1,S,p"
+        ]
+      },
+      "role": "event",
+      "archetype": "greed on the first move",
+      "emotion": "trick",
+      "event": "first-move trap",
+      "help": {}
+    },
+    {
+      "number": 82,
+      "chapter": 12,
+      "code": "dd-21-wood-fives",
+      "spec": {
+        "id": "dd-21-wood-fives",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          5
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          5
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 3
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 1,
+              "north": 4
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 5,
+              "north": 4
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 2,
+              "north": 4
+            }
+          ]
+        },
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "1,3,N",
+          "1,2,N",
+          "1,0,E",
+          "3,0,S",
+          "3,1,W"
+        ]
+      },
+      "role": "apply",
+      "archetype": "turn to fives",
+      "emotion": "recognition",
+      "help": {}
+    },
+    {
+      "number": 83,
+      "chapter": 12,
+      "code": "dd-14-turn-to-fours",
+      "spec": {
+        "id": "dd-14-turn-to-fours",
+        "seed": 0,
+        "size": 5,
+        "holes": [
+          {
+            "x": 4,
+            "z": 0
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          },
+          {
+            "x": 4,
+            "z": 3
+          },
+          {
+            "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
+            "z": 4
+          },
+          {
+            "x": 4,
+            "z": 4
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 1,
+              "north": 4
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 3,
+              "north": 1
+            }
+          ]
+        },
+        "par": 7,
+        "exact": true,
+        "solution": [
+          "2,1,W",
+          "1,1,N",
+          "3,1,W",
+          "3,0,S",
+          "2,1,W",
+          "2,0,S",
+          "1,0,E"
+        ]
+      },
+      "role": "apply",
+      "archetype": "turn to fours",
+      "emotion": "mastery",
+      "help": {}
+    },
+    {
+      "number": 84,
+      "chapter": 12,
+      "code": "dd-72-fours-and-one",
+      "spec": {
+        "id": "dd-72-fours-and-one",
+        "seed": 0,
+        "size": 5,
+        "holes": [
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          },
+          {
+            "x": 4,
+            "z": 3
+          },
+          {
+            "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
+            "z": 4
+          },
+          {
+            "x": 4,
+            "z": 4
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 0
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 4,
+              "north": 6,
+              "fixed": true
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 4,
+              "north": 6,
+              "fixed": true
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 1,
+              "north": 3
+            }
+          ]
+        },
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "2,0,W",
+          "1,0,W",
+          "0,2,E",
+          "1,2,N",
+          "0,0,E",
+          "1,0,E"
+        ]
+      },
+      "role": "apply",
+      "archetype": "fixed die in a combo",
+      "emotion": "flow",
+      "help": {}
+    },
+    {
+      "number": 85,
+      "chapter": 12,
       "code": "P06",
       "spec": {
         "id": "P06",
@@ -5697,6 +7573,16 @@ export const ROW: Row = {
       "code": "live-4",
       "step": 4,
       "after": 55
+    },
+    {
+      "code": "live-5",
+      "step": 5,
+      "after": 70
+    },
+    {
+      "code": "live-6",
+      "step": 6,
+      "after": 84
     }
   ]
 };
