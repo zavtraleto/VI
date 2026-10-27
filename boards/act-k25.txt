@@ -4,7 +4,7 @@ status: RC
 origin: лаборатория; акт II; парковка
 was: K25
 mark: норм
-faces: 3
+faces: 2 3
 chapter: 0
 par: 5
 exact: yes
