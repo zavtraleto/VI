@@ -122,7 +122,7 @@ const LEVELS_SHOWN_MIN = 3;
 /** The zones of the arrows of a list that scrolls, and how tall their bar is drawn, in pixels of the picture. */
 const SCROLL_UP = 'scroll-up';
 const SCROLL_DOWN = 'scroll-down';
-const ARROW_BAR = 6;
+const ARROW_BAR = 16;
 /** Half a blink of the bar of the name, in milliseconds. */
 const BLINK_MS = 110;
 /** Rows a log keeps for the line of the one who plays and the lines next to it. */
@@ -143,9 +143,12 @@ interface LevelView {
   from: number;
   shown: number;
   rows: number;
-  /** The thin arrows over the cells and under them, where the list scrolls; null where it fits. */
+  /** The bars of the arrows over the cells and under them, where the list scrolls; null where it fits. */
   up: Box | null;
   down: Box | null;
+  /** Where a finger presses them: the bar, and a finger tall from the edge next to the cells outwards. */
+  upZone: Box | null;
+  downZone: Box | null;
 }
 
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
@@ -384,18 +387,18 @@ export class PanelScreen implements ShellScreen {
   /**
    * An arrow of a list that scrolls: a thin bar across the list with a small arrow in its middle,
    * in the faint tone of a frame, the arrow dim while there are rows that way and faint where there
-   * are none. Its zone is a finger tall; the bar is drawn thin in the middle of it.
+   * are none. It stands as near to the cells as two cells stand to each other; where a finger is taller
+   * than the bar, its zone goes on outwards, over the bar of the name or the line under the cells.
    */
-  private arrow(kit: Kit, zone: Box, dir: 'up' | 'down', on: boolean, more: boolean): void {
+  private arrow(kit: Kit, bar: Box, dir: 'up' | 'down', on: boolean, more: boolean): void {
     const { ink, dim, faint } = kit.palette;
-    const bar: Box = { x: zone.x, y: zone.y + Math.round((zone.h - ARROW_BAR) / 2), w: zone.w, h: ARROW_BAR };
     kit.frame(bar, on ? ink : faint);
     const centre = Math.round(bar.x + bar.w / 2);
     const tone = on ? ink : more ? dim : faint;
     // Four lines of the arrow, the point towards where it scrolls.
     for (let i = 0; i < 4; i++) {
       const half = dir === 'up' ? i : 3 - i;
-      kit.rect(centre - half, bar.y + 1 + i, half * 2 + 1, 1, tone);
+      kit.rect(centre - half, bar.y + Math.round((ARROW_BAR - 4) / 2) + i, half * 2 + 1, 1, tone);
     }
   }
 
@@ -506,19 +509,21 @@ export class PanelScreen implements ShellScreen {
     const from = Math.max(0, Math.min(this.top ?? 0, rows - shown));
     // Where the list scrolls, a thin arrow over the cells and one under them, across the list.
     const scrolls = shown < rows;
-    const bar = this.arrowZone();
-    const top = box.y + (scrolls ? bar + GAP : 0);
+    const top = box.y + (scrolls ? ARROW_BAR + GAP : 0);
     const cells = laid.map((cell, i) => ({ ...cell, y: top + (rowOf[i] - from) * step }));
-    const up = scrolls ? { x: box.x, y: box.y, w: box.w, h: bar } : null;
-    const down = scrolls ? { x: box.x, y: top + shown * step, w: box.w, h: bar } : null;
-    return { cells, rowOf, from, shown, rows, up, down };
+    const up = scrolls ? { x: box.x, y: box.y, w: box.w, h: ARROW_BAR } : null;
+    const down = scrolls ? { x: box.x, y: top + shown * step, w: box.w, h: ARROW_BAR } : null;
+    const finger = this.arrowZone();
+    const upZone = up && { ...up, y: up.y + up.h - finger, h: finger };
+    const downZone = down && { ...down, h: finger };
+    return { cells, rowOf, from, shown, rows, up, down, upZone, downZone };
   }
 
-  /** Height of the zone of an arrow of the list: a finger and no more, whatever a line of cells takes. */
+  /** Height of the zone of an arrow of the list: its bar, or a finger where the bar is lower. */
   private arrowZone(): number {
     const picture = this.context.picture();
     const zoom = this.context.window().height / Math.max(1, picture.height);
-    return Math.max(ARROW_BAR + 4, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
+    return Math.max(ARROW_BAR, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
   }
 
   /** An arrow of the list pressed: the list goes a page that way, the last row in sight staying in sight. */
@@ -646,7 +651,7 @@ export class PanelScreen implements ShellScreen {
         case 'climb':
           return 4 + Math.min(lines, row.lines) * CELL_H;
         case 'levels':
-          return Math.min(this.levelRows(row, inner), shown) * (zone + GAP) + (shown < this.levelRows(row, inner) ? 2 * (this.arrowZone() + GAP) : 0) + CELL_H + 4;
+          return Math.min(this.levelRows(row, inner), shown) * (zone + GAP) + (shown < this.levelRows(row, inner) ? 2 * (ARROW_BAR + GAP) : 0) + CELL_H + 4;
         case 'stars':
           return CELL_H + 4;
         case 'say': {
@@ -715,11 +720,11 @@ export class PanelScreen implements ShellScreen {
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });
       } else if (row.kind === 'levels') {
         const view = this.levelView(row, box, shown);
-        if (view.up) items.push({ id: SCROLL_UP, rect: toWindow(view.up), action: () => this.page('up') });
+        if (view.upZone) items.push({ id: SCROLL_UP, rect: toWindow(view.upZone), action: () => this.page('up') });
         view.cells.forEach((cell, i) => {
           if (this.inSight(view, i)) items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: () => row.pick(i) });
         });
-        if (view.down) items.push({ id: SCROLL_DOWN, rect: toWindow(view.down), action: () => this.page('down') });
+        if (view.downZone) items.push({ id: SCROLL_DOWN, rect: toWindow(view.downZone), action: () => this.page('down') });
       }
     }
     return items;
