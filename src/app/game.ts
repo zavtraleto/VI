@@ -67,7 +67,7 @@ import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i
 import { endlessArchive } from './archive';
 import { clockLeft, secondsLeft } from './clock';
 import { Hints } from './hints';
-import { levelReport, shortOf } from './levelStats';
+import { shortOf } from './levelStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Later } from './later';
@@ -179,7 +179,6 @@ const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'les
 const README_LOW = 520;
 const README_SIGNS = 330;
 /** What the report of the levels says before any level has been played. */
-const LEVELS_UNPLAYED = 'VI levels playtest: no level played yet';
 
 /**
  * A finished session waits this long before it sets off up the log: the end of a session is a
@@ -1758,7 +1757,7 @@ export class Game {
     const focus = campaignFocus(levels, CAMPAIGN, this.kind === 'level' && this.labSpec === null ? this.place : null);
     // The live sessions stand among the boards with no number: the cell in focus is counted through them.
     const list = campaignList(levels);
-    const entries: LevelsEntry[] = list.map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best, note: t('liveNote') } }));
+    const entries: LevelsEntry[] = list.map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best } }));
     let boards = -1;
     const current = Math.max(0, list.findIndex((item) => item.kind === 'board' && ++boards === focus));
     this.shell.showPanel(
@@ -1770,8 +1769,6 @@ export class Game {
           const live = LIVES.find((one) => one.code === code);
           if (live) this.startLive(live, 'list');
         },
-        // What was played, as text to pass on: the report of the playtest.
-        share: { label: () => this.shareLabel(), action: () => this.shareLevels() },
         onBack: () => this.showMenu(),
       }),
       true,
@@ -2100,18 +2097,6 @@ export class Game {
     const text = score > 0 ? t('shareScore').replace('{score}', String(score)) : LOGO_TEXT;
     void shareOut(text).then((how) => {
       platform.track('result_shared', { mode, how, score });
-      this.noteShared(how);
-    });
-  }
-
-  /** Sends out what the player did on the levels: the report of the playtest, as text. */
-  private shareLevels(): void {
-    const report = levelReport(
-      CAMPAIGN.map(({ spec }) => ({ ...spec, limit: spec.moves })),
-      this.settings.levels.stats,
-    );
-    void shareOut(report || LEVELS_UNPLAYED).then((how) => {
-      platform.track('result_shared', { mode: 'levels', how });
       this.noteShared(how);
     });
   }

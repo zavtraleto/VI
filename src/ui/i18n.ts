@@ -126,7 +126,6 @@ const RU = {
   // The window after the last board of the row: the words in braces lead to the endless session (the owner, 15 October 2026).
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
   liveIntro: 'Это не уровень: прямой сеанс. Кости приходят сами. Три минуты, счёт отдельный. {Пропустить}',
-  liveNote: 'Прямой сеанс: три минуты, кости приходят сами',
   shellProtocol: 'СЕАНС БЕЗ СРОКА',
   shellLevels: 'ОЧИСТКА ПОЛЯ',
   shellRecords: 'ЖУРНАЛ СЕАНСОВ',
@@ -233,7 +232,6 @@ const EN: typeof RU = {
   hintOnesPush: 'Push a one to leaving dice, and it goes too.',
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
   liveIntro: 'Not a level: a live session. The dice come by themselves. Three minutes, scored on its own. {Skip}',
-  liveNote: 'Live session: three minutes, the dice come by themselves',
   shellProtocol: 'SESSION WITHOUT LIMIT',
   shellLevels: 'CLEAR THE BOARD',
   shellRecords: 'SESSION LOG',

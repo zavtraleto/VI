@@ -11,7 +11,7 @@ import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, l
 import { nextFocus } from './input';
 import type { ShellContext } from './screen';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
-import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText } from './text';
 import { shellDefaults } from './theme';
 import type { Voice } from './voice';
 
@@ -68,7 +68,6 @@ describe('the goal of a level, as the program writes it', () => {
 });
 
 describe('the list of levels', () => {
-  const share = { label: (): PanelName => COMMANDS.share, action: nothing };
   const levels = [
     { passed: true, goal: SEND },
     { passed: false, goal: ORDER },
@@ -76,7 +75,7 @@ describe('the list of levels', () => {
   ];
 
   it('has a cell for every level, with the stars of the ones passed, out of three', () => {
-    const spec = levelsPanel(levels, 1, { onPick: nothing, share, onBack: nothing });
+    const spec = levelsPanel(levels, 1, { onPick: nothing, onBack: nothing });
     const cells = row(spec, 'levels');
     expect(spec.title).toBe(PANELS.levels);
     expect(cells.levels).toEqual([{ stars: 1 }, { stars: 0 }, { stars: 0 }]);
@@ -89,7 +88,7 @@ describe('the list of levels', () => {
         { passed: true, goal: ORDER, stars: 2 },
       ],
       0,
-      { onPick: nothing, share, onBack: nothing },
+      { onPick: nothing, onBack: nothing },
     );
     expect(row(starred, 'levels').levels.map((level) => level.stars)).toEqual([3, 2]);
   });
@@ -98,7 +97,7 @@ describe('the list of levels', () => {
     const fixture = FIXTURE.places;
     const cells = campaignCells({ passed: { F1: true }, stats: { F1: { bestMoves: fixture[0].spec.par } } }, fixture);
     const picked: number[] = [];
-    const items = row(levelsPanel(cells, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels');
+    const items = row(levelsPanel(cells, 0, { onPick: (index) => picked.push(index), onBack: nothing }), 'levels');
     expect(items.levels.length).toBe(fixture.length);
     expect(items.levels[0]).toMatchObject({ stars: 3 });
     expect(items.levels[3]).toMatchObject({ stars: 0 });
@@ -110,7 +109,7 @@ describe('the list of levels', () => {
   });
 
   it('writes the goal of the level in focus in the font of the program', () => {
-    const cells = row(levelsPanel(levels, 0, { onPick: nothing, share, onBack: nothing }), 'levels');
+    const cells = row(levelsPanel(levels, 0, { onPick: nothing, onBack: nothing }), 'levels');
     expect(cells.program).toBe(true);
     expect(cells.note(0)).toBe('SEND 12');
     expect(cells.note(1)).toBe('FACE 2 ×04 · FACE 3 ×06');
@@ -120,40 +119,29 @@ describe('the list of levels', () => {
 
   it('starts the level picked', () => {
     const picked: number[] = [];
-    row(levelsPanel(levels, 0, { onPick: (index) => picked.push(index), share, onBack: nothing }), 'levels').pick(2);
+    row(levelsPanel(levels, 0, { onPick: (index) => picked.push(index), onBack: nothing }), 'levels').pick(2);
     expect(picked).toEqual([2]);
   });
 
-  it('shares the report and leads back to the menu', () => {
-    let shared = 0;
+  it('leads back to the menu, and shares nothing', () => {
     let back = 0;
-    let label: PanelName = COMMANDS.share;
-    const spec = levelsPanel(levels, 0, { onPick: nothing, share: { label: () => label, action: () => shared++ }, onBack: () => back++ });
-    expect(commands(spec)).toEqual(['share', 'back']);
-    const [send, menu] = row(spec, 'commands').commands;
+    const spec = levelsPanel(levels, 0, { onPick: nothing, onBack: () => back++ });
+    expect(commands(spec)).toEqual(['back']);
+    const [menu] = row(spec, 'commands').commands;
     expect(menu.label).toBe(COMMANDS.menu);
-    // The press itself must send: a browser copies only inside one.
-    expect(send.instant).toBe(true);
-    send.action();
     menu.action();
     spec.back?.();
-    expect([shared, back]).toEqual([1, 2]);
-    // The command reads what came of the last sending for as long as the game says so.
-    expect(send.label.name).toBe('SHARE');
-    label = COMMANDS.copied;
-    expect(send.label.name).toBe('COPIED');
-    expect(send.label.native).toBe(COMMANDS.copied.native);
+    expect(back).toBe(2);
   });
 });
 
 describe('a live session in the list of levels', () => {
-  const share = { label: (): PanelName => COMMANDS.share, action: nothing };
-  const live = (best: number | null) => ({ live: { code: 'live-1', best, note: 'Live session' } });
+  const live = (best: number | null) => ({ live: { code: 'live-1', best } });
   const levels = [{ passed: true, goal: SEND }, live(null), { passed: false, goal: ORDER }];
 
   it('stands among the boards with no number: a board picked is told by its index among the boards, a session by its code', () => {
     const picked: (number | string)[] = [];
-    const spec = levelsPanel(levels, 2, { onPick: (index) => picked.push(index), onLive: (code) => picked.push(code), share, onBack: nothing });
+    const spec = levelsPanel(levels, 2, { onPick: (index) => picked.push(index), onLive: (code) => picked.push(code), onBack: nothing });
     const cells = row(spec, 'levels');
     expect(cells.levels).toEqual([{ stars: 1 }, { stars: 0, live: { best: null } }, { stars: 0 }]);
     expect(spec.home).toBe('level-2');
@@ -163,13 +151,13 @@ describe('a live session in the list of levels', () => {
     expect(picked).toEqual([0, 'live-1', 1]);
   });
 
-  it('says its note in the voice, with its best score once it is played', () => {
-    const cells = row(levelsPanel(levels, 0, { onPick: nothing, share, onBack: nothing }), 'levels');
-    expect(cells.note(1)).toBe('Live session');
-    expect(cells.said?.(1)).toBe(true);
-    expect(cells.said?.(0)).toBe(false);
-    const played = row(levelsPanel([live(2471)], 0, { onPick: nothing, share, onBack: nothing }), 'levels');
-    expect(played.note(0)).toBe('Live session · BEST 002471');
+  it('writes LIVE SESSION under it in the font of the program, as a board its goal, and says nothing in the voice', () => {
+    const cells = row(levelsPanel(levels, 0, { onPick: nothing, onBack: nothing }), 'levels');
+    expect(cells.note(1)).toBe('LIVE SESSION');
+    expect(cells.program).toBe(true);
+    expect(cells.said).toBeUndefined();
+    const played = row(levelsPanel([live(2471)], 0, { onPick: nothing, onBack: nothing }), 'levels');
+    expect(played.note(0)).toBe('LIVE SESSION');
     expect(played.levels[0]).toEqual({ stars: 0, live: { best: 2471 } });
   });
 });
@@ -212,16 +200,16 @@ function context(window: Size, ratio: number): ShellContext {
 }
 
 describe('the list of the levels on a screen', () => {
-  const share = { label: (): PanelName => COMMANDS.share, action: nothing };
   const cells = campaignCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: fileBoard('R01').par! }, R02: { bestMoves: 99 } } });
-  const actions = { onPick: nothing, share, onBack: nothing };
+  const actions = { onPick: nothing, onBack: nothing };
 
-  it.each(SCREENS)('fits the window of a %s: the cells in sight from the first and two commands, each large enough for a finger', (_name, window, ratio) => {
+  it.each(SCREENS)('fits the window of a %s: the cells in sight from the first, the arrows where the list scrolls, and the menu, each large enough for a finger', (_name, window, ratio) => {
     const screen = new PanelScreen(context(window, ratio), levelsPanel(cells, 0, actions), true);
     const items = screen.items();
     const shown = items.filter((item) => item.id.startsWith('level-')).length;
     expect(shown).toBeGreaterThan(0);
-    expect(items.map((item) => item.id)).toEqual([...cells.slice(0, shown).map((_, index) => `level-${index}`), 'share', 'back']);
+    const cellIds = cells.slice(0, shown).map((_, index) => `level-${index}`);
+    expect(items.map((item) => item.id)).toEqual(shown < cells.length ? ['scroll-up', ...cellIds, 'scroll-down', 'back'] : [...cellIds, 'back']);
     expect(screen.home).toBe('level-0');
     for (const item of items) {
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
@@ -304,6 +292,30 @@ describe('the list of the levels on a screen', () => {
     expect(screen.items().map((item) => item.id)).toContain(`level-${last}`);
   });
 
+  it('scrolls the list on a phone a page at a time by its arrows, a thin one over the cells and one under them', () => {
+    const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, 0, actions), true);
+    const ids = () => screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.id);
+    const press = (id: string) => screen.items().find((item) => item.id === id)!.action();
+    const first = ids();
+    const [up, down] = ['scroll-up', 'scroll-down'].map((id) => screen.items().find((item) => item.id === id)!.rect);
+    const cellRects = screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.rect);
+    const last = cellRects[cellRects.length - 1];
+    expect(up.width).toBeGreaterThanOrEqual(last.x + last.width - cellRects[0].x - 1);
+    expect(up.y + up.height).toBeLessThanOrEqual(cellRects[0].y);
+    expect(down.y).toBeGreaterThanOrEqual(last.y + last.height);
+    press('scroll-up');
+    expect(ids()).toEqual(first);
+    press('scroll-down');
+    const second = ids();
+    expect(second).not.toEqual(first);
+    // A page: the last row in sight stays in sight, at the top.
+    expect(second).toContain(first[first.length - 1]);
+    for (let i = 0; i < 20; i++) press('scroll-down');
+    expect(ids()).toContain(`level-${cells.length - 1}`);
+    for (let i = 0; i < 20; i++) press('scroll-up');
+    expect(ids()).toEqual(first);
+  });
+
   it('scrolls on a desk too, since the row is a hundred places: most of the cells in sight from the first, the rest a scroll away', () => {
     const screen = new PanelScreen(context(SCREENS[1][1], SCREENS[1][2]), levelsPanel(cells, 0, actions), true);
     const shown = screen.items().filter((item) => item.id.startsWith('level-')).length;
@@ -315,10 +327,9 @@ describe('the list of the levels on a screen', () => {
 });
 
 describe('the list of the levels with its live sessions on a screen', () => {
-  const share = { label: (): PanelName => COMMANDS.share, action: nothing };
   const kept = { passed: { R01: true }, stats: {}, lives: { 'live-2': { best: 24261, plays: 1 } } };
-  const entries = campaignList(kept).map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best, note: 'Live session' } }));
-  const actions = { onPick: nothing, share, onBack: nothing };
+  const entries = campaignList(kept).map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best } }));
+  const actions = { onPick: nothing, onBack: nothing };
 
   it.each(SCREENS)('fits the window of a %s: a cell for every board and session, none over another, each large enough for a finger', (_name, window, ratio) => {
     const screen = new PanelScreen(context(window, ratio), levelsPanel(entries, 0, actions), true);

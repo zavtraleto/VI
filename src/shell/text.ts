@@ -113,6 +113,8 @@ export function digits(value: number, places: number): string {
 
 /** What a live session of the row is called in the list of the levels, where a board has its number. */
 export const LIVE_WORD = 'LIVE';
+/** What the list of the levels writes under the cell of a live session, as it writes the goal of a board. */
+export const LIVE_SESSION = 'LIVE SESSION';
 
 /** A score in four signs at most, where a cell has no more room: 2471, 24K, 710K, 1M. */
 export function shortScore(score: number): string {

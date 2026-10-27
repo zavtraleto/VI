@@ -66,7 +66,6 @@ describe('the language of the player', () => {
       setLanguage(code);
       expect(t('liveIntro').match(/\{[^}]+\}/g), code).toHaveLength(1);
       expect(t('liveIntro').endsWith('}'), code).toBe(true);
-      expect(t('liveNote').length, code).toBeGreaterThan(0);
       expect(t('howLive').length, code).toBeGreaterThan(0);
     }
     setLanguage('en');

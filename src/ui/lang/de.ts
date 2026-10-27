@@ -89,7 +89,6 @@ export const DE: Texts = {
   hintOnesPush: 'Schieb eine Eins zum Combo, dann geht sie mit.',
   campaignEnd: 'Fortsetzung folgt. Bis neue Level kommen, kannst du den {Endlosmodus} ausprobieren.',
   liveIntro: 'Keine Stufe: eine Live-Sitzung. Die Würfel kommen von selbst. Drei Minuten, eigene Wertung. {Überspringen}',
-  liveNote: 'Live-Sitzung: drei Minuten, die Würfel kommen von selbst',
   shellProtocol: 'SITZUNG OHNE LIMIT',
   shellLevels: 'FELDRÄUMUNG',
   shellRecords: 'SITZUNGSPROTOKOLL',

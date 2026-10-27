@@ -89,7 +89,6 @@ export const ES: Texts = {
   hintOnesPush: 'Empuja un uno al combo, y se irá también.',
   campaignEnd: 'Continuará. Mientras llegan nuevos niveles, puedes probar el {modo infinito}.',
   liveIntro: 'No es un nivel: una sesión en directo. Los dados llegan solos. Tres minutos, con su propia puntuación. {Saltar}',
-  liveNote: 'Sesión en directo: tres minutos, los dados llegan solos',
   shellProtocol: 'SESIÓN SIN LÍMITE',
   shellLevels: 'LIMPIEZA DEL CAMPO',
   shellRecords: 'REGISTRO DE SESIONES',

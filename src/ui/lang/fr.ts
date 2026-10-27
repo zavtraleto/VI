@@ -92,7 +92,6 @@ export const FR: Texts = {
   hintOnesPush: 'Pousse un un vers le combo, et il part aussi.',
   campaignEnd: 'À suivre. En attendant de nouveaux niveaux, tu peux essayer le {mode infini}.',
   liveIntro: 'Pas un niveau : une session en direct. Les dés arrivent tout seuls. Trois minutes, un score à part. {Passer}',
-  liveNote: 'Session en direct : trois minutes, les dés arrivent tout seuls',
   shellProtocol: 'SESSION SANS LIMITE',
   shellLevels: 'NETTOYAGE DU CHAMP',
   shellRecords: 'JOURNAL DES SESSIONS',

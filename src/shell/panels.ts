@@ -5,7 +5,7 @@ import type { Climb } from './climb';
 import { textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
 import { README_SAY_SIZE } from './theme';
-import { COMMANDS, GOAL, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { COMMANDS, GOAL, LANGUAGE_NAMES, LIVE_SESSION, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -276,22 +276,10 @@ export function recordsPanel(table: () => RecordsTable, actions: RecordsActions)
   return { title: RECORDS.title, home: 'back', back: actions.onBack, rows };
 }
 
-/** What a command reads, asked for every time it is drawn: the command of sharing answers the last sending for a moment. */
-function liveLabel(label: () => PanelName): PanelName {
-  return {
-    get native() {
-      return label().native;
-    },
-    get name() {
-      return label().name;
-    },
-  };
-}
-
 /** A cell of the list of the levels: a board, or a live session of the row with what is said under it. */
 export type LevelsEntry =
   | { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number }
-  | { live: { code: string; best: number | null; note: string } };
+  | { live: { code: string; best: number | null } };
 
 /**
  * Every board of the campaign in one list, the pieces of the road first: a cell to a board,
@@ -300,14 +288,13 @@ export type LevelsEntry =
  * are written as the readings of a level write them, with nothing counted yet. Every cell is
  * open. A live session of the row (`live`) stands among them with no number: the boards keep
  * theirs, `onPick` is given the index of a board among the boards, and `onLive` the code of a
- * session. Under a session its note is said, in the language of the player, with its best score
- * once it is played. `current` is the index of a cell of the list as it is given.
- * `share` sends out what the player did on the levels, as text: the report of the playtest.
+ * session. Under a session `LIVE SESSION` is written as the goal of a board is, in the font of the
+ * program. `current` is the index of a cell of the list as it is given.
  */
 export function levelsPanel(
   levels: readonly LevelsEntry[],
   current: number,
-  actions: { onPick: (index: number) => void; onLive?: (code: string) => void; share: { label: () => PanelName; action: () => void }; onBack: () => void },
+  actions: { onPick: (index: number) => void; onLive?: (code: string) => void; onBack: () => void },
 ): PanelSpec {
   // The index of every board among the boards, -1 for a live session.
   let boards = 0;
@@ -336,18 +323,14 @@ export function levelsPanel(
         note: (index) => {
           const level = levels[index];
           if (!level) return '';
-          if ('live' in level) return level.live.best === null ? level.live.note : `${level.live.note} · ${word(RESULT.best.name)} ${digits(level.live.best, 6)}`;
+          if ('live' in level) return LIVE_SESSION;
           return level.faces ? `${GOAL.face} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
         },
         program: true,
-        said: (index) => liveOf(index) !== null,
       },
       {
         kind: 'commands',
-        commands: [
-          { id: 'share', label: liveLabel(actions.share.label), action: actions.share.action, instant: true },
-          { id: 'back', label: COMMANDS.menu, action: actions.onBack },
-        ],
+        commands: [{ id: 'back', label: COMMANDS.menu, action: actions.onBack }],
       },
     ],
   };

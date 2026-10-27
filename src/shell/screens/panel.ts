@@ -119,6 +119,10 @@ const LEVELS_TALL = 6;
 const LEVELS_WIDE = 10;
 /** The fewest rows of cells of the levels a panel shows where the list does not fit and scrolls. */
 const LEVELS_SHOWN_MIN = 3;
+/** The zones of the arrows of a list that scrolls, and how tall their bar is drawn, in pixels of the picture. */
+const SCROLL_UP = 'scroll-up';
+const SCROLL_DOWN = 'scroll-down';
+const ARROW_BAR = 6;
 /** Half a blink of the bar of the name, in milliseconds. */
 const BLINK_MS = 110;
 /** Rows a log keeps for the line of the one who plays and the lines next to it. */
@@ -127,6 +131,8 @@ const NEAR_ROWS = 5;
 interface Placed {
   row: PanelRow;
   box: Box;
+  /** Of the list of the levels: the rows of cells in sight. */
+  shown?: number;
 }
 
 /** The cells of the list of the levels as they lie: every cell, the row of the list each is in, and the rows in sight. */
@@ -137,6 +143,9 @@ interface LevelView {
   from: number;
   shown: number;
   rows: number;
+  /** The thin arrows over the cells and under them, where the list scrolls; null where it fits. */
+  up: Box | null;
+  down: Box | null;
 }
 
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
@@ -217,7 +226,7 @@ export class PanelScreen implements ShellScreen {
 
     const left = plate.x + PAD;
     const right = plate.x + plate.w - PAD;
-    for (const { row, box } of placed) {
+    for (const { row, box, shown } of placed) {
       switch (row.kind) {
         case 'field':
           kit.field(named(row.label), typeof row.value === 'function' ? row.value() : row.value, left, right, box.y, dim, ink);
@@ -331,7 +340,7 @@ export class PanelScreen implements ShellScreen {
           let noted = row.current;
           // A live session has no number: the boards are numbered as if it were not there.
           let number = 0;
-          const view = this.levelView(row, box);
+          const view = this.levelView(row, box, shown);
           view.cells.forEach((cell, i) => {
             const { live } = row.levels[i];
             if (!live) number++;
@@ -349,10 +358,8 @@ export class PanelScreen implements ShellScreen {
             kit.text(digits(number, 2), cell.x + cell.w / 2, cell.y + 2, filled ? bg : ink, { align: 'center' });
             this.stars(kit, row.levels[i].stars, cell.x + cell.w / 2, cell.y + cell.h - 7, 4, filled ? bg : ink, filled ? bg : faint, row.marks);
           });
-          // Where rows of cells are out of sight, a broken line at that edge of the list, as a log is cut.
-          const step = this.zone() + GAP;
-          if (view.from > 0) kit.dither(box.x, box.y - GAP / 2 - 1, box.w, 1, dim, 4);
-          if (view.from + view.shown < view.rows) kit.dither(box.x, box.y + view.shown * step - GAP / 2 - 1, box.w, 1, dim, 4);
+          if (view.up) this.arrow(kit, view.up, 'up', focus.focus === SCROLL_UP, view.from > 0);
+          if (view.down) this.arrow(kit, view.down, 'down', focus.focus === SCROLL_DOWN, view.from + view.shown < view.rows);
           const note = row.note(noted);
           const line: Box = { x: left, y: box.y + box.h - CELL_H - 2, w: right - left, h: CELL_H + 2 };
           if (row.program && !row.said?.(noted)) kit.text(note, Math.round(line.x + line.w / 2), line.y + 1, dim, { align: 'center' });
@@ -371,6 +378,24 @@ export class PanelScreen implements ShellScreen {
         case 'gap':
           break;
       }
+    }
+  }
+
+  /**
+   * An arrow of a list that scrolls: a thin bar across the list with a small arrow in its middle,
+   * in the faint tone of a frame, the arrow dim while there are rows that way and faint where there
+   * are none. Its zone is a finger tall; the bar is drawn thin in the middle of it.
+   */
+  private arrow(kit: Kit, zone: Box, dir: 'up' | 'down', on: boolean, more: boolean): void {
+    const { ink, dim, faint } = kit.palette;
+    const bar: Box = { x: zone.x, y: zone.y + Math.round((zone.h - ARROW_BAR) / 2), w: zone.w, h: ARROW_BAR };
+    kit.frame(bar, on ? ink : faint);
+    const centre = Math.round(bar.x + bar.w / 2);
+    const tone = on ? ink : more ? dim : faint;
+    // Four lines of the arrow, the point towards where it scrolls.
+    for (let i = 0; i < 4; i++) {
+      const half = dir === 'up' ? i : 3 - i;
+      kit.rect(centre - half, bar.y + 1 + i, half * 2 + 1, 1, tone);
     }
   }
 
@@ -472,15 +497,37 @@ export class PanelScreen implements ShellScreen {
    * The cells of the list as they stand in its box: the rows out of sight above it are taken off the
    * top, so that the first row in sight lies at the top of the box (`top`, laid out by `plan`).
    */
-  private levelView(row: Extract<PanelRow, { kind: 'levels' }>, box: Box): LevelView {
+  private levelView(row: Extract<PanelRow, { kind: 'levels' }>, box: Box, inSight = Infinity): LevelView {
     const step = this.zone() + GAP;
     const laid = this.levelCells(row, { x: box.x, y: 0, w: box.w, h: 0 });
     const rowOf = laid.map((cell) => Math.round(cell.y / step));
     const rows = rowOf.length === 0 ? 0 : rowOf[rowOf.length - 1] + 1;
-    const shown = Math.min(rows, Math.max(1, Math.floor((box.h - CELL_H - 4) / step)));
+    const shown = Math.max(1, Math.min(rows, inSight));
     const from = Math.max(0, Math.min(this.top ?? 0, rows - shown));
-    const cells = laid.map((cell, i) => ({ ...cell, y: box.y + (rowOf[i] - from) * step }));
-    return { cells, rowOf, from, shown, rows };
+    // Where the list scrolls, a thin arrow over the cells and one under them, across the list.
+    const scrolls = shown < rows;
+    const bar = this.arrowZone();
+    const top = box.y + (scrolls ? bar + GAP : 0);
+    const cells = laid.map((cell, i) => ({ ...cell, y: top + (rowOf[i] - from) * step }));
+    const up = scrolls ? { x: box.x, y: box.y, w: box.w, h: bar } : null;
+    const down = scrolls ? { x: box.x, y: top + shown * step, w: box.w, h: bar } : null;
+    return { cells, rowOf, from, shown, rows, up, down };
+  }
+
+  /** Height of the zone of an arrow of the list: a finger and no more, whatever a line of cells takes. */
+  private arrowZone(): number {
+    const picture = this.context.picture();
+    const zoom = this.context.window().height / Math.max(1, picture.height);
+    return Math.max(ARROW_BAR + 4, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
+  }
+
+  /** An arrow of the list pressed: the list goes a page that way, the last row in sight staying in sight. */
+  private page(dir: 'up' | 'down'): void {
+    const list = this.levels();
+    if (!list) return;
+    const { view } = list;
+    const by = Math.max(1, view.shown - 1);
+    this.top = Math.max(0, Math.min(view.rows - view.shown, view.from + (dir === 'down' ? by : -by)));
   }
 
   private inSight(view: LevelView, index: number): boolean {
@@ -491,7 +538,7 @@ export class PanelScreen implements ShellScreen {
   private levels(): { row: Extract<PanelRow, { kind: 'levels' }>; view: LevelView } | null {
     const placed = this.plan().placed.find((one) => one.row.kind === 'levels');
     if (!placed || placed.row.kind !== 'levels') return null;
-    return { row: placed.row, view: this.levelView(placed.row, placed.box) };
+    return { row: placed.row, view: this.levelView(placed.row, placed.box, placed.shown) };
   }
 
   /** The cell of a row of the list nearest across to a cell, by the middles. */
@@ -599,7 +646,7 @@ export class PanelScreen implements ShellScreen {
         case 'climb':
           return 4 + Math.min(lines, row.lines) * CELL_H;
         case 'levels':
-          return Math.min(this.levelRows(row, inner), shown) * (zone + GAP) + CELL_H + 4;
+          return Math.min(this.levelRows(row, inner), shown) * (zone + GAP) + (shown < this.levelRows(row, inner) ? 2 * (this.arrowZone() + GAP) : 0) + CELL_H + 4;
         case 'stars':
           return CELL_H + 4;
         case 'say': {
@@ -641,7 +688,7 @@ export class PanelScreen implements ShellScreen {
     for (const row of rows) {
       const h = height(row, lines);
       const pressed = row.kind === 'command' || row.kind === 'commands' || row.kind === 'switch' || row.kind === 'tabs';
-      placed.push({ row, box: { x: plate.x + PAD, y, w: inner, h: pressed ? h - GAP : h } });
+      placed.push({ row, box: { x: plate.x + PAD, y, w: inner, h: pressed ? h - GAP : h }, ...(row.kind === 'levels' ? { shown } : {}) });
       y += h;
     }
     return { plate, placed };
@@ -656,7 +703,7 @@ export class PanelScreen implements ShellScreen {
       const sy = window.height / Math.max(1, picture.height);
       return { x: box.x * sx, y: box.y * sy, width: box.w * sx, height: box.h * sy };
     };
-    for (const { row, box } of this.plan().placed) {
+    for (const { row, box, shown } of this.plan().placed) {
       if (row.kind === 'command') items.push({ id: row.id, rect: toWindow(box), action: row.action, instant: row.instant });
       else if (row.kind === 'switch') items.push({ id: row.id, rect: toWindow(box), action: row.action });
       else if (row.kind === 'commands') {
@@ -667,10 +714,12 @@ export class PanelScreen implements ShellScreen {
         const count = row.labels().length;
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });
       } else if (row.kind === 'levels') {
-        const view = this.levelView(row, box);
+        const view = this.levelView(row, box, shown);
+        if (view.up) items.push({ id: SCROLL_UP, rect: toWindow(view.up), action: () => this.page('up') });
         view.cells.forEach((cell, i) => {
           if (this.inSight(view, i)) items.push({ id: `${row.id}-${i}`, rect: toWindow(cell), action: () => row.pick(i) });
         });
+        if (view.down) items.push({ id: SCROLL_DOWN, rect: toWindow(view.down), action: () => this.page('down') });
       }
     }
     return items;

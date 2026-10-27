@@ -89,7 +89,6 @@ export const TR: Texts = {
   hintOnesPush: 'Bir biri gidenlere it, o da gider.',
   campaignEnd: 'Devamı gelecek. Yeni bölümler gelene kadar {sonsuz modu} deneyebilirsin.',
   liveIntro: 'Bu bir seviye değil: canlı bir oturum. Zarlar kendiliğinden gelir. Üç dakika, puanı ayrı sayılır. {Atla}',
-  liveNote: 'Canlı oturum: üç dakika, zarlar kendiliğinden gelir',
   shellProtocol: 'SÜRESİZ OTURUM',
   shellLevels: 'ALAN TEMİZLİĞİ',
   shellRecords: 'OTURUM KAYDI',
