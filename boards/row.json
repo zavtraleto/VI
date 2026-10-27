@@ -183,7 +183,7 @@
         { "board": "dd-13-stone-row", "role": "apply", "archetype": "stone row", "emotion": "mastery" },
         { "board": "dd-19-three-threes-apart", "role": "apply", "archetype": "three apart", "emotion": "recognition" },
         { "board": "three-moves-2", "role": "peak", "archetype": "three moves: glass, ones, two faces", "emotion": "fiero" },
-        { "board": "tight-room-4", "role": "apply", "archetype": "tight room, two faces", "emotion": "mastery" },
+        { "board": "tight-room-4", "role": "twist", "archetype": "tight room", "emotion": "mastery", "note": "the tight room of the chapter ninety comes back as a twist (rule 3): two faces, a link, a walk and a roll in on seven dice" },
         { "board": "last-rest-1", "role": "rest", "archetype": "ready heap", "emotion": "gift" },
         { "board": "finale-1", "role": "peak", "archetype": "everything", "emotion": "fiero", "note": "the hundredth place, the peak of the campaign" }
       ]

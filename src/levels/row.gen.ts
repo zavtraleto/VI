@@ -8728,8 +8728,8 @@ export const ROW: Row = {
           "1,1,E"
         ]
       },
-      "role": "apply",
-      "archetype": "tight room, two faces",
+      "role": "twist",
+      "archetype": "tight room",
       "emotion": "mastery",
       "help": {}
     },
