@@ -29,7 +29,7 @@ describe('the plaques of a level as a hint', () => {
     expect(comboHints(dead).groups).toEqual([]);
   });
 
-  it('stand along the way of every place of the row only over a heap the next roll completes on a shortest way, and never under the player', () => {
+  it('stand along the way of every place of the row only over a heap the next roll completes on a shortest way, and never under the player', { timeout: 120_000 }, () => {
     for (const { spec } of CAMPAIGN) {
       let state = start(spec);
       for (const text of spec.solution!) {

@@ -160,6 +160,33 @@
         { "board": "dd-72-fours-and-one", "role": "apply", "archetype": "fixed die in a combo", "emotion": "flow" },
         { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" }
       ]
+    },
+    {
+      "title": "ninety",
+      "floor": "open",
+      "places": [
+        { "board": "ones-over-leaving-1", "role": "apply", "archetype": "ones over leaving", "emotion": "surprise" },
+        { "board": "act-k21", "role": "apply", "archetype": "hidden threes, roll back", "emotion": "insight" },
+        { "board": "tight-room-5", "role": "apply", "archetype": "tight room", "emotion": "recognition" },
+        { "board": "three-moves-1", "role": "peak", "archetype": "three moves: floor, link, order", "emotion": "fiero" },
+        { "board": "dd-20-chain-on-the-run", "role": "event", "archetype": "a long chain with a choice", "emotion": "flow", "event": "a long chain with a choice" },
+        { "board": "tight-room-1", "role": "apply", "archetype": "tight room", "emotion": "trick", "note": "a combo on the first move loses the board: the first-move trap after trap-5 (81), ten places on" },
+        { "board": "rescue-4", "role": "rest", "archetype": "the last four pushed in", "emotion": "gift" }
+      ]
+    },
+    {
+      "title": "hundred",
+      "floor": "open",
+      "places": [
+        { "board": "ones-broom-below-1", "role": "twist", "archetype": "broom below", "emotion": "insight" },
+        { "board": "collapse-after-prep-1", "role": "event", "archetype": "collapse after preparation", "emotion": "payoff", "event": "the board clears at once" },
+        { "board": "dd-13-stone-row", "role": "apply", "archetype": "stone row", "emotion": "mastery" },
+        { "board": "dd-19-three-threes-apart", "role": "apply", "archetype": "three apart", "emotion": "recognition" },
+        { "board": "three-moves-2", "role": "peak", "archetype": "three moves: glass, ones, two faces", "emotion": "fiero" },
+        { "board": "tight-room-4", "role": "apply", "archetype": "tight room, two faces", "emotion": "mastery" },
+        { "board": "last-rest-1", "role": "rest", "archetype": "ready heap", "emotion": "gift" },
+        { "board": "finale-1", "role": "peak", "archetype": "everything", "emotion": "fiero", "note": "the hundredth place, the peak of the campaign" }
+      ]
     }
   ],
   "lives": [
@@ -168,6 +195,7 @@
     { "after": "collapse-3", "step": 3 },
     { "after": "dd-09-push-link", "step": 4, "note": "about the 56th place, after a rest; step 4" },
     { "after": "rescue-1", "step": 5, "note": "about the 71st place, after a rest; step 5" },
-    { "after": "P06", "step": 6, "note": "about the 85th place, the end of the chapter eighty; step 6" }
+    { "after": "P06", "step": 6, "note": "about the 85th place, the end of the chapter eighty; step 6" },
+    { "after": "rescue-4", "step": 7, "note": "about the 92nd place, after a rest and the end of the chapter ninety; step 7" }
   ]
 }

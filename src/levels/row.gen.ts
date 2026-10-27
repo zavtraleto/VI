@@ -93,6 +93,20 @@ export const ROW: Row = {
       "faces": null,
       "first": 76,
       "last": 84
+    },
+    {
+      "id": 13,
+      "title": "ninety",
+      "faces": null,
+      "first": 85,
+      "last": 91
+    },
+    {
+      "id": 14,
+      "title": "hundred",
+      "faces": null,
+      "first": 92,
+      "last": 99
     }
   ],
   "places": [
@@ -7551,6 +7565,1349 @@ export const ROW: Row = {
       "archetype": "down and back",
       "emotion": "fiero",
       "help": {}
+    },
+    {
+      "number": 86,
+      "chapter": 13,
+      "code": "ones-over-leaving-1",
+      "spec": {
+        "id": "ones-over-leaving-1",
+        "seed": 0,
+        "size": 5,
+        "holes": [
+          {
+            "x": 4,
+            "z": 0
+          },
+          {
+            "x": 4,
+            "z": 1
+          },
+          {
+            "x": 4,
+            "z": 2
+          },
+          {
+            "x": 4,
+            "z": 3
+          },
+          {
+            "x": 4,
+            "z": 4
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          1,
+          2
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          1,
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 1,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 1,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 4,
+              "top": 1,
+              "north": 2
+            }
+          ]
+        },
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "2,2,W",
+          "0,1,E",
+          "1,1,E",
+          "2,1,S"
+        ]
+      },
+      "role": "apply",
+      "archetype": "ones over leaving",
+      "emotion": "surprise",
+      "help": {}
+    },
+    {
+      "number": 87,
+      "chapter": 13,
+      "code": "act-k21",
+      "spec": {
+        "id": "act-k21",
+        "seed": 0,
+        "size": 3,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 6,
+              "north": 4
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "1,1,S",
+          "2,1,W",
+          "2,2,N",
+          "1,1,W",
+          "1,2,N"
+        ]
+      },
+      "role": "apply",
+      "archetype": "hidden threes, roll back",
+      "emotion": "insight",
+      "help": {}
+    },
+    {
+      "number": 88,
+      "chapter": 13,
+      "code": "tight-room-5",
+      "spec": {
+        "id": "tight-room-5",
+        "seed": 30402,
+        "size": 3,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 0,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 0,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 5,
+              "north": 4
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
+              "north": 6
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "2,1,N",
+          "1,2,N",
+          "1,1,E",
+          "0,1,E",
+          "1,1,S",
+          "0,2,N"
+        ]
+      },
+      "role": "apply",
+      "archetype": "tight room",
+      "emotion": "recognition",
+      "help": {}
+    },
+    {
+      "number": 89,
+      "chapter": 13,
+      "code": "three-moves-1",
+      "spec": {
+        "id": "three-moves-1",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 8,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 4,
+              "z": 0,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 4,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 0,
+              "z": 4,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 4,
+              "top": 3,
+              "north": 6
+            }
+          ]
+        },
+        "par": 7,
+        "exact": true,
+        "solution": [
+          "2,2,E",
+          "3,2,N",
+          "3,1,N",
+          "4,2,N,p",
+          "4,1,W",
+          "0,2,S,p",
+          "3,3,W,p"
+        ]
+      },
+      "role": "peak",
+      "archetype": "three moves: floor, link, order",
+      "emotion": "fiero",
+      "help": {}
+    },
+    {
+      "number": 90,
+      "chapter": 13,
+      "code": "dd-20-chain-on-the-run",
+      "spec": {
+        "id": "dd-20-chain-on-the-run",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          1,
+          2
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          1,
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 1,
+              "top": 1,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 4,
+              "top": 1,
+              "north": 4
+            }
+          ]
+        },
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "2,1,E",
+          "2,2,N",
+          "3,2,W",
+          "1,1,S,p",
+          "3,3,N,p"
+        ]
+      },
+      "role": "event",
+      "archetype": "a long chain with a choice",
+      "emotion": "flow",
+      "event": "a long chain with a choice",
+      "help": {}
+    },
+    {
+      "number": 91,
+      "chapter": 13,
+      "code": "tight-room-1",
+      "spec": {
+        "id": "tight-room-1",
+        "seed": 30471,
+        "size": 3,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 0,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 5,
+              "north": 4
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 5,
+              "north": 1
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "1,1,E",
+          "2,1,S",
+          "0,1,E",
+          "0,2,N",
+          "1,2,N",
+          "1,1,E"
+        ]
+      },
+      "role": "apply",
+      "archetype": "tight room",
+      "emotion": "trick",
+      "help": {}
+    },
+    {
+      "number": 92,
+      "chapter": 13,
+      "code": "rescue-4",
+      "spec": {
+        "id": "rescue-4",
+        "seed": 30615,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 4,
+              "north": 1
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "1,2,E",
+          "2,2,E",
+          "1,0,E,p",
+          "2,0,E,p"
+        ]
+      },
+      "role": "rest",
+      "archetype": "the last four pushed in",
+      "emotion": "gift",
+      "help": {}
+    },
+    {
+      "number": 93,
+      "chapter": 14,
+      "code": "ones-broom-below-1",
+      "spec": {
+        "id": "ones-broom-below-1",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          1,
+          2
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          1,
+          2
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 1,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 1,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 4,
+              "top": 1,
+              "north": 4
+            }
+          ]
+        },
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "2,1,E",
+          "2,2,N",
+          "2,1,W",
+          "3,1,W,p",
+          "3,2,N,p"
+        ]
+      },
+      "role": "twist",
+      "archetype": "broom below",
+      "emotion": "insight",
+      "help": {}
+    },
+    {
+      "number": 94,
+      "chapter": 14,
+      "code": "collapse-after-prep-1",
+      "spec": {
+        "id": "collapse-after-prep-1",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          6
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          6
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 6,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 4,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 2,
+              "north": 1
+            }
+          ]
+        },
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "3,2,N",
+          "2,2,S",
+          "2,3,W",
+          "1,3,N",
+          "1,2,N"
+        ]
+      },
+      "role": "event",
+      "archetype": "collapse after preparation",
+      "emotion": "payoff",
+      "event": "the board clears at once",
+      "help": {}
+    },
+    {
+      "number": 95,
+      "chapter": 14,
+      "code": "dd-13-stone-row",
+      "spec": {
+        "id": "dd-13-stone-row",
+        "seed": 0,
+        "size": 5,
+        "holes": [
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 4,
+            "z": 3
+          },
+          {
+            "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
+            "z": 4
+          },
+          {
+            "x": 4,
+            "z": 4
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 3,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 3,
+              "north": 5
+            }
+          ]
+        },
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "2,2,N",
+          "2,1,E",
+          "3,1,N",
+          "3,0,W",
+          "2,0,S",
+          "2,1,S"
+        ]
+      },
+      "role": "apply",
+      "archetype": "stone row",
+      "emotion": "mastery",
+      "help": {}
+    },
+    {
+      "number": 96,
+      "chapter": 14,
+      "code": "dd-19-three-threes-apart",
+      "spec": {
+        "id": "dd-19-three-threes-apart",
+        "seed": 0,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3
+        ],
+        "norm": 3,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 0
+          },
+          "dice": [
+            {
+              "x": 3,
+              "z": 0,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 1,
+              "fixed": true
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            }
+          ]
+        },
+        "par": 7,
+        "exact": true,
+        "solution": [
+          "3,0,S",
+          "3,1,S",
+          "3,2,W",
+          "1,2,W",
+          "0,2,N",
+          "0,1,E",
+          "2,2,W"
+        ]
+      },
+      "role": "apply",
+      "archetype": "three apart",
+      "emotion": "recognition",
+      "help": {}
+    },
+    {
+      "number": 97,
+      "chapter": 14,
+      "code": "three-moves-2",
+      "spec": {
+        "id": "three-moves-2",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          1,
+          2,
+          4
+        ],
+        "norm": 9,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          1,
+          2,
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 4,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 4,
+              "z": 0,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 4,
+              "z": 1,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 1,
+              "north": 4
+            },
+            {
+              "x": 4,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 1,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 4,
+              "z": 3,
+              "top": 2,
+              "north": 4
+            }
+          ]
+        },
+        "par": 7,
+        "exact": true,
+        "solution": [
+          "3,2,S",
+          "4,2,W",
+          "4,3,N,p",
+          "4,0,S",
+          "4,1,S",
+          "4,2,W",
+          "3,2,W"
+        ]
+      },
+      "role": "peak",
+      "archetype": "three moves: glass, ones, two faces",
+      "emotion": "fiero",
+      "help": {}
+    },
+    {
+      "number": 98,
+      "chapter": 14,
+      "code": "tight-room-4",
+      "spec": {
+        "id": "tight-room-4",
+        "seed": 31888,
+        "size": 3,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 0
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 0,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
+              "north": 6
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "0,1,N",
+          "1,2,N",
+          "1,1,W",
+          "2,1,W",
+          "1,0,S",
+          "1,1,E"
+        ]
+      },
+      "role": "apply",
+      "archetype": "tight room, two faces",
+      "emotion": "mastery",
+      "help": {}
+    },
+    {
+      "number": 99,
+      "chapter": 14,
+      "code": "last-rest-1",
+      "spec": {
+        "id": "last-rest-1",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          5
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          5
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 1,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 5,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 4,
+              "north": 6
+            }
+          ]
+        },
+        "par": 2,
+        "exact": true,
+        "solution": [
+          "3,2,S",
+          "3,3,W"
+        ]
+      },
+      "role": "rest",
+      "archetype": "ready heap",
+      "emotion": "gift",
+      "help": {}
+    },
+    {
+      "number": 100,
+      "chapter": 14,
+      "code": "finale-1",
+      "spec": {
+        "id": "finale-1",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 9,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 4,
+              "z": 0,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 1,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 4,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 4,
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 4,
+              "top": 3,
+              "north": 5
+            }
+          ]
+        },
+        "par": 8,
+        "exact": true,
+        "solution": [
+          "0,1,E",
+          "1,1,E",
+          "2,1,E",
+          "3,2,S",
+          "3,3,W",
+          "3,1,N,p",
+          "3,4,W,p",
+          "0,2,S,p"
+        ]
+      },
+      "role": "peak",
+      "archetype": "everything",
+      "emotion": "fiero",
+      "help": {}
     }
   ],
   "lives": [
@@ -7583,6 +8940,11 @@ export const ROW: Row = {
       "code": "live-6",
       "step": 6,
       "after": 84
+    },
+    {
+      "code": "live-7",
+      "step": 7,
+      "after": 91
     }
   ]
 };

@@ -304,10 +304,13 @@ describe('the list of the levels on a screen', () => {
     expect(screen.items().map((item) => item.id)).toContain(`level-${last}`);
   });
 
-  it('does not scroll on a desk, where every cell is in sight', () => {
+  it('scrolls on a desk too, since the row is a hundred places: most of the cells in sight from the first, the rest a scroll away', () => {
     const screen = new PanelScreen(context(SCREENS[1][1], SCREENS[1][2]), levelsPanel(cells, 0, actions), true);
-    expect(screen.items().filter((item) => item.id.startsWith('level-'))).toHaveLength(cells.length);
-    expect(screen.scroll('down', 400, 'level-0')).toBeNull();
+    const shown = screen.items().filter((item) => item.id.startsWith('level-')).length;
+    expect(shown).toBeLessThan(cells.length);
+    expect(shown).toBeGreaterThanOrEqual(80);
+    screen.scroll('down', 4000, 'level-0');
+    expect(screen.items().map((item) => item.id)).toContain(`level-${cells.length - 1}`);
   });
 });
 
@@ -322,7 +325,7 @@ describe('the list of the levels with its live sessions on a screen', () => {
     const items = screen.items().filter((item) => item.id.startsWith('level-'));
     expect(items.length).toBeGreaterThan(0);
     expect(items.length).toBeLessThanOrEqual(entries.length);
-    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(6);
+    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(7);
     for (const item of items) {
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
