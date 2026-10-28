@@ -17,10 +17,8 @@ describe('the depth of a board', () => {
     const r03 = depth('R03');
     expect(r03.complete).toBe(true);
     expect(r03.ways).toBe(1);
-    // The spec looked for one fork at most. By the measure as it is defined there are two: the last
-    // move of each of the two mirrored ways, where the clearing roll and the roll back both look good.
-    // Forks are boards, and the boards of a way and of its mirror are not the same boards.
-    expect(r03.forks).toBe(2);
+    // The roll back from the last board of either way undoes the move before it: it is no choice.
+    expect(r03.forks).toBeLessThanOrEqual(1);
     expect(r03.lossAt).toBeNull();
     expect(r03.lostShare).toBe(0);
   });
@@ -31,13 +29,10 @@ describe('the depth of a board', () => {
     expect(depth('P07').lossAt).toBe(3);
   });
 
-  it('has one way on tight-room-4, the first two moves taken either way', () => {
+  it('has one way on tight-room-4, the first two moves taken either way, and fewer forks than its par', () => {
     const tight = depth('tight-room-4');
     expect(tight.ways).toBe(1);
-    // The spec looked for fewer forks than par (6). There are six: the start is none, since either of the
-    // first two moves keeps par, but each of the two boards after it is one, and so are the four after
-    // the second move, where one move keeps par and moves of another die lose nothing within two moves.
-    expect(tight.forks).toBe(6);
+    expect(tight.forks).toBeLessThan(6);
   });
 
   it('keeps slack within the moves it looks past par, and no fewer long ways than shortest', () => {

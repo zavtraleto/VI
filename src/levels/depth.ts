@@ -30,7 +30,10 @@ export const LOSS_SOLVE_STATES = 50_000;
 
 export interface Depth {
   par: number;
-  /** Boards on the shortest ways where two moves or more look good and just one of them keeps the way short. */
+  /**
+   * Boards on the shortest ways where two moves or more look good and just one of them keeps the way
+   * short. A move looks good when it does not lose the board within two moves and is not undone by one.
+   */
   forks: number;
   /** Shortest ways, told apart up to moves of other dice made in another order and up to a turn or a mirror of the board. */
   ways: number;
@@ -488,8 +491,15 @@ export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: numbe
   const lostShare = near.length > 0 ? (lostKnown + lostOpen) / near.length : 0;
 
   // The forks: boards on the shortest ways with two good-looking moves or more and one that keeps the way short.
+  // A move looks good when the board after it is not lost within two moves and the move is not simply
+  // undone: no one move from the board it leads to comes back. Rolls can be taken back, so on a tight
+  // board nearly every move is not lost in two; counted as choices, they made every board of a lone way
+  // a fork, and the forks only said the par again (section 3 of the spec: forks are not to repeat par).
+  // A move that clears always looks good. Where the board a move leads to was not walked, it is not known
+  // to be undone.
   const lostWithin = (at: number, moves: number): boolean =>
     g.end[at] !== null || (moves > 0 && g.expanded[at] && !g.to[at].includes(-1) && g.to[at].every((to) => lostWithin(to, moves - 1)));
+  const undone = (at: number, to: number): boolean => g.to[to].includes(at);
   let forks = 0;
   if (shortest > 0) {
     for (let at = 0; at < n; at++) {
@@ -498,7 +508,7 @@ export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: numbe
       let good = 0;
       for (const to of g.to[at]) {
         if (to === -1 ? toClear[at] === 1 : toClear[to] >= 1 && toClear[to] === toClear[at] - 1) keep++;
-        if (to === -1 || !lostWithin(to, 2)) good++;
+        if (to === -1 || (!lostWithin(to, 2) && !undone(at, to))) good++;
       }
       if (good >= 2 && keep === 1) forks++;
     }
