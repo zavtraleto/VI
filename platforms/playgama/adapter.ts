@@ -187,6 +187,9 @@ export const platform = {
       finish();
     }
   },
+  get interstitialSupported() {
+    return sdk?.advertisement.isInterstitialSupported ?? false;
+  },
   get rewardedSupported() {
     return sdk?.advertisement.isRewardedSupported ?? false;
   },

@@ -231,6 +231,8 @@ export const COMMANDS = {
   skip: { native: '省略', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
   undo: { native: '取消', name: 'UNDO' },
+  /** The move taken back that brings an advertisement of the platform after it says so. */
+  undoAd: { native: '取消', name: 'UNDO · AD' },
   /** "Registration": the platform gives the player a name. */
   register: { native: '登録', name: 'REGISTER' },
   /** "Sharing": the player's result goes out with a link to the game. What it answers: "copied", "sent", "failure". */

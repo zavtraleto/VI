@@ -177,6 +177,11 @@ export interface HudTools {
   retryOnly?: boolean;
   /** How many moves can still be taken back, where they are counted: the number stands after the word of the button. */
   left?: number;
+  /**
+   * How many moves taken back are still to come before the advertisement, the one that brings it
+   * counted, where the platform shows one: the number stands after the word, and the last one reads `UNDO · AD`.
+   */
+  untilAd?: number;
   /** The player has turned the sound off: the button of the sound is crossed out. */
   muted: boolean;
 }
@@ -1454,10 +1459,15 @@ export class GameHud {
     return undoButton({ ...room, h: pad.y - room.y }, kit.zoom, word, edge);
   }
 
-  /** The word of the button, and after it how many moves are left to take back, where they are counted. */
+  /**
+   * The word of the button, and after it how many moves are left to take back, where they are
+   * counted, or how many are to come before the advertisement; the one that brings it says so.
+   */
   private undoWord(tools: HudTools): string {
+    if (tools.untilAd === 1) return word(COMMANDS.undoAd.name);
     const name = word(COMMANDS.undo.name);
-    return tools.left === undefined ? name : `${name} ${tools.left}`;
+    const count = tools.untilAd ?? tools.left;
+    return count === undefined ? name : `${name} ${count}`;
   }
 
   /**

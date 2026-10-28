@@ -441,6 +441,14 @@ export const BOARD_GROUPS = {
     dropMs: number(300, 80, 800, 10),
     dropCurve: number(0, 0, 2, 1),
     /**
+     * A die the rules hold where a new die has joined its chain is never shown lower than the last
+     * step (`leaveLast`): one held in its last move comes back up to it in `holdRiseMs`, and goes on
+     * down from it in `holdFallMs` once it is let go, so a die almost gone that still counts reads
+     * as one the figure can climb (the owner, 28 October 2026).
+     */
+    holdRiseMs: number(220, 0, 800, 10),
+    holdFallMs: number(160, 0, 600, 10),
+    /**
      * The last combo of a board: every die of the board flashes at once, on one chord; they stand
      * lit for `finaleHangMs`, and go under the floor together in `finaleDropMs`, slowly at first,
      * with the one ring of the combo, made when it flashes.

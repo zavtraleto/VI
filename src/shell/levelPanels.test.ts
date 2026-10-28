@@ -5,9 +5,10 @@ import { fileBoard } from '../levels/boardFiles';
 import { campaignCells, campaignList } from '../levels/campaign';
 import { FIXTURE } from '../levels/rowFixture';
 import { MIN_ZONE, pictureSize, textWidth } from './layout';
-import { LANGUAGES, setLanguage } from '../ui/i18n';
+import { LANGUAGES, setLanguage, word } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
 import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel } from './panels';
+import { Climb } from './climb';
 import { nextFocus } from './input';
 import type { ShellContext } from './screen';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
@@ -163,17 +164,31 @@ describe('a live session in the list of levels', () => {
 });
 
 describe('the result of a live session', () => {
-  it('reads its score, its best and its chain, and leads again, on, or to the menu: no log, no records', () => {
+  it('reads its score, its best and its chain, and leads again, on, or to the menu', () => {
     const done: string[] = [];
     const spec = liveResultPanel({ score: 1200, best: 2471, maxChain: 5 }, { onAgain: () => done.push('again'), onNext: () => done.push('next'), onMenu: () => done.push('menu') });
     expect(spec.title).toBe(PANELS.result);
     expect(spec.home).toBe('next');
     expect(row(spec, 'number')).toMatchObject({ label: RESULT.score, value: 1200 });
-    expect(spec.rows.filter((one) => one.kind === 'field').map((one) => (one as { value: string }).value)).toEqual(['002471', '×05']);
+    const value = (one: PanelRow): string => {
+      const { value } = one as { value: string | (() => string) };
+      return typeof value === 'function' ? value() : value;
+    };
+    expect(spec.rows.filter((one) => one.kind === 'field').map(value)).toEqual(['002471', '×05']);
     expect(spec.rows.some((one) => one.kind === 'climb' || one.kind === 'standing')).toBe(false);
     expect(commands(spec)).toEqual(['again', 'next', 'menu']);
     for (const command of row(spec, 'commands').commands) command.action();
     expect(done).toEqual(['again', 'next', 'menu']);
+  });
+  it('goes up the log of its session where it is given one, as a session of Endless does, the best shown as it was until the place is taken', () => {
+    const climb = new Climb({ lines: [{ name: 'Teal Otter', score: 3000, own: false }, { name: 'YOU', score: 900, own: true }], score: 1200, name: 'YOU', record: true, reduced: true });
+    const spec = liveResultPanel({ score: 1200, best: 1200, before: 900, maxChain: 5 }, { onAgain: nothing, onNext: nothing, onMenu: nothing }, climb);
+    expect(spec.rows.map((one) => one.kind).slice(0, 2)).toEqual(['standing', 'climb']);
+    expect(spec.home).toBe('next');
+    climb.update(0);
+    climb.update(60_000);
+    expect(climb.done).toBe(true);
+    expect(typeof spec.title === 'function' ? spec.title() : spec.title).toBe(PANELS.record);
   });
 });
 
@@ -198,6 +213,37 @@ function context(window: Size, ratio: number): ShellContext {
     focus: nothing,
   };
 }
+
+describe('the result of a live session on a screen', () => {
+  const lines = Array.from({ length: 60 }, (_, i) => ({ name: `Player ${i}`, score: 6000 - i * 100, own: false }));
+
+  it.each(SCREENS)('fits the window of a %s in every language, with its log and four commands, no word over the edge of its command and no command over another', (_name, window, ratio) => {
+    for (const language of LANGUAGES) {
+      setLanguage(language);
+      const climb = new Climb({ lines, score: 2471, name: 'YOU', record: true, reduced: true });
+      const spec = liveResultPanel({ score: 2471, best: 2471, before: 0, maxChain: 6 }, { onAgain: nothing, onNext: nothing, onMenu: nothing, onDouble: nothing }, climb);
+      const shown = context(window, ratio);
+      const screen = new PanelScreen(shown, spec, false);
+      const items = screen.items();
+      expect(items.map((item) => item.id).sort(), language).toEqual(['again', 'double', 'menu', 'next']);
+      const scale = window.width / shown.picture().width;
+      for (const item of items) {
+        expect(item.rect.y + item.rect.height, language).toBeLessThanOrEqual(window.height);
+        const command = [COMMANDS.again, COMMANDS.next, COMMANDS.double, COMMANDS.menu][['again', 'next', 'double', 'menu'].indexOf(item.id)];
+        expect(textWidth(word(command.name)) * scale, `${language} ${item.id}`).toBeLessThanOrEqual(item.rect.width - 20 * scale + 1e-6);
+      }
+      for (let a = 0; a < items.length; a++) {
+        for (let b = a + 1; b < items.length; b++) {
+          const one = items[a].rect;
+          const other = items[b].rect;
+          const apart = one.x + one.width <= other.x || other.x + other.width <= one.x || one.y + one.height <= other.y || other.y + other.height <= one.y;
+          expect(apart, language).toBe(true);
+        }
+      }
+    }
+    setLanguage('en');
+  });
+});
 
 describe('the list of the levels on a screen', () => {
   const cells = campaignCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: fileBoard('R01').par! }, R02: { bestMoves: 99 } } });

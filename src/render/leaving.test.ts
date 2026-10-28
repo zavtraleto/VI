@@ -92,7 +92,7 @@ describe('the height a die that leaves a level is shown at', () => {
   });
 });
 
-describe('the leaving of a group on a level: gentle, and only ever down', () => {
+describe('the leaving of a group on a level: gentle, and down but for a die held in its last move', () => {
   const values = boardDefaults();
   const noDip = (): number => 0;
 
@@ -232,6 +232,27 @@ describe('the leaving of a group on a level: gentle, and only ever down', () => 
     for (const height of pair) expect(height).toBeCloseTo(0.75);
     expect(show.height(c, state, 0, values)).toBeCloseTo(0.75);
     expect(kinds).toEqual([]);
+  });
+
+  it('brings a die held in its last move up to the last step, and lets it on down from there once the rules let it go', () => {
+    const { state, a, b, show } = sentPair();
+    show.frame(state, 0, false, noDip);
+    run(show, state, a, 400);
+    // Half through its last move: almost gone into the floor.
+    a.t = b.t = 1 + 5 * state.config.actionTicks + state.config.actionTicks / 2;
+    const low = run(show, state, a, 50).at(-1)!;
+    expect(low).toBeLessThan(0.2);
+    // A die joins the chain: the rules hold the pair where it is.
+    a.hold = b.hold = 2 * state.config.actionTicks;
+    const rising = run(show, state, a, 400);
+    for (let i = 1; i < rising.length; i++) expect(rising[i], `frame ${i}`).toBeGreaterThanOrEqual(rising[i - 1] - 1e-9);
+    expect(rising.at(-1)).toBeCloseTo(0.3);
+    // Let go: down from the last step, with no jump.
+    a.hold = b.hold = 0;
+    const falling = run(show, state, a, 400);
+    neverUp(falling);
+    for (let i = 1; i < falling.length; i++) expect(falling[i - 1] - falling[i], `frame ${i}`).toBeLessThan(0.05);
+    expect(falling.at(-1)).toBeCloseTo(low);
   });
 
   it('goes on down without a jump when the next roll lands before it has come to its step', () => {

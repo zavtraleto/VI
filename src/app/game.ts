@@ -64,7 +64,7 @@ import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
 import { readmePages } from '../ui/readme';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
-import { endlessArchive } from './archive';
+import { endlessArchive, liveArchive } from './archive';
 import { clockLeft, secondsLeft } from './clock';
 import { Hints } from './hints';
 import { shortOf } from './levelStats';
@@ -1021,6 +1021,8 @@ export class Game {
     const { state } = this;
     const live = this.live!;
     if (import.meta.env.DEV) this.lastStats = statsText(state);
+    // The best of this session before this play: the log of it is shown as it stood then, and the play goes up it.
+    const previous = this.settings.levels.lives[live.code]?.best ?? 0;
     const stat = noteLive(this.settings, live.code, state.score);
     saveSettings(this.settings);
     const summary: EventData = { ...this.step(), ...runSummary(state, this.tally), ticks: state.tick };
@@ -1058,19 +1060,35 @@ export class Game {
         if (!gone) show();
       });
     };
-    const show = (): void =>
+    const show = (): void => {
+      // The score goes up the log of this session (the owner, 28 October 2026); doubled, it goes up it again.
+      const score = doubled ? state.score * 2 : state.score;
+      const name = this.ownName();
+      const climb = new Climb(
+        {
+          lines: standings(liveArchive(live.step, platform.now()), [], { name, score: previous }),
+          score,
+          name,
+          record: score > previous,
+          reduced: prefersReducedMotion(this.settings),
+          leadMs: CLIMB_LEAD_MS,
+        },
+        (event) => this.audio.ui(event),
+      );
       this.shell.showPanel(
         liveResultPanel(
-          { score: state.score, best: stat.best, maxChain: state.maxChain, doubled },
+          { score: state.score, best: stat.best, before: previous, maxChain: state.maxChain, doubled },
           {
             onAgain: () => answered(() => this.startLive(live, this.liveFrom)),
             onNext: () => answered(() => this.afterLive(live)),
             onMenu: () => answered(() => this.showMenu()),
             onDouble: offered ? double : undefined,
           },
+          climb,
         ),
         false,
       );
+    };
     show();
   }
 
@@ -2019,7 +2037,10 @@ export class Game {
 
   private showPause(): void {
     const onWay = this.wayOffered() ? () => this.askWay() : undefined;
-    this.shell.showPanel(pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu(), onWay }), false);
+    this.shell.showPanel(
+      pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu(), onWay, onSystem: () => this.showSystem(() => this.showPause()) }),
+      false,
+    );
   }
 
   /** Asks the platform for its table of players. The log is drawn again when it comes. */
@@ -2577,7 +2598,14 @@ export class Game {
       tools: levelRun
         ? this.undoable
           ? // A dead end is left by taking the move back: no window comes, and the button is the one to press.
-            { canUndo: this.history.length > 0 && !this.rewind && this.undosLeft > 0, urgent: this.state.over && deadEnd(this.state), left: UNDO_LIMIT === null ? undefined : this.undosLeft, muted: this.settings.muted }
+            {
+              canUndo: this.history.length > 0 && !this.rewind && this.undosLeft > 0,
+              urgent: this.state.over && deadEnd(this.state),
+              left: UNDO_LIMIT === null ? undefined : this.undosLeft,
+              // Every third move taken back brings an advertisement where the platform shows them: the button counts down to it.
+              untilAd: platform.interstitialSupported ? UNDOS_PER_AD - (this.settings.undosForAd ?? 0) : undefined,
+              muted: this.settings.muted,
+            }
           : { canUndo: false, urgent: false, retryOnly: true, muted: this.settings.muted }
         : null,
       pad:

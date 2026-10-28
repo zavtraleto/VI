@@ -169,6 +169,37 @@ function saySize(row: Extract<PanelRow, { kind: 'say' }>, zoom: number, wide: bo
  * commands. A line that can be pressed is filled while it is in focus, and the red mark of the
  * seventh stands on it.
  */
+/** Room a command needs beside its word: the red mark on one side, as much on the other. */
+const COMMAND_ROOM = 20;
+
+/**
+ * The parts of a line of commands side by side: equal, where every word fits its part; else each
+ * as wide as its word asks and what is left shared out evenly, so a long word stands beside a
+ * short one. A part shows the name alone where both names do not fit (`drawCommand`): the name
+ * is what has to fit. Null where the words do not fit the line either way.
+ */
+export function commandParts(box: Box, commands: readonly PanelCommand[]): Box[] | null {
+  const count = commands.length;
+  const needs = commands.map((command) => textWidth(word(command.label.name)) + COMMAND_ROOM);
+  const room = box.w - GAP * (count - 1);
+  const equal = Math.floor(room / count);
+  let widths: number[];
+  if (needs.every((need) => need <= equal)) widths = needs.map(() => equal);
+  else {
+    const spare = room - needs.reduce((sum, need) => sum + need, 0);
+    if (spare < 0) return null;
+    widths = needs.map((need) => need + Math.floor(spare / count));
+  }
+  // The last part takes what rounding left, to the edge of the line.
+  const parts: Box[] = [];
+  let x = box.x;
+  widths.forEach((w, i) => {
+    parts.push({ x, y: box.y, w: i === count - 1 ? box.x + box.w - x : w, h: box.h });
+    x += w + GAP;
+  });
+  return parts;
+}
+
 export class PanelScreen implements ShellScreen {
   readonly home?: string;
   /** Which half of a blink the bar of the name is in; -1 while it does not blink. */
@@ -264,7 +295,7 @@ export class PanelScreen implements ShellScreen {
           this.drawCommand(kit, row, box, focus);
           break;
         case 'commands':
-          row.commands.forEach((command, i) => this.drawCommand(kit, command, this.part(box, i, row.commands.length), focus));
+          this.partsOf(box, row.commands).forEach((part, i) => this.drawCommand(kit, row.commands[i], part, focus));
           break;
         case 'switch': {
           const on = focus.focus === row.id;
@@ -454,6 +485,11 @@ export class PanelScreen implements ShellScreen {
   }
 
   /** One of `count` equal parts of a line, side by side. */
+  /** The parts of a line of commands side by side: as `commandParts` has them, or equal where nothing fits. */
+  private partsOf(box: Box, commands: readonly PanelCommand[]): Box[] {
+    return commandParts(box, commands) ?? commands.map((_command, i) => this.part(box, i, commands.length));
+  }
+
   private part(box: Box, index: number, count: number): Box {
     const width = Math.floor((box.w - GAP * (count - 1)) / count);
     return { x: box.x + index * (width + GAP), y: box.y, w: index === count - 1 ? box.x + box.w - (box.x + index * (width + GAP)) : width, h: box.h };
@@ -615,11 +651,37 @@ export class PanelScreen implements ShellScreen {
     return Math.max(1, Math.min(most, Math.floor((room - 4) / CELL_H)));
   }
 
-  /** The lines of the panel as they stand on this picture: commands that stack on a tall one are lines of their own there. */
+  /** Width of the panel on this picture, and of what stands inside it. */
+  private widths(): { width: number; inner: number } {
+    const picture = this.context.picture();
+    const safe = this.context.safe();
+    const width = Math.min(WIDTH, picture.width - safe.left - safe.right - MARGIN * 2);
+    return { width, inner: width - PAD * 2 };
+  }
+
+  /**
+   * The lines of the panel as they stand on this picture: commands that stack on a tall one are
+   * lines of their own there. Commands side by side whose words do not fit their parts go on in
+   * as many lines as they need, as evenly as they can: four that do not fit one line stand two and two.
+   */
   private rows(): readonly PanelRow[] {
     const picture = this.context.picture();
-    if (picture.width > picture.height) return this.spec.rows;
-    return this.spec.rows.flatMap((row): PanelRow[] => (row.kind === 'commands' && row.stacked ? row.commands.map((command) => ({ kind: 'command', ...command })) : [row]));
+    const wide = picture.width > picture.height;
+    const { inner } = this.widths();
+    return this.spec.rows.flatMap((row): PanelRow[] => {
+      if (row.kind !== 'commands') return [row];
+      if (!wide && row.stacked) return row.commands.map((command) => ({ kind: 'command', ...command }));
+      const { commands } = row;
+      for (let lines = 1; lines < commands.length; lines++) {
+        const across = Math.ceil(commands.length / lines);
+        const split: (typeof commands)[] = [];
+        for (let i = 0; i < commands.length; i += across) split.push(commands.slice(i, i + across));
+        if (split.every((line) => commandParts({ x: 0, y: 0, w: inner, h: 0 }, line) !== null)) {
+          return lines === 1 ? [row] : split.map((line): PanelRow => ({ kind: 'commands', commands: line }));
+        }
+      }
+      return commands.map((command) => ({ kind: 'command', ...command }));
+    });
   }
 
   /** Where the panel stands and where each of its lines is, in pixels of the picture. */
@@ -628,8 +690,7 @@ export class PanelScreen implements ShellScreen {
     const safe = this.context.safe();
     const zoom = this.context.window().height / Math.max(1, picture.height);
     const zone = this.zone();
-    const width = Math.min(WIDTH, picture.width - safe.left - safe.right - MARGIN * 2);
-    const inner = width - PAD * 2;
+    const { width, inner } = this.widths();
     const room = picture.height - safe.top - safe.bottom - MARGIN * 2;
 
     // Rows of cells of the levels in sight: all of them, unless the panel would grow past the screen.
@@ -712,9 +773,10 @@ export class PanelScreen implements ShellScreen {
       if (row.kind === 'command') items.push({ id: row.id, rect: toWindow(box), action: row.action, instant: row.instant });
       else if (row.kind === 'switch') items.push({ id: row.id, rect: toWindow(box), action: row.action });
       else if (row.kind === 'commands') {
-        row.commands.forEach((command, i) =>
-          items.push({ id: command.id, rect: toWindow(this.part(box, i, row.commands.length)), action: command.action, instant: command.instant }),
-        );
+        this.partsOf(box, row.commands).forEach((part, i) => {
+          const command = row.commands[i];
+          items.push({ id: command.id, rect: toWindow(part), action: command.action, instant: command.instant });
+        });
       } else if (row.kind === 'tabs') {
         const count = row.labels().length;
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });

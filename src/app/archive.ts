@@ -111,12 +111,17 @@ function joiningOrder(): number[] {
   return joining;
 }
 
+/** How many players have come into the logs by a moment: one more every half a day. */
+function joinedBy(nowMs: number): number {
+  const since = Math.floor((nowMs - FIRST_DAY_MS) / JOIN_MS);
+  return Math.min(PLAYERS, FIRST + Math.max(0, Number.isFinite(since) ? since : 0));
+}
+
 const byScore = (a: ArchiveLine, b: ArchiveLine): number => b.score - a.score;
 
 /** The made-up players in the log of the sessions without a limit at a moment, best first: one more every half a day. */
 export function endlessArchive(nowMs: number): readonly ArchiveLine[] {
-  const since = Math.floor((nowMs - FIRST_DAY_MS) / JOIN_MS);
-  const count = Math.min(PLAYERS, FIRST + Math.max(0, Number.isFinite(since) ? since : 0));
+  const count = joinedBy(nowMs);
   if (endless?.count === count) return endless.lines;
   const lines = joiningOrder()
     .slice(0, count)
@@ -124,5 +129,57 @@ export function endlessArchive(nowMs: number): readonly ArchiveLine[] {
     .filter((line) => line.score > 0)
     .sort(byScore);
   endless = { count, lines };
+  return lines;
+}
+
+/**
+ * What the players of the bot score in a live session of each step, from the one who has just
+ * been shown the rules to the one who plays for prizes (newbie … esports): steps 1 to 3 are the
+ * medians `scripts/pace.mjs live=1|2|3` played (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md,
+ * «Отклонения»); steps 4 to 7 go on along their line. The owner, 28 October 2026: the log of a
+ * live session is counted roughly («считай примерно»), not played session by session.
+ */
+const LIVE_ANCHORS: readonly (readonly number[])[] = [
+  [80, 196, 2471, 24261, 510838],
+  [53, 462, 2912, 24415, 710201],
+  [53, 204, 3069, 34050, 831947],
+  [50, 190, 3200, 36000, 860000],
+  [48, 180, 3300, 38000, 880000],
+  [45, 170, 3400, 40000, 900000],
+  [42, 160, 3500, 42000, 920000],
+];
+/** The strongest player of the logs stands this far along the named ones, as in the log without a limit (`scripts/archive.mjs`). */
+const STRONGEST = 3.2;
+/** How far a session of a player strays from what their strength makes, up or down, as a power of e. */
+const LIVE_SPREAD = 1;
+
+/** The logs of the live sessions last made, by step. */
+const lives = new Map<number, { count: number; lines: ArchiveLine[] }>();
+
+/** What a player scores in a live session of a step: the line of the step at their strength, strayed from by a chance of their own. */
+function liveScore(step: number, player: number): number {
+  const anchors = LIVE_ANCHORS[Math.min(LIVE_ANCHORS.length, Math.max(1, step)) - 1];
+  const strength = (STRONGEST * player) / Math.max(1, PLAYERS - 1);
+  const low = Math.min(Math.floor(strength), anchors.length - 2);
+  const t = strength - low;
+  const made = Math.exp(Math.log(anchors[low]) + t * (Math.log(anchors[low + 1]) - Math.log(anchors[low])));
+  const stray = Math.exp((chance(1000 + step * 7919 + player * 31)() - 0.5) * LIVE_SPREAD);
+  return Math.max(1, Math.round(made * stray));
+}
+
+/**
+ * The made-up players in the log of a live session of a step (1-based) at a moment, best first:
+ * the same crowd as in the log without a limit, come in the same way, each with what they
+ * would score in that session.
+ */
+export function liveArchive(step: number, nowMs: number): readonly ArchiveLine[] {
+  const count = joinedBy(nowMs);
+  const kept = lives.get(step);
+  if (kept?.count === count) return kept.lines;
+  const lines = joiningOrder()
+    .slice(0, count)
+    .map((player) => ({ name: nameOf(player), score: liveScore(step, player) }))
+    .sort(byScore);
+  lives.set(step, { count, lines });
   return lines;
 }

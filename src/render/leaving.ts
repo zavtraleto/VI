@@ -151,6 +151,8 @@ interface Going {
   /** The height it was drawn at when it was sent, and how long ago that was; -1 for a die that was not sent in sight. */
   from: number;
   ms: number;
+  /** How far it is brought up to the last step while the rules hold it: 1 all the way, 0 not at all. */
+  lift: number;
 }
 
 /**
@@ -160,7 +162,8 @@ interface Going {
  * movement, all its dice together; with every roll of the figure it comes a step down with the
  * roll (`restHeight`); with the last it goes into the floor, silent. The
  * last combo of a board takes every die of the board under together (`finale`). Nothing here
- * strikes, lifts or comes back: a die that goes only goes down. All in the time of the picture;
+ * strikes or comes back, but for one thing: a die the rules hold, where a new die has joined its
+ * chain, is shown no lower than the last step (`holdRiseMs`), so that it still reads as a die. All in the time of the picture;
  * the rules are read, never written. Outside a level it does nothing.
  */
 export class LeavingShow {
@@ -185,7 +188,7 @@ export class LeavingShow {
    * a die pressed under the figure sinks from where it is drawn. On a board that is over nothing
    * is said but what was sent; the combo that passes a board is the finale's.
    */
-  frame(state: RunState, dtMs: number, reducedMotion: boolean, dip: (cubeId: number) => number): LeavingEvent[] {
+  frame(state: RunState, dtMs: number, reducedMotion: boolean, dip: (cubeId: number) => number, values?: ParamValues): LeavingEvent[] {
     if (!state.levelRun) {
       this.reset();
       return [];
@@ -213,7 +216,7 @@ export class LeavingShow {
       seen.add(cube.id);
       let going = this.going.get(cube.id);
       if (!going) {
-        going = { id: cube.id, x: cube.x, z: cube.z, value: cube.ori.top, reactionId: cube.reactionId, t: cube.t, from: 0, ms: -1 };
+        going = { id: cube.id, x: cube.x, z: cube.z, value: cube.ori.top, reactionId: cube.reactionId, t: cube.t, from: 0, ms: -1, lift: 0 };
         this.going.set(cube.id, going);
         // Whole a frame ago: just sent. A stair the board was laid with, a die found going, and the dice of the combo
         // that passes a board (the finale's) are where they rest at once.
@@ -229,6 +232,11 @@ export class LeavingShow {
       going.reactionId = cube.reactionId;
       going.t = cube.t;
       if (going.ms >= 0) going.ms += dtMs;
+      // Held, it comes up to the last step; let go, down from it.
+      const held = (cube.hold ?? 0) > 0;
+      const n = (name: string): number => Number(values?.[name] ?? DEFAULTS[name]?.value ?? 0);
+      const ms = n(held ? 'holdRiseMs' : 'holdFallMs');
+      going.lift = reducedMotion || ms <= 0 ? (held ? 1 : 0) : Math.min(1, Math.max(0, going.lift + (held ? dtMs : -dtMs) / ms));
     }
     this.whole = whole;
 
@@ -265,8 +273,10 @@ export class LeavingShow {
       return tween((this.final.ms - this.final.hang) / this.final.drop, from, UNDER, inOutSine);
     }
     if (cube.state !== 'sinking') return 1;
-    const rest = restHeight(cube, state, alpha, values);
     const going = this.going.get(cube.id);
+    // A die held in its last move is shown up to the last step, as far as it has come up to it.
+    const lifted = going && going.lift > 0 ? leavingSteps(values).last * inOutSine(going.lift) : 0;
+    const rest = Math.max(restHeight(cube, state, alpha, values), lifted);
     const ms = n('dropMs');
     if (!going || going.ms < 0 || ms <= 0 || going.ms >= ms) return rest;
     const curve = SINK_CURVES[Math.max(0, Math.min(SINK_CURVES.length - 1, Math.round(n('dropCurve'))))];

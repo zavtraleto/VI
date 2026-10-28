@@ -42,6 +42,7 @@ export const WORDS = {
   SKIP: { ru: 'ПРОПУСТИТЬ', es: 'SALTAR', pt: 'PULAR', tr: 'ATLA', de: 'ÜBERSPRINGEN', fr: 'PASSER' },
   // A command that brings an advertisement of the platform says so: the word for one stands in it.
   'SHOW WAY · AD': { ru: 'ПУТЬ ЗА РЕКЛАМУ', es: 'CAMINO · ANUNCIO', pt: 'CAMINHO · ANÚNCIO', tr: 'YOL · REKLAM', de: 'WEG · WERBUNG', fr: 'CHEMIN · PUB' },
+  'UNDO · AD': { ru: 'ОТМЕНИТЬ · РЕКЛАМА', es: 'DESHACER · ANUNCIO', pt: 'DESFAZER · ANÚNCIO', tr: 'GERİ AL · REKLAM', de: 'RÜCKGÄNGIG · WERBUNG', fr: 'ANNULER · PUB' },
   'DOUBLE · AD': { ru: 'УДВОИТЬ ЗА РЕКЛАМУ', es: 'DOBLAR · ANUNCIO', pt: 'DOBRAR · ANÚNCIO', tr: 'İKİ KAT · REKLAM', de: 'VERDOPPELN · WERBUNG', fr: 'DOUBLER · PUB' },
   // The readings of a result and of the log.
   SCORE: { ru: 'СЧЁТ', es: 'PUNTOS', pt: 'PONTOS', tr: 'PUAN', de: 'PUNKTE', fr: 'SCORE' },

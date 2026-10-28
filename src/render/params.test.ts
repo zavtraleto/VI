@@ -112,6 +112,8 @@ describe('board params', () => {
     expect(Object.fromEntries(Object.keys(BOARD_GROUPS.leaving).map((name) => [name, values[name]]))).toEqual({
       dropMs: 300,
       dropCurve: 0,
+      holdRiseMs: 220,
+      holdFallMs: 160,
       finaleHangMs: 250,
       finaleDropMs: 450,
       punchAttackMs: 30,

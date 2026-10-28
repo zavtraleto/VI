@@ -80,6 +80,8 @@ export interface Platform {
   onAudio(listener: (enabled: boolean) => void): void;
   /** An advertisement between sessions. `done` is called once: closed, failed, or not shown. */
   interstitial(done: () => void): void;
+  /** Whether the platform shows advertisements between sessions: what brings one says so only then. */
+  readonly interstitialSupported: boolean;
   /** Whether the platform shows rewarded advertisements: a button for one is drawn only then. */
   readonly rewardedSupported: boolean;
   /** Shows a rewarded advertisement; `done(true)` only when the platform says it was watched to the end. Called once. */
@@ -169,6 +171,7 @@ export const none: Platform = {
   onPause: () => undefined,
   onAudio: () => undefined,
   interstitial: (done) => done(),
+  interstitialSupported: false,
   rewardedSupported: false,
   rewarded: (_, done) => done(false),
   track: () => undefined,

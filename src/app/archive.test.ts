@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { endlessArchive } from './archive';
+import { endlessArchive, liveArchive } from './archive';
 import { ARCHIVE_ENDLESS } from './archiveData';
 import { standings, placeOf } from './standings';
 
@@ -117,5 +117,30 @@ describe('the log of a kind of session', () => {
     expect(placeOf(archive, 1000)).toBe(1);
     expect(placeOf(archive, 300)).toBe(3);
     expect(placeOf(archive, 1)).toBe(4);
+  });
+});
+
+describe('the made-up players of the logs of the live sessions', () => {
+  const now = START + 20 * DAY_MS;
+
+  it('are the crowd of the log without a limit, come in the same way, best first', () => {
+    for (let step = 1; step <= 7; step++) {
+      const lines = liveArchive(step, now);
+      expect(lines).toHaveLength(endlessArchive(now).length);
+      expect(new Set(names(lines))).toEqual(new Set(names(endlessArchive(now))));
+      for (let i = 1; i < lines.length; i++) expect(lines[i].score).toBeLessThanOrEqual(lines[i - 1].score);
+      for (const line of lines) expect(line.score).toBeGreaterThan(0);
+    }
+  });
+
+  it('score each session on its own: the same at every asking, other in another step', () => {
+    expect(liveArchive(2, now)).toEqual(liveArchive(2, now));
+    expect(liveArchive(1, now).map((line) => line.score)).not.toEqual(liveArchive(7, now).map((line) => line.score));
+  });
+
+  it('are of every strength: a beginner has someone to go past in three minutes, a strong player someone to look up to', () => {
+    const lines = liveArchive(1, START + 400 * DAY_MS);
+    expect(lines.filter((line) => line.score < 300).length).toBeGreaterThan(20);
+    expect(lines.filter((line) => line.score > 20_000).length).toBeGreaterThan(5);
   });
 });

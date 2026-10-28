@@ -49,6 +49,11 @@ describe('the panels of the program', () => {
     expect(pressed(pausePanel(PAUSE))).toEqual(['resume', 'restart', 'menu']);
   });
 
+  it('open the settings from the pause where they are given, before the menu', () => {
+    expect(pressed(pausePanel({ ...PAUSE, onSystem: nothing }))).toEqual(['resume', 'restart', 'system', 'menu']);
+    expect(pressed(pausePanel({ ...PAUSE, onWay: nothing, onSystem: nothing }))).toEqual(['resume', 'restart', 'way', 'system', 'menu']);
+  });
+
   it('have the way for an advertisement in the pause only where it is given, after starting over', () => {
     const spec = pausePanel({ ...PAUSE, onWay: nothing });
     expect(pressed(spec)).toEqual(['resume', 'restart', 'way', 'menu']);

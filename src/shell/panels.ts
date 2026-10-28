@@ -16,14 +16,15 @@ function clock(ticks: number, tickMs: number): string {
 /**
  * The session waits: it goes on, starts over, or is left for the menu. On a board the player has
  * been stuck on, the way of the board may stand after starting over, for an advertisement (`onWay`,
- * given only then). Nothing else is in this window.
+ * given only then). The settings open from here too (`onSystem`), and come back to this window.
  */
-export function pausePanel(actions: { onResume: () => void; onRestart: () => void; onMenu: () => void; onWay?: () => void }): PanelSpec {
+export function pausePanel(actions: { onResume: () => void; onRestart: () => void; onMenu: () => void; onWay?: () => void; onSystem?: () => void }): PanelSpec {
   const rows: PanelRow[] = [
     { kind: 'command', id: 'resume', label: COMMANDS.resume, action: actions.onResume },
     { kind: 'command', id: 'restart', label: COMMANDS.restart, action: actions.onRestart },
   ];
   if (actions.onWay) rows.push({ kind: 'command', id: 'way', label: COMMANDS.showWay, action: actions.onWay });
+  if (actions.onSystem) rows.push({ kind: 'command', id: 'system', label: COMMANDS.system, action: actions.onSystem });
   rows.push({ kind: 'command', id: 'menu', label: COMMANDS.menu, action: actions.onMenu });
   return { title: PANELS.pause, home: 'resume', back: actions.onResume, rows };
 }
@@ -110,6 +111,23 @@ export interface ResultData {
 /** Rows of the log a result shows around the session on its way up. */
 const CLIMB_LINES = 7;
 
+/** The score of a session and its place, and the lines of the log it goes past on its way up. */
+function climbRows(climb: Climb): PanelRow[] {
+  return [
+    {
+      kind: 'standing',
+      label: RESULT.score,
+      value: () => climb.shownScore(),
+      places: 6,
+      rank: RESULT.rank,
+      place: () => climb.shownPlace(),
+      of: () => climb.total,
+      lit: () => climb.lit,
+    },
+    { kind: 'climb', rows: (count) => climb.rows(count).map((line) => line && { ...line, name: fitName(line.name) }), lines: CLIMB_LINES },
+  ];
+}
+
 /**
  * What a session came to. With `climb`, the session goes up the log of its kind under the eyes
  * of the player: its score is counted up and its place beside it, lines of the log go by, and
@@ -120,19 +138,7 @@ export function resultPanel(data: ResultData, actions: { onAgain: () => void; on
   const settled = (): boolean => climb?.done ?? true;
   const rows: PanelRow[] = [];
   if (climb) {
-    rows.push(
-      {
-        kind: 'standing',
-        label: RESULT.score,
-        value: () => climb.shownScore(),
-        places: 6,
-        rank: RESULT.rank,
-        place: () => climb.shownPlace(),
-        of: () => climb.total,
-        lit: () => climb.lit,
-      },
-      { kind: 'climb', rows: (count) => climb.rows(count).map((line) => line && { ...line, name: fitName(line.name) }), lines: CLIMB_LINES },
-    );
+    rows.push(...climbRows(climb));
   } else {
     rows.push({ kind: 'number', label: RESULT.score, value: data.score, places: 6 });
   }
@@ -167,35 +173,45 @@ export function resultPanel(data: ResultData, actions: { onAgain: () => void; on
 
 /**
  * The result of a live session of the row: its score, the best of this session, the longest
- * chain. It goes up no log and has no records: it is counted apart. Again, on to the board after
- * it, or the menu.
+ * chain. With `climb`, the score goes up the log of that session as a session of Endless goes up
+ * its own (the owner, 28 October 2026: after a live session the log of all time is shown, as
+ * after Endless); the log is the session's own, counted apart. Again, on to the board after it,
+ * the score doubled for an advertisement where there is one, or the menu.
  */
 export function liveResultPanel(
-  data: { score: number; best: number; maxChain: number; doubled?: boolean },
+  data: { score: number; best: number; maxChain: number; doubled?: boolean; before?: number },
   actions: { onAgain: () => void; onNext: () => void; onMenu: () => void; onDouble?: () => void },
+  climb?: Climb,
 ): PanelSpec {
   // The score doubled for an advertisement is shown doubled; the session itself is as it ended.
   const score = data.doubled ? data.score * 2 : data.score;
+  const settled = (): boolean => climb?.done ?? true;
+  const rows: PanelRow[] = [];
+  if (climb) rows.push(...climbRows(climb));
+  else rows.push({ kind: 'number', label: RESULT.score, value: score, places: 6 });
+  rows.push(
+    { kind: 'field', label: RESULT.best, value: () => digits(settled() ? data.best : (data.before ?? data.best), 6) },
+    { kind: 'field', label: RESULT.chain, value: `×${digits(data.maxChain, 2)}` },
+    { kind: 'gap' },
+    {
+      kind: 'commands',
+      stacked: true,
+      commands: [
+        { id: 'again', label: COMMANDS.again, action: actions.onAgain },
+        { id: 'next', label: COMMANDS.next, action: actions.onNext },
+        // Where the platform has an advertisement to watch for it, and the score has not been doubled yet.
+        ...(actions.onDouble ? [{ id: 'double', label: COMMANDS.double, action: actions.onDouble }] : []),
+        { id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
+      ],
+    },
+  );
+  if (!climb) return { title: PANELS.result, home: 'next', rows };
   return {
-    title: PANELS.result,
+    title: () => (climb.done && climb.record ? PANELS.record : PANELS.result),
+    flash: () => climb.record && climb.lit,
+    live: (timeMs) => climb.update(timeMs),
     home: 'next',
-    rows: [
-      { kind: 'number', label: RESULT.score, value: score, places: 6 },
-      { kind: 'field', label: RESULT.best, value: digits(data.best, 6) },
-      { kind: 'field', label: RESULT.chain, value: `×${digits(data.maxChain, 2)}` },
-      { kind: 'gap' },
-      {
-        kind: 'commands',
-        stacked: true,
-        commands: [
-          { id: 'again', label: COMMANDS.again, action: actions.onAgain },
-          { id: 'next', label: COMMANDS.next, action: actions.onNext },
-          // Where the platform has an advertisement to watch for it, and the score has not been doubled yet.
-          ...(actions.onDouble ? [{ id: 'double', label: COMMANDS.double, action: actions.onDouble }] : []),
-          { id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
-        ],
-      },
-    ],
+    rows,
   };
 }
 

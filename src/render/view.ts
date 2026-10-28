@@ -1030,7 +1030,7 @@ export class BoardView {
 
     // The leaving of a group on a level: the show says how high every die that goes is drawn.
     // A die that has just been sent sinks from where its spring held it, and the spring is let go of.
-    for (const event of this.show.frame(state, dt, reducedMotion, (id) => this.springs.offset(id))) {
+    for (const event of this.show.frame(state, dt, reducedMotion, (id) => this.springs.offset(id), this.look.board)) {
       if (event.kind === 'sent') this.release(event.cubeIds);
       else params.onLeaving?.(event);
       // The water hears every die where it stands, when it moves: pressed as its combo is made,
