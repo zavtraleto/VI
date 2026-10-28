@@ -23,7 +23,20 @@ export interface Core {
   needs: string[];
   /** The faces the board asks for but the 1s (`goalFaces`), smallest first. */
   faces: number[];
+  /**
+   * Of a board whose way holds one event only (`ALONE`): its dice and how long its way is. The owner's word of
+   * 28 October 2026, at the rebuild of places 31–100: one combo of one face on three dice in four moves and on
+   * five dice in twelve are two thoughts, not one. Absent where the way holds more events: its route tells it apart.
+   */
+  alone?: { dice: number; length: Length };
 }
+
+/** How long the way of a board of one event is: up to four moves, up to seven, or eight and more. */
+export type Length = 'short' | 'middle' | 'long';
+export const lengthOf = (moves: number): Length => (moves <= 4 ? 'short' : moves <= 7 ? 'middle' : 'long');
+
+/** The signs of a route that are events: combos, links and 1s going, by a roll or a push. */
+const EVENTS = new Set(['K', 'P', 'L', 'Q', 'O', 'U']);
 
 /** The way a board is read by: the one it keeps, or else the solver's, or else none. */
 function wayOf(spec: LevelSpec): SolverMove[] {
@@ -35,7 +48,10 @@ const coreFrom = (spec: LevelSpec, way: readonly SolverMove[]): Core => {
   const { kind, route } = scoreOf(spec, way);
   // The faces are read off the way the core is read by, kept or found.
   const faces = goalFaces({ ...spec, solution: way.map(moveText) }).filter((face) => face !== 1);
-  return { kind, route, needs: [...needsOf(spec, way)].sort(), faces: [...faces].sort((a, b) => a - b) };
+  const core: Core = { kind, route, needs: [...needsOf(spec, way)].sort(), faces: [...faces].sort((a, b) => a - b) };
+  const events = route.split(' ').filter((sign) => EVENTS.has(sign)).length;
+  if (events === 1) core.alone = { dice: spec.layout?.dice.length ?? 0, length: lengthOf(way.length) };
+  return core;
 };
 
 /**
@@ -57,7 +73,7 @@ export function keptCoreOf(spec: LevelSpec): Core {
 
 /** The core written as six hexadecimal signs (FNV-1a of 32 bits), the column `sig` of the table. */
 export function coreKey(core: Core): string {
-  const text = JSON.stringify({ kind: core.kind, route: core.route, needs: core.needs, faces: core.faces });
+  const text = JSON.stringify({ kind: core.kind, route: core.route, needs: core.needs, faces: core.faces, ...(core.alone ? { alone: core.alone } : {}) });
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);
@@ -274,14 +290,21 @@ function routeSim(a: string, b: string): number {
   return longer === 0 ? 1 : 1 - levenshtein(sa, sb) / longer;
 }
 
-/** How alike two thoughts are, from 0 to 1: the parts of the cores, weighed by `CORE_WEIGHTS`. */
+/**
+ * How far apart two boards of one event each are kept for another length of way, and for another number of dice
+ * (`Core.alone`): the likeness of their cores is taken down by these, one for each that differs.
+ */
+export const ALONE_APART = { length: 0.7, dice: 0.85 } as const;
+
+/** How alike two thoughts are, from 0 to 1: the parts of the cores, weighed by `CORE_WEIGHTS`; two boards of one event each, by `ALONE_APART` too. */
 export function coreSim(a: Core, b: Core): number {
-  return (
+  const sim =
     CORE_WEIGHTS.route * routeSim(a.route, b.route) +
     CORE_WEIGHTS.needs * jaccard(a.needs, b.needs) +
     CORE_WEIGHTS.faces * jaccard(a.faces, b.faces) +
-    CORE_WEIGHTS.kind * (a.kind === b.kind ? 1 : 0)
-  );
+    CORE_WEIGHTS.kind * (a.kind === b.kind ? 1 : 0);
+  if (!a.alone || !b.alone) return sim;
+  return sim * (a.alone.length === b.alone.length ? 1 : ALONE_APART.length) * (a.alone.dice === b.alone.dice ? 1 : ALONE_APART.dice);
 }
 
 /**

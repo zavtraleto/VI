@@ -66,7 +66,8 @@ export const BANDS: readonly Band[] = [
   { from: 51, to: 60, lo: 5, hi: 6, peak: [7, 7] },
   { from: 61, to: 70, lo: 6, hi: 7, peak: [8, 8] },
   { from: 71, to: 80, lo: 7, hi: 8, peak: [8, 9] },
-  { from: 81, to: 90, lo: 7, hi: 9, peak: [9, 9] },
+  // The owner's word of 28 October at the rebuild: the tasks of Devil Dice even the planner loses (D 10) go as peaks of 81–99.
+  { from: 81, to: 90, lo: 7, hi: 9, peak: [9, 10] },
   { from: 91, to: 100, lo: 8, hi: 9, peak: [10, 10] },
 ];
 

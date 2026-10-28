@@ -120,3 +120,11 @@ export const OWNER_REPEATS: readonly string[] = [
   'tight-room-4', // 98
   'last-rest-1', // 99
 ];
+
+/**
+ * The places the owner's word puts where the rules of the row would not (docs/superpowers/specs/2026-10-28-vi-rebuild-31-100-design.md,
+ * section 3.6): the board, the rule its line breaks (17, too alike, or 18, out of the band of its decade), and the
+ * owner's words of it, quoted from the `words:` of its file. A line of that rule on that board is let be (`ownerWord`
+ * in `src/levels/grammar.ts`) and marked so under the table. The list grows only by a quotation.
+ */
+export const OWNER_WORD: readonly { board: string; rule: 17 | 18; words: string }[] = [];

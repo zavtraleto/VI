@@ -77,7 +77,7 @@ describe('the bands of the decades', () => {
       [51, 60, 5, 6, 7, 7],
       [61, 70, 6, 7, 8, 8],
       [71, 80, 7, 8, 8, 9],
-      [81, 90, 7, 9, 9, 9],
+      [81, 90, 7, 9, 9, 10], // the peak to 10: the owner's word of 28 October at the rebuild
       [91, 100, 8, 9, 10, 10],
     ]);
   });

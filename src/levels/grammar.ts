@@ -6,6 +6,7 @@ import { goalFaces } from './goalFaces';
 import { visibleFaces } from './measures';
 import { needsOf } from './needs';
 import type { HintKey, Technique } from './row';
+import { OWNER_WORD } from './calibration';
 import { BANDS, bandOf } from './scale';
 import { SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, flaggedBy, keptCoreOf, layoutSim, type Core } from './signature';
 import { sameBoard } from './variety';
@@ -29,8 +30,15 @@ export interface Violation {
   rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
   at: number;
   text: string;
-  /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps; rule 17; rule 18 and the parts of rules 5 and 8 on D. */
+  /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps; rule 17. */
   warning?: true;
+  /**
+   * A line of the scale of difficulty: rule 18 and the parts of rules 5 and 8 on D, which hold the row from the rebuild
+   * of places 31–100 on (docs/superpowers/specs/2026-10-28-vi-rebuild-31-100-design.md, section 3.5), rule 8 too.
+   */
+  scale?: true;
+  /** The board of the place a line of rule 17 or 18 is of, by which the owner's word may let it be (`OWNER_WORD`). */
+  board?: string;
 }
 
 /**
@@ -43,16 +51,22 @@ export interface Violation {
  * Rule 16, one thought and one layout once in the row, holds from the first (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md,
  * section 5); rule 17, too alike, is a warning till the row is rebuilt.
  */
-export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 12, 16]);
-/** Whether a rule broken holds the row back, or is a warning for now. */
-export const held = (one: Violation): boolean => HELD.has(one.rule) && !one.warning;
+export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 12, 16, 18]);
+/** Whether a line is let be by the owner's word on its board (`OWNER_WORD`, rules 17 and 18 only). */
+export const ownerWord = (one: Violation): boolean =>
+  one.board !== undefined && OWNER_WORD.some((word) => word.board === one.board && word.rule === one.rule);
+/** Whether a rule broken holds the row back, or is a warning for now, or the owner's word lets it be. */
+export const held = (one: Violation): boolean => (HELD.has(one.rule) || one.scale === true) && !one.warning && !ownerWord(one);
 /** What the line of a rule that does not hold the row back yet ends with, under the table and in the workshop. */
 export const WARNING = ' (предупреждение)';
 /** What the line of a repeat known till the row is rebuilt ends with (`KNOWN_REPEATS`). */
 export const KNOWN_REPEAT = ' (известный повтор)';
 
+/** What the line of a place the owner's word lets be ends with (`OWNER_WORD`). */
+export const OWNER_MARK = ' (слово владельца)';
+
 /** What the line of a rule broken ends with, under the table and in the workshop: nothing where it holds the row back. */
-export const markOf = (one: Violation): string => (knownRepeat(one) ? KNOWN_REPEAT : held(one) ? '' : WARNING);
+export const markOf = (one: Violation): string => (knownRepeat(one) ? KNOWN_REPEAT : ownerWord(one) ? OWNER_MARK : held(one) ? '' : WARNING);
 
 /** What the walk and the personas found of a board, for the slow rules. */
 export interface SlowFacts {
@@ -418,27 +432,20 @@ export const REPEAT_FROM = 31;
 export const KNOWN_REPEATS: readonly string[] = [
   'места 29 (floor-first-1) и 33 (roll-or-push-1): одна мысль — K v P, lift push, грани 2',
   'места 30 (carry-1) и 33 (roll-or-push-1): одна мысль — K v P, lift push, грани 2',
-  'места 21 (first-sixes-1) и 43 (collapse-3): одна мысль — K, грани 6',
   'места 29 (floor-first-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
   'места 30 (carry-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
   'места 33 (roll-or-push-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
-  'места 7 (H07) и 48 (dd-04-three-on-six): одна мысль — K, loop, грани 3',
   'места 22 (roll-in-1) и 48 (dd-04-three-on-six): одна раскладка',
   'места 50 (two-combos-3) и 51 (two-combos-5): одна мысль — K ~ K, seven twoFaces walk, грани 3 4',
   'места 18 (P02) и 52 (seven-1): одна раскладка',
   'места 4 (B01_s290) и 53 (dd-06-find-the-two): одна раскладка',
   'места 6 (H08) и 53 (dd-06-find-the-two): одна раскладка',
   'места 5 (H06) и 55 (hidden-face-1): одна раскладка',
-  'места 8 (three-under-1) и 55 (hidden-face-1): одна мысль — K, seven, грани 3',
-  'места 14 (C1-07) и 55 (hidden-face-1): одна мысль — K, seven, грани 3',
   'места 9 (which-first-2) и 60 (R09): одна мысль — K K, twoFaces, грани 2 3',
-  'места 7 (H07) и 61 (fixed-wall-1): одна мысль — K, loop, грани 3',
-  'места 48 (dd-04-three-on-six) и 61 (fixed-wall-1): одна мысль — K, loop, грани 3',
   'места 13 (P07) и 64 (C2-05): одна мысль — K K, seven twoFaces, грани 2 3',
   'места 57 (collapse-5) и 65 (collapse-4): одна мысль — K, loop, грани 6',
   'места 37 (P12) и 66 (two-lifts-1): одна мысль — K v P ^ L, lift link push seven twoFaces, грани 2 3',
   'места 3 (R03) и 67 (dd-25-pocket): одна раскладка',
-  'места 4 (B01_s290) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
   'места 6 (H08) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
   'места 53 (dd-06-find-the-two) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
   'места 63 (fixed-combo-1) и 70 (dd-11-wood-pushes): одна мысль — K, грани 4',
@@ -448,22 +455,10 @@ export const KNOWN_REPEATS: readonly string[] = [
   'места 22 (roll-in-1) и 76 (roll-in-transfer-1): одна мысль — K ~ L, glass link walk, грани 2',
   'места 54 (bridge-5) и 77 (P09): одна мысль — K ~ L, link walk, грани 3',
   'места 32 (R14) и 79 (R16): одна мысль — K v P ^ L, lift link push twoFaces, грани 2 3',
-  'места 63 (fixed-combo-1) и 83 (dd-14-turn-to-fours): одна мысль — K, грани 4',
-  'места 70 (dd-11-wood-pushes) и 83 (dd-14-turn-to-fours): одна мысль — K, грани 4',
-  'места 63 (fixed-combo-1) и 84 (dd-72-fours-and-one): одна мысль — K, грани 4',
-  'места 70 (dd-11-wood-pushes) и 84 (dd-72-fours-and-one): одна мысль — K, грани 4',
   'места 83 (dd-14-turn-to-fours) и 84 (dd-72-fours-and-one): одна мысль — K, грани 4',
-  'места 2 (side-up-1) и 87 (act-k21): одна мысль — K, грани 3',
-  'места 5 (H06) и 87 (act-k21): одна мысль — K, грани 3',
   'места 47 (rescue-3) и 92 (rescue-4): одна мысль — K v Q, lift link push seven, грани 4',
-  'места 57 (collapse-5) и 94 (collapse-after-prep-1): одна мысль — K, loop, грани 6',
-  'места 65 (collapse-4) и 94 (collapse-after-prep-1): одна мысль — K, loop, грани 6',
   'места 7 (H07) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
-  'места 48 (dd-04-three-on-six) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
-  'места 61 (fixed-wall-1) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
   'места 7 (H07) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
-  'места 48 (dd-04-three-on-six) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
-  'места 61 (fixed-wall-1) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
   'места 95 (dd-13-stone-row) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
 ];
 
@@ -512,7 +507,7 @@ export function repeatsOf(row: readonly Stop[]): Violation[] {
     const near = flag.near - SIMILAR_NEAR >= flag.sim - SIMILAR_ROW;
     const [at, sim] = near ? [flag.nearAt, flag.near] : [flag.at, flag.sim];
     const where = `место ${at} (${byNumber.get(at)!.spec.id})${near ? ' из пяти перед ним' : ''}`;
-    out.push({ rule: 17, at: number, text: `${placeOf(stop)}: похоже на ${where}, ${twoDigits(sim)}`, warning: true });
+    out.push({ rule: 17, at: number, text: `${placeOf(stop)}: похоже на ${where}, ${twoDigits(sim)}`, warning: true, board: stop.spec.id });
   }
   return out;
 }
@@ -557,6 +552,8 @@ const spanText = ([lo, hi]: readonly [number, number]): string => (lo === hi ? `
 /** Rule 18: a rest is this much under its neighbours at least, and past the 50th not under `REST_FLOOR`. */
 const REST_STEP = 2;
 const REST_FLOOR = 4;
+/** Rule 18: a meeting of a move may stand this much under the band of its decade (rebuild spec, 3.1). */
+const MEET_STEP = 1;
 /** Rule 18: the most D may rise from a place to the next, where the next is no peak. */
 const RISE_MOST = 2;
 /** Rule 18: the gift from the start, the highest D that is one past the place given. */
@@ -576,27 +573,29 @@ const GIFTS: readonly { after: number; most: number }[] = [
  */
 function onTheScale(row: readonly Stop[], dOf: (stop: Stop) => number | undefined): Violation[] {
   const out: Violation[] = [];
-  const warn = (rule: 5 | 8 | 18, at: number, text: string) => out.push({ rule, at, text, warning: true });
+  const warn = (rule: 5 | 8 | 18, at: number, text: string, board?: string) => out.push({ rule, at, text, scale: true, ...(board !== undefined ? { board } : {}) });
   row.forEach((stop, index) => {
     const [d, band] = [dOf(stop), bandOf(stop.number)];
     if (d === undefined || band === null) return;
     const [prev, next] = [row[index - 1], row[index + 1]];
     const [before, after] = [prev ? dOf(prev) : undefined, next ? dOf(next) : undefined];
     if (stop.role === 'peak') {
-      if (d < band.peak[0] || d > band.peak[1]) warn(18, stop.number, `${placeOf(stop)}: пик D ${dText(d)}, а пик мест ${band.from}–${band.to} — ${spanText(band.peak)}`);
+      if (d < band.peak[0] || d > band.peak[1]) warn(18, stop.number, `${placeOf(stop)}: пик D ${dText(d)}, а пик мест ${band.from}–${band.to} — ${spanText(band.peak)}`, stop.spec.id);
     } else if (stop.role === 'rest') {
       const sides = [before, after].filter((side): side is number => side !== undefined);
       if (sides.some((side) => d > side - REST_STEP)) {
-        warn(18, stop.number, `${placeOf(stop)}: передышка D ${dText(d)}, а ${sides.length === 1 ? 'сосед' : 'соседи'} — ${sides.map(dText).join(' и ')}; передышка на 2 ниже соседей`);
+        warn(18, stop.number, `${placeOf(stop)}: передышка D ${dText(d)}, а ${sides.length === 1 ? 'сосед' : 'соседи'} — ${sides.map(dText).join(' и ')}; передышка на 2 ниже соседей`, stop.spec.id);
       }
-      if (stop.number > 50 && d < REST_FLOOR) warn(18, stop.number, `${placeOf(stop)}: передышка D ${dText(d)}, а после 50-го места передышка не ниже ${REST_FLOOR}`);
-    } else if (d < band.lo || d > band.hi) {
-      warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)}, а полоса мест ${band.from}–${band.to} — ${spanText([band.lo, band.hi])}`);
+      if (stop.number > 50 && d < REST_FLOOR) warn(18, stop.number, `${placeOf(stop)}: передышка D ${dText(d)}, а после 50-го места передышка не ниже ${REST_FLOOR}`, stop.spec.id);
+    } else if (d < (stop.role === 'meet' ? band.lo - MEET_STEP : band.lo) || d > band.hi) {
+      // A meeting may stand a step under its band: the window and the first board teach, they do not test (rebuild spec, 3.1).
+      const lo = stop.role === 'meet' ? band.lo - MEET_STEP : band.lo;
+      warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)}, а полоса мест ${band.from}–${band.to} — ${spanText([lo, band.hi])}${stop.role === 'meet' ? ' (встреча)' : ''}`, stop.spec.id);
     }
     const gift = GIFTS.find((one) => stop.number > one.after);
-    if (gift && d <= gift.most) warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)} — подарок из начала после ${gift.after}-го места`);
+    if (gift && d <= gift.most) warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)} — подарок из начала после ${gift.after}-го места`, stop.spec.id);
     if (before === undefined) return;
-    if (stop.role !== 'peak' && d - before > RISE_MOST) warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)} после ${dText(before)} на месте ${prev.number}, рост больше 2`);
+    if (stop.role !== 'peak' && d - before > RISE_MOST) warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)} после ${dText(before)} на месте ${prev.number}, рост больше 2`, stop.spec.id);
     if (prev.role === 'meet' && d > before + 1) warn(5, stop.number, `${placeOf(stop)} после встречи на месте ${prev.number}: D ${dText(d)}, а встреча — ${dText(before)}`);
     if (prev.role === 'peak' && d >= before) warn(8, stop.number, `${placeOf(stop)} после пика на месте ${prev.number}: D ${dText(d)}, а пик — ${dText(before)}; после пика ниже`);
   });

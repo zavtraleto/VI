@@ -64,7 +64,7 @@ describe('the grammar of the row', () => {
     expect(fastGrammar(CAMPAIGN).filter(held).filter((one) => !knownRepeat(one))).toEqual([]);
   });
 
-  it('prints what it does not hold yet as warnings: rules 4, 8, 10, 11, 13, 14, 15 and 17', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 12, 16]));
+  it('prints what it does not hold yet as warnings: rules 4, 8, 10, 11, 13, 14, 15 and 17', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 12, 16, 18]));
 
   it('finds the place a move is taught at, or none', () => {
     const row = rowOf([['act-k17', { role: 'apply' }], ['R07', { role: 'meet', teaches: 'link' }]]);
@@ -517,10 +517,16 @@ describe('the scale of difficulty in the row: rule 18 and the parts of rules 5 a
     expect(slowGrammar(scaled(40), () => ({ lost: true, planner: 1 }))).toEqual([]);
   });
 
-  it('says a place out of the band of its decade, and a rise of more than two: rule 18, a warning', () => {
+  it('says a place out of the band of its decade, and a rise of more than two: rule 18, held', () => {
     const lines = said(18, scaled(40), { 35: 6 });
     expect(texts(lines)).toEqual(['место 35 (R03): D 6, а полоса мест 31–40 — 3–4', 'место 35 (R03): D 6 после 3.5 на месте 34, рост больше 2']);
-    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+    expect(lines.every((one) => one.scale === true && held(one))).toBe(true);
+  });
+
+  it('lets a meeting stand a step under the band of its decade, and no more: rule 18', () => {
+    const met = scaled(40, { 33: 'meet' });
+    expect(said(18, met, { 33: 2 })).toEqual([]);
+    expect(texts(said(18, met, { 33: 1.5 }))).toEqual(['место 33 (R03): D 1.5, а полоса мест 31–40 — 2–4 (встреча)']);
   });
 
   it('says nothing before the 31st place, whatever its D: rule 18', () => {
@@ -531,7 +537,7 @@ describe('the scale of difficulty in the row: rule 18 and the parts of rules 5 a
     const rest = scaled(40, { 38: 'rest' });
     const lines = said(18, rest, { 37: 4, 38: 3, 39: 4 });
     expect(texts(lines)).toEqual(['место 38 (R03): передышка D 3, а соседи — 4 и 4; передышка на 2 ниже соседей']);
-    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+    expect(lines.every((one) => one.scale === true && held(one))).toBe(true);
     expect(said(18, rest, { 37: 4, 38: 2, 39: 4 })).toEqual([]);
     // 39 at 3.5 is a neighbour only 1.5 over the rest; with no D it is not asked.
     expect(texts(said(18, rest, { 37: 4, 38: 2 }))).toEqual(['место 38 (R03): передышка D 2, а соседи — 4 и 3.5; передышка на 2 ниже соседей']);
@@ -568,19 +574,19 @@ describe('the scale of difficulty in the row: rule 18 and the parts of rules 5 a
     ]);
   });
 
-  it('says the board after a meeting more than one over it: rule 5 on D, a warning', () => {
+  it('says the board after a meeting more than one over it: rule 5 on D, held', () => {
     const lines = said(5, scaled(40, { 33: 'meet' }), { 33: 3, 34: 5 });
     expect(texts(lines)).toEqual(['место 34 (R03) после встречи на месте 33: D 5, а встреча — 3']);
-    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+    expect(lines.every((one) => one.scale === true && held(one))).toBe(true);
     expect(said(5, scaled(40, { 33: 'meet' }), { 33: 3, 34: 4 })).toEqual([]);
     // Before the 31st the meeting is let be.
     expect(said(5, scaled(40, { 23: 'meet' }), { 23: 1, 24: 4 })).toEqual([]);
   });
 
-  it('says the board after a peak not under it: rule 8 on D, a warning', () => {
+  it('says the board after a peak not under it: rule 8 on D, held', () => {
     const lines = said(8, scaled(40, { 36: 'peak' }), { 36: 5, 37: 5 });
     expect(texts(lines)).toEqual(['место 37 (R03) после пика на месте 36: D 5, а пик — 5; после пика ниже']);
-    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+    expect(lines.every((one) => one.scale === true && held(one))).toBe(true);
     expect(said(8, scaled(40, { 36: 'peak' }), { 36: 5, 37: 4.5 })).toEqual([]);
   });
 });

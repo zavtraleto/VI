@@ -9,7 +9,7 @@ import type { Stop } from './campaign';
 import { D_ROWS, SIMILAR_PAIRS, UNLIKE_PAIRS } from './calibration';
 import { depthOf } from './depth';
 import type { Place, Technique } from './row';
-import { BARRED, markOf, type Barred, type SlowFacts, type Violation } from './grammar';
+import { BARRED, held, knownRepeat, markOf, type Barred, type SlowFacts, type Violation } from './grammar';
 import type { SlowMeasures } from './measureCache';
 import { explorerFacts, firstsOf, hiddenOf, lostOf, nearOf, rankOf, rankShares, shareOf, tailOf, trapOf, turnsOf, type Shares } from './measures';
 import { BANDS, difficulty } from './scale';
@@ -354,5 +354,5 @@ export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, wal
 export function grammarText(violations: readonly Violation[]): string {
   if (violations.length === 0) return 'grammar: clean';
   const lines = [...violations].sort((a, b) => a.at - b.at || a.rule - b.rule).map((one) => `  ${one.rule}  ${one.text}${markOf(one)}`);
-  return ['grammar:', ...lines].join('\n');
+  return ['grammar:', ...lines, `держат ряд: ${violations.filter((one) => held(one) && !knownRepeat(one)).length}`].join('\n');
 }
