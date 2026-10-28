@@ -347,10 +347,12 @@ describe('a candidate of a place', () => {
     // its place does not take. Their files took names by their idea on 16 October 2026; the code of
     // the place is the name they had. P04 is turned away since the 1s go on every level (the owner,
     // 26 October 2026): without its link it is cleared in five, one over its four, by sending the 1s.
+    // A board the owner narrowed by hand with holes (P03, 28 October 2026) brings its holes to its place.
     const verdictOf = (code: string) => {
       const level = { ...boardOf(code), id: code };
       const place = PLACES.find((other) => levelId(other) === code)!;
-      return { level, verdict: judge({ ...place, sketch: [level.layout!] }, SKETCH + 1) };
+      const holes = level.holes?.map(({ x, z }) => [x, z] as [number, number]);
+      return { level, verdict: judge({ ...place, ...(holes ? { holes } : {}), sketch: [level.layout!] }, SKETCH + 1) };
     };
     const { level, verdict } = verdictOf('P03');
     expect(verdict.why).toBe('');
