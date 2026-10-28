@@ -26,7 +26,7 @@ describe('the tiers of the lab', () => {
     expect(later.report.par).toBe(2);
     expect(later.near.length).toBeGreaterThan(0);
     // R03 is cleared by its pair in two moves, by one way, and cannot be lost; the hasty player clears it.
-    expect(later.measures).toEqual({ d: 1.5, rank: 1, forks: expect.any(Number), hidden: 0, ways: 1, waysLong: expect.any(Number), complete: true });
+    expect(later.measures).toEqual({ d: 2, rank: 1, forks: expect.any(Number), hidden: 0, ways: 1, waysLong: expect.any(Number), complete: true });
     expect(later.measures!.forks).toBeLessThanOrEqual(1);
   });
   it('measures a board that keeps no way by the way the solver finds', { timeout: 60_000 }, () => {

@@ -3,45 +3,63 @@ import { BANDS, RANK_BASE, bandOf, difficulty } from './scale';
 
 /**
  * The scale of difficulty and the bands of the decades (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md,
- * sections 6 and 7): one number of a board from its measures, and the numbers each ten places of the row are to have.
+ * sections 6, 7 and 12): one number of a board from its measures, and the numbers each ten places of the row are to have.
  */
 
 describe('the difficulty of a board', () => {
   it('starts at the base of the depth a player has to think', () => {
-    expect(RANK_BASE).toEqual({ 1: 1.5, 2: 3.5, 3: 5.5, 5: 7.5, 8: 9.5 });
-    expect(difficulty({ rank: 1, forks: 0, hidden: 0, lossAt: null, par: 3 })).toBe(1.5);
-    expect(difficulty({ rank: 2, forks: 2, hidden: 1, lossAt: 4, par: 8 })).toBe(3.5);
+    expect(RANK_BASE).toEqual({ 1: 2, 2: 3.5, 3: 5.5, 5: 7, 8: 9.5 });
+    expect(difficulty({ rank: 1, forks: 0, hidden: 0, lossAt: null, par: 3 })).toBe(2);
+    expect(difficulty({ rank: 2, forks: 3, hidden: 1, lossAt: 4, par: 5 })).toBe(3.5);
   });
 
   it('is 10 where no player clears the board', () => expect(difficulty({ rank: null, forks: 0, hidden: 0, lossAt: null, par: 0 })).toBe(10));
 
   it('adds the forks, the hidden dice, an early trap and a long way, and stops at 10', () => {
-    // 7.5 + 2 (forks, capped) + 1 (hidden, capped) + 1 (lost on the first move) + 1 (four moves over eight) = 12.5.
-    expect(difficulty({ rank: 5, forks: 6, hidden: 3, lossAt: 1, par: 12 })).toBe(10);
-    // 5.5 + 0.5 (a fork over two) − 0.5 (lost only after the fifth move); a move over eight adds nothing.
-    expect(difficulty({ rank: 3, forks: 3, hidden: 1, lossAt: 7, par: 9 })).toBe(5.5);
+    // 7 + 2 (forks, capped) + 0.5 (hidden, capped) + 0.5 (lost on the first move) + 1.5 (seven moves over five) = 11.5.
+    expect(difficulty({ rank: 5, forks: 20, hidden: 3, lossAt: 1, par: 12 })).toBe(10);
+    // 5.5 + 0.5 (two forks over three) − 0.5 (lost only after the fifth move); a move over five adds nothing.
+    expect(difficulty({ rank: 3, forks: 5, hidden: 1, lossAt: 7, par: 6 })).toBe(5.5);
   });
 
-  it('counts each part as the spec says it', () => {
+  it('counts each part as section 12 of the spec says it', () => {
     const base = { rank: 1, forks: 0, hidden: 0, lossAt: null, par: 3 } as const;
+    // A quarter for each fork over three, up to 2; a quarter left over goes up to the half.
+    expect(difficulty({ ...base, forks: 3 })).toBe(2);
     expect(difficulty({ ...base, forks: 4 })).toBe(2.5);
-    expect(difficulty({ ...base, forks: 9 })).toBe(3.5);
-    expect(difficulty({ ...base, hidden: 2 })).toBe(2);
+    expect(difficulty({ ...base, forks: 5 })).toBe(2.5);
+    expect(difficulty({ ...base, forks: 11 })).toBe(4);
+    expect(difficulty({ ...base, forks: 30 })).toBe(4);
+    // A half where more than one die hides its goal face, and no more.
+    expect(difficulty({ ...base, hidden: 1 })).toBe(2);
+    expect(difficulty({ ...base, hidden: 2 })).toBe(2.5);
     expect(difficulty({ ...base, hidden: 5 })).toBe(2.5);
+    // A half where the board is lost on the first or second move, a half less where only after the fifth.
     expect(difficulty({ ...base, lossAt: 2 })).toBe(2.5);
-    expect(difficulty({ ...base, lossAt: 3 })).toBe(1.5);
-    expect(difficulty({ ...base, lossAt: 6 })).toBe(1);
-    expect(difficulty({ ...base, par: 10 })).toBe(2);
-    expect(difficulty({ ...base, par: 11 })).toBe(2);
+    expect(difficulty({ ...base, lossAt: 3 })).toBe(2);
+    expect(difficulty({ ...base, lossAt: 6 })).toBe(1.5);
+    // A half for every two moves over five.
+    expect(difficulty({ ...base, par: 6 })).toBe(2);
+    expect(difficulty({ ...base, par: 7 })).toBe(2.5);
+    expect(difficulty({ ...base, par: 8 })).toBe(2.5);
+    expect(difficulty({ ...base, par: 9 })).toBe(3);
   });
 
-  it('never falls under 1', () => expect(difficulty({ rank: 1, forks: 0, hidden: 0, lossAt: 9, par: 2 })).toBe(1));
+  it('gives the boards of the calibration the D of section 12', () => {
+    // C2-05, tight-room-1, finale-1 and two-combos-3 as the cache of the row measured them on 28 October 2026.
+    expect(difficulty({ rank: 5, forks: 1, hidden: 2, lossAt: 2, par: 5 })).toBe(8);
+    expect(difficulty({ rank: 3, forks: 5, hidden: 3, lossAt: 1, par: 6 })).toBe(7);
+    expect(difficulty({ rank: 3, forks: 20, hidden: 0, lossAt: 4, par: 8 })).toBe(8);
+    expect(difficulty({ rank: 2, forks: 10, hidden: 2, lossAt: 2, par: 5 })).toBe(6.5);
+  });
+
+  it('is never under 1: the easiest board, lost only late, is 1.5', () => expect(difficulty({ rank: 1, forks: 0, hidden: 0, lossAt: 9, par: 2 })).toBe(1.5));
 
   it('is a whole number or a half', () => {
     for (const rank of [1, 2, 3, 5, 8, null]) {
-      for (let forks = 0; forks < 8; forks++) {
+      for (let forks = 0; forks < 12; forks++) {
         for (const lossAt of [null, 1, 3, 6]) {
-          const d = difficulty({ rank, forks, hidden: forks % 3, lossAt, par: 3 + forks * 2 });
+          const d = difficulty({ rank, forks, hidden: forks % 3, lossAt, par: 3 + forks });
           expect(d * 2).toBe(Math.round(d * 2));
           expect(d).toBeGreaterThanOrEqual(1);
           expect(d).toBeLessThanOrEqual(10);

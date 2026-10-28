@@ -105,11 +105,11 @@ describe('the notes under the table of the campaign', () => {
     const text = campaignNotes(stops, [MADE, one, MADE]);
     expect(text).toContain('одна дорога: 52 one-road');
     expect(text).not.toContain('53 many-roads');
-    // The first row of the scale holds the board of the 30th place at D 1.5, within 1 to 3.
-    expect(text).toContain(`${D_ROWS[0].codes[0]} 1.5`);
+    // The first row of the scale holds the board of the 30th place at D 2, within 1 to 3.
+    expect(text).toMatch(new RegExp(`${D_ROWS[0].codes[0]} 2$`, 'm'));
     expect(text).toMatch(/раздел 6/);
     expect(text).toMatch(/раздел 5/);
-    // Places 52 and 53 are at D 1.5, under the band of 5 to 6 of their decade.
+    // Places 52 and 53 are at D 2, under the band of 5 to 6 of their decade.
     expect(text).toMatch(/51–60: 2 из 2/);
   });
 });

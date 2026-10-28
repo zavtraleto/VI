@@ -18,8 +18,12 @@ export interface DFacts {
   par: number;
 }
 
-/** The base of the scale by the depth a player has to think: the main part of it. */
-export const RANK_BASE: Readonly<Record<1 | 2 | 3 | 5 | 8, number>> = { 1: 1.5, 2: 3.5, 3: 5.5, 5: 7.5, 8: 9.5 };
+/**
+ * The base of the scale by the depth a player has to think: the main part of it. Each within its band of section 6;
+ * the depths of one and five sit at the inner ends of theirs, as the owner's words on the row of 28 October placed
+ * the boards the shallow players clear higher, and those only the planner clears lower (section 12).
+ */
+export const RANK_BASE: Readonly<Record<1 | 2 | 3 | 5 | 8, number>> = { 1: 2, 2: 3.5, 3: 5.5, 5: 7, 8: 9.5 };
 
 /** The base of a depth not among those of the personas: that of the deepest of them it reaches. */
 function baseOf(rank: number | null): number {
@@ -29,18 +33,20 @@ function baseOf(rank: number | null): number {
 }
 
 /**
- * The difficulty of a board: the base of its depth, a half for each fork over two (up to 2), a half for each
- * hidden die over one (up to 1), a 1 where it can be lost on the first or second move and a half less where only
- * after the fifth, and a half for every two moves over eight. Held within 1 and 10, to a half. The number of the
- * ways is no part of it: several ways are a merit, not an ease (the owner's decision 8).
+ * The difficulty of a board: the base of its depth, a quarter for each fork over three (up to 2), a half where more
+ * than one die hides its goal face, a half where it can be lost on the first or second move and a half less where
+ * only after the fifth, and a half for every two moves over five. Held within 1 and 10, to a half, a quarter going up.
+ * The number of the ways is no part of it: several ways are a merit, not an ease (the owner's decision 8). The
+ * weights are those the calibration on the owner's words chose (spec section 12): the forks and the moves over five
+ * part the boards he called hard from those he called easy better than the hidden dice and the early trap do.
  */
 export function difficulty(facts: DFacts): number {
   let d = baseOf(facts.rank);
-  d += Math.min(2, Math.max(0, facts.forks - 2) * 0.5);
-  d += Math.min(1, Math.max(0, facts.hidden - 1) * 0.5);
-  if (facts.lossAt !== null && facts.lossAt <= 2) d += 1;
+  d += Math.min(2, Math.max(0, facts.forks - 3) * 0.25);
+  d += Math.min(0.5, Math.max(0, facts.hidden - 1) * 0.5);
+  if (facts.lossAt !== null && facts.lossAt <= 2) d += 0.5;
   else if (facts.lossAt !== null && facts.lossAt > 5) d -= 0.5;
-  if (facts.par > 8) d += Math.floor((facts.par - 8) / 2) * 0.5;
+  if (facts.par > 5) d += Math.floor((facts.par - 5) / 2) * 0.5;
   return Math.min(10, Math.max(1, Math.round(d * 2) / 2));
 }
 
