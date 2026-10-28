@@ -4,10 +4,11 @@ import type { LevelGraph } from './levelGraph';
 import { neededBy } from './levelProof';
 import { scoreOf } from './levelScore';
 import { SOLVER_MAX_STATES, moveOf, playMove, solveLevel, tryWay, type SolverMove } from './levelSolver';
+import { ALL_ORIENTATIONS, orientationKey } from './orientation';
 import { scan } from './reach';
 import { nextRandom, randomInt } from './rng';
 import { createRun } from './sim';
-import type { LevelSpec, RunState, Technique } from './types';
+import type { LevelSpec, Orientation, RunState, Technique } from './types';
 
 export { neededBy };
 
@@ -116,6 +117,11 @@ export interface Persona {
   slip: number;
   /** It counts the dice left against the groups that can still be made. */
   counts: boolean;
+  /**
+   * Share of the dice whose faces out of sight it reads wrong, as a person who sees only the top
+   * and the two sides turned to them may. With none, it knows every face of every die.
+   */
+  misread?: number;
 }
 
 export const PERSONAS = {
@@ -131,6 +137,47 @@ export const PERSONAS = {
 
 export type PersonaName = keyof typeof PERSONAS;
 export const PERSONA_NAMES = Object.keys(PERSONAS) as PersonaName[];
+
+/**
+ * Plans eight moves deep and almost never slips: the player the late boards are counted by.
+ * It is not among the four every board is measured by, since it thinks many times longer.
+ */
+export const DEEP: Persona = { depth: 8, budget: 40_000, slip: 0.01, counts: true };
+
+/**
+ * Thinks as the careful one does, but sees what a person sees: the top of every die and the two
+ * sides turned to the player. A quarter of the dice it reads wrong where it cannot see, until
+ * the die is turned again. What it clears less than the careful one is what reading the board costs.
+ */
+export const READER: Persona = { depth: 3, budget: 1200, slip: 0.04, counts: true, misread: 0.25 };
+
+/** The share of moves a player who tries other ways makes without thinking. */
+export const EXPLORER_SLIP = 0.15;
+
+/** The careful or the planning player trying other ways: the same player, slipping far more often. */
+export function explorerOf(name: 'careful' | 'planner'): Persona {
+  return { ...PERSONAS[name], slip: EXPLORER_SLIP };
+}
+
+/** The players a board is ranked by: the rank is the depth of the first of them that clears it often enough. */
+export type RankName = PersonaName | 'deep';
+
+export const RANK_PERSONAS: readonly { name: RankName; depth: number; persona: Persona }[] = [
+  ...PERSONA_NAMES.map((name) => ({ name, depth: PERSONAS[name].depth, persona: PERSONAS[name] as Persona })),
+  { name: 'deep', depth: DEEP.depth, persona: DEEP },
+];
+
+/**
+ * How a player reads a die. Three faces seen fix all six by the rule of seven, so a die read
+ * wrong behind faces read right is no die at all. A die misread is read as turned a quarter
+ * about the upright, one way or the other: its top is read right, and so is what stands made on
+ * the board, but what comes up when it is rolled is not what the player thinks.
+ */
+export function beliefOf(ori: Orientation, misread: number, rng: { rng: number }): Orientation {
+  if (misread <= 0 || nextRandom(rng) >= misread) return ori;
+  const left = nextRandom(rng) < 0.5;
+  return ALL_ORIENTATIONS.find((one) => one.top === ori.top && one.north === (left ? ori.east : ori.west))!;
+}
 
 /**
  * The greedy player: sees the move in front of it and never slips, so it always takes what
@@ -214,6 +261,7 @@ const PERSONA_MOVES = 60;
 
 /** A run of a player who plans: the board it comes to, and the moves it made. */
 export function personaRun(spec: LevelSpec, persona: Persona, seed: number, maxMoves = PERSONA_MOVES): { state: RunState; way: SolverMove[] } {
+  if (persona.misread !== undefined) return readerRun(spec, persona, persona.misread, seed, maxMoves);
   let state = startOf(spec);
   const rng = { rng: (seed ^ 0x3c6ef372) | 0 };
   const way: SolverMove[] = [];
@@ -222,6 +270,45 @@ export function personaRun(spec: LevelSpec, persona: Persona, seed: number, maxM
     if (!move) break;
     way.push({ x: move.x, z: move.z, dir: move.dir, push: move.push });
     state = playMove(state, move);
+  }
+  return { state, way };
+}
+
+/**
+ * A run of a player who reads the board as a person does. It thinks on the board as it believes
+ * it to be, and makes its move on the board as it is. The reading has a stream of chance of its
+ * own, so that a reader who misreads nothing plays move for move as the same player who knows
+ * every face. A die is read when the run begins and again whenever it is turned, by its own roll
+ * or by a push; a die not turned keeps what the player believed of it.
+ */
+function readerRun(spec: LevelSpec, persona: Persona, misread: number, seed: number, maxMoves: number): { state: RunState; way: SolverMove[] } {
+  let state = startOf(spec);
+  const rng = { rng: (seed ^ 0x3c6ef372) | 0 };
+  const reading = { rng: (seed ^ 0x1b873593) | 0 };
+  const beliefs = new Map<number, Orientation>();
+  const seen = new Map<number, string>();
+  const read = (now: RunState) => {
+    for (const cube of now.cubes) {
+      const key = orientationKey(cube.ori);
+      if (seen.get(cube.id) === key) continue;
+      seen.set(cube.id, key);
+      beliefs.set(cube.id, beliefOf(cube.ori, misread, reading));
+    }
+  };
+  read(state);
+  const way: SolverMove[] = [];
+  for (let made = 0; made < maxMoves && goesOn(state); made++) {
+    const believed = structuredClone(state);
+    for (const cube of believed.cubes) cube.ori = beliefs.get(cube.id) ?? cube.ori;
+    const thought = personaMove(believed, persona, rng);
+    const real = scan(state).moves;
+    if (real.length === 0) break;
+    const same = thought && real.find((move) => move.x === thought.x && move.z === thought.z && move.dir === thought.dir && move.push === thought.push);
+    // A move the player saw on the board it believed and that is not there on the real one is given up for any it can make.
+    const move = same || real[randomInt(reading, real.length)];
+    way.push({ x: move.x, z: move.z, dir: move.dir, push: move.push });
+    state = playMove(state, move);
+    read(state);
   }
   return { state, way };
 }

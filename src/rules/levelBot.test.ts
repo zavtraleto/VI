@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from './config';
+import { boardOf } from '../levels/boardSets';
 import {
-  ENDINGS, GREEDY, PERSONAS, PERSONA_NAMES, WALKERS, endingOf, measure, neededBy, personaFacts, personaMove, personaPlay, personaRates, personaRun, randomMove, randomMoves, randomPlay, randomRate,
+  DEEP, ENDINGS, EXPLORER_SLIP, GREEDY, PERSONAS, RANK_PERSONAS, READER, beliefOf, explorerOf, PERSONA_NAMES, WALKERS, endingOf, measure, neededBy, personaFacts, personaMove, personaPlay, personaRates, personaRun, randomMove, randomMoves, randomPlay, randomRate,
   trapRate, walkFacts, witnessWay,
 } from './levelBot';
 import { graphOf } from './levelGraph';
@@ -162,6 +163,55 @@ describe('the players that plan', () => {
     const round = personaRun(DOWN_AND_UP, PERSONAS.planner, 1);
     expect(round.state.endReason).toBe('passed');
     expect(round.way.map(moveText)).toEqual(['2,0,W', '3,2,W,p', '1,3,E']);
+  });
+});
+
+describe('the players the rank of a board is counted by', () => {
+  it('go from the hastiest to the deep one, by how far each thinks', () => {
+    expect(RANK_PERSONAS.map((one) => one.depth)).toEqual([1, 2, 3, 5, 8]);
+    expect(RANK_PERSONAS.map((one) => one.name)).toEqual(['hasty', 'casual', 'careful', 'planner', 'deep']);
+    expect(RANK_PERSONAS[4].persona).toBe(DEEP);
+    expect(DEEP).toEqual({ depth: 8, budget: 40_000, slip: 0.01, counts: true });
+    // The deep one is not among the four every board is measured by: it would make that many times slower.
+    expect(PERSONA_NAMES).toEqual(['hasty', 'casual', 'careful', 'planner']);
+  });
+
+  it('try other ways as an explorer: the same player with many more slips', () => {
+    expect(EXPLORER_SLIP).toBe(0.15);
+    expect(explorerOf('planner')).toEqual({ ...PERSONAS.planner, slip: 0.15 });
+    expect(explorerOf('careful')).toEqual({ ...PERSONAS.careful, slip: 0.15 });
+  });
+});
+
+describe('the reader', () => {
+  it('reads a die as it is, or as it would stand turned a quarter about the upright', () => {
+    for (const ori of ALL_ORIENTATIONS) {
+      expect(beliefOf(ori, 0, { rng: 7 })).toBe(ori);
+      for (let seed = 1; seed <= 4; seed++) {
+        const read = beliefOf(ori, 1, { rng: seed });
+        expect(read).not.toEqual(ori);
+        expect(read.top).toBe(ori.top);
+        expect(ALL_ORIENTATIONS).toContain(read);
+      }
+    }
+  });
+
+  it('who reads every face right plays as the careful one does', () => {
+    for (const code of ['hidden-face-1', 'P07']) {
+      const spec = boardOf(code);
+      for (let seed = 1; seed <= 5; seed++) {
+        const read = personaRun(spec, { ...READER, misread: 0 }, seed).way.map(moveText);
+        expect(read, `${code} seed ${seed}`).toEqual(personaRun(spec, PERSONAS.careful, seed).way.map(moveText));
+      }
+    }
+  });
+
+  it('plays the same run from the same seed', () => {
+    expect(READER).toEqual({ depth: 3, budget: 1200, slip: 0.04, counts: true, misread: 0.25 });
+    const spec = boardOf('hidden-face-1');
+    for (let seed = 1; seed <= 3; seed++) {
+      expect(personaRun(spec, READER, seed).way).toEqual(personaRun(spec, READER, seed).way);
+    }
   });
 });
 
