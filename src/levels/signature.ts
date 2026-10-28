@@ -46,6 +46,15 @@ export function coreOf(spec: LevelSpec): Core {
   return coreFrom(spec, wayOf(spec));
 }
 
+/**
+ * The core of a board read off the way it keeps only: where it keeps none, the core of an empty way. It never
+ * calls the solver, so the rules that run on the page on every lay (rules 16 and 17) cannot freeze it on a
+ * board with no recorded way.
+ */
+export function keptCoreOf(spec: LevelSpec): Core {
+  return coreFrom(spec, (spec.solution ?? []).map(moveOf));
+}
+
 /** The core written as six hexadecimal signs (FNV-1a of 32 bits), the column `sig` of the table. */
 export function coreKey(core: Core): string {
   const text = JSON.stringify({ kind: core.kind, route: core.route, needs: core.needs, faces: core.faces });
@@ -346,7 +355,7 @@ export interface Flag {
 export function flaggedBy(
   row: readonly { number: number; spec: LevelSpec }[],
   from = 31,
-  cores: readonly Core[] = row.map((place) => coreOf(place.spec)),
+  cores: readonly Core[] = row.map((place) => keptCoreOf(place.spec)),
   layoutOf: (i: number, j: number) => number = (i, j) => layoutSim(row[i].spec, row[j].spec),
 ): Map<number, Flag> {
   const out = new Map<number, Flag>();

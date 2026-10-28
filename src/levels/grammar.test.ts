@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { solveLevel } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
 import { BARRED, HELD, KNOWN_REPEATS, REPEAT_FROM, WARNING, fastGrammar, held, knownRepeat, lessonOf, markOf, needsOf, repeatsOf, slowGrammar } from './grammar';
 import { boardOf as anyBoard } from './boardSets';
 import { turnedBoard } from './edits';
+
+vi.mock('../rules/levelSolver', async (original) => {
+  const actual = await original<typeof import('../rules/levelSolver')>();
+  return { ...actual, solveLevel: vi.fn(actual.solveLevel) };
+});
 
 /**
  * The grammar of the row (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 3): the
@@ -462,6 +468,16 @@ describe('repeats of a thought and of a layout: rules 16 and 17', () => {
     expect(said(numbered(['R09', ...apart.slice(0, 4), 'two-pairs-1', 'which-first-2'], 25))).toEqual(['место 31 (which-first-2): похоже на место 25 (R09), 1.00']);
     // P02 0.78 far back is 0.03 over SIMILAR_ROW, R11 0.73 just before 0.08 over SIMILAR_NEAR: the five before are said, though P02 is more alike.
     expect(said(numbered(['P02', ...apart.slice(0, 4), 'R11', 'bridge-first-1'], 25))).toEqual(['место 31 (bridge-first-1): похоже на место 30 (R11) из пяти перед ним, 0.73']);
+  });
+
+  it('reads the core off the kept way only, never asking the solver: rules 16 and 17', () => {
+    const bare = (id: string): [string, Partial<Stop>] => [id, { spec: { ...boardOf(id), solution: undefined, par: undefined, exact: undefined } }];
+    const row = rowOf([...first.slice(0, 29), bare('hidden-face-1'), bare('two-combos-5')]);
+    vi.mocked(solveLevel).mockClear();
+    const found = repeatsOf(row);
+    expect(solveLevel).not.toHaveBeenCalled();
+    // A board with no way has the core of an empty way: the rows are still judged, by the layouts alone.
+    expect(found.map((one) => one.rule)).toEqual([17]);
   });
 
   it('says nothing of a place before the 31st, or of one far from all before it: rule 17', () => {

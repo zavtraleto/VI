@@ -7,7 +7,7 @@ import { visibleFaces } from './measures';
 import { needsOf } from './needs';
 import type { HintKey, Technique } from './row';
 import { BANDS, bandOf } from './scale';
-import { SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, coreOf, flaggedBy, layoutSim, type Core } from './signature';
+import { SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, flaggedBy, keptCoreOf, layoutSim, type Core } from './signature';
 import { sameBoard } from './variety';
 
 export { needsOf } from './needs';
@@ -487,11 +487,11 @@ const twoDigits = (share: number): string => share.toFixed(2);
  * the faces); one line for each such pair, the layout said where both are the same. Rule 17, a warning: a place
  * alike to a place before it at `SIMILAR_ROW` or more, or to one of the five before it at `SIMILAR_NEAR` or more
  * (`flaggedBy`); one line for the place, of the part that is over its threshold by more. The core of every place
- * is read once.
+ * is read once, off the way the board keeps (`keptCoreOf`): the solver is never asked.
  */
 export function repeatsOf(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
-  const cores = row.map((stop) => coreOf(stop.spec));
+  const cores = row.map((stop) => keptCoreOf(stop.spec));
   const keys = cores.map((core) => JSON.stringify(core));
   // The likeness of the layout of a place judged to each place before it, read once for both rules.
   const layouts = row.map((stop, i) => (stop.number < REPEAT_FROM ? [] : row.slice(0, i).map((other) => layoutSim(stop.spec, other.spec))));

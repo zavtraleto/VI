@@ -118,8 +118,10 @@ export interface Persona {
   /** It counts the dice left against the groups that can still be made. */
   counts: boolean;
   /**
-   * Share of the dice whose faces out of sight it reads wrong, as a person who sees only the top
-   * and the two sides turned to them may. With none, it knows every face of every die.
+   * Share of the dice it reads wrong, as a person who sees only the top and the two sides turned to
+   * them may: a die misread is read as turned a quarter about the upright, so its top (and the combos
+   * made) stay right, while the faces on its south and east sides, seen as well as unseen, are turned
+   * with it. With none, it knows every face of every die.
    */
   misread?: number;
 }
@@ -146,8 +148,10 @@ export const DEEP: Persona = { depth: 8, budget: 40_000, slip: 0.01, counts: tru
 
 /**
  * Thinks as the careful one does, but sees what a person sees: the top of every die and the two
- * sides turned to the player. A quarter of the dice it reads wrong where it cannot see, until
- * the die is turned again. What it clears less than the careful one is what reading the board costs.
+ * sides turned to the player. A quarter of the dice it reads turned a quarter about the upright
+ * until the die is rolled again: the top (and the combos made) stay right, but the sides, the visible
+ * south and east among them, are read wrong along with the unseen ones.
+ * What it clears less than the careful one is what reading the board costs.
  */
 export const READER: Persona = { depth: 3, budget: 1200, slip: 0.04, counts: true, misread: 0.25 };
 

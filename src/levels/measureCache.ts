@@ -7,7 +7,7 @@ import type { Technique } from './row';
 
 /**
  * The cache of the slow measures of the boards of the row (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md,
- * section 8): the walk, the personas, the bans of the solver and the graph of a board take an hour and a half for the
+ * section 8): the walk, the personas, the bans of the solver and the graph of a board take about an hour on six workers (3728 s, 28 October 2026) for the
  * row, so each board's are kept in `boards/.measures/<key>.json` (written by `scripts/measureCache.mjs`, kept in git so
  * that a new worktree starts warm). `npm test` never reads it.
  */
