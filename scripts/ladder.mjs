@@ -26,7 +26,7 @@
 //                                            band, and the rules of the grammar the row breaks. The slow measures of a board are kept in
 //                                            boards/.measures/<key>.json (src/levels/measureCache.ts, kept in git): a board found there is not
 //                                            measured again, a board changed in its file or MEASURES_VERSION raised is. Cold, the row takes
-//                                            about two hours; warm, a minute or so
+//                                            about an hour on six workers (3728 s, 28 October 2026); warm, about two seconds
 //   node scripts/ladder.mjs campaign fresh   measures every board again, not reading the cache, and writes it anew
 //   node scripts/ladder.mjs campaign places=31-40   those places only, measured or read as above (no rules of the grammar: they read the whole row);
 //                                            a walk= other than the table's is measured every time and kept nowhere

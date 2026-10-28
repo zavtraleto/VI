@@ -53,7 +53,7 @@ describe('the difficulty of a board', () => {
     expect(difficulty({ rank: 2, forks: 10, hidden: 2, lossAt: 2, par: 5 })).toBe(6.5);
   });
 
-  it('is never under 1: the easiest board, lost only late, is 1.5', () => expect(difficulty({ rank: 1, forks: 0, hidden: 0, lossAt: 9, par: 2 })).toBe(1.5));
+  it('is 1.5 at the lowest it reaches: the easiest board, lost only late', () => expect(difficulty({ rank: 1, forks: 0, hidden: 0, lossAt: 9, par: 2 })).toBe(1.5));
 
   it('is a whole number or a half', () => {
     for (const rank of [1, 2, 3, 5, 8, null]) {
