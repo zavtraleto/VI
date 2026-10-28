@@ -218,21 +218,24 @@ export const BOARD_GROUPS = {
      * them, in cells (the owner, 27 October: «источника света в отражении не должно быть видно.
      * облака тоже не должны "читаться" как облака»).
      */
-    skyLight: number(0.02, 0, 0.5, 0.005),
-    skySize: number(10, 0.5, 30, 0.5),
-    skySpeed: number(0.06, 0, 1, 0.005),
+    skyLight: number(0.03, 0, 0.5, 0.005),
+    skySize: number(7, 0.5, 30, 0.5),
+    skySpeed: number(0.35, 0, 2, 0.01),
     skyWarp: number(10, 0, 40, 0.5),
     /**
      * Dark shapes under the water, small and large, that come up, drift, change their outline and
      * go down, each on a time of its own («как будто под водой что-то происходит, но неясно что»).
      * How dark, 0 for none; how large, in cells; how fast they drift, in cells a second; how long
-     * one is there, in seconds; how far the slope of a wave moves them.
+     * one is there, in seconds; how far the slope of a wave moves them; how soft their edge is.
+     * They are deep, not on the surface («движение под водой и на глубине»): they darken the
+     * water and not the sky in it.
      */
     shadeDark: number(0.6, 0, 1, 0.01),
     shadeSize: number(3, 0.3, 10, 0.1),
-    shadeSpeed: number(0.04, 0, 0.5, 0.005),
-    shadeLife: number(45, 5, 200, 1),
-    refract: number(0.6, 0, 3, 0.05),
+    shadeSpeed: number(0.12, 0, 0.5, 0.005),
+    shadeLife: number(40, 5, 200, 1),
+    refract: number(1.5, 0, 4, 0.05),
+    shadeSoft: number(0.35, 0.02, 1, 0.01),
     /**
      * Rings that come from past the frame, from nothing that is seen («игрок делает круги сам, а
      * странные затухающие волны/круги могут приходить "из вне"»), slower than the player's: about

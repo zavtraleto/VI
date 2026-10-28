@@ -103,6 +103,7 @@ const LABELS: Record<string, string> = {
   shadeSpeed: 'под водой: скорость',
   shadeLife: 'под водой: живёт, с',
   refract: 'под водой: преломление',
+  shadeSoft: 'под водой: размытость краёв',
   outerEvery: 'круги извне: раз в N с (0 — нет)',
   outerHeight: 'круги извне: высота',
   outerSpeed: 'круги извне: скорость',
