@@ -6,6 +6,7 @@ import { goalFaces } from './goalFaces';
 import { visibleFaces } from './measures';
 import { needsOf } from './needs';
 import type { HintKey, Technique } from './row';
+import { SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, coreOf, flaggedBy, layoutSim, type Core } from './signature';
 import { sameBoard } from './variety';
 
 export { needsOf } from './needs';
@@ -24,10 +25,10 @@ export { needsOf } from './needs';
 
 /** A rule broken: its number, the place in the row (from 1) it is broken at, and what is wrong, in words. */
 export interface Violation {
-  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15;
+  rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
   at: number;
   text: string;
-  /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps. */
+  /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps; rule 17. */
   warning?: true;
 }
 
@@ -38,12 +39,19 @@ export interface Violation {
  * player's (the owner, 17 October 2026). Rule 11, the step of seven, is a warning from step 4: «7 это
  * скорее примерное измерение» (the owner, 18 October 2026). Rule 12 holds, but for its fast part. Rules 14 and 15,
  * the spread of faces, emotions and archetypes (the levels to a hundred, section 5), are warnings till the owner's playtest.
+ * Rule 16, one thought and one layout once in the row, holds from the first (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md,
+ * section 5); rule 17, too alike, is a warning till the row is rebuilt.
  */
-export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 12]);
+export const HELD: ReadonlySet<Violation['rule']> = new Set([1, 2, 3, 5, 7, 12, 16]);
 /** Whether a rule broken holds the row back, or is a warning for now. */
 export const held = (one: Violation): boolean => HELD.has(one.rule) && !one.warning;
 /** What the line of a rule that does not hold the row back yet ends with, under the table and in the workshop. */
 export const WARNING = ' (предупреждение)';
+/** What the line of a repeat known till the row is rebuilt ends with (`KNOWN_REPEATS`). */
+export const KNOWN_REPEAT = ' (известный повтор)';
+
+/** What the line of a rule broken ends with, under the table and in the workshop: nothing where it holds the row back. */
+export const markOf = (one: Violation): string => (knownRepeat(one) ? KNOWN_REPEAT : held(one) ? '' : WARNING);
 
 /** What the walk and the personas found of a board, for the slow rules. */
 export interface SlowFacts {
@@ -383,6 +391,116 @@ function emotionsSpread(row: readonly Stop[]): Violation[] {
   return out;
 }
 
+/** Rules 16 and 17 judge the places from this one on, against every place before it: the first thirty stay as they are (the owner's decision 1). */
+export const REPEAT_FROM = 31;
+
+/**
+ * The repeats of rule 16 on row 0.2.88, before it is rebuilt: «ряд 0.2.88 до пересборки, спека инструментов
+ * прогрессии, раздел 11, шаг 2: не чинить». They hold the row back as any breach of rule 16 does, but the test
+ * of the row lets them be, and the table and the workshop mark them (`KNOWN_REPEAT`). The rebuild empties it.
+ */
+export const KNOWN_REPEATS: readonly string[] = [
+  'места 29 (floor-first-1) и 33 (roll-or-push-1): одна мысль — K v P, lift push, грани 2',
+  'места 30 (carry-1) и 33 (roll-or-push-1): одна мысль — K v P, lift push, грани 2',
+  'места 21 (first-sixes-1) и 43 (collapse-3): одна мысль — K, грани 6',
+  'места 29 (floor-first-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
+  'места 30 (carry-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
+  'места 33 (roll-or-push-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
+  'места 7 (H07) и 48 (dd-04-three-on-six): одна мысль — K, loop, грани 3',
+  'места 22 (roll-in-1) и 48 (dd-04-three-on-six): одна раскладка',
+  'места 50 (two-combos-3) и 51 (two-combos-5): одна мысль — K ~ K, seven twoFaces walk, грани 3 4',
+  'места 18 (P02) и 52 (seven-1): одна раскладка',
+  'места 4 (B01_s290) и 53 (dd-06-find-the-two): одна раскладка',
+  'места 6 (H08) и 53 (dd-06-find-the-two): одна раскладка',
+  'места 5 (H06) и 55 (hidden-face-1): одна раскладка',
+  'места 8 (three-under-1) и 55 (hidden-face-1): одна мысль — K, seven, грани 3',
+  'места 14 (C1-07) и 55 (hidden-face-1): одна мысль — K, seven, грани 3',
+  'места 9 (which-first-2) и 60 (R09): одна мысль — K K, twoFaces, грани 2 3',
+  'места 7 (H07) и 61 (fixed-wall-1): одна мысль — K, loop, грани 3',
+  'места 48 (dd-04-three-on-six) и 61 (fixed-wall-1): одна мысль — K, loop, грани 3',
+  'места 13 (P07) и 64 (C2-05): одна мысль — K K, seven twoFaces, грани 2 3',
+  'места 57 (collapse-5) и 65 (collapse-4): одна мысль — K, loop, грани 6',
+  'места 37 (P12) и 66 (two-lifts-1): одна мысль — K v P ^ L, lift link push seven twoFaces, грани 2 3',
+  'места 3 (R03) и 67 (dd-25-pocket): одна раскладка',
+  'места 4 (B01_s290) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
+  'места 6 (H08) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
+  'места 53 (dd-06-find-the-two) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
+  'места 63 (fixed-combo-1) и 70 (dd-11-wood-pushes): одна мысль — K, грани 4',
+  'места 49 (hidden-face-3) и 71 (rescue-1): одна мысль — K L, link seven, грани 5',
+  'места 23 (C1-05) и 72 (chaser-1): одна мысль — K ~ L, glass link walk, грани 3',
+  'места 56 (dd-09-push-link) и 75 (dd-12-ice-corridor): одна мысль — K v Q, lift link push, грани 2',
+  'места 22 (roll-in-1) и 76 (roll-in-transfer-1): одна мысль — K ~ L, glass link walk, грани 2',
+  'места 54 (bridge-5) и 77 (P09): одна мысль — K ~ L, link walk, грани 3',
+  'места 32 (R14) и 79 (R16): одна мысль — K v P ^ L, lift link push twoFaces, грани 2 3',
+  'места 63 (fixed-combo-1) и 83 (dd-14-turn-to-fours): одна мысль — K, грани 4',
+  'места 70 (dd-11-wood-pushes) и 83 (dd-14-turn-to-fours): одна мысль — K, грани 4',
+  'места 63 (fixed-combo-1) и 84 (dd-72-fours-and-one): одна мысль — K, грани 4',
+  'места 70 (dd-11-wood-pushes) и 84 (dd-72-fours-and-one): одна мысль — K, грани 4',
+  'места 83 (dd-14-turn-to-fours) и 84 (dd-72-fours-and-one): одна мысль — K, грани 4',
+  'места 2 (side-up-1) и 87 (act-k21): одна мысль — K, грани 3',
+  'места 5 (H06) и 87 (act-k21): одна мысль — K, грани 3',
+  'места 47 (rescue-3) и 92 (rescue-4): одна мысль — K v Q, lift link push seven, грани 4',
+  'места 57 (collapse-5) и 94 (collapse-after-prep-1): одна мысль — K, loop, грани 6',
+  'места 65 (collapse-4) и 94 (collapse-after-prep-1): одна мысль — K, loop, грани 6',
+  'места 7 (H07) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
+  'места 48 (dd-04-three-on-six) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
+  'места 61 (fixed-wall-1) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
+  'места 7 (H07) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
+  'места 48 (dd-04-three-on-six) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
+  'места 61 (fixed-wall-1) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
+  'места 95 (dd-13-stone-row) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
+];
+
+/** Whether a breach is one of the repeats known till the row is rebuilt. */
+export const knownRepeat = (one: Violation): boolean => one.rule === 16 && KNOWN_REPEATS.includes(one.text);
+
+/** The thought of a board in words, for a line of rule 16: «K L, glass link, грани 2 3». */
+function coreText(core: Core): string {
+  const parts = [core.route === '' ? core.kind : core.route];
+  if (core.needs.length > 0) parts.push(core.needs.join(' '));
+  if (core.faces.length > 0) parts.push(`грани ${core.faces.join(' ')}`);
+  return parts.join(', ');
+}
+
+const twoDigits = (share: number): string => share.toFixed(2);
+
+/**
+ * Rules 16 and 17 (spec of the tools of progression, section 5), for the places from `REPEAT_FROM` on.
+ * Rule 16, held: a place has the same core (the thought: the kind and the route of its way, the moves and the
+ * faces it asks for) as a place before it, or the same layout (`layoutSim` at `SAME_LAYOUT` or more, whatever
+ * the faces); one line for each such pair, the layout said where both are the same. Rule 17, a warning: a place
+ * alike to a place before it at `SIMILAR_ROW` or more, or to one of the five before it at `SIMILAR_NEAR` or more
+ * (`flaggedBy`); one line for the place, of the part that is over its threshold by more. The core of every place
+ * is read once.
+ */
+export function repeatsOf(row: readonly Stop[]): Violation[] {
+  const out: Violation[] = [];
+  const cores = row.map((stop) => coreOf(stop.spec));
+  const keys = cores.map((core) => JSON.stringify(core));
+  // The likeness of the layout of a place judged to each place before it, read once for both rules.
+  const layouts = row.map((stop, i) => (stop.number < REPEAT_FROM ? [] : row.slice(0, i).map((other) => layoutSim(stop.spec, other.spec))));
+  row.forEach((stop, i) => {
+    if (stop.number < REPEAT_FROM) return;
+    for (let j = 0; j < i; j++) {
+      const other = row[j];
+      const pair = `места ${other.number} (${other.spec.id}) и ${stop.number} (${stop.spec.id})`;
+      if (layouts[i][j] >= SAME_LAYOUT) out.push({ rule: 16, at: stop.number, text: `${pair}: одна раскладка` });
+      else if (keys[i] === keys[j]) out.push({ rule: 16, at: stop.number, text: `${pair}: одна мысль — ${coreText(cores[i])}` });
+    }
+  });
+  const byNumber = new Map(row.map((stop) => [stop.number, stop]));
+  for (const [number, flag] of flaggedBy(row, REPEAT_FROM, cores, (i, j) => layouts[i][j])) {
+    if (!flag.flagged) continue;
+    const stop = byNumber.get(number)!;
+    // The part over its threshold by more is said; the five before, where the two are over by as much.
+    const near = flag.near - SIMILAR_NEAR >= flag.sim - SIMILAR_ROW;
+    const [at, sim] = near ? [flag.nearAt, flag.near] : [flag.at, flag.sim];
+    const where = `место ${at} (${byNumber.get(at)!.spec.id})${near ? ' из пяти перед ним' : ''}`;
+    out.push({ rule: 17, at: number, text: `${placeOf(stop)}: похоже на ${where}, ${twoDigits(sim)}`, warning: true });
+  }
+  return out;
+}
+
 /** Rule 5, its count of moves: the board after a meeting is cleared in at most a move more than the meeting. */
 function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
@@ -395,7 +513,7 @@ function easyAfterMeeting(row: readonly Stop[]): Violation[] {
   return out;
 }
 
-/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, the moves taught before of 10, 11, the kept way of 12, 13, 14 and 15. */
+/** The rules that ask nothing of a search: 1, 3, 4, the count of moves of 5, 7, the count of moves of 8, the moves taught before of 10, 11, the kept way of 12, 13, 14, 15, 16 and 17. */
 export function fastGrammar(row: readonly Stop[]): Violation[] {
   return [
     ...taughtAndUsed(row),
@@ -410,6 +528,7 @@ export function fastGrammar(row: readonly Stop[]): Violation[] {
     ...goalFacesSeen(row),
     ...facesSpread(row),
     ...emotionsSpread(row),
+    ...repeatsOf(row),
   ].sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
 

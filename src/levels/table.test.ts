@@ -4,6 +4,7 @@ import { MEASURE_HEAD } from './select';
 import { fileBoard } from './boardFiles';
 import { FIXTURE } from './rowFixture';
 import { PLACE_HEAD, ROAD_HEAD, clearedWithout, grammarText, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, tableOf } from './table';
+import { KNOWN_REPEATS } from './grammar';
 
 /**
  * A level as the list keeps one, written for this test: two pairs where 2s work. The die of the
@@ -133,5 +134,9 @@ describe('grammarText', () => {
   it('says the rules broken in the order of the row, and marks those that do not hold it back yet as warnings', () => {
     expect(grammarText([{ rule: 4, at: 2, text: 'x' }, { rule: 1, at: 1, text: 'y' }])).toBe('grammar:\n  1  y\n  4  x (предупреждение)');
     expect(grammarText([])).toBe('grammar: clean');
+    // A repeat known till the row is rebuilt is marked as such, a repeat of rule 16 that is not is held as it is.
+    expect(grammarText([{ rule: 16, at: 33, text: KNOWN_REPEATS[0] }, { rule: 16, at: 40, text: 'z' }])).toBe(`grammar:
+  16  ${KNOWN_REPEATS[0]} (известный повтор)
+  16  z`);
   });
 });

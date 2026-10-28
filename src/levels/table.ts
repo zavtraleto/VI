@@ -6,7 +6,7 @@ import { scan, type Ban } from '../rules/reach';
 import { createRun } from '../rules/sim';
 import type { LevelSpec } from '../rules/types';
 import type { Place, Technique } from './row';
-import { BARRED, WARNING, held, type Barred, type SlowFacts, type Violation } from './grammar';
+import { BARRED, markOf, type Barred, type SlowFacts, type Violation } from './grammar';
 import { firstsOf, lostOf, nearOf, tailOf, trapOf, turnsOf } from './measures';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { walkBoards } from './walk';
@@ -203,6 +203,6 @@ export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, wal
  */
 export function grammarText(violations: readonly Violation[]): string {
   if (violations.length === 0) return 'grammar: clean';
-  const lines = [...violations].sort((a, b) => a.at - b.at || a.rule - b.rule).map((one) => `  ${one.rule}  ${one.text}${held(one) ? '' : WARNING}`);
+  const lines = [...violations].sort((a, b) => a.at - b.at || a.rule - b.rule).map((one) => `  ${one.rule}  ${one.text}${markOf(one)}`);
   return ['grammar:', ...lines].join('\n');
 }

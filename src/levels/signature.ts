@@ -313,7 +313,15 @@ export function layoutSim(a: LevelSpec, b: LevelSpec): number {
  * The layout is taken to `LAYOUT_POWER`, so that what two layouts share by chance does not make them alike.
  */
 export function similarity(a: LevelSpec, b: LevelSpec): number {
-  return Math.max(coreSim(coreOf(a), coreOf(b)), layoutSim(a, b) ** LAYOUT_POWER);
+  return similarityOf(coreOf(a), coreOf(b), layoutSim(a, b));
+}
+
+/**
+ * `similarity` of two boards whose cores and the likeness of whose layouts (`layoutSim`) are read already: the
+ * one measure of the calibration and of rule 17, so that a row read place by place reads each of them once.
+ */
+export function similarityOf(coreA: Core, coreB: Core, layout: number): number {
+  return Math.max(coreSim(coreA, coreB), layout ** LAYOUT_POWER);
 }
 
 /** What rule 17 reads of a place: the earlier place most alike to it, and the most alike of the five before. */
@@ -331,16 +339,22 @@ export interface Flag {
 /**
  * Rule 17 over a row (spec section 5): for every place from `from` on, the earlier place most alike to it
  * and the most alike of the five before, and whether either crosses its threshold. The places before `from`
- * are judged against but not judged (the first thirty stay as they are, the owner's decision 1).
+ * are judged against but not judged (the first thirty stay as they are, the owner's decision 1). The cores of
+ * the places, one to a place, and the likeness of the layouts of the places `i` and `j` of the row may be given,
+ * where they are read already.
  */
-export function flaggedBy(row: readonly { number: number; spec: LevelSpec }[], from = 31): Map<number, Flag> {
-  const cores = row.map((place) => coreOf(place.spec));
+export function flaggedBy(
+  row: readonly { number: number; spec: LevelSpec }[],
+  from = 31,
+  cores: readonly Core[] = row.map((place) => coreOf(place.spec)),
+  layoutOf: (i: number, j: number) => number = (i, j) => layoutSim(row[i].spec, row[j].spec),
+): Map<number, Flag> {
   const out = new Map<number, Flag>();
   row.forEach((place, i) => {
     if (place.number < from || i === 0) return;
     let flag: Flag = { at: row[0].number, sim: -1, nearAt: row[0].number, near: -1, flagged: false };
     for (let j = 0; j < i; j++) {
-      const sim = Math.max(coreSim(cores[i], cores[j]), layoutSim(place.spec, row[j].spec) ** LAYOUT_POWER);
+      const sim = similarityOf(cores[i], cores[j], layoutOf(i, j));
       if (sim > flag.sim) flag = { ...flag, at: row[j].number, sim };
       if (j >= i - 5 && sim > flag.near) flag = { ...flag, nearAt: row[j].number, near: sim };
     }

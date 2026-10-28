@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
-import { BARRED, HELD, fastGrammar, held, lessonOf, needsOf, slowGrammar } from './grammar';
+import { BARRED, HELD, KNOWN_REPEATS, REPEAT_FROM, fastGrammar, held, knownRepeat, lessonOf, needsOf, repeatsOf, slowGrammar } from './grammar';
 import { boardOf as anyBoard } from './boardSets';
+import { turnedBoard } from './edits';
 
 /**
  * The grammar of the row (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 3): the
@@ -53,11 +54,11 @@ describe('what a board asks for', () => {
 });
 
 describe('the grammar of the row', () => {
-  it('holds on the row as it is built', () => {
-    expect(fastGrammar(CAMPAIGN).filter(held)).toEqual([]);
+  it('holds on the row as it is built, but for the repeats known till the row is rebuilt', () => {
+    expect(fastGrammar(CAMPAIGN).filter(held).filter((one) => !knownRepeat(one))).toEqual([]);
   });
 
-  it('prints what it does not hold yet as warnings: rules 4, 8, 10, 11, 13, 14 and 15', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 12]));
+  it('prints what it does not hold yet as warnings: rules 4, 8, 10, 11, 13, 14, 15 and 17', () => expect([...HELD]).toEqual([1, 2, 3, 5, 7, 12, 16]));
 
   it('finds the place a move is taught at, or none', () => {
     const row = rowOf([['act-k17', { role: 'apply' }], ['R07', { role: 'meet', teaches: 'link' }]]);
@@ -409,5 +410,41 @@ describe('the slow part of the grammar', () => {
   it('does not hold the meeting of a chapter to the rest that ends the chapter before it', () => {
     const row = rowOf(['R01', 'R02', 'R03', 'act-k22', ['R09', { chapter: 2, role: 'meet', teaches: 'twoFaces', archetype: 'two heaps' }], 'two-pairs-1']);
     expect(slowGrammar(row, (stop) => ({ ...easy, planner: stop.spec.id === 'R09' ? 0.6 : 1 })).filter((one) => one.rule === 5 && one.text.includes('после встречи'))).toEqual([]);
+  });
+});
+
+describe('repeats of a thought and of a layout: rules 16 and 17', () => {
+  const first = CAMPAIGN.slice(0, 30).map((place) => place.code);
+  const turned29: [string, Partial<Stop>] = [first[28], { spec: turnedBoard(boardOf(first[28])) }];
+  const rule = (n: number, row: readonly Stop[]) => repeatsOf(row).filter((one) => one.rule === n);
+
+  it('judges the places from the 31st on', () => expect(REPEAT_FROM).toBe(31));
+
+  it('finds a board turned as the same layout: rule 16', () => {
+    // The 30th of the row (carry-1) is one thought with the 29th: R03 stands there instead, so that the layout is said alone.
+    const row = rowOf([...first.slice(0, 29), 'R03', turned29]);
+    expect(rule(16, row)).toEqual([{ rule: 16, at: 31, text: 'места 29 (floor-first-1) и 31 (floor-first-1): одна раскладка' }]);
+    expect(rule(16, row).every(held)).toBe(true);
+    // Below the 31st the rule does not judge: the first thirty stay as they are.
+    expect(rule(16, rowOf([...first.slice(0, 29), turned29]))).toEqual([]);
+  });
+
+  it('finds two layouts of one thought: rule 16', () => {
+    const row = rowOf([...first.slice(0, 29), 'two-combos-3', 'two-combos-5']);
+    expect(rule(16, row).map((one) => one.text)).toEqual(['места 30 (two-combos-3) и 31 (two-combos-5): одна мысль — K ~ K, seven twoFaces walk, грани 3 4']);
+  });
+
+  it('warns once for a place too alike to one before it: rule 17', () => {
+    const row = rowOf([...first.slice(0, 29), 'two-combos-3', 'two-combos-5']);
+    const warned = rule(17, row);
+    expect(warned.map((one) => [one.at, one.text, one.warning])).toEqual([[31, 'место 31 (two-combos-5): похоже на место 30 (two-combos-3) из пяти перед ним, 1.00', true]]);
+    expect(warned.some(held)).toBe(false);
+  });
+
+  it('holds the repeats of the row as it stands as known, and each is found', () => {
+    const rule16 = fastGrammar(CAMPAIGN).filter((one) => one.rule === 16);
+    expect(rule16.map((one) => one.text)).toEqual([...KNOWN_REPEATS]);
+    expect(rule16.every(knownRepeat)).toBe(true);
+    expect(knownRepeat({ rule: 16, at: 31, text: 'места 29 (floor-first-1) и 31 (floor-first-1): одна раскладка' })).toBe(false);
   });
 });
