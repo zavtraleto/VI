@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
-import { BARRED, HELD, KNOWN_REPEATS, REPEAT_FROM, fastGrammar, held, knownRepeat, lessonOf, needsOf, repeatsOf, slowGrammar } from './grammar';
+import { BARRED, HELD, KNOWN_REPEATS, REPEAT_FROM, WARNING, fastGrammar, held, knownRepeat, lessonOf, markOf, needsOf, repeatsOf, slowGrammar } from './grammar';
 import { boardOf as anyBoard } from './boardSets';
 import { turnedBoard } from './edits';
 
@@ -439,6 +439,43 @@ describe('repeats of a thought and of a layout: rules 16 and 17', () => {
     const warned = rule(17, row);
     expect(warned.map((one) => [one.at, one.text, one.warning])).toEqual([[31, 'место 31 (two-combos-5): похоже на место 30 (two-combos-3) из пяти перед ним, 1.00', true]]);
     expect(warned.some(held)).toBe(false);
+  });
+
+  /** A short row of the boards named, numbered on from `from`: the places before the 31st are judged against, not judged. */
+  const numbered = (codes: readonly string[], from: number) => rowOf(codes.map((code, i): [string, Partial<Stop>] => [code, { number: from + i }]));
+  /** Boards below 0.45 alike to which-first-2 and to bridge-first-1, to stand between. */
+  const apart = ['first-sixes-1', 'first-fours-1', 'rescue-5', 'broom-3', 'ready-fours-1'];
+  const said = (row: readonly Stop[]) => rule(17, row).map((one) => one.text);
+
+  it('says a place alike to one six places back of the whole row: rule 17', () => {
+    // which-first-2 and R09 are one thought (1.00); the five between are far from it, so only the whole row is over.
+    expect(said(numbered(['R09', ...apart, 'which-first-2'], 25))).toEqual(['место 31 (which-first-2): похоже на место 25 (R09), 1.00']);
+  });
+
+  it('says a place alike to one of the five before it, under the threshold of the whole row: rule 17', () => {
+    // two-pairs-1 is 0.68 alike to which-first-2: over SIMILAR_NEAR, under SIMILAR_ROW.
+    expect(said(numbered(['two-pairs-1', 'which-first-2'], 30))).toEqual(['место 31 (which-first-2): похоже на место 30 (two-pairs-1) из пяти перед ним, 0.68']);
+  });
+
+  it('says once the part further over its threshold, where both are over: rule 17', () => {
+    // R09 1.00 far back is 0.25 over SIMILAR_ROW, two-pairs-1 0.68 just before 0.03 over SIMILAR_NEAR: the whole row is said.
+    expect(said(numbered(['R09', ...apart.slice(0, 4), 'two-pairs-1', 'which-first-2'], 25))).toEqual(['место 31 (which-first-2): похоже на место 25 (R09), 1.00']);
+    // P02 0.78 far back is 0.03 over SIMILAR_ROW, R11 0.73 just before 0.08 over SIMILAR_NEAR: the five before are said, though P02 is more alike.
+    expect(said(numbered(['P02', ...apart.slice(0, 4), 'R11', 'bridge-first-1'], 25))).toEqual(['место 31 (bridge-first-1): похоже на место 30 (R11) из пяти перед ним, 0.73']);
+  });
+
+  it('says nothing of a place before the 31st, or of one far from all before it: rule 17', () => {
+    expect(said(numbered(['two-pairs-1', 'which-first-2'], 29))).toEqual([]);
+    expect(said(numbered([...apart, 'which-first-2'], 26))).toEqual([]);
+  });
+
+  it('ends the line of a known repeat with its mark, and of a repeat not known with nothing', () => {
+    const known = { rule: 16 as const, at: 33, text: KNOWN_REPEATS[0] };
+    const other = { rule: 16 as const, at: 33, text: 'места 1 (R01) и 33 (R01): одна раскладка' };
+    expect([knownRepeat(known), markOf(known)]).toEqual([true, ' (известный повтор)']);
+    expect([knownRepeat(other), held(other), markOf(other)]).toEqual([false, true, '']);
+    // The text of a known repeat under another rule is no known repeat.
+    expect(markOf({ rule: 17, at: 33, text: KNOWN_REPEATS[0], warning: true })).toBe(WARNING);
   });
 
   it('holds the repeats of the row as it stands as known, and each is found', () => {

@@ -341,7 +341,7 @@ export interface Flag {
  * and the most alike of the five before, and whether either crosses its threshold. The places before `from`
  * are judged against but not judged (the first thirty stay as they are, the owner's decision 1). The cores of
  * the places, one to a place, and the likeness of the layouts of the places `i` and `j` of the row may be given,
- * where they are read already.
+ * where they are read already; `layoutOf(i, j)` is asked only for `j < i` and a place `i` numbered `from` or more.
  */
 export function flaggedBy(
   row: readonly { number: number; spec: LevelSpec }[],
