@@ -124,7 +124,13 @@ function climbRows(climb: Climb): PanelRow[] {
       of: () => climb.total,
       lit: () => climb.lit,
     },
-    { kind: 'climb', rows: (count) => climb.rows(count).map((line) => line && { ...line, name: fitName(line.name) }), lines: CLIMB_LINES },
+    {
+      kind: 'climb',
+      rows: (count, shift) => climb.rows(count, shift).map((line) => line && { ...line, name: fitName(line.name) }),
+      lines: CLIMB_LINES,
+      // Once the place is taken, the log around it can be scrolled.
+      range: (count) => climb.shiftRange(count),
+    },
   ];
 }
 

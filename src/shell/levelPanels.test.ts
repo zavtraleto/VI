@@ -7,7 +7,7 @@ import { FIXTURE } from '../levels/rowFixture';
 import { MIN_ZONE, pictureSize, textWidth } from './layout';
 import { LANGUAGES, setLanguage, word } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
-import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel } from './panels';
+import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel } from './panels';
 import { Climb } from './climb';
 import { nextFocus } from './input';
 import type { ShellContext } from './screen';
@@ -242,6 +242,30 @@ describe('the result of a live session on a screen', () => {
       }
     }
     setLanguage('en');
+  });
+});
+
+describe('the logs of the panels on a screen', () => {
+  const lines = Array.from({ length: 60 }, (_, i) => ({ name: `Player ${i}`, score: 6000 - i * 100, own: false }));
+
+  it.each(SCREENS)('scroll on a %s: the log of the records by the wheel and a finger, as far as its end and no further', (_name, window, ratio) => {
+    const screen = new PanelScreen(context(window, ratio), recordsPanel(() => ({ lines: lines.map((line, i) => ({ ...line, rank: i + 1 })) }), { onBack: nothing }), true);
+    expect(screen.scroll('up', 400, 'back', true)).toBeNull();
+    expect(screen.scroll('down', 30, 'back')).toBe('back');
+    expect(screen.scroll('down', 100_000, 'back')).toBe('back');
+    expect(screen.scroll('down', 400, 'back', true)).toBeNull();
+    expect(screen.scroll('up', 400, 'back', true)).toBe('back');
+  });
+
+  it.each(SCREENS)('scroll on a %s the log a result goes up once the place is taken, and not before', (_name, window, ratio) => {
+    const climb = new Climb({ lines, score: 3050, name: 'YOU', record: false });
+    const screen = new PanelScreen(context(window, ratio), liveResultPanel({ score: 3050, best: 3050, maxChain: 2 }, { onAgain: nothing, onNext: nothing, onMenu: nothing }, climb), false);
+    climb.update(0);
+    expect(screen.scroll('down', 100, 'next')).toBeNull();
+    climb.finish();
+    expect(screen.scroll('down', 100, 'next')).toBe('next');
+    expect(screen.scroll('up', 100_000, 'next')).toBe('next');
+    expect(screen.scroll('up', 400, 'next', true)).toBeNull();
   });
 });
 

@@ -9,6 +9,10 @@
  */
 export const WORDS = {
   // The files of the menu and the bar that runs one.
+  // What the bar of a file of the menu does: a file is played, read or opened.
+  PLAY: { ru: 'ИГРАТЬ', es: 'JUGAR', pt: 'JOGAR', tr: 'OYNA', de: 'SPIELEN', fr: 'JOUER' },
+  READ: { ru: 'ЧИТАТЬ', es: 'LEER', pt: 'LER', tr: 'OKU', de: 'LESEN', fr: 'LIRE' },
+  OPEN: { ru: 'ОТКРЫТЬ', es: 'ABRIR', pt: 'ABRIR', tr: 'AÇ', de: 'ÖFFNEN', fr: 'OUVRIR' },
   EXECUTE: { ru: 'ВЫПОЛНИТЬ', es: 'EJECUTAR', pt: 'EXECUTAR', tr: 'ÇALIŞTIR', de: 'AUSFÜHREN', fr: 'EXÉCUTER' },
   PROTOCOL: { ru: 'ПРОТОКОЛ', es: 'PROTOCOLO', pt: 'PROTOCOLO', tr: 'PROTOKOL', de: 'PROTOKOLL', fr: 'PROTOCOLE' },
   LEVELS: { ru: 'УРОВНИ', es: 'NIVELES', pt: 'NÍVEIS', tr: 'SEVİYELER', de: 'STUFEN', fr: 'NIVEAUX' },

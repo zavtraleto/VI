@@ -47,9 +47,16 @@ export const SUBJECT = {
 /** Over the six dice: "Fig. 1, development" — the net of a die. */
 export const SPACE_CAPTION = '図1 展開図';
 
-/** "Run". */
-export const EXEC_LABEL = '実行';
-export const EXEC_NAME = 'EXECUTE';
+/**
+ * What the bar of a file of the menu says it does (the owner, 28 October 2026: «"выполнить" это
+ * играть, тоже наверное старт нужно писать»): a file that is played is started, one that is read
+ * is read, any other is opened.
+ */
+export const EXEC = {
+  play: { native: '開始', name: 'PLAY' },
+  read: { native: '読む', name: 'READ' },
+  open: { native: '開く', name: 'OPEN' },
+} as const;
 
 export const STATUS = {
   channels: 'CH',
@@ -73,6 +80,8 @@ export interface MenuFile {
   native: string;
   /** The one dry line, in the language of the player. */
   line: TextKey;
+  /** What the bar of its record says it does. */
+  exec: (typeof EXEC)[keyof typeof EXEC];
   /** Label and kind of the value under the name. */
   field: readonly [label: string, kind: FileField];
 }
@@ -87,17 +96,17 @@ export interface MenuFile {
  */
 export const MENU_FILES: readonly MenuFile[] = [
   /** "Stages": the levels of the game; "completed". */
-  { id: 'levels', face: 1, name: 'LEVELS', native: '段階', line: 'shellLevels', field: ['完了', 'levels'] },
+  { id: 'levels', face: 1, name: 'LEVELS', native: '段階', line: 'shellLevels', exec: EXEC.play, field: ['完了', 'levels'] },
   /** "Protocol"; "best record". */
-  { id: 'protocol', face: 2, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', field: ['最高記録', 'bestEndless'] },
+  { id: 'protocol', face: 2, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', exec: EXEC.play, field: ['最高記録', 'bestEndless'] },
   /** "Procedure": how the game is played, on the pieces of the road; "completed": the pieces passed, as the levels are counted. */
-  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: '手順', line: 'shellHowTo', field: ['規則', 'rules'] },
+  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: '手順', line: 'shellHowTo', exec: EXEC.read, field: ['規則', 'rules'] },
   /** "To begin with": the note that came with the program; "last": the day it was last written to. */
-  { id: 'readme', face: 4, name: 'README', native: 'はじめに', line: 'shellReadme', field: ['最終', 'readme'] },
+  { id: 'readme', face: 4, name: 'README', native: 'はじめに', line: 'shellReadme', exec: EXEC.read, field: ['最終', 'readme'] },
   /** "Records"; "number of entries". */
-  { id: 'records', face: 5, name: 'RECORDS', native: '記録', line: 'shellRecords', field: ['件数', 'sessions'] },
+  { id: 'records', face: 5, name: 'RECORDS', native: '記録', line: 'shellRecords', exec: EXEC.open, field: ['件数', 'sessions'] },
   /** "Settings"; "revision". */
-  { id: 'system', face: 6, name: 'SYSTEM', native: '設定', line: 'shellSystem', field: ['改訂', 'revision'] },
+  { id: 'system', face: 6, name: 'SYSTEM', native: '設定', line: 'shellSystem', exec: EXEC.open, field: ['改訂', 'revision'] },
 ];
 
 /** The day the note that came with the program was last written to, by the era: the day before the last start. */

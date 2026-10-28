@@ -191,3 +191,38 @@ describe('a session going up the log', () => {
     expect(climb.update(20000)).toBe(false);
   });
 });
+
+describe('the log around a session that has taken its place, scrolled', () => {
+  const placed = (lines: ClimbLine[], score: number, record = false): Climb => {
+    const climb = new Climb({ lines, score, name: 'YOU', record, reduced: true });
+    climb.update(0);
+    return climb;
+  };
+
+  it('does not scroll while the session is on its way up', () => {
+    const climb = new Climb({ lines: log(40), score: 2050, name: 'YOU', record: false });
+    climb.update(0);
+    expect(climb.shiftRange(7)).toEqual([0, 0]);
+  });
+
+  it('goes up to the first line of the log and down to the last, and no further', () => {
+    const climb = placed(log(40), 2050);
+    // 20 lines over the session, 20 under it: seven rows with the session in the middle one.
+    expect(climb.shiftRange(7)).toEqual([-17, 17]);
+    expect(climb.rows(7, -17).map((row) => row?.place)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(climb.rows(7, 17).map((row) => row?.place)).toEqual([35, 36, 37, 38, 39, 40, 41]);
+    expect(climb.rows(7, 99)).toEqual(climb.rows(7, 17));
+    expect(climb.rows(7, 0)[3]).toMatchObject({ place: 21, name: 'YOU', tone: 'run' });
+  });
+
+  it('counts a record once: the line the player had before is gone from the log', () => {
+    const lines = [...log(10), line('YOU', 50, 'own')];
+    const climb = placed(lines, 550, true);
+    const [least, most] = climb.shiftRange(5);
+    const byPlace = new Map<number, string>();
+    for (let shift = least; shift <= most; shift++) for (const row of climb.rows(5, shift)) if (row) byPlace.set(row.place, row.name);
+    expect([...byPlace.keys()].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect([...byPlace.values()].filter((name) => name === 'YOU')).toHaveLength(1);
+    expect(climb.rows(5, most).at(-1)).toMatchObject({ place: 11, name: 'n10' });
+  });
+});

@@ -42,7 +42,14 @@ export type PanelRow =
    * A part of a log around one line of it, which stands in the middle row: a session on its way
    * up the log. `rows` gives what is in sight in so many rows; `lines` is the most it shows.
    */
-  | { kind: 'climb'; rows: (count: number) => readonly (ClimbRow | null)[]; lines: number }
+  | {
+      kind: 'climb';
+      /** What is in sight in so many rows, scrolled so many rows from where the session stands. */
+      rows: (count: number, shift?: number) => readonly (ClimbRow | null)[];
+      lines: number;
+      /** How far it can be scrolled up (less than nought) and down; it cannot where left out. */
+      range?: (count: number) => readonly [least: number, most: number];
+    }
   /**
    * The boards of the levels, as numbered cells with what each has earned; `note` is said under them for the cell
    * in focus. `marks` is how many a cell can earn, three when left out. With `program` the note
@@ -210,6 +217,12 @@ export class PanelScreen implements ShellScreen {
   private top: number | null = null;
   /** CSS pixels the wheel has turned the list that do not make a row yet, down counted up: the small steps of a touchpad add up. */
   private wheeled = 0;
+  /**
+   * A log scrolled by the player: the first line of a table in sight, null while it stands as
+   * it opened (its top, and the player's line under it); the rows a way up the log is scrolled.
+   */
+  private logTop: number | null = null;
+  private logShift = 0;
 
   constructor(
     private readonly context: ShellContext,
@@ -328,9 +341,10 @@ export class PanelScreen implements ShellScreen {
           const own = all.findIndex((line) => line[2]);
           // The line of the one who is playing lies below what is in sight: the last rows show
           // it with the lines next to it, under a line that says the log is cut there.
-          const near = own >= count ? Math.min(NEAR_ROWS, count - (count > NEAR_ROWS ? 3 : 1)) : 0;
+          const near = this.logTop === null && own >= count ? Math.min(NEAR_ROWS, count - (count > NEAR_ROWS ? 3 : 1)) : 0;
+          const top = Math.min(this.logTop ?? 0, Math.max(0, all.length - count));
           const from = Math.min(Math.max(own - Math.floor(near / 2), count - near), all.length - near);
-          const rows = near > 0 ? [...all.slice(0, count - near), ...all.slice(from, from + near)] : all.slice(0, count);
+          const rows = near > 0 ? [...all.slice(0, count - near), ...all.slice(from, from + near)] : all.slice(top, top + count);
           kit.text('No.', left, box.y, dim);
           kit.text(row.head(), left + CELL_W * 4, box.y, dim);
           const status = row.status?.() ?? '';
@@ -340,16 +354,17 @@ export class PanelScreen implements ShellScreen {
           if (near > 0 && count > near) kit.dither(left, box.y + CELL_H + 1 + (count - near) * CELL_H, right - left, 1, dim, 4);
           rows.forEach(([label, value, mine, place], i) => {
             const y = box.y + CELL_H + 2 + i * CELL_H;
-            kit.text(digits(place ?? i + 1, 2), left, y, mine ? ink : dim);
+            const rank = place ?? top + i + 1;
+            kit.text(digits(rank, 2), left, y, mine ? ink : dim);
             const labelEnd = kit.text(label, left + CELL_W * 4, y, mine ? ink : dim, { bold: mine === true });
             const valueStart = right - kit.measure(value);
-            kit.text(value, valueStart, y, ink, { bold: i === 0 || mine === true });
+            kit.text(value, valueStart, y, ink, { bold: rank === 1 || mine === true });
             kit.leader(labelEnd + CELL_W, valueStart - CELL_W, y, faint);
           });
           break;
         }
         case 'climb': {
-          const lines = row.rows(this.tableLines(row.lines, box.h));
+          const lines = row.rows(this.tableLines(row.lines, box.h), this.logShift);
           lines.forEach((line, i) => {
             if (!line) return;
             const y = box.y + 2 + i * CELL_H;
@@ -617,7 +632,8 @@ export class PanelScreen implements ShellScreen {
    */
   scroll(dir: 'up' | 'down', pixels: number, focus: string | null, wheel = false): string | null {
     const list = this.levels();
-    if (!list || list.view.shown >= list.view.rows) return null;
+    if (!list) return this.scrollLog(dir, pixels, focus, wheel);
+    if (list.view.shown >= list.view.rows) return null;
     const { row, view } = list;
     const zoom = this.context.window().height / Math.max(1, this.context.picture().height);
     const rowPixels = (this.zone() + GAP) * zoom;
@@ -637,6 +653,47 @@ export class PanelScreen implements ShellScreen {
     if (index < 0) return focus ?? `${row.id}-${view.cells.findIndex((_cell, i) => view.rowOf[i] === from)}`;
     const near = Math.max(from, Math.min(from + view.shown - 1, view.rowOf[index]));
     return near === view.rowOf[index] ? focus : `${row.id}-${this.nearestIn(view, near, index)}`;
+  }
+
+  /**
+   * A finger drawn up or down over a panel with a log, or the wheel: the log goes that many
+   * lines that way, a finger one at least, the wheel as its steps add up to lines. The focus
+   * stays. Null where the panel has no log, where the log all fits, and where the wheel has
+   * not turned it a line.
+   */
+  private scrollLog(dir: 'up' | 'down', pixels: number, focus: string | null, wheel: boolean): string | null {
+    const placed = this.plan().placed.find((one) => one.row.kind === 'table' || one.row.kind === 'climb');
+    if (!placed) return null;
+    const { row, box } = placed;
+    const zoom = this.context.window().height / Math.max(1, this.context.picture().height);
+    const linePixels = CELL_H * zoom;
+    let by: number;
+    if (wheel) {
+      const signed = dir === 'down' ? pixels : -pixels;
+      this.wheeled = Math.sign(this.wheeled) === -Math.sign(signed) ? signed : this.wheeled + signed;
+      by = Math.trunc(Math.abs(this.wheeled) / linePixels);
+      if (by === 0) return null;
+      this.wheeled -= Math.sign(this.wheeled) * by * linePixels;
+    } else by = Math.max(1, Math.round(pixels / linePixels));
+    const step = dir === 'down' ? by : -by;
+    const kept = focus ?? this.home ?? null;
+    if (row.kind === 'table') {
+      const count = this.tableLines(row.lines, box.h - CELL_H);
+      const total = row.rows().length;
+      if (total <= count) return null;
+      const top = Math.max(0, Math.min(total - count, (this.logTop ?? 0) + step));
+      // At its end the wheel is not taken; a finger is, and presses nothing under it.
+      if (top === (this.logTop ?? 0)) return wheel ? null : kept;
+      this.logTop = top;
+      return kept;
+    }
+    if (row.kind !== 'climb' || !row.range) return null;
+    const [least, most] = row.range(this.tableLines(row.lines, box.h));
+    if (least === most) return null;
+    const shift = Math.max(least, Math.min(most, this.logShift + step));
+    if (shift === this.logShift) return wheel ? null : kept;
+    this.logShift = shift;
+    return kept;
   }
 
   /** Height of a line that is pressed: what a finger needs, whatever the picture is. */

@@ -2,11 +2,11 @@ import type { Layer } from '../../display/layer';
 import type { Rect } from '../../display/sizing';
 import { t, word } from '../../ui/i18n';
 import type { Kit } from '../kit';
-import { CELL_H, CELL_W, MIN_ZONE, menuLayout, netProjection, netStep, type Box, type Dir4, type MenuLayout, type NetProjection } from '../layout';
+import { CELL_H, CELL_W, MIN_ZONE, menuLayout, netProjection, netStep, textWidth, type Box, type Dir4, type MenuLayout, type NetProjection } from '../layout';
 import { drawLogo } from '../logo';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { ShellSpace } from '../space';
-import { EXEC_LABEL, EXEC_NAME, LEGEND, MENU_FILES, PAGER, README_DATE, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, type FileField, type MenuFile } from '../text';
+import { LEGEND, MENU_FILES, PAGER, README_DATE, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, type FileField, type MenuFile } from '../text';
 import type { Palette } from '../theme';
 
 /** What the files of the main menu do. */
@@ -39,6 +39,31 @@ const PREV_ID = 'prev';
 const NEXT_ID = 'next';
 /** Width of the part of the bar of the record an arrow stands in. */
 const PAGER_WIDTH = 3 * CELL_W;
+/** Rows of a callout and of the key, and the room between the net and a column of callouts. */
+const LABEL_ROW = CELL_H + 2;
+const CALLOUT_GAP = 10;
+/** Side of the little face before a name in the key under the net of a tall picture. */
+const KEY_FACE = 10;
+
+/** The name of a file beside its die: where it stands, and where its line leaves the die. */
+interface Callout {
+  file: MenuFile;
+  /** The box of the name; its line comes in at `edge`, the side of the box nearer the net. */
+  box: Box;
+  edge: number;
+  from: { x: number; y: number };
+}
+
+/** What names the dice: callouts on a wide picture, a key under the net on a tall one. */
+interface Names {
+  /** Where the dice hang: the part of the space the names leave them. */
+  net: Box;
+  callouts: Callout[];
+  /** The key: two columns of three rows, the files in the order of their faces. */
+  key: Box | null;
+}
+
+type NetView = { yaw: number; pitch: number; gap: number; fill: number };
 
 /** A number between 0 and 1 that depends on its two arguments alone. */
 function chance(a: number, b: number): number {
@@ -86,7 +111,7 @@ export class MenuScreen implements ShellScreen {
   }
 
   items(): ShellItem[] {
-    const { layout, projection, zoom } = this.plan();
+    const { layout, projection, zoom, names } = this.plan();
     const side = Math.max(projection.zone, MIN_ZONE / zoom);
     const items: ShellItem[] = MENU_FILES.map((file) => {
       const centre = projection.centres[file.face - 1];
@@ -97,6 +122,18 @@ export class MenuScreen implements ShellScreen {
         confirm: true,
       };
     });
+    // The name of a file beside its die stands the figure on it, as the arrows of the record do.
+    for (const { file, box } of names.callouts) {
+      const tall = Math.max(box.h, MIN_ZONE / zoom);
+      items.push({
+        id: `name-${file.id}`,
+        rect: this.toWindow({ x: box.x, y: box.y + box.h / 2 - tall / 2, w: box.w, h: tall }),
+        action: () => this.context.focus(this.stand(file)),
+        passive: true,
+        instant: true,
+        quiet: true,
+      });
+    }
     items.push({ id: EXEC_ID, rect: this.toWindow(layout.exec), action: () => this.actions[this.current.id](), passive: true });
     const { prev, next } = this.pagers(layout, zoom);
     items.push(
@@ -120,8 +157,13 @@ export class MenuScreen implements ShellScreen {
   private beside(step: number): string {
     const count = MENU_FILES.length;
     const face = ((this.current.face - 1 + step + count) % count) + 1;
-    this.current = MENU_FILES.find((file) => file.face === face)!;
-    return this.current.id;
+    return this.stand(MENU_FILES.find((file) => file.face === face)!);
+  }
+
+  /** The figure stands on a file from this moment. */
+  private stand(file: MenuFile): string {
+    this.current = file;
+    return file.id;
   }
 
   /**
@@ -172,9 +214,9 @@ export class MenuScreen implements ShellScreen {
 
   scene(layer: Layer, palette: Palette, focus: ShellFocus, timeMs: number): boolean {
     this.follow(focus);
-    const { layout, projection } = this.plan();
+    const { projection, names } = this.plan();
     this.space.stand(this.current.face);
-    this.space.render(layer, this.toWindow(layout.space), projection, palette, timeMs, this.context.reducedMotion());
+    this.space.render(layer, this.toWindow(names.net), projection, palette, timeMs, this.context.reducedMotion());
     return true;
   }
 
@@ -184,7 +226,7 @@ export class MenuScreen implements ShellScreen {
 
   draw(kit: Kit, focus: ShellFocus): void {
     this.follow(focus);
-    const { layout, projection } = this.plan();
+    const { layout, projection, names } = this.plan();
     const palette = kit.palette;
     const file = this.current;
     const channel = palette.channels[file.face - 1];
@@ -195,6 +237,7 @@ export class MenuScreen implements ShellScreen {
 
     if (layout.subject) this.drawSubject(kit, layout.subject);
     this.drawSpace(kit, layout, projection, channel);
+    this.drawNames(kit, names);
     this.drawRecord(kit, layout, file, channel, focus.pressed);
     this.drawStatus(kit, layout.status);
     if (layout.legend !== null) kit.text(LEGEND, layout.header.left, layout.legend, palette.dim);
@@ -206,18 +249,111 @@ export class MenuScreen implements ShellScreen {
     if (file) this.current = file;
   }
 
-  private plan(): { layout: MenuLayout; projection: NetProjection; zoom: number } {
+  private plan(): { layout: MenuLayout; projection: NetProjection; zoom: number; names: Names } {
     const { values } = this.context;
     const picture = this.context.picture();
     const zoom = this.context.window().height / Math.max(1, picture.height);
     const layout = menuLayout(picture, this.context.safe(), zoom);
-    const projection = netProjection(layout.space, {
+    const view: NetView = {
       yaw: Number(values.spaceYaw),
       pitch: Number(values.spacePitch),
       gap: Number(values.spaceGap),
       fill: Number(values.spaceFill),
+    };
+    const names = layout.wide ? this.callouts(layout.space, view) : this.keyed(layout.space);
+    return { layout, projection: netProjection(names.net, view), zoom, names };
+  }
+
+  /**
+   * The key under the net of a tall picture: there is no room beside the dice for their names
+   * (the owner, 28 October 2026, chose a key there and callouts on a wide one). Two columns of
+   * three rows, a little face of each die and the name of its file; the dice keep the rest.
+   */
+  private keyed(space: Box): Names {
+    const tall = 3 * LABEL_ROW + 4;
+    const key: Box = { x: space.x, y: space.y + space.h - tall, w: space.w, h: tall };
+    return { net: { ...space, h: Math.max(CELL_H, space.h - tall - 4) }, callouts: [], key };
+  }
+
+  /**
+   * The names of the files beside their dice, on a wide picture: the dice on the left of the
+   * net, and the one in its middle, are named in a column to its left, the others in a column to
+   * its right; each name at the height of its die where the names leave room for it, with a line
+   * from the die to its name. The net gives the columns their room.
+   */
+  private callouts(space: Box, view: NetView): Names {
+    const whole = netProjection(space, view);
+    const middle = whole.centres.reduce((sum, centre) => sum + centre.x, 0) / whole.centres.length;
+    const left = MENU_FILES.filter((file) => whole.centres[file.face - 1].x < middle || file.face === 1);
+    const right = MENU_FILES.filter((file) => !left.includes(file));
+    const width = (file: MenuFile): number => textWidth(word(file.name)) + 4;
+    const widest = (files: readonly MenuFile[]): number => Math.max(0, ...files.map(width));
+    const leftWidth = widest(left);
+    const rightWidth = widest(right);
+    const net: Box = {
+      x: space.x + leftWidth + CALLOUT_GAP,
+      y: space.y,
+      w: Math.max(CELL_H, space.w - leftWidth - rightWidth - 2 * CALLOUT_GAP),
+      h: space.h,
+    };
+    const projection = netProjection(net, view);
+    // Under the caption of the figure, and over the bottom of the space.
+    const top = space.y + LABEL_ROW + 4;
+    const bottom = space.y + space.h - LABEL_ROW;
+    const column = (files: readonly MenuFile[], onLeft: boolean): Callout[] => {
+      const sorted = [...files].sort((a, b) => projection.centres[a.face - 1].y - projection.centres[b.face - 1].y);
+      const ys: number[] = [];
+      for (const file of sorted) {
+        const want = Math.round(projection.centres[file.face - 1].y - CELL_H / 2);
+        ys.push(Math.max(want, ys.length > 0 ? ys[ys.length - 1] + LABEL_ROW : top));
+      }
+      // Names pushed past the bottom go back up together.
+      for (let i = ys.length - 1; i >= 0; i--) ys[i] = Math.min(ys[i], i === ys.length - 1 ? bottom : ys[i + 1] - LABEL_ROW);
+      const reach = projection.unit * 0.75;
+      return sorted.map((file, i) => {
+        const w = width(file);
+        const centre = projection.centres[file.face - 1];
+        const x = onLeft ? net.x - CALLOUT_GAP - w : net.x + net.w + CALLOUT_GAP;
+        return {
+          file,
+          box: { x, y: ys[i], w, h: CELL_H },
+          edge: onLeft ? x + w : x,
+          from: { x: Math.round(centre.x + (onLeft ? -reach : reach)), y: Math.round(centre.y) },
+        };
+      });
+    };
+    return { net, callouts: [...column(left, true), ...column(right, false)], key: null };
+  }
+
+  /**
+   * The names of the files: a callout beside each die with its line from the die, or the key
+   * under the net. The file the figure stands on has its name filled and its line in its
+   * colour; the others are dim, their lines faint, with a dot of their colour where the line
+   * leaves the die.
+   */
+  private drawNames(kit: Kit, names: Names): void {
+    const { bg, ink, dim, faint, channels } = kit.palette;
+    for (const { file, box, edge, from } of names.callouts) {
+      const on = file.id === this.current.id;
+      const channel = channels[file.face - 1];
+      const y = box.y + Math.round(CELL_H / 2);
+      const bend = edge + (edge > from.x ? -4 : 4);
+      kit.wire([from, { x: bend, y: from.y }, { x: bend, y }, { x: edge, y }], on ? channel : faint);
+      kit.rect(from.x - 1, from.y - 1, 3, 3, channel);
+      if (on) kit.box(box, ink);
+      kit.text(word(file.name), box.x + 2, box.y, on ? bg : dim, { bold: on });
+    }
+    const { key } = names;
+    if (!key) return;
+    const half = Math.floor((key.w - 4) / 2);
+    MENU_FILES.forEach((file, i) => {
+      const on = file.id === this.current.id;
+      const x = key.x + (i % 2) * (half + 4);
+      const y = key.y + 4 + Math.floor(i / 2) * LABEL_ROW;
+      if (on) kit.rect(x, y - 1, half, LABEL_ROW, ink);
+      kit.face(file.face, x + 3, y + Math.round((CELL_H - KEY_FACE) / 2), KEY_FACE, channels[file.face - 1], bg);
+      kit.text(word(file.name), x + 3 + KEY_FACE + 6, y, on ? bg : dim, { bold: on });
     });
-    return { layout, projection, zoom };
   }
 
   private toWindow(box: Box): Rect {
@@ -313,7 +449,7 @@ export class MenuScreen implements ShellScreen {
     kit.field(file.field[0], this.value(file.field[1]), left, right, box.y + 82, dim, ink);
 
     const exec = layout.exec;
-    const label = `${EXEC_LABEL} ${word(EXEC_NAME)}`;
+    const label = `${file.exec.native} ${word(file.exec.name)}`;
     const textY = exec.y + Math.round((exec.h - CELL_H) / 2);
     if (pressed !== null && pressed !== PREV_ID && pressed !== NEXT_ID) {
       kit.frame(exec, ink);

@@ -3,7 +3,7 @@ import { LANGUAGES, languageOf, setLanguage, t, word } from '../ui/i18n';
 import { WORDS } from '../ui/lang/words';
 import kanji from './fonts/kanji.txt?raw';
 import { textWidth } from './layout';
-import { COMMANDS, EXEC_NAME, LIVE_WORD, MENU_FILES, PANELS, RECORDS, RESULT, SYSTEM, shortScore } from './text';
+import { COMMANDS, EXEC, LIVE_WORD, MENU_FILES, PANELS, RECORDS, RESULT, SYSTEM, shortScore } from './text';
 import source from './text.ts?raw';
 import { dayAmount, mixHex, paletteAt, shellDefaults } from './theme';
 
@@ -82,7 +82,7 @@ describe('the language of the player', () => {
 describe('the words of the program a player presses', () => {
   const names = (group: Record<string, unknown>): string[] =>
     Object.values(group).flatMap((value) => (typeof value === 'string' ? [value] : value && typeof value === 'object' && 'name' in value ? [String(value.name)] : []));
-  const said = [...MENU_FILES.map((file) => file.name), EXEC_NAME, ...names(PANELS), ...names(COMMANDS), ...names(RESULT), ...names(SYSTEM), RECORDS.title.name, RECORDS.empty.name, RECORDS.nameless, RECORDS.you];
+  const said = [...MENU_FILES.map((file) => file.name), ...names(EXEC), ...names(PANELS), ...names(COMMANDS), ...names(RESULT), ...names(SYSTEM), RECORDS.title.name, RECORDS.empty.name, RECORDS.nameless, RECORDS.you];
   const inEvery = (check: (code: string) => void): void => {
     for (const code of LANGUAGES) {
       setLanguage(code);

@@ -228,11 +228,29 @@ export class Climb {
   }
 
   /**
+   * How far the log in `count` rows can be scrolled from where it shows the session: up to its
+   * first line and down to its last. Nothing while the session is on its way up.
+   */
+  shiftRange(count: number): readonly [least: number, most: number] {
+    if (!this.placed) return [0, 0];
+    const size = Math.max(1, Math.round(count));
+    const middle = Math.floor(size / 2);
+    const ahead = this.lines.length - this.passed;
+    const gone = this.record && this.lines.some((line) => line.own) ? 1 : 0;
+    const length = this.lines.length + 1 - gone;
+    // Rows of the log before the first in sight and after the last, where the session stands in the middle row.
+    const before = ahead - middle;
+    const after = length - (before + size);
+    return [Math.min(0, -before), Math.max(0, after)];
+  }
+
+  /**
    * What the log shows around the session at this moment, in `count` rows: the session in the
    * middle one, the lines still ahead over it, nearest first from the middle up, and the lines
-   * gone past under it. A row with no line is null.
+   * gone past under it. A row with no line is null. Once the place is taken the log can be
+   * scrolled: `shift` rows down (up where it is less than nought), as far as `shiftRange` allows.
    */
-  rows(count: number): (ClimbRow | null)[] {
+  rows(count: number, shift = 0): (ClimbRow | null)[] {
     const size = Math.max(1, Math.round(count));
     const middle = Math.floor(size / 2);
     const ahead = this.lines.length - this.passed;
@@ -241,7 +259,9 @@ export class Climb {
     const below = this.lines.map((_, i) => i).filter((i) => i >= ahead && i !== gone);
     const lit = !this.placed && this.elapsed < this.litUntil;
     const rows: (ClimbRow | null)[] = [];
-    for (let row = 0; row < size; row++) {
+    const [least, most] = this.shiftRange(size);
+    const from = Math.min(most, Math.max(least, Math.round(shift)));
+    for (let row = from; row < from + size; row++) {
       if (row === middle) {
         rows.push({ place: ahead + 1, name: this.name, score: this.shownScore(), tone: 'run' });
         continue;
