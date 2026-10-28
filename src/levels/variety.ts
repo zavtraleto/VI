@@ -25,7 +25,7 @@ export interface Traits {
 type Cell = readonly [number, number];
 
 /** The eight ways a square board is turned and mirrored, as what each does to a cell of a board `size` a side. */
-function turns(size: number): ((cell: Cell) => Cell)[] {
+export function turns(size: number): ((cell: Cell) => Cell)[] {
   const last = size - 1;
   return [
     ([x, z]) => [x, z],

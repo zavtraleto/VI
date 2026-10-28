@@ -5,7 +5,7 @@ import { createRun } from '../rules/sim';
 import { ori } from '../rules/testkit';
 import type { LevelSpec, Orientation, PuzzleDie } from '../rules/types';
 import { boardOf } from './boardSets';
-import { decoyOf, farOf, firstsOf, islandsOf, loopOf, lostOf, nearOf, oneFaceClears, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf, visibleFaces } from './measures';
+import { decoyOf, explorerFacts, farOf, firstsOf, hiddenOf, islandsOf, loopOf, lostOf, nearOf, oneFaceClears, rankOf, rideTurn, rides, silenceOf, tailOf, trapOf, turnsOf, underOf, visibleFaces } from './measures';
 import { fileBoard } from './boardFiles';
 
 /** A die of a board, lying as the faces given say. */
@@ -335,5 +335,37 @@ describe('the faces seen at the start', () => {
     expect(seen.has(3)).toBe(true);
     expect(seen.has(5)).toBe(true);
     expect(seen.has(4)).toBe(false);
+  });
+});
+
+describe('the dice whose face that goes is out of sight at the start', () => {
+  it('is one on hidden-face-1, with the way of its file or the way the solver finds', () => {
+    expect(hiddenOf(boardOf('hidden-face-1'))).toBe(1);
+    expect(hiddenOf({ ...boardOf('hidden-face-1'), solution: undefined, par: undefined, exact: undefined })).toBe(1);
+  });
+
+  it('leaves out a fixed die on fixed-wall-1: the fixed 3 never turns, and the dice that go with it show their 3s on top from the start', () => {
+    expect(hiddenOf(boardOf('fixed-wall-1'))).toBe(0);
+  });
+
+  it('is nothing for a way that makes no move', () => {
+    expect(hiddenOf(boardOf('hidden-face-1'), [])).toBe(0);
+  });
+});
+
+describe('the rank of a board', () => {
+  it('is the depth of the first player who clears half of the runs or more', () => {
+    expect(rankOf({ hasty: 0.2, casual: 0.6 })).toBe(2);
+    expect(rankOf({ hasty: 0, casual: 0, careful: 0, planner: 0.4, deep: 0.3 })).toBeNull();
+    expect(rankOf({ hasty: 0, casual: 0, careful: 0.1, planner: 0.2, deep: 0.5 })).toBe(8);
+  });
+});
+
+describe('a player who tries other ways', () => {
+  it('sees at least one way on R03', () => {
+    const facts = explorerFacts(boardOf('R03'), 'careful', 5);
+    expect(facts.waysSeen).toBeGreaterThanOrEqual(1);
+    expect(facts.offPar).toBeGreaterThanOrEqual(0);
+    expect(facts.offPar).toBeLessThanOrEqual(1);
   });
 });

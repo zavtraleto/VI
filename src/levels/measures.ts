@@ -1,11 +1,13 @@
 import { DELTA, DIRS, cubeAt } from '../rules/board';
 import { defaultConfig } from '../rules/config';
 import { levelDeadEnd, shortGroups } from '../rules/level';
-import { explore, movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
+import { PERSONAS, RANK_PERSONAS, explorerOf, personaRun, type Persona, type RankName } from '../rules/levelBot';
+import { explore, moveOf, movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
 import { scan } from '../rules/reach';
 import { ALL_ORIENTATIONS } from '../rules/orientation';
 import { createRun } from '../rules/sim';
 import type { Dir, LevelSpec, Orientation, RunState } from '../rules/types';
+import { canonicalWay } from './depth';
 
 /**
  * What a board and its way are measured by, past the fewest moves: how a level ends, how many
@@ -382,4 +384,83 @@ export function lostOf(spec: LevelSpec): { boards: number; lost: number; said: n
     });
   }
   return { boards, lost: far.filter((moves) => moves < 0).length, said: end.filter((how) => how === 'count' || how === 'floor').length, worst };
+}
+
+/** The way of a board: the one given, else the one of its file, else the solver's; none where it has no solution. */
+function wayOf(spec: LevelSpec, way?: readonly SolverMove[]): readonly SolverMove[] {
+  return way ?? spec.solution?.map(moveOf) ?? solveLevel(spec).solution?.moves ?? [];
+}
+
+/**
+ * Reading: the dice whose face they go with on the way is out of sight at the start, where a player
+ * sees the top of a die and its south and east sides. A fixed die is never turned and goes with the
+ * face it shows, so it is not asked. A die hidden behind another is counted as seen (section 10 of
+ * the spec of the tools of progression, point 4).
+ */
+export function hiddenOf(spec: LevelSpec, way?: readonly SolverMove[]): number {
+  let state = startOf(spec);
+  // The dice of a run are laid as the board gives them: what each shows at the start is how it lies there.
+  const seen = new Map(state.cubes.map((cube) => [cube.id, [cube.ori.top, cube.ori.south, cube.ori.east]]));
+  const fixed = new Set(state.cubes.filter((cube) => cube.fixed).map((cube) => cube.id));
+  /** The face every die showed when it began to go. */
+  const wentAs = new Map<number, number>();
+  const look = () => {
+    for (const cube of state.cubes) if (cube.state === 'sinking' && !wentAs.has(cube.id)) wentAs.set(cube.id, cube.ori.top);
+  };
+  look();
+  for (const move of wayOf(spec, way)) {
+    if (state.over) break;
+    state = tellMove(state, move).state;
+    look();
+  }
+  return [...wentAs].filter(([id, face]) => !fixed.has(id) && !seen.get(id)!.includes(face)).length;
+}
+
+/** The share of the runs of a player that clear the board, by which the rank of a board is said. */
+export type Shares = Partial<Record<RankName, number>>;
+
+/** The share a player is to clear for the board to be within their reach. */
+export const RANK_SHARE = 0.5;
+
+/** The share of `runs` runs of a player that clear the board, seeds 1 and on. */
+export function shareOf(spec: LevelSpec, persona: Persona, runs = 30): number {
+  let cleared = 0;
+  for (let seed = 1; seed <= runs; seed++) if (personaRun(spec, persona, seed).state.endReason === 'passed') cleared++;
+  return cleared / runs;
+}
+
+/**
+ * The shares of the four players every board is measured by, and of the deep one where the planner
+ * clears less than half: the deep one thinks many times longer, and is asked only where it is needed.
+ */
+export function rankShares(spec: LevelSpec, runs = 30): Shares {
+  const shares: Shares = {};
+  for (const name of ['hasty', 'casual', 'careful', 'planner'] as const) shares[name] = shareOf(spec, PERSONAS[name], runs);
+  if (shares.planner! < RANK_SHARE) shares.deep = shareOf(spec, RANK_PERSONAS.find((rank) => rank.name === 'deep')!.persona, runs);
+  return shares;
+}
+
+/** The depth a player has to think to clear the board: of the first player who clears it often enough. Null where none does. */
+export function rankOf(shares: Shares): number | null {
+  return RANK_PERSONAS.find(({ name }) => (shares[name] ?? 0) >= RANK_SHARE)?.depth ?? null;
+}
+
+/** What a player who tries other ways finds: how often a way they clear is longer than par, and how many ways they clear it by. */
+export interface ExplorerFacts {
+  /** Share of the cleared runs longer than par; 0 with none cleared. */
+  offPar: number;
+  /** Different ways among the cleared runs, told apart by `canonicalWay`. */
+  waysSeen: number;
+}
+
+export function explorerFacts(spec: LevelSpec, name: 'careful' | 'planner', runs = 30): ExplorerFacts {
+  const par = spec.par ?? solveLevel(spec).solution?.par ?? Infinity;
+  const persona = explorerOf(name);
+  const cleared: SolverMove[][] = [];
+  for (let seed = 1; seed <= runs; seed++) {
+    const { state, way } = personaRun(spec, persona, seed);
+    if (state.endReason === 'passed') cleared.push(way);
+  }
+  if (cleared.length === 0) return { offPar: 0, waysSeen: 0 };
+  return { offPar: cleared.filter((way) => way.length > par).length / cleared.length, waysSeen: new Set(cleared.map((way) => canonicalWay(spec, way))).size };
 }
