@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelSpec } from '../rules/types';
 import { boardOf } from './boardSets';
-import { SIMILAR_PAIRS, UNLIKE_PAIRS } from './calibration';
+import { OWNER_REPEATS, SIMILAR_PAIRS, UNLIKE_PAIRS } from './calibration';
+import { CAMPAIGN } from './campaign';
 import { needsOf as grammarNeeds } from './grammar';
 import { needsOf } from './needs';
-import { SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, coreKey, coreOf, coreSim, layoutSim, shapeClassOf, signatureOf, similarity } from './signature';
+import { SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, coreKey, coreOf, coreSim, flaggedBy, layoutSim, shapeClassOf, signatureOf, similarity } from './signature';
 
 /**
  * The signature of a board and how alike two boards are (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md,
@@ -25,7 +26,7 @@ const KNOWN_SIMILARITY_MISSES: readonly string[] = [
   // (`ones-over-leaving-1` and `act-k21`, 0.63), so the layout cannot be let to say it alone.
   'act-k25~roll-in-transfer-1 0.44',
   // Places 68 and 67: four dice against two, a 3 and a link against a loop of a 2; nothing of the core
-  // is shared but the kind, and two dice over four can be no more than 0.6 of a layout.
+  // is shared but a part of the route, and two dice over four can be no more than 0.6 of a layout.
   'probe-25~dd-25-pocket 0.36',
 ];
 
@@ -134,6 +135,40 @@ describe('the calibration of section 5', () => {
   });
 
   it('holds the thresholds of rules 16 and 17', () => {
-    expect([SAME_LAYOUT, SIMILAR_ROW, SIMILAR_NEAR]).toEqual([0.9, 0.7, 0.5]);
+    expect([SAME_LAYOUT, SIMILAR_ROW, SIMILAR_NEAR]).toEqual([0.9, 0.75, 0.65]);
+  });
+});
+
+/**
+ * Rule 17 against the owner's own list of repeats (fix round 1 of task 3): of places 48-100 of row 0.2.87,
+ * the 23 he called repeats are to be flagged, the other 30 as few as can be. The measure finds nearly every
+ * repeat, and flags most of the others too: what the owner calls a repeat is a board alike to one before it
+ * and also simple, and the second is the scale of difficulty's to say, not the similarity's.
+ */
+const REPEATS_MISSED: readonly string[] = ['49 hidden-face-3'];
+const FLAGGED_NOT_CALLED: readonly string[] = [
+  '54 bridge-5', '55 hidden-face-1', '62 dd-62-fours-around', '63 fixed-combo-1', '66 two-lifts-1', '67 dd-25-pocket',
+  '69 act-k23', '70 dd-11-wood-pushes', '77 P09', '78 far-faces-1', '80 dd-15-no-way-down', '81 trap-5',
+  '83 dd-14-turn-to-fours', '85 P06', '86 ones-over-leaving-1', '87 act-k21', '88 tight-room-5', '91 tight-room-1',
+  '93 ones-broom-below-1', '94 collapse-after-prep-1', '95 dd-13-stone-row', '96 dd-19-three-threes-apart', '100 finale-1',
+];
+
+describe('rule 17 on row 0.2.87', () => {
+  const flags = flaggedBy(CAMPAIGN);
+
+  it('judges every place from the 31st on against every place before it', () => {
+    expect([...flags.keys()]).toEqual(CAMPAIGN.filter((place) => place.number >= 31).map((place) => place.number));
+    const two = flags.get(51)!;
+    expect([two.at, two.sim, two.flagged]).toEqual([50, 1, true]); // two-combos-5 after two-combos-3: one core
+    expect(two.nearAt).toBe(50);
+  });
+
+  it('flags 22 of the 23 places 48-100 the owner called repeats, and 23 of the other 30', () => {
+    const late = CAMPAIGN.filter((place) => place.number >= 48);
+    const said = (place: (typeof late)[number]) => `${place.number} ${place.code}`;
+    const missed = late.filter((place) => OWNER_REPEATS.includes(place.code) && !flags.get(place.number)!.flagged).map(said);
+    const others = late.filter((place) => !OWNER_REPEATS.includes(place.code) && flags.get(place.number)!.flagged).map(said);
+    expect(missed).toEqual(REPEATS_MISSED);
+    expect(others).toEqual(FLAGGED_NOT_CALLED);
   });
 });

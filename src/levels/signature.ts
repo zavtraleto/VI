@@ -199,31 +199,43 @@ export function signatureOf(spec: LevelSpec, forks: number | null = null): Signa
 /**
  * The weights of the parts of a core in how alike two cores are (spec section 5): the route, the moves
  * asked for, the faces, the kind. Tuned against the calibration set (`src/levels/calibration.ts`, task 3
- * of the plan of the tools of progression). The spec started from 0.4, 0.3, 0.2, 0.1: on it two boards of
- * one combo on top are half alike whatever their faces (`dd-15-no-way-down` and `dd-21-wood-fives`, 4s
- * and 5s, came to 0.65, where the owner called them different). The faces weigh most now: a board that
- * goes with other faces is another thought to the player, and the pairs the owner called alike share their
- * faces. The route, the moves, the faces and the kind stay as the spec has them: squeezing repeated signs
- * of the route, reading it as a set, taking the 1s among the faces or leaving the seven and the loop out of
- * the moves changed no pair of the set.
+ * of the plan of the tools of progression, fix round 1): the pairs of section 5, fewer than three missed,
+ * and the places 48-100 the owner called repeats (`OWNER_REPEATS`), as many flagged and as few others as
+ * can be. The spec started from 0.4, 0.3, 0.2, 0.1: on it two boards of one combo on top are half alike
+ * whatever their faces (`dd-15-no-way-down` and `dd-21-wood-fives`, 4s and 5s, came to 0.65, where the owner
+ * called them different). Now the route weighs half and the faces four tenths: the events of a way and the
+ * faces it goes with are the thought a player keeps. The kind weighs nothing: it is read off the same steps
+ * down and up as the route, and weighed once more it only made boards of one kind alike. It stays in the
+ * core, so that rule 16 still tells two ways of one route on other floors apart. Squeezing repeated signs of
+ * the route, writing its quiet moves into it, reading it as a set, taking the 1s among the faces, leaving the
+ * seven and the loop out of the moves, or weighing the number of dice or the length of the way, gave no
+ * better agreement while the pairs held.
  */
-export const CORE_WEIGHTS = { route: 0.2, needs: 0.25, faces: 0.4, kind: 0.15 } as const;
+export const CORE_WEIGHTS = { route: 0.5, needs: 0.1, faces: 0.4, kind: 0 } as const;
 
 /**
  * The power the likeness of two layouts is raised to in `similarity`. Laid over each other the best way,
  * two small boards share half their dice or more by chance: the pairs the owner called different come to
  * 0.56-0.67 (`pair-and-fours-1` and `collapse-5`, `ones-over-leaving-1` and `act-k21`), however their cores
- * are weighed. Squared, a layout counts as alike (0.7) from 0.84, as near (0.5) from 0.71, and the same
- * layout of rule 16 (`SAME_LAYOUT`, 0.9, read off `layoutSim` itself) is still alike.
+ * are weighed. Squared, a layout counts as alike (`SIMILAR_ROW`) from 0.87, as near (`SIMILAR_NEAR`) from
+ * 0.81, and the same layout of rule 16 (`SAME_LAYOUT`, 0.9, read off `layoutSim` itself) is still alike.
  */
 export const LAYOUT_POWER = 2;
 
 /** Rule 16: a layout this alike to one before it is the same layout, whatever its faces. */
 export const SAME_LAYOUT = 0.9;
-/** Rule 17: how alike a board may be to any place before it in the row, at most (less than this). */
-export const SIMILAR_ROW = 0.7;
-/** Rule 17: how alike a board may be to any of the five places before it (less than this). */
-export const SIMILAR_NEAR = 0.5;
+/**
+ * Rule 17: how alike a board may be to any place before it in the row, at most (less than this). The spec
+ * started from 0.7; 0.75 is as high as the pairs the owner called alike allow (`far-faces-1` and
+ * `floor-first-1` come to 0.77), and it flags fewer of the places he did not call repeats.
+ */
+export const SIMILAR_ROW = 0.75;
+/**
+ * Rule 17: how alike a board may be to any of the five places before it (less than this). The spec started
+ * from 0.5; at it nearly every place is near one of its five, and the pairs he called different side by side
+ * come to 0.57 at most (`bridge-5` and `hidden-face-1`, both of 3s).
+ */
+export const SIMILAR_NEAR = 0.65;
 
 /** The fewest signs to change, put in or take out to make one row of signs the other. */
 function levenshtein(a: readonly string[], b: readonly string[]): number {
@@ -302,4 +314,37 @@ export function layoutSim(a: LevelSpec, b: LevelSpec): number {
  */
 export function similarity(a: LevelSpec, b: LevelSpec): number {
   return Math.max(coreSim(coreOf(a), coreOf(b)), layoutSim(a, b) ** LAYOUT_POWER);
+}
+
+/** What rule 17 reads of a place: the earlier place most alike to it, and the most alike of the five before. */
+export interface Flag {
+  /** The number of the earlier place most alike to this one, and how alike. */
+  at: number;
+  sim: number;
+  /** The number of the place among the five before most alike to this one, and how alike. */
+  nearAt: number;
+  near: number;
+  /** Alike to an earlier place at `SIMILAR_ROW` or more, or to one of the five before at `SIMILAR_NEAR` or more. */
+  flagged: boolean;
+}
+
+/**
+ * Rule 17 over a row (spec section 5): for every place from `from` on, the earlier place most alike to it
+ * and the most alike of the five before, and whether either crosses its threshold. The places before `from`
+ * are judged against but not judged (the first thirty stay as they are, the owner's decision 1).
+ */
+export function flaggedBy(row: readonly { number: number; spec: LevelSpec }[], from = 31): Map<number, Flag> {
+  const cores = row.map((place) => coreOf(place.spec));
+  const out = new Map<number, Flag>();
+  row.forEach((place, i) => {
+    if (place.number < from || i === 0) return;
+    let flag: Flag = { at: row[0].number, sim: -1, nearAt: row[0].number, near: -1, flagged: false };
+    for (let j = 0; j < i; j++) {
+      const sim = Math.max(coreSim(cores[i], cores[j]), layoutSim(place.spec, row[j].spec) ** LAYOUT_POWER);
+      if (sim > flag.sim) flag = { ...flag, at: row[j].number, sim };
+      if (j >= i - 5 && sim > flag.near) flag = { ...flag, nearAt: row[j].number, near: sim };
+    }
+    out.set(place.number, { ...flag, flagged: flag.sim >= SIMILAR_ROW || flag.near >= SIMILAR_NEAR });
+  });
+  return out;
 }
