@@ -19,8 +19,17 @@
 //                                            the dice to turn and the rolls away of its way (turns, away), the first
 //                                            moves that keep it in hand, the walk over the boards a player can come to (walk=300 boards unless said;
 //                                            a `+` where it was cut) and the shares of the hasty and the casual persona
-//   node scripts/ladder.mjs campaign         the same table for the whole row of the campaign (src/levels/campaign.ts): the pieces of the road and then
-//                                            the levels, each with its number in the row; a level of an act says its act and its role (`1:opening`), a level of the tail `tail`
+//   node scripts/ladder.mjs campaign         the table for the whole row of the campaign (src/levels/campaign.ts), each board with its number in the row
+//                                            and its chapter and role (`1:meet`): the columns of the road, and D, rank, forks, loss, hid, ways,
+//                                            reader and sig (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md, section 8); under it
+//                                            the boards of one road, the calibration of the scale and of the likeness, the places out of their
+//                                            band, and the rules of the grammar the row breaks. The slow measures of a board are kept in
+//                                            boards/.measures/<key>.json (src/levels/measureCache.ts, kept in git): a board found there is not
+//                                            measured again, a board changed in its file or MEASURES_VERSION raised is. Cold, the row takes
+//                                            about two hours; warm, a minute or so
+//   node scripts/ladder.mjs campaign fresh   measures every board again, not reading the cache, and writes it anew
+//   node scripts/ladder.mjs campaign places=31-40   those places only, measured or read as above (no rules of the grammar: they read the whole row);
+//                                            a walk= other than the table's is measured every time and kept nowhere
 //   node scripts/ladder.mjs chapter=0        fills every place of a chapter (boards laid every way, seeds 1 to 1000 of each, and
 //                                            the boards laid by hand) and puts the chapter together: for every place one board
 //                                            that is unlike the one before it, with its picture and its line for levels.ts
@@ -49,14 +58,15 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 const args = process.argv.slice(2);
 const named = Object.fromEntries(args.filter((arg) => arg.includes('=')).map((arg) => arg.split('=')));
 const flag = (name) => args.includes(name);
-const known = ['place', 'recipes', 'walk', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep'];
+// `todo=` is given by the master of `campaign` to its workers only.
+const known = ['place', 'recipes', 'walk', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep', 'places', 'todo'];
 for (const key of Object.keys(named)) {
   if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as place=P06, seeds=300, from=1, states=3000000, boards=20 or workers=6`);
 }
 
-/** Runs this script again in several processes, each taking its share of the work, and gives back what they print, line by line. */
-function shareOut(extra, onLine) {
-  const workers = Math.max(1, Number(named.workers ?? Math.min(6, Math.max(1, availableParallelism() - 2))));
+/** Runs this script again in several processes, each taking its share of the work, and gives back what they print, line by line; no more processes than `most`. */
+function shareOut(extra, onLine, most = Infinity) {
+  const workers = Math.min(most, Math.max(1, Number(named.workers ?? Math.min(6, Math.max(1, availableParallelism() - 2)))));
   const passed = args.filter((arg) => !arg.startsWith('workers=') && !arg.startsWith('share='));
   return Promise.all(
     Array.from({ length: workers }, (_, index) => new Promise((done, fail) => {
@@ -82,33 +92,78 @@ if (flag('limit')) {
   const { solverLimit } = await load('/src/levels/limit.ts');
   const say = (row) => console.log(`${row.name}  seed ${row.seed}  moves ${row.par ?? '-'}  ${row.exhausted ? 'counted through' : 'gave up'}  boards ${row.states}  ${row.ms} ms`);
   solverLimit(Number(named.boards ?? 5), Number(named.states ?? 3_000_000), named.only, say);
-} else if (flag('road') || flag('campaign')) {
-  // The prologue, or the whole row of the campaign (boards/row.json).
+} else if (flag('road')) {
+  // The prologue (boards/row.json, chapter 0).
   const { CAMPAIGN } = await load('/src/levels/campaign.ts');
-  const { roadRow, roadTable, ROAD_WALK_LIMIT, slowFactsOf, grammarText } = await load('/src/levels/table.ts');
-  const { fastGrammar, slowGrammar } = await load('/src/levels/grammar.ts');
-  const stops = flag('campaign') ? CAMPAIGN : CAMPAIGN.filter((place) => place.chapter === 0);
-  // A board by its chapter and its role: `0:meet` is the first piece of the prologue, `1:meet` the first board of chapter 1.
+  const { roadRow, roadTable, ROAD_WALK_LIMIT } = await load('/src/levels/table.ts');
+  const stops = CAMPAIGN.filter((place) => place.chapter === 0);
+  // A board by its chapter and its role: `0:meet` is the first piece of the prologue.
   const roleOf = (stop) => `${stop.chapter}:${stop.role}`;
   if (worker) {
     stops.forEach((stop, index) => {
-      if (!mine(index)) return;
-      const walk = Number(named.walk ?? ROAD_WALK_LIMIT);
-      // The row of the table, and for the whole row of the campaign what the slow rules of the grammar ask of the board.
-      const facts = flag('campaign') ? slowFactsOf(stop.spec, stop.teaches, walk) : null;
-      console.log(JSON.stringify({ index, row: roadRow(stop.number, stop.spec, roleOf(stop), walk), facts }));
+      if (mine(index)) console.log(JSON.stringify({ index, row: roadRow(stop.number, stop.spec, roleOf(stop), Number(named.walk ?? ROAD_WALK_LIMIT)) }));
     });
   } else {
     const rows = [];
-    const facts = [];
-    await shareOut([], ({ index, row, facts: found }) => {
+    await shareOut([], ({ index, row }) => {
       rows[index] = row;
-      facts[index] = found;
       console.error(`${rows.filter(Boolean).length} of ${stops.length} boards measured`);
     });
     console.log(roadTable(rows));
-    // Under the table of the campaign, the rules of the grammar it breaks (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 3).
-    if (flag('campaign')) console.log('\n' + grammarText([...fastGrammar(stops), ...slowGrammar(stops, (stop) => facts[stops.indexOf(stop)])].sort((a, b) => a.at - b.at || a.rule - b.rule)));
+  }
+} else if (flag('campaign')) {
+  // The whole row of the campaign (boards/row.json), its slow measures read from the cache of boards/.measures/ where
+  // they are kept (scripts/measureCache.mjs) and measured by the workers where they are not; only this process writes the cache.
+  const { CAMPAIGN } = await load('/src/levels/campaign.ts');
+  const { campaignNotes, campaignRow, campaignTable, dOf, grammarText, slowMeasuresOf, ROAD_WALK_LIMIT } = await load('/src/levels/table.ts');
+  const { cacheKey } = await load('/src/levels/measureCache.ts');
+  const { readMeasures, writeMeasures } = await import('./measureCache.mjs');
+  const stops = CAMPAIGN;
+  const walk = Number(named.walk ?? ROAD_WALK_LIMIT);
+  const roleOf = (stop) => `${stop.chapter}:${stop.role}`;
+  if (worker) {
+    // The places the master has no measures of, by their index in the row, shared among the workers.
+    const todo = (named.todo ?? '').split(',').filter((one) => one !== '').map(Number);
+    todo.forEach((index, at) => {
+      if (mine(at)) console.log(JSON.stringify({ index, measures: slowMeasuresOf(stops[index].spec, stops[index].teaches, walk) }));
+    });
+  } else {
+    const began = Date.now();
+    let asked = stops.map((_, index) => index);
+    if (named.places !== undefined) {
+      const [lo, hi = lo] = named.places.split('-').map(Number);
+      if (!(lo >= 1 && hi >= lo)) throw new Error(`cannot read "places=${named.places}": write it as places=31-40 or places=5`);
+      asked = asked.filter((index) => lo <= stops[index].number && stops[index].number <= hi);
+    }
+    // The measures of another walk than the table's are not those the cache keeps under the key: they are neither read nor written.
+    const cached = walk === ROAD_WALK_LIMIT;
+    const keys = stops.map((stop) => cacheKey(stop.spec, stop.teaches));
+    const measures = [];
+    for (const index of asked) measures[index] = cached && !flag('fresh') ? readMeasures(root, keys[index]) : null;
+    const todo = asked.filter((index) => !measures[index]);
+    console.error(`${asked.length - todo.length} of ${asked.length} boards from the cache, ${todo.length} to measure`);
+    let done = 0;
+    if (todo.length > 0) {
+      await shareOut([`todo=${todo.join(',')}`], ({ index, measures: found }) => {
+        measures[index] = found;
+        if (cached) writeMeasures(root, keys[index], found);
+        console.error(`${++done} of ${todo.length} boards measured: ${stops[index].number} ${stops[index].code}, ${Math.round((Date.now() - began) / 1000)} s`);
+      }, todo.length);
+    }
+    console.log(campaignTable(asked.map((index) => campaignRow(stops[index].number, stops[index].spec, roleOf(stops[index]), measures[index]))));
+    // Under the table: the boards of one road, the calibration of the scale and of the likeness, the places out of their band.
+    console.log('\n' + campaignNotes(asked.map((index) => stops[index]), asked.map((index) => measures[index])));
+    // And the rules of the grammar the row breaks (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 3), the slow
+    // ones on the facts of the cache and the D of the scale as it stands; for the whole row only, as they read a place beside its neighbours.
+    if (named.places === undefined) {
+      const { fastGrammar, slowGrammar } = await load('/src/levels/grammar.ts');
+      const factsOf = (stop) => {
+        const m = measures[stops.indexOf(stop)];
+        return { ...m.facts, d: dOf(stop.spec, m) };
+      };
+      console.log('\n' + grammarText([...fastGrammar(stops), ...slowGrammar(stops, factsOf)].sort((a, b) => a.at - b.at || a.rule - b.rule)));
+    }
+    console.error(`campaign: ${Math.round((Date.now() - began) / 1000)} s`);
   }
 } else if (named.chapter !== undefined) {
   const { PLACES } = await load('/src/levels/recipes.ts');

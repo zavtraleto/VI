@@ -49,6 +49,11 @@ export interface Depth {
   complete: boolean;
   /** There are more shortest ways than are counted. */
   waysCapped: boolean;
+  /**
+   * The long ways were not all gone through: the walk stopped at `LONG_PATHS_CAP` ways or at its limit of
+   * steps, or there were more different long ways than are counted; `waysLong` and `slack` are then of those seen.
+   */
+  longCapped: boolean;
   /** Boards solved to say whether they are lost were too many, and some of them stand for the rest. */
   lossSampled: boolean;
 }
@@ -387,7 +392,7 @@ const LONG_STEPS = 2_000_000;
  */
 export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: number } = {}): Depth {
   const par = opts.par ?? spec.par ?? solveLevel(spec).solution?.par;
-  if (par === undefined) return { par: 0, forks: 0, ways: 0, waysLong: 0, slack: 0, lossAt: null, lostShare: 0, complete: false, waysCapped: false, lossSampled: false };
+  if (par === undefined) return { par: 0, forks: 0, ways: 0, waysLong: 0, slack: 0, lossAt: null, lostShare: 0, complete: false, waysCapped: false, longCapped: false, lossSampled: false };
   const g = graphOf(spec, par + DEPTH_SLACK, opts.maxStates ?? DEPTH_MAX_STATES);
   const n = g.far.length;
   const from = fromOf(g);
@@ -524,6 +529,7 @@ export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: numbe
     lostShare,
     complete,
     waysCapped,
+    longCapped: longPaths >= LONG_PATHS_CAP || steps > LONG_STEPS || longKeys.size > WAYS_CAP,
     lossSampled: taken.length < open.length,
   };
 }

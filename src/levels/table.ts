@@ -1,15 +1,21 @@
-import { measure, personaPlay } from '../rules/levelBot';
+import { READER, measure, personaPlay } from '../rules/levelBot';
 import { scoreOf } from '../rules/levelScore';
 import { defaultConfig } from '../rules/config';
 import { moveOf, solveLevel, tellMove, tryWay, type SolverMove } from '../rules/levelSolver';
 import { scan, type Ban } from '../rules/reach';
 import { createRun } from '../rules/sim';
 import type { LevelSpec } from '../rules/types';
+import type { Stop } from './campaign';
+import { D_ROWS, SIMILAR_PAIRS, UNLIKE_PAIRS } from './calibration';
+import { depthOf } from './depth';
 import type { Place, Technique } from './row';
 import { BARRED, markOf, type Barred, type SlowFacts, type Violation } from './grammar';
-import { firstsOf, lostOf, nearOf, tailOf, trapOf, turnsOf } from './measures';
+import type { SlowMeasures } from './measureCache';
+import { explorerFacts, firstsOf, hiddenOf, lostOf, nearOf, rankOf, rankShares, shareOf, tailOf, trapOf, turnsOf, type Shares } from './measures';
+import { BANDS, difficulty } from './scale';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
-import { walkBoards } from './walk';
+import { SIMILAR_NEAR, SIMILAR_ROW, coreKey, coreOf, similarity } from './signature';
+import { walkBoards, type Walk } from './walk';
 
 /**
  * The table of the ladder as it stands: every level and every board in reserve, measured again
@@ -55,19 +61,27 @@ export const ROAD_WALK_LIMIT = 300;
  * personas play the thirty runs a place is judged by.
  */
 export function roadRow(number: number, spec: LevelSpec, role: string, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): string[] {
+  const walk = walkBoards(spec, walkLimit);
+  const share = (name: 'hasty' | 'casual'): number => {
+    let cleared = 0;
+    for (let run = 1; run <= runs; run++) if (personaPlay(spec, name, run).endReason === 'passed') cleared++;
+    return cleared / runs;
+  };
+  const road = { firsts: firstsOf(spec, spec.par ?? 0), worst: walk.worst, lost: walk.lost, boards: walk.boards, capped: walk.capped };
+  return roadCells(number, spec, role, road, share('hasty'), share('casual'));
+}
+
+const percent = (share: number): string => `${Math.round(share * 100)}%`;
+
+/** The cells of the table of the road for a board whose first moves, walk and shares of the hasty and the casual persona are measured. */
+function roadCells(number: number, spec: LevelSpec, role: string, road: SlowMeasures['road'], hasty: number, casual: number): string[] {
   const cut = new Set((spec.holes ?? []).map((cell) => `${cell.x},${cell.z}`));
   const xs: number[] = [];
   const zs: number[] = [];
   for (let z = 0; z < spec.size; z++) for (let x = 0; x < spec.size; x++) if (!cut.has(`${x},${z}`)) (xs.push(x), zs.push(z));
   const side = (at: number[]): number => Math.max(...at) - Math.min(...at) + 1;
-  const walk = walkBoards(spec, walkLimit);
-  const more = walk.capped ? '+' : '';
+  const more = road.capped ? '+' : '';
   const score = spec.solution ? scoreOf(spec, spec.solution.map(moveOf)) : null;
-  const share = (name: 'hasty' | 'casual'): string => {
-    let cleared = 0;
-    for (let run = 1; run <= runs; run++) if (personaPlay(spec, name, run).endReason === 'passed') cleared++;
-    return `${Math.round((cleared / runs) * 100)}%`;
-  };
   return [
     String(number),
     spec.id,
@@ -78,12 +92,12 @@ export function roadRow(number: number, spec: LevelSpec, role: string, walkLimit
     String(spec.par ?? '-'),
     String(score?.turns ?? '-'),
     String(score?.away ?? '-'),
-    String(firstsOf(spec, spec.par ?? 0)),
-    `${walk.worst}${more}`,
-    `${walk.lost}${more}`,
-    `${walk.boards}${more}`,
-    share('hasty'),
-    share('casual'),
+    String(road.firsts),
+    `${road.worst}${more}`,
+    `${road.lost}${more}`,
+    `${road.boards}${more}`,
+    percent(hasty),
+    percent(casual),
   ];
 }
 
@@ -91,24 +105,157 @@ export function roadTable(rows: readonly string[][]): string {
   return layOutRows([[...ROAD_HEAD], ...rows]);
 }
 
-/** The passport of a place of the row (`node scripts/row.mjs report`): the table of the road, and the boards within two moves of the start. */
-export const PLACE_HEAD: readonly string[] = [...ROAD_HEAD, 'near', 'whole'];
+/**
+ * The table of the campaign (`node scripts/ladder.mjs campaign`): the table of the road, and the measures of the depth of
+ * a board (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md, section 8) — its difficulty on the scale,
+ * the depth a player has to think, the forks, the loss, the hidden dice, the ways, the share of the player who reads only
+ * what a person sees, and the short key of its thought.
+ */
+export const CAMPAIGN_HEAD: readonly string[] = [...ROAD_HEAD, 'D', 'rank', 'forks', 'loss', 'hid', 'ways', 'reader', 'sig'];
+
+/**
+ * Every slow measure of a board, once: what the table of the campaign, the passport of a place and the slow rules
+ * of the grammar read of it, kept in the cache by its key (`cacheKey`). The planner and the casual persona of the
+ * slow facts are those of the shares of the ranks: their runs are played once.
+ */
+export function slowMeasuresOf(spec: LevelSpec, teaches: Technique | undefined, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): SlowMeasures {
+  const walk = walkBoards(spec, walkLimit);
+  const shares = rankShares(spec, runs);
+  return {
+    road: { firsts: firstsOf(spec, spec.par ?? 0), worst: walk.worst, lost: walk.lost, boards: walk.boards, capped: walk.capped },
+    facts: slowFactsOf(spec, teaches, walkLimit, runs, { walk, shares }),
+    shares,
+    reader: shareOf(spec, READER, runs),
+    explorer: { careful: explorerFacts(spec, 'careful', runs), planner: explorerFacts(spec, 'planner', runs) },
+    depth: depthOf(spec),
+    hidden: hiddenOf(spec),
+    states: solveLevel(spec).states,
+  };
+}
+
+/** The difficulty of a board on the scale, read off its slow measures. */
+export function dOf(spec: LevelSpec, m: SlowMeasures): number {
+  return difficulty({ rank: rankOf(m.shares), forks: m.depth.forks, hidden: m.hidden, lossAt: m.depth.lossAt, par: spec.par ?? 0 });
+}
+
+/**
+ * A board as a row of the table of the campaign, all read off its measures: the row of the road, then `D`; `rank`, or
+ * `>8` where even the deep player does not clear it; `forks`; `loss`, the fewest moves it can be lost after (`-` where it
+ * cannot) and the share of the boards up to par that are lost (`~` where it is of a sample); `hid`; `ways`, the shortest
+ * and the long ways (`+` where the graph or the ways were not counted whole); `reader`; and `sig`, the key of its core.
+ */
+export function campaignRow(number: number, spec: LevelSpec, role: string, m: SlowMeasures): string[] {
+  const { depth } = m;
+  const rank = rankOf(m.shares);
+  const cut = !depth.complete || depth.waysCapped || depth.longCapped ? '+' : '';
+  return [
+    ...roadCells(number, spec, role, m.road, m.shares.hasty ?? 0, m.shares.casual ?? 0),
+    String(dOf(spec, m)),
+    rank === null ? '>8' : String(rank),
+    String(depth.forks),
+    `${depth.lossAt ?? '-'} ${depth.lossSampled ? '~' : ''}${percent(depth.lostShare)}`,
+    String(m.hidden),
+    `${depth.ways}/${depth.waysLong}${cut}`,
+    percent(m.reader),
+    coreKey(coreOf(spec)),
+  ];
+}
+
+export function campaignTable(rows: readonly string[][]): string {
+  return layOutRows([[...CAMPAIGN_HEAD], ...rows]);
+}
+
+/** A board past this place whose ways are one is said under the table: a cause to lay it again, not a rule. */
+const ONE_ROAD_AFTER = 50;
+/** A row of the scale is off where its boards are on average more than this outside its band. */
+const ROW_OFF = 1;
+/** The rows of the scale off at which the formula is to be mended (spec section 6). */
+const ROWS_OFF_MOST = 3;
+
+const dText = (d: number): string => (Number.isInteger(d) ? String(d) : d.toFixed(1));
+
+/**
+ * What is said under the table of the campaign: the boards of one road past the 50th place; the rows of the scale the
+ * owner placed boards in by words (section 6), each with its boards and their D, how many are outside its band and how
+ * far on average, and whether the scale agrees; the pairs of section 5 the likeness misses; and how many places of
+ * each decade from the 31st are outside its band (a peak against the peak of the decade, a rest not counted).
+ */
+export function campaignNotes(stops: readonly Stop[], measures: readonly SlowMeasures[]): string {
+  const lines: string[] = [];
+  const dAt = stops.map((stop, index) => dOf(stop.spec, measures[index]));
+  const byCode = new Map(stops.map((stop, index) => [stop.code, index]));
+
+  const oneRoad = stops.filter((stop, index) => stop.number > ONE_ROAD_AFTER && measures[index].depth.waysLong === 1);
+  lines.push(oneRoad.length === 0 ? 'одна дорога: нет' : `одна дорога: ${oneRoad.map((stop) => `${stop.number} ${stop.code}`).join(', ')}`);
+
+  lines.push('', 'шкала D (раздел 6):');
+  let rowsOff = 0;
+  for (const row of D_ROWS) {
+    const held = row.codes.filter((code) => byCode.has(code));
+    if (held.length === 0) continue;
+    const off = held.map((code) => {
+      const d = dAt[byCode.get(code)!];
+      return Math.max(0, row.lo - d, d - row.hi);
+    });
+    const mean = off.reduce((sum, one) => sum + one, 0) / off.length;
+    const isOff = mean > ROW_OFF;
+    if (isOff) rowsOff++;
+    const boards = held.map((code) => `${code} ${dText(dAt[byCode.get(code)!])}`).join(', ');
+    lines.push(`  «${row.words}» ${row.lo}–${row.hi}: вне полосы ${off.filter((one) => one > 0).length} из ${held.length}, среднее отклонение ${mean.toFixed(1)}${isOff ? ' — расходится' : ''}; ${boards}`);
+  }
+  lines.push(rowsOff === 0 ? '  сходится' : rowsOff < ROWS_OFF_MOST ? `  сходится: расходятся ${rowsOff} из ${D_ROWS.length} строк, меньше трёх` : `  не сходится: ${rowsOff} строк`);
+
+  const specOf = (code: string) => stops[byCode.get(code)!].spec;
+  const misses: string[] = [];
+  for (const { a, b } of SIMILAR_PAIRS) {
+    const others = b.filter((code) => byCode.has(code));
+    if (!byCode.has(a) || others.length === 0) continue;
+    const best = Math.max(...others.map((code) => similarity(specOf(a), specOf(code))));
+    if (best < SIMILAR_ROW) misses.push(`${a}~${others.join('|')} ${best.toFixed(2)}`);
+  }
+  for (const [a, b] of UNLIKE_PAIRS) {
+    if (!byCode.has(a) || !byCode.has(b)) continue;
+    const sim = similarity(specOf(a), specOf(b));
+    if (sim > SIMILAR_NEAR) misses.push(`${a}≠${b} ${sim.toFixed(2)}`);
+  }
+  lines.push('', misses.length === 0 ? 'похожесть (раздел 5): пары сходятся' : `похожесть (раздел 5): промахов ${misses.length}: ${misses.join('; ')}`);
+
+  const decades = BANDS.flatMap((band) => {
+    const places = stops.map((stop, index) => ({ stop, d: dAt[index] })).filter(({ stop }) => band.from <= stop.number && stop.number <= band.to && stop.role !== 'rest');
+    if (places.length === 0) return [];
+    const out = places.filter(({ stop, d }) => (stop.role === 'peak' ? d < band.peak[0] || d > band.peak[1] : d < band.lo || d > band.hi)).length;
+    return [`${band.from}–${band.to}: ${out} из ${places.length}`];
+  });
+  if (decades.length > 0) lines.push('', `вне полосы D по десяткам: ${decades.join(', ')}`);
+  return lines.join('\n');
+}
+
+/** The passport of a place of the row (`node scripts/row.mjs report`): the table of the campaign, and the boards within two moves of the start. */
+export const PLACE_HEAD: readonly string[] = [...CAMPAIGN_HEAD, 'near', 'whole'];
 /** A board of no more cells than this is walked whole for its passport: the walk of two dice on nine cells takes half a second. */
 export const WHOLE_CELLS = 9;
 
 /**
- * A place of the row as a row of its passport: the row of the table of the road, its role named with
- * its chapter (`1:meet`); `near` — the boards within two moves of the start, the dead ends the level
- * says at once, the boards lost and not said, and the most moves from the rest (`nearOf`); and `whole`
- * — for a board of nine cells or fewer, every board it can come to, those lost, and the most moves
- * from any of them (`lostOf`).
+ * A place of the row as a row of its passport: the row of the table of the campaign read off its measures, its role
+ * named with its chapter (`1:meet`); `near` — the boards within two moves of the start, the dead ends the level says
+ * at once, the boards lost and not said, and the most moves from the rest (`nearOf`); and `whole` — for a board of nine
+ * cells or fewer, every board it can come to, those lost, and the most moves from any of them (`lostOf`); `-` for a
+ * board of more cells, or of more boards than can be walked whole.
  */
-export function placeRow(place: Place, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): string[] {
+export function placeRow(place: Place, m: SlowMeasures): string[] {
   const { spec } = place;
   const cells = spec.size * spec.size - (spec.holes?.length ?? 0);
-  const whole = cells <= WHOLE_CELLS ? lostOf(spec) : null;
+  // A board of few cells can still come to more boards than the walk holds (tight-room-5, dd-12-ice-corridor): it has no whole.
+  const walkedWhole = (): ReturnType<typeof lostOf> | null => {
+    try {
+      return lostOf(spec);
+    } catch {
+      return null;
+    }
+  };
+  const whole = cells <= WHOLE_CELLS ? walkedWhole() : null;
   return [
-    ...roadRow(place.number, spec, `${place.chapter}:${place.role}`, walkLimit, runs),
+    ...campaignRow(place.number, spec, `${place.chapter}:${place.role}`, m),
     nearOf(spec).join(' '),
     whole ? `${whole.boards} ${whole.lost} ${whole.worst}` : '-',
   ];
@@ -180,21 +327,24 @@ export function clearedWithout(spec: LevelSpec): Partial<Record<Barred, number |
  * boards the player can come to finds one lost, the shares of the planner's and the casual persona's runs that clear it, whether
  * it is a trap of order (two combos or links on its way and `trapOf`), and,
  * for a board that teaches, the fewest moves it is cleared in without that move (up to two over its own);
- * and, for rule 12, the fewest without each move the solver can be barred from (`clearedWithout`).
+ * and, for rule 12, the fewest without each move the solver can be barred from (`clearedWithout`). The walk and the
+ * shares of the planner and the casual persona may be given where they are measured already (`slowMeasuresOf`).
  */
-export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS): SlowFacts {
-  let planned = 0;
-  let casual = 0;
-  for (let run = 1; run <= runs; run++) {
-    if (personaPlay(spec, 'planner', run).endReason === 'passed') planned++;
-    if (personaPlay(spec, 'casual', run).endReason === 'passed') casual++;
-  }
+export function slowFactsOf(spec: LevelSpec, teaches: Technique | undefined, walkLimit = ROAD_WALK_LIMIT, runs = PERSONA_FLOOR_RUNS, known: { walk?: Walk; shares?: Shares } = {}): SlowFacts {
+  const played = (name: 'planner' | 'casual'): number => {
+    const given = known.shares?.[name];
+    if (given !== undefined) return given;
+    let cleared = 0;
+    for (let run = 1; run <= runs; run++) if (personaPlay(spec, name, run).endReason === 'passed') cleared++;
+    return cleared / runs;
+  };
   const ban = teaches ? BAN_OF[teaches] : undefined;
   const without = ban === undefined ? undefined : (solveLevel(spec, { ban: [...ban], maxMoves: (spec.par ?? 0) + 2 }).solution?.par ?? null);
   // A link is the second event of a trap of order as a combo is (third campaign, section 14): R05 is a combo and a link.
   const events = scoreOf(spec, (spec.solution ?? []).map(moveOf)).beats.filter((beat) => beat.event === 'combo' || beat.event === 'link').length;
   const order = events >= 2 && trapOf(spec) !== null;
-  return { lost: walkBoards(spec, walkLimit).lost > 0, planner: planned / runs, casual: casual / runs, order, cleared: clearedWithout(spec), ...(without === undefined ? {} : { without }) };
+  const walk = known.walk ?? walkBoards(spec, walkLimit);
+  return { lost: walk.lost > 0, planner: played('planner'), casual: played('casual'), order, cleared: clearedWithout(spec), ...(without === undefined ? {} : { without }) };
 }
 
 /**

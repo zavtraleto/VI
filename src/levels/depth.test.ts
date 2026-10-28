@@ -44,6 +44,13 @@ describe('the depth of a board', () => {
     }
   });
 
+  it('says where the long ways were not all gone through: two-combos-3 has more than the walk takes, R03 a few', () => {
+    expect(depth('R03').longCapped).toBe(false);
+    const combos = depth('two-combos-3');
+    expect(combos.longCapped).toBe(true);
+    expect(combos.waysLong).toBeGreaterThanOrEqual(combos.ways);
+  });
+
   it('gives up on finale-1 past its limit of boards, and says so', () => {
     const begun = Date.now();
     const finale = depthOf(boardOf('finale-1'), { maxStates: 2000 });

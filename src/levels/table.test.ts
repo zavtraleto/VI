@@ -3,7 +3,7 @@ import type { LevelSpec } from '../rules/types';
 import { MEASURE_HEAD } from './select';
 import { fileBoard } from './boardFiles';
 import { FIXTURE } from './rowFixture';
-import { PLACE_HEAD, ROAD_HEAD, clearedWithout, grammarText, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, tableOf } from './table';
+import { CAMPAIGN_HEAD, PLACE_HEAD, ROAD_HEAD, clearedWithout, grammarText, measureBoard, placeRow, roadRow, roadTable, slowFactsOf, slowMeasuresOf, tableOf } from './table';
 import { KNOWN_REPEATS } from './grammar';
 
 /**
@@ -82,10 +82,14 @@ describe('the table of the road', () => {
 });
 
 describe('the passport of a place', () => {
-  it('is the row of the table of the road, with the chapter and the role, and the boards near the start after it', () => {
-    const place = FIXTURE.places[3];
-    const row = placeRow(place, 50, 2);
+  const place = FIXTURE.places[3];
+  const measures = slowMeasuresOf(place.spec, place.teaches, 50, 2);
+
+  it('is the row of the table of the campaign, with the chapter and the role, and the boards near the start after it', () => {
+    const row = placeRow(place, measures);
     expect(row).toHaveLength(PLACE_HEAD.length);
+    expect(PLACE_HEAD).toEqual([...CAMPAIGN_HEAD, 'near', 'whole']);
+    // The road read off the measures is the road measured again.
     expect(row.slice(0, ROAD_HEAD.length)).toEqual(roadRow(4, place.spec, '1:meet', 50, 2));
     // Nine boards within two moves of the start, none a dead end or lost, five moves from the farthest.
     expect(row[PLACE_HEAD.indexOf('near')]).toBe('9 0 0 5');
@@ -95,7 +99,7 @@ describe('the passport of a place', () => {
 
   it('walks no board whole that has more than nine cells', () => {
     const big = { ...FIXTURE.places[0], spec: { ...FIXTURE.places[0].spec, size: 4 } };
-    expect(placeRow(big, 50, 2)[PLACE_HEAD.indexOf('whole')]).toBe('-');
+    expect(placeRow(big, measures)[PLACE_HEAD.indexOf('whole')]).toBe('-');
   });
 });
 

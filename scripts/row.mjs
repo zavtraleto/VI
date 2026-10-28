@@ -5,7 +5,9 @@
 //   node scripts/row.mjs                   lays the row and writes src/levels/row.gen.ts; code 1 and the line of the
 //                                          refusal where the row cannot be laid, and the file is left as it was
 //   node scripts/row.mjs check             the same with nothing written: code 1 where row.gen.ts is stale
-//   node scripts/row.mjs report [place=5]  the passport of the places: what the solver and the bots make of each
+//   node scripts/row.mjs report [place=5]  the passport of the places: what the solver and the bots make of each, with the
+//                                          columns of `ladder.mjs campaign`; the slow measures are read from boards/.measures/
+//                                          (scripts/measureCache.mjs), and measured and kept there where they are not
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,13 +64,23 @@ if (command === 'check') {
 } else if (command === 'report') {
   // The passport of the places: the table of the road (the solver, the score of the way, the walk, two personas) and
   // the boards within two moves of the start, for every place or for the one named. Laid from the files, as `check` is.
-  const { placeRow, placeTable } = await load('/src/levels/table.ts');
+  // The slow measures of a place are read from the cache of boards/.measures/ under the key of its board, as
+  // `ladder.mjs campaign` reads them; where there is none, they are measured here and kept.
+  const { placeRow, placeTable, slowMeasuresOf } = await load('/src/levels/table.ts');
+  const { cacheKey } = await load('/src/levels/measureCache.ts');
+  const { readMeasures, writeMeasures } = await import('./measureCache.mjs');
   const number = named.place === undefined ? null : Number(named.place);
   if (number !== null && !row.places.some((place) => place.number === number)) refuse(`report: there is no place ${named.place}: the places are 1 to ${row.places.length}`);
   const places = row.places.filter((place) => number === null || place.number === number);
   const rows = [];
   for (const place of places) {
-    rows.push(placeRow(place));
+    const key = cacheKey(place.spec, place.teaches);
+    let measures = readMeasures(root, key);
+    if (measures === null) {
+      measures = slowMeasuresOf(place.spec, place.teaches);
+      writeMeasures(root, key, measures);
+    }
+    rows.push(placeRow(place, measures));
     if (number === null) console.error(`${place.number} of ${row.places.length}: ${place.code}`);
   }
   console.log(placeTable(rows));
