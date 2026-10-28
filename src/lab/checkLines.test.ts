@@ -16,7 +16,7 @@ const seconds = (over: Partial<Seconds['check']> = {}, more: Partial<Seconds> = 
   ...more,
 });
 const passed = (share: number) => ({ endings: { passed: share, count: 1 - share, floor: 0, limit: 0 } });
-const later = { report: { personas: { hasty: passed(0.1), casual: passed(0.3), careful: passed(0.7), planner: passed(1), greedy: passed(0) } }, near: [], spare: [] } as unknown as Later;
+const later = { report: { personas: { hasty: passed(0.1), casual: passed(0.3), careful: passed(0.7), planner: passed(1), greedy: passed(0) } }, near: [], spare: [], measures: null } as unknown as Later;
 
 describe('what «проверить» says', () => {
   it('says the board in plain lines', () => {
@@ -69,6 +69,32 @@ describe('what «проверить» says', () => {
     expect(checkLines(instant, open, null)[2]).toBe('первые ходы: 1 из 4 ведут к решению, 1 сразу в тупик, 2 не досчитаны');
     const none = seconds({}, { moves: [{ move: '0,0,E', keeps: 'unknown', par: null, deadEnd: null }] });
     expect(checkLines(instant, none, null)[2]).toBe('первые ходы: 0 из 1 ведут к решению, 1 не досчитаны');
+  });
+  it('says the measures of the depth of a board after the bots, a graph not walked whole with a plus', () => {
+    const measures = { d: 5.5, rank: 3, forks: 2, hidden: 1, ways: 2, waysLong: 5, complete: true };
+    const lines = checkLines(instant, seconds(), { ...later, measures });
+    expect(lines.slice(4, 6)).toEqual(['боты из 10: торопливый 1, обычный 3, внимательный 7, планирующий 10', 'мерила: D 5.5, rank 3, развилок 2, скрыто 1, путей 2/5']);
+    expect(checkLines(instant, seconds(), { ...later, measures: { ...measures, d: 7, complete: false } })[5]).toBe('мерила: D 7, rank 3, развилок 2, скрыто 1, путей 2/5+');
+    expect(checkLines(instant, seconds(), { ...later, measures: { ...measures, rank: null } })[5]).toBe('мерила: D 5.5, rank >8, развилок 2, скрыто 1, путей 2/5');
+  });
+  it('says no measures where the bots found no way to measure', () => {
+    expect(checkLines(instant, seconds(), { ...later, measures: null }).some((line) => line.startsWith('мерила'))).toBe(false);
+  });
+  it('says how alike a board of the row is to the five places before it and to the most alike before, only where the row is given', () => {
+    expect(checkLines(instant, seconds(), later).some((line) => line.startsWith('похожесть'))).toBe(false);
+    const near = [
+      { number: 29, code: 'floor-first-1', sim: 0.82 },
+      { number: 49, code: 'a', sim: 0.1 },
+      { number: 50, code: 'b', sim: 0.2 },
+      { number: 51, code: 'c', sim: 0.3 },
+      { number: 52, code: 'd', sim: 0.4 },
+      { number: 53, code: 'e', sim: 0.25 },
+      { number: 54, code: 'bridge-5', sim: 0.314 },
+    ];
+    expect(checkLines(instant, seconds(), later, near).at(-1)).toBe('похожесть: 54 bridge-5 0.31, 53 e 0.25, 52 d 0.40, 51 c 0.30, 50 b 0.20; ближе всех — 29 floor-first-1 0.82');
+    // The lines of the tiers still being counted, the likeness is said all the same: the page reads it off the row.
+    expect(checkLines(instant, null, null, near.slice(5)).at(-1)).toBe('похожесть: 54 bridge-5 0.31, 53 e 0.25; ближе всех — 54 bridge-5 0.31');
+    expect(checkLines(instant, null, null, []).at(-1)).toBe('похожесть: прежних мест нет');
   });
   it('says a board that stands in a dead end as it is', () => {
     expect(checkLines({ ...instant, deadEnd: 'count' }, null, null)[0]).toBe('доска стоит в тупике как есть');

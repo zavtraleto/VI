@@ -1,13 +1,15 @@
 import type { BoardStatus } from '../levels/boardFile';
-import { LATER_RUNS, type Instant, type Later, type Seconds } from './labFacts';
+import { LATER_RUNS, type Instant, type Later, type Near, type Seconds } from './labFacts';
 import { plural } from './workshopLists';
 
 /**
  * What «проверить» of the workshop says of a board (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md,
  * section 3.4): the facts of the tiers of the lab put into plain lines, a line to a thing. A fact
  * still being counted is said to be; a board the rules refuse is said in one line, and no more.
+ * `near` is given for a board of the row: how alike it is to every place before it (`nearInRow`), of
+ * which the last line says the five just before it and the most alike of all.
  */
-export function checkLines(instant: Instant | null, seconds: Seconds | string | null, later: Later | string | null): string[] {
+export function checkLines(instant: Instant | null, seconds: Seconds | string | null, later: Later | string | null, near?: readonly Near[]): string[] {
   if (instant?.error) return [`правила не принимают доску: ${instant.error}`];
   const lines: string[] = [];
   if (instant?.deadEnd) lines.push('доска стоит в тупике как есть');
@@ -46,9 +48,22 @@ export function checkLines(instant: Instant | null, seconds: Seconds | string | 
   else {
     const of = (name: 'hasty' | 'casual' | 'careful' | 'planner'): number => Math.round(later.report.personas[name].endings.passed * LATER_RUNS);
     lines.push(`боты из ${LATER_RUNS}: торопливый ${of('hasty')}, обычный ${of('casual')}, внимательный ${of('careful')}, планирующий ${of('planner')}`);
+    const { measures } = later;
+    // As the table of the campaign writes them: a rank no player reaches is `>8`, and numbers of a graph not walked whole have a `+`.
+    if (measures) lines.push(`мерила: D ${measures.d}, rank ${measures.rank ?? '>8'}, развилок ${measures.forks}, скрыто ${measures.hidden}, путей ${measures.ways}/${measures.waysLong}${measures.complete ? '' : '+'}`);
     lines.push(later.spare.length === 0 ? 'лишних костей нет' : `лишних костей: ${later.spare.length}`);
   }
+  if (near) lines.push(nearLine(near));
   return lines;
+}
+
+/** How alike a board of the row is to the five places just before it, the nearest first, and to the most alike of all before it. */
+function nearLine(near: readonly Near[]): string {
+  if (near.length === 0) return 'похожесть: прежних мест нет';
+  const said = (place: Near): string => `${place.number} ${place.code} ${place.sim.toFixed(2)}`;
+  const before = [...near].sort((a, b) => b.number - a.number);
+  const most = before.reduce((best, place) => (place.sim > best.sim ? place : best));
+  return `похожесть: ${before.slice(0, 5).map(said).join(', ')}; ближе всех — ${said(most)}`;
 }
 
 /**

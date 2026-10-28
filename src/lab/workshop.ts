@@ -154,6 +154,12 @@ class Workshop {
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
     this.checkButton = buttonOf(palette, 'проверить (C)', () => this.facts.toggle());
     this.facts = new BoardFacts(this.checkBox, this.checkButton, palette, () => (this.showWay(), this.campaign.told(), this.saving.told()));
+    // A board of the row is held against the places before it, off the boards of the row the page has read.
+    this.facts.row = () => {
+      const place = this.rows.find((row) => row.name === this.name)?.place;
+      if (!place) return null;
+      return { number: place.number, places: this.rows.flatMap((row) => (row.place && row.spec ? [{ number: row.place.number, code: row.name, spec: row.spec }] : [])) };
+    };
     const board = (): CampaignBoard => ({ name: this.name, head: this.head, extra: this.extra, spec: this.spec, board: this.editor.current, locked: this.unreadable });
     const drop = async (): Promise<void> => (this.saving.dirty ? this.reload() : undefined);
     this.campaign = new WorkshopCampaign(palette, this.facts, this.row, { ...page, board, names: () => this.rows.map((row) => row.name), proving: () => this.saving.waiting, drop });

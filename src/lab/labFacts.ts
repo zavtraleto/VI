@@ -1,11 +1,14 @@
 import { QUICK_MAX_STATES, checkOf, movesOf, nearOf, type Check, type MoveFact, type NearFact } from '../levels/labText';
+import { depthOf } from '../levels/depth';
 import { trapDepthOf } from '../levels/orders';
-import { firstsOf } from '../levels/measures';
+import { firstsOf, hiddenOf, rankOf, rankShares } from '../levels/measures';
+import { difficulty } from '../levels/scale';
+import { coreOf, layoutSim, similarityOf, type Core } from '../levels/signature';
 import { createRun, defaultConfig } from '../rules';
 import { levelDeadEnd, shortGroups, type LevelDeadEnd, type ShortGroup } from '../rules/level';
 import { report, type LevelReport } from '../rules/levelReport';
 import { scoreOf } from '../rules/levelScore';
-import { SOLVER_MAX_STATES, solveLevel } from '../rules/levelSolver';
+import { SOLVER_MAX_STATES, moveText, solveLevel } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 
 /**
@@ -76,11 +79,30 @@ export function spareOf(spec: LevelSpec, maxStates = QUICK_MAX_STATES): { x: num
   return spare;
 }
 
-/** Later, in the background: the report of the players of the levels, every board one change away, and the dice the board does not need. */
+/**
+ * The measures of the depth of a board (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md,
+ * sections 3 and 6), as the table of the campaign has them: its difficulty on the scale, the depth a player
+ * has to think, the forks, the hidden dice, the shortest and the long ways. The players here play
+ * `LATER_RUNS` games each, where the table plays thirty: a rank near the edge may differ by a step.
+ */
+export interface Measures {
+  d: number;
+  /** The depth of the first player who clears the board in half the games or more; null where none does, the deep one too. */
+  rank: number | null;
+  forks: number;
+  hidden: number;
+  ways: number;
+  waysLong: number;
+  /** The graph was walked whole and every way counted: the numbers are the board's, not of what was seen of it. */
+  complete: boolean;
+}
+
+/** Later, in the background: the report of the players of the levels, every board one change away, the dice the board does not need, and its measures; null where no way is found to measure it by. */
 export interface Later {
   report: LevelReport;
   near: NearFact[];
   spare: { x: number; z: number }[];
+  measures: Measures | null;
 }
 
 /** The games each player of the report plays in the third tier. */
@@ -89,7 +111,81 @@ export const LATER_RUNS = 10;
 export function laterOf(spec: LevelSpec, runs = LATER_RUNS): Later {
   // The report takes a way a level keeps at its word; here the board is asked, so it is given without one.
   const { par: _par, exact: _exact, solution: _solution, ...bare } = spec;
-  return { report: report(bare, { runs }), near: nearOf(bare), spare: spareOf(bare) };
+  const told = report(bare, { runs });
+  return { report: told, near: nearOf(bare), spare: spareOf(bare), measures: told.par === null || !told.way ? null : measuresOf({ ...bare, par: told.par, exact: told.exact, solution: told.way.map(moveText) }, runs) };
+}
+
+/** The measures of a board that keeps the way it is measured by, the one the solver found for it. */
+function measuresOf(kept: LevelSpec, runs: number): Measures {
+  const depth = depthOf(kept);
+  const rank = rankOf(rankShares(kept, runs));
+  const hidden = hiddenOf(kept);
+  return {
+    d: difficulty({ rank, forks: depth.forks, hidden, lossAt: depth.lossAt, par: depth.par }),
+    rank,
+    forks: depth.forks,
+    hidden,
+    ways: depth.ways,
+    waysLong: depth.waysLong,
+    complete: depth.complete && !depth.waysCapped && !depth.longCapped,
+  };
+}
+
+/** A place of the row as the page has it: its number, its code, and its board as the row plays it. */
+export interface RowPlace {
+  number: number;
+  code: string;
+  spec: LevelSpec;
+}
+
+/** How alike the board in hand is to a place before it in the row (`similarity`). */
+export interface Near {
+  number: number;
+  code: string;
+  sim: number;
+}
+
+/** The thoughts of the boards of the row, read once a board: the page asks the row again with every fact. Null where the way a board keeps cannot be played. */
+const cores = new WeakMap<LevelSpec, Core | null>();
+const coreOfPlace = (spec: LevelSpec): Core | null => {
+  if (!cores.has(spec)) cores.set(spec, readCore(spec));
+  return cores.get(spec)!;
+};
+const readCore = (spec: LevelSpec): Core | null => {
+  try {
+    return coreOf(spec);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * How alike a board of the row is to every place before it (rule 17, spec section 5), in the order of the row:
+ * asked on the page, off the boards the row keeps. A place before that keeps no way, or one that cannot be played,
+ * is left out: its thought is read off its way, and the page does not solve it. Null where the way of the board
+ * in hand cannot be played: the solver is to say what way it has.
+ */
+export function nearInRow(spec: LevelSpec, number: number, places: readonly RowPlace[]): Near[] | null {
+  const core = readCore(spec);
+  if (!core) return null;
+  return places
+    .filter((place) => place.number < number && (place.spec.solution?.length ?? 0) > 0)
+    .sort((a, b) => a.number - b.number)
+    .flatMap((place) => {
+      const other = coreOfPlace(place.spec);
+      return other ? [{ number: place.number, code: place.code, sim: similarityOf(core, other, layoutSim(spec, place.spec)) }] : [];
+    });
+}
+
+/**
+ * The board in hand with the way its thought is read by: the one its file keeps, unless the solver found that
+ * there is none or that it does not hold, or a shorter one; then the solver's. Null where there is no way yet:
+ * the page does not solve a board, the worker does.
+ */
+export function wayedFor(spec: LevelSpec, seconds: Seconds | string | null): LevelSpec | null {
+  const check = seconds !== null && typeof seconds !== 'string' ? seconds.check : null;
+  if (check?.way && (check.kept === null || check.kept === 'shorter' || check.kept === 'broken')) return { ...spec, solution: check.way };
+  return (spec.solution?.length ?? 0) > 0 ? spec : null;
 }
 
 /** What the page asks of the worker, and what it is told. An answer bears the number of its question. */

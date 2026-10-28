@@ -2,7 +2,7 @@ import { normalSpec, printBoard } from '../levels/boardFile';
 import type { LevelSpec } from '../rules/types';
 import type { Palette } from '../shell/theme';
 import { checkLines } from './checkLines';
-import { instantOf, type Instant, type Later, type Seconds } from './labFacts';
+import { instantOf, nearInRow, wayedFor, type Instant, type Later, type Near, type RowPlace, type Seconds } from './labFacts';
 import { CANCELLED, SolveClient, type WorkerLike } from './solveClient';
 import { light } from './workshopListView';
 
@@ -25,6 +25,10 @@ export class BoardFacts {
   wanted = false;
   /** The solver is asked of a board this holds true of, with the lines shut and no way wanted: a board of the row that keeps no way yet (`WorkshopCampaign`). */
   keep: (spec: LevelSpec) => boolean = () => false;
+  /** The place of the board in hand in the row and the places of the row the page has read, or null for a board not of the row: «проверить» says how alike it is to those before it. */
+  row: () => { number: number; places: readonly RowPlace[] } | null = () => null;
+  /** How alike the board in hand is to the places before it, and the way it was read by: it is read again only by another way. */
+  private near: { way: string; near: Near[] | null } | null = null;
   private spec: LevelSpec | null = null;
   private error: string | null = null;
   /** The board the facts are of, as text. */
@@ -58,6 +62,7 @@ export class BoardFacts {
     this.asked = { seconds: false, later: false };
     this.instant = null;
     this.seconds = this.later = null;
+    this.near = null;
     this.wanted = false;
     this.ask();
     this.show();
@@ -107,6 +112,19 @@ export class BoardFacts {
     if (!this.checking) return;
     // A board the rules do not lay is said in one line, why, as `checkLines` says a board its instant refuses.
     const refused: Instant = { error: this.error ?? 'нет доски', deadEnd: null, dice: 0, groups: [] };
-    this.box.textContent = checkLines(this.spec ? this.instant : refused, this.seconds, this.later).join('\n');
+    this.box.textContent = checkLines(this.spec ? this.instant : refused, this.seconds, this.later, this.nearOf()).join('\n');
+  }
+
+  /**
+   * How alike the board in hand is to the places of the row before it, where it is of the row: read on the page,
+   * by the way its file keeps or the solver found (`wayedFor`), and not before there is one.
+   */
+  private nearOf(): Near[] | undefined {
+    const row = this.row();
+    const wayed = this.spec && !this.instant?.error && row ? wayedFor(this.spec, this.seconds) : null;
+    if (!row || !wayed) return undefined;
+    const way = wayed.solution!.join(' ');
+    if (this.near?.way !== way) this.near = { way, near: nearInRow(wayed, row.number, row.places) };
+    return this.near.near ?? undefined;
   }
 }
