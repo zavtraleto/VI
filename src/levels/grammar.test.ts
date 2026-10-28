@@ -485,3 +485,120 @@ describe('repeats of a thought and of a layout: rules 16 and 17', () => {
     expect(knownRepeat({ rule: 16, at: 31, text: 'места 29 (floor-first-1) и 31 (floor-first-1): одна раскладка' })).toBe(false);
   });
 });
+
+describe('the scale of difficulty in the row: rule 18 and the parts of rules 5 and 8 on D', () => {
+  /** A row of R03 in every place, each of the role given; nothing teaches, so rules 1 and 2 say nothing. */
+  const scaled = (length: number, roles: Partial<Record<number, Stop['role']>> = {}) =>
+    rowOf(Array.from({ length }, (_, i): [string, Partial<Stop>] => ['R03', { chapter: 1, role: roles[i + 1] ?? 'apply', teaches: undefined, archetype: `a${i + 1}` }]));
+  /** The places from 1 to 30 at D 2, those after at 3.5, the middle of the band of 31–40, where no other is given. */
+  const plain = (n: number): number | undefined => (n <= 30 ? 2 : 3.5);
+  const said = (n: number, row: readonly Stop[], given: Record<number, number>, base = plain) =>
+    slowGrammar(row, (stop) => ({ lost: true, planner: 1, d: given[stop.number] ?? base(stop.number) })).filter((one) => one.rule === n);
+  const texts = (lines: readonly { text: string }[]) => lines.map((one) => one.text);
+
+  it('says nothing of a row in its bands, nor of a row with no D', () => {
+    expect(said(18, scaled(40), {})).toEqual([]);
+    expect(slowGrammar(scaled(40), () => ({ lost: true, planner: 1 }))).toEqual([]);
+  });
+
+  it('says a place out of the band of its decade, and a rise of more than two: rule 18, a warning', () => {
+    const lines = said(18, scaled(40), { 35: 6 });
+    expect(texts(lines)).toEqual(['место 35 (R03): D 6, а полоса мест 31–40 — 3–4', 'место 35 (R03): D 6 после 3.5 на месте 34, рост больше 2']);
+    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+  });
+
+  it('says nothing before the 31st place, whatever its D: rule 18', () => {
+    expect(said(18, scaled(40), { 20: 9, 25: 1 })).toEqual([]);
+  });
+
+  it('says a rest that is not two under both its neighbours, and asks no neighbour with no D: rule 18', () => {
+    const rest = scaled(40, { 38: 'rest' });
+    const lines = said(18, rest, { 37: 4, 38: 3, 39: 4 });
+    expect(texts(lines)).toEqual(['место 38 (R03): передышка D 3, а соседи — 4 и 4; передышка на 2 ниже соседей']);
+    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+    expect(said(18, rest, { 37: 4, 38: 2, 39: 4 })).toEqual([]);
+    // 39 at 3.5 is a neighbour only 1.5 over the rest; with no D it is not asked.
+    expect(texts(said(18, rest, { 37: 4, 38: 2 }))).toEqual(['место 38 (R03): передышка D 2, а соседи — 4 и 3.5; передышка на 2 ниже соседей']);
+    expect(said(18, rest, { 37: 4, 38: 2 }, (n) => (n === 39 ? undefined : plain(n)))).toEqual([]);
+  });
+
+  it('says a second rest in a decade, a rest under 4 past the 50th, and a peak out of its band: rule 18', () => {
+    const roles = { 33: 'rest', 38: 'rest', 45: 'peak', 55: 'rest' } as const;
+    const base = (n: number) => (n <= 30 ? 2 : n <= 40 ? 3.5 : n <= 50 ? 4.5 : 5.5);
+    expect(texts(said(18, scaled(60, roles), { 33: 1.5, 38: 1.5, 45: 5, 55: 3.5 }, base))).toEqual([
+      'места 33 и 38: две передышки в десятке 31–40',
+      'место 45 (R03): пик D 5, а пик мест 41–50 — 6',
+      'место 55 (R03): передышка D 3.5, а после 50-го места передышка не ниже 4',
+    ]);
+  });
+
+  it('says a gift from the start past the 40th and the 50th: rule 18', () => {
+    const base = (n: number) => (n <= 30 ? 2 : n <= 40 ? 4 : n <= 50 ? 4.5 : 5.5);
+    const gifts = (given: Record<number, number>) => texts(said(18, scaled(60), given, base)).filter((text) => text.includes('подарок'));
+    expect(gifts({ 44: 2, 56: 3.5 })).toEqual(['место 44 (R03): D 2 — подарок из начала после 40-го места']);
+    expect(gifts({ 44: 2.5, 56: 3 })).toEqual(['место 56 (R03): D 3 — подарок из начала после 50-го места']);
+    expect(gifts({ 38: 2 })).toEqual([]);
+  });
+
+  it('says a decade lighter on the mean than the one before, from 41–50 on: rule 18', () => {
+    const base = (n: number) => (n <= 30 ? 2 : n <= 50 ? 4 : 5);
+    const means = (given: Record<number, number>) => texts(said(18, scaled(60), given, base)).filter((text) => text.includes('средний'));
+    // As heavy as the decade before is no fall.
+    expect(means({})).toEqual([]);
+    expect(means({ 45: 3.5 })).toEqual(['места 41–50: средний D 3.95, ниже, чем у мест 31–40 (4)']);
+    // A decade is judged on the places of it that have D.
+    expect(texts(said(18, scaled(60), {}, (n) => (n <= 30 ? 9 : n <= 35 ? 5 : n <= 40 ? undefined : n <= 50 ? 4.5 : 5))).filter((text) => text.includes('средний'))).toEqual([
+      'места 41–50: средний D 4.5, ниже, чем у мест 31–40 (5)',
+    ]);
+  });
+
+  it('says the board after a meeting more than one over it: rule 5 on D, a warning', () => {
+    const lines = said(5, scaled(40, { 33: 'meet' }), { 33: 3, 34: 5 });
+    expect(texts(lines)).toEqual(['место 34 (R03) после встречи на месте 33: D 5, а встреча — 3']);
+    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+    expect(said(5, scaled(40, { 33: 'meet' }), { 33: 3, 34: 4 })).toEqual([]);
+    // Before the 31st the meeting is let be.
+    expect(said(5, scaled(40, { 23: 'meet' }), { 23: 1, 24: 4 })).toEqual([]);
+  });
+
+  it('says the board after a peak not under it: rule 8 on D, a warning', () => {
+    const lines = said(8, scaled(40, { 36: 'peak' }), { 36: 5, 37: 5 });
+    expect(texts(lines)).toEqual(['место 37 (R03) после пика на месте 36: D 5, а пик — 5; после пика ниже']);
+    expect(lines.every((one) => one.warning === true && !held(one))).toBe(true);
+    expect(said(8, scaled(40, { 36: 'peak' }), { 36: 5, 37: 4.5 })).toEqual([]);
+  });
+});
+
+describe('rule 1 past the 30th and the 60th place', () => {
+  /** R07 teaching the link at the place given, and the boards named after it, none teaching. */
+  const lesson = (at: number, codes: readonly string[]) =>
+    rowOf([['R07', { number: at, teaches: 'link' }], ...codes.map((code, i): [string, Partial<Stop>] => [code, { number: at + 1 + i, teaches: undefined }])]);
+  const rule1 = (row: readonly Stop[]) => fastGrammar(row).filter((one) => one.rule === 1).map((one) => one.text);
+
+  it('asks for two uses of three up to the 30th, as it did', () => {
+    expect(rule1(lesson(25, ['R08', 'R11', 'two-pairs-2']))).toEqual(['место 25 (R07) учит link, а из мест 26–28 его требует 1 досок']);
+  });
+
+  it('lets one use of three be enough past the 30th', () => {
+    expect(rule1(lesson(45, ['R08', 'R11', 'two-pairs-2']))).toEqual([]);
+    expect(rule1(lesson(45, ['R11', 'two-pairs-2', 'R03']))).toEqual(['место 45 (R07) учит link, а из мест 46–48 его требует 0 досок']);
+  });
+
+  it('asks no use past the 60th', () => expect(rule1(lesson(65, ['R11', 'two-pairs-2', 'R03']))).toEqual([]));
+
+  it('still says two meetings side by side past the 60th', () => {
+    const row = rowOf([['R07', { number: 65, teaches: 'link' }], ['R11', { number: 66, teaches: 'walk' }]]);
+    expect(rule1(row)).toContain('место 66 (R11) учит сразу после места 65 (R07)');
+  });
+
+  it('holds the order to the same: one trap of three past the 30th, none past the 60th', () => {
+    const order = (at: number) =>
+      rowOf([['R05', { number: at, role: 'meet', teaches: 'order' }], ...['two-pairs-2', 'R03', 'R04'].map((code, i): [string, Partial<Stop>] => [code, { number: at + 1 + i, teaches: undefined }])]);
+    const slow1 = (row: readonly Stop[], traps: readonly string[]) =>
+      slowGrammar(row, (stop) => ({ lost: true, planner: 1, order: traps.includes(stop.spec.id) })).filter((one) => one.rule === 1).map((one) => one.text);
+    expect(slow1(order(25), ['two-pairs-2'])).toEqual(['место 25 (R05) учит order, а из мест 26–28 его требует 1 досок']);
+    expect(slow1(order(45), ['two-pairs-2'])).toEqual([]);
+    expect(slow1(order(45), [])).toEqual(['место 45 (R05) учит order, а из мест 46–48 его требует 0 досок']);
+    expect(slow1(order(65), [])).toEqual([]);
+  });
+});

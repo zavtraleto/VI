@@ -6,6 +6,7 @@ import { goalFaces } from './goalFaces';
 import { visibleFaces } from './measures';
 import { needsOf } from './needs';
 import type { HintKey, Technique } from './row';
+import { BANDS, bandOf } from './scale';
 import { SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, coreOf, flaggedBy, layoutSim, type Core } from './signature';
 import { sameBoard } from './variety';
 
@@ -28,7 +29,7 @@ export interface Violation {
   rule: 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
   at: number;
   text: string;
-  /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps; rule 17. */
+  /** A part of a rule that only warns, whatever the rule: the fast part of rule 12, read off the way a board keeps; rule 17; rule 18 and the parts of rules 5 and 8 on D. */
   warning?: true;
 }
 
@@ -78,6 +79,11 @@ export interface SlowFacts {
    * that teaches the order counts it; where it is not given, the board is no trap.
    */
   order?: boolean;
+  /**
+   * The difficulty of the board on the scale of 1 to 10 (`difficulty`), for rule 18 and the parts of rules 5 and 8
+   * on it; where it is not given, those ask nothing of the board.
+   */
+  d?: number;
 }
 
 /**
@@ -155,15 +161,25 @@ function goalFacesSeen(row: readonly Stop[]): Violation[] {
   });
 }
 
-/** Rule 1, its first part: the move taught at a place is asked for by `using` of the boards after it, and that is two at least. */
+/**
+ * Rule 1, its first part: how many of the three boards after a place that teaches are to ask for its move. Past the
+ * 30th one is enough, and past the 60th none is asked: there the finds come back as joins, not as repeats (spec of
+ * the tools of progression, section 7: «ничего нового не открывается»). Null where the part is not asked.
+ */
+export function usesWanted(number: number): number | null {
+  return number > 60 ? null : number > 30 ? 1 : 2;
+}
+
+/** Rule 1, its first part: the move taught at a place is asked for by `using` of the boards after it, and that is as many as `usesWanted`. */
 function usedAfter(stop: Stop, after: readonly Stop[], using: number): Violation | null {
-  if (using >= Math.min(2, after.length)) return null;
+  const wanted = usesWanted(stop.number);
+  if (wanted === null || using >= Math.min(wanted, after.length)) return null;
   const span = after.length === 1 ? `места ${after[0].number}` : `мест ${after[0].number}–${after[after.length - 1].number}`;
   return { rule: 1, at: stop.number, text: `${placeOf(stop)} учит ${stop.teaches}, а из ${span} его требует ${using} досок` };
 }
 
 /**
- * Rule 1: a move taught at N is asked for by at least two of N+1…N+3, and the next board that teaches
+ * Rule 1: a move taught at N is asked for by at least two of N+1…N+3 (one past the 30th, none past the 60th: `usesWanted`), and the next board that teaches
  * is not before N+2, but where the board at N already asked for the move that board brings in. The
  * seven is not held to the first part: reading a face is needed everywhere unsaid (third campaign, rule 7);
  * nor is the order here, since a trap of order is found by a search: the slow part counts it (`slowGrammar`);
@@ -534,6 +550,71 @@ export function fastGrammar(row: readonly Stop[]): Violation[] {
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
+/** A number of the scale in words: «3.5», «4», a mean to two places at most. */
+const dText = (d: number): string => String(Number(d.toFixed(2)));
+/** A span of the scale in words: «3–4», or «5» where it is one number. */
+const spanText = ([lo, hi]: readonly [number, number]): string => (lo === hi ? `${lo}` : `${lo}–${hi}`);
+/** Rule 18: a rest is this much under its neighbours at least, and past the 50th not under `REST_FLOOR`. */
+const REST_STEP = 2;
+const REST_FLOOR = 4;
+/** Rule 18: the most D may rise from a place to the next, where the next is no peak. */
+const RISE_MOST = 2;
+/** Rule 18: the gift from the start, the highest D that is one past the place given. */
+const GIFTS: readonly { after: number; most: number }[] = [
+  { after: 50, most: 3 },
+  { after: 40, most: 2 },
+];
+
+/**
+ * Rule 18 and the parts of rules 5 and 8 on the scale (spec of the tools of progression, section 7), all warnings
+ * till the row is rebuilt. They judge the places with a band (`bandOf`, from the 31st) that have D, against the
+ * places beside them that have D, those of the first thirty too: an ordinary place keeps the band of its decade, a
+ * peak its peak; a rest is two under each neighbour and past the 50th not under 4, and a decade has one; no place
+ * past the 40th is a gift from the start; D rises to the next place by 2 at most, but to a peak; and the mean of a
+ * decade, over its places that have D, is not under that of the decade before. Rule 5: the board after a meeting is
+ * a 1 over it at most. Rule 8: the board after a peak is under it.
+ */
+function onTheScale(row: readonly Stop[], dOf: (stop: Stop) => number | undefined): Violation[] {
+  const out: Violation[] = [];
+  const warn = (rule: 5 | 8 | 18, at: number, text: string) => out.push({ rule, at, text, warning: true });
+  row.forEach((stop, index) => {
+    const [d, band] = [dOf(stop), bandOf(stop.number)];
+    if (d === undefined || band === null) return;
+    const [prev, next] = [row[index - 1], row[index + 1]];
+    const [before, after] = [prev ? dOf(prev) : undefined, next ? dOf(next) : undefined];
+    if (stop.role === 'peak') {
+      if (d < band.peak[0] || d > band.peak[1]) warn(18, stop.number, `${placeOf(stop)}: пик D ${dText(d)}, а пик мест ${band.from}–${band.to} — ${spanText(band.peak)}`);
+    } else if (stop.role === 'rest') {
+      const sides = [before, after].filter((side): side is number => side !== undefined);
+      if (sides.some((side) => d > side - REST_STEP)) {
+        warn(18, stop.number, `${placeOf(stop)}: передышка D ${dText(d)}, а ${sides.length === 1 ? 'сосед' : 'соседи'} — ${sides.map(dText).join(' и ')}; передышка на 2 ниже соседей`);
+      }
+      if (stop.number > 50 && d < REST_FLOOR) warn(18, stop.number, `${placeOf(stop)}: передышка D ${dText(d)}, а после 50-го места передышка не ниже ${REST_FLOOR}`);
+    } else if (d < band.lo || d > band.hi) {
+      warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)}, а полоса мест ${band.from}–${band.to} — ${spanText([band.lo, band.hi])}`);
+    }
+    const gift = GIFTS.find((one) => stop.number > one.after);
+    if (gift && d <= gift.most) warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)} — подарок из начала после ${gift.after}-го места`);
+    if (before === undefined) return;
+    if (stop.role !== 'peak' && d - before > RISE_MOST) warn(18, stop.number, `${placeOf(stop)}: D ${dText(d)} после ${dText(before)} на месте ${prev.number}, рост больше 2`);
+    if (prev.role === 'meet' && d > before + 1) warn(5, stop.number, `${placeOf(stop)} после встречи на месте ${prev.number}: D ${dText(d)}, а встреча — ${dText(before)}`);
+    if (prev.role === 'peak' && d >= before) warn(8, stop.number, `${placeOf(stop)} после пика на месте ${prev.number}: D ${dText(d)}, а пик — ${dText(before)}; после пика ниже`);
+  });
+  const inBand = (band: (typeof BANDS)[number]) => row.filter((stop) => band.from <= stop.number && stop.number <= band.to && dOf(stop) !== undefined);
+  BANDS.forEach((band, index) => {
+    const places = inBand(band);
+    const rests = places.filter((stop) => stop.role === 'rest');
+    for (const extra of rests.slice(1)) warn(18, extra.number, `места ${rests[0].number} и ${extra.number}: две передышки в десятке ${band.from}–${band.to}`);
+    const was = index > 0 ? inBand(BANDS[index - 1]) : [];
+    if (places.length === 0 || was.length === 0) return;
+    const mean = (stops: readonly Stop[]) => stops.reduce((sum, stop) => sum + dOf(stop)!, 0) / stops.length;
+    const [now, then] = [mean(places), mean(was)];
+    const last = places[places.length - 1];
+    if (now < then - 1e-9) warn(18, last.number, `места ${band.from}–${band.to}: средний D ${dText(now)}, ниже, чем у мест ${BANDS[index - 1].from}–${BANDS[index - 1].to} (${dText(then)})`);
+  });
+  return out;
+}
+
 /**
  * The rules that ask what the walk and the personas found (`facts`): rule 1 for the order, two of the
  * three boards after the place that teaches it are traps of order; rule 2, a board that teaches
@@ -543,7 +624,8 @@ const percent = (share: number): string => `${Math.round(share * 100)}%`;
  * held to the first and not to the second: its order is the owner's. And rule 8: the casual persona
  * does as well after a peak as on it. And rule 10: a peak and a twist join two moves at least, the order
  * among them where the search found a trap, and the order was taught before. And rule 12: a board before
- * the lesson of a move the solver can be barred from is cleared without it in its own count.
+ * the lesson of a move the solver can be barred from is cleared without it in its own count. And rule 18 and the
+ * parts of rules 5 and 8 on the scale of difficulty, where the facts give D (`onTheScale`).
  */
 export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFacts): Violation[] {
   const out: Violation[] = [];
@@ -612,5 +694,6 @@ export function slowGrammar(row: readonly Stop[], facts: (stop: Stop) => SlowFac
       out.push({ rule: 5, at: stop.number, text: `самая трудная доска главы ${chapter} — ${placeOf(stop)}, ${hardest + 1}-я в главе, а должна стоять ${short ? 'последней' : 'не раньше 4-й'}` });
     }
   }
+  out.push(...onTheScale(row, (stop) => known.get(stop)!.d));
   return out.sort((a, b) => a.at - b.at || a.rule - b.rule);
 }
