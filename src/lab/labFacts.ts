@@ -1,11 +1,12 @@
-import { QUICK_MAX_STATES, checkOf, movesOf, nearOf, type Check, type MoveFact, type NearFact } from '../levels/labText';
+import { QUICK_MAX_STATES, checkOf, movesOf, nearOf, wayPlays, type Check, type MoveFact, type NearFact } from '../levels/labText';
 import { depthOf } from '../levels/depth';
 import { trapDepthOf } from '../levels/orders';
-import { firstsOf, hiddenOf, rankOf, rankShares } from '../levels/measures';
+import { RANK_SHARE, firstsOf, hiddenOf, rankOf, shareOf, type Shares } from '../levels/measures';
 import { difficulty } from '../levels/scale';
 import { coreOf, layoutSim, similarityOf, type Core } from '../levels/signature';
 import { createRun, defaultConfig } from '../rules';
 import { levelDeadEnd, shortGroups, type LevelDeadEnd, type ShortGroup } from '../rules/level';
+import { DEEP } from '../rules/levelBot';
 import { report, type LevelReport } from '../rules/levelReport';
 import { scoreOf } from '../rules/levelScore';
 import { SOLVER_MAX_STATES, moveText, solveLevel } from '../rules/levelSolver';
@@ -112,13 +113,38 @@ export function laterOf(spec: LevelSpec, runs = LATER_RUNS): Later {
   // The report takes a way a level keeps at its word; here the board is asked, so it is given without one.
   const { par: _par, exact: _exact, solution: _solution, ...bare } = spec;
   const told = report(bare, { runs });
-  return { report: told, near: nearOf(bare), spare: spareOf(bare), measures: told.par === null || !told.way ? null : measuresOf({ ...bare, par: told.par, exact: told.exact, solution: told.way.map(moveText) }, runs) };
+  const kept = measuredWay(spec, told);
+  return { report: told, near: nearOf(bare), spare: spareOf(bare), measures: kept && measuresOf(kept, told, runs) };
 }
 
-/** The measures of a board that keeps the way it is measured by, the one the solver found for it. */
-function measuresOf(kept: LevelSpec, runs: number): Measures {
+/**
+ * The board with the way its measures are read by, as the table of the campaign reads them: the way its file
+ * keeps, where it plays and is no longer than the fewest moves the report found; else the report's own; null
+ * where there is neither.
+ */
+export function measuredWay(spec: LevelSpec, told: Pick<LevelReport, 'par' | 'exact' | 'way'>): LevelSpec | null {
+  const { par: _par, exact: _exact, solution: _solution, ...bare } = spec;
+  const own = spec.solution ?? [];
+  if (own.length > 0 && (told.par === null || own.length <= told.par) && wayPlays(spec)) return { ...bare, par: own.length, exact: told.exact && own.length === told.par, solution: own };
+  if (told.par === null || !told.way) return null;
+  return { ...bare, par: told.par, exact: told.exact, solution: told.way.map(moveText) };
+}
+
+/**
+ * The shares of the players of the ranks (`rankShares`), off the report: it has played the four of them already,
+ * on the same seeds and as many games, and only the deep one is played here, where the planner clears less than half.
+ */
+export function sharesOf(told: Pick<LevelReport, 'personas'>, kept: LevelSpec, runs: number): Shares {
+  const shares: Shares = {};
+  for (const name of ['hasty', 'casual', 'careful', 'planner'] as const) shares[name] = told.personas[name].endings.passed;
+  if (shares.planner! < RANK_SHARE) shares.deep = shareOf(kept, DEEP, runs);
+  return shares;
+}
+
+/** The measures of a board that keeps the way it is measured by (`measuredWay`). */
+function measuresOf(kept: LevelSpec, told: Pick<LevelReport, 'personas'>, runs: number): Measures {
   const depth = depthOf(kept);
-  const rank = rankOf(rankShares(kept, runs));
+  const rank = rankOf(sharesOf(told, kept, runs));
   const hidden = hiddenOf(kept);
   return {
     d: difficulty({ rank, forks: depth.forks, hidden, lossAt: depth.lossAt, par: depth.par }),

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { fileBoard } from '../levels/boardFiles';
+import { rankShares } from '../levels/measures';
 import { similarity } from '../levels/signature';
-import { answer, instantOf, laterOf, nearInRow, secondsOf, spareOf, wayedFor } from './labFacts';
+import { report } from '../rules/levelReport';
+import { answer, instantOf, laterOf, measuredWay, nearInRow, secondsOf, sharesOf, spareOf, wayedFor } from './labFacts';
 
 const R03 = fileBoard('R03');
 
@@ -42,6 +44,30 @@ describe('the tiers of the lab', () => {
     expect(answer({ id: 7, tier: 'seconds', spec: R03 })).toMatchObject({ id: 7, tier: 'seconds', facts: { firsts: expect.any(Number) } });
     const broken = { ...R03, layout: { ...R03.layout!, start: { x: 0, z: 0 } } };
     expect(answer({ id: 8, tier: 'seconds', spec: broken })).toMatchObject({ id: 8, error: expect.stringMatching(/no die to start on/) });
+  });
+});
+
+describe('what the measures of the third tier are read by', () => {
+  it('takes the shares of the players off the report: they are those the players of the ranks clear', { timeout: 60_000 }, () => {
+    for (const code of ['R03', 'bridge-5', 'hidden-face-1']) {
+      const spec = fileBoard(code);
+      const { par: _par, exact: _exact, solution: _solution, ...bare } = spec;
+      const told = report(bare, { runs: 4 });
+      const kept = measuredWay(spec, told)!;
+      expect(sharesOf(told, kept, 4)).toEqual(rankShares(kept, 4));
+    }
+  });
+  it('reads the way the file keeps where it plays and is no longer than the fewest found, else the way found', () => {
+    const { par: _par, exact: _exact, solution: _solution, ...bare } = R03;
+    const found = { par: 2, exact: true, way: [{ x: 9, z: 9, dir: 'E' as const, push: false }] };
+    expect(measuredWay(R03, found)).toMatchObject({ par: 2, exact: true, solution: R03.solution });
+    // A file that keeps a way longer than the fewest found, or one that does not play, or none, is read by the way found.
+    expect(measuredWay(R03, { ...found, par: 1 })?.solution).toEqual(['9,9,E']);
+    expect(measuredWay({ ...R03, solution: ['9,9,E', '9,9,W'] }, found)?.solution).toEqual(['9,9,E']);
+    expect(measuredWay(bare, found)?.solution).toEqual(['9,9,E']);
+    expect(measuredWay(bare, { par: null, exact: false, way: null })).toBeNull();
+    // With no way found, a way the file keeps that plays is still read.
+    expect(measuredWay(R03, { par: null, exact: false, way: null })).toMatchObject({ par: 2, exact: false });
   });
 });
 

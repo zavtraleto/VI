@@ -27,7 +27,7 @@ export class BoardFacts {
   keep: (spec: LevelSpec) => boolean = () => false;
   /** The place of the board in hand in the row and the places of the row the page has read, or null for a board not of the row: «проверить» says how alike it is to those before it. */
   row: () => { number: number; places: readonly RowPlace[] } | null = () => null;
-  /** How alike the board in hand is to the places before it, and the way it was read by: it is read again only by another way. */
+  /** How alike the board in hand is to the places before it, and its place and the way it was read by: it is read again only by another place or way. */
   private near: { way: string; near: Near[] | null } | null = null;
   private spec: LevelSpec | null = null;
   private error: string | null = null;
@@ -123,7 +123,8 @@ export class BoardFacts {
     const row = this.row();
     const wayed = this.spec && !this.instant?.error && row ? wayedFor(this.spec, this.seconds) : null;
     if (!row || !wayed) return undefined;
-    const way = wayed.solution!.join(' ');
+    // A board moved to another place of the row is held against other places.
+    const way = `${row.number} ${wayed.solution!.join(' ')}`;
     if (this.near?.way !== way) this.near = { way, near: nearInRow(wayed, row.number, row.places) };
     return this.near.near ?? undefined;
   }
