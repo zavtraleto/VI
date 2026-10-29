@@ -13,12 +13,19 @@ const FOLDERS: Record<keyof typeof SHELL_GROUPS, string> = {
   space: 'Кости',
   logo: 'Логотип',
   aim: 'Грани цели',
+  lock: 'Рамка цели',
   motion: 'Движение',
   boot: 'Boot',
 };
 
 /** What the parameters are called on the panel; one without a name here shows its own. */
 const LABELS: Record<string, string> = {
+  lockGap: 'зазор до цели',
+  lockArm: 'длина уголка (0.5 — вся рамка)',
+  lockStuds: 'точки в углах',
+  lockFrom: 'насколько шире в начале',
+  lockSnapMs: 'захват, мс',
+  lockTone: 'яркость',
   pixelsTall: 'пикселей по ширине (портрет)',
   pixelsWide: 'пикселей по высоте (широкий)',
   smooth: 'мягкий пиксель',

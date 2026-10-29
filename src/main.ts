@@ -34,6 +34,11 @@ if (lab === 'shell') {
   const game = new Game(document.getElementById('app')!);
   (window as unknown as { vi: Game }).vi = game;
   void import('./lab/juiceLab').then(({ startJuiceLab }) => startJuiceLab(game));
+} else if (lab === 'lock') {
+  // The lab for the frame of a tap: the game played by taps and clicks, with a panel of the frame's numbers.
+  const game = new Game(document.getElementById('app')!);
+  (window as unknown as { vi: Game }).vi = game;
+  void import('./lab/lockLab').then(({ startLockLab }) => startLockLab(game));
 } else if (lab === 'workshop' || lab === 'levels' || lab === 'library') {
   // The workshop of the levels: the lists of the boards, the game in the middle to draw a board on and play it, and a verdict after the play.
   const game = new Game(document.getElementById('app')!);

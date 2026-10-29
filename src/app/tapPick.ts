@@ -1,3 +1,5 @@
+import { cubeAt, cubeHeight, type RunState } from '../rules';
+
 /** A point of the page, in CSS pixels. */
 export interface Point {
   x: number;
@@ -27,6 +29,29 @@ export function pickCell(shapes: readonly CellShape[], at: Point): { x: number; 
     if (inside(hull(shape.outline), at)) best = shape;
   }
   return best ? { x: best.x, z: best.z } : null;
+}
+
+/**
+ * The cells of the board as they lie on the page: a die by its whole box, an empty cell by its
+ * floor. The die the player stands on is taken by its floor alone: a tap on it asks for nothing,
+ * and it stands over the cell behind it, which is often the very cell the player wants. A cut
+ * cell of a level is no cell.
+ */
+export function boardShapes(state: RunState, project: (x: number, y: number, z: number) => Point, depth: (x: number, y: number, z: number) => number): CellShape[] {
+  const { size } = state.config;
+  const { player } = state;
+  const holes = state.levelRun?.spec.holes ?? [];
+  const shapes: CellShape[] = [];
+  for (let z = 0; z < size; z++) {
+    for (let x = 0; x < size; x++) {
+      if (holes.some((hole) => hole.x === x && hole.z === z)) continue;
+      const cube = cubeAt(state, x, z);
+      const own = x === player.x && z === player.z;
+      const top = cube && !own ? cubeHeight(cube, state.config) : 0;
+      shapes.push({ x, z, outline: boxCorners(x, z, top, project), depth: depth(x, top / 2, z) });
+    }
+  }
+  return shapes;
 }
 
 /** The corners of a box of the board seen from the camera: its outline is their hull. */

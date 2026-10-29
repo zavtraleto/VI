@@ -54,13 +54,13 @@ import {
   type RunState,
   type ShortGroup,
 } from '../rules';
-import { GameHud, type HudCounter, type HudLabel, type HudSeal, type HudSign, type HudView } from '../shell/hud';
+import { GameHud, type HudCounter, type HudLabel, type HudLock, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
 import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, systemPanel, type LevelsEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
-import { boxCorners, pickCell, type CellShape } from './tapPick';
+import { boardShapes, boxCorners, pickCell, type CellShape } from './tapPick';
 import { makesGroup, planTap, stepHolds } from './tapWay';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
@@ -450,6 +450,12 @@ export class Game {
   private readonly controller = new InputController();
   /** The way a tap asked for moves dice: a group made on the board ends it. */
   private rolling = false;
+  /** Where the mouse is over the board, in the pixels of the window; null where it is not. */
+  private hoverAt: { x: number; y: number } | null = null;
+  /** The cell a tap is taking the player to, while the way is being gone. */
+  private tapTarget: { x: number; z: number } | null = null;
+  /** The cell the mouse points at with the board as it was, and whether a click there takes the player anywhere. */
+  private hoverPlan: { key: string; cell: { x: number; z: number } | null } = { key: '', cell: null };
   private readonly ritual = new Ritual();
   private readonly audio = new AudioEngine();
   private readonly hints = new Hints();
@@ -533,6 +539,11 @@ export class Game {
     // Swipes or taps on the board, as the player has set; the keys step either way.
     bindGestures(play, this.tracker, () => enabled() && this.settings.control === 'swipe');
     bindTaps(play, (x, y) => this.tap(x, y), () => enabled() && this.settings.control === 'tap');
+    // Where the mouse points over the board: the frame of a tap stands on where a click there would take the player.
+    play.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse') this.hoverAt = { x: e.clientX, y: e.clientY };
+    });
+    play.addEventListener('pointerleave', () => (this.hoverAt = null));
     // Esc opens the pause over a session. Over a panel it is the panel's "back", and the shell
     // marks the key as taken; a transmission passes on any key, and whether one was on screen
     // is noted on the way down, before it answers.
@@ -821,6 +832,7 @@ export class Game {
   private tap(px: number, py: number): void {
     const cell = this.cellAt(px, py);
     const way = cell ? planTap(this.state, cell.x, cell.z) : null;
+    this.tapTarget = way ? cell : null;
     if (!way) {
       this.controller.cancel();
       if (cell) this.audio.play({ kind: 'blocked', pan: stereo(this.state.player.x, this.state.player.z, this.state.config.size) });
@@ -839,26 +851,55 @@ export class Game {
     this.rolling = moves;
   }
 
+  /**
+   * The frame of a tap: on the cell a tap is taking the player to while the way is gone, or else on
+   * the one a click where the mouse is would take them to. None where a click would do nothing.
+   */
+  private lockView(state: RunState): HudLock | null {
+    if (this.settings.control !== 'tap' || !this.inputEnabled()) return null;
+    let cell: { x: number; z: number } | null = null;
+    if (this.controller.following && this.tapTarget) cell = this.tapTarget;
+    else {
+      this.tapTarget = null;
+      const at = this.hoverAt;
+      if (at) {
+        const { player } = state;
+        const key = `${Math.round(at.x)},${Math.round(at.y)}|${state.tick}|${player.x},${player.z},${player.level}`;
+        if (key !== this.hoverPlan.key) {
+          const under = this.cellAt(at.x, at.y);
+          this.hoverPlan = { key, cell: under && planTap(state, under.x, under.z) ? under : null };
+        }
+        cell = this.hoverPlan.cell;
+      }
+    }
+    if (!cell) return null;
+    const box = this.stage.getBoundingClientRect();
+    const cube = cubeAt(state, cell.x, cell.z);
+    const top = cube ? cubeHeight(cube, state.config) : 0;
+    const corners = boxCorners(cell.x, cell.z, top, (x, y, z) => {
+      const p = this.view.project(x, y, z);
+      return { x: box.left + p.x, y: box.top + p.y };
+    });
+    const xs = corners.map((p) => p.x);
+    const ys = corners.map((p) => p.y);
+    const left = Math.min(...xs);
+    const topY = Math.min(...ys);
+    return { box: { x: left, y: topY, width: Math.max(...xs) - left, height: Math.max(...ys) - topY }, key: `${cell.x},${cell.z}` };
+  }
+
   /** The cell of the board under a point of the window: the die there, or its floor where none stands. */
   private cellAt(px: number, py: number): { x: number; z: number } | null {
-    const { state } = this;
-    const { size } = state.config;
+    return pickCell(this.cellShapes(), { x: px, y: py });
+  }
+
+  /** The cells of the board as they lie on the page now, in the pixels of the window. */
+  private cellShapes(): CellShape[] {
     const box = this.stage.getBoundingClientRect();
     const project = (x: number, y: number, z: number) => {
       const point = this.view.project(x, y, z);
       return { x: box.left + point.x, y: box.top + point.y };
     };
-    const holes = state.levelRun?.spec.holes ?? [];
-    const shapes: CellShape[] = [];
-    for (let z = 0; z < size; z++) {
-      for (let x = 0; x < size; x++) {
-        if (holes.some((hole) => hole.x === x && hole.z === z)) continue;
-        const cube = cubeAt(state, x, z);
-        const top = cube ? cubeHeight(cube, state.config) : 0;
-        shapes.push({ x, z, outline: boxCorners(x, z, top, project), depth: this.view.depth(x, top / 2, z) });
-      }
-    }
-    return pickCell(shapes, { x: px, y: py });
+    return boardShapes(this.state, project, (x, y, z) => this.view.depth(x, y, z));
   }
 
   /** Where a cell of the board that is on lies on the page, in the pixels of the window, at the height `y` over the floor: for the lab, which is laid over the board. */
@@ -2645,6 +2686,7 @@ export class Game {
       note,
       counters,
       sign: levelRun && this.waiting.dir ? this.signView(state, this.waiting.dir, over) : null,
+      lock: this.lockView(state),
       tools: levelRun
         ? this.undoable
           ? // A dead end is left by taking the move back: no window comes, and the button is the one to press.

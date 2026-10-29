@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { boxCorners, hull, pickCell, type CellShape } from './tapPick';
+import { emptyRun, place, put } from '../rules/testkit';
+import { boardShapes, boxCorners, hull, pickCell, type CellShape } from './tapPick';
 
 /** A plain view from the side and above: x to the right, the floor's z up the page, height up the page too. */
 const project = (x: number, y: number, z: number) => ({ x: 100 + x * 40, y: 300 - z * 20 - y * 10 });
@@ -28,5 +29,17 @@ describe('picking a cell from a point of the page', () => {
     const corners = boxCorners(2, 3, 1, project);
     const outline = hull(corners);
     expect(outline.length).toBe(4);
+  });
+
+  it('sees through the die the player stands on to the cell behind it', () => {
+    const s = emptyRun();
+    put(s, 0, 0, 6);
+    place(s, 0, 0, 'top');
+    const depth = (_x: number, y: number, z: number) => z - y * 0.01;
+    // Where the player's die stands over the floor of the cell behind it, that cell is picked.
+    expect(pickCell(boardShapes(s, project, depth), project(0, 0.9, 0.4))).toEqual({ x: 0, z: 1 });
+    // Another die there is the die.
+    place(s, 1, 1, 'ground');
+    expect(pickCell(boardShapes(s, project, depth), project(0, 0.9, 0.4))).toEqual({ x: 0, z: 0 });
   });
 });

@@ -136,6 +136,22 @@ export const SHELL_GROUPS = {
     aimSinkMs: number(600, 100, 3000, 10),
     aimSlideMs: number(260, 0, 2000, 10),
   },
+  lock: {
+    /**
+     * The frame over where a tap or a click takes the player (docs/superpowers/specs/2026-10-29-vi-tap-control-design.md):
+     * a box square to the screen around the die or the floor of the cell, as a lock-on of REZ or a
+     * mark of NieR:Automata. It stands this many dots clear of what it frames; at each corner an arm
+     * this share of the side (half or more is the whole box); a stud on every corner where asked.
+     * It comes in this many dots wider and draws in to its place for this long, in the tone of the
+     * tube by this share over the dark.
+     */
+    lockGap: number(3, 0, 16, 1),
+    lockArm: number(0.3, 0.05, 0.5, 0.01),
+    lockStuds: flag(true),
+    lockFrom: number(8, 0, 40, 1),
+    lockSnapMs: number(140, 0, 600, 10),
+    lockTone: number(1, 0.2, 1, 0.05),
+  },
   motion: {
     /** How long a pressed zone answers before its action, in milliseconds. */
     pressMs: number(140, 0, 500, 10),

@@ -132,6 +132,15 @@ export interface HudBeat {
 }
 
 /** Everything the session shows over the board at one moment. */
+/**
+ * The frame over where a tap or a click takes the player: the box of the die or of the floor of
+ * the cell on the window, in CSS pixels. `key` names the cell: a new one draws the frame in anew.
+ */
+export interface HudLock {
+  box: Rect;
+  key: string;
+}
+
 export interface HudView {
   header: HudSession | HudLevel;
   seal: HudSeal | null;
@@ -144,6 +153,8 @@ export interface HudView {
   counters?: readonly HudCounter[];
   /** The swipe sign, while a level shows it. */
   sign?: HudSign | null;
+  /** Where a tap or a click takes the player, while it is pointed at or being gone to. */
+  lock?: HudLock | null;
   /** The two buttons of a level. `retryOnly` leaves the one that starts over, where no move can be taken back. */
   tools: HudTools | null;
   /** The part of the window the board has, in CSS pixels. */
@@ -404,6 +415,9 @@ export class GameHud {
   private zones: Zone[] = [];
   private held: { zone: Zone; pointer: number } | null = null;
   private drawn = '';
+  /** The cell the frame of a tap last stood on, and when it came to it. */
+  private lockKey: string | null = null;
+  private lockSince = 0;
   private netDrawn = '';
   /** The score as it is shown: it runs up to the score as it is. */
   private shown = 0;
@@ -534,7 +548,14 @@ export class GameHud {
     // Faces of the aim that are rising or leaving are drawn anew every frame.
     const aim = view.aim ?? null;
     const rising = aim && !still && this.aimMoves(aim, timeMs) ? Math.floor(timeMs) : 0;
-    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    // A frame that is drawing in to its place is drawn anew every frame.
+    const lock = view.lock ?? null;
+    if (lock?.key !== this.lockKey) {
+      this.lockKey = lock?.key ?? null;
+      this.lockSince = timeMs;
+    }
+    const locking = lock && !still && timeMs < this.lockSince + kit.number('lockSnapMs') ? Math.floor(timeMs) : 0;
+    const state = [JSON.stringify(lock), locking, swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       const turn = this.signTurnAt(sign, timeMs, still);
       if (turn === this.signTurned) return;
@@ -574,6 +595,7 @@ export class GameHud {
     }
     // A plaque over a heap of a level keeps inside what the edges of the screen leave of the window.
     const within: Box = { x: safe.left, y: safe.top, w: kit.width - safe.right - safe.left, h: kit.height - safe.bottom - safe.top };
+    if (lock) this.drawLock(lock, timeMs, still);
     for (const counter of view.counters ?? []) this.drawCounter(counter, plaque === 0, within);
     if (sign) {
       // The sign keeps clear of the edges of the screen and of the readings.
@@ -1199,6 +1221,37 @@ export class GameHud {
    * a heap at the edge of the window is brought in from the edge. This is a first version; the
    * owner adjusts its look.
    */
+  /**
+   * The frame over where the player is taken: a box square to the screen around its target, an
+   * arm at each corner and a stud on it, as a lock-on; it comes in wider and draws in to its place.
+   */
+  private drawLock(lock: HudLock, timeMs: number, still: boolean): void {
+    const { kit } = this;
+    const snap = kit.number('lockSnapMs');
+    const t = still || snap <= 0 ? 1 : clamp((timeMs - this.lockSince) / snap, 0, 1);
+    const out = kit.number('lockGap') + kit.number('lockFrom') * (1 - t) ** 3;
+    const target = this.toPicture(lock.box);
+    const x = Math.round(target.x - out);
+    const y = Math.round(target.y - out);
+    const w = Math.round(target.x + target.w + out) - x;
+    const h = Math.round(target.y + target.h + out) - y;
+    const color = mixHex(kit.palette.bg, kit.palette.ink, kit.number('lockTone'));
+    const share = kit.number('lockArm');
+    if (share >= 0.5) {
+      kit.frame({ x, y, w, h }, color);
+    } else {
+      const armX = Math.max(2, Math.round(w * share));
+      const armY = Math.max(2, Math.round(h * share));
+      for (const [cx, sx] of [[x, 1], [x + w - 1, -1]] as const) {
+        for (const [cy, sy] of [[y, 1], [y + h - 1, -1]] as const) {
+          kit.rect(sx > 0 ? cx : cx - armX + 1, cy, armX, 1, color);
+          kit.rect(cx, sy > 0 ? cy : cy - armY + 1, 1, armY, color);
+        }
+      }
+    }
+    if (kit.values.lockStuds !== false) for (const cx of [x, x + w - 1]) for (const cy of [y, y + h - 1]) kit.rect(cx - 1, cy - 1, 3, 3, color);
+  }
+
   private drawCounter(counter: HudCounter, lit: boolean, within?: Box): void {
     const { value, have, need, at } = counter;
     const plate = this.plate(at, counterWidth(need), have >= need, within);
