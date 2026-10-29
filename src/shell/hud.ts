@@ -139,6 +139,8 @@ export interface HudBeat {
 export interface HudLock {
   box: Rect;
   key: string;
+  /** The top face of the die it frames; null over the floor of a cell. */
+  face: number | null;
 }
 
 export interface HudView {
@@ -1235,7 +1237,9 @@ export class GameHud {
     const y = Math.round(target.y - out);
     const w = Math.round(target.x + target.w + out) - x;
     const h = Math.round(target.y + target.h + out) - y;
-    const color = mixHex(kit.palette.bg, kit.palette.ink, kit.number('lockTone'));
+    // The colour of what it frames, lightened: the lines of the board, or the top face of the die.
+    const own = lock.face === null ? kit.palette.ink : faceColour(lock.face, kit.palette, this.look.board);
+    const color = mixHex(own, '#ffffff', kit.number('lockLight'));
     const share = kit.number('lockArm');
     if (share >= 0.5) {
       kit.frame({ x, y, w, h }, color);

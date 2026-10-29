@@ -25,7 +25,7 @@ const LABELS: Record<string, string> = {
   lockStuds: 'точки в углах',
   lockFrom: 'насколько шире в начале',
   lockSnapMs: 'захват, мс',
-  lockTone: 'яркость',
+  lockLight: 'светлее цвета цели',
   pixelsTall: 'пикселей по ширине (портрет)',
   pixelsWide: 'пикселей по высоте (широкий)',
   smooth: 'мягкий пиксель',

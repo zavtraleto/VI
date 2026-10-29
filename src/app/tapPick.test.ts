@@ -5,7 +5,7 @@ import { boardShapes, boxCorners, hull, pickCell, type CellShape } from './tapPi
 /** A plain view from the side and above: x to the right, the floor's z up the page, height up the page too. */
 const project = (x: number, y: number, z: number) => ({ x: 100 + x * 40, y: 300 - z * 20 - y * 10 });
 /** Nearer the camera is lower on the page: the cells of small z. */
-const shape = (x: number, z: number, top: number): CellShape => ({ x, z, outline: boxCorners(x, z, top, project), depth: z - top * 0.01 });
+const shape = (x: number, z: number, top: number): CellShape => ({ x, z, outline: boxCorners(x, z, top, project), centre: project(x, top, z), depth: z - top * 0.01 });
 
 describe('picking a cell from a point of the page', () => {
   it('finds the floor of an empty cell', () => {
@@ -14,11 +14,20 @@ describe('picking a cell from a point of the page', () => {
     expect(pickCell(shapes, project(0, 0, 1))).toEqual({ x: 0, z: 1 });
   });
 
-  it('takes the die in front over the floor of the cell behind it', () => {
-    // The die at (0, 0) rises over the floor of (0, 1) on the page.
+  it('shares the place where a die stands over the cell behind it: what has its middle nearer is picked', () => {
+    // The die at (0, 0) rises over the floor of (0, 1) on the page: its top face is at y 290, that floor at 280.
     const shapes = [shape(0, 0, 1), shape(0, 1, 0)];
-    expect(pickCell(shapes, project(0, 0.9, 0.4))).toEqual({ x: 0, z: 0 });
-    expect(pickCell(shapes, project(0, 0, 1.4))).toEqual({ x: 0, z: 1 });
+    expect(pickCell(shapes, { x: 100, y: 298 })).toEqual({ x: 0, z: 0 });
+    expect(pickCell(shapes, { x: 100, y: 287 })).toEqual({ x: 0, z: 0 });
+    // Near the middle of the cell behind, hidden as it is, the cell.
+    expect(pickCell(shapes, { x: 100, y: 282 })).toEqual({ x: 0, z: 1 });
+  });
+
+  it('takes the cell a tap would go to first, of all that are under the point', () => {
+    const shapes = [shape(0, 0, 1), shape(0, 1, 0)];
+    expect(pickCell(shapes, { x: 100, y: 287 }, (_x, z) => z === 1)).toEqual({ x: 0, z: 1 });
+    // Where none of them would do, the nearest is taken all the same.
+    expect(pickCell(shapes, { x: 100, y: 287 }, () => false)).toEqual({ x: 0, z: 0 });
   });
 
   it('finds nothing off the board', () => {
@@ -37,9 +46,9 @@ describe('picking a cell from a point of the page', () => {
     place(s, 0, 0, 'top');
     const depth = (_x: number, y: number, z: number) => z - y * 0.01;
     // Where the player's die stands over the floor of the cell behind it, that cell is picked.
-    expect(pickCell(boardShapes(s, project, depth), project(0, 0.9, 0.4))).toEqual({ x: 0, z: 1 });
+    expect(pickCell(boardShapes(s, project, depth), { x: 100, y: 287 })).toEqual({ x: 0, z: 1 });
     // Another die there is the die.
     place(s, 1, 1, 'ground');
-    expect(pickCell(boardShapes(s, project, depth), project(0, 0.9, 0.4))).toEqual({ x: 0, z: 0 });
+    expect(pickCell(boardShapes(s, project, depth), { x: 100, y: 287 })).toEqual({ x: 0, z: 0 });
   });
 });

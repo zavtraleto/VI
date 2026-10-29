@@ -884,12 +884,13 @@ export class Game {
     const ys = corners.map((p) => p.y);
     const left = Math.min(...xs);
     const topY = Math.min(...ys);
-    return { box: { x: left, y: topY, width: Math.max(...xs) - left, height: Math.max(...ys) - topY }, key: `${cell.x},${cell.z}` };
+    return { box: { x: left, y: topY, width: Math.max(...xs) - left, height: Math.max(...ys) - topY }, key: `${cell.x},${cell.z}`, face: cube ? cube.ori.top : null };
   }
 
   /** The cell of the board under a point of the window: the die there, or its floor where none stands. */
   private cellAt(px: number, py: number): { x: number; z: number } | null {
-    return pickCell(this.cellShapes(), { x: px, y: py });
+    // Of what is under the point, the cells a tap would take the player to come first.
+    return pickCell(this.cellShapes(), { x: px, y: py }, (x, z) => planTap(this.state, x, z) !== null);
   }
 
   /** The cells of the board as they lie on the page now, in the pixels of the window. */

@@ -8,25 +8,37 @@ export interface Point {
 
 /**
  * A cell of the board as it lies on the page: the outline of the die on it, or of its floor where
- * none stands, and how far it is from the camera (less is nearer).
+ * none stands; the middle of what is aimed at (the top face of the die, or the floor); and how far
+ * it is from the camera (less is nearer).
  */
 export interface CellShape {
   x: number;
   z: number;
   outline: readonly Point[];
+  centre: Point;
   depth: number;
 }
 
 /**
- * The cell under a point of the page: of the shapes whose outline holds the point, the nearest to
- * the camera. A die stands over the cells behind it, so the side of a die is the die, not the
- * floor behind it. Null where the point is on no cell.
+ * The cell under a point of the page. A die stands over the cells behind it on the page, and the
+ * cell a player wants is often one of those, so the nearest to the camera is not taken: of the
+ * shapes whose outline holds the point, the one whose middle is nearest to it is, the top face of
+ * a die or the floor of a cell. Given `wanted`, the cells it passes are taken first: those a tap
+ * would take the player to. Of two as near, the nearer to the camera. Null where the point is on
+ * no cell.
  */
-export function pickCell(shapes: readonly CellShape[], at: Point): { x: number; z: number } | null {
+export function pickCell(shapes: readonly CellShape[], at: Point, wanted?: (x: number, z: number) => boolean): { x: number; z: number } | null {
+  const under = shapes.filter((shape) => inside(hull(shape.outline), at));
+  const good = wanted ? under.filter((shape) => wanted(shape.x, shape.z)) : [];
+  const pool = good.length > 0 ? good : under;
   let best: CellShape | null = null;
-  for (const shape of shapes) {
-    if (best && shape.depth >= best.depth) continue;
-    if (inside(hull(shape.outline), at)) best = shape;
+  let least = Infinity;
+  for (const shape of pool) {
+    const far = Math.hypot(shape.centre.x - at.x, shape.centre.y - at.y);
+    if (far < least - 0.5 || (Math.abs(far - least) <= 0.5 && best !== null && shape.depth < best.depth)) {
+      least = Math.min(least, far);
+      best = shape;
+    }
   }
   return best ? { x: best.x, z: best.z } : null;
 }
@@ -48,7 +60,7 @@ export function boardShapes(state: RunState, project: (x: number, y: number, z: 
       const cube = cubeAt(state, x, z);
       const own = x === player.x && z === player.z;
       const top = cube && !own ? cubeHeight(cube, state.config) : 0;
-      shapes.push({ x, z, outline: boxCorners(x, z, top, project), depth: depth(x, top / 2, z) });
+      shapes.push({ x, z, outline: boxCorners(x, z, top, project), centre: project(x, top, z), depth: depth(x, top / 2, z) });
     }
   }
   return shapes;
