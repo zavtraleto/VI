@@ -189,11 +189,17 @@ describe('the log of sessions', () => {
     const log = row(spec, 'table');
     expect(log.head()).toBe('名前');
     expect(log.status?.()).toBe('');
-    expect(log.rows()).toEqual([
+    const rows = log.rows();
+    expect(rows.slice(0, 2)).toEqual([
       ['Ada', '005200', false, 1],
       ['NO NAME', '000900', false, 2],
-      ['A name far too l', '000070', true, 41],
     ]);
+    // A long name is cut where it would pass sixteen places of the font.
+    const [name, score, own, place] = rows[2];
+    expect([score, own, place]).toEqual(['000070', true, 41]);
+    expect('A name far too long for the table'.startsWith(name)).toBe(true);
+    expect(name.length).toBeLessThan('A name far too long for the table'.length);
+    expect(textWidth(name)).toBeLessThanOrEqual(16 * 8);
   });
 
   it('says how the platform stands while its players are on their way', () => {

@@ -9,8 +9,28 @@ const choice = (value: string, options: readonly string[]): ParamSpec => ({ kind
 
 /** The one font of the program's voice: a 16-dot gothic, drawn at its own size and never smoothed. */
 export const PROGRAM_FONT = '"DotGothic16", monospace';
+
+/**
+ * The grid of the interface, in dots of the picture. Every size and every space is a whole
+ * number of `UNIT`s, and the heights of blocks and the spaces between them of two: `EDGE` from
+ * the edge of the picture and inside a plate or a record, `GAP` between blocks and between two
+ * things that are pressed, `GROUP` between groups of lines. A button is a line and a half of
+ * text tall, the same on a phone and on a desk; where a finger needs more, its zone grows by a
+ * field that is not drawn (`zoneOf`). The bar of a name is a line of text with two dots above
+ * and below it; the red mark of the seventh is a square of `MARK`.
+ */
+export const UNIT = 4;
+export const EDGE = 8;
+export const GAP = 8;
+export const GROUP = 16;
+export const BUTTON_H = 24;
+export const BAR_H = 20;
+export const MARK = 4;
+
+/** Letters of the voice, in CSS pixels: prose is one size wherever it stands - a line of a panel, the README, the note under the list of the levels, the note over the board. */
 export const PANEL_SAY_SIZE = 16;
-export const README_SAY_SIZE = 20;
+export const README_SAY_SIZE = PANEL_SAY_SIZE;
+export const NOTE_SIZE = PANEL_SAY_SIZE;
 
 /**
  * Every parameter of the look of the interface, by the folder it stands in on the lab's panel.
@@ -62,17 +82,17 @@ export const SHELL_GROUPS = {
     spacePitch: number(50, 15, 85, 1),
     /** Distance between the dice, in dice; how much of its part of the screen the net takes. */
     spaceGap: number(1.6, 1, 2.5, 0.05),
-    spaceFill: number(0.92, 0.4, 1, 0.01),
+    spaceFill: number(1, 0.4, 1, 0.01),
     /** How far a die rises and falls, how long one such breath is, how far it turns from side to side. */
     spaceBob: number(0.08, 0, 0.4, 0.01),
     spaceBobSec: number(6, 1, 20, 0.5),
     spaceTurn: number(5, 0, 45, 1),
     /** How bright the glass of a die is, its edges, and the die the figure stands on. */
-    spaceGlass: number(0.22, 0, 1, 0.01),
-    spaceEdge: number(0.9, 0, 2, 0.05),
-    spaceLit: number(2.2, 1, 4, 0.1),
+    spaceGlass: number(0.14, 0, 1, 0.01),
+    spaceEdge: number(0.6, 0, 2, 0.05),
+    spaceLit: number(3.4, 1, 4, 0.1),
     /** The rings under the dice; 0 leaves them out. */
-    spaceRings: number(0.3, 0, 1, 0.01),
+    spaceRings: number(0.2, 0, 1, 0.01),
     /** Bits per colour channel of the picture of the dice, and the dither that hides the steps. */
     spaceDepth: number(5, 3, 8, 1),
     spaceDither: number(1, 0, 1, 0.05),

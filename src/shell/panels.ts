@@ -2,7 +2,7 @@ import type { ControlMode, ViewSetting } from '../platform/settings';
 import type { GoalLine } from '../rules';
 import { word, type LanguageCode } from '../ui/i18n';
 import type { Climb } from './climb';
-import { textWidth } from './layout';
+import { CELL_W, textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
 import { README_SAY_SIZE } from './theme';
 import { COMMANDS, GOAL, LANGUAGE_NAMES, LIVE_SESSION, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
@@ -255,7 +255,7 @@ const NAME_PLACES = 16;
 function fitName(name: string): string {
   let fitted = '';
   for (const sign of name.replace(/\s+/g, ' ').trim()) {
-    if (textWidth(fitted + sign) > textWidth('0') * NAME_PLACES) break;
+    if (textWidth(fitted + sign) > CELL_W * NAME_PLACES) break;
     fitted += sign;
   }
   return fitted.trim() || word(RECORDS.nameless);

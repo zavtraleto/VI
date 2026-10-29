@@ -2,12 +2,12 @@ import type { Layer } from '../../display/layer';
 import type { Rect } from '../../display/sizing';
 import { t, word } from '../../ui/i18n';
 import type { Kit } from '../kit';
-import { CELL_H, CELL_W, MIN_ZONE, menuLayout, netProjection, netStep, textWidth, type Box, type Dir4, type MenuLayout, type NetProjection } from '../layout';
+import { CELL_H, CELL_W, fingerOf, menuLayout, netProjection, netStep, textWidth, zoneOf, type Box, type Dir4, type MenuLayout, type NetProjection } from '../layout';
 import { drawLogo } from '../logo';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { ShellSpace } from '../space';
-import { LEGEND, MENU_FILES, PAGER, README_DATE, REVISION, SPACE_CAPTION, STATUS, SUBJECT, digits, type FileField, type MenuFile } from '../text';
-import type { Palette } from '../theme';
+import { LEGEND, MENU_FILES, PAGER, README_DATE, REVISION, STATUS, SUBJECT, digits, type FileField, type MenuFile } from '../text';
+import { BAR_H, BUTTON_H, EDGE, GAP, UNIT, type Palette } from '../theme';
 
 /** What the files of the main menu do. */
 export interface MenuActions {
@@ -37,13 +37,23 @@ const EXEC_ID = 'exec';
 /** The arrows of the record: to the file before and to the file after. */
 const PREV_ID = 'prev';
 const NEXT_ID = 'next';
-/** Width of the part of the bar of the record an arrow stands in. */
-const PAGER_WIDTH = 3 * CELL_W;
+/** Width of the part of the bar of the record an arrow stands in, from the edge of the record to the line after it. */
+const PAGER_WIDTH = BUTTON_H;
 /** Rows of a callout and of the key, and the room between the net and a column of callouts. */
-const LABEL_ROW = CELL_H + 2;
-const CALLOUT_GAP = 10;
+const LABEL_ROW = 20;
+const CALLOUT_GAP = GAP;
 /** Side of the little face before a name in the key under the net of a tall picture. */
-const KEY_FACE = 10;
+const KEY_FACE = 12;
+/** The key: three rows, and half a step of the grid above and below them. */
+const KEY_HEIGHT = 3 * LABEL_ROW + EDGE;
+/** Where the lines of the record of a file stand, from its top: the name twice its size, the name in the program's language, the dry line, the field. */
+const RECORD_NAME = 29;
+const RECORD_NATIVE = 45;
+const RECORD_LINE = 69;
+const RECORD_FIELD = 93;
+/** Where the lines of the record of the subject start, from its top, and the step between them. */
+const SUBJECT_TOP = 28;
+const SUBJECT_STEP = 20;
 
 /** The name of a file beside its die: where it stands, and where its line leaves the die. */
 interface Callout {
@@ -112,7 +122,7 @@ export class MenuScreen implements ShellScreen {
 
   items(): ShellItem[] {
     const { layout, projection, zoom, names } = this.plan();
-    const side = Math.max(projection.zone, MIN_ZONE / zoom);
+    const side = Math.max(projection.zone, fingerOf(zoom));
     const items: ShellItem[] = MENU_FILES.map((file) => {
       const centre = projection.centres[file.face - 1];
       return {
@@ -124,17 +134,16 @@ export class MenuScreen implements ShellScreen {
     });
     // The name of a file beside its die stands the figure on it, as the arrows of the record do.
     for (const { file, box } of names.callouts) {
-      const tall = Math.max(box.h, MIN_ZONE / zoom);
       items.push({
         id: `name-${file.id}`,
-        rect: this.toWindow({ x: box.x, y: box.y + box.h / 2 - tall / 2, w: box.w, h: tall }),
+        rect: this.toWindow(zoneOf(box, zoom)),
         action: () => this.context.focus(this.stand(file)),
         passive: true,
         instant: true,
         quiet: true,
       });
     }
-    items.push({ id: EXEC_ID, rect: this.toWindow(layout.exec), action: () => this.actions[this.current.id](), passive: true });
+    items.push({ id: EXEC_ID, rect: this.toWindow(zoneOf(layout.exec, zoom)), action: () => this.actions[this.current.id](), passive: true });
     const { prev, next } = this.pagers(layout, zoom);
     items.push(
       { id: PREV_ID, rect: this.toWindow(prev), action: () => this.context.focus(this.beside(-1)), passive: true, instant: true, quiet: true },
@@ -167,16 +176,15 @@ export class MenuScreen implements ShellScreen {
   }
 
   /**
-   * The zones of the two arrows: the top corners of the record, as large as a finger needs
-   * whatever the picture is. The arrows themselves stand in the bar, at its ends.
+   * The zones of the two arrows: squares in the top corners of the record, as large as a finger
+   * needs and never smaller than a button, not drawn. The arrows themselves stand in the bar, at its ends.
    */
   private pagers(layout: MenuLayout, zoom: number): { prev: Box; next: Box } {
-    const { record, exec } = layout;
-    const side = Math.max(PAGER_WIDTH, Math.ceil(MIN_ZONE / Math.max(0.1, zoom)));
-    const tall = Math.min(side, exec.y - record.y - 2);
+    const { record } = layout;
+    const side = fingerOf(zoom);
     return {
-      prev: { x: record.x, y: record.y, w: side, h: tall },
-      next: { x: record.x + record.w - side, y: record.y, w: side, h: tall },
+      prev: { x: record.x, y: record.y, w: side, h: side },
+      next: { x: record.x + record.w - side, y: record.y, w: side, h: side },
     };
   }
 
@@ -196,8 +204,8 @@ export class MenuScreen implements ShellScreen {
   }
 
   /**
-   * The line of the program's state moves by itself: the levels of the channels wander, the
-   * clock goes. It alone is drawn again, a few times a second; the rest of the picture stays.
+   * The header moves by itself: the levels of the channels wander, the clock goes. It alone is
+   * drawn again, a few times a second; the rest of the picture stays.
    */
   tick(kit: Kit, timeMs: number): boolean {
     const rate = this.context.reducedMotion() ? 0 : Number(this.context.values.idleHz);
@@ -206,9 +214,9 @@ export class MenuScreen implements ShellScreen {
     if (tick === this.beat && second === this.second) return false;
     this.beat = tick;
     this.second = second;
-    const { status } = this.plan().layout;
-    kit.clear(status);
-    this.drawStatus(kit, status);
+    const { header } = this.plan().layout;
+    kit.clear(header.box);
+    this.drawHeader(kit, header);
     return true;
   }
 
@@ -231,15 +239,11 @@ export class MenuScreen implements ShellScreen {
     const file = this.current;
     const channel = palette.channels[file.face - 1];
 
-    drawLogo(kit, layout.header.left, layout.header.y, 1, palette.ink);
-    kit.text(REVISION, layout.header.right, layout.header.y, palette.dim, { align: 'right' });
-    kit.rect(layout.header.left, layout.header.rule, layout.header.right - layout.header.left, 1, palette.faint);
-
+    this.drawHeader(kit, layout.header);
     if (layout.subject) this.drawSubject(kit, layout.subject);
-    this.drawSpace(kit, layout, projection, channel);
+    this.drawWire(kit, layout, projection, channel);
     this.drawNames(kit, names);
     this.drawRecord(kit, layout, file, channel, focus.pressed);
-    this.drawStatus(kit, layout.status);
     if (layout.legend !== null) kit.text(LEGEND, layout.header.left, layout.legend, palette.dim);
   }
 
@@ -253,7 +257,7 @@ export class MenuScreen implements ShellScreen {
     const { values } = this.context;
     const picture = this.context.picture();
     const zoom = this.context.window().height / Math.max(1, picture.height);
-    const layout = menuLayout(picture, this.context.safe(), zoom);
+    const layout = menuLayout(picture, this.context.safe());
     const view: NetView = {
       yaw: Number(values.spaceYaw),
       pitch: Number(values.spacePitch),
@@ -267,12 +271,12 @@ export class MenuScreen implements ShellScreen {
   /**
    * The key under the net of a tall picture: there is no room beside the dice for their names
    * (the owner, 28 October 2026, chose a key there and callouts on a wide one). Two columns of
-   * three rows, a little face of each die and the name of its file; the dice keep the rest.
+   * three rows, a little face of each die and the name of its file, a gap of the grid over it;
+   * the dice keep the rest.
    */
   private keyed(space: Box): Names {
-    const tall = 3 * LABEL_ROW + 4;
-    const key: Box = { x: space.x, y: space.y + space.h - tall, w: space.w, h: tall };
-    return { net: { ...space, h: Math.max(CELL_H, space.h - tall - 4) }, callouts: [], key };
+    const key: Box = { x: space.x, y: space.y + space.h - KEY_HEIGHT, w: space.w, h: KEY_HEIGHT };
+    return { net: { ...space, h: Math.max(CELL_H, space.h - KEY_HEIGHT - GAP) }, callouts: [], key };
   }
 
   /**
@@ -286,7 +290,7 @@ export class MenuScreen implements ShellScreen {
     const middle = whole.centres.reduce((sum, centre) => sum + centre.x, 0) / whole.centres.length;
     const left = MENU_FILES.filter((file) => whole.centres[file.face - 1].x < middle || file.face === 1);
     const right = MENU_FILES.filter((file) => !left.includes(file));
-    const width = (file: MenuFile): number => textWidth(word(file.name)) + 4;
+    const width = (file: MenuFile): number => textWidth(word(file.name)) + 2 * UNIT;
     const widest = (files: readonly MenuFile[]): number => Math.max(0, ...files.map(width));
     const leftWidth = widest(left);
     const rightWidth = widest(right);
@@ -297,14 +301,13 @@ export class MenuScreen implements ShellScreen {
       h: space.h,
     };
     const projection = netProjection(net, view);
-    // Under the caption of the figure, and over the bottom of the space.
-    const top = space.y + LABEL_ROW + 4;
+    const top = space.y;
     const bottom = space.y + space.h - LABEL_ROW;
     const column = (files: readonly MenuFile[], onLeft: boolean): Callout[] => {
       const sorted = [...files].sort((a, b) => projection.centres[a.face - 1].y - projection.centres[b.face - 1].y);
       const ys: number[] = [];
       for (const file of sorted) {
-        const want = Math.round(projection.centres[file.face - 1].y - CELL_H / 2);
+        const want = Math.round(projection.centres[file.face - 1].y - LABEL_ROW / 2);
         ys.push(Math.max(want, ys.length > 0 ? ys[ys.length - 1] + LABEL_ROW : top));
       }
       // Names pushed past the bottom go back up together.
@@ -316,7 +319,7 @@ export class MenuScreen implements ShellScreen {
         const x = onLeft ? net.x - CALLOUT_GAP - w : net.x + net.w + CALLOUT_GAP;
         return {
           file,
-          box: { x, y: ys[i], w, h: CELL_H },
+          box: { x, y: ys[i], w, h: LABEL_ROW },
           edge: onLeft ? x + w : x,
           from: { x: Math.round(centre.x + (onLeft ? -reach : reach)), y: Math.round(centre.y) },
         };
@@ -336,23 +339,23 @@ export class MenuScreen implements ShellScreen {
     for (const { file, box, edge, from } of names.callouts) {
       const on = file.id === this.current.id;
       const channel = channels[file.face - 1];
-      const y = box.y + Math.round(CELL_H / 2);
-      const bend = edge + (edge > from.x ? -4 : 4);
+      const y = box.y + box.h / 2;
+      const bend = edge + (edge > from.x ? -UNIT : UNIT);
       kit.wire([from, { x: bend, y: from.y }, { x: bend, y }, { x: edge, y }], on ? channel : faint);
       kit.rect(from.x - 1, from.y - 1, 3, 3, channel);
       if (on) kit.box(box, ink);
-      kit.text(word(file.name), box.x + 2, box.y, on ? bg : dim, { bold: on });
+      kit.text(word(file.name), box.x + UNIT, box.y + (box.h - CELL_H) / 2, on ? bg : dim, { bold: on });
     }
     const { key } = names;
     if (!key) return;
-    const half = Math.floor((key.w - 4) / 2);
+    const half = Math.floor((key.w - GAP) / 2);
     MENU_FILES.forEach((file, i) => {
       const on = file.id === this.current.id;
-      const x = key.x + (i % 2) * (half + 4);
-      const y = key.y + 4 + Math.floor(i / 2) * LABEL_ROW;
-      if (on) kit.rect(x, y - 1, half, LABEL_ROW, ink);
-      kit.face(file.face, x + 3, y + Math.round((CELL_H - KEY_FACE) / 2), KEY_FACE, channels[file.face - 1], bg);
-      kit.text(word(file.name), x + 3 + KEY_FACE + 6, y, on ? bg : dim, { bold: on });
+      const x = key.x + (i % 2) * (half + GAP);
+      const y = key.y + EDGE / 2 + Math.floor(i / 2) * LABEL_ROW;
+      if (on) kit.rect(x, y, half, LABEL_ROW, ink);
+      kit.face(file.face, x + UNIT, y + (LABEL_ROW - KEY_FACE) / 2, KEY_FACE, channels[file.face - 1], bg);
+      kit.text(word(file.name), x + UNIT + KEY_FACE + GAP, y + (LABEL_ROW - CELL_H) / 2, on ? bg : dim, { bold: on });
     });
   }
 
@@ -368,53 +371,42 @@ export class MenuScreen implements ShellScreen {
   private drawSubject(kit: Kit, box: Box): void {
     const { bg, ink, dim, faint } = kit.palette;
     kit.frame(box, faint, true);
-    kit.rect(box.x + 1, box.y + 1, box.w - 2, CELL_H + 1, faint);
-    kit.text(SUBJECT.title, box.x + 6, box.y + 1, ink);
-    kit.text(SUBJECT.number, box.x + box.w - 6, box.y + 1, ink, { align: 'right' });
+    kit.bar(box, SUBJECT.title, SUBJECT.number, faint, ink);
 
     // Where a portrait would be: a grey mannequin, as the program draws the one it does not know.
-    const slot: Box = { x: box.x + 8, y: box.y + 26, w: 40, h: 62 };
+    const slot: Box = { x: box.x + EDGE, y: box.y + SUBJECT_TOP, w: 40, h: 72 };
     kit.box(slot, bg);
     kit.dither(slot.x, slot.y, slot.w, slot.h, faint, 4);
     kit.frame(slot, faint);
     kit.disc(slot.x + 20, slot.y + 22, 9, dim);
-    for (let row = 0; row < 24; row++) {
+    // The shoulders run down to the frame.
+    for (let row = 0; row < slot.h - 38; row++) {
       const half = Math.min(17, 9 + row * 1.2);
       kit.dither(Math.round(slot.x + 20 - half), slot.y + 37 + row, Math.round(half * 2), 1, dim, 2);
     }
 
-    const left = slot.x + slot.w + CELL_W;
+    const left = slot.x + slot.w + EDGE;
     SUBJECT.fields.forEach(([label, value], i) => {
-      kit.field(label, value, left, box.x + box.w - 8, box.y + 24 + i * 17, dim, ink);
+      kit.field(label, value, left, box.x + box.w - EDGE, box.y + SUBJECT_TOP + i * SUBJECT_STEP, dim, ink);
     });
   }
 
-  /** What the canvas adds to the dice: the caption of the figure and the wire from a die to its record. */
-  private drawSpace(kit: Kit, layout: MenuLayout, projection: NetProjection, channel: string): void {
-    const { dim, faint } = kit.palette;
+  /**
+   * The wire from the die the figure stands on to the record of its file. The dice have no
+   * frame, caption or marks of their own: they are the ground of the menu.
+   */
+  private drawWire(kit: Kit, layout: MenuLayout, projection: NetProjection, channel: string): void {
     const { space, record } = layout;
-    kit.text(SPACE_CAPTION, space.x, space.y, dim);
-    // Marks at the corners of the part of the screen the figure is drawn in, as on a plate of a report.
-    const mark = 6;
-    for (const right of [false, true]) {
-      for (const bottom of [false, true]) {
-        // The caption stands in the top left corner.
-        if (!right && !bottom) continue;
-        const x = right ? space.x + space.w - 1 : space.x;
-        const y = bottom ? space.y + space.h - 1 : space.y;
-        kit.rect(right ? x - mark + 1 : x, y, mark, 1, faint);
-        kit.rect(x, bottom ? y - mark + 1 : y, 1, mark, faint);
-      }
-    }
-
     const centre = projection.centres[this.current.face - 1];
     const from = { x: centre.x + projection.unit * 0.75, y: centre.y };
     kit.rect(Math.round(from.x) - 1, Math.round(from.y) - 1, 3, 3, channel);
     if (layout.wide) {
-      const bus = record.x - 5;
-      kit.wire([from, { x: bus, y: from.y }, { x: bus, y: record.y + 8 }, { x: record.x, y: record.y + 8 }], channel);
+      // In the middle of the gap between the dice and the column, into the middle of the bar of the record.
+      const bus = record.x - GAP / 2;
+      const into = record.y + 1 + BAR_H / 2;
+      kit.wire([from, { x: bus, y: from.y }, { x: bus, y: into }, { x: record.x, y: into }], channel);
     } else {
-      const bus = space.x + space.w - 3;
+      const bus = space.x + space.w - UNIT;
       kit.wire([from, { x: Math.max(bus, from.x), y: from.y }, { x: Math.max(bus, from.x), y: record.y }], channel);
     }
   }
@@ -423,34 +415,35 @@ export class MenuScreen implements ShellScreen {
   private drawRecord(kit: Kit, layout: MenuLayout, file: MenuFile, channel: string, pressed: string | null): void {
     const { bg, ink, dim } = kit.palette;
     const box = layout.record;
-    const left = box.x + 8;
-    const right = box.x + box.w - 8;
+    const left = box.x + EDGE;
+    const right = box.x + box.w - EDGE;
     kit.box(box, bg);
     kit.frame(box, channel, true);
-    kit.rect(box.x + 1, box.y + 1, box.w - 2, CELL_H + 1, channel);
-    // The ends of the bar are the arrows that turn the record; a pressed one is dark with a lit arrow.
+    kit.bar(box, '', '', channel, bg);
+    // The ends of the bar are the arrows that turn the record, each with a line of the dark after it; a pressed one is dark with a lit arrow.
     const ends: readonly [id: string, sign: string, x: number][] = [
       [PREV_ID, PAGER.prev, box.x + 1],
-      [NEXT_ID, PAGER.next, box.x + box.w - 1 - PAGER_WIDTH],
+      [NEXT_ID, PAGER.next, box.x + box.w - PAGER_WIDTH],
     ];
     for (const [id, sign, x] of ends) {
       const held = pressed === id;
-      if (held) kit.rect(x, box.y + 1, PAGER_WIDTH, CELL_H + 1, bg);
-      kit.text(sign, x + PAGER_WIDTH / 2, box.y + 1, held ? channel : bg, { align: 'center', bold: true });
+      const w = PAGER_WIDTH - 1;
+      if (held) kit.rect(x, box.y + 1, w, BAR_H, bg);
+      kit.text(sign, x + w / 2, box.y + 3, held ? channel : bg, { align: 'center', bold: true });
     }
-    kit.rect(box.x + PAGER_WIDTH + 1, box.y + 1, 1, CELL_H + 1, bg);
-    kit.rect(box.x + box.w - PAGER_WIDTH - 2, box.y + 1, 1, CELL_H + 1, bg);
-    kit.text(`FILE ${digits(file.face, 2)}/${digits(MENU_FILES.length, 2)}`, box.x + PAGER_WIDTH + 7, box.y + 1, bg, { bold: true });
-    kit.text(`${STATUS.channels}${file.face}`, box.x + box.w - PAGER_WIDTH - 7, box.y + 1, bg, { align: 'right', bold: true });
+    kit.rect(box.x + PAGER_WIDTH, box.y + 1, 1, BAR_H, bg);
+    kit.rect(box.x + box.w - PAGER_WIDTH - 1, box.y + 1, 1, BAR_H, bg);
+    kit.text(`FILE ${digits(file.face, 2)}/${digits(MENU_FILES.length, 2)}`, box.x + PAGER_WIDTH + EDGE, box.y + 3, bg, { bold: true });
+    kit.text(`${STATUS.channels}${file.face}`, box.x + box.w - PAGER_WIDTH - EDGE, box.y + 3, bg, { align: 'right', bold: true });
 
-    const nameEnd = kit.text(word(file.name), left, box.y + 22, ink, { scale: 2, bold: true });
-    kit.text(file.native, nameEnd + CELL_W, box.y + 22 + CELL_H, dim);
-    kit.text(t(file.line), left, box.y + 60, ink);
-    kit.field(file.field[0], this.value(file.field[1]), left, right, box.y + 82, dim, ink);
+    const nameEnd = kit.text(word(file.name), left, box.y + RECORD_NAME, ink, { scale: 2, bold: true });
+    kit.text(file.native, nameEnd + CELL_W, box.y + RECORD_NATIVE, dim);
+    kit.text(t(file.line), left, box.y + RECORD_LINE, ink);
+    kit.field(file.field[0], this.value(file.field[1]), left, right, box.y + RECORD_FIELD, dim, ink);
 
     const exec = layout.exec;
     const label = `${file.exec.native} ${word(file.exec.name)}`;
-    const textY = exec.y + Math.round((exec.h - CELL_H) / 2);
+    const textY = exec.y + (exec.h - CELL_H) / 2;
     if (pressed !== null && pressed !== PREV_ID && pressed !== NEXT_ID) {
       kit.frame(exec, ink);
       kit.text(label, exec.x + exec.w / 2, textY, ink, { align: 'center', bold: true });
@@ -460,26 +453,26 @@ export class MenuScreen implements ShellScreen {
     }
   }
 
-  /** The line of the program's own state: the levels of the six channels, the clock, the count of sessions. */
-  private drawStatus(kit: Kit, box: Box): void {
+  /**
+   * The header: the logo and the clock on its first line; on its second the levels of the six
+   * channels, the noise of a line that nothing is connected to, and the revision; the rule under it.
+   */
+  private drawHeader(kit: Kit, header: MenuLayout['header']): void {
     const { ink, dim, faint, channels } = kit.palette;
-    kit.rect(box.x, box.y, box.w, 1, faint);
-    const y = box.y + 4;
-    let x = kit.text(STATUS.channels, box.x, y, dim) + CELL_W;
-    channels.forEach((channel, i) => {
-      // Noise of an empty line: nothing is connected, the levels wander.
-      const level = 2 + Math.round(chance(this.beat, i) * 10);
-      kit.rect(x, y + 14 - level, 8, level, channel);
-      x += 12;
-    });
+    drawLogo(kit, header.left, header.y, 1, ink);
     const now = new Date();
     const clock = [now.getHours(), now.getMinutes(), now.getSeconds()].map((part) => digits(part, 2)).join(':');
-    kit.text(clock, box.x + box.w, y, ink, { align: 'right' });
-    kit.text(STATUS.mode, box.x, y + CELL_H, dim);
-    const count = digits(this.data.sessions, 4);
-    const countStart = box.x + box.w - kit.measure(count);
-    kit.text(count, countStart, y + CELL_H, dim);
-    kit.text(STATUS.sessions, countStart - CELL_W, y + CELL_H, dim, { align: 'right' });
+    kit.text(clock, header.right, header.y, ink, { align: 'right' });
+
+    const y = header.second;
+    let x = kit.text(STATUS.channels, header.left, y, dim) + CELL_W;
+    channels.forEach((channel, i) => {
+      const level = 2 + Math.round(chance(this.beat, i) * 10);
+      kit.rect(x, y + 14 - level, CELL_W, level, channel);
+      x += CELL_W + UNIT;
+    });
+    kit.text(REVISION, header.right, y, dim, { align: 'right' });
+    kit.rect(header.left, header.rule, header.right - header.left, 1, faint);
   }
 
   private value(kind: FileField): string {

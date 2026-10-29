@@ -214,10 +214,45 @@ function context(window: Size, ratio: number): ShellContext {
   };
 }
 
+describe('the panels on the grid', () => {
+  it.each(SCREENS)('stand the commands of the pause on a %s a button and a gap apart, under the bar of the name, the plate as tall as its lines and their gaps', (name, window, ratio) => {
+    const shown = context(window, ratio);
+    const picture = shown.picture();
+    const zoom = window.height / picture.height;
+    const items = new PanelScreen(shown, pausePanel({ onResume: nothing, onRestart: nothing, onMenu: nothing }), false).items();
+    expect(items.map((item) => item.id)).toEqual(['resume', 'restart', 'menu']);
+    // Frame and bar 21, a gap 8, then three buttons 24 each with a gap 8 after it, and the frame: 30 + 3 × 32.
+    const plate = 30 + 3 * (24 + 8);
+    const top = Math.round(8 + Math.max(0, (picture.height - 16 - plate) / 2));
+    const finger = name === 'phone' ? 36 : 24;
+    items.forEach((item, i) => {
+      const drawn = top + 29 + i * 32;
+      expect(item.rect.height / zoom).toBeCloseTo(finger, 6);
+      expect(item.rect.y / zoom).toBeCloseTo(drawn - (finger - 24) / 2, 6);
+      expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
+    });
+  });
+
+  it.each(SCREENS)('lay the cells of the levels on a %s six across, four apart, square enough for a large number', (name, window, ratio) => {
+    const shown = context(window, ratio);
+    const zoom = window.height / shown.picture().height;
+    const cells = new PanelScreen(shown, levelsPanel(campaignCells({ passed: {}, stats: {} }), 0, { onPick: nothing, onBack: nothing }), true)
+      .items()
+      .filter((item) => item.id.startsWith('level-'))
+      .map((item) => ({ x: item.rect.x / zoom, y: item.rect.y / zoom, w: item.rect.width / zoom, h: item.rect.height / zoom }));
+    const [w, h, across] = name === 'phone' ? [36, 36, 6] : [38, 36, 6];
+    expect(cells[0].w).toBeCloseTo(w, 6);
+    expect(cells[0].h).toBeCloseTo(h, 6);
+    expect(cells[1].x - cells[0].x).toBeCloseTo(w + 4, 6);
+    expect(cells[across].y - cells[0].y).toBeCloseTo(h + 4, 6);
+    expect(cells[across].x).toBeCloseTo(cells[0].x, 6);
+  });
+});
+
 describe('the result of a live session on a screen', () => {
   const lines = Array.from({ length: 60 }, (_, i) => ({ name: `Player ${i}`, score: 6000 - i * 100, own: false }));
 
-  it.each(SCREENS)('fits the window of a %s in every language, with its log and four commands, no word over the edge of its command and no command over another', (_name, window, ratio) => {
+  it.each(SCREENS)('fits the window of a %s in every language, with its log and four commands, no word over the edge of its command, and no command over another but by the field of a finger', (_name, window, ratio) => {
     for (const language of LANGUAGES) {
       setLanguage(language);
       const climb = new Climb({ lines, score: 2471, name: 'YOU', record: true, reduced: true });
@@ -236,7 +271,9 @@ describe('the result of a live session on a screen', () => {
         for (let b = a + 1; b < items.length; b++) {
           const one = items[a].rect;
           const other = items[b].rect;
-          const apart = one.x + one.width <= other.x || other.x + other.width <= one.x || one.y + one.height <= other.y || other.y + other.height <= one.y;
+          // Zones grown for a finger may reach over a neighbour above or below by the grid's step, and no more.
+          const reach = 4 * scale + 1e-6;
+          const apart = one.x + one.width <= other.x || other.x + other.width <= one.x || one.y + one.height <= other.y + reach || other.y + other.height <= one.y + reach;
           expect(apart, language).toBe(true);
         }
       }
@@ -386,11 +423,11 @@ describe('the list of the levels on a screen', () => {
     expect(ids()).toEqual(first);
   });
 
-  it('scrolls on a desk too, since the row is a hundred places: most of the cells in sight from the first, the rest a scroll away', () => {
+  it('scrolls on a desk too, since the row is a hundred places: four rows of six in sight from the first, the rest a scroll away', () => {
     const screen = new PanelScreen(context(SCREENS[1][1], SCREENS[1][2]), levelsPanel(cells, 0, actions), true);
     const shown = screen.items().filter((item) => item.id.startsWith('level-')).length;
     expect(shown).toBeLessThan(cells.length);
-    expect(shown).toBeGreaterThanOrEqual(80);
+    expect(shown).toBe(24);
     screen.scroll('down', 4000, 'level-0');
     expect(screen.items().map((item) => item.id)).toContain(`level-${cells.length - 1}`);
   });

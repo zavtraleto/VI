@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paintStar, paintStarGhost, starReach, starRow, starShape, starTones, type StarKit } from './star';
+import { paintStar, paintStarGhost, paintStarSmall, starReach, starRow, starShape, starTones, type StarKit } from './star';
 
 const COLOURS = { core: '#fbfff2', light: '#9fd8ff', deep: '#3d49f0' };
 
@@ -88,6 +88,28 @@ describe('a star as it is drawn', () => {
     paintStarGhost(kit, 50, 50, 15, COLOURS);
     expect(count()).toBeGreaterThan(80);
     expect(reach()).toBeLessThanOrEqual(17);
+  });
+});
+
+describe('a small star, as a cell of the list has it', () => {
+  it('is filled with its facets where it is held, and gives no light: nothing past its radius, nothing but whole dots', () => {
+    for (const radius of [3, 4, 6]) {
+      const { kit, reach, count } = recorder(20, 20);
+      let lit = 0;
+      paintStarSmall({ ...kit, light: (...args) => { lit++; kit.light(...args); }, halo: (...args) => { lit++; kit.halo(...args); } }, 20, 20, radius, COLOURS, true);
+      expect(count()).toBeGreaterThan(2);
+      expect(reach()).toBeLessThanOrEqual(radius);
+      expect(lit).toBe(0);
+    }
+  });
+
+  it('is the outline of a ghost where it is not held', () => {
+    const small = recorder(20, 20);
+    const ghost = recorder(20, 20);
+    paintStarSmall(small.kit, 20, 20, 4, COLOURS, false);
+    paintStarGhost(ghost.kit, 20, 20, 4, COLOURS);
+    expect(small.count()).toBe(ghost.count());
+    expect(small.reach()).toBeLessThanOrEqual(5);
   });
 });
 

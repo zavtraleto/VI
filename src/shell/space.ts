@@ -178,10 +178,11 @@ export class ShellSpace {
       die.group.position.set(place.x, height, place.z);
       die.group.rotation.y = still ? 0 : THREE.MathUtils.degToRad(n('spaceTurn')) * Math.sin(phase * 0.5 + i);
 
+      // The dice are the ground of the menu and stay low; the die the figure stands on comes up out of it at full strength.
       const lit = i + 1 === this.to && step >= 0.5 ? n('spaceLit') : 1;
       const channel = palette.channels[i];
-      die.glass.color.set(channel).multiplyScalar(n('spaceGlass') * lit);
-      die.edges.color.set(channel).multiplyScalar(Math.min(1, n('spaceEdge') * (lit > 1 ? 1 : 0.6)));
+      die.glass.color.set(channel).multiplyScalar(Math.min(1, n('spaceGlass') * lit));
+      die.edges.color.set(channel).multiplyScalar(Math.min(1, n('spaceEdge') * (lit > 1 ? lit : 0.6)));
       // The one is a red dot on white: the dot is the seventh.
       die.pips.color.set(i === 0 ? palette.signal : channel).lerp(WHITE, i === 0 ? 0 : 0.5);
     });

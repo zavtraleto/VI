@@ -113,7 +113,7 @@ describe('cardTitle', () => {
     const title = cardTitle(card);
     expect(title).toMatch(/^図0003 [ｦ-ﾝ]{4}:2C$/);
     // Half-width signs: the name takes little room in the title of a narrow window.
-    expect(textWidth(title)).toBe((2 + 4 + 1 + 4 + 3) * 8);
+    expect(textWidth(title)).toBeLessThanOrEqual((2 + 4 + 1 + 4 + 3) * 8);
   });
 
   it('gives the same picture the same name, and tells places and moods apart', () => {

@@ -11,6 +11,7 @@ import {
   pictureSize,
   signPlaces,
   textWidth,
+  zoneOf,
   type Box,
   type MenuLayout,
   type NetView,
@@ -31,7 +32,7 @@ function inside(inner: Box, outer: Box): boolean {
 }
 
 function blocks(layout: MenuLayout): Box[] {
-  return [layout.subject, layout.space, layout.record, layout.status].filter((box): box is Box => box !== null);
+  return [layout.header.box, layout.subject, layout.space, layout.record].filter((box): box is Box => box !== null);
 }
 
 describe('pictureSize', () => {
@@ -46,18 +47,44 @@ describe('pictureSize', () => {
   });
 });
 
-describe('textWidth', () => {
-  it('gives Latin and the Cyrillic of the program one place and everything else two', () => {
-    expect(textWidth('VI 07')).toBe(5 * CELL_W);
-    expect(textWidth('記録')).toBe(4 * CELL_W);
-    expect(textWidth('ЖУРНАЛ')).toBe(6 * CELL_W);
-    expect(textWidth('TÜRKÇE İŞ')).toBe(9 * CELL_W);
-    expect(textWidth('ｾﾂｿﾞｸ')).toBe(5 * CELL_W);
-    expect(textWidth('VI', 2)).toBe(4 * CELL_W);
+describe('zoneOf', () => {
+  const phone = 640 / 480;
+  const desk = 3;
+
+  it('grows a button a field that is not drawn to what a finger needs, as much above as below', () => {
+    expect(zoneOf({ x: 8, y: 100, w: 238, h: 24 }, phone)).toEqual({ x: 8, y: 94, w: 238, h: 36 });
+    expect(zoneOf({ x: 8, y: 100, w: 238, h: 24 }, phone).h * phone).toBeGreaterThanOrEqual(MIN_ZONE);
   });
 
-  it('says where each sign of a mixed line stands', () => {
-    expect(signPlaces('図1 展')).toEqual([0, 2, 3, 4]);
+  it('grows a square button across too', () => {
+    expect(zoneOf({ x: 100, y: 100, w: 24, h: 24 }, phone)).toEqual({ x: 94, y: 94, w: 36, h: 36 });
+  });
+
+  it('leaves a button as it is where it is tall enough: a desk, and a cell a finger high', () => {
+    expect(zoneOf({ x: 8, y: 100, w: 248, h: 24 }, desk)).toEqual({ x: 8, y: 100, w: 248, h: 24 });
+    expect(zoneOf({ x: 8, y: 100, w: 36, h: 36 }, phone)).toEqual({ x: 8, y: 100, w: 36, h: 36 });
+  });
+
+  it('lets two buttons a gap of the grid apart reach over each other by no more than a step of it', () => {
+    const one = zoneOf({ x: 8, y: 100, w: 238, h: 24 }, phone);
+    const next = zoneOf({ x: 8, y: 132, w: 238, h: 24 }, phone);
+    expect(one.y + one.h - next.y).toBe(4);
+  });
+});
+
+describe('textWidth', () => {
+  it('gives a drawn letter its own width and a dot after it, a figure seven dots, and anything else one place or two', () => {
+    expect(textWidth('I')).toBe(3);
+    expect(textWidth('Ж')).toBe(11);
+    expect(textWidth('0123456789')).toBe(70);
+    expect(textWidth('VI 07')).toBe(8 + 3 + 6 + 7 + 7);
+    expect(textWidth('記録')).toBe(4 * CELL_W);
+    expect(textWidth('ｾﾂｿﾞｸ')).toBe(5 * CELL_W);
+    expect(textWidth('VI', 2)).toBe(22);
+  });
+
+  it('says where each sign of a mixed line stands, in pixels of the picture', () => {
+    expect(signPlaces('図1 展')).toEqual([0, 16, 23, 29]);
   });
 });
 
@@ -104,78 +131,88 @@ describe('the net of a die', () => {
 });
 
 describe('menuLayout on a phone', () => {
-  const picture = pictureSize(phoneCanvas, 280, 360);
-  const zoom = 812 / picture.height;
-  const layout = menuLayout(picture, noInsets, zoom);
+  /** 360 by 640 CSS pixels at three canvas pixels to one: a picture of 270 by 480. */
+  const picture = pictureSize({ width: 1080, height: 1920 }, 280, 360);
+  const zoom = 640 / picture.height;
+  const layout = menuLayout(picture, noInsets);
   const whole: Box = { x: 0, y: 0, w: picture.width, h: picture.height };
 
-  it('stacks the records and the dice without a gap between them being lost', () => {
+  it('is a picture of 270 by 480', () => {
+    expect(picture).toEqual({ width: 270, height: 480 });
+  });
+
+  it('has a header of two lines and a rule under it', () => {
+    expect(layout.header).toEqual({ box: { x: 8, y: 0, w: 254, h: 45 }, y: 8, second: 24, left: 8, right: 262, rule: 44 });
+  });
+
+  it('keeps the record at the bottom and gives the dice everything between it and the header', () => {
     expect(layout.wide).toBe(false);
+    expect(layout.subject).toBeNull();
+    expect(layout.record).toEqual({ x: 8, y: 322, w: 254, h: 150 });
+    expect(layout.space).toEqual({ x: 8, y: 52, w: 254, h: 262 });
+    expect(layout.legend).toBeNull();
     const all = blocks(layout);
-    expect(all).toHaveLength(4);
     for (const box of all) expect(inside(box, whole)).toBe(true);
     all.forEach((a, i) => all.slice(i + 1).forEach((b) => expect(overlap(a, b)).toBe(false)));
-    expect(layout.subject!.y).toBeLessThan(layout.space.y);
-    expect(layout.space.y).toBeLessThan(layout.record.y);
-    expect(layout.record.y).toBeLessThan(layout.status.y);
   });
 
-  it('keeps the bar that runs a file inside its record and tall enough for a finger', () => {
+  it('has the bar that runs a file a button tall inside its record, and its zone a finger tall', () => {
+    expect(layout.exec).toEqual({ x: 16, y: 439, w: 238, h: 24 });
     expect(inside(layout.exec, layout.record)).toBe(true);
-    expect(layout.exec.h * zoom).toBeGreaterThanOrEqual(MIN_ZONE);
+    expect(zoneOf(layout.exec, zoom).h * zoom).toBeGreaterThanOrEqual(MIN_ZONE);
+    expect(inside(zoneOf(layout.exec, zoom), layout.record)).toBe(true);
   });
 
-  it('gives the dice the larger part of what is left', () => {
-    expect(layout.space.h).toBeGreaterThan(200);
-    expect(layout.legend).toBeNull();
-  });
-
-  it('lets the record of the subject go on a short screen', () => {
+  it('keeps the record whole on a short screen', () => {
     const short = pictureSize({ width: 480, height: 720 }, 280, 360);
-    const tight = menuLayout(short, noInsets, 480 / short.height);
-    expect(tight.subject).toBeNull();
+    const tight = menuLayout(short, noInsets);
     expect(tight.space.h).toBeGreaterThan(100);
     expect(inside(tight.record, { x: 0, y: 0, w: short.width, h: short.height })).toBe(true);
   });
 
   it('leaves the edges the screen keeps to itself', () => {
-    const inset = menuLayout(picture, { top: 35, right: 0, bottom: 26, left: 0 }, zoom);
-    expect(inset.header.y).toBeGreaterThanOrEqual(35);
-    expect(inset.status.y + inset.status.h).toBeLessThanOrEqual(picture.height - 26);
+    const inset = menuLayout(picture, { top: 35, right: 0, bottom: 26, left: 0 });
+    expect(inset.header.box.y).toBeGreaterThanOrEqual(35);
+    expect(inset.record.y + inset.record.h).toBeLessThanOrEqual(picture.height - 26);
+  });
+
+  it('stands the header and the dice on the grid', () => {
+    for (const n of [layout.header.y, layout.header.second, layout.header.rule, layout.space.y, layout.exec.h]) expect(n % 4).toBe(0);
   });
 });
 
 describe('menuLayout on a wide screen', () => {
   const picture = pictureSize(desktopCanvas, 280, 360);
-  const zoom = 720 / picture.height;
-  const layout = menuLayout(picture, noInsets, zoom);
+  const layout = menuLayout(picture, noInsets);
   const whole: Box = { x: 0, y: 0, w: picture.width, h: picture.height };
 
   it('puts the dice on the left and the records in a column on the right', () => {
     expect(layout.wide).toBe(true);
+    expect(layout.subject).toEqual({ x: 368, y: 52, w: 264, h: 112 });
+    expect(layout.record).toEqual({ x: 368, y: 172, w: 264, h: 150 });
+    expect(layout.space).toEqual({ x: 8, y: 52, w: 352, h: 276 });
+    expect(layout.exec).toEqual({ x: 376, y: 289, w: 248, h: 24 });
     const all = blocks(layout);
-    expect(all).toHaveLength(4);
     for (const box of all) expect(inside(box, whole)).toBe(true);
     all.forEach((a, i) => all.slice(i + 1).forEach((b) => expect(overlap(a, b)).toBe(false)));
-    expect(layout.space.x + layout.space.w).toBeLessThan(layout.record.x);
-    expect(layout.subject!.x).toBe(layout.record.x);
-    expect(layout.status.x).toBe(layout.record.x);
   });
 
   it('names the keys at the bottom', () => {
-    expect(layout.legend).not.toBeNull();
-    expect(layout.legend!).toBeGreaterThanOrEqual(layout.status.y + layout.status.h);
+    expect(layout.legend).toBe(336);
+    expect(layout.legend!).toBeGreaterThanOrEqual(layout.record.y + layout.record.h);
+    expect(layout.legend!).toBeGreaterThanOrEqual(layout.space.y + layout.space.h);
     expect(layout.legend! + 16).toBeLessThanOrEqual(picture.height);
   });
 
   it('fits a phone held sideways, without the record of the subject', () => {
     const sideways = pictureSize({ width: 1218, height: 562 }, 280, 360);
-    const tight = menuLayout(sideways, { top: 0, right: 30, bottom: 14, left: 30 }, 375 / sideways.height);
+    const tight = menuLayout(sideways, { top: 0, right: 30, bottom: 14, left: 30 });
     const all = blocks(tight);
     expect(tight.subject).toBeNull();
     for (const box of all) expect(inside(box, { x: 0, y: 0, w: sideways.width, h: sideways.height })).toBe(true);
     all.forEach((a, i) => all.slice(i + 1).forEach((b) => expect(overlap(a, b)).toBe(false)));
-    expect(tight.exec.h * (375 / sideways.height)).toBeGreaterThanOrEqual(MIN_ZONE);
+    const zoom = 375 / sideways.height;
+    expect(zoneOf(tight.exec, zoom).h * zoom).toBeGreaterThanOrEqual(MIN_ZONE);
   });
 });
 

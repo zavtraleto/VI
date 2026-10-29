@@ -54,6 +54,16 @@ describe('zoneAt', () => {
     expect(zoneAt(pair, 45, 45)?.id).toBe('a');
     expect(zoneAt(pair, 55, 55)?.id).toBe('b');
   });
+
+  it('gives a press in the strip where two buttons grown for a finger meet to the nearer, whichever comes first', () => {
+    // Two buttons 24 tall a gap of 8 apart, each grown to 36: their zones share a strip of 4.
+    const upper = { id: 'upper', rect: { x: 0, y: 94, width: 238, height: 36 } };
+    const lower = { id: 'lower', rect: { x: 0, y: 126, width: 238, height: 36 } };
+    for (const order of [[upper, lower], [lower, upper]]) {
+      expect(zoneAt(order, 100, 127)?.id).toBe('upper');
+      expect(zoneAt(order, 100, 129)?.id).toBe('lower');
+    }
+  });
 });
 
 describe('swipeOf', () => {

@@ -200,6 +200,22 @@ export function paintStarGhost(kit: StarKit, cx: number, cy: number, radius: num
   for (const dot of shape.rim) kit.light(x0 + dot.x + 1, y0 + dot.y, 1, 1, colours.deep, 0.1);
 }
 
+/**
+ * A small star, as a cell of the list of the levels and a result have them: the same star cut in
+ * facets, but with no light of its own - neither glow nor rays nor the heat of the heart. One that
+ * is `held` is filled with its facets; one that is not is its outline alone, as `paintStarGhost` has it.
+ */
+export function paintStarSmall(kit: StarKit, cx: number, cy: number, radius: number, colours: StarColours, held: boolean): void {
+  if (!held) {
+    paintStarGhost(kit, cx, cy, radius, colours);
+    return;
+  }
+  const x0 = Math.round(cx);
+  const y0 = Math.round(cy);
+  const tones = starTones(colours);
+  for (const run of starShape(radius).runs) kit.rect(x0 + run.x, y0 + run.y, run.w, 1, tones[run.tone]);
+}
+
 /** How large the stars of a pass are and how far apart, for a picture `width` dots wide: three of them and their gaps take no more than three quarters of it. */
 export function starRow(width: number): { radius: number; gap: number; wide: number } {
   let radius = Math.max(8, Math.min(22, Math.round(width * 0.085)));

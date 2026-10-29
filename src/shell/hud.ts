@@ -7,6 +7,7 @@ import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { loadShellFonts } from './fonts';
 import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hudLayout, undoButton, restartDot, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout } from './hudLayout';
+import { zoneAt } from './input';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
@@ -14,7 +15,7 @@ import { praiseWord } from './praise';
 import { paintStar, paintStarGhost, starRow } from './star';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
 import { COMMANDS, HUD, READS, digits, goalLabel, goalProgress } from './text';
-import { clockHour, mixHex, paletteAt, type Palette } from './theme';
+import { EDGE, clockHour, mixHex, paletteAt, type Palette } from './theme';
 import { Voice } from './voice';
 
 /** Seconds as the clock of a live session reads them, `MM:SS`; null where there is no clock. */
@@ -282,6 +283,9 @@ const ICON_SOUND = ['....#....', '...##..#.', '#####...#', '#####.#.#', '#####.#
 const ICON_MUTE = ['....#....', '...##....', '#####....', '#####....', '#####....', '#####....', '#####....', '...##....', '....#....'];
 const ICON_CROSS = ['#.......#', '.#.....#.', '..#...#..', '...#.#...', '....#....', '...#.#...', '..#...#..', '.#.....#.', '#.......#'];
 const ICON_RETRY = ['..####.#.', '.#....##.', '#....###.', '#........', '#.......#', '#.......#', '.#.....#.', '..#####..', '.........'];
+/** A bar of the pause, in dots: as wide as the gap between the two, and three times as tall. */
+const PAUSE_BAR = 4;
+const PAUSE_TALL = 12;
 /** How long a reading that has just changed keeps flashing, and a multiplier stays large, in milliseconds. */
 const FLASH_MS = 1200;
 const BUMP_MS = 220;
@@ -1076,6 +1080,12 @@ export class GameHud {
     }
   }
 
+  /** How wide a line of the goal stands where its name is close before its count. */
+  private goalWidth(line: GoalLine): number {
+    const { kit } = this;
+    return kit.measure(goalProgress(line)) + 4 + (line.what === 'face' ? 12 : kit.measure(goalLabel(line)));
+  }
+
   /** The readings of a level as a column: the score, the number of the level, its two small readings, and a line of its goal where it has one. */
   private drawLevelWide(level: HudLevel, layout: HudLayout, timeMs: number): void {
     const { kit } = this;
@@ -1085,18 +1095,25 @@ export class GameHud {
     this.score(left, lines.big, timeMs, WHOLE);
     if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, left, lines.tag, ink);
     this.levelReads(level, right, layout.moves, left);
-    if (level.goal.length > 0) this.goalLine(level.goal[0], right, lines.cells, left);
+    if (level.goal.length > 0) this.goalLine(level.goal[0], right, layout.goal, left);
   }
 
   private drawLevel(level: HudLevel, layout: HudLayout, timeMs: number): void {
     const { kit } = this;
     const { ink, dim } = kit.palette;
-    const { left, end, rowA, big } = layout;
+    const { left, mid, end, rowA, rowB, big } = layout;
     kit.text(HUD.score, left, rowA, dim);
     this.score(left, big, timeMs, WHOLE);
     if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, layout.tag.x, layout.tag.y, ink);
-    // A line of the goal, where there is one, stands before the buttons; the two small readings under them, one under the other.
-    if (level.goal.length > 0) this.goalLine(level.goal[0], end, rowA);
+    // A line of the goal, where there is one, stands before the buttons, under the number of the level; the two small readings under the buttons, one under the other.
+    if (level.goal.length > 0) {
+      const line = level.goal[0];
+      // A line too long for the room between the large number and the buttons would run into
+      // the number: it stands under the number instead, its name at the left edge and its count
+      // where the number ends, as a line of the goal does in the column of a wide picture.
+      if (layout.goal === rowB && end - this.goalWidth(line) < mid - CELL_W / 2) this.goalLine(line, mid - EDGE, layout.moves[1], left);
+      else this.goalLine(line, end, layout.goal);
+    }
     this.levelReads(level, layout.right, layout.moves);
   }
 
@@ -1107,13 +1124,13 @@ export class GameHud {
     const pressed = this.held?.zone.id === 'pause';
     if (pressed) kit.box(box, ink);
     else kit.frame(box, faint);
-    const tall = Math.max(8, Math.round(box.h / 3));
-    const wide = Math.max(2, Math.round(box.w / 10));
-    const y = box.y + Math.round((box.h - tall) / 2);
+    // Two bars of 4 by 12, 4 apart, in the middle of the button.
+    const x = box.x + Math.round((box.w - PAUSE_BAR * 3) / 2);
+    const y = box.y + Math.round((box.h - PAUSE_TALL) / 2);
     const colour = pressed ? kit.palette.bg : ink;
-    kit.rect(box.x + Math.round(box.w / 2) - wide * 2, y, wide, tall, colour);
-    kit.rect(box.x + Math.round(box.w / 2) + wide, y, wide, tall, colour);
-    this.zones.push({ id: 'pause', rect: kit.toWindow(box), action: () => this.actions.onPause() });
+    kit.rect(x, y, PAUSE_BAR, PAUSE_TALL, colour);
+    kit.rect(x + PAUSE_BAR * 2, y, PAUSE_BAR, PAUSE_TALL, colour);
+    this.zones.push({ id: 'pause', rect: kit.toWindow(layout.zones.pause), action: () => this.actions.onPause() });
   }
 
   /** The button that starts a level over: beside the pause, of its size and drawn as it is, with the arrow that goes round in place of the two bars. */
@@ -1132,7 +1149,7 @@ export class GameHud {
     ICON_RETRY.forEach((row, r) => {
       for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
     });
-    this.zones.push({ id: 'retry', rect: kit.toWindow(box), action: () => this.actions.onRestart() });
+    this.zones.push({ id: 'retry', rect: kit.toWindow(layout.zones.restart ?? box), action: () => this.actions.onRestart() });
   }
 
   /**
@@ -1160,7 +1177,7 @@ export class GameHud {
     } else {
       paint(ICON_SOUND, pressed ? bg : ink);
     }
-    this.zones.push({ id: 'sound', rect: kit.toWindow(box), action: () => this.actions.onSound() });
+    this.zones.push({ id: 'sound', rect: kit.toWindow(layout.zones.sound ?? box), action: () => this.actions.onSound() });
   }
 
   /**
@@ -1519,11 +1536,8 @@ export class GameHud {
   private zoneAt(e: PointerEvent): Zone | null {
     if (!this.actions.live()) return null;
     if (e.target instanceof Element && e.target.closest(FOREIGN) !== null) return null;
-    for (const zone of this.zones) {
-      const { rect } = zone;
-      if (e.clientX >= rect.x && e.clientX < rect.x + rect.width && e.clientY >= rect.y && e.clientY < rect.y + rect.height) return zone;
-    }
-    return null;
+    // Zones a finger needs may reach over each other: the press goes to the one whose middle is nearest.
+    return zoneAt(this.zones, e.clientX, e.clientY);
   }
 
   private onDown(e: PointerEvent): void {

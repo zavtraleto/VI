@@ -1,4 +1,6 @@
 import type { Size } from '../display/sizing';
+import { BUTTON_H, EDGE, GAP, UNIT } from './theme';
+import { glyphAdvance } from './pixelFont';
 
 /** What the edges of the screen keep to themselves: notches, rounded corners. */
 export interface Insets {
@@ -30,11 +32,27 @@ export const CELL_H = 16;
 export const MIN_ZONE = 44;
 /** From this proportion of the window on, the screen is laid out sideways. */
 const WIDE_ASPECT = 1.15;
-/** Space kept from the edges of the picture and between its blocks. */
-const MARGIN = 8;
 
 export function isWide(window: Size): boolean {
   return window.width >= window.height * WIDE_ASPECT;
+}
+
+/** How tall a zone that is pressed is at the least, in dots of a picture `zoom` CSS pixels to the dot: a button, or a finger where a finger is taller. */
+export function fingerOf(zoom: number): number {
+  return Math.max(BUTTON_H, Math.ceil(MIN_ZONE / Math.max(0.1, zoom) / UNIT) * UNIT);
+}
+
+/**
+ * Where a button drawn in `box` takes a press: the button, grown by a field that is not drawn
+ * to what a finger needs, as much on one side as on the other. It grows in height; a square
+ * button, in width too. Two buttons a gap apart may have zones that reach over each other: the
+ * press goes to the one whose middle is nearer (`zoneAt`).
+ */
+export function zoneOf(box: Box, zoom: number): Box {
+  const finger = fingerOf(zoom);
+  const h = Math.max(box.h, finger);
+  const w = box.w === box.h ? Math.max(box.w, finger) : box.w;
+  return { x: box.x - (w - box.w) / 2, y: box.y - (h - box.h) / 2, w, h };
 }
 
 /**
@@ -54,20 +72,28 @@ function isHalfWidth(code: number): boolean {
   return code < 0x250 || (code >= 0x400 && code <= 0x45f) || (code >= 0xff61 && code <= 0xff9f);
 }
 
-/** Width of a line of the program's font in pixels of the picture. */
-export function textWidth(text: string, scale = 1): number {
-  let places = 0;
-  for (const sign of text) places += isHalfWidth(sign.codePointAt(0)!) ? 1 : 2;
-  return places * CELL_W * scale;
+/**
+ * How far a sign moves a line of the program's font on, in pixels of the picture: a drawn
+ * letter as wide as it is (`pixelFont.ts`), any other sign a place of the font, or two.
+ */
+function signWidth(sign: string): number {
+  return glyphAdvance(sign) ?? (isHalfWidth(sign.codePointAt(0)!) ? 1 : 2) * CELL_W;
 }
 
-/** Where a sign of a line starts, in places from the start of the line. */
+/** Width of a line of the program's font in pixels of the picture. */
+export function textWidth(text: string, scale = 1): number {
+  let width = 0;
+  for (const sign of text) width += signWidth(sign);
+  return width * scale;
+}
+
+/** Where each sign of a line starts, in pixels of the picture from the start of the line. */
 export function signPlaces(text: string): number[] {
   const places: number[] = [];
   let at = 0;
   for (const sign of text) {
     places.push(at);
-    at += isHalfWidth(sign.codePointAt(0)!) ? 1 : 2;
+    at += signWidth(sign);
   }
   return places;
 }
@@ -185,32 +211,34 @@ export function netProjection(box: Box, view: NetView): NetProjection {
   };
 }
 
-/** Heights of the blocks of the main menu, in pixels of the picture. */
-const HEADER_HEIGHT = 32;
-const SUBJECT_HEIGHT = 96;
-const STATUS_HEIGHT = 36;
-const LEGEND_HEIGHT = 24;
-/** Kept free under the last line of a screen: tools of the page stand in the corners there. */
-const FOOT = 10;
-/** The record of a file without the bar that runs it. */
-const RECORD_BODY = 112;
+/**
+ * Heights of the blocks of the main menu, in pixels of the picture. The header is two lines of
+ * text: the first a step of the grid under the top, the second right under it, and the rule
+ * under both a step of the grid lower.
+ */
+const HEADER_HEIGHT = 44;
+const SUBJECT_HEIGHT = 112;
+const RECORD_HEIGHT = 150;
+/** Where the bar that runs a file stands in its record, from the top of the record. */
+const EXEC_TOP = 117;
 /** Width of the column of records on a wide screen. */
 const COLUMN_WIDTH = 264;
-/** The dice need at least this much height; below it the record of the subject gives way. */
-const SPACE_MIN = 150;
 
 export interface MenuLayout {
   wide: boolean;
-  /** The line of the mark and the revision: its top, its ends, and the rule under it. */
-  header: { y: number; left: number; right: number; rule: number };
+  /**
+   * The header: the logo and the clock on its first line (`y`), the channels and the revision
+   * on its second (`second`), between `left` and `right`, and the rule under it. `box` is all
+   * of it, the rule too.
+   */
+  header: { box: Box; y: number; second: number; left: number; right: number; rule: number };
   /** The record of the subject; null where the screen has no room for it. */
   subject: Box | null;
-  /** Where the six dice hang. */
+  /** Where the six dice hang, with the names of their files. */
   space: Box;
-  /** The record of the file the figure stands on, and the bar inside it that runs the file. */
+  /** The record of the file the figure stands on, and the bar inside it that runs the file, as it is drawn. */
   record: Box;
   exec: Box;
-  status: Box;
   /** Top of the line that names the keys; null on a tall screen. */
   legend: number | null;
 }
@@ -219,60 +247,52 @@ const floorTo = (value: number, step: number): number => Math.floor(value / step
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
 
 /**
- * The main menu in a picture. A tall picture stacks the record of the subject, the dice, the
- * record of the file and the status line; a wide one puts the dice on the left and the
- * records in a column on the right. `zoom` is CSS pixels per pixel of the picture: the bar
- * that runs a file is as tall as a finger needs whatever the picture is.
+ * The main menu in a picture. The dice are the ground of the whole menu: a tall picture keeps
+ * the record of the file at the bottom, under the thumb, and gives the dice everything between
+ * it and the header; a wide one puts the dice on the left and the records in a column on the
+ * right, the record of the subject over the record of the file where there is room for both.
+ * The bar that runs a file is a button of the grid; where a finger needs more, its zone grows
+ * (`zoneOf`).
  */
-export function menuLayout(picture: Size, safe: Insets, zoom: number): MenuLayout {
+export function menuLayout(picture: Size, safe: Insets): MenuLayout {
   const wide = isWide(picture);
-  const left = ceilTo(safe.left, CELL_W) + MARGIN;
-  const right = picture.width - ceilTo(safe.right, CELL_W) - MARGIN;
-  const top = ceilTo(safe.top, 4);
-  const bottom = picture.height - ceilTo(safe.bottom, 4);
-  const header = { y: top + 6, left, right, rule: top + 26 };
-  const contentTop = top + HEADER_HEIGHT;
-
-  const execHeight = Math.max(2 * CELL_H, ceilTo(MIN_ZONE / Math.max(0.1, zoom), 4));
-  const recordHeight = RECORD_BODY + execHeight;
-  const execOf = (record: Box): Box => ({ x: record.x + 8, y: record.y + record.h - 8 - execHeight, w: record.w - 16, h: execHeight });
+  const left = ceilTo(safe.left, CELL_W) + EDGE;
+  const right = picture.width - ceilTo(safe.right, CELL_W) - EDGE;
+  const top = ceilTo(safe.top, UNIT);
+  const bottom = picture.height - ceilTo(safe.bottom, UNIT);
+  const rule = top + HEADER_HEIGHT;
+  const header = { box: { x: left, y: top, w: right - left, h: HEADER_HEIGHT + 1 }, y: top + EDGE, second: top + EDGE + CELL_H, left, right, rule };
+  const contentTop = rule + GAP;
+  const execOf = (record: Box): Box => ({ x: record.x + EDGE, y: record.y + EXEC_TOP, w: record.w - 2 * EDGE, h: BUTTON_H });
 
   if (wide) {
-    const legend = bottom - LEGEND_HEIGHT;
-    const contentBottom = bottom - LEGEND_HEIGHT - 4;
+    const legend = bottom - EDGE - CELL_H;
+    const contentBottom = legend - GAP;
     const columnWidth = Math.min(COLUMN_WIDTH, floorTo((right - left) * 0.5, CELL_W));
     const columnX = right - columnWidth;
-    const needed = SUBJECT_HEIGHT + MARGIN + recordHeight + MARGIN + STATUS_HEIGHT;
-    const withSubject = contentBottom - contentTop >= needed;
+    const withSubject = contentBottom - contentTop >= SUBJECT_HEIGHT + GAP + RECORD_HEIGHT;
     const subject: Box | null = withSubject ? { x: columnX, y: contentTop, w: columnWidth, h: SUBJECT_HEIGHT } : null;
-    const recordY = subject ? subject.y + subject.h + MARGIN : contentTop;
-    const record: Box = { x: columnX, y: recordY, w: columnWidth, h: recordHeight };
+    const recordY = subject ? subject.y + subject.h + GAP : contentTop;
+    const record: Box = { x: columnX, y: recordY, w: columnWidth, h: RECORD_HEIGHT };
     return {
       wide,
       header,
       subject,
-      space: { x: left, y: contentTop, w: columnX - MARGIN - left, h: contentBottom - contentTop },
+      space: { x: left, y: contentTop, w: columnX - GAP - left, h: contentBottom - contentTop },
       record,
       exec: execOf(record),
-      status: { x: columnX, y: record.y + record.h + MARGIN, w: columnWidth, h: STATUS_HEIGHT },
       legend,
     };
   }
 
-  const width = right - left;
-  const status: Box = { x: left, y: bottom - STATUS_HEIGHT - FOOT, w: width, h: STATUS_HEIGHT };
-  const record: Box = { x: left, y: status.y - MARGIN - recordHeight, w: width, h: recordHeight };
-  const roomWithSubject = record.y - MARGIN - (contentTop + SUBJECT_HEIGHT + MARGIN);
-  const subject: Box | null = roomWithSubject >= SPACE_MIN ? { x: left, y: contentTop, w: width, h: SUBJECT_HEIGHT } : null;
-  const spaceTop = subject ? subject.y + subject.h + MARGIN : contentTop;
+  const record: Box = { x: left, y: bottom - EDGE - RECORD_HEIGHT, w: right - left, h: RECORD_HEIGHT };
   return {
     wide,
     header,
-    subject,
-    space: { x: left, y: spaceTop, w: width, h: Math.max(CELL_H, record.y - MARGIN - spaceTop) },
+    subject: null,
+    space: { x: left, y: contentTop, w: right - left, h: Math.max(CELL_H, record.y - GAP - contentTop) },
     record,
     exec: execOf(record),
-    status,
     legend: null,
   };
 }

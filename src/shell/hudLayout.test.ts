@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, undoButton, restartDot, turned, type FloorAxes } from './hudLayout';
-import { CELL_W, MIN_ZONE } from './layout';
+import { CELL_W, MIN_ZONE, type Box } from './layout';
+import { BUTTON_H } from './theme';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
 /** The floor as the default camera shows it. */
@@ -25,10 +26,11 @@ describe('the readings of a session', () => {
     }
   });
 
-  it('give the pause a zone a finger can hit', () => {
+  it('give the pause a zone a finger can hit around a button that is a button tall', () => {
     const layout = hudLayout({ width: 281, height: 609 }, NO_INSETS, 1.33);
-    expect(layout.pause.h * 1.33).toBeGreaterThanOrEqual(MIN_ZONE);
-    expect(layout.pause.w * 1.33).toBeGreaterThanOrEqual(MIN_ZONE);
+    expect([layout.pause.w, layout.pause.h]).toEqual([BUTTON_H, BUTTON_H]);
+    expect(layout.zones.pause.h * 1.33).toBeGreaterThanOrEqual(MIN_ZONE);
+    expect(layout.zones.pause.w * 1.33).toBeGreaterThanOrEqual(MIN_ZONE);
   });
 
   it('stand clear of what the edges of the screen keep', () => {
@@ -61,7 +63,7 @@ describe('the readings of a session', () => {
       );
       expect(lines.tag).toBeGreaterThanOrEqual(lines.big + 32);
       expect(layout.pause.y).toBeGreaterThan(layout.rule);
-      expect(layout.pause.h * zoom).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(layout.zones.pause.h * zoom).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(layout.net.y).toBeGreaterThanOrEqual(layout.pause.y + layout.pause.h);
       expect(layout.net.y + 70).toBeLessThan(height);
     }
@@ -344,11 +346,19 @@ describe('the button of the sound', () => {
   });
 
   it('sends the number of the level under the score where three buttons leave it no room', () => {
-    const narrow = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, NEEDS);
+    const narrow = hudLayout({ width: 240, height: 520 }, NO_INSETS, 1.33, NEEDS);
     expect(narrow.tag).toEqual({ x: narrow.left, y: narrow.moves[1] });
     expect(narrow.height).toBeGreaterThanOrEqual(narrow.tag.y + 16);
-    const roomy = hudLayout({ width: 400, height: 700 }, NO_INSETS, 1.33, NEEDS);
-    expect(roomy.tag).toEqual({ x: roomy.mid, y: roomy.rowA });
+    // The line of the goal then takes the row the number left, before the buttons.
+    expect(narrow.goal).toBe(narrow.rowA);
+    for (const [width, height] of [
+      [270, 480],
+      [400, 700],
+    ]) {
+      const roomy = hudLayout({ width, height }, NO_INSETS, 1.33, NEEDS);
+      expect(roomy.tag).toEqual({ x: roomy.mid, y: roomy.rowA });
+      expect(roomy.goal).toBe(roomy.rowB);
+    }
     // Without the button the number stays where it was.
     const plain = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, { restart: true, level: true });
     expect(plain.sound).toBeNull();
@@ -392,9 +402,79 @@ describe('the button that takes a move back', () => {
     expect(wide.y + wide.h).toBe(360 - 6);
   });
 
-  it('has a picture on the button that starts over that takes about half of it', () => {
-    expect(restartDot(24)).toBe(1);
-    expect(restartDot(32)).toBe(2);
-    expect(restartDot(44)).toBe(2);
+  it('has a picture on the button that starts over that leaves 3 of it around', () => {
+    // A button a button tall has its picture of nine dots at two to the dot: 18 of its 24.
+    expect(restartDot(BUTTON_H)).toBe(2);
+    expect(restartDot(20)).toBe(1);
+    expect(restartDot(36)).toBe(3);
+  });
+});
+
+describe('the readings on the grid of the interface', () => {
+  const LEVEL = { restart: true, sound: true, level: true, goal: true };
+
+  it('stand on a tall phone as the grid has them: three buttons 24 a side, 8 apart, the number of the level after the score', () => {
+    const level = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, LEVEL);
+    expect(level.pause).toEqual({ x: 238, y: 4, w: 24, h: 24 });
+    expect(level.restart).toEqual({ x: 206, y: 4, w: 24, h: 24 });
+    expect(level.sound).toEqual({ x: 174, y: 4, w: 24, h: 24 });
+    expect([level.big, level.mid, level.end]).toEqual([20, 112, 166]);
+    expect(level.tag).toEqual({ x: 112, y: 4 });
+    expect(level.goal).toBe(20);
+    expect(level.moves).toEqual([36, 52]);
+    expect(level.height).toBe(72);
+    expect(level.net).toEqual({ x: 8, y: 80 });
+    // A finger's zone around each: 36 a side, cut at the top of the picture.
+    expect(level.zones.pause).toEqual({ x: 232, y: 0, w: 36, h: 34 });
+    const session = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33);
+    expect(session.pause).toEqual({ x: 238, y: 4, w: 24, h: 24 });
+    expect([session.rule, session.height, session.end]).toEqual([56, 60, 230]);
+    expect(session.net.y).toBe(68);
+  });
+
+  it('stand in the column of a desk as the grid has them, with a goal and without', () => {
+    const level = hudLayout({ width: 640, height: 360 }, NO_INSETS, 3, LEVEL);
+    expect([level.lines.label, level.big, level.tag.y, level.goal]).toEqual([4, 20, 56, 76]);
+    expect([level.sound!.x, level.restart!.x, level.pause.x]).toEqual([8, 40, 72]);
+    expect([level.sound!.y, level.pause.w, level.pause.h]).toEqual([100, 24, 24]);
+    expect(level.moves).toEqual([132, 148]);
+    expect(level.rule).toBe(164);
+    expect(level.net.y).toBe(172);
+    expect(level.column).toBe(112);
+    // On a desk the mouse needs no field around a button: its zone is the button.
+    expect(level.zones.pause).toEqual(level.pause);
+    const plain = hudLayout({ width: 640, height: 360 }, NO_INSETS, 3, { ...LEVEL, goal: false });
+    expect(plain.pause.y).toBe(80);
+    expect(plain.moves).toEqual([112, 128]);
+    const session = hudLayout({ width: 640, height: 360 }, NO_INSETS, 3);
+    const { lines } = session;
+    expect([lines.best, lines.link, lines.cells, session.rule]).toEqual([76, 96, 116, 132]);
+    expect(session.pause).toEqual({ x: 8, y: 140, w: 24, h: 24 });
+    expect(session.net.y).toBe(session.rule + 40);
+  });
+
+  it('have zones that lie in the window and reach over each other by 4 at the most', () => {
+    const across = (a: Box, b: Box): number => Math.max(0, Math.min(Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)));
+    for (const [width, height, zoom] of [
+      [270, 480, 1.33],
+      [240, 520, 1.33],
+      [320, 693, 1.33],
+      [640, 360, 3],
+      [640, 360, 2],
+      [609, 281, 1.33],
+    ]) {
+      for (const needs of [{}, { restart: true, level: true }, LEVEL, { ...LEVEL, goal: false }]) {
+        const { zones } = hudLayout({ width, height }, NO_INSETS, zoom, needs);
+        const all = [zones.pause, zones.restart, zones.sound].filter((zone): zone is Box => zone !== null);
+        for (const zone of all) {
+          expect(zone.x).toBeGreaterThanOrEqual(0);
+          expect(zone.y).toBeGreaterThanOrEqual(0);
+          expect(zone.x + zone.w).toBeLessThanOrEqual(width);
+          expect(zone.y + zone.h).toBeLessThanOrEqual(height);
+          expect(zone.w * zoom).toBeGreaterThanOrEqual(MIN_ZONE);
+        }
+        for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) expect(across(all[i], all[j])).toBeLessThanOrEqual(4);
+      }
+    }
   });
 });

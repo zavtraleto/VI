@@ -3,7 +3,8 @@ import type { CanvasLayer } from '../display/layer';
 import type { Rect, Size } from '../display/sizing';
 import type { ParamValues } from '../signal/scene';
 import { CELL_H, CELL_W, signPlaces, textWidth, type Box, type Point } from './layout';
-import { PROGRAM_FONT, type Palette } from './theme';
+import { glyphOf, paintGlyph } from './pixelFont';
+import { BAR_H, EDGE, MARK, PROGRAM_FONT, type Palette } from './theme';
 
 export interface TextOptions {
   /** How many times its own size the text is; whole numbers only. */
@@ -211,6 +212,25 @@ export class Kit {
     for (const cx of [x, x + w - 1]) for (const cy of [y, y + h - 1]) this.rect(cx - 1, cy - 1, 3, 3, color);
   }
 
+  /**
+   * The bar of a name across the top of a framed box: filled with `fill`, a line of text tall
+   * with two dots above it and two below, a word at its left and one at its right, bold, in
+   * `text`. `hollow` is the dark half of a blink: only the bottom line of the bar is left, and
+   * the words are written in `fill`.
+   */
+  bar(box: Box, left: string, right: string, fill: string, text: string, hollow = false): void {
+    if (hollow) this.rect(box.x + 1, box.y + BAR_H, box.w - 2, 1, fill);
+    else this.rect(box.x + 1, box.y + 1, box.w - 2, BAR_H, fill);
+    const tone = hollow ? fill : text;
+    this.text(left, box.x + EDGE, box.y + 3, tone, { bold: true });
+    this.text(right, box.x + box.w - EDGE, box.y + 3, tone, { align: 'right', bold: true });
+  }
+
+  /** The red mark of the seventh on a line: a small square at its start, `left` where it is not the usual place, in the middle of its height. */
+  mark(box: Box, left = box.x + EDGE): void {
+    this.rect(left, box.y + Math.round((box.h - MARK) / 2), MARK, MARK, this.palette.signal);
+  }
+
   /** A line from point to point through every dot on the way, at any angle. */
   wire(points: readonly Point[], color: string): void {
     const { ctx } = this.layer;
@@ -409,7 +429,10 @@ export class Kit {
     const places = signPlaces(text);
     let i = 0;
     for (const sign of text) {
-      ctx.fillText(sign, places[i] * CELL_W * scale + shift, 14 * scale + shift);
+      // A drawn letter is its own dots; any other sign is the font's, made dots below.
+      const glyph = glyphOf(sign);
+      if (glyph) paintGlyph(ctx, glyph, places[i] * scale, 0, scale);
+      else ctx.fillText(sign, places[i] * scale + shift, 14 * scale + shift);
       i++;
     }
     const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
