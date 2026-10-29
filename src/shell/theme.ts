@@ -59,7 +59,7 @@ export const SHELL_GROUPS = {
     toneDay: color('#cfe8ff'),
     /** The hour the colours are taken for; below zero it is the clock of the player. */
     hour: number(-1, -1, 24, 0.5),
-    /** The one who is separate: the seventh. Nothing else is red. */
+    /** The one who is separate: the seventh. Nothing else is red but its marks: beside the chosen command, and in the corner of the cursor over what a press runs. */
     signal: color('#ff3a2e'),
     /** The star of a level that is passed, the same at every hour: its white heart, the pale light of its facets, the deep blue of those turned away. */
     starCore: color('#fbfff2'),

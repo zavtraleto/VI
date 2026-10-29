@@ -554,7 +554,7 @@ export class GameHud {
     kit.palette = paletteAt(shell, clockHour());
 
     const zoom = kit.zoom;
-    fitCursor(zoom, shell);
+    fitCursor(zoom, kit.palette);
     const css = safeInsets();
     const safe = { top: css.top / zoom, right: css.right / zoom, bottom: css.bottom / zoom, left: css.left / zoom };
     const header = view.header;
