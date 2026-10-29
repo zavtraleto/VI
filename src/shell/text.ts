@@ -303,10 +303,6 @@ export const SYSTEM = {
   motion: { native: '動作', name: 'MOTION' },
   /** "Shake". */
   shake: { native: '振動', name: 'SHAKE' },
-  /** "Background": a place of the other side behind the board of a level. */
-  backdrop: { native: '背景', name: 'BACKDROP' },
-  /** "Operation": swipes or buttons. */
-  control: { native: '操作', name: 'CONTROL' },
   /** "Camera": follows the player where the whole board would be small, or stays on the whole board. */
   view: { native: 'カメラ', name: 'CAMERA' },
   /** "Language": the one the voice speaks to the player in. The program keeps its own. */
@@ -315,8 +311,6 @@ export const SYSTEM = {
   off: 'OFF',
   full: 'FULL',
   reduced: 'LESS',
-  swipe: 'SWIPE',
-  buttons: 'BUTTONS',
   auto: 'AUTO',
   fixed: 'FIXED',
 } as const;

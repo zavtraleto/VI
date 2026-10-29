@@ -1,7 +1,7 @@
 # VI — вода под полем: проба «чёрное зеркало»
 
 > Вид: решение. Статус: в силе (построено 13 октября 2026; опубликовано в `main` по слову владельца «давай коммит и пуш» того же дня, после правок пунктов 29–34 раздела 7.3). Дата: 2026-10-13. Проверено: 2026-10-13.
-> Принято владельцем 13 октября 2026 (чат планирования на Fable); строится в отдельном worktree сессией на Opus, без публикации. Что заменило: ничего — нынешний фон уровня (`src/render/levelScene.ts`, пункт `BACKDROP`) остаётся в коде и выключается, пока рисуется вода. Что живёт в коде: `src/render/water.ts`, `src/render/view.ts`, `src/render/cubes.ts`, `src/render/player.ts`, `src/app/game.ts`, `src/lab/boardLab.ts`, `src/render/params.ts`, `src/display/quality.ts`.
+> Принято владельцем 13 октября 2026 (чат планирования на Fable); строится в отдельном worktree сессией на Opus, без публикации. Что заменило: ничего — нынешний фон уровня (`src/render/levelScene.ts`, пункт `BACKDROP`) остаётся в коде и выключается, пока рисуется вода; 29 октября 2026 фон уровня и пункт `BACKDROP` убраны по слову владельца, `levelScene.ts` — в истории git. Что живёт в коде: `src/render/water.ts`, `src/render/view.ts`, `src/render/cubes.ts`, `src/render/player.ts`, `src/app/game.ts`, `src/lab/boardLab.ts`, `src/render/params.ts`, `src/display/quality.ts`.
 > Это проба: её итог — ответ «выглядит ли и сколько стоит», снимки и числа. Код остаётся в ветке `water`; в `main` идёт только по слову владельца.
 
 ## 1. Слова владельца (13 октября 2026)
@@ -33,7 +33,7 @@
 
 ### 4.1. Слой
 
-Новый класс `Water` в `src/render/water.ts`. Своя сцена с одной плоскостью `y = 0` размером на весь кадр (с запасом `FLOOR_MARGIN` и больше), свой слой дисплея под слоем `world`: `display.addLayer({ name: 'water', lines: 240, samples: 0, encoded: <как у world> }, world)` — по образцу `level-scene` ([levelScene.ts](../../../src/render/levelScene.ts), строка `addLayer`). Низкое разрешение — часть вида PS2 и цены.
+Новый класс `Water` в `src/render/water.ts`. Своя сцена с одной плоскостью `y = 0` размером на весь кадр (с запасом `FLOOR_MARGIN` и больше), свой слой дисплея под слоем `world`: `display.addLayer({ name: 'water', lines: 240, samples: 0, encoded: <как у world> }, world)` — по образцу `level-scene` (`levelScene.ts`, строка `addLayer`). Низкое разрешение — часть вида PS2 и цены.
 
 Камера — та же ортографическая камера поля и тот же `rect`: `BoardView` отдаёт их `Water` (добавить `BoardView.frameFor(water)` или геттеры `camera`/`rect`; `camera` сейчас `private`). Порядок в `BoardView.draw`: после обновления камеры, перед `worldLayer.render(...)` — `water.frame(dt, timeMs, camera, rect, values)`.
 

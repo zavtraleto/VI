@@ -1,5 +1,4 @@
 import type { Help } from '../levels/row';
-import type { ControlMode } from '../platform/settings';
 import { shownHeight, type HeightOf } from '../render/leaving';
 import { DELTA, DIRS, cubeAt } from '../rules/board';
 import { worldRuns } from '../rules/level';
@@ -146,12 +145,11 @@ export function signHeight(state: RunState, height: HeightOf = (cube, alpha) => 
 
 /**
  * Which of its two forms the sign takes: the star that runs for those who swipe, the arrow key
- * for those who press. A phone has no keys; elsewhere a key pressed last says more than what is set.
+ * for those who last pressed a key. A phone has no keys.
  */
-export function signMode(control: ControlMode, coarse: boolean, last: 'keys' | 'pointer' | null): 'dot' | 'key' {
+export function signMode(coarse: boolean, last: 'keys' | 'pointer' | null): 'dot' | 'key' {
   if (coarse) return 'dot';
-  if (last === 'keys') return 'key';
-  return control === 'gesture' ? 'dot' : 'key';
+  return last === 'keys' ? 'key' : 'dot';
 }
 
 /** What a piece of the road shows of the player's wait on a frame. */

@@ -3,7 +3,6 @@ import { CAMPAIGN, placeOfCode, type LiveStat } from '../levels/campaign';
 import type { Place } from '../levels/row';
 import { loadJson, saveJson } from './storage';
 
-export type ControlMode = 'gesture' | 'dpad';
 /**
  * How the board is seen: `auto` follows the player where the whole board would be small on
  * the screen, `full` keeps the whole board in view everywhere.
@@ -68,7 +67,6 @@ export interface Settings {
   experiments: ExperimentConfig;
   /** The version of the rules the experiments were saved under; absent in what was saved before 0.8. */
   rulesVersion?: string;
-  controlMode: ControlMode;
   hintsSeen: string[];
   /** The long boot of the first start has been shown: later starts get the short one. */
   bootSeen: boolean;
@@ -76,8 +74,6 @@ export interface Settings {
   /** null follows the system preference. */
   reducedMotion: boolean | null;
   shake: boolean;
-  /** A place of the other side stands behind the board of a level. */
-  backdrop: boolean;
   view: ViewSetting;
   /** The language the player has picked, as `src/ui/i18n.ts` names it; null follows the platform, then the browser. */
   language: string | null;
@@ -116,13 +112,11 @@ const MAX_RUNS = 60;
 export function loadSettings(): Settings {
   const fallback: Settings = {
     experiments: defaultExperiments(),
-    controlMode: 'gesture',
     hintsSeen: [],
     bootSeen: false,
     muted: false,
     reducedMotion: null,
     shake: true,
-    backdrop: false,
     view: 'auto',
     language: null,
     tuning: {},
@@ -153,8 +147,9 @@ export function loadSettings(): Settings {
   // The exercise of Endless is gone from the game (the owner, 15 October 2026): what was kept of it goes.
   delete (loaded as Partial<{ tutorialDone: boolean }>).tutorialDone;
   loaded.language ??= null;
-  // A save from before the place behind the board has it off, as a new one does.
-  loaded.backdrop ??= false;
+  // The buttons in place of swipes and the place behind the board are gone from the settings (the owner, 29 October 2026): what was kept of them goes.
+  delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).controlMode;
+  delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).backdrop;
   // A save from before the advertisement after undos has taken none back since one.
   if (typeof loaded.undosForAd !== 'number') loaded.undosForAd = 0;
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {

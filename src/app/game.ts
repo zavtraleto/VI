@@ -13,7 +13,6 @@ import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
 import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, noteUndoForAd, prefersReducedMotion, raiseLive, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
-import { LevelScene } from '../render/levelScene';
 import { Water } from '../render/water';
 import { topTurn } from '../render/orientationQuat';
 import { shiftFor } from '../render/framing';
@@ -166,8 +165,6 @@ const HINT_PROBE = import.meta.env.DEV ? probeHint(new URLSearchParams(window.lo
  * the program did before it opened on a board. The labs are tools of development: a production
  * build has none of them.
  */
-/** `?bg`: the place behind the board of a level is on whatever the settings say. */
-const BG_PROBE = new URLSearchParams(window.location.search).has('bg');
 const LAB = import.meta.env.DEV && new URLSearchParams(window.location.search).has('lab');
 /**
  * How the game is played, as the file of the menu says it: the rules that hold wherever dice
@@ -483,29 +480,16 @@ export class Game {
     onCount: () => this.audio.count(),
     onStar: (index) => this.audio.play({ kind: 'star', index }),
     onRefused: () => this.audio.ui({ kind: 'stuck' }),
-    press: (dir) => {
-      if (!this.inputEnabled()) return;
-      this.controller.press(dir, this.now());
-    },
-    release: () => this.controller.release(),
-    cancel: () => this.controller.cancel(),
   });
-  /** The water the board lies on, a probe: under the place of a level and under what leaks through, both of which were added after it. `?water=off` leaves it out. */
+  /** The water the board lies on, a probe, under what leaks through. `?water=off` leaves it out. */
   private readonly water = quality().water ? new Water(this.display, this.world) : null;
-  /**
-   * A place of the other side behind the board of a level, under whatever leaks through in a
-   * session. The player turns it on in the settings, and it is off until then; `?bg` in the
-   * address turns it on as well. Nothing of it is built while it is off.
-   */
-  private readonly levelScene = new LevelScene(this.display, this.look, this.world);
   /** The program around the game: boot, menu, panels. Its layers come after the board's, so they lie over it. */
   private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen, sound: (event) => this.audio.ui(event) });
   /** What comes from the other side: a transmission in a window of the program, over the board. */
   private readonly signal = new SignalPlayer(this.display, this.shell.values, this.world);
-  /** Boxes of the page that the canvas draws into: the readings, the board, the buttons. */
+  /** Boxes of the page that the canvas draws into: the readings and the board. */
   private readonly header: HTMLElement;
   private readonly stage: HTMLElement;
-  private readonly pad: HTMLElement;
   /** The one view of the game: every board is put on it, and its frame is set from here. */
   private readonly view: BoardView;
   /**
@@ -523,9 +507,7 @@ export class Game {
     this.header = h('header', { class: 'hud' });
     const stage = h('div', { class: 'stage' });
     this.stage = stage;
-    this.pad = h('div', { class: 'dpad' });
-    const controls = h('div', { class: 'controls' }, [this.pad]);
-    const play = h('div', { class: 'play' }, [stage, controls]);
+    const play = h('div', { class: 'play' }, [stage]);
     root.append(this.header, play);
 
     const now = () => this.now();
@@ -548,7 +530,7 @@ export class Game {
     // Swipes lean half-way from plain up, right, down and left towards the board's own directions.
     // On a level a swipe steps when the finger is lifted: every step there may be a move that counts.
     this.tracker = new GestureTracker(this.controller, now, () => this.swipeDirs, () => Boolean(this.state.levelRun));
-    bindGestures(play, this.tracker, () => enabled() && this.settings.controlMode === 'gesture');
+    bindGestures(play, this.tracker, enabled);
     // Esc opens the pause over a session. Over a panel it is the panel's "back", and the shell
     // marks the key as taken; a transmission passes on any key, and whether one was on screen
     // is noted on the way down, before it answers.
@@ -761,7 +743,6 @@ export class Game {
       run_index: this.runIndex,
       losses_in_row: this.lossesInRow,
       resumed: this.resumed,
-      control: this.settings.controlMode,
       touch: window.matchMedia?.('(pointer: coarse)').matches ?? false,
     };
     if (this.sinceLastRun >= 0) data.since_last_run_sec = this.sinceLastRun;
@@ -1151,7 +1132,6 @@ export class Game {
     this.starting = false;
     // A level that waited to be reported and was never played is not reported at all.
     this.unsaid = false;
-    this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
     this.tools?.showDebugButton(this.settings.debugPanel);
     this.controller.cancel();
     this.ritual.reset();
@@ -2133,15 +2113,13 @@ export class Game {
     }, SHARED_MS);
   }
 
-  /** What the player can set: sound, motion, shake, swipes or buttons, the camera. In development the tools of the playtest open from here. */
+  /** What the player can set: sound, motion, shake, the camera, the language. In development the tools of the playtest open from here. */
   private showSystem(back: () => void, home?: string): void {
     const { tools } = this;
     const values = (): SystemValues => ({
       muted: this.settings.muted,
       reducedMotion: prefersReducedMotion(this.settings),
       shake: this.settings.shake,
-      backdrop: this.settings.backdrop,
-      control: this.settings.controlMode,
       view: this.settings.view,
       language: language(),
     });
@@ -2159,13 +2137,8 @@ export class Game {
             this.settings.reducedMotion = !prefersReducedMotion(this.settings);
           } else if (key === 'shake') {
             this.settings.shake = !this.settings.shake;
-          } else if (key === 'backdrop') {
-            this.settings.backdrop = !this.settings.backdrop;
-          } else if (key === 'view') {
-            this.settings.view = this.settings.view === 'full' ? 'auto' : 'full';
           } else {
-            this.settings.controlMode = this.settings.controlMode === 'gesture' ? 'dpad' : 'gesture';
-            this.root.classList.toggle('gesture', this.settings.controlMode === 'gesture');
+            this.settings.view = this.settings.view === 'full' ? 'auto' : 'full';
           }
           saveSettings(this.settings);
           platform.track('settings_changed', { setting: key, value: String(values()[key]) });
@@ -2179,9 +2152,8 @@ export class Game {
                   label: { native: 'DEV', name: 'PLAYTEST' },
                   action: () =>
                     tools.showPlaytest(this.settings, this.state.tick > 0 ? statsText(this.state) : this.lastStats, {
-                      onApply: (experiments, mode, debugPanel) => {
+                      onApply: (experiments, debugPanel) => {
                         this.settings.experiments = experiments;
-                        this.settings.controlMode = mode;
                         this.settings.debugPanel = debugPanel;
                         saveSettings(this.settings);
                         this.startRun();
@@ -2508,7 +2480,7 @@ export class Game {
     // A swipe straight up, down or to a side that is read as the same step: the sign shows it too, by turns.
     const straight = CARDINAL_DIRS[dir];
     const plain = nearestDir(straight.x, straight.y, this.swipeDirs) === dir ? straight : null;
-    return { dir, mode: signMode(this.settings.controlMode, coarsePointer, this.lastInput), body, step: { x: there.x - here.x, y: there.y - here.y }, plain };
+    return { dir, mode: signMode(coarsePointer, this.lastInput), body, step: { x: there.x - here.x, y: there.y - here.y }, plain };
   }
 
   /**
@@ -2563,7 +2535,6 @@ export class Game {
     let note: HudView['note'] = null;
     if (!levelRun && this.hints.text) note = { text: this.hints.text, alarm: false };
 
-    const padBox = this.pad.getBoundingClientRect();
     return {
       header: levelRun
         ? {
@@ -2608,10 +2579,6 @@ export class Game {
             }
           : { canUndo: false, urgent: false, retryOnly: true, muted: this.settings.muted }
         : null,
-      pad:
-        this.settings.controlMode === 'dpad' && padBox.width > 0
-          ? { pulse: null, box: { x: padBox.left, y: padBox.top, width: padBox.width, height: padBox.height } }
-          : null,
       stage,
       contact: { program: this.ritual.look.program, peak: this.ritual.look.peak },
       reducedMotion,
@@ -2735,14 +2702,6 @@ export class Game {
       this.backdrop.clear();
     }
     span('board', drawFrom);
-    // Only a level has a place behind its board, and a transmission takes the screen from it.
-    this.levelScene.frame(
-      time,
-      // While the board lies on water nothing else is drawn behind it.
-      (this.settings.backdrop || BG_PROBE) && !wet && !covered && state.levelRun !== null && !this.signal.busy ? state : null,
-      this.place ?? 0,
-      reducedMotion,
-    );
     const shown = !covered && !this.inMenu && !this.signal.busy;
     // Under a panel, and while the board takes no input, a piece shows no sign and its wait is not counted.
     const waitFrom = performance.now();

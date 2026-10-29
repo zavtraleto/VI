@@ -7,7 +7,6 @@
   --carmine-bright: #e0304e;
   --charcoal: #1c1a1a;
   --panel: #0c0b0b;
-  --pad-size: min(56vw, 30vh, 250px);
   --serif: 'Forum', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-family: var(--serif);
   color: var(--ivory);
@@ -83,44 +82,4 @@ button {
   position: relative;
   flex: 1;
   min-height: 0;
-}
-
-/* The room of the four buttons, for those who would rather press than swipe. The buttons
-   themselves are drawn in the canvas. */
-
-.controls {
-  flex: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 6px 0 16px;
-}
-
-#app.gesture .controls {
-  display: none;
-}
-
-.dpad {
-  width: var(--pad-size);
-  height: var(--pad-size);
-}
-
-@media (min-width: 720px) and (min-height: 560px) {
-  :root {
-    --pad-size: min(24vh, 190px);
-  }
-}
-
-@media (orientation: landscape) and (max-height: 520px) {
-  .play {
-    flex-direction: row;
-  }
-
-  .controls {
-    padding: 0 18px;
-  }
-
-  :root {
-    --pad-size: min(44vh, 200px);
-  }
 }

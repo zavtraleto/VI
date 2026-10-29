@@ -305,20 +305,18 @@ describe('how high the sign stands', () => {
 });
 
 describe('the form of the sign', () => {
-  it('is the dot on a phone, whatever is set and whatever was pressed', () => {
-    expect(signMode('gesture', true, null)).toBe('dot');
-    expect(signMode('dpad', true, 'keys')).toBe('dot');
+  it('is the dot on a phone, whatever was pressed', () => {
+    expect(signMode(true, null)).toBe('dot');
+    expect(signMode(true, 'keys')).toBe('dot');
   });
 
-  it('is the key for those who last pressed a key, and for those who press buttons', () => {
-    expect(signMode('gesture', false, 'keys')).toBe('key');
-    expect(signMode('dpad', false, 'pointer')).toBe('key');
-    expect(signMode('dpad', false, null)).toBe('key');
+  it('is the key for those who last pressed a key', () => {
+    expect(signMode(false, 'keys')).toBe('key');
   });
 
   it('is the dot for those who swipe with a mouse', () => {
-    expect(signMode('gesture', false, 'pointer')).toBe('dot');
-    expect(signMode('gesture', false, null)).toBe('dot');
+    expect(signMode(false, 'pointer')).toBe('dot');
+    expect(signMode(false, null)).toBe('dot');
   });
 });
 

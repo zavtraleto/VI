@@ -160,8 +160,6 @@ export interface HudView {
   sign?: HudSign | null;
   /** The two buttons of a level. `retryOnly` leaves the one that starts over, where no move can be taken back. */
   tools: HudTools | null;
-  /** The four buttons of those who would rather press than swipe; `box` is theirs in the window. */
-  pad: { pulse: Dir | null; box: Rect } | null;
   /** The part of the window the board has, in CSS pixels. */
   stage: Rect;
   /**
@@ -226,17 +224,13 @@ export interface HudActions {
   onStar?(index: number): void;
   /** A button that has nothing to do was pressed. */
   onRefused?(): void;
-  press(dir: Dir): void;
-  release(): void;
-  cancel(): void;
 }
 
 interface Zone {
   id: string;
   /** In CSS pixels of the window. */
   rect: Rect;
-  /** Held down for as long as the finger stays: a direction. Otherwise it acts when let go. */
-  dir?: Dir;
+  /** Acts when let go over the zone it was pressed on. */
   action?: () => void;
 }
 
@@ -252,8 +246,6 @@ export interface HudAim {
 
 /** What on the page takes presses of its own. */
 const FOREIGN = `${import.meta.env.DEV ? '.overlay, .debug-panel, .lil-gui, ' : ''}button, input, select, textarea, a`;
-const DIRS: readonly Dir[] = ['N', 'E', 'S', 'W'];
-const ARROW: Record<Dir, string> = { N: '↑', E: '→', S: '↓', W: '←' };
 /** How far in the dots of a face its edge and its pips reach, as shares of the face. */
 const NET_EDGE = 0.07;
 const NET_PIP = 0.12;
@@ -597,7 +589,7 @@ export class GameHud {
     // Faces of the aim that are rising or leaving are drawn anew every frame.
     const aim = view.aim ?? null;
     const rising = aim && !still && this.aimMoves(aim, timeMs) ? Math.floor(timeMs) : 0;
-    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.pad), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       const turn = this.signTurnAt(sign, timeMs, still);
       if (turn === this.signTurned) return;
@@ -644,19 +636,18 @@ export class GameHud {
       // The sign keeps clear of the edges of the screen and of the readings.
       const left = layout.wide ? layout.column : safe.left;
       const top = layout.wide ? safe.top : layout.height;
-      const tools = view.tools && !view.tools.retryOnly ? this.undoPlan(view.tools, stage, view.pad ? this.toPicture(view.pad.box) : null, layout.left).box : null;
+      const tools = view.tools && !view.tools.retryOnly ? this.undoPlan(view.tools, stage, layout.left).box : null;
       const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top });
       // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
       const room = signBounds(plan);
-      const covered = (tools !== null && boxesMeet(room, tools)) || (view.pad ? boxesMeet(room, this.toPicture(view.pad.box)) : false);
+      const covered = tools !== null && boxesMeet(room, tools);
       if (!still && !covered) this.signKept = { plan, room, under: kit.grab(room) };
       paintSign(kit, plan, this.signLook(), timeMs, still);
     }
     this.signTurned = this.signTurnAt(sign, timeMs, still);
     if (view.tools) this.drawRestart(layout);
     if (view.tools) this.drawSound(layout, view.tools.muted);
-    if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, view.pad ? this.toPicture(view.pad.box) : null, layout.left);
-    if (view.pad) this.drawPad(view.pad, blink);
+    if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, layout.left);
     if (view.note) {
       const width = Math.min(view.stage.width - 24, 460);
       this.voice.say({
@@ -1461,19 +1452,16 @@ export class GameHud {
   /**
    * Where the button that takes a move back stands (`undoButton`), with its word in the language
    * of the player: in the bottom left corner, its picture under the left edge of the readings
-   * (`left`), inside what the edges of the screen leave, and over the four buttons of those who
-   * press (`pad`) where those are under it.
+   * (`left`), inside what the edges of the screen leave.
    */
-  private undoPlan(tools: HudTools, stage: Box, pad: Box | null, left: number): { tall: number; dot: number; box: Box } {
+  private undoPlan(tools: HudTools, stage: Box, left: number): { tall: number; dot: number; box: Box } {
     const { kit } = this;
     const word = kit.measure(this.undoWord(tools));
     const bottom = Math.min(stage.y + stage.h, kit.height - safeInsets().bottom / kit.zoom);
     const room: Box = { ...stage, h: bottom - stage.y };
     // The picture of the button is 6 dots inside its box: it stands right under the readings.
     const edge = Math.max(0, left - 6);
-    const plan = undoButton(room, kit.zoom, word, edge);
-    if (!pad || !boxesMeet(plan.box, pad)) return plan;
-    return undoButton({ ...room, h: pad.y - room.y }, kit.zoom, word, edge);
+    return undoButton(room, kit.zoom, word, edge);
   }
 
   /**
@@ -1493,10 +1481,10 @@ export class GameHud {
    * many. Until there is a move to take back, and once none is left, it is faint. At a dead end
    * it blinks, picture and word: it is the one to press.
    */
-  private drawUndo(tools: HudTools, stage: Box, blink: number, pad: Box | null, left: number): void {
+  private drawUndo(tools: HudTools, stage: Box, blink: number, left: number): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
-    const { tall, dot, box } = this.undoPlan(tools, stage, pad, left);
+    const { tall, dot, box } = this.undoPlan(tools, stage, left);
     const held = this.held?.zone.id === 'undo';
     const urgent = tools.urgent && tools.canUndo;
     const colour = !tools.canUndo ? faint : held ? dim : urgent && blink !== 0 ? faint : ink;
@@ -1507,30 +1495,6 @@ export class GameHud {
     });
     kit.text(this.undoWord(tools), ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
     if (tools.canUndo) this.zones.push({ id: 'undo', rect: kit.toWindow(box), action: () => this.actions.onUndo() });
-  }
-
-  /** Four buttons in a cross: up is north, right is east. */
-  private drawPad(pad: { pulse: Dir | null; box: Rect }, blink: number): void {
-    const { kit } = this;
-    const { bg, ink, dim } = kit.palette;
-    const box = this.toPicture(pad.box);
-    const side = Math.floor(Math.min(box.w, box.h) / 3) - 2;
-    if (side < CELL_H) return;
-    const cx = Math.round(box.x + box.w / 2);
-    const cy = Math.round(box.y + box.h / 2);
-    const place: Record<Dir, Point> = { N: { x: 0, y: -1 }, E: { x: 1, y: 0 }, S: { x: 0, y: 1 }, W: { x: -1, y: 0 } };
-    for (const dir of DIRS) {
-      const id = `pad-${dir}`;
-      const cell: Box = { x: cx - side / 2 + place[dir].x * (side + 2), y: cy - side / 2 + place[dir].y * (side + 2), w: side, h: side };
-      const filled = this.held?.zone.id === id || (pad.pulse === dir && blink === 0);
-      if (filled) kit.box(cell, ink);
-      else {
-        kit.box(cell, bg);
-        kit.frame(cell, dim);
-      }
-      kit.text(ARROW[dir], cell.x + side / 2, cell.y + Math.round((side - CELL_H) / 2), filled ? bg : ink, { align: 'center' });
-      this.zones.push({ id, rect: kit.toWindow(cell), dir });
-    }
   }
 
   private zoneAt(e: PointerEvent): Zone | null {
@@ -1548,7 +1512,6 @@ export class GameHud {
     e.stopPropagation();
     this.held = { zone, pointer: e.pointerId };
     this.drawn = '';
-    if (zone.dir) this.actions.press(zone.dir);
   }
 
   private onUp(e: PointerEvent): void {
@@ -1557,8 +1520,7 @@ export class GameHud {
     e.stopPropagation();
     this.held = null;
     this.drawn = '';
-    if (held.zone.dir) this.actions.release();
-    else if (this.zoneAt(e)?.id === held.zone.id) held.zone.action?.();
+    if (this.zoneAt(e)?.id === held.zone.id) held.zone.action?.();
   }
 
   private onCancel(e: PointerEvent): void {
@@ -1566,6 +1528,5 @@ export class GameHud {
     if (!held || held.pointer !== e.pointerId) return;
     this.held = null;
     this.drawn = '';
-    if (held.zone.dir) this.actions.cancel();
   }
 }

@@ -4,7 +4,6 @@ import { Display } from '../display/display';
 import { quality } from '../display/quality';
 import { loadSettings } from '../platform/settings';
 import { Backdrop } from '../render/backdrop';
-import { LevelScene } from '../render/levelScene';
 import { finaleMs } from '../render/leaving';
 import { Water } from '../render/water';
 import { BOARD_PARAMS, boardChanged, boardDefaults, parseBoardValue, type BoardLook } from '../render/params';
@@ -136,10 +135,8 @@ export class BoardLab {
   private readonly container: HTMLElement;
   private readonly backdrop = new Backdrop(this.display);
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
-  /** The water the board lies on, a probe; `?water=off` leaves it out, and the place behind the board is shown instead. */
+  /** The water the board lies on, a probe; `?water=off` leaves it out. */
   private readonly water = quality().water ? new Water(this.display, this.world) : null;
-  /** The place behind the board of a level: shown here always, to be tuned. */
-  private readonly levelScene = new LevelScene(this.display, this.look, this.world);
   private readonly fps = new FpsCounter();
   private view: BoardView | null = null;
   /**
@@ -254,7 +251,6 @@ export class BoardLab {
       },
     });
     this.backdrop.draw(view.background, view.inverted);
-    this.levelScene.frame(timeMs, this.water ? null : state, { place: Number(this.look.board.backPlace ?? 0), day: Number(this.look.board.backDay ?? 0) }, false);
     this.display.present(timeMs);
     this.viewNow = view.mode;
 

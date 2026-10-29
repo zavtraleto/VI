@@ -114,9 +114,9 @@ describe('the words of the program a player presses', () => {
       for (const file of MENU_FILES) expect(textWidth(word(file.name), 2) + 8 + textWidth(file.native), `${file.name} ${code}`).toBeLessThanOrEqual(240);
       for (const command of Object.values(COMMANDS)) expect(textWidth(`${command.native} ${word(command.name)}`), `${command.name} ${code}`).toBeLessThanOrEqual(228);
       for (const title of Object.values(PANELS)) expect(textWidth(`${title.native}  ${word(title.name)} 0/0`), `${title.name} ${code}`).toBeLessThanOrEqual(252);
-      const values = [SYSTEM.on, SYSTEM.off, SYSTEM.full, SYSTEM.reduced, SYSTEM.swipe, SYSTEM.buttons, SYSTEM.auto, SYSTEM.fixed];
+      const values = [SYSTEM.on, SYSTEM.off, SYSTEM.full, SYSTEM.reduced, SYSTEM.auto, SYSTEM.fixed];
       const widest = Math.max(...values.map((value) => textWidth(word(value))));
-      for (const label of [SYSTEM.sound, SYSTEM.motion, SYSTEM.shake, SYSTEM.backdrop, SYSTEM.control, SYSTEM.view, SYSTEM.language]) {
+      for (const label of [SYSTEM.sound, SYSTEM.motion, SYSTEM.shake, SYSTEM.view, SYSTEM.language]) {
         expect(textWidth(`${label.native} ${word(label.name)}`) + 16 + widest, `${label.name} ${code}`).toBeLessThanOrEqual(226);
       }
       for (const reading of Object.values(RESULT)) expect(textWidth(`${reading.native} ${word(reading.name)}`), `${reading.name} ${code}`).toBeLessThanOrEqual(160);

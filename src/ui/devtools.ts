@@ -1,5 +1,5 @@
 import './devtools.css';
-import type { ControlMode, Settings } from '../platform/settings';
+import type { Settings } from '../platform/settings';
 import type { ExperimentConfig } from '../rules';
 import { DebugPanel } from './debug';
 import { h } from './dom';
@@ -61,7 +61,7 @@ export class DevTools {
     settings: Settings,
     statsText: string,
     actions: {
-      onApply: (experiments: ExperimentConfig, mode: ControlMode, debugPanel: boolean) => void;
+      onApply: (experiments: ExperimentConfig, debugPanel: boolean) => void;
       onBack: () => void;
     },
   ): void {
