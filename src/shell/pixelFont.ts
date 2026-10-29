@@ -6,8 +6,11 @@
  * the line goes to its last row. The figures are all as wide, so numbers stand in columns.
  *
  * Latin, Cyrillic, the figures, the marks the program writes and the letters with marks of the
- * seven languages are here. Anything else - Japanese, arrows - is written in DotGothic16 as before.
+ * seven languages are here, and so are the kana and the arrows of the keys (`kana.ts`). Anything
+ * else is written in DotGothic16 as before.
  */
+
+import { ARROWS, DAKUTEN, HANDAKUTEN, KANA_FULL, KANA_SMALL, SEMI_VOICED, VOICED } from './kana';
 
 export interface Glyph {
   /** The row of the line its first row stands on. */
@@ -239,6 +242,33 @@ cedilla('Ç', 'C');
 cedilla('Ş', 'S');
 cedilla('ç', 'c');
 cedilla('ş', 's');
+
+/**
+ * A sign of kana takes eleven dots: the ten of its body and one more, which keeps two dots
+ * between two signs and which the marks of voicing reach into. A small sign stands in the middle.
+ */
+const KANA_W = 11;
+const KANA_TOP = 3;
+const KANA_SMALL_TOP = 6;
+
+function kanaRows(rows: readonly string[], left: number): string[] {
+  return rows.map((row) => ('.'.repeat(left) + row).padEnd(KANA_W, '.'));
+}
+for (const [sign, rows] of Object.entries(KANA_FULL)) GLYPHS.set(sign, { top: KANA_TOP, rows: kanaRows(rows, 0) });
+for (const [sign, rows] of Object.entries(KANA_SMALL)) GLYPHS.set(sign, { top: KANA_SMALL_TOP, rows: kanaRows(rows, Math.floor((KANA_W - rows[0].length) / 2)) });
+for (const [sign, [top, rows]] of Object.entries(ARROWS)) GLYPHS.set(sign, { top, rows });
+
+/** A sign of kana with a mark of voicing over its top right, in the rows over its body. */
+function voiced(sign: string, base: string, mark: readonly string[]): void {
+  const body = GLYPHS.get(base)!;
+  const left = KANA_W - mark[0].length;
+  // The mark stands right over the body, in the rows the marks of the Latin take.
+  const top = body.top - mark.length;
+  const rows = [...mark.map((row) => '.'.repeat(left) + row), ...body.rows];
+  GLYPHS.set(sign, { top, rows });
+}
+for (const pair of VOICED.split(' ')) voiced(pair[0], pair[1], DAKUTEN);
+for (const pair of SEMI_VOICED.split(' ')) voiced(pair[0], pair[1], HANDAKUTEN);
 
 /** The drawn sign, or null for one the program writes in DotGothic16. */
 export function glyphOf(sign: string): Glyph | null {

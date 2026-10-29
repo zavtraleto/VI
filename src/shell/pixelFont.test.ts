@@ -35,7 +35,16 @@ describe('the letters of the program', () => {
     }
   });
 
-  it('leave Japanese and the arrows to the font of the program', () => {
-    for (const sign of '記録←→…') expect(glyphOf(sign)).toBeNull();
+  it('draw the kana and the arrows, and leave kanji and the rest to the font of the program', () => {
+    for (const sign of 'あがぱっアガパッー←→↑↓') expect(glyphOf(sign), sign).not.toBeNull();
+    for (const sign of '記録…') expect(glyphOf(sign)).toBeNull();
+  });
+
+  it('give every full sign of kana the same width, and keep a voiced one inside the line', () => {
+    for (const sign of 'あいうかがぱアガパンー') {
+      const glyph = glyphOf(sign)!;
+      expect(glyph.rows[0].length, sign).toBe(11);
+      expect(glyph.top + glyph.rows.length, sign).toBeLessThanOrEqual(14);
+    }
   });
 });
