@@ -23,8 +23,7 @@ const STEPS_A_FRAME = 2;
 const NOISE_SIDE = 128;
 /** The far and the near of the camera of the water, in cells: the plane runs off the frame at any pitch. */
 const DEEP = 400;
-/** Dark shapes under the water at one time, and rings from past the frame. */
-const SHADOWS = 4;
+/** Rings from past the frame at one time. */
 const OUTER = 3;
 
 const FULL_VERTEX = /* glsl */ `
@@ -151,15 +150,23 @@ uniform vec4 uMirrorLook;
 uniform vec3 uLook;
 /** The middle of the frame on the floor, and half of the frame across and in depth, in cells. */
 uniform vec4 uFrame;
-/** What the water gives back of the sky: how light it is, how large its shapes are in cells, how fast they go in cells a second, how far a slope moves them in cells. */
+/** What the water gives back of the sky: how light it is, how large its shapes are in cells, how fast the currents carry it in cells a second, how far a slope moves it in cells. */
 uniform vec4 uSky;
-/** How fast the sky in the water folds and swirls, in noise pictures a second. */
+/** In how many seconds what the currents carry is let go and taken up afresh. */
 uniform float uSkyFlow;
-/** What lies dark under the water: how dark, how large in cells, how fast it drifts in cells a second, how long one is there in seconds. */
+/** Clouds over the water, seen in it: how light, how large in cells, how fast the wind takes them in cells a second, what of the path of glints they hide. */
+uniform vec4 uCloud;
+/** What lies dark under the water: how dark, how large in cells, how fast it is carried in cells a second, how soft its edge is. */
 uniform vec4 uShade;
+/** Something that comes up out of the murk now and then: where, how large in cells, how far it has come, 0 to 1 (0: nothing). */
+uniform vec4 uFace;
+/** Right along the screen on the water, and up the screen, shortened as the water is seen: a cell up the screen is this much of a cell across it. */
+uniform vec4 uFaceAxes;
+/** What it is: below a half a face, above a blot folded in two; and a seed. */
+uniform vec2 uFaceKind;
 /** Rings that come from past the frame: where each started in the world, how far it has run, and how high it is now. */
 uniform vec4 uOuter[${OUTER}];
-/** How wide such a ring is, in cells. */
+/** How wide the crest of such a ring is, in cells. */
 uniform float uOuterWidth;
 /** A lamp over the water and the eye it is seen by, in the world: the glints of the lamp lie between the two. */
 uniform vec3 uLampAt;
@@ -179,49 +186,115 @@ varying vec3 vWorld;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
-/** Soft noise at three sizes, 0 to 1. */
-float soft(vec2 p) {
-  return 0.55 * texture2D(uBelow, p).r + 0.3 * texture2D(uBelow, p * 2.03 + 0.31).r + 0.15 * texture2D(uBelow, p * 4.1 + 0.67).r;
+/**
+ * The currents of the water at a place of the world, in cells: which way and how fast, at most
+ * about one. They turn round on themselves and gather or spread nowhere - the curl of large soft
+ * humps - and the humps go by so slowly that the currents change over minutes.
+ */
+vec2 current(vec2 at) {
+  vec2 g = texture2D(uNoise, at * 0.0125 + vec2(0.0021, 0.0013) * uTime).gb;
+  return vec2(g.y, -g.x) * 0.12;
 }
 
 /**
- * What is dark under the water: shapes made of noise and nothing else, that come up out of the
- * dark, swim slowly along themselves, change their outline and go down again, each on a time of
- * its own, and are not there at all on some of their turns. Each is nearly the same on both
- * sides of its long line, as an ink blot folded in two is: the eye finds a thing in it that is
- * not there. Nothing says what they are.
+ * Soft noise, 0 to 1, at two sizes only: the edge of what is made of it stays simple, and a
+ * simple edge is where the eye finds most things (Taylor et al., "Seeing shapes in seemingly
+ * random spatial patterns: fractal analysis of Rorschach inkblots", 2017: the blots with the
+ * fewest wrinkles on their edge are seen as the most things).
  */
-float shadows(vec2 at) {
-  float clear = 1.0;
-  for (int i = 0; i < ${SHADOWS}; i++) {
-    float fi = float(i);
-    float life = uShade.w * (0.7 + 0.6 * hash(vec2(fi, 1.7)));
-    float age = uTime / life + hash(vec2(fi, 2.3));
-    vec2 seed = vec2(fi, floor(age));
-    if (hash(seed + 0.53) < 0.3) continue;
-    float u = fract(age);
-    float turn = hash(seed + 0.73) * 6.2832 + 0.5 * sin(u * 3.1416 + fi);
-    vec2 way = vec2(cos(turn), sin(turn));
-    vec2 where = uFrame.xy + (vec2(hash(seed + 0.11), hash(seed + 0.37)) * 2.0 - 1.0) * uFrame.zw * 0.8;
-    where += way * (uShade.z * life * (u - 0.5));
-    float size = uShade.y * mix(0.6, 1.6, hash(seed + 0.91));
-    vec2 from = at - where;
-    // Along itself and across, longer than it is wide; across it is folded, a little off true.
-    vec2 q = vec2(dot(from, way) / (size * 1.7), dot(from, vec2(-way.y, way.x)) / size);
-    float hull = 1.0 - smoothstep(0.35, 1.0, length(q));
-    if (hull <= 0.0) continue;
-    vec2 fold = vec2(q.x, mix(abs(q.y), q.y, 0.12));
-    float t = uTime * 0.004;
-    vec2 p = fold * 0.32 + seed * 0.173;
-    vec2 bend = vec2(soft(p * 0.7 + vec2(t, 0.0)), soft(p * 0.7 + vec2(0.41, 0.17) - vec2(0.0, t))) - 0.5;
-    float stuff = soft(p + bend * 0.5 + t * 0.5) * hull;
-    // It comes up: what of it is dark enough to be seen grows out of its darkest part, and sinks back.
-    float shown = smoothstep(0.0, 0.4, u) * (1.0 - smoothstep(0.6, 1.0, u));
-    float line = mix(0.75, 0.3, shown);
-    float body = smoothstep(line - uLook.z * 0.5, line + uLook.z, stuff) * shown;
-    clear *= 1.0 - body;
+float ink(vec2 p) {
+  return 0.7 * texture2D(uBelow, p).r + 0.3 * texture2D(uBelow, p * 2.03 + 0.31).r;
+}
+
+/** Ink that a current has drawn out into threads: noise bent by noise. */
+float threads(vec2 p) {
+  vec2 bend = vec2(ink(p * 0.8 + vec2(0.13, 0.71)), ink(p * 0.8 + vec2(0.57, 0.29))) - 0.5;
+  return ink(p + bend * 0.9);
+}
+
+/**
+ * Two pictures of what a current carries, carried by turns: each is drawn out a little more on
+ * its turn, faded out as the other is full and taken up afresh at a new place (a flow map, as in
+ * Vlachos, "Water Flow in Portal 2", 2010). Two faded into one are flatter than either: what is
+ * lost is given back. \`kind\` 0 is the sky, 1 the murk.
+ */
+float carried(vec2 at, vec2 flow, float period, float wide, float kind) {
+  float turns = uTime / period + 0.25 * kind;
+  float a = fract(turns);
+  float b = fract(turns + 0.5);
+  float wa = 1.0 - abs(2.0 * a - 1.0);
+  vec2 ja = vec2(hash(vec2(floor(turns), 3.1 + kind)), hash(vec2(floor(turns), 7.7 + kind)));
+  vec2 jb = vec2(hash(vec2(floor(turns + 0.5), 5.3 + kind)), hash(vec2(floor(turns + 0.5), 1.9 + kind)));
+  vec2 pa = (at - flow * (a * period)) * wide + ja;
+  vec2 pb = (at - flow * (b * period)) * wide + jb;
+  float ca;
+  float cb;
+  if (kind < 0.5) {
+    ca = 0.6 * texture2D(uNoise, pa).r + 0.3 * texture2D(uNoise, pa * 2.1 + 0.5).r + 0.1 * texture2D(uNoise, pa * 4.3 + 0.2).r;
+    cb = 0.6 * texture2D(uNoise, pb).r + 0.3 * texture2D(uNoise, pb * 2.1 + 0.5).r + 0.1 * texture2D(uNoise, pb * 4.3 + 0.2).r;
+  } else {
+    ca = threads(pa);
+    cb = threads(pb);
   }
-  return 1.0 - clear;
+  return 0.5 + (mix(cb, ca, wa) - 0.5) / sqrt(wa * wa + (1.0 - wa) * (1.0 - wa));
+}
+
+/**
+ * The murk under the water: dark stuff that the deep currents carry and draw out into threads, as
+ * cream is in coffee or milk in tea, slower than the light on top. It is not everywhere: it lies
+ * in clouds of its own, which go their own way - now faster, now slower, turning as they go, and
+ * a thing that changes its speed and its way is seen as alive (Tremoulet and Feldman, "Perception
+ * of animacy from the motion of a single object", 2000) - and gather and part.
+ */
+float murk(vec2 at) {
+  float wide = 1.0 / (8.0 * max(uShade.y, 0.3));
+  vec2 flow = current(at * 0.7 + 13.0) * uShade.z;
+  float d = carried(at, flow, max(1.0, uSkyFlow) * 1.6, wide, 1.0);
+  float turn = 0.6 + 0.7 * sin(uTime * 0.017);
+  vec2 gone = vec2(cos(turn), sin(turn)) * (uShade.z * (uTime + 5.0 * sin(uTime * 0.13)));
+  float where = smoothstep(0.5, 0.8, ink((at - gone) * wide * 0.35 + 0.17));
+  return smoothstep(0.52 - uShade.w * 0.5, 0.52 + uShade.w, d) * where;
+}
+
+/**
+ * Now and then the murk comes together into something, holds a few seconds and runs apart: two
+ * dark places side by side over a third, which the eye takes for a face (the eyes and the mouth
+ * are what a face is found by: Omer et al., "What is a face? Critical features for face
+ * detection", 2019), or a blot that is the same on its left and its right, as a Rorschach blot
+ * is. Both stand upright on the screen: what is the same to the left and the right is seen as a
+ * thing far more often. Its outline is the murk's own, so it never quite is anything.
+ */
+float presence(vec2 at) {
+  if (uFace.w <= 0.0) return 0.0;
+  vec2 d = at - uFace.xy;
+  vec2 q = vec2(dot(d, uFaceAxes.xy), dot(d, uFaceAxes.zw)) / uFace.z;
+  if (dot(q, q) > 4.0) return 0.0;
+  float u = uFace.w;
+  float shown = smoothstep(0.0, 0.4, u) * (1.0 - smoothstep(0.6, 1.0, u));
+  // It comes out of the murk and goes back into it: smeared before and after.
+  float smear = 0.15 + 0.6 * (1.0 - shown);
+  vec2 s = vec2(abs(q.x), q.y);
+  vec2 wob = vec2(ink(s * 0.9 + uFaceKind.y), ink(s * 0.9 + uFaceKind.y + 0.5)) - 0.5;
+  vec2 w = s + wob * smear;
+  vec2 h = w / vec2(0.85, 1.05);
+  float hull = exp(-dot(h, h) * 1.6);
+  float f;
+  if (uFaceKind.x < 0.5) {
+    vec2 e = (w - vec2(0.32, 0.2)) / vec2(0.15, 0.12);
+    vec2 m = (w - vec2(0.0, -0.34)) / vec2(0.26, 0.08);
+    f = max(exp(-dot(e, e)), 0.8 * exp(-dot(m, m))) + 0.25 * hull;
+  } else {
+    f = smoothstep(0.45, 0.7, ink(w * 0.8 + uFaceKind.y) * (0.4 + 0.9 * hull));
+  }
+  return clamp(f, 0.0, 1.0) * shown;
+}
+
+/** The clouds over the water at a place of the sky the water gives back, 0 to 1: large and soft, the wind takes them over. */
+float clouds(vec2 sky) {
+  float turn = 0.58 + 0.3 * sin(uTime * 0.01);
+  vec2 p = (sky - vec2(cos(turn), sin(turn)) * (uTime * uCloud.z)) / (8.0 * max(uCloud.y, 0.5));
+  float c = 0.6 * texture2D(uNoise, p).r + 0.3 * texture2D(uNoise, p * 2.03 + 0.37).r + 0.1 * texture2D(uNoise, p * 4.1 + 0.71).r;
+  return smoothstep(0.38, 0.72, c);
 }
 
 float rings(vec2 at) {
@@ -265,18 +338,22 @@ void main() {
   float texel = 1.0 / ${RIPPLE_SIDE.toFixed(1)};
   vec2 ringed = vec2(rings(ring + vec2(texel, 0.0)) - rings(ring - vec2(texel, 0.0)), rings(ring + vec2(0.0, texel)) - rings(ring - vec2(0.0, texel)));
   ringed *= (uCalm.w / (2.0 * texel * span)) * (1.0 - quiet * uFar.z);
-  // Rings that come from past the frame, from nothing that is seen: a few crests and troughs
-  // that run slowly through the frame and die out on the way.
+  // Rings that come from past the frame, from nothing that is seen. Each is drawn as a ring of
+  // a step is: one crest between two troughs, as low, only of a far larger circle. Come from
+  // far, it is no line drawn over the water: it has grown wider on the way and lower for it,
+  // and is strongest where it comes straight on and fades along itself to either side.
   vec2 outer = vec2(0.0);
   for (int i = 0; i < ${OUTER}; i++) {
     vec4 o = uOuter[i];
     if (o.w == 0.0) continue;
     vec2 from = at - o.xy;
     float r = max(length(from), 0.001);
-    float x = (r - o.z) / uOuterWidth;
-    // The slope of exp(-x * x) * cos(2.4 x) across the ring.
-    float rise = exp(-x * x) * (-2.0 * x * cos(2.4 * x) - 2.4 * sin(2.4 * x)) / uOuterWidth;
-    outer += from * (o.w * rise / r);
+    float grown = 1.0 + 0.05 * o.z;
+    float x = (r - o.z) / (uOuterWidth * grown);
+    // The slope of (1 - 2 x x) exp(-x x) across the ring: the crest, and a trough on each side.
+    float rise = (4.0 * x * x * x - 6.0 * x) * exp(-x * x) / (uOuterWidth * grown);
+    float on = smoothstep(0.5, 0.95, dot(from / r, normalize(uFrame.xy - o.xy + 0.0001)));
+    outer += from * (o.w * rise * on / (r * sqrt(grown)));
   }
   ringed += outer * (1.0 - quiet * uFar.z);
   slope = slope * (1.0 - quiet) + ringed;
@@ -284,27 +361,30 @@ void main() {
 
   // Something dark moves deep under the water. It darkens the water itself, not what the water
   // gives back: the sky lies over it. Deep, so it is soft, and the swell rocks it far.
-  float shade = shadows(at + normal.xz * uLook.y);
+  vec2 deep = at + normal.xz * uLook.y;
+  float shade = 1.0 - (1.0 - murk(deep)) * (1.0 - presence(deep));
   vec3 colour = uDark * (1.0 - uShade.x * shade * (1.0 - 0.5 * uCalm.y * sheet));
-  // The water goes away from the eye up the frame: far off it gives back more of the sky, and is lighter.
-  float far = smoothstep(0.15, 1.0, gl_FragCoord.y * uFar.y);
-  colour += uTone * (uFar.x * far * far);
 
-  // The sky it gives back has no lamp and no moon in it, and nothing in it is a cloud: lighter
-  // and darker shapes, large and soft, that go by slowly and run into one another on the way.
-  // The sky is far off, so what of it is seen goes with the frame; a slope moves it, so it
-  // rocks on the swell.
+  // The sky is far off, so what of it is seen goes with the frame; a slope moves it, so it rocks
+  // on the swell and a ring bends it. Clouds go over it on the wind, the light of the sky between
+  // them, so no place of the water is always the lighter.
   vec2 sky = (at - uFrame.xy) + normal.xz * uSky.w;
-  float wide = 1.0 / (8.0 * max(uSky.y, 0.1));
-  vec2 by = sky * wide - vec2(0.86, 0.5) * (uTime * uSky.z * wide);
-  // It flows as cream in coffee: one slow field bends another that bends the light, each going
-  // its own way, so the shapes fold and swirl into one another as they go.
-  float t = uTime * uSkyFlow;
-  vec2 bend = vec2(texture2D(uNoise, by * 0.5 + vec2(t, 0.0)).r, texture2D(uNoise, by * 0.5 + vec2(0.37, 0.71) - vec2(0.0, t)).r) - 0.5;
-  vec2 fold = vec2(texture2D(uNoise, by * 0.7 + bend * 0.6 + vec2(0.13, t * 0.7)).r, texture2D(uNoise, by * 0.7 + bend * 0.6 + vec2(0.59 - t * 0.7, 0.29)).r) - 0.5;
-  float cloud = 0.65 * texture2D(uNoise, by + fold * 0.55).r + 0.35 * texture2D(uNoise, by * 2.1 + fold * 0.35 + 0.5).r;
-  float lit = smoothstep(0.32, 0.78, cloud);
-  colour += uTone * (uSky.x * lit * (0.55 + 0.45 * far) * (1.0 - uCalm.y * sheet));
+  float cover = clouds(sky);
+  // Over the murk the sky in the water is a little dimmer: the dark below shows through it, as a
+  // stone at the bottom does through what a pond gives back.
+  float bare = (1.0 - uCalm.y * sheet) * (1.0 - 0.35 * uShade.x * shade);
+  // No part of the water is lighter for being far off: what is light is where a cloud is, and
+  // the clouds go over all of it (29 October: «вся поверхность воды должна быть подвержена
+  // движению»). What is left of the far is a hook, nought unless asked for.
+  float far = smoothstep(0.15, 1.0, gl_FragCoord.y * uFar.y);
+  colour += uTone * (uFar.x * far * far * cover * (1.0 - 0.35 * uShade.x * shade));
+  colour += uTone * (uCloud.x * cover * bare);
+
+  // In the clouds the sky has no lamp and no moon, and nothing in it is a cloud one could name:
+  // lighter and darker shapes, large and soft, that the currents of the water carry, slower than
+  // a ring runs, so they are drawn out and turn as a stain in still water does.
+  float lit = smoothstep(0.35, 0.8, carried(sky, current(at) * uSky.z, max(1.0, uSkyFlow), 1.0 / (8.0 * max(uSky.y, 0.1)), 0.0));
+  colour += uTone * (uSky.x * lit * (0.4 + 0.6 * cover) * bare);
 
 
   // The dice, stood on their heads: bright at the foot, fainter up the die.
@@ -324,7 +404,9 @@ void main() {
   vec3 toEye = normalize(uEyeAt - vWorld);
   vec3 toLamp = normalize(uLampAt - vWorld);
   float glint = pow(max(dot(normal, normalize(toEye + toLamp)), 0.0), uGlint.y);
-  colour += uTone * (uGlint.x * glint);
+  // The lamp is seen through the clouds as the moon is, the path lit under them and dim between:
+  // the light goes over the water with them.
+  colour += uTone * (uGlint.x * glint * mix(1.0, 1.3 * cover, uCloud.w));
 
   gl_FragColor = vec4(colour, 1.0);
   #include <colorspace_fragment>
@@ -461,6 +543,9 @@ export class Water {
   private readonly outer: { x: number; z: number; at: number; height: number }[] = [];
   private readonly outerRings: THREE.Vector4[] = Array.from({ length: OUTER }, () => new THREE.Vector4());
   private nextOuter = -1;
+  /** What comes up out of the murk: where, when by the clock of the water, what it is; when the next one comes. */
+  private face: { x: number; z: number; at: number; kind: number; seed: number; size: number } | null = null;
+  private nextFace = -1;
   /** How far past the frame they start, in cells. */
   private far = 0;
   private readonly seen = { x: 0, z: 0, reach: 1 };
@@ -535,7 +620,11 @@ export class Water {
           uFrame: { value: new THREE.Vector4() },
           uSky: { value: new THREE.Vector4() },
           uSkyFlow: { value: 0 },
+          uCloud: { value: new THREE.Vector4() },
           uShade: { value: new THREE.Vector4() },
+          uFace: { value: new THREE.Vector4() },
+          uFaceAxes: { value: new THREE.Vector4(1, 0, 0, 1) },
+          uFaceKind: { value: new THREE.Vector2() },
           uOuter: { value: this.outerRings },
           uOuterWidth: { value: 1 },
           uLampAt: { value: new THREE.Vector3() },
@@ -654,10 +743,11 @@ export class Water {
     (uniforms.uCalm.value as THREE.Vector4).set(n('calm'), n('calmReflect'), n('holeCalm'), from.still ? 0 : 1);
     (uniforms.uMirrorLook.value as THREE.Vector4).set(reflects ? n('reflectStrength') : 0, from.still ? 0 : n('reflectWarp'), 0, 0);
     (uniforms.uFar.value as THREE.Vector3).set(n('farLight'), 1 / Math.max(1, layer.height), n('ringCalm'));
-    (uniforms.uLook.value as THREE.Vector3).set(n('crestLight'), n('refract'), n('shadeSoft'));
+    (uniforms.uLook.value as THREE.Vector3).set(n('crestLight'), n('refract'), 0);
     (uniforms.uSky.value as THREE.Vector4).set(n('skyLight'), n('skySize'), n('skySpeed'), n('skyWarp'));
     uniforms.uSkyFlow.value = n('skyFlow');
-    (uniforms.uShade.value as THREE.Vector4).set(n('shadeDark'), n('shadeSize'), n('shadeSpeed'), Math.max(1, n('shadeLife')));
+    (uniforms.uCloud.value as THREE.Vector4).set(n('cloudLight'), n('cloudSize'), n('cloudSpeed'), n('cloudGlint'));
+    (uniforms.uShade.value as THREE.Vector4).set(n('shadeDark'), n('shadeSize'), n('shadeSpeed'), n('shadeSoft'));
     uniforms.uRipple.value = this.ripples[0].texture;
     const { look, forward } = this;
     // The middle of the whole frame on the floor, and how far the frame reaches from it across and in depth.
@@ -671,6 +761,7 @@ export class Water {
     this.seen.z = look.z + forward.z * sunk;
     this.seen.reach = Math.hypot(across, depth);
     this.outerFrame(n, from.still ? 0 : quiet);
+    this.faceFrame(n, across, depth);
     uniforms.uOuterWidth.value = Math.max(0.1, n('outerWidth'));
     // The middle of the frame of the board on the floor: the lamp and the eye stand by it.
     look.set((camera.left + camera.right) / 2, (camera.top + camera.bottom) / 2, 0).applyMatrix4(camera.matrixWorld);
@@ -695,6 +786,71 @@ export class Water {
     this.plane.scale.set(reach, reach, 1);
     layer.render(this.scene, this.camera);
     void timeMs;
+  }
+
+  /**
+   * Something comes up out of the murk now and then, on a time of its own and never on a beat,
+   * somewhere in the frame and never under the board: a face, or a blot. It stands upright on
+   * the screen, as the eye finds such things.
+   */
+  private faceFrame(n: (name: string) => number, across: number, depth: number): void {
+    const { uniforms } = this.plane.material;
+    const every = n('shadeFace');
+    const life = 12;
+    const face = uniforms.uFace.value as THREE.Vector4;
+    if (every <= 0) {
+      this.face = null;
+      this.nextFace = -1;
+      face.set(0, 0, 1, 0);
+      return;
+    }
+    if (this.nextFace < 0 || this.nextFace > this.clock + every * 1.5) this.nextFace = this.clock + every * (0.3 + this.random());
+    if (!this.face && this.clock >= this.nextFace) this.startFace(across, depth);
+    const one = this.face;
+    if (!one || this.clock - one.at >= life) {
+      if (one) {
+        this.face = null;
+        this.nextFace = this.clock + every * (0.5 + this.random());
+      }
+      face.set(0, 0, 1, 0);
+      return;
+    }
+    face.set(one.x, one.z, Math.max(0.5, n('shadeSize')) * one.size, Math.max(0.001, (this.clock - one.at) / life));
+    (uniforms.uFaceKind.value as THREE.Vector2).set(one.kind, one.seed);
+    const { forward } = this;
+    const flat = Math.hypot(forward.x, forward.z) || 1;
+    const awayX = forward.x / flat;
+    const awayZ = forward.z / flat;
+    const short = Math.max(0.3, Math.abs(forward.y));
+    (uniforms.uFaceAxes.value as THREE.Vector4).set(-awayZ, awayX, awayX * short, awayZ * short);
+  }
+
+  /** Something comes up now, out of turn: the lab asks for one to look at. */
+  presence(): void {
+    const { uFrame } = this.plane.material.uniforms;
+    const frame = uFrame.value as THREE.Vector4;
+    this.face = null;
+    this.startFace(frame.z, frame.w);
+  }
+
+  private startFace(across: number, depth: number): void {
+    const { forward } = this;
+    const flat = Math.hypot(forward.x, forward.z) || 1;
+    const awayX = forward.x / flat;
+    const awayZ = forward.z / flat;
+    // Somewhere in the frame, off the board: under its cells the water is still and dim. Where
+    // the board leaves no room, nothing comes this time.
+    const low = { x: this.origin.x - 1.5, z: this.origin.z - 1.5 };
+    const high = { x: this.origin.x + this.size + 0.5, z: this.origin.z + this.size + 0.5 };
+    for (let i = 0; i < 20; i++) {
+      const a = (this.random() * 2 - 1) * across * 0.75;
+      const b = (this.random() * 2 - 1) * depth * 0.65;
+      const x = this.seen.x - awayZ * a + awayX * b;
+      const z = this.seen.z + awayX * a + awayZ * b;
+      if (x >= low.x && x <= high.x && z >= low.z && z <= high.z) continue;
+      this.face = { x, z, at: this.clock, kind: this.random() < 0.55 ? 0 : 1, seed: this.random() * 10, size: 0.8 + 0.5 * this.random() };
+      return;
+    }
   }
 
   /** A ring comes from past the frame now, out of turn: the lab asks for one to look at. */

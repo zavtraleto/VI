@@ -126,13 +126,14 @@ export const BOARD_GROUPS = {
      * Super Mario Sunshine is layers of one soft picture: how high the small ones are and how
      * large, in cells, how fast they drift, in cells a second, and how high the large ones under
      * them are, which are some four times as large. How much lighter the water is far off, at
-     * the top of the frame.
+     * the top of the frame, where a cloud is: none, the far is no lighter than the near (29
+     * October: «вся поверхность воды должна быть подвержена движению»).
      */
     swellHeight: number(0.045, 0, 0.4, 0.005),
     swellLength: number(0.8, 0.1, 3, 0.01),
     swellSpeed: number(0.03, 0, 1, 0.005),
     longSwell: number(0.16, 0, 1.5, 0.01),
-    farLight: number(0.01, 0, 0.3, 0.005),
+    farLight: number(0, 0, 0.3, 0.001),
     /** While a board is passed - its dice go, its lines are erased and drawn, the camera travels - the swell goes down by this much. */
     passCalm: number(0.85, 0, 1, 0.01),
     /**
@@ -176,48 +177,70 @@ export const BOARD_GROUPS = {
     glint: number(0.05, 0, 3, 0.01),
     glintTight: number(14, 2, 600, 1),
     lampSide: number(1, -1.5, 1.5, 0.05),
-    /** The light of a ring, and how much darker than the dark of the board the water is. */
+    /**
+     * The light of a ring, and how much darker than the dark of the board the water is (29
+     * October: «вода должна выглядеть темнее и загадочнее, как "другая сторона"»).
+     */
     crestLight: number(0.2, 0, 2, 0.01),
-    waterDeep: number(0.15, 0, 0.3, 0.01),
+    waterDeep: number(0.35, 0, 0.7, 0.01),
     /**
      * What the water gives back of the sky: no lamp and no moon, nothing that reads as a cloud,
-     * lighter and darker shapes that go slowly and turn into one another. How light, 0 for none;
-     * how large, in cells; how fast they go, in cells a second; how far the slope of a wave moves
-     * them, in cells (the owner, 27 October: «источника света в отражении не должно быть видно.
-     * облака тоже не должны "читаться" как облака»). How fast they fold and swirl into one
-     * another, as cream in coffee (29 October: «должна стать похожа на очень медленный поток в
-     * ручье, а лучше на диффузию в чашке кофе»).
+     * lighter and darker shapes carried by the currents of the water, drawn out and turning. How
+     * light, 0 for none; how large, in cells; how fast the currents are at their fastest, in
+     * cells a second; how far the slope of a wave moves them, in cells; in how many seconds what
+     * is carried is taken up afresh. The owner, 27 October: «источника света в отражении не
+     * должно быть видно. облака тоже не должны "читаться" как облака»; 29 October: «похоже на
+     * диффузию или перетекание воды, размеренное, спокойное, гипнотическое и усыпляющее», «вода
+     * должна быть медленнее кругов».
      */
-    skyLight: number(0.03, 0, 0.5, 0.005),
-    skySize: number(7, 0.5, 30, 0.5),
-    skySpeed: number(0.35, 0, 2, 0.01),
-    skyWarp: number(10, 0, 40, 0.5),
-    skyFlow: number(0.03, 0, 0.2, 0.002),
+    skyLight: number(0.012, 0, 0.5, 0.002),
+    skySize: number(5, 0.5, 30, 0.5),
+    skySpeed: number(0.2, 0, 1, 0.005),
+    skyWarp: number(5, 0, 40, 0.5),
+    skyFlow: number(24, 4, 120, 1),
     /**
-     * Dark shapes under the water, small and large, that come up, drift, change their outline and
-     * go down, each on a time of its own («как будто под водой что-то происходит, но неясно что»).
-     * How dark, 0 for none; how large, in cells; how fast they drift, in cells a second; how long
-     * one is there, in seconds; how far the slope of a wave moves them; how soft their edge is.
-     * They are deep, not on the surface («движение под водой и на глубине»): they darken the
-     * water and not the sky in it.
+     * Clouds go over the water on the wind and are seen in it, the light of the sky between them,
+     * so no place of the water is always the lighter, and the path of glints is lit under them (29
+     * October: «светлые области должны тоже двигаться, как будто над бесконечной гладью воды
+     * бегут облака»; the water «примерно в 2 раза медленнее кругов, которые распространяет
+     * игрок»). How light, 0 for none; how large, in cells; how fast, in cells a second; how much
+     * of the path of glints goes with them, the rest staying where it is.
+     */
+    cloudLight: number(0.04, 0, 0.3, 0.002),
+    cloudSize: number(8, 2, 40, 0.5),
+    cloudSpeed: number(0.27, 0, 1.5, 0.01),
+    cloudGlint: number(1, 0, 1, 0.01),
+    /**
+     * The murk under the water: dark stuff the deep currents carry and draw out into threads, as
+     * cream in coffee, lying in clouds of its own that gather and part; now and then it comes
+     * together into a face or a blot folded in two, and runs apart («как будто под водой что-то
+     * происходит, но неясно что»; «движение под водой и на глубине»; 29 October: «группы пятен,
+     * переливание и перетекание. немного странное и жуткое», «основной референс по "подводному
+     * движению" это диффузия в кофе, чае и других подобных жидкостях», and of what comes
+     * together, «изредка почти лицо»). It darkens the water and not the sky in it. How dark, 0
+     * for none; how large, in cells; how fast it is carried, in cells a second; how soft its edge
+     * is; about how many seconds from one thing that comes together to the next, 0 for none; how
+     * far the slope of a wave moves it.
      */
     shadeDark: number(0.6, 0, 1, 0.01),
     shadeSize: number(3, 0.3, 10, 0.1),
-    shadeSpeed: number(0.12, 0, 0.5, 0.005),
-    shadeLife: number(40, 5, 200, 1),
+    shadeSpeed: number(0.08, 0, 0.5, 0.005),
+    shadeSoft: number(0.3, 0.02, 1, 0.01),
+    shadeFace: number(80, 0, 400, 5),
     refract: number(1.5, 0, 4, 0.05),
-    shadeSoft: number(0.35, 0.02, 1, 0.01),
     /**
      * Rings that come from past the frame, from nothing that is seen («игрок делает круги сам, а
      * странные затухающие волны/круги могут приходить "из вне"»), slower than the player's: about
      * how many seconds from one to the next, 0 for none; how high; how fast they run, in cells a
-     * second; how wide, in cells; in how many seconds one dies out to a third; how far past the
-     * frame one starts, in cells.
+     * second; how wide its crest is, in cells; in how many seconds one dies out to a third; how
+     * far past the frame one starts, in cells. Drawn as a ring of a step is, only of a larger
+     * circle (29 October: «сделай больше похожими на наши круги, чтобы это больше напоминало
+     * воду, а не наложенный поверх воды эффект»).
      */
     outerEvery: number(40, 0, 240, 1),
-    outerHeight: number(0.1, 0, 0.5, 0.005),
+    outerHeight: number(0.007, 0, 0.03, 0.0005),
     outerSpeed: number(0.4, 0.05, 3, 0.05),
-    outerWidth: number(1.2, 0.2, 5, 0.1),
+    outerWidth: number(0.5, 0.2, 3, 0.05),
     outerLife: number(45, 1, 120, 1),
     outerFar: number(2, 0, 20, 0.5),
   },

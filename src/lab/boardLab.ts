@@ -136,7 +136,7 @@ export class BoardLab {
   private readonly backdrop = new Backdrop(this.display);
   private readonly world = this.display.addLayer({ name: 'world', lines: null, samples: quality().samples, encoded: true });
   /** The water the board lies on, a probe; `?water=off` leaves it out. */
-  private readonly water = quality().water ? new Water(this.display, this.world) : null;
+  readonly water = quality().water ? new Water(this.display, this.world) : null;
   private readonly fps = new FpsCounter();
   private view: BoardView | null = null;
   /**
