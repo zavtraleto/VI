@@ -120,6 +120,17 @@ export function batchTitle(batch: Batch): string {
   return `${batch.word}${when}, ${batch.rows.length} ${plural(batch.rows.length, ['доска', 'доски', 'досок'])}`;
 }
 
+/**
+ * What the line of a batch says once «ещё десять» is answered: the first line of the report of
+ * `lay` and how many boards it wrote; where `lay` refused, its code before what it said.
+ */
+export function layTold(code: number, report: string): string {
+  const first = report.split('\n')[0]?.trim() || 'lay ничего не сказал';
+  const written = /^written: (\d+)/m.exec(report);
+  if (code !== 0 && code !== 1) return `код ${code}: ${first}`;
+  return written ? `${first} · записано ${written[1]}` : first;
+}
+
 /** The new board after a board in its batch; null after the last, or for a board of no batch. */
 export function nextInBatch(rows: readonly BoardRow[], name: string): string | null {
   const row = rows.find((one) => one.name === name);

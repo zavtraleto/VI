@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibraryRowChapter } from '../levels/library';
 import { ROLES, type RowFile } from '../levels/row';
-import { ROLE_TITLES, batchTitle, batchesOf, chaptersOf, freeName, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
+import { ROLE_TITLES, batchTitle, batchesOf, chaptersOf, freeName, layTold, listRows, nextInBatch, plural, rowOf, verdictPatch } from './workshopLists';
 
 const ROW: readonly LibraryRowChapter[] = [{ id: 0, title: 'prologue', faces: null, stops: ['R01'] }];
 const file = (name: string, head: string, time?: string) => rowOf({ name, text: `id: ${name}\n${head}faces: 2\n---\n21* 21\n .   .\n`, hash: null, time }, ROW);
@@ -109,5 +109,17 @@ describe('a name for a board begun anew', () => {
     expect(freeName('bridge', [])).toBe('bridge-1');
     expect(freeName('bridge', ['bridge-1', 'Bridge-2', 'bridge-4'])).toBe('bridge-3');
     expect(freeName('P06-try', ['P06', 'p06-try-1'])).toBe('P06-try-2');
+  });
+});
+
+describe('layTold', () => {
+  it('says the first line of the report and how many boards were written', () => {
+    expect(layTold(0, 'lay wall, every layout: 120 in 40 s, round 2\n0 layout 120 → 80\nwritten: 10 (61 s)')).toBe('lay wall, every layout: 120 in 40 s, round 2 · записано 10');
+    expect(layTold(1, 'lay wall, every layout: 120 in 40 s, round 2\nwritten: 0 (41 s)')).toBe('lay wall, every layout: 120 in 40 s, round 2 · записано 0');
+  });
+  it('says the code where lay refused', () => {
+    expect(layTold(2, 'lay: no plot "x"')).toBe('код 2: lay: no plot "x"');
+    expect(layTold(3, 'lay wall: the last two boards of its batch were both taken off')).toBe('код 3: lay wall: the last two boards of its batch were both taken off');
+    expect(layTold(-1, '')).toBe('код -1: lay ничего не сказал');
   });
 });

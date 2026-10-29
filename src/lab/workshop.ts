@@ -5,7 +5,7 @@ import { BATCH_WORD } from '../levels/labText';
 import { resolveName } from '../levels/library';
 import type { LevelSpec } from '../rules/types';
 import { PROGRAM_FONT, paletteAt, shellDefaults } from '../shell/theme';
-import { listHeads, onBoardChanged, readBoard, renameBoard, writeBoard } from './boardsClient';
+import { layMore, listHeads, onBoardChanged, readBoard, renameBoard, writeBoard } from './boardsClient';
 import { boardHash } from './boardsServer';
 import { BoardStage } from './boardStage';
 import { copyText } from './clipboard';
@@ -15,7 +15,7 @@ import { WayShow, wayToShow } from './showWay';
 import { BoardFacts } from './workshopFacts';
 import { WorkshopCampaign, type CampaignBoard } from './workshopCampaign';
 import { WorkshopListView, buttonOf, fieldStyle, light } from './workshopListView';
-import { freeName, listRows, rowOf, type BoardRow } from './workshopLists';
+import { freeName, layTold, listRows, rowOf, type BoardRow } from './workshopLists';
 import { WorkshopRow } from './workshopRow';
 import { WorkshopSave } from './workshopSave';
 import { WorkshopVerdict } from './workshopVerdict';
@@ -120,7 +120,7 @@ class Workshop {
     const { controller } = game as unknown as { controller?: { cancel(): void } };
     this.show = new WayShow({ get state() { return inside.state; }, press: (dir) => game.press(dir), cancel: () => controller?.cancel() }, (line) => this.say(line));
     const { palette } = this;
-    this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word));
+    this.lists = new WorkshopListView(palette, LIST_WIDTH, (name) => void this.open(name), (word) => void this.makeNew(word), (word) => void this.layMore(word));
     const page = {
       say: (line: string) => this.say(line),
       settle: (why?: string) => this.saving.settle(why),
@@ -309,6 +309,20 @@ class Workshop {
     }
     if (this.name !== '') this.measure();
     this.lists.show(this.rows, this.name);
+  }
+
+  /** «ещё десять»: the generator lays ten more boards of a batch on the dev server, and the lists are read again with them. */
+  private async layMore(word: string): Promise<void> {
+    this.lists.tellLay(word, true, 'кладу…');
+    let line: string;
+    try {
+      const { code, report } = await layMore(word);
+      line = layTold(code, report);
+    } catch (error) {
+      line = (error as Error).message;
+    }
+    this.lists.tellLay(word, false, line);
+    await this.readLists();
   }
 
   /** A file changed on the disk, by this page or by anyone: its row is read again, and just written, it is the last touched. */

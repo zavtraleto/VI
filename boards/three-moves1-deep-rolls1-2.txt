@@ -1,0 +1,14 @@
+id: three-moves1-deep-rolls1-2
+note: замысел three-moves1-deep-rolls1, круг 1
+status: N
+batch: three-moves1-deep-rolls1 2026-10-29
+faces: 2 3
+par: 8
+exact: yes
+way: 3,1,S 3,2,S 3,3,E 2,4,E,p 3,4,N 2,0,W,p 2,3,N,p 2,2,N,p
+---
+23   .  24   .   .
+36  32   .  46*  .
+ .   .   .   .   .
+ .   .  35   .   .
+ .   .  45   .  24

@@ -388,9 +388,9 @@ const LONG_STEPS = 2_000_000;
 /**
  * The depth of a board: its graph walked to par and the slack, its shortest and long ways counted,
  * its forks found, and the boards up to par moves from the start told lost or not. `par` is the
- * board's own when left out, or the solver's where it has none.
+ * board's own when left out, or the solver's where it has none. `lossSolves` and `lossStates` bound the boards solved to say whether they are lost (the generator measures many boards, and asks for fewer).
  */
-export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: number } = {}): Depth {
+export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: number; lossSolves?: number; lossStates?: number } = {}): Depth {
   const par = opts.par ?? spec.par ?? solveLevel(spec).solution?.par;
   if (par === undefined) return { par: 0, forks: 0, ways: 0, waysLong: 0, slack: 0, lossAt: null, lostShare: 0, complete: false, waysCapped: false, longCapped: false, lossSampled: false };
   const g = graphOf(spec, par + DEPTH_SLACK, opts.maxStates ?? DEPTH_MAX_STATES);
@@ -453,7 +453,7 @@ export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: numbe
   for (let at = 1; at < n && g.far[at] <= par; at++) near.push(at);
   const open = near.filter((at) => toClear[at] < 0 && !lost[at]);
   // A graph cut short by its limit says of loss only what it saw: the boards past it are not solved one by one.
-  const stride = Math.ceil(open.length / LOSS_SOLVES);
+  const stride = Math.ceil(open.length / (opts.lossSolves ?? LOSS_SOLVES));
   const taken = g.complete ? open.filter((_, i) => i % stride === 0) : [];
   let lostTaken = 0;
   let lossAt: number | null = null;
@@ -476,7 +476,7 @@ export function depthOf(spec: LevelSpec, opts: { par?: number; maxStates?: numbe
     const at = taken[i];
     if (clearable[at]) continue;
     let state = stateOf(g, at);
-    const { solution, exhausted } = solveFrom(state, { maxStates: LOSS_SOLVE_STATES });
+    const { solution, exhausted } = solveFrom(state, { maxStates: opts.lossStates ?? LOSS_SOLVE_STATES });
     if (solution) {
       settle(at);
       for (const move of solution.moves.slice(0, -1)) {

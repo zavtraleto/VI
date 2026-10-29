@@ -34,7 +34,7 @@ export interface RowList {
  * The column of the lists on the left of the workshop (docs/superpowers/specs/2026-10-15-vi-level-workshop-design.md,
  * section 3.1): the names of the five lists, one shown at a time; the search over them; the rows
  * of the list shown, a picture, a name and the last words of the owner to each, with no number;
- * the batches of the new boards, a line over each; and under the lists the field and the button
+ * the batches of the new boards, a line over each with «ещё десять» on it; and under the lists the field and the button
  * that begin a new board. What a click and the button do is the page's: this only shows.
  */
 export class WorkshopListView {
@@ -49,12 +49,15 @@ export class WorkshopListView {
   private rows: readonly BoardRow[] = [];
   private selected = '';
   private rowList: RowList | null = null;
+  /** What «ещё десять» of a batch says, by the word of the batch, and whether its lay is still running. */
+  private readonly laid = new Map<string, { running: boolean; line: string }>();
 
   constructor(
     private readonly palette: Palette,
     width: number,
     private readonly pick: (name: string) => void,
     make: (word: string) => void,
+    private readonly more: (word: string) => void,
   ) {
     const { root } = this;
     root.style.cssText = `position:fixed;left:0;top:0;bottom:0;width:${width}px;z-index:900;display:flex;flex-direction:column;box-sizing:border-box;background:${palette.bg};color:${palette.ink};border-right:1px solid ${palette.faint};font:13px/1.4 ${PROGRAM_FONT}`;
@@ -95,6 +98,12 @@ export class WorkshopListView {
     this.redraw();
   }
 
+  /** Says on the line of a batch how its «ещё десять» goes: running, its button is not pressed again. */
+  tellLay(word: string, running: boolean, line: string): void {
+    this.laid.set(word, { running, line });
+    this.redraw();
+  }
+
   /** Shows the rows anew, with the board in hand marked among them. */
   show(rows: readonly BoardRow[], selected: string): void {
     const moved = selected !== this.selected;
@@ -118,6 +127,19 @@ export class WorkshopListView {
         const title = document.createElement('div');
         title.textContent = batchTitle(batch);
         title.style.cssText = `padding:8px 10px 2px;color:${palette.dim}`;
+        // Ten more of a batch are laid by its word, the plot of the generator; what the lay said stands under it.
+        if (batch.key !== '') {
+          title.style.cssText += ';display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+          const said = this.laid.get(batch.word);
+          const button = buttonOf(palette, 'ещё десять', () => this.more(batch.word));
+          button.disabled = said?.running ?? false;
+          if (button.disabled) button.style.cursor = 'default';
+          const told = document.createElement('div');
+          told.textContent = said?.line ?? '';
+          told.style.cssText = 'flex-basis:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          told.title = said?.line ?? '';
+          title.append(button, told);
+        }
         lines.push(title, ...batch.rows.map((row) => this.line(row)));
       }
     } else lines.push(...shown.map((row) => this.line(row)));

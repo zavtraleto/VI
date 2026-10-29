@@ -63,6 +63,14 @@ export async function swapBoards(code: string, from: string): Promise<void> {
   await asked(at(code, '/swap'), { method: 'POST', body: JSON.stringify({ from }) });
 }
 
+/**
+ * Asks the dev server for ten more boards of a batch: it runs `scripts/lay.mjs lay` for the plot of
+ * the batch and answers when the files are written, a minute or more after. Refused while a lay runs.
+ */
+export async function layMore(batch: string): Promise<{ code: number; report: string }> {
+  return (await (await asked('/__boards/lay', { method: 'POST', body: JSON.stringify({ batch }) })).json()) as { code: number; report: string };
+}
+
 /** Calls `told` with the name of a board whenever its file is changed on the disk, by this page or by anyone else. */
 export function onBoardChanged(told: (name: string) => void): void {
   import.meta.hot?.on('vi:boards', (data: { name: string }) => told(data.name));

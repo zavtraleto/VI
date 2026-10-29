@@ -23,6 +23,7 @@ import type { PlaceFields, RowOp } from '../levels/rowEdit';
  *   GET  /__boards?row                     the text of boards/row.json
  *   POST /__boards?row                     an operation on the row (`RowOp`): laid, then written whole, or refused with nothing written
  *   POST /__boards/<code>/swap             { from }: the board of the file <from> goes into <code>, a board of the row, and the board of <code> into <from>, laid, then written, or refused
+ *   POST /__boards/lay                     { batch }: `scripts/lay.mjs lay … keep=10` for the plot of a batch, one at a time; answers { code, report } when it is done
  *
  * A name is the name of a board and nothing more: letters, digits, `-` and `_`. A name with a
  * dot or a slash in it would be a path, and the page would write wherever it liked.
@@ -88,7 +89,7 @@ export function versionOf(file: string): Version | null {
 
 /** What an address of the plugin asks for. */
 export type BoardsAsk =
-  | { kind: 'list' | 'heads' | 'row-read' | 'row' }
+  | { kind: 'list' | 'heads' | 'row-read' | 'row' | 'lay' }
   | { kind: 'export'; date: string }
   | { kind: 'head'; name: string }
   | { kind: 'rename'; name: string }
@@ -118,6 +119,8 @@ export function askOf(method: string, path: string): BoardsAsk {
   }
   if (parts.length === 0 && query.has('row')) return method === 'GET' ? { kind: 'row-read' } : method === 'POST' ? { kind: 'row' } : refused(405, 'the row is read with GET and changed with POST');
   if (parts.length === 0) return method === 'GET' ? { kind: 'list' } : refused(405, 'the list is only read');
+  // `lay` is the generator only where it is posted to: read, it is a board of that name as any other.
+  if (parts.length === 1 && parts[0] === 'lay' && method === 'POST') return { kind: 'lay' };
   const name = safeName(parts[0]);
   if (name === null) return refused(400, `"${parts[0]}" is no name of a board: letters, digits, - and _`);
   if (parts.length === 1) return method === 'GET' ? { kind: 'read', name } : method === 'PUT' ? { kind: 'write', name } : refused(405, 'a board is read with GET and written with PUT');
@@ -266,4 +269,44 @@ export function swapOf(body: string): string | null {
 /** The file of the history an export of a day is kept in. */
 export function exportFile(date: string): string {
   return `export-${date}.md`;
+}
+
+/** The word of a batch as `lay` names its plot: small letters and digits, in parts joined by `-`, each part begun by a letter. */
+const BATCH_WORD = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/;
+/** A key `lay` is given from the args.json of a batch: which plot, read off which board, varied how. */
+const LAY_ARG = /^(plot|from|vary)=[a-z0-9,\-]+$/;
+
+/** The batch a body of `POST /__boards/lay` asks ten more boards of, or null where it names no batch. */
+export function layBatchOf(body: string): string | null {
+  try {
+    const { batch } = JSON.parse(body) as { batch?: unknown };
+    return typeof batch === 'string' && BATCH_WORD.test(batch) ? batch : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The keys `scripts/lay.mjs lay` is given for a batch: those of `boards/out/lay/<batch>/args.json`,
+ * which `lay` writes for the batch it laid, or `plot=<batch>` where there is no such file. Null
+ * where the file says no list of plot=, from= and vary=, or names no plot to lay.
+ */
+export function layArgsOf(batch: string, argsJson: string | null): string[] | null {
+  if (argsJson === null) return [`plot=${batch}`];
+  let args: unknown;
+  try {
+    args = (JSON.parse(argsJson) as { args?: unknown }).args;
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(args) || !args.every((arg) => typeof arg === 'string' && LAY_ARG.test(arg))) return null;
+  const said = args as string[];
+  return said.some((arg) => arg.startsWith('plot=') || arg.startsWith('from=')) ? said : null;
+}
+
+/** What a run of `lay` answers with: what it printed, or what it refused with where it printed nothing, at most 4000 letters, the first and the last kept. */
+export function layReport(stdout: string, stderr: string): string {
+  const text = stdout.trim() || stderr.trim();
+  if (text.length <= 4000) return text;
+  return `${text.slice(0, 1990)}\n…\n${text.slice(-1990)}`;
 }

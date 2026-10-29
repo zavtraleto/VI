@@ -115,7 +115,7 @@ const TRAP_CAP = 6;
 const TRAP_WIDTH = 40;
 
 /** Moves that can still be made from a board, at the most, before every way from it has come to its end; `TRAP_CAP` at the most. */
-function survival(state: RunState): number {
+export function survival(state: RunState): number {
   let front = [state];
   for (let made = 0; made < TRAP_CAP; made++) {
     const next: RunState[] = [];

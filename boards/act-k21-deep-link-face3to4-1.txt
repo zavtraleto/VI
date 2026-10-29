@@ -1,0 +1,12 @@
+id: act-k21-deep-link-face3to4-1
+note: замысел act-k21-deep-link-face3to4, круг 1
+status: N
+batch: act-k21-deep-link-face3to4 2026-10-29
+faces: 4
+par: 7
+exact: yes
+way: 0,0,S 1,1,E 1,0,S 2,0,W 1,1,S 2,1,W 0,1,S
+---
+35  31* 51
+ .  45   .
+41   .  41

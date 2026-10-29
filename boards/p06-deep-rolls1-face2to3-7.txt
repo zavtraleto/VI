@@ -1,0 +1,13 @@
+id: p06-deep-rolls1-face2to3-7
+note: замысел p06-deep-rolls1-face2to3, круг 1
+status: N
+batch: p06-deep-rolls1-face2to3 2026-10-29
+faces: 3
+par: 5
+exact: yes
+way: 1,2,E 2,2,E 0,1,N,p 2,1,N,p 1,1,N
+---
+ .  32   .   .
+31  54  35   .
+ .  41*  .   .
+ .   .  35  36

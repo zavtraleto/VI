@@ -1,7 +1,8 @@
+import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
-import { askOf, boardHash, exportFile, headPatchOf, historyFile, patchHead, renamedText, renameOf, rowOpOf, safeName, swapOf, versionOf } from './src/lab/boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyFile, layArgsOf, layBatchOf, layReport, patchHead, renamedText, renameOf, rowOpOf, safeName, swapOf, versionOf } from './src/lab/boardsServer';
 import { readBoardHead } from './src/levels/boardFile';
 import { buildRow, readRowFile, rowText, touchesRow } from './src/levels/row';
 import { rowEdit, rowFileText, swapBoardTexts, withStatus } from './src/levels/rowEdit';
@@ -39,6 +40,18 @@ export function viBoards(): Plugin {
       // Every board of boards/ by its name, as `relay` reads them.
       const boardTexts = (): Map<string, string> =>
         new Map(readdirSync(dir).filter((one) => one.endsWith('.txt')).map((one) => [basename(one, '.txt'), readFileSync(join(dir, one), 'utf8')]));
+      // The generator lays one batch at a time: a lay takes every core for a minute or more.
+      let laying = false;
+      const lay = (args: string[]): Promise<{ code: number; report: string }> =>
+        new Promise((done) => {
+          const run = spawn(process.execPath, ['scripts/lay.mjs', 'lay', ...args, 'keep=10'], { cwd: server.config.root, windowsHide: true });
+          let stdout = '';
+          let stderr = '';
+          run.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
+          run.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
+          run.on('error', (error) => done({ code: -1, report: error.message }));
+          run.on('close', (code) => done({ code: code ?? -1, report: layReport(stdout, stderr) }));
+        });
 
       server.middlewares.use('/__boards', (request, response) => {
         const send = (status: number, body: string, type = 'application/json'): void => {
@@ -69,6 +82,21 @@ export function viBoards(): Plugin {
               const text = readFileSync(join(dir, `${name}.txt`), 'utf8');
               return { name, text, hash: boardHash(text, name), time: statSync(join(dir, `${name}.txt`)).mtime.toISOString() };
             })));
+          }
+          if (ask.kind === 'lay') {
+            // Ten more boards of a batch: of the plot named by its word, or of what the batch was laid from (the args.json lay writes).
+            const batch = layBatchOf(await body());
+            if (!batch) return send(400, JSON.stringify({ error: 'a lay is { batch: <the word of a batch> }' }));
+            const argsPath = join(dir, 'out', 'lay', batch, 'args.json');
+            const args = layArgsOf(batch, existsSync(argsPath) ? readFileSync(argsPath, 'utf8') : null);
+            if (!args) return send(400, JSON.stringify({ error: `boards/out/lay/${batch}/args.json is no list of plot=, from= and vary=` }));
+            if (laying) return send(409, JSON.stringify({ error: 'a lay is running' }));
+            laying = true;
+            try {
+              return send(200, JSON.stringify(await lay(args)));
+            } finally {
+              laying = false;
+            }
           }
           if (ask.kind === 'row-read') return existsSync(rowPath) ? send(200, readFileSync(rowPath, 'utf8'), 'application/json') : send(404, JSON.stringify({ error: 'no boards/row.json' }));
           if (ask.kind === 'row') {

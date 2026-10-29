@@ -1,0 +1,14 @@
+id: ones-over-leaving1-deep-rolls1-5
+note: замысел ones-over-leaving1-deep-rolls1, круг 1
+status: N
+batch: ones-over-leaving1-deep-rolls1 2026-10-29
+faces: 1 2
+par: 4
+exact: yes
+way: 3,1,S 2,3,N 2,2,E 3,2,N
+---
+ .  13   .  23*  -
+ .   .  13  62   -
+ .   .  21   .   -
+ .   .  54  21   -
+ .   .   .   .   -

@@ -1,13 +1,14 @@
 import { DELTA, DIRS, cubeAt } from '../rules/board';
 import { defaultConfig } from '../rules/config';
 import { levelDeadEnd, shortGroups } from '../rules/level';
-import { PERSONAS, RANK_PERSONAS, explorerOf, personaRun, type Persona, type RankName } from '../rules/levelBot';
-import { explore, moveOf, movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
+import { GREEDY, PERSONAS, RANK_PERSONAS, explorerOf, personaMove, personaRun, type Persona, type RankName } from '../rules/levelBot';
+import { explore, moveOf, moveText, movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
 import { scan } from '../rules/reach';
 import { ALL_ORIENTATIONS } from '../rules/orientation';
 import { createRun } from '../rules/sim';
 import type { Dir, LevelSpec, Orientation, RunState } from '../rules/types';
 import { canonicalWay } from './depth';
+import { survival } from './orders';
 
 /**
  * What a board and its way are measured by, past the fewest moves: how a level ends, how many
@@ -463,4 +464,143 @@ export function explorerFacts(spec: LevelSpec, name: 'careful' | 'planner', runs
   }
   if (cleared.length === 0) return { offPar: 0, waysSeen: 0 };
   return { offPar: cleared.filter((way) => way.length > par).length / cleared.length, waysSeen: new Set(cleared.map((way) => canonicalWay(spec, way))).size };
+}
+
+/** Boards a search may see after one move of a lesson, as the generator asks it (spec of the generator, section 5). */
+const LESSON_MAX_STATES = 50_000;
+/** Boards a search may see to say a board a bait leads to is lost, as `trapDepthOf` asks. */
+const BAIT_MAX_STATES = 30_000;
+
+/** The board after so many moves of a way. */
+function boardAfter(spec: LevelSpec, way: readonly SolverMove[], made: number): RunState {
+  let state = startOf(spec);
+  for (const move of way.slice(0, made)) state = tellMove(state, move).state;
+  return state;
+}
+
+/** The moves of a way up to and with the one that makes its event `event` (from 0); -1 where the way has fewer. */
+function movesToEvent(spec: LevelSpec, way: readonly SolverMove[], event: number): number {
+  let state = startOf(spec);
+  let seen = 0;
+  for (let index = 0; index < way.length; index++) {
+    const told = tellMove(state, way[index]);
+    state = told.state;
+    if (told.outcome.cleared && seen++ === event) return index + 1;
+  }
+  return -1;
+}
+
+/** What the moves from one board of a way do: see `keepsOf`. */
+export interface Keeps {
+  /** Moves after which the board is still cleared in the fewest moves from there, `slack` more at most. */
+  keeps: number;
+  /** Moves into a dead end the level says at once. */
+  dead: number;
+  /** Moves into a board that cannot be cleared, and the level does not say so yet. */
+  deadLater: number;
+  /** Moves after which the board is cleared, but in more than the fewest and `slack`. */
+  detour: number;
+  /** The most moves a detour takes to clear the board from where it was made, the move counted; 0 with none. */
+  longestDetour: number;
+  /** Moves the search gave up on. */
+  unknown: number;
+}
+
+/**
+ * Does the board hold after an event: the board after event `after` (from 0) of the way, and
+ * every move from it, each solved (spec of the generator, section 6.1). A move keeps the board
+ * where it is cleared after it in no more than the fewest moves from there and `slack`. The rest
+ * are told apart: a dead end said at once, one said later, a long way round.
+ */
+export function keepsOf(spec: LevelSpec, way: readonly SolverMove[], after: number, slack = 0, maxStates = LESSON_MAX_STATES): Keeps {
+  const made = movesToEvent(spec, way, after);
+  if (made < 0) throw new Error(`${spec.id}: the way has no event ${after}`);
+  const state = boardAfter(spec, way, made);
+  const out: Keeps = { keeps: 0, dead: 0, deadLater: 0, detour: 0, longestDetour: 0, unknown: 0 };
+  if (state.over) return out;
+  const pars: number[] = [];
+  for (const move of movesAt(state)) {
+    const next = playMove(state, move);
+    if (next.endReason === 'passed') {
+      pars.push(1);
+      continue;
+    }
+    if (next.over || levelDeadEnd(next) !== null) {
+      out.dead++;
+      continue;
+    }
+    const solved = solveFrom(next, { maxStates });
+    if (solved.solution) pars.push(solved.solution.par + 1);
+    else if (solved.exhausted) out.deadLater++;
+    else out.unknown++;
+  }
+  const best = Math.min(...pars);
+  for (const par of pars) {
+    if (par <= best + slack) out.keeps++;
+    else {
+      out.detour++;
+      out.longestDetour = Math.max(out.longestDetour, par);
+    }
+  }
+  return out;
+}
+
+/** What a bait does: see `baitOf`. */
+export interface Bait {
+  bait: boolean;
+  /** Of baits that lose the board, the most moves that can still be made before every way ends (`trapDepthOf`); null with none. */
+  depth: number | null;
+  /** The moves that are baits. */
+  moves: string[];
+}
+
+/** Moves the greedy player may make from a board: it takes any of the best alike, so a handful of its chances are asked. */
+function greedyMoves(state: RunState): SolverMove[] {
+  const out: SolverMove[] = [];
+  for (let seed = 1; seed <= 12; seed++) {
+    const move = personaMove(state, GREEDY, { rng: Math.imul(seed, 0x2545f491) });
+    if (move && !out.some((one) => one.x === move.x && one.z === move.z && one.dir === move.dir && one.push === move.push)) out.push(move);
+  }
+  return out;
+}
+
+/**
+ * A bait after `at` moves of the way (spec of the generator, section 6.2): a move that asks to
+ * be made — one that sets something going at once (`event`) or one the greedy player makes
+ * (`greedy`) — and is not the next move of the way. With `fate: 'dead'` it is a bait where the
+ * board cannot be cleared after it, and its depth is counted as `trapDepthOf` counts; with
+ * `longer`, where the board is cleared after it in `over` moves more than the way at the least.
+ */
+export function baitOf(spec: LevelSpec, way: readonly SolverMove[], at: number, move: 'event' | 'greedy', fate: 'dead' | 'longer', over = 1): Bait {
+  const state = boardAfter(spec, way, at);
+  const out: Bait = { bait: false, depth: null, moves: [] };
+  if (state.over) return out;
+  const own = way[at];
+  const same = (one: SolverMove) => own !== undefined && one.x === own.x && one.z === own.z && one.dir === own.dir && one.push === own.push;
+  const asked = move === 'event' ? movesAt(state).filter((one) => tellMove(state, one).outcome.cleared) : greedyMoves(state);
+  const left = way.length - at;
+  for (const one of asked) {
+    if (same(one)) continue;
+    const next = playMove(state, one);
+    if (next.endReason === 'passed') continue;
+    if (fate === 'dead') {
+      let depth: number;
+      if (next.over) depth = 0;
+      else {
+        const solved = solveFrom(next, { maxStates: BAIT_MAX_STATES });
+        if (solved.solution || !solved.exhausted) continue;
+        depth = survival(next);
+      }
+      out.bait = true;
+      out.depth = Math.max(out.depth ?? 0, depth);
+      out.moves.push(moveText(one));
+      continue;
+    }
+    if (next.over) continue;
+    const solved = solveFrom(next, { maxStates: LESSON_MAX_STATES });
+    if (!solved.solution || solved.solution.par + 1 < left + over) continue;
+    out.bait = true;
+    out.moves.push(moveText(one));
+  }
+  return out;
 }

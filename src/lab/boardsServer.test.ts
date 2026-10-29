@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { printBoard, readBoardHead } from '../levels/boardFile';
 import { fileBoard } from '../levels/boardFiles';
-import { askOf, boardHash, exportFile, headPatchOf, historyPath, patchHead, renamedText, renameOf, rowOpOf, safeName, swapOf, versionOf } from './boardsServer';
+import { askOf, boardHash, exportFile, headPatchOf, historyPath, layArgsOf, layBatchOf, layReport, patchHead, renamedText, renameOf, rowOpOf, safeName, swapOf, versionOf } from './boardsServer';
 
 describe('safeName', () => {
   it('takes the name of a board and nothing that could be a path', () => {
@@ -191,5 +191,39 @@ describe('the row asked of the server', () => {
     expect(swapOf('{"from":"../x"}')).toBeNull();
     expect(swapOf('{"from":3}')).toBeNull();
     expect(swapOf('torn')).toBeNull();
+  });
+});
+
+describe('ten more of a batch', () => {
+  it('is asked with POST to /__boards/lay; read, lay is a board as any other', () => {
+    expect(askOf('POST', '/lay')).toEqual({ kind: 'lay' });
+    expect(askOf('GET', '/lay')).toEqual({ kind: 'read', name: 'lay' });
+    expect(askOf('POST', '/lay/more').kind).toBe('refused');
+  });
+  it('reads the word of a batch, and refuses what could be a path or a key', () => {
+    expect(layBatchOf('{"batch":"act-k23"}')).toBe('act-k23');
+    expect(layBatchOf('{"batch":"far-faces"}')).toBe('far-faces');
+    expect(layBatchOf('{"batch":"act-k21-deep"}')).toBe('act-k21-deep');
+    for (const batch of ['../x', 'Wall', 'wall ', '1wall', 'wall-', 'wall--x', 'a/b', 'plot=wall', '', 3]) expect(layBatchOf(JSON.stringify({ batch })), String(batch)).toBeNull();
+    expect(layBatchOf('torn')).toBeNull();
+    expect(layBatchOf('null')).toBeNull();
+  });
+  it('lays the plot of the word, or what args.json says the batch was laid from', () => {
+    expect(layArgsOf('wall', null)).toEqual(['plot=wall']);
+    expect(layArgsOf('act-k21-deep', '{"args":["from=act-k21","vary=rolls1,face2-3"]}')).toEqual(['from=act-k21', 'vary=rolls1,face2-3']);
+    expect(layArgsOf('wall', '{"args":["plot=wall"]}')).toEqual(['plot=wall']);
+  });
+  it('refuses an args.json with another key, a word that is no word of lay, or no plot', () => {
+    for (const json of ['{"args":["keep=100"]}', '{"args":["plot=wall","workers=99"]}', '{"args":["plot=wall x"]}', '{"args":["from=../x"]}', '{"args":["vary=link"]}', '{"args":[]}', '{"args":"plot=wall"}', '{}', 'torn']) {
+      expect(layArgsOf('wall', json), json).toBeNull();
+    }
+  });
+  it('answers with what lay printed, or what it refused with, at most 4000 letters', () => {
+    expect(layReport('  lay wall\nwritten: 3\n', 'progress')).toBe('lay wall\nwritten: 3');
+    expect(layReport('', 'no plot "x"\n')).toBe('no plot "x"');
+    const long = layReport(`first\n${'x'.repeat(5000)}\nwritten: 10`, '');
+    expect(long.length).toBeLessThanOrEqual(4000);
+    expect(long.startsWith('first\n')).toBe(true);
+    expect(long.endsWith('written: 10')).toBe(true);
   });
 });
