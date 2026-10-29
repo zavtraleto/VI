@@ -305,6 +305,8 @@ export const SYSTEM = {
   motion: { native: 'うごき', name: 'MOTION' },
   /** "Shake". */
   shake: { native: 'ゆれ', name: 'SHAKE' },
+  /** "Operation": swipes, or taps and the mouse. */
+  control: { native: 'そうさ', name: 'CONTROL' },
   /** "Camera": follows the player where the whole board would be small, or stays on the whole board. */
   view: { native: 'カメラ', name: 'CAMERA' },
   /** "Language": the one the voice speaks to the player in. The program keeps its own. */
@@ -315,6 +317,8 @@ export const SYSTEM = {
   reduced: 'LESS',
   auto: 'AUTO',
   fixed: 'FIXED',
+  swipe: 'SWIPE',
+  tap: 'TAP',
 } as const;
 
 /**

@@ -9,6 +9,9 @@ import { loadJson, saveJson } from './storage';
  */
 export type ViewSetting = 'auto' | 'full';
 
+/** How the board is played: `swipe` by swipes, `tap` by a tap or a click on a cell. The keys step either way. */
+export type ControlSetting = 'swipe' | 'tap';
+
 /** One finished Endless run, kept for the local records register. */
 export interface RunRecord {
   score: number;
@@ -74,6 +77,8 @@ export interface Settings {
   /** null follows the system preference. */
   reducedMotion: boolean | null;
   shake: boolean;
+  /** How the board is played: by swipes, or by taps and the mouse (docs/superpowers/specs/2026-10-29-vi-tap-control-design.md). The keys step either way. */
+  control: ControlSetting;
   view: ViewSetting;
   /** The language the player has picked, as `src/ui/i18n.ts` names it; null follows the platform, then the browser. */
   language: string | null;
@@ -119,6 +124,7 @@ export function loadSettings(): Settings {
     muted: false,
     reducedMotion: null,
     shake: true,
+    control: 'swipe',
     view: 'auto',
     language: null,
     tuning: {},
@@ -153,6 +159,8 @@ export function loadSettings(): Settings {
   // The buttons in place of swipes and the place behind the board are gone from the settings (the owner, 29 October 2026): what was kept of them goes.
   delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).controlMode;
   delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).backdrop;
+  // A save from before taps plays by swipes, as the game did.
+  if (loaded.control !== 'tap') loaded.control = 'swipe';
   // A save from before the advertisement after undos has taken none back since one.
   if (typeof loaded.undosForAd !== 'number') loaded.undosForAd = 0;
   // A save from before the lines of scenes has heard none.

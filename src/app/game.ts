@@ -8,6 +8,7 @@ import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
 import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, nearestDir, type ScreenDirs } from '../input/gesture';
 import { bindKeyboard } from '../input/keyboard';
+import { bindTaps } from '../input/tap';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
 import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, noteUndoForAd, prefersReducedMotion, raiseLive, saveSettings, type LevelStat, type Settings } from '../platform/settings';
@@ -28,6 +29,7 @@ import { messagesOf } from '../levels/voices';
 import {
   createRun,
   cubeAt,
+  cubeHeight,
   getCube,
   defaultConfig,
   liveConfig,
@@ -58,6 +60,8 @@ import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRu
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
+import { boxCorners, pickCell, type CellShape } from './tapPick';
+import { makesGroup, planTap, stepHolds } from './tapWay';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
@@ -444,6 +448,8 @@ export class Game {
   private moved = false;
 
   private readonly controller = new InputController();
+  /** The way a tap asked for moves dice: a group made on the board ends it. */
+  private rolling = false;
   private readonly ritual = new Ritual();
   private readonly audio = new AudioEngine();
   private readonly hints = new Hints();
@@ -524,7 +530,9 @@ export class Game {
     // Swipes lean half-way from plain up, right, down and left towards the board's own directions.
     // On a level a swipe steps when the finger is lifted: every step there may be a move that counts.
     this.tracker = new GestureTracker(this.controller, now, () => this.swipeDirs, () => Boolean(this.state.levelRun));
-    bindGestures(play, this.tracker, enabled);
+    // Swipes or taps on the board, as the player has set; the keys step either way.
+    bindGestures(play, this.tracker, () => enabled() && this.settings.control === 'swipe');
+    bindTaps(play, (x, y) => this.tap(x, y), () => enabled() && this.settings.control === 'tap');
     // Esc opens the pause over a session. Over a panel it is the panel's "back", and the shell
     // marks the key as taken; a transmission passes on any key, and whether one was on screen
     // is noted on the way down, before it answers.
@@ -741,6 +749,7 @@ export class Game {
       losses_in_row: this.lossesInRow,
       resumed: this.resumed,
       touch: window.matchMedia?.('(pointer: coarse)').matches ?? false,
+      control: this.settings.control,
     };
     if (this.sinceLastRun >= 0) data.since_last_run_sec = this.sinceLastRun;
     return data;
@@ -802,6 +811,54 @@ export class Game {
   press(dir: Dir): void {
     this.controller.press(dir, this.now());
     this.controller.release();
+  }
+
+  /**
+   * A tap on the board (docs/superpowers/specs/2026-10-29-vi-tap-control-design.md): the cell under
+   * it is found, and the way it asks for is followed a step at a time. A tap that asks for nothing
+   * knocks as a step into a wall does.
+   */
+  private tap(px: number, py: number): void {
+    const cell = this.cellAt(px, py);
+    const way = cell ? planTap(this.state, cell.x, cell.z) : null;
+    if (!way) {
+      this.controller.cancel();
+      if (cell) this.audio.play({ kind: 'blocked', pan: stereo(this.state.player.x, this.state.player.z, this.state.config.size) });
+      return;
+    }
+    let at = 0;
+    const moves = way.kind !== 'walk';
+    this.controller.follow(
+      way.steps.map((step) => step.dir),
+      () => {
+        const holds = stepHolds(this.state, way.steps[at], moves && at > 0);
+        if (holds) at++;
+        return holds;
+      },
+    );
+    this.rolling = moves;
+  }
+
+  /** The cell of the board under a point of the window: the die there, or its floor where none stands. */
+  private cellAt(px: number, py: number): { x: number; z: number } | null {
+    const { state } = this;
+    const { size } = state.config;
+    const box = this.stage.getBoundingClientRect();
+    const project = (x: number, y: number, z: number) => {
+      const point = this.view.project(x, y, z);
+      return { x: box.left + point.x, y: box.top + point.y };
+    };
+    const holes = state.levelRun?.spec.holes ?? [];
+    const shapes: CellShape[] = [];
+    for (let z = 0; z < size; z++) {
+      for (let x = 0; x < size; x++) {
+        if (holes.some((hole) => hole.x === x && hole.z === z)) continue;
+        const cube = cubeAt(state, x, z);
+        const top = cube ? cubeHeight(cube, state.config) : 0;
+        shapes.push({ x, z, outline: boxCorners(x, z, top, project), depth: this.view.depth(x, top / 2, z) });
+      }
+    }
+    return pickCell(shapes, { x: px, y: py });
   }
 
   /** Where a cell of the board that is on lies on the page, in the pixels of the window, at the height `y` over the floor: for the lab, which is laid over the board. */
@@ -2137,6 +2194,7 @@ export class Game {
       muted: this.settings.muted,
       reducedMotion: prefersReducedMotion(this.settings),
       shake: this.settings.shake,
+      control: this.settings.control,
       view: this.settings.view,
       language: language(),
     });
@@ -2154,6 +2212,9 @@ export class Game {
             this.settings.reducedMotion = !prefersReducedMotion(this.settings);
           } else if (key === 'shake') {
             this.settings.shake = !this.settings.shake;
+          } else if (key === 'control') {
+            this.settings.control = this.settings.control === 'tap' ? 'swipe' : 'tap';
+            this.controller.cancel();
           } else {
             this.settings.view = this.settings.view === 'full' ? 'auto' : 'full';
           }
@@ -2297,6 +2358,8 @@ export class Game {
 
   private onTick(state: RunState): void {
     if (state.levelRun) this.levelTicks++;
+    // A roll a tap asked for stops at the group it makes, whenever the group is seen.
+    if (this.rolling && this.controller.following && state.events.some(makesGroup)) this.controller.cancel();
     this.view.notify(state.events);
     for (const event of state.events) {
       this.audio.handle(event, state);

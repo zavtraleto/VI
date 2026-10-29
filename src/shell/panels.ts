@@ -1,4 +1,4 @@
-import type { ViewSetting } from '../platform/settings';
+import type { ControlSetting, ViewSetting } from '../platform/settings';
 import type { GoalLine } from '../rules';
 import { word, type LanguageCode } from '../ui/i18n';
 import type { Climb } from './climb';
@@ -34,6 +34,7 @@ export interface SystemValues {
   muted: boolean;
   reducedMotion: boolean;
   shake: boolean;
+  control: ControlSetting;
   view: ViewSetting;
   language: LanguageCode;
 }
@@ -64,6 +65,7 @@ export function systemPanel(actions: {
         action: () => actions.onToggle('reducedMotion'),
       },
       { kind: 'switch', id: 'shake', label: SYSTEM.shake, value: () => word(values().shake ? SYSTEM.on : SYSTEM.off), action: () => actions.onToggle('shake') },
+      { kind: 'switch', id: 'control', label: SYSTEM.control, value: () => word(values().control === 'tap' ? SYSTEM.tap : SYSTEM.swipe), action: () => actions.onToggle('control') },
       { kind: 'switch', id: 'view', label: SYSTEM.view, value: () => word(values().view === 'auto' ? SYSTEM.auto : SYSTEM.fixed), action: () => actions.onToggle('view') },
       { kind: 'switch', id: 'language', label: SYSTEM.language, value: () => LANGUAGE_NAMES[values().language].name, action: actions.onLanguage },
       { kind: 'gap' },

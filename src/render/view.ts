@@ -1407,6 +1407,12 @@ export class BoardView {
     return { x: region.x + u * region.width, y: region.y + (1 - v) * region.height };
   }
 
+  /** How far a place on the board is from the camera, as the camera counts it: less is nearer. */
+  depth(x: number, y: number, z: number): number {
+    const { origin } = this.board;
+    return this.tmp.set(x + origin.x, y, z + origin.z).project(this.camera).z;
+  }
+
   /** Frees what the view holds on the graphics card. A view that is replaced is never drawn again. */
   dispose(): void {
     this.observer.disconnect();
