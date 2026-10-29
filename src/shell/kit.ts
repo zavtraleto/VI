@@ -1,10 +1,9 @@
-import { CAPTION_FONT } from '../signal/caption';
 import type { CanvasLayer } from '../display/layer';
 import type { Rect, Size } from '../display/sizing';
 import type { ParamValues } from '../signal/scene';
-import { CELL_H, CELL_W, signPlaces, textWidth, type Box, type Point } from './layout';
-import { glyphOf, paintGlyph } from './pixelFont';
-import { BAR_H, EDGE, MARK, PROGRAM_FONT, type Palette } from './theme';
+import { CELL_H, CELL_W, textWidth, type Box, type Point } from './layout';
+import { textDots } from './pixelText';
+import { BAR_H, EDGE, MARK, type Palette } from './theme';
 
 export interface TextOptions {
   /** How many times its own size the text is; whole numbers only. */
@@ -21,14 +20,6 @@ interface Mask {
   width: number;
 }
 
-/** A dot is lit when at least this much of it is covered, out of 255. */
-const DOT_THRESHOLD = 128;
-/**
- * The font's strokes are a dot and a half thick. A quarter of a dot to one side leaves one
- * dot of each stroke more than half covered; a quarter to the other leaves two.
- */
-const LIGHT_SHIFT = -0.25;
-const BOLD_SHIFT = 0.25;
 /** Lines of text kept as dots; when there are more, all are thrown away and drawn anew. */
 const MASK_LIMIT = 600;
 /** Lines of text kept in their colours, ready to be put on the picture; the same rule. */
@@ -136,16 +127,11 @@ export class Kit {
   }
 
   /**
-   * A sign in a hand that is not the program's: the serif of the captions of transmissions,
-   * soft among the dots of the raster. `size` is the height of the program's letters it stands in for.
+   * A sign in a hand that is not the program's: the same letters, heavier and in a colour of
+   * their own. `size` is the height of the line of the program's letters it stands in.
    */
   foreign(text: string, x: number, y: number, size: number, color: string): void {
-    const { ctx } = this.layer;
-    ctx.font = `${Math.round(size * 1.1)}px ${CAPTION_FONT}`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = color;
-    ctx.fillText(text, Math.round(x), Math.round(y + size * 0.86));
+    this.text(text, x - 1, y, color, { scale: Math.max(1, Math.round(size / CELL_H)), bold: true });
   }
 
   /** The picture is finished: the layer takes it to the screen. */
@@ -417,32 +403,8 @@ export class Kit {
     if (kept) return kept;
     if (this.masks.size >= MASK_LIMIT) this.masks.clear();
 
-    const canvas = document.createElement('canvas');
+    const canvas = textDots(text, scale, bold);
     const width = textWidth(text, scale);
-    canvas.width = Math.max(1, width);
-    canvas.height = CELL_H * scale;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    ctx.font = `${CELL_H * scale}px ${PROGRAM_FONT}`;
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#fff';
-    const shift = (bold ? BOLD_SHIFT : LIGHT_SHIFT) * scale;
-    const places = signPlaces(text);
-    let i = 0;
-    for (const sign of text) {
-      // A drawn letter is its own dots; any other sign is the font's, made dots below.
-      const glyph = glyphOf(sign);
-      if (glyph) paintGlyph(ctx, glyph, places[i] * scale, 0, scale);
-      else ctx.fillText(sign, places[i] * scale + shift, 14 * scale + shift);
-      i++;
-    }
-    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const { data } = image;
-    for (let at = 0; at < data.length; at += 4) {
-      const lit = data[at + 3] >= DOT_THRESHOLD;
-      data[at] = data[at + 1] = data[at + 2] = 255;
-      data[at + 3] = lit ? 255 : 0;
-    }
-    ctx.putImageData(image, 0, 0);
     const mask = { canvas, width };
     this.masks.set(key, mask);
     return mask;

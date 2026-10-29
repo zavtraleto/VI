@@ -15,7 +15,7 @@ import { praiseWord } from './praise';
 import { paintStar, paintStarGhost, starRow } from './star';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
 import { COMMANDS, HUD, READS, digits, goalLabel, goalProgress } from './text';
-import { EDGE, clockHour, mixHex, paletteAt, type Palette } from './theme';
+import { EDGE, clockHour, mixHex, paletteAt, sayColors, type Palette } from './theme';
 import { Voice } from './voice';
 
 /** Seconds as the clock of a live session reads them, `MM:SS`; null where there is no clock. */
@@ -406,8 +406,6 @@ const TEAR_SLOT_MS = 110;
 const FOREIGN_SLOT_MS = 170;
 const FALL_EVERY_MS = 1700;
 const FALL_MS = 900;
-/** The colour of a sign in a foreign hand: the white of the captions. */
-const FOREIGN_INK = '#f4f1ea';
 
 function rgb(hex: string): [number, number, number] {
   const value = Number.parseInt(hex.replace('#', '').padEnd(6, '0').slice(0, 6), 16) || 0;
@@ -783,7 +781,7 @@ export class GameHud {
         const fall = decay.falling.phase * decay.falling.phase * 150;
         kit.text(sign, at, y + fall, dim, { scale });
       } else if (decay.foreign === i) {
-        kit.foreign(sign, at + 1, y + lift, CELL_H * scale, FOREIGN_INK);
+        kit.foreign(sign, at + 1, y + lift, CELL_H * scale, sayColors(this.look.shell).ink);
       } else {
         kit.text(sign, at, y + (strong ? lift : 0), strong ? colour : faint, { scale, bold: strong });
       }

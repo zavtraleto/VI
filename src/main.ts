@@ -6,9 +6,6 @@ import { RUN_KEY } from './app/savedRun';
 import { SETTINGS_KEY, loadSettings } from './platform/settings';
 import { openStorage } from './platform/storage';
 import { setLanguage } from './ui/i18n';
-import '@fontsource/forum/latin-400.css';
-import '@fontsource/forum/latin-ext-400.css';
-import '@fontsource/forum/cyrillic-400.css';
 import './ui/styles.css';
 
 // The platform comes first: what it keeps for the player and the language it names are read

@@ -1,11 +1,13 @@
 import type { Display } from '../display/display';
 import type { CanvasLayer } from '../display/layer';
 import type { Rect } from '../display/sizing';
-import { CAPTION_FONT, loadCaptionFont, wrapCaption } from '../signal/caption';
+import { wrapCaption } from '../signal/caption';
 import type { ParamValues } from '../signal/scene';
 import { pictureSize } from './layout';
+import { dotFor, dotsLine, dotsWidth, writeDots } from './pixelText';
+import { sayColors } from './theme';
 
-/** What is written, in white, where the program's own font would not do. */
+/** Prose: a sentence to the player, in the program's letters, milky. */
 export interface VoiceLine {
   text: string;
   /** Where it goes, in CSS pixels of the window: its width wraps the text. */
@@ -27,10 +29,8 @@ export interface VoiceLine {
   after?: number;
 }
 
-const LEADING = 1.3;
-const COLOR = '#f4f1ea';
-const DIM = 'rgba(244, 241, 234, 0.62)';
-const EDGE = 'rgba(8, 8, 10, 0.9)';
+/** Dots from the top of one line to the top of the next: the sixteen of the font and four of air. */
+const PITCH_DOTS = 20;
 /** The picture of the voice has this many times the lines of the program's own picture. */
 const DETAIL = 2;
 /** Texts kept as they were put into lines; when there are more, all are thrown away. */
@@ -45,10 +45,8 @@ interface Patch {
 }
 
 /**
- * Text that is not the program's: prose in the language of the one who plays - what the
- * exercise asks for, a hint, a note - in the white serif of the captions of transmissions.
- * The program's own font is a raster of sixteen dots and cannot carry a sentence; and a
- * sentence addressed to the player is not the program reading out its own records.
+ * Prose in the language of the one who plays - what the exercise asks for, a hint, a note - in
+ * the program's own letters, milky (the owner, 29 October 2026: no other font in the game).
  *
  * It is a layer of its own, finer than the program's picture and under the same lines of the
  * tube. It is drawn anew only when what it says has changed, and then only the part of the
@@ -57,7 +55,6 @@ interface Patch {
  */
 export class Voice {
   private readonly layer: CanvasLayer;
-  private readonly probe = document.createElement('canvas').getContext('2d')!;
   private said = '';
   private queue: VoiceLine[] = [];
   /** The part of the picture the words now on it take; null while it is empty. */
@@ -77,27 +74,32 @@ export class Voice {
       this.said = '';
       this.written = null;
     };
-    void loadCaptionFont('VI Жя').then(() => {
-      // The letters of the stand-in font were of other widths.
-      this.said = '';
-      this.wraps.clear();
-    });
   }
 
   /** Height in CSS pixels that a text takes at a width and a size of letters. */
   height(text: string, width: number, size: number): number {
     if (!text) return 0;
-    return this.wrap(this.probe, text, width, size).length * size * LEADING;
+    const scale = this.scale();
+    const dot = dotFor(size * scale);
+    return (this.wrap(text, width * scale, dot).length * PITCH_DOTS * dot) / scale;
   }
 
-  /** A text in lines no wider than `width`, with letters of `size`: worked out once and kept. */
-  private wrap(ctx: CanvasRenderingContext2D, text: string, width: number, size: number): string[] {
-    const key = `${size}|${width}|${text}`;
+  /** Pixels of the voice's picture a CSS pixel: before the picture has a size, as it will have. */
+  private scale(): number {
+    if (this.layer.scale > 0) return this.layer.scale;
+    const { display, shell } = this;
+    const canvas = { width: display.width * display.pixelRatio, height: display.height * display.pixelRatio };
+    const lines = pictureSize(canvas, Number(shell.pixelsTall), Number(shell.pixelsWide)).height;
+    return Math.min(canvas.height, lines * DETAIL) / Math.max(1, display.height);
+  }
+
+  /** A text in lines no wider than `width` pixels of the voice's picture, `dot` of them a dot: worked out once and kept. */
+  private wrap(text: string, width: number, dot: number): string[] {
+    const key = `${dot}|${width}|${text}`;
     let rows = this.wraps.get(key);
     if (!rows) {
       if (this.wraps.size >= WRAP_LIMIT) this.wraps.clear();
-      ctx.font = `${size}px ${CAPTION_FONT}`;
-      rows = wrapCaption(text, width, (line) => ctx.measureText(line).width);
+      rows = wrapCaption(text, width, (line) => dotsWidth(line, dot));
       this.wraps.set(key, rows);
     }
     return rows;
@@ -136,41 +138,33 @@ export class Voice {
     const before = this.written;
     if (before) ctx.clearRect(before.left, before.top, before.right - before.left, before.bottom - before.top);
     const now: Patch = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
-    ctx.lineJoin = 'round';
-    ctx.textBaseline = 'alphabetic';
+    const colors = sayColors(shell);
     for (const line of this.queue) {
-      const size = line.size * scale;
+      const dot = dotFor(line.size * scale);
+      const pitch = PITCH_DOTS * dot;
       const width = line.box.width * scale;
-      const rows = this.wrap(ctx, line.text, width, size);
-      ctx.font = `${size}px ${CAPTION_FONT}`;
-      const tall = rows.length * size * LEADING;
+      const rows = this.wrap(line.text, width, dot);
+      const tall = rows.length * pitch;
       const free = line.box.height * scale - tall;
       const top = line.box.y * scale + (line.anchor === 'bottom' ? free : line.anchor === 'middle' ? free / 2 : 0);
-      // Room for the edge of the letters, and for a word that is wider than its line.
-      now.left = Math.min(now.left, line.box.x * scale - size);
-      now.right = Math.max(now.right, line.box.x * scale + width + size);
-      now.top = Math.min(now.top, top - size * 0.5);
-      now.bottom = Math.max(now.bottom, top + tall + size * 0.5);
+      // Room for the ring around the letters, and for a word that is wider than its line.
+      now.left = Math.min(now.left, line.box.x * scale - pitch);
+      now.right = Math.max(now.right, line.box.x * scale + width + pitch);
+      now.top = Math.min(now.top, top - pitch);
+      now.bottom = Math.max(now.bottom, top + tall + pitch);
       const centre = (line.align ?? 'center') === 'center';
-      ctx.textAlign = centre ? 'center' : 'left';
-      ctx.lineWidth = Math.max(1.5, size / 7);
-      ctx.strokeStyle = EDGE;
-      ctx.fillStyle = line.dim ? DIM : COLOR;
+      const color = line.dim ? colors.dim : colors.ink;
       ctx.globalAlpha = line.alpha ?? 1;
-      const x = line.box.x * scale + (centre ? width / 2 : 0);
       // Words that are still coming keep the places they will have: a line is written from
       // where it will start, and the lines not reached yet are left empty.
       let left = line.reveal ?? line.shown ?? Infinity;
       rows.forEach((row, i) => {
         if (left <= 0) return;
-        const y = top + (i + 0.82) * size * LEADING;
+        const y = Math.round(top + i * pitch + (pitch - dotsLine(dot)) / 2);
         const part = row.slice(0, left);
         left -= row.length + 1;
-        const at = centre && part.length < row.length ? x - ctx.measureText(row).width / 2 : x;
-        if (centre && part.length < row.length) ctx.textAlign = 'left';
-        ctx.strokeText(part, at, y);
-        ctx.fillText(part, at, y);
-        if (centre) ctx.textAlign = 'center';
+        const x = line.box.x * scale + (centre ? (width - dotsWidth(row, dot)) / 2 : 0);
+        writeDots(ctx, part, Math.round(x), y, dot, color, colors.edge);
       });
     }
     ctx.globalAlpha = 1;

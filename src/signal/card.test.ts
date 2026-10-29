@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { textWidth } from '../shell/layout';
 import { ANSWER_SECONDS, GLIMPSE_SECONDS, cardScene, cardTitle, figureOf, moodFor, randomCard, type SignalCard } from './card';
 import { nativeRecipe } from './recipes';
 import { LINES } from './lines';
@@ -109,19 +108,8 @@ describe('cardTitle', () => {
     seconds: 3,
   };
 
-  it('names the file by the number of its figure, four signs and a byte of the seed', () => {
-    const title = cardTitle(card);
-    expect(title).toMatch(/^図0003 [ｦ-ﾝ]{4}:2C$/);
-    // Half-width signs: the name takes little room in the title of a narrow window.
-    expect(textWidth(title)).toBeLessThanOrEqual((2 + 4 + 1 + 4 + 3) * 8);
-  });
-
-  it('gives the same picture the same name, and tells places and moods apart', () => {
-    expect(cardTitle(card)).toBe(cardTitle({ ...card }));
-    const word = (c: SignalCard) => cardTitle(c).slice(6, 10);
-    const room: SignalCard = { ...card, frame: { ...card.frame, recipe: nativeRecipe('room') } };
-    expect(word(room)[0]).not.toBe(word(card)[0]);
-    expect(word({ ...card, contact: 1 })[2]).not.toBe(word(card)[2]);
-    expect(word({ ...card, contact: 1 }).slice(0, 2)).toBe(word(card).slice(0, 2));
+  it('names the file by a plain word and the number of its figure, the same picture the same name', () => {
+    expect(cardTitle(card, 'TRANSMISSION')).toBe('TRANSMISSION 0003');
+    expect(cardTitle(card, 'X')).toBe(cardTitle({ ...card }, 'X'));
   });
 });

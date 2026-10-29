@@ -565,6 +565,9 @@ export class Game {
     window.addEventListener('keydown', () => (this.lastInput = 'keys'));
     this.signal.onSound = (event) => this.audio.signal(event);
     this.signal.onWord = (sign) => this.audio.typed(sign);
+    // The lines of the other side said under transmissions are kept, so none is said twice too soon.
+    this.signal.heard = this.settings.heardLines;
+    this.signal.onHeard = () => this.later.after(() => saveSettings(this.settings), 'settings');
     this.applySound();
     platform.onAudio((enabled) => {
       this.platformSound = enabled;
@@ -943,7 +946,7 @@ export class Game {
     }
     // Now and then something is seen before the session, for less than a second. Not before
     // the first frame: that run is only set up behind the boot.
-    if (this.lastFrame > 0) this.signal.glimpse();
+    if (this.lastFrame > 0) this.signal.glimpse(this.sceneStep());
   }
 
   /**
@@ -963,6 +966,15 @@ export class Game {
     this.resumed = false;
     platform.track('progression_started', this.step());
     platform.tell('level_started', this.levelName());
+  }
+
+  /**
+   * The step of the scenes the player has come to: the furthest live session played, the
+   * first when none is (the owner, 29 October 2026: the further, the darker the scenes).
+   */
+  private sceneStep(): number {
+    const { lives } = this.settings.levels;
+    return Math.max(1, ...LIVES.filter((live) => (lives[live.code]?.plays ?? 0) > 0).map((live) => live.step));
   }
 
   /**
@@ -1021,7 +1033,7 @@ export class Game {
       gone = true;
       this.shell.hide();
       // An advertisement watched for the doubled score is the advertisement of this result: none comes after it.
-      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, () => (doubled ? next() : interstitial(next)));
+      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial(next)));
     };
     let offered = platform.rewardedSupported;
     const double = (): void => {
@@ -2266,7 +2278,7 @@ export class Game {
     // After it, at the break between sessions, the platform may show its advertisement.
     const answered = (next: () => void): void => {
       this.shell.hide();
-      this.signal.answer(this.ritual.stage / CONTACT_STEPS.length, () => interstitial(next));
+      this.signal.answer(this.sceneStep(), () => interstitial(next));
     };
     result();
   }

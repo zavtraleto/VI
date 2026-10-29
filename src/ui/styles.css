@@ -7,8 +7,8 @@
   --carmine-bright: #e0304e;
   --charcoal: #1c1a1a;
   --panel: #0c0b0b;
-  --serif: 'Forum', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-  font-family: var(--serif);
+  --font: 'DotGothic16', monospace;
+  font-family: var(--font);
   color: var(--ivory);
   background: var(--void);
 }

@@ -9,13 +9,15 @@ export interface WindowLayout {
   title: Box;
   /** Where the picture is. */
   content: Box;
-  /** The row of readings at the bottom. */
+  /** The thin line at the bottom that fills as the file plays. */
   status: Box;
 }
 
 /** A row of text with a dot of air above and below it. */
 export const BAR = CELL_H + 2;
 const BORDER = 1;
+/** The line at the bottom: two dots, no words in it (the owner, 29 October 2026: less of the Japanese program). */
+const STATUS = 2;
 /** The window never touches the edge of the screen. */
 const MARGIN = 4;
 /** The smallest window shows its picture four wide to three high. */
@@ -37,7 +39,7 @@ export interface WindowPlace {
  */
 export function windowLayout(picture: Size, contact: number, place: WindowPlace = { x: 0.5, y: 0.5 }): WindowLayout {
   const t = Math.min(1, Math.max(0, contact));
-  const chrome = BAR * 2 + BORDER * 2;
+  const chrome = BAR + STATUS + BORDER * 2;
   const maxW = Math.max(1, picture.width - MARGIN * 2);
   const maxH = Math.max(chrome + 1, picture.height - MARGIN * 2);
   const smallH = Math.min((maxH - chrome) * SMALL_DOWN, (maxW * SMALL_ACROSS - BORDER * 2) / SMALL_ASPECT);
@@ -51,6 +53,6 @@ export function windowLayout(picture: Size, contact: number, place: WindowPlace 
     frame: { x, y, w, h },
     title: { x: x + BORDER, y: y + BORDER, w: w - BORDER * 2, h: BAR },
     content: { x: x + BORDER, y: y + BORDER + BAR, w: w - BORDER * 2, h: h - chrome },
-    status: { x: x + BORDER, y: y + h - BORDER - BAR, w: w - BORDER * 2, h: BAR },
+    status: { x: x + BORDER, y: y + h - BORDER - STATUS, w: w - BORDER * 2, h: STATUS },
   };
 }

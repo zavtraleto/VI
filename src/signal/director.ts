@@ -68,11 +68,18 @@ function comeNear(values: Partial<ParamValues>, thing: string, random: () => num
   if ((HEIGHTS[thing] ?? SMALL) < SMALL) values[thingParam(thing, 'near')] = round(between(0.35, 0.6, random));
 }
 
-export function randomFrame(random: () => number, contact: number): Frame {
-  const mixing = mixingFor(contact);
-  const open = PLACES.filter((place) => !INDOORS.includes(place.id));
+/** What more a frame can be asked for: how far the merge has gone, other than the contact gives, and places it may not be in. */
+export interface FrameAsk {
+  mixing?: number;
+  without?: readonly string[];
+}
+
+export function randomFrame(random: () => number, contact: number, ask: FrameAsk = {}): Frame {
+  const mixing = ask.mixing ?? mixingFor(contact);
+  const places = PLACES.filter((place) => !(ask.without ?? []).includes(place.id));
+  const open = places.filter((place) => !INDOORS.includes(place.id));
   // At the last step it is most often under the sky: the sun has to be seen.
-  const place = mixing === 4 && random() < 0.8 ? pick(open, random) : pick(PLACES, random);
+  const place = mixing === 4 && random() < 0.8 ? pick(open, random) : pick(places, random);
   const indoors = INDOORS.includes(place.id);
   const native = nativeRecipe(place.id);
   const variants = Object.keys(native.variants ?? { a: {} });
@@ -133,4 +140,92 @@ export function randomFrame(random: () => number, contact: number): Frame {
   }
 
   return { recipe: { id: `${place.id}:${things.join('+')}`, place: place.id, things, variants: native.variants }, variant, values, mixing };
+}
+
+/**
+ * How far the player has come, as the step of the scenes: the number of the furthest live
+ * session played, 1..7 (the owner, 29 October 2026: «у первых live сессий… спокойные, светлые
+ * сцены… постепенно, чем дальше проходит игрок, тем жёстче и темнее становятся сцены»).
+ */
+export const SCENE_STEPS = 7;
+
+/** What a step of the scenes shows: how heavy the picture is, how far the merge has gone, which tier of words. */
+export interface StepLook {
+  contact: number;
+  mixing: number;
+  /** A light day by the sea or in the field: empty, or, at the second step of the merge, with one thing that does not belong. */
+  light: boolean;
+  /** The places it is never in. */
+  without: readonly string[];
+  tier: 1 | 2 | 3 | 4;
+}
+
+/** The steps, the first live session first. The red sun waits for the last. */
+export const STEP_LOOKS: readonly StepLook[] = [
+  { contact: 0, mixing: 1, light: true, without: [], tier: 1 },
+  { contact: 0.04, mixing: 1, light: true, without: [], tier: 1 },
+  // Still a light day, but something stands in it that does not belong there.
+  { contact: 0.08, mixing: 2, light: true, without: [], tier: 2 },
+  { contact: 0.24, mixing: 2, light: false, without: ['glare', 'nightwater'], tier: 2 },
+  { contact: 0.42, mixing: 3, light: false, without: ['glare'], tier: 3 },
+  { contact: 0.6, mixing: 3, light: false, without: ['glare'], tier: 3 },
+  { contact: 0.85, mixing: 4, light: false, without: [], tier: 4 },
+];
+
+export function stepLook(step: number): StepLook {
+  return STEP_LOOKS[Math.min(SCENE_STEPS, Math.max(1, Math.round(step))) - 1];
+}
+
+/**
+ * The light days of the first steps: whole sets of colours, so the sky, the horizon and the
+ * ground never disagree - pale noon, dawn, a warm afternoon, a misty morning, a lilac haze.
+ */
+export const LIGHT_DAYS: Record<'sea' | 'field', readonly { skyTop: string; skyHorizon: string; ground: string }[]> = {
+  sea: [
+    { skyTop: '#bcd6e6', skyHorizon: '#f2f0ea', ground: '#cfd8dc' },
+    { skyTop: '#d6c8da', skyHorizon: '#f6e6dc', ground: '#d6d0d8' },
+    { skyTop: '#c6d8e2', skyHorizon: '#f7ead4', ground: '#d8d6ca' },
+    { skyTop: '#c2dedc', skyHorizon: '#eef4ec', ground: '#c8dcd6' },
+    { skyTop: '#c8c8e2', skyHorizon: '#efe9f0', ground: '#d0d0e0' },
+  ],
+  field: [
+    { skyTop: '#bfd9e6', skyHorizon: '#eef2e4', ground: '#9db88a' },
+    { skyTop: '#cddae2', skyHorizon: '#f6ecd2', ground: '#b8bf8c' },
+    { skyTop: '#c6dde8', skyHorizon: '#f1f3e6', ground: '#a8c89a' },
+    { skyTop: '#d4cce0', skyHorizon: '#f4e8de', ground: '#a9b59c' },
+  ],
+};
+
+/**
+ * A light frame: the sea or the field by day in one of the light sets of colours, with its own
+ * thing or with nothing at all, no glints and no glow. With `stranger`, one thing that does not
+ * belong there stands in it too.
+ */
+export function lightFrame(random: () => number, stranger = false): Frame {
+  const place = random() < 0.6 ? 'sea' : 'field';
+  const native = nativeRecipe(place);
+  const empty = !stranger && random() < 0.3;
+  const day = pick(LIGHT_DAYS[place], random);
+  const values: Partial<ParamValues> = {
+    ...day,
+    lightAmount: round(between(0.45, 0.65, random)),
+    glint: 0,
+    glow: 0,
+  };
+  const things = empty ? [] : [...native.things];
+  if (stranger) {
+    // Nothing that frightens: no mannequin, no sun; a chair, a door, a lamp on a light day.
+    const pool = visitors(place).filter((id) => !things.includes(id) && id !== 'mannequin');
+    const visitor = pick(pool, random);
+    things.push(visitor);
+    comeNear(values, visitor, random);
+  }
+  return { recipe: { id: `${place}:${things.join('+') || 'empty'}:light`, place, things }, variant: 'a', values, mixing: stranger ? 2 : 1 };
+}
+
+/** A frame of a step of the scenes. */
+export function stepFrame(random: () => number, step: number): Frame {
+  const look = stepLook(step);
+  if (look.light) return lightFrame(random, look.mixing >= 2);
+  return randomFrame(random, look.contact, { mixing: look.mixing, without: look.without });
 }

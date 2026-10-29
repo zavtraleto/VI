@@ -72,6 +72,16 @@ export const SHELL_GROUPS = {
     ch4: color('#8ff3a9'),
     ch5: color('#ee91e2'),
     ch6: color('#6090fa'),
+    /**
+     * Prose, in the program's letters (the owner, 29 October 2026: «можно так же молочно белым»):
+     * milky; its key words in the colour of what they name - a face in its channel's colour, any
+     * other key word in `sayKey`; a dark ring around the letters over a picture, and a dark band
+     * under the words of a window.
+     */
+    sayInk: color('#e4e0d6'),
+    sayKey: color('#f2c879'),
+    sayEdge: color('#08080a'),
+    sayPlate: number(0.55, 0, 1, 0.01),
     /** How much of the tone the secondary text and the thin lines keep. */
     dim: number(0.67, 0.2, 1, 0.01),
     faint: number(0.3, 0.05, 1, 0.01),
@@ -184,6 +194,36 @@ export function bootTiming(values: ParamValues): BootTiming {
     logoMs: num(values, 'bootLogoMs'),
     // The tube has no half-lit state: the logo is there or it is not.
     fadeMs: 0,
+  };
+}
+
+/** The colours of prose: its letters, its key words, the ring around them and the band under them. */
+export interface SayColors {
+  ink: string;
+  /** Secondary prose. */
+  dim: string;
+  /** A key word that names no face. */
+  key: string;
+  /** A key word that names a face: index 0 is the face 1. */
+  faces: string[];
+  edge: string;
+  /** The band under the words of a window, with its own see-through. */
+  plate: string;
+}
+
+/** The colours of prose from the values of the look; the defaults where none are given. */
+export function sayColors(values: ParamValues = shellDefaults()): SayColors {
+  const ink = String(values.sayInk);
+  const edge = String(values.sayEdge);
+  const [r, g, b] = parseHex(edge);
+  return {
+    ink,
+    dim: mixHex(edge, ink, 0.66),
+    key: String(values.sayKey),
+    // The one is told by its red pip, the seventh's colour; the other faces by their channels.
+    faces: [String(values.signal), ...[2, 3, 4, 5, 6].map((face) => String(values[`ch${face}`]))],
+    edge,
+    plate: `rgba(${r}, ${g}, ${b}, ${num(values, 'sayPlate')})`,
   };
 }
 

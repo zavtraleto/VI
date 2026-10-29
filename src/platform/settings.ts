@@ -97,6 +97,8 @@ export interface Settings {
    * so many of them the platform shows one (docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md).
    */
   undosForAd: number;
+  /** The lines of the other side the player has heard under transmissions, by their ids (`src/signal/sceneLines.ts`): none is said twice before all of its tier are. */
+  heardLines: string[];
 }
 
 /** The one key everything the game keeps is under. */
@@ -125,6 +127,7 @@ export function loadSettings(): Settings {
     runs: {},
     levels: { passed: {}, stats: {}, told: [], lives: {} },
     undosForAd: 0,
+    heardLines: [],
   };
   const loaded = loadJson(KEY, fallback);
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
@@ -152,6 +155,8 @@ export function loadSettings(): Settings {
   delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).backdrop;
   // A save from before the advertisement after undos has taken none back since one.
   if (typeof loaded.undosForAd !== 'number') loaded.undosForAd = 0;
+  // A save from before the lines of scenes has heard none.
+  if (!Array.isArray(loaded.heardLines)) loaded.heardLines = [];
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
     loaded.camera = { ...DEFAULT_CAMERA };
   }

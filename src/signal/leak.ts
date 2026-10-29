@@ -4,8 +4,8 @@ import type { Rect, Size } from '../display/sizing';
 import { loadShellFonts } from '../shell/fonts';
 import { Kit } from '../shell/kit';
 import { CELL_H, CELL_W, pictureSize } from '../shell/layout';
-import { clockHour, paletteAt } from '../shell/theme';
-import { captionLook, drawCaption, loadCaptionFont } from './caption';
+import { clockHour, paletteAt, sayColors } from '../shell/theme';
+import { captionLook, drawCaption } from './caption';
 import { cardScene, randomCard } from './card';
 import { frameDef } from './compose';
 import { LinePool } from './lines';
@@ -138,7 +138,6 @@ export class SignalLeak {
     this.kit = new Kit(this.terminal, display, shell, paletteAt(shell, clockHour()));
     this.pool = new LinePool(random);
     this.schedule(true);
-    void loadCaptionFont('VI').then(() => (this.written = ''));
     void loadShellFonts().then(() => {
       this.kit.forgetText();
       this.written = '';
@@ -287,7 +286,7 @@ export class SignalLeak {
     if (state === this.written) return;
     this.written = state;
     words.ctx.clearRect(0, 0, words.width, words.height);
-    drawCaption(words.ctx, coming.text[0], rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
+    drawCaption(words.ctx, coming.text[0], rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale, { colors: sayColors(this.shell) });
     words.markDirty();
   }
 

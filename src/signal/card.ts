@@ -1,5 +1,5 @@
 import { frameDef } from './compose';
-import { randomFrame, type Frame } from './director';
+import { randomFrame, stepFrame, stepLook, type Frame } from './director';
 import { LINES } from './lines';
 import { MOODS, contactValues, type Mood, type ParamValues, type SceneDef } from './scene';
 
@@ -33,7 +33,7 @@ const FIGURES: Record<string, number> = {
 };
 
 /** An answer to a session and a glimpse before one, in seconds. */
-export const ANSWER_SECONDS = 5;
+export const ANSWER_SECONDS = 7;
 export const GLIMPSE_SECONDS = 3;
 /** A picture comes with a line of the other side this often: a bare frame is sometimes the stronger. */
 const CAPTION_CHANCE = 0.55;
@@ -69,6 +69,16 @@ export function randomCard(random: () => number, contact: number, seconds = ANSW
   return { frame, contact, seed, figure: figureOf(frame), caption: spoken ? line : null, seconds };
 }
 
+/**
+ * A transmission of a step of the scenes (`STEP_LOOKS`): the further the player has come, the
+ * darker and heavier. `caption` is what the other side says under it, or nothing.
+ */
+export function stepCard(random: () => number, step: number, caption: string | null, seconds = ANSWER_SECONDS): SignalCard {
+  const frame = stepFrame(random, step);
+  const seed = 1 + Math.floor(random() * 9999);
+  return { frame, contact: stepLook(step).contact, seed, figure: figureOf(frame), caption, seconds };
+}
+
 /** The scene of a card and the values it is built from. */
 export function cardScene(card: SignalCard): { def: SceneDef; values: ParamValues } {
   const def = frameDef(card.frame.recipe);
@@ -79,19 +89,11 @@ export function cardScene(card: SignalCard): { def: SceneDef; values: ParamValue
   return { def, values };
 }
 
-/** Half-width kana, the plain ones: what an old program has for a name it cannot write out. */
-const KANA = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ';
-const sign = (text: string): string => KANA[hash(text) % KANA.length];
-
 /**
- * The name the program gives the file in the title of its window: the number of the figure,
- * four signs and a byte. It is made up, but not at random: the signs stand for the place, the
- * things in it, how heavy it is and the seed, so the same picture always comes under the same name.
+ * The name the program gives the file in the title of its window: a plain word and the number
+ * of the figure, so the same picture always comes under the same name. No kana and no kanji
+ * (the owner, 29 October 2026: the tone of the Japanese program let down a little).
  */
-export function cardTitle(card: SignalCard): string {
-  const { recipe } = card.frame;
-  const word =
-    sign(`place ${recipe.place}`) + sign(`things ${recipe.things.join()} ${card.frame.variant}`) + sign(`mood ${moodFor(card.contact)}`) + sign(`seed ${card.seed}`);
-  const byte = (card.seed & 0xff).toString(16).toUpperCase().padStart(2, '0');
-  return `図${String(card.figure).padStart(4, '0')} ${word}:${byte}`;
+export function cardTitle(card: SignalCard, label: string): string {
+  return `${label} ${String(card.figure).padStart(4, '0')}`;
 }

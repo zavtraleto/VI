@@ -13,7 +13,7 @@ import {
   type SceneDef,
   type SceneInstance,
 } from '../signal/scene';
-import { captionLook, drawCaption, loadCaptionFont } from '../signal/caption';
+import { captionLook, drawCaption } from '../signal/caption';
 import { frameDef, type Recipe } from '../signal/compose';
 import { randomFrame } from '../signal/director';
 import { placeById } from '../signal/places';
@@ -100,7 +100,6 @@ export class Lab {
     this.captionLayer = this.display.addCanvasLayer({ name: 'caption', lines: this.captionLines(lines) });
     this.captionLayer.onResize = () => this.drawCaption();
     this.drawCaption();
-    void loadCaptionFont(this.caption).then(() => this.drawCaption());
 
     if (query.get('ui') !== '0') new Panel(this);
     const loop = (time: number): void => {

@@ -3,13 +3,16 @@ import type { CanvasLayer, Layer } from '../display/layer';
 import { quality } from '../display/quality';
 import { loadShellFonts } from '../shell/fonts';
 import { Kit } from '../shell/kit';
-import { CELL_W, pictureSize } from '../shell/layout';
-import { clockHour, paletteAt } from '../shell/theme';
-import { captionLook, drawCaption, loadCaptionFont, plainCaption, wordsShown, type CaptionBox } from './caption';
-import { GLIMPSE_SECONDS, cardScene, cardTitle, randomCard, type SignalCard } from './card';
+import { pictureSize } from '../shell/layout';
+import { clockHour, paletteAt, sayColors } from '../shell/theme';
+import { captionLook, drawCaption, plainCaption, wordsShown, type CaptionBox } from './caption';
+import { GLIMPSE_SECONDS, cardScene, cardTitle, stepCard, type SignalCard } from './card';
+import { stepLook } from './director';
+import { lineText, pickLine } from './sceneLines';
+import { language, t } from '../ui/i18n';
 import { hintCard } from './hintFrame';
 import { SignalLeak, type LeakKind } from './leak';
-import { captionLines, signalLook, type ParamValues, type SceneInstance } from './scene';
+import { signalLook, type ParamValues, type SceneInstance } from './scene';
 import type { SessionReading } from './terminal';
 import { BAR, windowLayout, type WindowLayout, type WindowPlace } from './window';
 
@@ -19,11 +22,6 @@ const OPEN_MS = 450;
 const SKIP_AFTER_MS = 600;
 /** A glimpse comes before one session in this many: counted anew by chance each time, both ends included. */
 const GLIMPSE_EVERY: readonly [number, number] = [4, 7];
-/** Cells of the reading of the link in the row at the bottom. */
-const LINK_CELLS = 5;
-const LINK_LABEL = '接続';
-/** The letters of what a board is told are no smaller than the line over the board was on a phone, in CSS pixels. */
-const TOLD_MIN_SIZE = 19;
 /** A window that is told something, or answers a session, stands in the middle of the screen and fills it. */
 const TOLD_PLACE: WindowPlace = { x: 0.5, y: 0.5 };
 
@@ -107,8 +105,14 @@ export class SignalPlayer {
   onSound: ((event: SignalSound) => void) | null = null;
   /** Hears each word of a telling as it comes: its first sign. */
   onWord: ((sign: string) => void) | null = null;
+  /** The lines of the other side the player has heard, by their ids: kept by whoever owns the save, changed here. */
+  heard: string[] = [];
+  /** A line has been said: `heard` has changed and is to be kept. */
+  onHeard: (() => void) | null = null;
   /** In development `?signal=always` shows one before every session, to look at them without waiting. */
   private readonly always = import.meta.env.DEV && new URLSearchParams(window.location.search).get('signal') === 'always';
+  /** In development `?scene=3` makes every transmission one of that step, and a glimpse before every session says its line too: to look at the steps. */
+  private readonly sceneProbe = import.meta.env.DEV ? Number(new URLSearchParams(window.location.search).get('scene') ?? NaN) : NaN;
   private readonly picture: Layer;
   /** The words of the other side, written over the picture. */
   private readonly words: CanvasLayer;
@@ -139,7 +143,6 @@ export class SignalPlayer {
     this.chrome = display.addCanvasLayer({ name: 'signal-window', lines: 240, look: { opacity: 0 } });
     this.chrome.onResize = () => (this.drawn = '');
     this.untilGlimpse = this.glimpseGap();
-    void loadCaptionFont('VI').then(() => (this.written = ''));
     this.kit = new Kit(this.chrome, display, shell, paletteAt(shell, clockHour()));
     void loadShellFonts().then(() => {
       this.kit.forgetText();
@@ -157,15 +160,22 @@ export class SignalPlayer {
     return this.playing !== null;
   }
 
-  /** The answer to a session; `contact` is how strong the link got, 0..1. `onDone` comes when it is over. */
-  answer(contact: number, onDone: () => void): void {
+  /**
+   * The answer to a session: a scene of the step the player has come to (`SCENE_STEPS`), and a
+   * line of the other side under it, one not heard yet. `onDone` comes when it is over.
+   */
+  answer(step: number, onDone: () => void): void {
     if (!this.enabled) {
       onDone();
       return;
     }
+    if (this.sceneProbe > 0) step = this.sceneProbe;
+    const line = pickLine(stepLook(step).tier, this.heard, this.random);
+    this.onHeard?.();
+    const card = stepCard(this.random, step, lineText(line, language()));
     this.play(
-      randomCard(this.random, contact),
-      contact,
+      card,
+      card.contact,
       () => {
         this.answered = true;
         onDone();
@@ -176,17 +186,25 @@ export class SignalPlayer {
     );
   }
 
-  /** Before a session, once in a few: a transmission for some seconds, with nothing to answer. */
-  glimpse(): void {
+  /** Before a session, once in a few: a transmission of the step the player has come to, for some seconds, with nothing to say. */
+  glimpse(step: number): void {
     const answered = this.answered;
     this.answered = false;
     this.leak?.reset();
     if (!this.enabled) return;
     this.untilGlimpse = Math.max(0, this.untilGlimpse - 1);
     // Right after an answer the session starts at once; the glimpse waits for the next one.
-    if (answered || (this.untilGlimpse > 0 && !this.always)) return;
+    const probe = this.sceneProbe > 0;
+    if (answered || (this.untilGlimpse > 0 && !this.always && !probe)) return;
     this.untilGlimpse = this.glimpseGap();
-    this.play(randomCard(this.random, 0, GLIMPSE_SECONDS), 0, () => undefined, true);
+    if (probe) {
+      const line = pickLine(stepLook(this.sceneProbe).tier, this.heard, this.random);
+      const card = stepCard(this.random, this.sceneProbe, lineText(line, language()));
+      this.play(card, card.contact, () => undefined, false, 1, TOLD_PLACE);
+      return;
+    }
+    const card = stepCard(this.random, step, null, GLIMPSE_SECONDS);
+    this.play(card, card.contact, () => undefined, true);
   }
 
   /**
@@ -197,6 +215,11 @@ export class SignalPlayer {
   tell(telling: Telling): void {
     if (!this.enabled) {
       telling.onDone();
+      return;
+    }
+    // In development `?scene=` shows the answer of that step in place of the words, to look at it.
+    if (this.sceneProbe > 0) {
+      this.answer(this.sceneProbe, telling.onDone);
       return;
     }
     const layout = windowLayout(this.pictureNow(), 1, TOLD_PLACE);
@@ -318,7 +341,7 @@ export class SignalPlayer {
     const { def, values } = cardScene(card);
     const playing: Playing = {
       card,
-      title: cardTitle(card),
+      title: cardTitle(card, t('signalTitle')),
       values,
       instance: def.build(values, card.seed),
       contact,
@@ -368,34 +391,33 @@ export class SignalPlayer {
       return;
     }
     const { told } = playing;
-    // The words a board is told are read, not glimpsed: they keep the pixels of the screen.
-    const lines = told ? display.height : captionLines(Number(playing.values.lines), rect.width / Math.max(1, rect.height));
-    words.setLines(told ? lines : Math.round((lines * display.height) / Math.max(1, rect.height)));
+    // The words are the program's letters at their own size: the layer has the pixels of the
+    // program's picture, and a dot of the letters is one of them.
+    words.setLines(this.pictureNow().height);
     Object.assign(words.look, captionLook(signalLook(playing.values)), { opacity: 1 });
     const scale = words.height / Math.max(1, display.height);
     const state = [text, told?.words, rect.x, rect.y, rect.width, rect.height, words.width, words.height].join();
     if (state === this.written) return;
     this.written = state;
     words.ctx.clearRect(0, 0, words.width, words.height);
-    const options = told ? { plate: true, words: told.words, minSize: TOLD_MIN_SIZE * scale } : {};
+    const colors = sayColors(this.shell);
+    const options = told ? { plate: true, words: told.words, dot: 1, colors } : { dot: 1, colors };
     const drawn = drawCaption(words.ctx, text, rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale, options);
     if (told) told.links = drawn.link.map((box) => ({ x: box.x / scale, y: box.y / scale, w: box.w / scale, h: box.h / scale }));
     words.markDirty();
   }
 
   /**
-   * The window of an old office program: an outline with a shadow, a filled bar with the name
-   * of the file and a box to close it by, a row of readings at the bottom. Each part says
-   * something: the name is the file, the cells are the strength of the link, the bar is how
-   * much of the file is left, and the size of the window follows the link too.
+   * The window of an old office program, kept light: an outline with a shadow, a filled bar
+   * with the name of the file and a box to close it by, and at the bottom a thin line that
+   * fills as the file plays.
    */
   private drawWindow(layout: WindowLayout, playing: Playing, opened: number, played: number): void {
     const { kit } = this;
     const { frame, title, content, status } = layout;
     const { bg, ink, dim, faint } = kit.palette;
 
-    const track = Math.max(CELL_W * 4, Math.min(CELL_W * 12, Math.floor(status.w / 3)));
-    const filled = Math.round((track - 2) * Math.min(1, Math.max(0, played)));
+    const filled = Math.round(status.w * Math.min(1, Math.max(0, played)));
     const veil = Math.round(content.h * (1 - opened));
     const state = [frame.x, frame.y, frame.w, frame.h, playing.title, filled, veil, bg, ink].join();
     if (state === this.drawn) return;
@@ -422,20 +444,9 @@ export class SignalPlayer {
       kit.dither(content.x, content.y + content.h - veil, content.w, Math.min(veil, 2), dim);
     }
 
-    // Row of readings: the link on the left, how much of the file has played on the right.
+    // How much of the file has played: a line under the picture.
     kit.box(status, bg);
-    kit.rect(status.x, status.y, status.w, 1, ink);
-    let at = kit.text(LINK_LABEL, status.x + 4, status.y + 1, dim) + 4;
-    const lit = Math.round(playing.contact * LINK_CELLS);
-    for (let i = 0; i < LINK_CELLS; i++) {
-      if (at + 6 > status.x + status.w - track - 8) break;
-      if (i < lit) kit.rect(at, status.y + 5, 5, 9, ink);
-      else kit.frame({ x: at, y: status.y + 5, w: 5, h: 9 }, faint);
-      at += 7;
-    }
-    const bar = { x: status.x + status.w - track - 4, y: status.y + 5, w: track, h: 9 };
-    kit.frame(bar, dim);
-    kit.rect(bar.x + 1, bar.y + 1, filled, bar.h - 2, ink);
+    kit.rect(status.x, status.y, filled, status.h, dim);
 
     kit.frame(frame, ink);
     kit.end();
