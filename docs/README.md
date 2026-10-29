@@ -56,6 +56,7 @@
 | [VI_Level_Generation_Deep_Research.md](VI_Level_Generation_Deep_Research.md) | исследование | генерация и режиссура первых уровней |
 | [VI_Level_Tool_Research.md](VI_Level_Tool_Research.md) | исследование | инструмент уровней: редактор, генерация и проверка; прежний опыт авторов головоломок, форма и порядок постройки |
 | [VI_Level_Emotion_Research.md](VI_Level_Emotion_Research.md) | исследование | эмоции уровня: что вызывает головоломка, чего не хватает четырём заказам владельца, что из этого меряется |
+| [VI_Rest_And_Bonus_Research.md](VI_Rest_And_Bonus_Research.md) | исследование | **черновик, ждёт слова владельца.** Отдых в кампании: четыре вида «не думать», чего из них нет в ряду, вопросы и ответы по источникам (усталость ресурса не подтверждена, выбор и контраст подтверждены), что делали другие, отсев вариантов и план: доска-подарок после пика, звонок (Endless на минуты по выбору, 5×5), ответ в конце слоя; вопросы владельцу — раздел 8, его ответы 20 октября и открытое (счёт звонка, ответ в конце слоя) — раздел 9 |
 | [VI_Levels_Reference_Research.md](VI_Levels_Reference_Research.md) | исследование | разбор Color Sort, Blockudoku, Royal Match |
 | [VI_TurnBased_Research.md](VI_TurnBased_Research.md) | исследование | пошаговые игры с источниками |
 | [VI_Tutorial_Research.md](VI_Tutorial_Research.md) | исследование | как учат правилам: источники |
