@@ -9,7 +9,7 @@ import type { LanguageCode, TextKey } from '../ui/i18n';
  * Every kanji used here has to be in the font: run `npm run fonts` after changing the Japanese.
  */
 
-export const LOGO_TEXT = 'VI';
+export const LOGO_TEXT = 'VIZAVI';
 export const REVISION = 'REV 2.06';
 
 /** The check of the first start: what is checked and what it answers. The last line is the link device. */

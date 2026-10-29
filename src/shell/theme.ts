@@ -112,6 +112,8 @@ export const SHELL_GROUPS = {
   logo: {
     logoNodes: number(6, 1, 12, 1),
     logoArrange: choice('grid', ['grid', 'ring', 'row'] satisfies MarkArrangement[]),
+    /** Dots between two letters of the logo. */
+    logoTrack: number(3, 0, 8, 1),
     /** How many times its own size the logo of the boot is. */
     bootLogoScale: number(3, 1, 6, 1),
   },

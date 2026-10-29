@@ -68,6 +68,7 @@ const LABELS: Record<string, string> = {
   aimSlideMs: 'сдвиг на место ушедшей, мс',
   logoNodes: 'число узлов',
   logoArrange: 'расположение узлов',
+  logoTrack: 'разрядка букв логотипа, точек',
   bootLogoScale: 'размер логотипа в boot, ×',
   pressMs: 'отклик на нажатие, мс',
   idleHz: 'частота шума каналов, Гц',

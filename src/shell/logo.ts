@@ -2,6 +2,28 @@ import type { Kit } from './kit';
 import { CELL_H, markNodes, type MarkArrangement } from './layout';
 import { LOGO_TEXT } from './text';
 
+/**
+ * The letters of the logo: the program's letters drawn in a finer hand (the owner, 29 October
+ * 2026: «пиксель шрифтом… похож на тот шрифт, который используется в игре, может сделать его
+ * чуть тоньше, чуть загадочнее»). The same ten rows from the fourth row of a line, the same cut
+ * corners, but every stroke one dot, and the letters set far apart.
+ */
+const LOGO_GLYPHS: Readonly<Record<string, readonly string[]>> = {
+  V: ['#.....#', '#.....#', '#.....#', '#.....#', '#.....#', '.#...#.', '.#...#.', '.#...#.', '..#.#..', '...#...'],
+  I: ['#', '#', '#', '#', '#', '#', '#', '#', '#', '#'],
+  Z: ['#######', '......#', '......#', '.....#.', '....#..', '...#...', '..#....', '.#.....', '#......', '#######'],
+  A: ['.#####.', '#.....#', '#.....#', '#.....#', '#.....#', '#######', '#.....#', '#.....#', '#.....#', '#.....#'],
+};
+/** The row of a line the letters start on: where the capitals of the font start. */
+const LOGO_TOP = 3;
+
+/** Width of the letters of the logo, in dots, with `track` dots between two letters. */
+function lettersWidth(track: number): number {
+  let width = 0;
+  for (const sign of LOGO_TEXT) width += (LOGO_GLYPHS[sign]?.[0].length ?? 0) + track;
+  return width - track;
+}
+
 /** The mark as it is set now, for letters `scale` times their own size. */
 function markOf(kit: Kit, scale: number) {
   const shape = markNodes(kit.number('logoNodes'), String(kit.values.logoArrange) as MarkArrangement);
@@ -13,10 +35,14 @@ function markOf(kit: Kit, scale: number) {
   return { shape, radius, span, width: Math.round(shape.width * span) + 2 * radius, gap: 4 * scale };
 }
 
+function trackOf(kit: Kit): number {
+  return Math.max(0, Math.round(kit.number('logoTrack')));
+}
+
 /** Width of the logo at a scale, in pixels of the picture. */
 export function logoWidth(kit: Kit, scale: number): number {
   const mark = markOf(kit, scale);
-  return mark.width + mark.gap + kit.measure(LOGO_TEXT, scale);
+  return mark.width + mark.gap + lettersWidth(trackOf(kit)) * scale;
 }
 
 /**
@@ -32,7 +58,17 @@ export function drawLogo(kit: Kit, x: number, y: number, scale: number, color: s
     if (mark.radius <= 1) kit.rect(Math.round(cx) - 1, Math.round(cy) - 1, 2, 2, color);
     else kit.disc(cx, cy, mark.radius, color);
   }
-  kit.text(LOGO_TEXT, x + mark.width + mark.gap, y, color, { scale, bold: true });
+  const track = trackOf(kit);
+  let left = Math.round(x + mark.width + mark.gap);
+  const first = Math.round(y) + LOGO_TOP * scale;
+  for (const sign of LOGO_TEXT) {
+    const rows = LOGO_GLYPHS[sign];
+    if (!rows) continue;
+    rows.forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(left + c * scale, first + r * scale, scale, scale, color);
+    });
+    left += (rows[0].length + track) * scale;
+  }
 }
 
 /** Height of a row the logo takes at a scale. */
