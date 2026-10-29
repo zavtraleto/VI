@@ -425,37 +425,25 @@ function emotionsSpread(row: readonly Stop[]): Violation[] {
 export const REPEAT_FROM = 31;
 
 /**
- * The repeats of rule 16 on row 0.2.88, before it is rebuilt: «ряд 0.2.88 до пересборки, спека инструментов
+ * The repeats of rule 16 on places 61–100, the boards of row 0.2.88 still standing there till step 2 of the rebuild
+ * (docs/superpowers/plans/2026-10-28-vi-rebuild-31-100.md); before that, of row 0.2.88: «ряд 0.2.88 до пересборки, спека инструментов
  * прогрессии, раздел 11, шаг 2: не чинить». They hold the row back as any breach of rule 16 does, but the test
  * of the row lets them be, and the table and the workshop mark them (`KNOWN_REPEAT`). The rebuild empties it.
  */
 export const KNOWN_REPEATS: readonly string[] = [
-  'места 29 (floor-first-1) и 33 (roll-or-push-1): одна мысль — K v P, lift push, грани 2',
-  'места 30 (carry-1) и 33 (roll-or-push-1): одна мысль — K v P, lift push, грани 2',
-  'места 29 (floor-first-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
-  'места 30 (carry-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
-  'места 33 (roll-or-push-1) и 46 (corridor-push-1): одна мысль — K v P, lift push, грани 2',
-  'места 22 (roll-in-1) и 48 (dd-04-three-on-six): одна раскладка',
-  'места 50 (two-combos-3) и 51 (two-combos-5): одна мысль — K ~ K, seven twoFaces walk, грани 3 4',
-  'места 18 (P02) и 52 (seven-1): одна раскладка',
-  'места 4 (B01_s290) и 53 (dd-06-find-the-two): одна раскладка',
-  'места 6 (H08) и 53 (dd-06-find-the-two): одна раскладка',
-  'места 5 (H06) и 55 (hidden-face-1): одна раскладка',
-  'места 9 (which-first-2) и 60 (R09): одна мысль — K K, twoFaces, грани 2 3',
-  'места 13 (P07) и 64 (C2-05): одна мысль — K K, seven twoFaces, грани 2 3',
-  'места 57 (collapse-5) и 65 (collapse-4): одна мысль — K, loop, грани 6',
-  'места 37 (P12) и 66 (two-lifts-1): одна мысль — K v P ^ L, lift link push seven twoFaces, грани 2 3',
-  'места 3 (R03) и 67 (dd-25-pocket): одна раскладка',
-  'места 6 (H08) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
-  'места 53 (dd-06-find-the-two) и 67 (dd-25-pocket): одна мысль — K, loop, грани 2',
-  'места 63 (fixed-combo-1) и 70 (dd-11-wood-pushes): одна мысль — K, грани 4',
-  'места 49 (hidden-face-3) и 71 (rescue-1): одна мысль — K L, link seven, грани 5',
-  'места 23 (C1-05) и 72 (chaser-1): одна мысль — K ~ L, glass link walk, грани 3',
-  'места 56 (dd-09-push-link) и 75 (dd-12-ice-corridor): одна мысль — K v Q, lift link push, грани 2',
-  'места 22 (roll-in-1) и 76 (roll-in-transfer-1): одна мысль — K ~ L, glass link walk, грани 2',
-  'места 54 (bridge-5) и 77 (P09): одна мысль — K ~ L, link walk, грани 3',
-  'места 32 (R14) и 79 (R16): одна мысль — K v P ^ L, lift link push twoFaces, грани 2 3',
-  'места 83 (dd-14-turn-to-fours) и 84 (dd-72-fours-and-one): одна мысль — K, грани 4',
+  'места 5 (H06) и 62 (hidden-face-1): одна раскладка',
+  'места 9 (which-first-2) и 65 (R09): одна мысль — K K, twoFaces, грани 2 3',
+  'места 13 (P07) и 67 (C2-05): одна мысль — K K, seven twoFaces, грани 2 3',
+  'места 3 (R03) и 70 (dd-25-pocket): одна раскладка',
+  'места 6 (H08) и 70 (dd-25-pocket): одна мысль — K, loop, грани 2',
+  'места 66 (fixed-combo-1) и 73 (dd-11-wood-pushes): одна мысль — K, грани 4',
+  'места 23 (C1-05) и 75 (chaser-1): одна мысль — K ~ L, glass link walk, грани 3',
+  'места 57 (climb-twos-threes-4) и 76 (act-k25): одна раскладка',
+  'места 22 (roll-in-1) и 78 (roll-in-transfer-1): одна мысль — K ~ L, glass link walk, грани 2',
+  'места 61 (bridge-5) и 79 (P09): одна мысль — K ~ L, link walk, грани 3',
+  'места 59 (under-fives-1) и 83 (dd-21-wood-fives): одна раскладка',
+  'места 84 (dd-14-turn-to-fours) и 85 (dd-72-fours-and-one): одна мысль — K, грани 4',
+  'места 49 (ones-twos-5) и 86 (P06): одна раскладка',
   'места 47 (rescue-3) и 92 (rescue-4): одна мысль — K v Q, lift link push seven, грани 4',
   'места 7 (H07) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
   'места 7 (H07) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',

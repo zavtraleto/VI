@@ -127,4 +127,15 @@ export const OWNER_REPEATS: readonly string[] = [
  * owner's words of it, quoted from the `words:` of its file. A line of that rule on that board is let be (`ownerWord`
  * in `src/levels/grammar.ts`) and marked so under the table. The list grows only by a quotation.
  */
-export const OWNER_WORD: readonly { board: string; rule: 17 | 18; words: string }[] = [];
+export const OWNER_WORD: readonly { board: string; rule: 17 | 18; words: string }[] = [
+  // Place 44 of the rebuild (0.2.89), a step out of the band of its decade: the owner's word of 28 October at the rebuild.
+  { board: 'ones-fours-2', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
+  // Place 54 of the rebuild (0.2.89), a step out of the band of its decade: the owner's word of 28 October at the rebuild.
+  { board: 'roll-threes-1', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
+  // Place 55 of the rebuild (0.2.89), a step out of the band of its decade: the owner's word of 28 October at the rebuild.
+  { board: 'ones-over-leaving-1', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
+  // Place 56 of the rebuild (0.2.89), a step out of the band of its decade: the owner's word of 28 October at the rebuild.
+  { board: 'two-combos-3', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
+  // Place 58 of the rebuild (0.2.89), a step out of the band of its decade: the owner's word of 28 October at the rebuild.
+  { board: 'P08', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
+];
