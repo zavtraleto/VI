@@ -90,7 +90,7 @@ export const SHELL_GROUPS = {
     /** How bright the glass of a die is, its edges, and the die the figure stands on. */
     spaceGlass: number(0.14, 0, 1, 0.01),
     spaceEdge: number(0.6, 0, 2, 0.05),
-    spaceLit: number(3.4, 1, 4, 0.1),
+    spaceLit: number(2.2, 1, 4, 0.1),
     /** The rings under the dice; 0 leaves them out. */
     spaceRings: number(0.2, 0, 1, 0.01),
     /** Bits per colour channel of the picture of the dice, and the dither that hides the steps. */

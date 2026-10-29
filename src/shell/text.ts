@@ -152,7 +152,11 @@ export const HUD = {
 } as const;
 
 /** The two small readings of a level: the moves made on this try, and the fewest the board is cleared in. */
-export const READS = { current: 'CURRENT', best: 'BEST' } as const;
+/**
+ * Under the buttons of a level: the moves of this try, and the fewest the board is known to be
+ * cleared in (the owner, 28 October 2026: BEST → PAR, a word of the program, not translated).
+ */
+export const READS = { current: 'CURRENT', best: 'PAR' } as const;
 
 /** What a line of the goal of a level goes under, where it is written and not drawn. */
 export const GOAL = { dice: 'SEND', face: 'FACE', links: 'CHAIN', cleared: 'LEFT', clear: 'CLEAR' } as const;
