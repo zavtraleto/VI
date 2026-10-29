@@ -22,7 +22,7 @@ import { finaleMs, type LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
 import { CAMPAIGN, LIVES, campaignDone, campaignFocus, campaignList, plaquesOf } from '../levels/campaign';
 import type { Live } from '../levels/row';
-import { STAR_POINTS, levelStars, starScore, starsHeld } from '../levels/progress';
+import { STAR_POINTS, levelStars, starsHeld } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
 import { messagesOf } from '../levels/voices';
 import {
@@ -1620,12 +1620,6 @@ export class Game {
     this.hud.award({ stars: gained.stars, fresh: gained.fresh, points: STAR_POINTS, value: last?.ori.top ?? 0, at: { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) } });
   }
 
-  /** The score of the levels: the stars the player holds on every place of the row, in points. */
-  private starScore(): number {
-    const { stats } = this.settings.levels;
-    return starScore(CAMPAIGN.map((place) => place.spec), (id) => stats[id]?.bestMoves);
-  }
-
   /**
    * The board answers the dice of a level that is passed as they begin to go: light runs over
    * its lines, with the beat of a chain, from where the dice stand.
@@ -2552,7 +2546,6 @@ export class Game {
         ? {
             kind: 'level',
             number: this.boardNumber(),
-            score: this.starScore(),
             made: levelRun.moves,
             best: levelRun.spec.par ?? null,
             // How many dice are left is not told: a board to be cleared has no line of its goal.

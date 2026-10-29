@@ -17,7 +17,7 @@ import { praiseWord } from './praise';
 import { paintStar, paintStarGhost, starRow } from './star';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
 import { COMMANDS, HUD, READS, digits, goalLabel, goalProgress } from './text';
-import { EDGE, clockHour, mixHex, paletteAt, sayColors, type Palette } from './theme';
+import { clockHour, mixHex, paletteAt, sayColors, type Palette } from './theme';
 import { Voice } from './voice';
 
 /** Seconds as the clock of a live session reads them, `MM:SS`; null where there is no clock. */
@@ -42,15 +42,13 @@ export interface HudSession {
 }
 
 /**
- * The readings of a level: the score of the levels, large; the moves made on this try and the
- * fewest the board is cleared in, small; and a line for whatever its goal counts.
+ * The readings of a level: its number, the moves made on this try, the fewest the board is
+ * cleared in, and a line for whatever its goal counts. A level shows no score.
  */
 export interface HudLevel {
   kind: 'level';
   /** Its place in the list of the levels; null on a level that is not in the list and has no number. */
   number: number | null;
-  /** The score of the levels: the stars the player holds, in points. */
-  score: number;
   /** Moves made. */
   made: number;
   /** The fewest moves the board is cleared in; null where they are not known. */
@@ -462,8 +460,6 @@ export class GameHud {
   private scoreAt: Point = { x: 0, y: 0 };
   /** The stars of the pass just made: where they stand in pixels of the picture, since when, and how many of the new ones have reached the score. */
   private passed: (HudAward & { born: number; landed: number; lit: number }) | null = null;
-  /** Nothing has been shown since the last start: the score of the levels is there at once, and does not run up from nothing. */
-  private fresh = true;
   /**
    * The swipe sign of the picture as it was last drawn whole, where the sign can be drawn alone:
    * how it is laid out, the part of the picture it can light (`room`), and what was in that part
@@ -506,7 +502,8 @@ export class GameHud {
   /** A level is passed: its stars stand over the board, and the new ones fly to the score. */
   award(award: HudAward): void {
     const zoom = this.kit.zoom;
-    this.passed = { ...award, at: { x: award.at.x / zoom, y: award.at.y / zoom }, born: this.lastTime, landed: 0, lit: 0 };
+    // A level has no score for the new stars to fly to: all of them go out where they stood.
+    this.passed = { ...award, fresh: 0, at: { x: award.at.x / zoom, y: award.at.y / zoom }, born: this.lastTime, landed: 0, lit: 0 };
   }
 
   /** A new session: nothing of the last one is left flashing. */
@@ -515,7 +512,6 @@ export class GameHud {
     this.hit = { at: -Infinity, value: 0, tier: 0 };
     this.shown = 0;
     // The stars of a pass are not put away: the board after it is put on under them.
-    this.fresh = true;
     this.lastLevel = 1;
     this.lastStage = 0;
     this.levelFlash = 0;
@@ -602,12 +598,11 @@ export class GameHud {
     if (view.header.kind === 'session') {
       if (layout.wide) this.drawSessionWide(view.header, layout, timeMs, blink, program, decay);
       else this.drawSession(view.header, layout, timeMs, blink, program, decay);
-    } else if (layout.wide) {
-      this.drawLevelWide(view.header, layout, timeMs);
     } else {
-      this.drawLevel(view.header, layout, timeMs);
+      this.drawLevel(view.header, layout);
     }
-    this.drawPause(layout);
+    // The pause of a level is drawn with its other buttons, over the swipe sign.
+    if (view.header.kind === 'session') this.drawPause(layout);
     // The readings slip: what is drawn so far is theirs, the rest of the picture stays whole.
     if (decay.tears.length > 0) kit.tear(decay.tears, 0, layout.wide ? layout.column : kit.width);
     const stage = this.toPicture(view.stage);
@@ -633,11 +628,13 @@ export class GameHud {
       const plan = this.signPlan(sign, { x: left, y: top, w: kit.width - safe.right - left, h: kit.height - safe.bottom - top });
       // What is drawn after the sign lies over it: a sign that reaches a button is not drawn alone.
       const room = signBounds(plan);
-      const covered = tools !== null && boxesMeet(room, tools);
+      const buttons = [tools, layout.pause, layout.restart, layout.sound].filter((box): box is Box => box !== null);
+      const covered = buttons.some((box) => boxesMeet(room, box));
       if (!still && !covered) this.signKept = { plan, room, under: kit.grab(room) };
       paintSign(kit, plan, this.signLook(), timeMs, still);
     }
     this.signTurned = this.signTurnAt(sign, timeMs, still);
+    if (view.header.kind === 'level') this.drawPause(layout);
     if (view.tools) this.drawRestart(layout);
     if (view.tools) this.drawSound(layout, view.tools.muted);
     if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, layout.left);
@@ -682,32 +679,15 @@ export class GameHud {
       this.lastStage = header.stage;
     } else if (header.kind === 'level') {
       this.flyers = [];
-      // The points of a star that is still on its way are not in the score yet.
+      // A level has no score: the stars of a pass light up over the board and go out there.
       const { passed } = this;
-      let coming = 0;
       if (passed) {
         const age = timeMs - passed.born;
-        const leave = starsLeave();
         // A star is heard as it lights up; with motion kept low they all stand at once, and one is heard.
         const lit = view.reducedMotion ? passed.stars : clamp(Math.floor(age / STAR_STEP_MS) + 1, 0, passed.stars);
         for (; passed.lit < lit; passed.lit++) if (!view.reducedMotion || passed.lit === passed.stars - 1) this.actions.onStar?.(passed.lit);
-        const landed = view.reducedMotion ? passed.fresh : clamp(Math.floor((age - leave - STAR_FLY_MS) / STAR_FLY_STEP_MS) + 1, 0, passed.fresh);
-        for (; passed.landed < landed; passed.landed++) {
-          this.hit = { at: timeMs, value: passed.value, tier: 1 };
-          this.actions.onPoints?.(passed.points, 1);
-        }
-        coming = (passed.fresh - passed.landed) * passed.points;
-        const last = leave + Math.max(LABEL_OUT_MS, passed.fresh > 0 ? (passed.fresh - 1) * STAR_FLY_STEP_MS + STAR_FLY_MS : 0);
-        if (age >= last) this.passed = null;
+        if (age >= starsLeave() + LABEL_OUT_MS) this.passed = null;
       }
-      const due = header.score - coming;
-      const gap = due - this.shown;
-      if (this.fresh || view.reducedMotion || gap < 0) this.shown = due;
-      else if (gap > 0) {
-        this.shown += Math.max(1, Math.ceil(gap * 0.2));
-        this.actions.onCount?.();
-      }
-      this.fresh = false;
     } else {
       this.shown = 0;
       this.flyers = [];
@@ -970,24 +950,6 @@ export class GameHud {
   }
 
   /**
-   * The two small readings of a level, one under the other, their numbers ending at `right`: the
-   * moves made on this try, and the fewest the board is cleared in. `left` puts the names at the
-   * left edge of a column; without it they stand close before the numbers.
-   */
-  private levelReads(level: HudLevel, right: number, rows: readonly [number, number], left?: number): void {
-    const { kit } = this;
-    const { dim, faint } = kit.palette;
-    const names = right - kit.measure('000') - CELL_W;
-    const name = (text: string, y: number): void => void kit.text(text, left ?? names - kit.measure(text), y, dim);
-    // Under the buttons and quieter than the score: names and numbers in the one dim tone.
-    name(READS.current, rows[0]);
-    kit.text(digits(level.made, 3), right, rows[0], dim, { align: 'right' });
-    name(READS.best, rows[1]);
-    if (level.best === null) kit.text('--', right, rows[1], faint, { align: 'right' });
-    else kit.text(digits(level.best, 3), right, rows[1], dim, { align: 'right' });
-  }
-
-  /**
    * The stars of a pass over the board: three, lit one after another, each with a burst of its
    * light; then the new ones fly to the score and the rest go out. A star that is held gives
    * light and breathes; one that is not is its outline, dull and smeared (`star.ts`).
@@ -1064,41 +1026,26 @@ export class GameHud {
     }
   }
 
-  /** How wide a line of the goal stands where its name is close before its count. */
-  private goalWidth(line: GoalLine): number {
+  /**
+   * The readings of a level, the same on a tall picture and a wide one: `LEVEL`, `CURRENT` and
+   * `PAR` one under the other in the top left corner, the names at the left edge and the numbers
+   * ending in one column, and a line of its goal under them where it has one. No score.
+   */
+  private drawLevel(level: HudLevel, layout: HudLayout): void {
     const { kit } = this;
-    return kit.measure(goalProgress(line)) + 4 + (line.what === 'face' ? 12 : kit.measure(goalLabel(line)));
-  }
-
-  /** The readings of a level as a column: the score, the number of the level, its two small readings, and a line of its goal where it has one. */
-  private drawLevelWide(level: HudLevel, layout: HudLayout, timeMs: number): void {
-    const { kit } = this;
-    const { ink, dim } = kit.palette;
-    const { left, right, lines } = layout;
-    kit.text(HUD.score, left, lines.label, dim);
-    this.score(left, lines.big, timeMs, WHOLE);
-    if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, left, lines.tag, ink);
-    this.levelReads(level, right, layout.moves, left);
+    const { ink, dim, faint } = kit.palette;
+    const { left, moves } = layout;
+    const names = [READS.level, READS.current, READS.best];
+    const right = left + Math.max(...names.map((name) => kit.measure(name))) + CELL_W + kit.measure('000');
+    kit.text(READS.level, left, layout.tag.y, dim);
+    if (level.number === null) kit.text('---', right, layout.tag.y, faint, { align: 'right' });
+    else kit.text(digits(level.number, 3), right, layout.tag.y, ink, { align: 'right' });
+    kit.text(READS.current, left, moves[0], dim);
+    kit.text(digits(level.made, 3), right, moves[0], ink, { align: 'right' });
+    kit.text(READS.best, left, moves[1], dim);
+    if (level.best === null) kit.text('---', right, moves[1], faint, { align: 'right' });
+    else kit.text(digits(level.best, 3), right, moves[1], ink, { align: 'right' });
     if (level.goal.length > 0) this.goalLine(level.goal[0], right, layout.goal, left);
-  }
-
-  private drawLevel(level: HudLevel, layout: HudLayout, timeMs: number): void {
-    const { kit } = this;
-    const { ink, dim } = kit.palette;
-    const { left, mid, end, rowA, rowB, big } = layout;
-    kit.text(HUD.score, left, rowA, dim);
-    this.score(left, big, timeMs, WHOLE);
-    if (level.number !== null) kit.text(`${HUD.level} ${digits(level.number, 2)}`, layout.tag.x, layout.tag.y, ink);
-    // A line of the goal, where there is one, stands before the buttons, under the number of the level; the two small readings under the buttons, one under the other.
-    if (level.goal.length > 0) {
-      const line = level.goal[0];
-      // A line too long for the room between the large number and the buttons would run into
-      // the number: it stands under the number instead, its name at the left edge and its count
-      // where the number ends, as a line of the goal does in the column of a wide picture.
-      if (layout.goal === rowB && end - this.goalWidth(line) < mid - CELL_W / 2) this.goalLine(line, mid - EDGE, layout.moves[1], left);
-      else this.goalLine(line, end, layout.goal);
-    }
-    this.levelReads(level, layout.right, layout.moves);
   }
 
   private drawPause(layout: HudLayout): void {
