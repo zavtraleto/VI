@@ -187,7 +187,7 @@ describe('the log of sessions', () => {
   it('shows the lines by name, with their places and the line of the one who plays', () => {
     const spec = recordsPanel(table, { onBack: nothing });
     const log = row(spec, 'table');
-    expect(log.head()).toBe('名前');
+    expect(log.head()).toBe('なまえ');
     expect(log.status?.()).toBe('');
     const rows = log.rows();
     expect(rows.slice(0, 2)).toEqual([
@@ -206,12 +206,12 @@ describe('the log of sessions', () => {
     const spec = recordsPanel(table, { onBack: nothing });
     const log = row(spec, 'table');
     shown = { lines: [], link: 'waiting' };
-    expect(log.head()).toBe('名前');
+    expect(log.head()).toBe('なまえ');
     expect(log.rows()).toEqual([]);
-    expect(log.empty()).toBe('記録なし NO ENTRY');
-    expect(log.status?.()).toBe('接続中');
+    expect(log.empty()).toBe('きろくなし NO ENTRY');
+    expect(log.status?.()).toBe('せつぞくちゅう');
     shown = { ...shown, link: 'failed' };
-    expect(log.status?.()).toBe('接続なし');
+    expect(log.status?.()).toBe('せつぞくなし');
     // The head and what the platform has to say of itself fit the panel of a phone side by side.
     expect(textWidth(`No. ${log.head()} ${log.status?.()}`)).toBeLessThanOrEqual(248);
   });
@@ -225,7 +225,7 @@ describe('the log of sessions', () => {
 
   it('has the sharing under the way back: it sends the best of the player, and reads what came of it', () => {
     let sent = 0;
-    let label = { native: '共有', name: 'SHARE' };
+    let label = { native: 'シェア', name: 'SHARE' };
     const spec = recordsPanel(table, { onBack: nothing, share: { label: () => label, action: () => sent++ } });
     expect(pressed(spec)).toEqual(['back', 'share']);
     const share = spec.rows[spec.rows.length - 1];
@@ -235,9 +235,9 @@ describe('the log of sessions', () => {
     expect(share.instant).toBe(true);
     share.action();
     expect(sent).toBe(1);
-    label = { native: '複写済', name: 'COPIED' };
+    label = { native: 'コピーずみ', name: 'COPIED' };
     expect(share.label.name).toBe('COPIED');
-    expect(share.label.native).toBe('複写済');
+    expect(share.label.native).toBe('コピーずみ');
   });
 });
 

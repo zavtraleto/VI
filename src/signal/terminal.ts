@@ -27,8 +27,8 @@ const LINK_STEPS = 7;
 const STALE: readonly string[] = [
   'LINK DEVICE ... NOT FOUND',
   'EMULATION MODE',
-  '被験者 07 UNREGISTERED',
-  '前回起動 H13.03.21',
+  'ひけんしゃ 07 UNREGISTERED',
+  'ぜんかいきどう H13.03.21',
   'RECEIVED',
   '15:10 NOISE 0%',
 ];
@@ -46,12 +46,12 @@ export function terminalLines(random: () => number, reading: SessionReading, tim
   const stamp = `${two(time.h)}:${two(time.m)}:${two(time.s)}`;
   const link = Math.round(Math.min(1, Math.max(0, reading.contact)) * LINK_STEPS);
   const noise = Math.round(Math.min(1, Math.max(0, reading.noise)) * 100);
-  const lines = [`${stamp} 接続 ${link}/${LINK_STEPS}`, `${stamp} NOISE ${noise}%`];
-  if (reading.channel > 0) lines.push(`${stamp} CH${reading.channel} 開始`);
+  const lines = [`${stamp} せつぞく ${link}/${LINK_STEPS}`, `${stamp} NOISE ${noise}%`];
+  if (reading.channel > 0) lines.push(`${stamp} CH${reading.channel} かいし`);
   // What is in the buffer: the readings again, as the bytes the program keeps them in.
   const address = 0x700 + Math.floor(random() * 0x80) * 8;
   lines.push(`${hex(address, 4)}  07 ${hex(link, 2)} ${hex(noise, 2)} ${hex(reading.channel, 2)} ${hex(random() * 256, 2)} ${hex(random() * 256, 2)}`);
-  if (pattern) lines.push(`${stamp} PATTERN DETECTED`, `${stamp} 記録中`);
+  if (pattern) lines.push(`${stamp} PATTERN DETECTED`, `${stamp} きろくちゅう`);
   else if (random() < 0.5) lines.push(STALE[Math.min(STALE.length - 1, Math.floor(random() * STALE.length))]);
   return lines;
 }

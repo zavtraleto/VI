@@ -5,7 +5,7 @@ import './fonts/cyr.css';
 import { PROGRAM_FONT } from './theme';
 
 /** A sign of every script the program writes in: each script is a file of its own, fetched only when asked for. */
-const SAMPLE = 'VI 07 Жя 記録 プロトコル';
+const SAMPLE = 'VI 07 Жя きろく プロトコル';
 /** A font that has not come by then is not waited for: the screen is drawn with what there is. */
 const PATIENCE_MS = 3000;
 

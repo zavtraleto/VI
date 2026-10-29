@@ -22,7 +22,7 @@ export const BOOT_CHECK: readonly (readonly [label: string, value: string])[] = 
 ];
 
 /** The heading of the check: "starting up". */
-export const BOOT_HEAD = '起動中';
+export const BOOT_HEAD = 'きどうちゅう';
 /** The line after the check, and the one line of every later start. */
 export const BOOT_TAIL = 'EMULATION MODE AVAILABLE';
 export const BOOT_SHORT = 'EMULATION MODE';
@@ -30,22 +30,22 @@ export const BOOT_SHORT = 'EMULATION MODE';
 /** The record of the one who sits at the program: the seventh, whom it does not know. */
 export const SUBJECT = {
   /** "Subject file". */
-  title: '被験者ファイル',
+  title: 'ひけんしゃファイル',
   number: 'No.07',
   fields: [
     /** "Subject". */
-    ['被験者', '07'],
+    ['ひけんしゃ', '07'],
     /** "Registration". */
-    ['登録', 'UNREGISTERED'],
+    ['とうろく', 'UNREGISTERED'],
     /** "Connection". */
-    ['接続', 'NONE'],
+    ['せつぞく', 'NONE'],
     /** "Previous start", by the era: Heisei 13 is 2001. */
-    ['前回起動', 'H13.03.21'],
+    ['ぜんかいきどう', 'H13.03.21'],
   ],
 } as const;
 
 /** Over the six dice: "Fig. 1, development" — the net of a die. */
-export const SPACE_CAPTION = '図1 展開図';
+export const SPACE_CAPTION = 'ず1 てんかいず';
 
 /**
  * What the bar of a file of the menu says it does (the owner, 28 October 2026: «"выполнить" это
@@ -53,20 +53,20 @@ export const SPACE_CAPTION = '図1 展開図';
  * is read, any other is opened.
  */
 export const EXEC = {
-  play: { native: '開始', name: 'PLAY' },
-  read: { native: '読む', name: 'READ' },
-  open: { native: '開く', name: 'OPEN' },
+  play: { native: 'はじめる', name: 'PLAY' },
+  read: { native: 'よむ', name: 'READ' },
+  open: { native: 'ひらく', name: 'OPEN' },
 } as const;
 
 export const STATUS = {
   channels: 'CH',
   mode: 'EMULATION',
   /** "Sessions". */
-  sessions: '回数',
+  sessions: 'かいすう',
 } as const;
 
-/** The keys, on a screen that has them: "move", "run". */
-export const LEGEND = '←↑↓→ 移動   ENTER 実行';
+/** The keys, on a screen that has them: "move", "decide". */
+export const LEGEND = '←↑↓→ いどう   ENTER けってい';
 
 /** What a file of the menu shows under its name. */
 export type FileField = 'bestEndless' | 'levels' | 'rules' | 'readme' | 'sessions' | 'revision';
@@ -95,18 +95,18 @@ export interface MenuFile {
  * from the program since 15 October 2026.
  */
 export const MENU_FILES: readonly MenuFile[] = [
-  /** "Stages": the levels of the game; "completed". */
-  { id: 'levels', face: 1, name: 'LEVELS', native: '段階', line: 'shellLevels', exec: EXEC.play, field: ['完了', 'levels'] },
-  /** "Protocol"; "best record". */
-  { id: 'protocol', face: 2, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', exec: EXEC.play, field: ['最高記録', 'bestEndless'] },
-  /** "Procedure": how the game is played, on the pieces of the road; "completed": the pieces passed, as the levels are counted. */
-  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: '手順', line: 'shellHowTo', exec: EXEC.read, field: ['規則', 'rules'] },
+  /** "Level": the levels of the game; "clear". */
+  { id: 'levels', face: 1, name: 'LEVELS', native: 'レベル', line: 'shellLevels', exec: EXEC.play, field: ['クリア', 'levels'] },
+  /** "Protocol"; "high score". */
+  { id: 'protocol', face: 2, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', exec: EXEC.play, field: ['ハイスコア', 'bestEndless'] },
+  /** "Explanation": how the game is played, on the pieces of the road; "rules". */
+  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: 'せつめい', line: 'shellHowTo', exec: EXEC.read, field: ['ルール', 'rules'] },
   /** "To begin with": the note that came with the program; "last": the day it was last written to. */
-  { id: 'readme', face: 4, name: 'README', native: 'はじめに', line: 'shellReadme', exec: EXEC.read, field: ['最終', 'readme'] },
+  { id: 'readme', face: 4, name: 'README', native: 'はじめに', line: 'shellReadme', exec: EXEC.read, field: ['さいしゅう', 'readme'] },
   /** "Records"; "number of entries". */
-  { id: 'records', face: 5, name: 'RECORDS', native: '記録', line: 'shellRecords', exec: EXEC.open, field: ['件数', 'sessions'] },
+  { id: 'records', face: 5, name: 'RECORDS', native: 'きろく', line: 'shellRecords', exec: EXEC.open, field: ['けんすう', 'sessions'] },
   /** "Settings"; "revision". */
-  { id: 'system', face: 6, name: 'SYSTEM', native: '設定', line: 'shellSystem', exec: EXEC.open, field: ['改訂', 'revision'] },
+  { id: 'system', face: 6, name: 'SYSTEM', native: 'せってい', line: 'shellSystem', exec: EXEC.open, field: ['かいてい', 'revision'] },
 ];
 
 /** The day the note that came with the program was last written to, by the era: the day before the last start. */
@@ -136,19 +136,19 @@ export function shortScore(score: number): string {
 /** What the session shows while it runs: the names of its readings. */
 export const HUD = {
   /** "Score". */
-  score: '得点',
-  /** "Highest". */
-  best: '最高',
+  score: 'スコア',
+  /** "Best". */
+  best: 'ベスト',
   level: 'LV',
   /** "Connection": the steps the contact has taken, and the dice sent at which the next one comes. */
-  link: '接続',
+  link: 'せつぞく',
   /** "Detected": what the link reads once the program has found a pattern on it. */
-  found: '検出',
+  found: 'けんしゅつ',
   /** "Full": every cell holds a die, and the seconds left to free one. */
-  full: '満杯',
+  full: 'まんぱい',
   /** "Take back", "again": what can be pressed over the board. */
-  undo: '取消',
-  retry: '再試',
+  undo: 'とりけし',
+  retry: 'やりなおし',
 } as const;
 
 /** The two small readings of a level: the moves made on this try, and the fewest the board is cleared in. */
@@ -195,86 +195,86 @@ export interface PanelName {
 
 export const PANELS = {
   /** "Pause". */
-  pause: { native: '一時停止', name: 'PAUSE' },
+  pause: { native: 'ポーズ', name: 'PAUSE' },
   /** "Result". */
-  result: { native: '結果', name: 'RESULT' },
+  result: { native: 'けっか', name: 'RESULT' },
   /** "Records". */
-  records: { native: '記録', name: 'RECORDS' },
+  records: { native: 'きろく', name: 'RECORDS' },
   /** "Settings". */
-  system: { native: '設定', name: 'SYSTEM' },
+  system: { native: 'せってい', name: 'SYSTEM' },
   /** "Rules". */
-  rules: { native: '規則', name: 'RULES' },
-  /** "Procedure": how the game is played. */
-  howto: { native: '手順', name: 'HOW TO PLAY' },
+  rules: { native: 'ルール', name: 'RULES' },
+  /** "Explanation": how the game is played. */
+  howto: { native: 'せつめい', name: 'HOW TO PLAY' },
   /** "To begin with": the note that came with the program. */
   readme: { native: 'はじめに', name: 'README' },
-  /** "Completed". */
-  cleared: { native: '完了', name: 'CLEARED' },
-  /** "Stages": the levels of the game. */
-  levels: { native: '段階', name: 'LEVELS' },
+  /** "Clear". */
+  cleared: { native: 'クリア', name: 'CLEARED' },
+  /** "Level": the levels of the game. */
+  levels: { native: 'レベル', name: 'LEVELS' },
   /** "Language". */
-  language: { native: '言語', name: 'LANGUAGE' },
+  language: { native: 'ことば', name: 'LANGUAGE' },
   /** "Failure": a level has come to a dead end, or its moves are spent with its goal not met. */
-  failed: { native: '失敗', name: 'FAILED' },
+  failed: { native: 'しっぱい', name: 'FAILED' },
   /** "New record": what a result is named once the session has taken its place above the best there was. */
-  record: { native: '新記録', name: 'NEW RECORD' },
+  record: { native: 'しんきろく', name: 'NEW RECORD' },
 } as const satisfies Record<string, PanelName>;
 
 /** What a panel can be told to do. */
 export const COMMANDS = {
   /** "Resume". */
-  resume: { native: '再開', name: 'RESUME' },
+  resume: { native: 'つづける', name: 'RESUME' },
   /** "Try again". */
-  restart: { native: '再試行', name: 'RESTART' },
-  again: { native: '再試行', name: 'AGAIN' },
-  records: { native: '記録', name: 'RECORDS' },
-  system: { native: '設定', name: 'SYSTEM' },
-  /** "End". */
-  menu: { native: '終了', name: 'MENU' },
-  levels: { native: '段階', name: 'LEVELS' },
+  restart: { native: 'やりなおす', name: 'RESTART' },
+  again: { native: 'もういちど', name: 'AGAIN' },
+  records: { native: 'きろく', name: 'RECORDS' },
+  system: { native: 'せってい', name: 'SYSTEM' },
+  /** "Menu". */
+  menu: { native: 'メニュー', name: 'MENU' },
+  levels: { native: 'レベル', name: 'LEVELS' },
   /** "Back". */
-  back: { native: '戻る', name: 'BACK' },
+  back: { native: 'もどる', name: 'BACK' },
   /** "To the next". */
-  next: { native: '次へ', name: 'NEXT' },
+  next: { native: 'つぎへ', name: 'NEXT' },
   /** "Exit". */
-  exit: { native: '終了', name: 'EXIT' },
+  exit: { native: 'おわる', name: 'EXIT' },
   /** "Start". */
-  start: { native: '開始', name: 'START' },
-  /** "Leave out": the long boot of the first start, passed. */
-  skip: { native: '省略', name: 'SKIP' },
+  start: { native: 'はじめる', name: 'START' },
+  /** "Skip": the long boot of the first start, passed. */
+  skip: { native: 'スキップ', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
-  undo: { native: '取消', name: 'UNDO' },
+  undo: { native: 'とりけし', name: 'UNDO' },
   /** The move taken back that brings an advertisement of the platform after it says so. */
-  undoAd: { native: '取消', name: 'UNDO · AD' },
+  undoAd: { native: 'とりけし', name: 'UNDO · AD' },
   /** "Registration": the platform gives the player a name. */
-  register: { native: '登録', name: 'REGISTER' },
+  register: { native: 'とうろく', name: 'REGISTER' },
   /** "Sharing": the player's result goes out with a link to the game. What it answers: "copied", "sent", "failure". */
-  share: { native: '共有', name: 'SHARE' },
-  copied: { native: '複写済', name: 'COPIED' },
-  sent: { native: '送信済', name: 'SENT' },
-  failed: { native: '失敗', name: 'FAILED' },
+  share: { native: 'シェア', name: 'SHARE' },
+  copied: { native: 'コピーずみ', name: 'COPIED' },
+  sent: { native: 'そうしんずみ', name: 'SENT' },
+  failed: { native: 'しっぱい', name: 'FAILED' },
   /**
    * "Route": the way of a board shown by the swipe sign, for an advertisement of the platform; and
    * "doubling": the score of a live session doubled for one. `AD` says beforehand that one comes
    * (docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md).
    */
-  showWay: { native: '順路', name: 'SHOW WAY · AD' },
-  double: { native: '倍増', name: 'DOUBLE · AD' },
+  showWay: { native: 'ルート', name: 'SHOW WAY · AD' },
+  double: { native: 'ダブル', name: 'DOUBLE · AD' },
 } as const satisfies Record<string, PanelName>;
 
 /** The readings of a result. */
 export const RESULT = {
-  score: { native: '得点', name: 'SCORE' },
-  best: { native: '最高', name: 'BEST' },
+  score: { native: 'スコア', name: 'SCORE' },
+  best: { native: 'ベスト', name: 'BEST' },
   /** "Chain". */
-  chain: { native: '連鎖', name: 'MAX CHAIN' },
+  chain: { native: 'れんさ', name: 'MAX CHAIN' },
   /** "Time". */
-  time: { native: '時間', name: 'TIME' },
-  moves: { native: '手数', name: 'MOVES' },
-  /** "Remaining": the moves a passed level had left. */
-  left: { native: '残り', name: 'MOVES LEFT' },
+  time: { native: 'タイム', name: 'TIME' },
+  moves: { native: 'てかず', name: 'MOVES' },
+  /** "Still": the moves a passed level had left. */
+  left: { native: 'あと', name: 'MOVES LEFT' },
   /** "Rank": the place the session took in the log. */
-  rank: { native: '順位', name: 'RANK' },
+  rank: { native: 'ランク', name: 'RANK' },
 } as const satisfies Record<string, PanelName>;
 
 /** The log of sessions: its name and the heads of its columns. */
@@ -282,13 +282,13 @@ export const RECORDS = {
   /** The log is of the one session there is, and goes under its name: the file of the menu that plays it. */
   title: { native: 'プロトコル', name: 'PROTOCOL' },
   /** "No entries". */
-  empty: { native: '記録なし', name: 'NO ENTRY' },
+  empty: { native: 'きろくなし', name: 'NO ENTRY' },
   /** "Name": the head of the column of whose session a line is. */
-  name: '名前',
+  name: 'なまえ',
   /** "Connecting": the players of the platform are on their way. */
-  waiting: '接続中',
+  waiting: 'せつぞくちゅう',
   /** "No connection": they did not come. */
-  failed: '接続なし',
+  failed: 'せつぞくなし',
   /** A player the platform has no name for. */
   nameless: 'NO NAME',
   /** The line of the one who plays, where no platform has a name for them. */
@@ -298,15 +298,15 @@ export const RECORDS = {
 /** What the program lets the player set, and the values it shows. */
 export const SYSTEM = {
   /** "Sound". */
-  sound: { native: '音声', name: 'SOUND' },
+  sound: { native: 'サウンド', name: 'SOUND' },
   /** "Motion". */
-  motion: { native: '動作', name: 'MOTION' },
+  motion: { native: 'うごき', name: 'MOTION' },
   /** "Shake". */
-  shake: { native: '振動', name: 'SHAKE' },
+  shake: { native: 'ゆれ', name: 'SHAKE' },
   /** "Camera": follows the player where the whole board would be small, or stays on the whole board. */
   view: { native: 'カメラ', name: 'CAMERA' },
   /** "Language": the one the voice speaks to the player in. The program keeps its own. */
-  language: { native: '言語', name: 'LANGUAGE' },
+  language: { native: 'ことば', name: 'LANGUAGE' },
   on: 'ON',
   off: 'OFF',
   full: 'FULL',
@@ -320,11 +320,11 @@ export const SYSTEM = {
  * so that it is found by one who does not read the language that is set.
  */
 export const LANGUAGE_NAMES = {
-  en: { native: '英語', name: 'ENGLISH' },
-  ru: { native: 'ロシア語', name: 'РУССКИЙ' },
-  es: { native: 'スペイン語', name: 'ESPAÑOL' },
-  pt: { native: 'ポルトガル語', name: 'PORTUGUÊS' },
-  tr: { native: 'トルコ語', name: 'TÜRKÇE' },
-  de: { native: 'ドイツ語', name: 'DEUTSCH' },
-  fr: { native: 'フランス語', name: 'FRANÇAIS' },
+  en: { native: 'えいご', name: 'ENGLISH' },
+  ru: { native: 'ロシアご', name: 'РУССКИЙ' },
+  es: { native: 'スペインご', name: 'ESPAÑOL' },
+  pt: { native: 'ポルトガルご', name: 'PORTUGUÊS' },
+  tr: { native: 'トルコご', name: 'TÜRKÇE' },
+  de: { native: 'ドイツご', name: 'DEUTSCH' },
+  fr: { native: 'フランスご', name: 'FRANÇAIS' },
 } as const satisfies Record<LanguageCode, PanelName>;

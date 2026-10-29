@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import KANJI from '../shell/fonts/kanji.txt?raw';
 import { seededRandom } from './scene';
 import { terminalLines } from './terminal';
 
@@ -8,7 +7,7 @@ const TIME = { h: 9, m: 5, s: 7 };
 describe('terminalLines', () => {
   it('logs the readings of the moment: the link, the noise and the open channel', () => {
     const lines = terminalLines(seededRandom(2), { contact: 3 / 7, noise: 0.62, channel: 3 }, TIME, false);
-    expect(lines[0]).toBe('09:05:07 \u63a5\u7d9a 3/7');
+    expect(lines[0]).toBe('09:05:07 \u305b\u3064\u305e\u304f 3/7');
     expect(lines[1]).toBe('09:05:07 NOISE 62%');
     expect(lines[2]).toMatch(/^09:05:07 CH3 /);
     // The same readings again as bytes: the seventh, the link, the noise, the channel.
@@ -40,14 +39,13 @@ describe('terminalLines', () => {
     }
   });
 
-  it('writes only signs the font of the program has', () => {
+  it('writes no kanji: the Japanese of the program is kana', () => {
     const seen = new Set<string>();
     for (let seed = 1; seed < 200; seed++) {
       for (const line of terminalLines(seededRandom(seed), { contact: 0.4, noise: 0.5, channel: 2 }, TIME, seed % 3 === 0)) {
         for (const sign of line) if (sign >= '\u3400' && sign <= '\u9fff') seen.add(sign);
       }
     }
-    expect(seen.size).toBeGreaterThan(0);
-    for (const sign of seen) expect(KANJI.includes(sign), sign).toBe(true);
+    expect([...seen]).toEqual([]);
   });
 });
