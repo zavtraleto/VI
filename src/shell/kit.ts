@@ -1,6 +1,7 @@
 import type { CanvasLayer } from '../display/layer';
 import type { Rect, Size } from '../display/sizing';
 import type { ParamValues } from '../signal/scene';
+import type { Icon } from './icons';
 import { CELL_H, CELL_W, textWidth, type Box, type Point } from './layout';
 import { textDots } from './pixelText';
 import { BAR_H, EDGE, MARK, type Palette } from './theme';
@@ -174,6 +175,22 @@ export class Kit {
 
   box(box: Box, color: string): void {
     this.rect(box.x, box.y, box.w, box.h, color);
+  }
+
+  /** A picture of the buttons (`icons.ts`), one dot of the picture a dot, its top left at `x, y`. */
+  icon(icon: Icon, x: number, y: number, color: string): void {
+    const left = Math.round(x);
+    const top = Math.round(y);
+    const { ctx } = this.layer;
+    ctx.fillStyle = color;
+    icon.forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) if (row[c] === '#') ctx.fillRect(left + c, top + r, 1, 1);
+    });
+  }
+
+  /** A picture in the middle of a box, on whole dots. */
+  iconIn(icon: Icon, box: Box, color: string): void {
+    this.icon(icon, box.x + Math.floor((box.w - icon[0].length) / 2), box.y + Math.floor((box.h - icon.length) / 2), color);
   }
 
   /** Every other dot of a rectangle, as a chessboard: the half-tone of a screen with one colour. */

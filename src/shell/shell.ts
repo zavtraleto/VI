@@ -2,6 +2,7 @@ import type { Display } from '../display/display';
 import type { CanvasLayer, Layer } from '../display/layer';
 import { prefersReducedMotion, type Settings } from '../platform/settings';
 import { signalLook, type ParamValues } from '../signal/scene';
+import { fitCursor } from './cursor';
 import { loadShellFonts } from './fonts';
 import { ShellInput } from './input';
 import { Kit } from './kit';
@@ -211,6 +212,7 @@ export class Shell {
     // The window may have changed since the last frame: the layer says so through `onResize`.
     this.display.sync();
     this.followClock();
+    fitCursor(this.kit.zoom, this.values);
 
     if (!this.fontsReady) {
       // Nothing is written with a stand-in font: the screen waits in the dark.

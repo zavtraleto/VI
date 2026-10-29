@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, undoButton, restartDot, turned, type FloorAxes } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, undoButton, turned, type FloorAxes } from './hudLayout';
+import { ICON_MUTE_CROSS, ICON_MUTE_SPEAKER, ICON_PAUSE, ICON_RESTART, ICON_SOUND, ICON_UNDO } from './icons';
 import { CELL_W, MIN_ZONE, type Box } from './layout';
 import { BUTTON_H } from './theme';
 
@@ -391,22 +392,37 @@ describe('the button that takes a move back', () => {
   const stage = { x: 0, y: 60, w: 180, h: 235 };
 
   it('stands in the bottom left corner of the stage, as tall as a finger needs', () => {
-    const { box, tall, dot } = undoButton(stage, 2, 32, 2);
+    const { box, tall } = undoButton(stage, 2, 11, 32, 2);
     expect(box.x).toBe(2);
     expect(box.y + box.h).toBe(stage.y + stage.h - 6);
     expect(tall * 2).toBeGreaterThanOrEqual(MIN_ZONE);
-    expect(box.w).toBeGreaterThanOrEqual(6 + 9 * dot + 6 + 32 + 6);
+    expect(box.w).toBeGreaterThanOrEqual(6 + 11 + 6 + 32 + 6);
     // On a wide picture it is under the column of the readings, not at the left of the board.
-    const wide = undoButton({ x: 120, y: 0, w: 520, h: 360 }, 2, 80, 2).box;
+    const wide = undoButton({ x: 120, y: 0, w: 520, h: 360 }, 2, 11, 80, 2).box;
     expect(wide.x).toBe(2);
     expect(wide.y + wide.h).toBe(360 - 6);
   });
+});
 
-  it('has a picture on the button that starts over that leaves 3 of it around', () => {
-    // A button a button tall has its picture of nine dots at two to the dot: 18 of its 24.
-    expect(restartDot(BUTTON_H)).toBe(2);
-    expect(restartDot(20)).toBe(1);
-    expect(restartDot(36)).toBe(3);
+describe('the pictures of the buttons', () => {
+  const ALL = { ICON_UNDO, ICON_RESTART, ICON_PAUSE, ICON_SOUND, ICON_MUTE_SPEAKER, ICON_MUTE_CROSS };
+
+  it('are rows of one width, lit only with #', () => {
+    for (const [name, icon] of Object.entries(ALL)) {
+      for (const row of icon) {
+        expect(row.length, name).toBe(icon[0].length);
+        expect(row, name).toMatch(/^[.#]+$/);
+      }
+    }
+  });
+
+  it('stand on the grid of the letters: the arrow beside its word is as tall as a capital, those on the square buttons half a button', () => {
+    expect(ICON_UNDO.length).toBe(10);
+    for (const icon of [ICON_RESTART, ICON_PAUSE, ICON_SOUND, ICON_MUTE_SPEAKER, ICON_MUTE_CROSS]) expect(icon.length).toBe(BUTTON_H / 2);
+    // The sound and the sound off take the same room, so the button does not change as it is pressed.
+    expect(ICON_MUTE_SPEAKER[0].length).toBe(ICON_SOUND[0].length);
+    expect(ICON_MUTE_CROSS[0].length).toBe(ICON_SOUND[0].length);
+    for (const icon of Object.values(ALL)) expect(icon[0].length).toBeLessThanOrEqual(BUTTON_H - 4);
   });
 });
 

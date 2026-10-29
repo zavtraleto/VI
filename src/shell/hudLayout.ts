@@ -341,24 +341,19 @@ export function signTurn(mode: 'dot' | 'key', timeMs: number, times: { runMs: nu
 
 /** Letters of the voice for a note over the board, in CSS pixels: the size of all prose (`theme.ts`). */
 export { NOTE_SIZE } from './theme';
-/** The picture on a button of a level is this many dots a side; what the button that takes a move back keeps around its picture and its word, and between them. */
-export const TOOL_ICON = 9;
-const TOOL_PAD = 6;
-const TOOL_GAP = 6;
+/** What the button that takes a move back keeps around its picture and its word, and between them. */
+export const TOOL_PAD = 6;
+export const TOOL_GAP = 6;
 
 /**
- * The button that takes a move back, in pixels of the picture: its picture and, right of it,
- * its word, `word` wide, with no frame around them, in the bottom left corner: at the bottom of
- * the stage, its left edge at `left`. `dot` is a dot of its picture; `box` is what a finger presses.
+ * The button that takes a move back, in pixels of the picture: its picture, `icon` dots wide,
+ * and right of it its word, `word` wide, with no frame around them, in the bottom left corner:
+ * at the bottom of the stage, its left edge at `left`. The picture is drawn a dot a dot, as the
+ * letters are, whatever the size of the zone; `box` is what a finger presses, and its line of
+ * text stands in the middle of it.
  */
-export function undoButton(stage: Box, zoom: number, word: number, left: number): { tall: number; dot: number; box: Box } {
+export function undoButton(stage: Box, zoom: number, icon: number, word: number, left: number): { tall: number; box: Box } {
   const tall = Math.max(CELL_H + 8, Math.ceil(MIN_ZONE / zoom));
-  const dot = Math.max(1, Math.floor((tall - 6) / TOOL_ICON));
-  const wide = Math.max(tall, TOOL_PAD + TOOL_ICON * dot + TOOL_GAP + word + TOOL_PAD);
-  return { tall, dot, box: { x: Math.round(left), y: Math.round(stage.y + stage.h - TOOL_PAD) - tall, w: wide, h: tall } };
-}
-
-/** How large a dot of the picture on a button of the readings is, for a button `side` on a side: as large as leaves 3 of the button around the picture, as on the button that takes a move back. */
-export function restartDot(side: number): number {
-  return Math.max(1, Math.floor((side - 6) / TOOL_ICON));
+  const wide = Math.max(tall, TOOL_PAD + icon + TOOL_GAP + word + TOOL_PAD);
+  return { tall, box: { x: Math.round(left), y: Math.round(stage.y + stage.h - TOOL_PAD) - tall, w: wide, h: tall } };
 }

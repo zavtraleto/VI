@@ -1,4 +1,5 @@
 import type { Rect } from '../display/sizing';
+import { pointCursor } from './cursor';
 import type { Dir4 } from './layout';
 import type { ShellItem } from './screen';
 
@@ -262,6 +263,6 @@ export class ShellInput {
   }
 
   private setCursor(pointer: boolean): void {
-    document.documentElement.style.cursor = pointer ? 'pointer' : '';
+    pointCursor('shell', pointer);
   }
 }

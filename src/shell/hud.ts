@@ -5,8 +5,10 @@ import type { BoardLook } from '../render/params';
 import { faceColour, pipColour } from '../render/textures';
 import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
+import { fitCursor, pointCursor } from './cursor';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hudLayout, undoButton, restartDot, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_ICON, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hudLayout, undoButton, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_GAP, TOOL_PAD, type FloorAxes, type HudLayout } from './hudLayout';
+import { CAPITAL_TOP, ICON_MUTE_CROSS, ICON_MUTE_SPEAKER, ICON_PAUSE, ICON_RESTART, ICON_SOUND, ICON_UNDO, iconWidth } from './icons';
 import { zoneAt } from './input';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, pictureSize, type Box, type Insets, type Point } from './layout';
@@ -265,19 +267,6 @@ const STAR_STEP_MS = 190;
 const STAR_HOLD_MS = 1300;
 const STAR_FLY_STEP_MS = 150;
 const STAR_FLY_MS = 460;
-/**
- * The two buttons of a level as pictures, nine dots by nine: the arrow that turns back takes
- * the last move back, the arrow that goes round starts the level over.
- */
-const ICON_UNDO = ['.........', '..#......', '.##......', '#######..', '.##....#.', '..#.....#', '........#', '.......#.', '..#####..'];
-/** The button of the sound: a loudspeaker and what comes out of it; with the sound off, the loudspeaker alone and a cross over it. */
-const ICON_SOUND = ['....#....', '...##..#.', '#####...#', '#####.#.#', '#####.#.#', '#####.#.#', '#####...#', '...##..#.', '....#....'];
-const ICON_MUTE = ['....#....', '...##....', '#####....', '#####....', '#####....', '#####....', '#####....', '...##....', '....#....'];
-const ICON_CROSS = ['#.......#', '.#.....#.', '..#...#..', '...#.#...', '....#....', '...#.#...', '..#...#..', '.#.....#.', '#.......#'];
-const ICON_RETRY = ['..####.#.', '.#....##.', '#....###.', '#........', '#.......#', '#.......#', '.#.....#.', '..#####..', '.........'];
-/** A bar of the pause, in dots: as wide as the gap between the two, and three times as tall. */
-const PAUSE_BAR = 4;
-const PAUSE_TALL = 12;
 /** How long a reading that has just changed keeps flashing, and a multiplier stays large, in milliseconds. */
 const FLASH_MS = 1200;
 const BUMP_MS = 220;
@@ -501,6 +490,10 @@ export class GameHud {
     window.addEventListener('pointerdown', (e) => this.onDown(e), true);
     window.addEventListener('pointerup', (e) => this.onUp(e), true);
     window.addEventListener('pointercancel', (e) => this.onCancel(e), true);
+    // The cursor of a mouse over a button of the readings is lit as over a button of the menu.
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse') pointCursor('hud', this.zoneAt(e) !== null);
+    });
   }
 
   /** The readings answer a beat: the points of a group stand over it, then fly to the score. */
@@ -543,6 +536,7 @@ export class GameHud {
       this.voice.clear();
       this.zones = [];
       this.drawn = '';
+      pointCursor('hud', false);
       return;
     }
     display.sync();
@@ -560,6 +554,7 @@ export class GameHud {
     kit.palette = paletteAt(shell, clockHour());
 
     const zoom = kit.zoom;
+    fitCursor(zoom, shell);
     const css = safeInsets();
     const safe = { top: css.top / zoom, right: css.right / zoom, bottom: css.bottom / zoom, left: css.left / zoom };
     const header = view.header;
@@ -1113,12 +1108,7 @@ export class GameHud {
     const pressed = this.held?.zone.id === 'pause';
     if (pressed) kit.box(box, ink);
     else kit.frame(box, faint);
-    // Two bars of 4 by 12, 4 apart, in the middle of the button.
-    const x = box.x + Math.round((box.w - PAUSE_BAR * 3) / 2);
-    const y = box.y + Math.round((box.h - PAUSE_TALL) / 2);
-    const colour = pressed ? kit.palette.bg : ink;
-    kit.rect(x, y, PAUSE_BAR, PAUSE_TALL, colour);
-    kit.rect(x + PAUSE_BAR * 2, y, PAUSE_BAR, PAUSE_TALL, colour);
+    kit.iconIn(ICON_PAUSE, box, pressed ? kit.palette.bg : ink);
     this.zones.push({ id: 'pause', rect: kit.toWindow(layout.zones.pause), action: () => this.actions.onPause() });
   }
 
@@ -1131,13 +1121,7 @@ export class GameHud {
     const pressed = this.held?.zone.id === 'retry';
     if (pressed) kit.box(box, ink);
     else kit.frame(box, faint);
-    const dot = restartDot(box.w);
-    const colour = pressed ? kit.palette.bg : ink;
-    const ix = box.x + Math.round((box.w - TOOL_ICON * dot) / 2);
-    const iy = box.y + Math.round((box.h - TOOL_ICON * dot) / 2);
-    ICON_RETRY.forEach((row, r) => {
-      for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
-    });
+    kit.iconIn(ICON_RESTART, box, pressed ? kit.palette.bg : ink);
     this.zones.push({ id: 'retry', rect: kit.toWindow(layout.zones.restart ?? box), action: () => this.actions.onRestart() });
   }
 
@@ -1153,18 +1137,11 @@ export class GameHud {
     const pressed = this.held?.zone.id === 'sound';
     if (pressed) kit.box(box, ink);
     else kit.frame(box, faint);
-    const dot = restartDot(box.w);
-    const ix = box.x + Math.round((box.w - TOOL_ICON * dot) / 2);
-    const iy = box.y + Math.round((box.h - TOOL_ICON * dot) / 2);
-    const paint = (icon: readonly string[], colour: string): void =>
-      icon.forEach((row, r) => {
-        for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
-      });
     if (muted) {
-      paint(ICON_MUTE, pressed ? faint : dim);
-      paint(ICON_CROSS, pressed ? bg : ink);
+      kit.iconIn(ICON_MUTE_SPEAKER, box, pressed ? faint : dim);
+      kit.iconIn(ICON_MUTE_CROSS, box, pressed ? bg : ink);
     } else {
-      paint(ICON_SOUND, pressed ? bg : ink);
+      kit.iconIn(ICON_SOUND, box, pressed ? bg : ink);
     }
     this.zones.push({ id: 'sound', rect: kit.toWindow(layout.zones.sound ?? box), action: () => this.actions.onSound() });
   }
@@ -1452,14 +1429,14 @@ export class GameHud {
    * of the player: in the bottom left corner, its picture under the left edge of the readings
    * (`left`), inside what the edges of the screen leave.
    */
-  private undoPlan(tools: HudTools, stage: Box, left: number): { tall: number; dot: number; box: Box } {
+  private undoPlan(tools: HudTools, stage: Box, left: number): { tall: number; box: Box } {
     const { kit } = this;
     const word = kit.measure(this.undoWord(tools));
     const bottom = Math.min(stage.y + stage.h, kit.height - safeInsets().bottom / kit.zoom);
     const room: Box = { ...stage, h: bottom - stage.y };
-    // The picture of the button is 6 dots inside its box: it stands right under the readings.
-    const edge = Math.max(0, left - 6);
-    return undoButton(room, kit.zoom, word, edge);
+    // The picture of the button is inside its box by its pad: it stands right under the readings.
+    const edge = Math.max(0, left - TOOL_PAD);
+    return undoButton(room, kit.zoom, iconWidth(ICON_UNDO), word, edge);
   }
 
   /**
@@ -1482,16 +1459,15 @@ export class GameHud {
   private drawUndo(tools: HudTools, stage: Box, blink: number, left: number): void {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
-    const { tall, dot, box } = this.undoPlan(tools, stage, left);
+    const { tall, box } = this.undoPlan(tools, stage, left);
     const held = this.held?.zone.id === 'undo';
     const urgent = tools.urgent && tools.canUndo;
     const colour = !tools.canUndo ? faint : held ? dim : urgent && blink !== 0 ? faint : ink;
-    const ix = box.x + 6;
-    const iy = box.y + Math.round((tall - ICON_UNDO.length * dot) / 2);
-    ICON_UNDO.forEach((row, r) => {
-      for (let c = 0; c < row.length; c++) if (row[c] === '#') kit.rect(ix + c * dot, iy + r * dot, dot, dot, colour);
-    });
-    kit.text(this.undoWord(tools), ix + TOOL_ICON * dot + 6, box.y + Math.round((tall - CELL_H) / 2), colour);
+    // The arrow stands on the rows of a capital of its word, as a letter of the line.
+    const ix = box.x + TOOL_PAD;
+    const line = box.y + Math.round((tall - CELL_H) / 2);
+    kit.icon(ICON_UNDO, ix, line + CAPITAL_TOP, colour);
+    kit.text(this.undoWord(tools), ix + iconWidth(ICON_UNDO) + TOOL_GAP, line, colour);
     if (tools.canUndo) this.zones.push({ id: 'undo', rect: kit.toWindow(box), action: () => this.actions.onUndo() });
   }
 
