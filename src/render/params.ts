@@ -184,12 +184,15 @@ export const BOARD_GROUPS = {
      * lighter and darker shapes that go slowly and turn into one another. How light, 0 for none;
      * how large, in cells; how fast they go, in cells a second; how far the slope of a wave moves
      * them, in cells (the owner, 27 October: «источника света в отражении не должно быть видно.
-     * облака тоже не должны "читаться" как облака»).
+     * облака тоже не должны "читаться" как облака»). How fast they fold and swirl into one
+     * another, as cream in coffee (29 October: «должна стать похожа на очень медленный поток в
+     * ручье, а лучше на диффузию в чашке кофе»).
      */
     skyLight: number(0.03, 0, 0.5, 0.005),
     skySize: number(7, 0.5, 30, 0.5),
     skySpeed: number(0.35, 0, 2, 0.01),
     skyWarp: number(10, 0, 40, 0.5),
+    skyFlow: number(0.03, 0, 0.2, 0.002),
     /**
      * Dark shapes under the water, small and large, that come up, drift, change their outline and
      * go down, each on a time of its own («как будто под водой что-то происходит, но неясно что»).

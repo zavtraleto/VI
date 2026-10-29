@@ -153,6 +153,8 @@ uniform vec3 uLook;
 uniform vec4 uFrame;
 /** What the water gives back of the sky: how light it is, how large its shapes are in cells, how fast they go in cells a second, how far a slope moves them in cells. */
 uniform vec4 uSky;
+/** How fast the sky in the water folds and swirls, in noise pictures a second. */
+uniform float uSkyFlow;
 /** What lies dark under the water: how dark, how large in cells, how fast it drifts in cells a second, how long one is there in seconds. */
 uniform vec4 uShade;
 /** Rings that come from past the frame: where each started in the world, how far it has run, and how high it is now. */
@@ -295,9 +297,12 @@ void main() {
   vec2 sky = (at - uFrame.xy) + normal.xz * uSky.w;
   float wide = 1.0 / (8.0 * max(uSky.y, 0.1));
   vec2 by = sky * wide - vec2(0.86, 0.5) * (uTime * uSky.z * wide);
-  float t = uTime * 0.006;
+  // It flows as cream in coffee: one slow field bends another that bends the light, each going
+  // its own way, so the shapes fold and swirl into one another as they go.
+  float t = uTime * uSkyFlow;
   vec2 bend = vec2(texture2D(uNoise, by * 0.5 + vec2(t, 0.0)).r, texture2D(uNoise, by * 0.5 + vec2(0.37, 0.71) - vec2(0.0, t)).r) - 0.5;
-  float cloud = 0.65 * texture2D(uNoise, by + bend * 0.8).r + 0.35 * texture2D(uNoise, by * 2.1 + bend * 0.5 + 0.5).r;
+  vec2 fold = vec2(texture2D(uNoise, by * 0.7 + bend * 0.6 + vec2(0.13, t * 0.7)).r, texture2D(uNoise, by * 0.7 + bend * 0.6 + vec2(0.59 - t * 0.7, 0.29)).r) - 0.5;
+  float cloud = 0.65 * texture2D(uNoise, by + fold * 0.55).r + 0.35 * texture2D(uNoise, by * 2.1 + fold * 0.35 + 0.5).r;
   float lit = smoothstep(0.32, 0.78, cloud);
   colour += uTone * (uSky.x * lit * (0.55 + 0.45 * far) * (1.0 - uCalm.y * sheet));
 
@@ -529,6 +534,7 @@ export class Water {
           uLook: { value: new THREE.Vector3() },
           uFrame: { value: new THREE.Vector4() },
           uSky: { value: new THREE.Vector4() },
+          uSkyFlow: { value: 0 },
           uShade: { value: new THREE.Vector4() },
           uOuter: { value: this.outerRings },
           uOuterWidth: { value: 1 },
@@ -650,6 +656,7 @@ export class Water {
     (uniforms.uFar.value as THREE.Vector3).set(n('farLight'), 1 / Math.max(1, layer.height), n('ringCalm'));
     (uniforms.uLook.value as THREE.Vector3).set(n('crestLight'), n('refract'), n('shadeSoft'));
     (uniforms.uSky.value as THREE.Vector4).set(n('skyLight'), n('skySize'), n('skySpeed'), n('skyWarp'));
+    uniforms.uSkyFlow.value = n('skyFlow');
     (uniforms.uShade.value as THREE.Vector4).set(n('shadeDark'), n('shadeSize'), n('shadeSpeed'), Math.max(1, n('shadeLife')));
     uniforms.uRipple.value = this.ripples[0].texture;
     const { look, forward } = this;
