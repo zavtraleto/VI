@@ -296,6 +296,17 @@ export class Kit {
     ctx.globalAlpha = 1;
   }
 
+  /** Draws only inside `box`: whatever `draw` puts outside it is left out. */
+  within(box: Box, draw: () => void): void {
+    const { ctx } = this.layer;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(Math.round(box.x), Math.round(box.y), Math.round(box.w), Math.round(box.h));
+    ctx.clip();
+    draw();
+    ctx.restore();
+  }
+
   /** Width of a line of text in pixels of the picture. */
   measure(text: string, scale = 1): number {
     return textWidth(text, scale);

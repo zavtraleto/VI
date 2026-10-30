@@ -9,7 +9,7 @@ import { BoardBursts, FX_LAYER, type BoardBeat } from './burst';
 import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
 import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, frameOfPiece, shapeKey, sightOf, type BoardShape, type Frame, type Sight } from './board';
-import { cellPixels, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
+import { cellPixels, fillOf, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
 import { gridSegments, waveFrom, type GridSegment } from './gridLines';
 import { laidFace } from './laid';
 import { LeavingShow, shownHeight, type HeightOf, type LeavingEvent } from './leaving';
@@ -170,6 +170,7 @@ function step(level: number, n: number): number {
  * camera travels to it: so a board can be laid where the last one ended, and the picture goes
  * from the one to the other without a jump.
  */
+
 export class BoardView {
   /** The dark behind the board as this frame has it: for the layer that lies under this one. */
   readonly background = new THREE.Color();
@@ -545,7 +546,7 @@ export class BoardView {
    * taken over then.
    */
   setFrame(frame: Frame | null, ms: number): void {
-    this.asked = frame ? { x: frame.x, z: frame.z, cell: frame.cell } : null;
+    this.asked = frame ? { x: frame.x, z: frame.z, cell: frame.cell, bare: frame.bare } : null;
     this.travelMs = ms;
     this.taking = ms > 0 && this.seen;
     if (!this.taking) this.arrive();
@@ -563,7 +564,7 @@ export class BoardView {
    * changed (`fitted`): the camera goes on from where it is on its way.
    */
   refit(frame: Frame): void {
-    this.asked = { x: frame.x, z: frame.z, cell: frame.cell };
+    this.asked = { x: frame.x, z: frame.z, cell: frame.cell, bare: frame.bare };
     this.resize();
   }
 
@@ -741,6 +742,7 @@ export class BoardView {
         this.clear / this.height,
         SIDE_MARGIN,
         FRAME_MARGIN,
+        fillOf(this.board.size),
       );
       goal.r = centreR;
       goal.u = centreU;
@@ -987,7 +989,8 @@ export class BoardView {
     // keeps, by what the address names.
     const forced = VIEWS.includes(String(values.view)) ? (values.view as ViewChoice) : 'auto';
     // Boards that are given one frame are seen one way: by the cell of that frame.
-    const mode = viewMode(this.asked?.cell ?? this.wholeCell, n('minCell'), { forced, reducedMotion });
+    // A small board drawn smaller than the window would make it (`fillOf`) is not followed for that.
+    const mode = viewMode(this.asked ? (this.asked.bare ?? this.asked.cell) : this.wholeCell, n('minCell'), { forced, reducedMotion });
     if (mode !== this.mode) {
       this.mode = mode;
       this.resize();

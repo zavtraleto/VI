@@ -102,20 +102,14 @@ describe('the list of levels', () => {
     expect(items.levels.length).toBe(fixture.length);
     expect(items.levels[0]).toMatchObject({ stars: 3 });
     expect(items.levels[3]).toMatchObject({ stars: 0 });
-    expect(items.note(0)).toBe(`FACE ${fixture[0].spec.faces!.join(' ')} · ${goalText(cells[0].goal)}`);
-    expect(items.note(3)).toBe(`FACE ${fixture[3].spec.faces!.join(' ')} · ${goalText(cells[3].goal)}`);
     items.pick(3);
     items.pick(2);
     expect(picked).toEqual([3, 2]);
   });
 
-  it('writes the goal of the level in focus in the font of the program', () => {
+  it('writes nothing under the cells: no goal, no faces', () => {
     const cells = row(levelsPanel(levels, 0, { onPick: nothing, onBack: nothing }), 'levels');
-    expect(cells.program).toBe(true);
-    expect(cells.note(0)).toBe('DICE 12');
-    expect(cells.note(1)).toBe('FACE 2 ×04 · FACE 3 ×06');
-    expect(cells.note(2)).toBe('CHAIN 3');
-    expect(cells.note(9)).toBe('');
+    expect(Object.keys(cells)).not.toContain('note');
   });
 
   it('starts the level picked', () => {
@@ -152,13 +146,10 @@ describe('a live session in the list of levels', () => {
     expect(picked).toEqual([0, 'live-1', 1]);
   });
 
-  it('writes LIVE SESSION under it in the font of the program, as a board its goal, and says nothing in the voice', () => {
+  it('writes nothing under it, played or not', () => {
     const cells = row(levelsPanel(levels, 0, { onPick: nothing, onBack: nothing }), 'levels');
-    expect(cells.note(1)).toBe('LIVE SESSION');
-    expect(cells.program).toBe(true);
-    expect(cells.said).toBeUndefined();
+    expect(Object.keys(cells)).not.toContain('note');
     const played = row(levelsPanel([live(2471)], 0, { onPick: nothing, onBack: nothing }), 'levels');
-    expect(played.note(0)).toBe('LIVE SESSION');
     expect(played.levels[0]).toEqual({ stars: 0, live: { best: 2471 } });
   });
 });
@@ -215,36 +206,36 @@ function context(window: Size, ratio: number): ShellContext {
 }
 
 describe('the panels on the grid', () => {
-  it.each(SCREENS)('stand the commands of the pause on a %s a button and a gap apart, under the bar of the name, the plate as tall as its lines and their gaps', (name, window, ratio) => {
+  it.each(SCREENS)('stand the commands of the pause on a %s a finger tall and a gap apart, drawn so, under the bar of the name, the plate as tall as its lines and their gaps', (name, window, ratio) => {
     const shown = context(window, ratio);
     const picture = shown.picture();
     const zoom = window.height / picture.height;
     const items = new PanelScreen(shown, pausePanel({ onResume: nothing, onRestart: nothing, onMenu: nothing }), false).items();
     expect(items.map((item) => item.id)).toEqual(['resume', 'restart', 'menu']);
-    // Frame and bar 21, a gap 8, then three buttons 24 each with a gap 8 after it, and the frame: 30 + 3 × 32.
-    const plate = 30 + 3 * (24 + 8);
-    const top = Math.round(8 + Math.max(0, (picture.height - 16 - plate) / 2));
+    // A button is drawn as tall as a finger needs: 36 on a phone, 24 on a desk. Frame and bar 21,
+    // a gap 8, then three buttons with a gap 8 after each, and the frame: 30 + 3 × (finger + 8).
     const finger = name === 'phone' ? 36 : 24;
+    const plate = 30 + 3 * (finger + 8);
+    const top = Math.round(8 + Math.max(0, (picture.height - 16 - plate) / 2));
     items.forEach((item, i) => {
-      const drawn = top + 29 + i * 32;
       expect(item.rect.height / zoom).toBeCloseTo(finger, 6);
-      expect(item.rect.y / zoom).toBeCloseTo(drawn - (finger - 24) / 2, 6);
+      expect(item.rect.y / zoom).toBeCloseTo(top + 29 + i * (finger + 8), 6);
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
     });
   });
 
-  it.each(SCREENS)('lay the cells of the levels on a %s six across, four apart, square enough for a large number', (name, window, ratio) => {
+  it.each(SCREENS)('lay the cells of the levels on a %s six across, a gap of the grid apart, as tall as a finger', (name, window, ratio) => {
     const shown = context(window, ratio);
     const zoom = window.height / shown.picture().height;
     const cells = new PanelScreen(shown, levelsPanel(campaignCells({ passed: {}, stats: {} }), 0, { onPick: nothing, onBack: nothing }), true)
       .items()
       .filter((item) => item.id.startsWith('level-'))
       .map((item) => ({ x: item.rect.x / zoom, y: item.rect.y / zoom, w: item.rect.width / zoom, h: item.rect.height / zoom }));
-    const [w, h, across] = name === 'phone' ? [36, 36, 6] : [38, 36, 6];
+    const [w, h, across] = name === 'phone' ? [33, 36, 6] : [34, 36, 6];
     expect(cells[0].w).toBeCloseTo(w, 6);
     expect(cells[0].h).toBeCloseTo(h, 6);
-    expect(cells[1].x - cells[0].x).toBeCloseTo(w + 4, 6);
-    expect(cells[across].y - cells[0].y).toBeCloseTo(h + 4, 6);
+    expect(cells[1].x - cells[0].x).toBeCloseTo(w + 8, 6);
+    expect(cells[across].y - cells[0].y).toBeCloseTo(h + 8, 6);
     expect(cells[across].x).toBeCloseTo(cells[0].x, 6);
   });
 });

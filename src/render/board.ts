@@ -1,4 +1,4 @@
-import { cellPixels, fitBoard, type FrameBounds } from './framing';
+import { cellPixels, fillOf, fitBoard, type FrameBounds } from './framing';
 
 /** Margin around the cells that the lines of the surface and the danger frame lie in, in cells. */
 export const RIM = 0.25;
@@ -27,6 +27,12 @@ export interface Frame {
   z: number;
   /** Screen pixels a cell takes. */
   cell: number;
+  /**
+   * Screen pixels a cell would take with the board filling the window, as every board did before
+   * a small one took a smaller share of it (`fillOf`): what says whether the player is followed,
+   * so that a small board is not enlarged by the follow for being drawn smaller. `cell` when left out.
+   */
+  bare?: number;
 }
 
 interface Axis {
@@ -96,10 +102,12 @@ export function boardBounds(size: number, axes: CameraAxes): FrameBounds {
  * world and the size of a cell.
  */
 export function frameOf(shape: BoardShape, axes: CameraAxes, width: number, height: number, clear: number): Frame {
-  const fit = fitBoard(boardBounds(shape.size, axes), width / height, clear / height, SIDE_MARGIN, FRAME_MARGIN);
+  const fill = fillOf(shape.size);
+  const fit = fitBoard(boardBounds(shape.size, axes), width / height, clear / height, SIDE_MARGIN, FRAME_MARGIN, fill);
   const centre = (shape.size - 1) / 2;
   const middle = toPlane(axes, shape.origin.x + centre, shape.origin.z + centre);
-  return { ...toFloor(axes, middle.r + fit.centreR, middle.u + fit.centreU), cell: cellPixels(fit, height) };
+  const cell = cellPixels(fit, height);
+  return { ...toFloor(axes, middle.r + fit.centreR, middle.u + fit.centreU), cell, bare: cell / fill };
 }
 
 /** The smallest rectangle that holds the cells left of the square of a board, in its own cells. */
@@ -145,8 +153,11 @@ function cellsBounds(wide: number, deep: number, axes: CameraAxes): FrameBounds 
 /** How the rectangle of the cells of a board is fitted into the window: as `frameOf` fits a square. */
 function fitCells(shape: Pick<BoardShape, 'size'> & { holes?: BoardShape['holes'] }, axes: CameraAxes, width: number, height: number, clear: number) {
   const cells = cellsOf(shape);
-  const fit = fitBoard(cellsBounds(cells.maxX - cells.minX + 1, cells.maxZ - cells.minZ + 1, axes), width / height, clear / height, SIDE_MARGIN, FRAME_MARGIN);
-  return { cells, fit };
+  const wide = cells.maxX - cells.minX + 1;
+  const deep = cells.maxZ - cells.minZ + 1;
+  const fill = fillOf(Math.max(wide, deep));
+  const fit = fitBoard(cellsBounds(wide, deep, axes), width / height, clear / height, SIDE_MARGIN, FRAME_MARGIN, fill);
+  return { cells, fit, fill };
 }
 
 /**
@@ -165,11 +176,17 @@ export function frameOfPiece(
   height: number,
   clear: number,
 ): Frame {
-  const { cells, fit } = fitCells(shape, axes, width, height, clear);
+  const { cells, fit, fill } = fitCells(shape, axes, width, height, clear);
   const middle = toPlane(axes, shape.origin.x + (cells.minX + cells.maxX) / 2, shape.origin.z + (cells.minZ + cells.maxZ) / 2);
   let cell = cellPixels(fit, height);
-  for (const other of together) cell = Math.min(cell, cellPixels(fitCells(other, axes, width, height, clear).fit, height));
-  return { ...toFloor(axes, middle.r + fit.centreR, middle.u + fit.centreU), cell };
+  let bare = cell / fill;
+  for (const other of together) {
+    const fitted = fitCells(other, axes, width, height, clear);
+    const its = cellPixels(fitted.fit, height);
+    cell = Math.min(cell, its);
+    bare = Math.min(bare, its / fitted.fill);
+  }
+  return { ...toFloor(axes, middle.r + fit.centreR, middle.u + fit.centreU), cell, bare };
 }
 
 /** What the camera shows of a frame in a window `height` CSS pixels tall. */

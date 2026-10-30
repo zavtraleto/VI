@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lensInverse } from '../display/lens';
-import { cellPixels, fitBoard, follow, followAxis, followFocus, followFrame, shiftFor, viewMode, type Fit, type FrameBounds } from './framing';
+import { BOARD_RAISE, cellPixels, fillOf, fitBoard, follow, followAxis, followFocus, followFrame, shiftFor, viewMode, type Fit, type FrameBounds } from './framing';
 
 // Roughly the board at the default camera: wider than tall, with headroom above the floor.
 const BOARD: FrameBounds = { minR: -4.8, maxR: 4.8, minU: -5, maxU: 4.5, floorU: 3 };
@@ -13,12 +13,24 @@ function screenY(frame: Fit, u: number): number {
 }
 
 describe('fitBoard', () => {
-  it('centres the board when nothing has to stay clear', () => {
+  it('stands the board by its weight when nothing has to stay clear: halfway up the room over the far corner, a little above the middle, the top in sight', () => {
     const tall = fitBoard(BOARD, 0.5, 0, SIDE, MARGIN);
-    expect(tall.centreU).toBeCloseTo(-0.25);
     expect(tall.halfHeight).toBeCloseTo((4.8 + SIDE) / 0.5);
+    // The floor and half the room over it: from -5 to 3.75, its middle -0.625, then 2% of the view higher on screen.
+    expect(tall.centreU).toBeCloseTo(-0.625 - tall.halfHeight * 2 * BOARD_RAISE);
     const wide = fitBoard(BOARD, 1.8, 0, SIDE, MARGIN);
     expect(wide.halfHeight).toBeCloseTo(4.75 + MARGIN);
+    // Fitted tight, the top keeps half the margin: the board goes down only so far.
+    expect(wide.centreU).toBeCloseTo(BOARD.maxU + MARGIN / 2 - wide.halfHeight);
+    expect(screenY(wide, BOARD.maxU)).toBeGreaterThan(0);
+  });
+
+  it('gives a small board a smaller share of the window, a board of six across and more the whole', () => {
+    expect(fillOf(2)).toBeCloseTo(0.61, 2);
+    expect(fillOf(4)).toBeCloseTo(0.83, 2);
+    expect(fillOf(6)).toBe(1);
+    expect(fillOf(9)).toBe(1);
+    expect(fitBoard(BOARD, 1.8, 0, SIDE, MARGIN, 0.5).halfHeight).toBeCloseTo(2 * fitBoard(BOARD, 1.8, 0, SIDE, MARGIN).halfHeight);
   });
 
   it('keeps the floor out of the clear part on any screen', () => {

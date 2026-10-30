@@ -25,12 +25,15 @@ export interface Fit {
  * the exercise did, until it went (15 October 2026). The floor never reaches into it: where the screen has height to spare
  * the board moves down, and where it has none the board is drawn smaller.
  */
-export function fitBoard(b: FrameBounds, aspect: number, clear: number, sideMargin: number, margin: number): Fit {
+export function fitBoard(b: FrameBounds, aspect: number, clear: number, sideMargin: number, margin: number, fill = 1): Fit {
   const centreR = (b.minR + b.maxR) / 2;
-  const forWidth = ((b.maxR - b.minR) / 2 + sideMargin) / aspect;
-  const forHeight = (b.maxU - b.minU) / 2 + margin;
+  const forWidth = ((b.maxR - b.minR) / 2 + sideMargin) / aspect / fill;
+  const forHeight = ((b.maxU - b.minU) / 2 + margin) / fill;
   const middle = (b.minU + b.maxU) / 2;
-  if (clear <= 0) return { halfHeight: Math.max(forWidth, forHeight), centreR, centreU: middle };
+  if (clear <= 0) {
+    const halfHeight = Math.max(forWidth, forHeight);
+    return { halfHeight, centreR, centreU: composed(b, halfHeight, margin) };
+  }
 
   const share = Math.min(clear, 0.7);
   // Tall enough for the floor to start below the clear part and the slab to end above the bottom.
@@ -40,6 +43,36 @@ export function fitBoard(b: FrameBounds, aspect: number, clear: number, sideMarg
   const lowest = b.floorU - halfHeight * (1 - 2 * share);
   const highest = b.minU - margin + halfHeight;
   return { halfHeight, centreR, centreU: Math.min(Math.max(middle, lowest), highest) };
+}
+
+/** The board stands this share of the height of the view above its middle, where the eye takes the middle of a picture to be. */
+export const BOARD_RAISE = 0.02;
+
+/**
+ * Where the view looks up and down, for a board seen whole with nothing over it (30 October
+ * 2026). What the eye weighs is the floor with the dice on it, not the room kept over the far
+ * corner for a die that is mostly not there: the middle is taken halfway up that room, and stands
+ * `BOARD_RAISE` above the middle of the view. Never so low that a die on the far corner reaches
+ * nearer the top than half the margin.
+ */
+function composed(b: FrameBounds, halfHeight: number, margin: number): number {
+  const weighed = (b.minU + (b.floorU + b.maxU) / 2) / 2 - halfHeight * 2 * BOARD_RAISE;
+  return Math.max(Math.min((b.minU + b.maxU) / 2, weighed), b.maxU + margin / 2 - halfHeight);
+}
+
+/**
+ * A board of this many cells across and more fills the window, as every board did before 30
+ * October 2026; a smaller one takes a smaller share of it, so that its cells grow slower than the
+ * board shrinks (the owner: «не приближай поле слишком сильно, когда поле маленькое»): a share of
+ * (cells / FILL_FULL_CELLS) ^ FILL_POWER - 0.61 of the window for 2 across, 0.73 for 3, 0.83 for
+ * 4, 0.92 for 5. A cell of a board 2 across is then some twice that of one 7 across, not three times and a half.
+ */
+export const FILL_FULL_CELLS = 6;
+export const FILL_POWER = 0.45;
+
+/** The share of the window a board `cells` across is fitted into: see `FILL_FULL_CELLS`. */
+export function fillOf(cells: number): number {
+  return Math.min(1, Math.pow(Math.max(1, cells) / FILL_FULL_CELLS, FILL_POWER));
 }
 
 /** Size of a cell on screen, in pixels, for a view of this height. */

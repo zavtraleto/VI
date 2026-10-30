@@ -5,7 +5,7 @@ import type { Climb } from './climb';
 import { CELL_W, textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
 import { README_SAY_SIZE } from './theme';
-import { COMMANDS, GOAL, LANGUAGE_NAMES, LIVE_SESSION, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, goalText, type PanelName } from './text';
+import { COMMANDS, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -297,12 +297,10 @@ export type LevelsEntry =
 /**
  * Every board of the campaign in one list, the pieces of the road first: a cell to a board,
  * numbered from one, with the stars of the ones passed, out of three: those of its best pass,
- * and one where `stars` is not said. Under them the faces and the goal of the board in focus
- * are written as the readings of a level write them, with nothing counted yet. Every cell is
- * open. A live session of the row (`live`) stands among them with no number: the boards keep
- * theirs, `onPick` is given the index of a board among the boards, and `onLive` the code of a
- * session. Under a session `LIVE SESSION` is written as the goal of a board is, in the font of the
- * program. `current` is the index of a cell of the list as it is given.
+ * and one where `stars` is not said; nothing is written under them (the owner, 30 October 2026).
+ * Every cell is open. A live session of the row (`live`) stands among them with no number: the
+ * boards keep theirs, `onPick` is given the index of a board among the boards, and `onLive` the
+ * code of a session. `current` is the index of a cell of the list as it is given.
  */
 export function levelsPanel(
   levels: readonly LevelsEntry[],
@@ -332,14 +330,6 @@ export function levelsPanel(
           if (live) actions.onLive?.(live.code);
           else if (boardOf[index] !== undefined) actions.onPick(boardOf[index]);
         },
-        // The faces that work on the level come first.
-        note: (index) => {
-          const level = levels[index];
-          if (!level) return '';
-          if ('live' in level) return LIVE_SESSION;
-          return level.faces ? `${word(GOAL.face)} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
-        },
-        program: true,
       },
       {
         kind: 'commands',

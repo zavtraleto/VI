@@ -2920,13 +2920,12 @@ export class Game {
     this.hud.frame(shown ? this.hudView(state, stage, lit, reducedMotion) : null, time, this.starting);
     pointCursor('board', shown && this.pointsBoard);
     span('hud', hudFrom);
-    // The readings stand above the board on a tall screen and beside it on a wide one: the
-    // box of the page that keeps their room follows them.
+    // The readings stand above the board on a tall screen: the box of the page that keeps their
+    // room follows them. On a wide one they are in the corners over the stage, which has the
+    // whole width: the board stands in the middle of the screen (the owner, 30 October 2026).
     const header = `${this.hud.headerHeight}px`;
-    const column = `${this.hud.columnWidth}px`;
-    if (this.header.style.height !== header || this.header.style.width !== column) {
+    if (this.header.style.height !== header) {
       this.header.style.height = header;
-      this.header.style.width = column;
       this.root.classList.toggle('wide', this.hud.columnWidth > 0);
     }
     this.shell.frame(time);

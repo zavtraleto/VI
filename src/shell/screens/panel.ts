@@ -4,7 +4,7 @@ import { CELL_H, CELL_W, fingerOf, textWidth, zoneOf, type Box, type Dir4 } from
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { word } from '../../ui/i18n';
 import { paintStar, paintStarGhost, paintStarSmall, type StarColours } from '../star';
-import { BAR_H, BUTTON_H, EDGE, GAP, PANEL_SAY_SIZE, UNIT } from '../theme';
+import { BAR_H, BUTTON_H, EDGE, GAP, MARK, PANEL_SAY_SIZE, UNIT } from '../theme';
 import { LIVE_WORD, digits, shortScore, type PanelName } from '../text';
 
 /** Something a panel can be told to do: a line that is pressed. */
@@ -54,11 +54,10 @@ export type PanelRow =
       range?: (count: number) => readonly [least: number, most: number];
     }
   /**
-   * The boards of the levels, as numbered cells with what each has earned; `note` is said under them for the cell
-   * in focus. `marks` is how many a cell can earn, three when left out. With `program` the note
-   * is the program's own text and is written in its font, not said in the voice, but for a cell
-   * `said` names: its note is said. A cell with `live` is a live session of the row: it has no
-   * number, and the boards after it keep theirs (`liveCell` draws it).
+   * The boards of the levels, as numbered cells with what each has earned, and nothing under them
+   * (the owner, 30 October 2026). `marks` is how many a cell can earn, three when left out. A cell
+   * with `live` is a live session of the row: it has no number, and the boards after it keep
+   * theirs (`liveCell` draws it).
    */
   | {
       kind: 'levels';
@@ -66,10 +65,7 @@ export type PanelRow =
       levels: readonly { stars: number; live?: { best: number | null } }[];
       current: number;
       pick: (index: number) => void;
-      note: (index: number) => string;
       marks?: number;
-      program?: boolean;
-      said?: (index: number) => boolean;
     }
   /**
    * What a level has earned, out of three. With `shine` they are the large stars of a pass, that
@@ -130,22 +126,17 @@ const LEVELS_TALL = 6;
 // Six on a wide picture too (the owner, 29 October 2026): a cell with room for a large number.
 const LEVELS_WIDE = 6;
 /**
- * Space between two cells of the levels: the cells are a grid, denser than the lines of a panel.
- * A cell is as tall as a finger needs, and no lower than this: its number and a row of stars under it.
+ * Space between two cells of the levels: the gap of the grid, as between the lines of a panel
+ * (the owner, 30 October 2026: «отступы между квадратиками побольше»). A cell is as tall as a
+ * finger needs, and no lower than this, so that its thirds are a line of the font each and more.
  */
-const CELL_GAP = 4;
+const CELL_GAP = GAP;
 const CELL_LEAST = 36;
-/** The stars in a cell, behind its number: their radius on a tall picture and on a wide one. */
+/** The ring round a cell in focus stands this far out from it, inside the gap. */
+const CELL_RING = 2;
+/** The star of a played live session in the corner of its cell: its radius on a tall picture and on a wide one. */
 const CELL_STAR_TALL = 5;
 const CELL_STAR_WIDE = 4;
-/** Where the corners of a cell are for its stars, across and down it, as shares of it. */
-const PIP_SHARES = [0.2, 0.8] as const;
-/**
- * The stars a level has earned stand in the corners of its cell, out from under the number (the
- * owner, 29 October 2026, «звёзды в углах»): the first in the top left, the second in the bottom
- * right, as the pips of a two, the third in the top right.
- */
-const PIPS: readonly (readonly [number, number][])[] = [[], [[0, 0]], [[0, 0], [1, 1]], [[0, 0], [1, 1], [1, 0]]];
 /** The stars of a result: their radius, and from the middle of one to the next. */
 const RESULT_STAR = 6;
 const RESULT_STAR_STEP = 20;
@@ -507,7 +498,6 @@ export class PanelScreen implements ShellScreen {
           break;
         }
         case 'levels': {
-          let noted = row.current;
           // A live session has no number: the boards are numbered as if it were not there.
           let number = 0;
           const view = this.levelView(row, box, shown);
@@ -517,29 +507,17 @@ export class PanelScreen implements ShellScreen {
             if (!this.inSight(view, i)) return;
             const id = `${row.id}-${i}`;
             const on = focus.focus === id;
-            if (on) noted = i;
-            const filled = on && focus.pressed !== id;
-            if (filled) kit.box(cell, ink);
-            else kit.frame(cell, on || i === row.current ? ink : faint);
-            if (live) {
-              this.liveCell(kit, cell, live.best, filled ? bg : ink, filled);
-              return;
+            kit.frame(cell, on || i === row.current ? ink : faint);
+            if (live) this.liveCell(kit, cell, live.best, ink);
+            else this.levelCell(kit, cell, digits(number, 2), row.levels[i].stars, row.marks ?? 3);
+            // In focus: a ring round the cell, a little out from it, and the red mark of the seventh in its corner.
+            if (on) {
+              kit.frame({ x: cell.x - CELL_RING, y: cell.y - CELL_RING, w: cell.w + 2 * CELL_RING, h: cell.h + 2 * CELL_RING }, focus.pressed === id ? faint : ink);
+              kit.rect(cell.x + 2, cell.y + 2, MARK, MARK, kit.palette.signal);
             }
-            // The stars behind, the number large over them, with an edge of the tube where the cell is dark.
-            this.cellStars(kit, cell, row.levels[i].stars, filled);
-            // Twice as large where the cell has room for it beside its frame, else the size of the font.
-            const label = digits(number, 2);
-            const scale = kit.measure(label, 2) + 6 <= cell.w ? 2 : 1;
-            const ny = Math.round(cell.y + cell.h / 2 - (CELL_H * scale) / 2 - scale / 2);
-            if (filled) kit.text(label, cell.x + cell.w / 2, ny, bg, { align: 'center', scale });
-            else kit.edged(label, cell.x + cell.w / 2, ny, ink, { align: 'center', scale });
           });
           if (view.up) this.arrow(kit, view.up, 'up', focus.focus === SCROLL_UP, view.from > 0);
           if (view.down) this.arrow(kit, view.down, 'down', focus.focus === SCROLL_DOWN, view.from + view.shown < view.rows);
-          const note = row.note(noted);
-          const line: Box = { x: left, y: box.y + box.h - CELL_H, w: right - left, h: CELL_H };
-          if (row.program && !row.said?.(noted)) kit.text(note, Math.round(line.x + line.w / 2), line.y, dim, { align: 'center' });
-          else this.context.voice.say({ text: note, box: kit.toWindow(line), size: PANEL_SAY_SIZE, dim: true, anchor: 'middle' });
           break;
         }
         case 'stars':
@@ -598,32 +576,35 @@ export class PanelScreen implements ShellScreen {
    * once the session is played. A proposal (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md,
    * section 8): the owner leads the look, and this is the one place it is drawn.
    */
-  private liveCell(kit: Kit, cell: Box, best: number | null, on: string, filled: boolean): void {
+  private liveCell(kit: Kit, cell: Box, best: number | null, on: string): void {
     const centre = cell.x + cell.w / 2;
     const score = best === null ? '' : shortScore(best);
     const scored = best !== null && cell.h >= CELL_H * 2 + 2 && kit.measure(score) <= cell.w - 4;
-    // The star of a played session stands behind the word, as the stars of a level do.
-    if (!scored) this.cellStars(kit, cell, best === null ? 0 : 1, filled);
+    // The star of a played session stands behind the word, as the stars of a level did.
+    if (!scored && best !== null) {
+      const { dim, faint } = kit.palette;
+      const radius = kit.width > kit.height ? CELL_STAR_WIDE : CELL_STAR_TALL;
+      paintStarSmall(kit, cell.x + cell.w * 0.2, cell.y + cell.h * 0.2, radius, { core: dim, light: dim, deep: faint }, true);
+    }
     kit.text(LIVE_WORD, centre, cell.y + 2, on, { align: 'center' });
     if (scored) kit.text(score, centre, cell.y + CELL_H + 1, on, { align: 'center' });
   }
 
   /**
-   * The stars a level has earned, behind the number of its cell (the owner, 29 October 2026:
-   * «полупрозрачными и на заднем плане, цифру больше, а позади цифры звёзды расположенные как на
-   * грани кубика»): as many as it has earned, standing as the pips of that face of a die, half
-   * seen - every other dot of them is the cell's own. A level with none has none.
+   * The cell of a board in the list of the levels (the owner, 30 October 2026): what it has
+   * earned is the cell filled from the bottom in the light of the stars, a third to a star, the
+   * whole cell for three; its number at the size of the font in the middle, dark where the fill
+   * is behind it and light above, the line between them running through the signs.
    */
-  private cellStars(kit: Kit, cell: Box, count: number, filled: boolean): void {
-    const pips = PIPS[Math.max(0, Math.min(PIPS.length - 1, count))];
-    if (pips.length === 0) return;
-    const radius = kit.width > kit.height ? CELL_STAR_WIDE : CELL_STAR_TALL;
-    const { dim, faint } = kit.palette;
-    // Half seen: the stars in the quiet tones of the program, under a number that is bright.
-    const colours = filled ? { core: dim, light: dim, deep: dim } : { core: dim, light: dim, deep: faint };
-    for (const [col, row] of pips) {
-      paintStarSmall(kit, cell.x + cell.w * PIP_SHARES[col], cell.y + cell.h * PIP_SHARES[row], radius, colours, true);
-    }
+  private levelCell(kit: Kit, cell: Box, label: string, stars: number, marks: number): void {
+    const { bg, ink } = kit.palette;
+    const fill = Math.round((cell.h * Math.max(0, Math.min(marks, stars))) / Math.max(1, marks));
+    const line = cell.y + cell.h - fill;
+    if (fill > 0) kit.rect(cell.x, line, cell.w, fill, kit.palette.star.light);
+    const x = cell.x + cell.w / 2;
+    const y = Math.round(cell.y + (cell.h - CELL_H) / 2);
+    if (fill < cell.h) kit.within({ x: cell.x, y: cell.y, w: cell.w, h: line - cell.y }, () => kit.text(label, x, y, ink, { align: 'center', bold: true }));
+    if (fill > 0) kit.within({ x: cell.x, y: line, w: cell.w, h: fill }, () => kit.text(label, x, y, bg, { align: 'center', bold: true }));
   }
 
   /** Small stars in a row around `centre`, their middles `step` apart and at `cy`: as many held as `count`. */
@@ -673,6 +654,15 @@ export class PanelScreen implements ShellScreen {
     return this.context.window().height / Math.max(1, this.context.picture().height);
   }
 
+  /**
+   * Height of a button of a panel - a command, a setting, a tab, an arrow of a list: as tall as a
+   * finger needs, drawn so and not only pressed so (the owner, 30 October 2026: the buttons of the
+   * panels larger on a phone, on the grid). A button where a finger is no taller.
+   */
+  private buttonHeight(): number {
+    return fingerOf(this.zoom());
+  }
+
   /** Height of a cell of the list: what a finger needs, and no lower than its number and its stars take. */
   private cellHeight(): number {
     return Math.max(CELL_LEAST, fingerOf(this.zoom()));
@@ -711,12 +701,12 @@ export class PanelScreen implements ShellScreen {
 
   /**
    * Height of the list of the levels with `shown` of its `rows` rows of cells in sight: the cells,
-   * the bars of the arrows where it scrolls, and the line of the note under them.
+   * and the bars of the arrows where it scrolls.
    */
   private levelsHeight(rows: number, shown: number): number {
     const seen = Math.min(rows, shown);
     const cells = seen * (this.cellHeight() + CELL_GAP) - CELL_GAP;
-    return cells + (seen < rows ? 2 * (BUTTON_H + GAP) : 0) + GAP + CELL_H;
+    return cells + (seen < rows ? 2 * (this.buttonHeight() + GAP) : 0);
   }
 
   /**
@@ -732,10 +722,11 @@ export class PanelScreen implements ShellScreen {
     const from = Math.max(0, Math.min(this.top ?? 0, rows - shown));
     // Where the list scrolls, an arrow over the cells and one under them, across the list.
     const scrolls = shown < rows;
-    const top = box.y + (scrolls ? BUTTON_H + GAP : 0);
+    const bar = this.buttonHeight();
+    const top = box.y + (scrolls ? bar + GAP : 0);
     const cells = laid.map((cell, i) => ({ ...cell, y: top + (rowOf[i] - from) * step }));
-    const up = scrolls ? { x: box.x, y: box.y, w: box.w, h: BUTTON_H } : null;
-    const down = scrolls ? { x: box.x, y: top + shown * step - CELL_GAP + GAP, w: box.w, h: BUTTON_H } : null;
+    const up = scrolls ? { x: box.x, y: box.y, w: box.w, h: bar } : null;
+    const down = scrolls ? { x: box.x, y: top + shown * step - CELL_GAP + GAP, w: box.w, h: bar } : null;
     return { cells, rowOf, from, shown, rows, up, down };
   }
 
@@ -917,11 +908,11 @@ export class PanelScreen implements ShellScreen {
         case 'standing':
           return CELL_H * 3;
         case 'command':
-          return row.large ? BUTTON_H * 2 : BUTTON_H;
+          return row.large ? Math.max(BUTTON_H * 2, this.buttonHeight()) : this.buttonHeight();
         case 'commands':
         case 'switch':
         case 'tabs':
-          return BUTTON_H;
+          return this.buttonHeight();
         case 'table':
           return TABLE_HEAD + Math.min(lines, row.lines) * CELL_H;
         case 'climb':

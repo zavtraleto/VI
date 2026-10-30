@@ -166,8 +166,9 @@ describe('frameOfPiece', () => {
         expect(cells[0]).toBeGreaterThanOrEqual(frameOf(board(7), a, w, h, 0).cell - 1e-9);
       }
     }
-    // At a camera that looks from a corner the block is seen larger than the squares of six of its first two pieces made it.
-    expect(frameOfPiece(piece('R03'), first, DIAMOND, width, height, 0).cell).toBeGreaterThan(frameOf(board(6), DIAMOND, width, height, 0).cell * 1.1);
+    // At a camera that looks from a corner the block is seen larger than the squares of six of its first two pieces made it
+    // (by a tenth while every board filled the window; by less since a small board takes less of it, 30 October 2026).
+    expect(frameOfPiece(piece('R03'), first, DIAMOND, width, height, 0).cell).toBeGreaterThan(frameOf(board(6), DIAMOND, width, height, 0).cell * 1.05);
   });
 
   it('keeps the middle of the piece and only takes the cell from the others', () => {
