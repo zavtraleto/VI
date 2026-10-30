@@ -85,3 +85,48 @@ export function iconWidth(icon: Icon): number {
 export function iconHeight(icon: Icon): number {
   return icon.length;
 }
+
+/**
+ * The same pictures fourteen dots tall, half of a button 28 tall: on a tall picture, where the
+ * buttons stand beside the large number (word of the owner, 30 October 2026: on the phone they
+ * were small beside it; a step of the grid up, «на совсем чуточку»). Drawn by the same rules as
+ * the twelve-dot ones, two rows longer.
+ */
+export const ICON_RESTART_TALL: Icon = [
+  '........##...',
+  '.........##..',
+  '..###########',
+  '.##.......##.',
+  '##.......##..',
+  '##...........',
+  '##...........',
+  '##...........',
+  '##.........##',
+  '##.........##',
+  '##.........##',
+  '##.........##',
+  '.##.......##.',
+  '..#########..',
+];
+
+export const ICON_PAUSE_TALL: Icon = Array.from({ length: 14 }, () => '##...##');
+
+export const ICON_SOUND_TALL: Icon = [
+  '......##........',
+  '.....###........',
+  '....####.....##.',
+  '...#####......##',
+  '########.##...##',
+  '########..##..##',
+  '########..##..##',
+  '########..##..##',
+  '########..##..##',
+  '########.##...##',
+  '...#####......##',
+  '....####.....##.',
+  '.....###........',
+  '......##........',
+];
+
+export const ICON_MUTE_SPEAKER_TALL: Icon = ICON_SOUND_TALL.map((row) => row.slice(0, 8) + '.'.repeat(8));
+export const ICON_MUTE_CROSS_TALL: Icon = ICON_SOUND_TALL.map((_row, r) => '.'.repeat(10) + (['##..##', '.####.', '..##..', '..##..', '.####.', '##..##'][r - 4] ?? '......'));

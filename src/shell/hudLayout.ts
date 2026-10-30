@@ -41,6 +41,8 @@ export interface HudLayout {
   end: number;
   /** The picture is narrow: the middle has room for one reading, not two. */
   tight: boolean;
+  /** The buttons stand beside the large number a unit of the grid taller, 28, and their pictures are the fourteen-dot ones (`ICON_*_TALL`): on a tall picture, where all three fit. */
+  tallIcons: boolean;
   /** The button that pauses the session. */
   pause: Box;
   /** The button that starts a level over, beside the one that pauses and of its size; null where nothing is started over. */
@@ -70,9 +72,9 @@ export interface HeaderNeeds {
 }
 
 /**
- * Lays the readings out. Every button is drawn a button tall (`BUTTON_H`) whatever the
- * picture is; `zoom`, CSS pixels per pixel of the picture, grows the zone each takes a press
- * in to what a finger needs (`zoneOf`).
+ * Lays the readings out. Every button is drawn a button tall (`BUTTON_H`) on a wide picture and
+ * a unit of the grid taller on a tall one; `zoom`, CSS pixels per pixel of the
+ * picture, grows the zone each takes a press in to what a finger needs (`zoneOf`).
  */
 export function hudLayout(picture: Size, safe: Insets, zoom: number, needs: HeaderNeeds = {}): HudLayout {
   const left = ceilTo(safe.left, CELL_W) + EDGE;
@@ -91,14 +93,19 @@ export function hudLayout(picture: Size, safe: Insets, zoom: number, needs: Head
 }
 
 /** The buttons of the readings in the top right corner, side by side a gap apart: the pause in the corner, the one that starts over left of it where there is one, the sound left of those where it does not reach `clear`. */
-function corner(picture: Size, safe: Insets, top: number, needs: HeaderNeeds, clear: number): { right: number; pause: Box; restart: Box | null; sound: Box | null } {
+function corner(picture: Size, safe: Insets, top: number, needs: HeaderNeeds, clear: number, wide: boolean): { right: number; tall: boolean; pause: Box; restart: Box | null; sound: Box | null } {
   const right = picture.width - ceilTo(safe.right, CELL_W) - EDGE;
-  const side = BUTTON_H;
-  const pause: Box = { x: right - side, y: top, w: side, h: side };
-  const restart: Box | null = needs.restart ? { x: pause.x - GAP - side, y: top, w: side, h: side } : null;
-  const soundAt = (restart ?? pause).x - GAP - side;
-  const sound: Box | null = needs.sound && soundAt >= clear ? { x: soundAt, y: top, w: side, h: side } : null;
-  return { right, pause, restart, sound };
+  const row = (side: number) => {
+    const pause: Box = { x: right - side, y: top, w: side, h: side };
+    const restart: Box | null = needs.restart ? { x: pause.x - GAP - side, y: top, w: side, h: side } : null;
+    const soundAt = (restart ?? pause).x - GAP - side;
+    const sound: Box | null = needs.sound && soundAt >= clear ? { x: soundAt, y: top, w: side, h: side } : null;
+    return { pause, restart, sound };
+  };
+  // On a tall picture a button is a unit of the grid taller, its picture half of it; where those do not all fit, the buttons stay a button tall.
+  const tall = !wide ? row(BUTTON_H + UNIT) : null;
+  if (tall && (tall.sound !== null || !needs.sound)) return { right, tall: true, ...tall };
+  return { right, tall: false, ...row(BUTTON_H) };
 }
 
 /**
@@ -117,8 +124,8 @@ function sessionLayout(picture: Size, safe: Insets, left: number, top: number, n
   const time = big + CELL_H * 2 + UNIT;
   const rule = time + CELL_H;
   const end = left + READINGS_CELLS * CELL_W;
-  const { right, pause, restart, sound } = corner(picture, safe, top, needs, end);
-  const below = Math.max(rule, wide ? 0 : top + BUTTON_H) + UNIT;
+  const { right, tall, pause, restart, sound } = corner(picture, safe, top, needs, end, wide);
+  const below = Math.max(rule, wide ? 0 : pause.y + pause.h) + UNIT;
   return {
     wide,
     height: wide ? 0 : below,
@@ -134,6 +141,7 @@ function sessionLayout(picture: Size, safe: Insets, left: number, top: number, n
     mid: left,
     end,
     tight: false,
+    tallIcons: tall,
     pause,
     restart,
     sound,
@@ -163,8 +171,8 @@ function levelLayout(picture: Size, safe: Insets, left: number, top: number, nee
   // As wide as the column of a session, so that the board stands where it does beside it.
   const end = left + READINGS_CELLS * CELL_W;
   // The button of the sound, left of the one that starts over, where it does not reach the lines.
-  const { right, pause, restart, sound } = corner(picture, safe, top, needs, end);
-  const below = Math.max(rule, wide ? 0 : top + BUTTON_H) + UNIT;
+  const { right, tall, pause, restart, sound } = corner(picture, safe, top, needs, end, wide);
+  const below = Math.max(rule, wide ? 0 : pause.y + pause.h) + UNIT;
   return {
     wide,
     height: wide ? 0 : below,
@@ -180,6 +188,7 @@ function levelLayout(picture: Size, safe: Insets, left: number, top: number, nee
     mid: left,
     end,
     tight: false,
+    tallIcons: tall,
     pause,
     restart,
     sound,

@@ -375,6 +375,43 @@ describe('the list of the levels on a screen', () => {
     expect(ids()).not.toContain(`level-${cells.length - 1}`);
   });
 
+  it('moves the list with a finger as it goes, a row half in sight cut at the edge and pressed there, and lets it go on and slow down', () => {
+    const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, 0, actions), true);
+    const level = (id: string) => screen.items().find((item) => item.id === id);
+    const top = level('level-0')!.rect;
+    const row = level('level-6')!.rect.y - top.y;
+    // Half a row up: the first row is cut at the top of the list, and takes a press in what is left of it.
+    expect(screen.drag(row / 2)).toBe(true);
+    const cut = level('level-0')!.rect;
+    // No higher than the ring round a cell at the top of the list.
+    expect(cut.y).toBeGreaterThanOrEqual(top.y - 3);
+    expect(cut.height).toBeLessThan(top.height);
+    expect(level('level-6')!.rect.y).toBeCloseTo(top.y + row / 2, 0);
+    // It cannot be drawn past its ends.
+    screen.drag(-10 * row);
+    expect(level('level-0')!.rect).toEqual(top);
+    // Let go fast, it goes on by itself, slows down and stands.
+    screen.fling(2);
+    expect(screen.update(0)).toBe(true);
+    expect(screen.update(16)).toBe(true);
+    const after = level('level-0')?.rect.y ?? -Infinity;
+    expect(after).toBeLessThan(top.y);
+    let time = 16;
+    while (screen.update((time += 16)) && time < 10_000);
+    expect(time).toBeLessThan(10_000);
+    // Thrown back up, a finger put down stops it, and says it was moving.
+    screen.fling(-2);
+    screen.update(time + 16);
+    expect(screen.hold()).toBe(true);
+    expect(screen.hold()).toBe(false);
+  });
+
+  it('takes no finger where the list fits', () => {
+    const few = cells.slice(0, 6);
+    const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(few, 0, actions), true);
+    expect(screen.drag(40)).toBe(false);
+  });
+
   it('brings a cell out of sight back with a key, as after the window was turned', () => {
     const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, 0, actions), true);
     screen.scroll('down', 4000, 'level-0');

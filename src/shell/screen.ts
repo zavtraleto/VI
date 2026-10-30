@@ -99,6 +99,15 @@ export interface ShellScreen {
    * screen with something that scrolls: where the focus goes then. Null where the screen makes nothing of it.
    */
   scroll?(dir: 'up' | 'down', pixels: number, focus: string | null, wheel?: boolean): string | null;
+  /**
+   * A finger held and drawn up or down so many CSS pixels since the last time, up counted up, on a
+   * screen with a list that goes with the finger: true where the screen takes it. `fling` is the
+   * speed the finger let it go at, in CSS pixels a millisecond; `hold`, a finger put down, stops a
+   * list going on by itself and says whether it was.
+   */
+  drag?(pixels: number): boolean;
+  fling?(speed: number): void;
+  hold?(): boolean;
   /** The face of the die a zone stands on, on a screen that is made of dice. */
   face?(id: string): number | null;
   /**

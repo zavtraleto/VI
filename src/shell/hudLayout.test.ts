@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { COUNTER_CUBE, COUNTER_GAP, counterLeft, counterWidth, hudLayout, netBounds, netCellAt, signBeside, signClear, signKey, signPlace, undoButton, turned, type FloorAxes } from './hudLayout';
-import { ICON_MUTE_CROSS, ICON_MUTE_SPEAKER, ICON_PAUSE, ICON_RESTART, ICON_SOUND, ICON_UNDO } from './icons';
+import {
+  ICON_MUTE_CROSS,
+  ICON_MUTE_CROSS_TALL,
+  ICON_MUTE_SPEAKER,
+  ICON_MUTE_SPEAKER_TALL,
+  ICON_PAUSE,
+  ICON_PAUSE_TALL,
+  ICON_RESTART,
+  ICON_RESTART_TALL,
+  ICON_SOUND,
+  ICON_SOUND_TALL,
+  ICON_UNDO,
+} from './icons';
 import { CELL_W, MIN_ZONE, type Box } from './layout';
 import { BUTTON_H } from './theme';
 
@@ -26,13 +38,16 @@ describe('the readings of a session', () => {
       expect(layout.rowB).toBe(layout.big + 36);
       expect(layout.height).toBeGreaterThan(layout.rule);
       expect(layout.restart).toBeNull();
-      expect(layout.sound).toEqual({ x: layout.pause.x - 32, y: layout.pause.y, w: 24, h: 24 });
+      // Beside the large number the buttons are a unit of the grid taller, where the row of them fits.
+      const side = layout.tallIcons ? 28 : 24;
+      expect(layout.sound).toEqual({ x: layout.pause.x - side - 8, y: layout.pause.y, w: side, h: side });
     }
   });
 
   it('give the pause a zone a finger can hit around a button that is a button tall', () => {
     const layout = hudLayout({ width: 281, height: 609 }, NO_INSETS, 1.33);
-    expect([layout.pause.w, layout.pause.h]).toEqual([BUTTON_H, BUTTON_H]);
+    expect([layout.pause.w, layout.pause.h]).toEqual([BUTTON_H + 4, BUTTON_H + 4]);
+    expect(hudLayout({ width: 609, height: 281 }, NO_INSETS, 1.33).pause.w).toBe(BUTTON_H);
     expect(layout.zones.pause.h * 1.33).toBeGreaterThanOrEqual(MIN_ZONE);
     expect(layout.zones.pause.w * 1.33).toBeGreaterThanOrEqual(MIN_ZONE);
   });
@@ -318,7 +333,7 @@ describe('the readings of a level', () => {
     // Without the button of the sound the other two stay in the corner.
     const plain = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, { restart: true, level: true });
     expect(plain.sound).toBeNull();
-    expect(plain.restart!.x).toBe(206);
+    expect(plain.restart!.x).toBe(198);
   });
 
   it('give a wide picture a column as wide as that of a session, and a tall one a band', () => {
@@ -354,10 +369,20 @@ describe('the button that takes a move back', () => {
 });
 
 describe('the pictures of the buttons', () => {
+  it('beside the large number are fourteen dots tall, half a button 28 tall, and the sound off is as wide as on', () => {
+    for (const icon of [ICON_RESTART_TALL, ICON_PAUSE_TALL, ICON_SOUND_TALL, ICON_MUTE_SPEAKER_TALL, ICON_MUTE_CROSS_TALL]) {
+      expect(icon.length).toBe(14);
+      expect(icon[0].length).toBeLessThanOrEqual(28 - 4);
+    }
+    expect(ICON_MUTE_SPEAKER_TALL[0].length).toBe(ICON_SOUND_TALL[0].length);
+    expect(ICON_MUTE_CROSS_TALL[0].length).toBe(ICON_SOUND_TALL[0].length);
+  });
+
   const ALL = { ICON_UNDO, ICON_RESTART, ICON_PAUSE, ICON_SOUND, ICON_MUTE_SPEAKER, ICON_MUTE_CROSS };
+  const TALL = { ICON_RESTART_TALL, ICON_PAUSE_TALL, ICON_SOUND_TALL, ICON_MUTE_SPEAKER_TALL, ICON_MUTE_CROSS_TALL };
 
   it('are rows of one width, lit only with #', () => {
-    for (const [name, icon] of Object.entries(ALL)) {
+    for (const [name, icon] of Object.entries({ ...ALL, ...TALL })) {
       for (const row of icon) {
         expect(row.length, name).toBe(icon[0].length);
         expect(row, name).toMatch(/^[.#]+$/);
@@ -378,24 +403,29 @@ describe('the pictures of the buttons', () => {
 describe('the readings on the grid of the interface', () => {
   const LEVEL = { restart: true, sound: true, level: true, goal: true };
 
-  it('stand on a tall phone as the grid has them: three buttons 24 a side, 8 apart, the readings of a level on the left', () => {
+  it('stand on a tall phone as the grid has them: three buttons 28 a side, 8 apart, the readings of a level on the left', () => {
     const level = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, LEVEL);
-    expect(level.pause).toEqual({ x: 238, y: 4, w: 24, h: 24 });
-    expect(level.restart).toEqual({ x: 206, y: 4, w: 24, h: 24 });
-    expect(level.sound).toEqual({ x: 174, y: 4, w: 24, h: 24 });
+    expect(level.tallIcons).toBe(true);
+    expect(level.pause).toEqual({ x: 234, y: 4, w: 28, h: 28 });
+    expect(level.restart).toEqual({ x: 198, y: 4, w: 28, h: 28 });
+    expect(level.sound).toEqual({ x: 162, y: 4, w: 28, h: 28 });
+    // Where three of 28 do not fit beside the lines, the buttons stay 24, and the sound is kept.
+    const narrow = hudLayout({ width: 240, height: 520 }, NO_INSETS, 1.33, LEVEL);
+    expect(narrow.tallIcons).toBe(false);
+    expect(narrow.sound).toEqual({ x: 144, y: 4, w: 24, h: 24 });
     expect(level.tag).toEqual({ x: 8, y: 4 });
     expect(level.moves).toEqual([40, 40]);
     expect(level.goal).toBe(60);
     expect(level.height).toBe(80);
     expect(level.net).toEqual({ x: 8, y: 88 });
-    // A finger's zone around each: 36 a side, cut at the top of the picture.
-    expect(level.zones.pause).toEqual({ x: 232, y: 0, w: 36, h: 34 });
+    // A finger's zone around each: 36 a side.
+    expect(level.zones.pause).toEqual({ x: 230, y: 0, w: 36, h: 36 });
     const session = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33);
-    expect(session.pause).toEqual({ x: 238, y: 4, w: 24, h: 24 });
+    expect(session.pause).toEqual({ x: 234, y: 4, w: 28, h: 28 });
     expect([session.big, session.rowB]).toEqual([4, 40]);
     expect([session.rule, session.height, session.end]).toEqual([56, 60, 136]);
     expect(session.net.y).toBe(68);
-    expect(hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, { sound: true }).sound).toEqual({ x: 206, y: 4, w: 24, h: 24 });
+    expect(hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, { sound: true }).sound).toEqual({ x: 198, y: 4, w: 28, h: 28 });
   });
 
   it('stand on a desk as the grid has them: the lines of a level in the column, its buttons in the top right corner', () => {

@@ -24,6 +24,13 @@ export function dragOf(dx: number, dy: number): 'up' | 'down' | null {
   return dy < 0 ? 'down' : 'up';
 }
 
+/**
+ * A finger drawn up or down this far, in CSS pixels, and more up or down than sideways, takes a
+ * list that goes with it (`drag`); the speed it is let go at is read over this many milliseconds.
+ */
+const DRAG_MIN = 8;
+const FLING_MS = 100;
+
 /** CSS pixels of a line and of a page of the wheel of a mouse that counts in lines or pages. */
 const WHEEL_LINE = 16;
 
@@ -112,6 +119,12 @@ export interface InputHost {
   swipe(dir: 'left' | 'right', x: number, y: number): string | null | undefined;
   /** Where a press drawn up or down, or the wheel, so many CSS pixels, takes the focus; null or undefined where nothing scrolls. */
   scroll?(dir: 'up' | 'down', pixels: number, focus: string | null, wheel?: boolean): string | null | undefined;
+  /** A finger held and drawn so many CSS pixels up or down since the last time, up counted up: true where a list goes with it. */
+  drag?(pixels: number): boolean;
+  /** The finger let the list go at so many CSS pixels a millisecond, up counted up. */
+  fling?(speed: number): void;
+  /** A finger put down: the list stops where it goes on by itself; true where it was moving. */
+  hold?(): boolean;
   /** A key asked for a step, and there is nowhere to go that way. */
   stuck(): void;
   back(): void;
@@ -125,7 +138,9 @@ export interface InputHost {
  * is let go inside the zone it was pressed in. A zone that asks for it acts only when it was
  * in focus before the press: the first press steps onto it, the second runs it. A press drawn
  * sideways is offered to the screen as a swipe first, and runs nothing where the screen takes it;
- * a press drawn up or down, and the wheel of a mouse, are offered to it as a scroll.
+ * a press drawn up or down, and the wheel of a mouse, are offered to it as a scroll. A finger drawn
+ * up or down over a list that goes with it moves the list as it goes and lets it go on when it
+ * is lifted, and runs nothing.
  */
 export class ShellInput {
   focus: string | null = null;
@@ -133,6 +148,10 @@ export class ShellInput {
   down: string | null = null;
   /** Where the press that is held began. */
   private from: { x: number; y: number } | null = null;
+  /** The focus before the press: a finger that takes a list leaves it as it was. */
+  private before: string | null = null;
+  /** A finger is moving a list: where it was last, and where it was over the last moments. */
+  private dragging: { y: number; trail: { y: number; t: number }[] } | null = null;
 
   constructor(private readonly host: InputHost) {
     window.addEventListener('pointermove', (e) => this.onMove(e));
@@ -148,6 +167,7 @@ export class ShellInput {
     this.focus = focus;
     this.down = null;
     this.from = null;
+    this.dragging = null;
     this.setCursor(false);
   }
 
@@ -157,7 +177,10 @@ export class ShellInput {
   }
 
   private onMove(e: PointerEvent): void {
-    if (e.pointerType !== 'mouse') return;
+    if (e.pointerType !== 'mouse') {
+      this.onDrag(e);
+      return;
+    }
     if (this.taken(e)) {
       this.setCursor(false);
       return;
@@ -174,6 +197,10 @@ export class ShellInput {
     if (this.taken(e) || (e.pointerType === 'mouse' && e.button !== 0)) return;
     if (this.host.skip()) return;
     this.from = { x: e.clientX, y: e.clientY };
+    this.before = this.focus;
+    this.dragging = null;
+    // A finger put on a list going by itself stops it, and presses nothing.
+    if (e.pointerType !== 'mouse' && this.host.hold?.()) return;
     const item = zoneAt(this.host.items(), e.clientX, e.clientY);
     if (!item) return;
     // A mouse has already brought the focus here on its way; a finger arrives with the press.
@@ -184,10 +211,51 @@ export class ShellInput {
     this.host.changed();
   }
 
+  /** A finger held and moving: once it has gone far enough up or down, a list that takes it goes with it. */
+  private onDrag(e: PointerEvent): void {
+    const from = this.from;
+    if (!from || this.taken(e)) return;
+    const now = e.timeStamp;
+    if (!this.dragging) {
+      const dy = e.clientY - from.y;
+      if (Math.abs(dy) < DRAG_MIN || Math.abs(dy) <= Math.abs(e.clientX - from.x)) return;
+      if (!this.host.drag?.(-dy)) return;
+      // The list has the finger: what it went down on is not pressed, and the focus is where it was.
+      this.dragging = { y: e.clientY, trail: [{ y: from.y, t: now - 1 }, { y: e.clientY, t: now }] };
+      this.down = null;
+      this.focus = this.before;
+      this.host.changed();
+      return;
+    }
+    const by = this.dragging.y - e.clientY;
+    this.dragging.y = e.clientY;
+    this.dragging.trail.push({ y: e.clientY, t: now });
+    while (this.dragging.trail.length > 2 && now - this.dragging.trail[0].t > FLING_MS) this.dragging.trail.shift();
+    if (by !== 0 && this.host.drag?.(by)) this.host.changed();
+  }
+
+  /** The speed, in CSS pixels a millisecond, up counted up, a finger moving a list is lifted at. */
+  private flingSpeed(e: PointerEvent): number {
+    const trail = this.dragging?.trail ?? [];
+    const last = { y: e.clientY, t: e.timeStamp };
+    const first = trail.find((point) => last.t - point.t <= FLING_MS) ?? trail[trail.length - 1];
+    if (!first || last.t - first.t <= 0) return 0;
+    return (first.y - last.y) / (last.t - first.t);
+  }
+
   private onUp(e: PointerEvent): void {
     const held = this.down;
     const from = this.from;
     this.from = null;
+    if (this.dragging) {
+      // The finger lets the list go: it goes on at the speed it was let go at, and nothing is pressed.
+      const speed = this.flingSpeed(e);
+      this.dragging = null;
+      this.down = null;
+      this.host.fling?.(speed);
+      this.host.changed();
+      return;
+    }
     const dir = from && !this.taken(e) ? swipeOf(e.clientX - from.x, e.clientY - from.y) : null;
     const swiped = dir && from ? this.host.swipe(dir, from.x, from.y) : null;
     if (swiped != null) {
@@ -227,6 +295,10 @@ export class ShellInput {
 
   private release(): void {
     this.from = null;
+    if (this.dragging) {
+      this.dragging = null;
+      this.host.fling?.(0);
+    }
     if (this.down === null) return;
     this.down = null;
     this.host.changed();

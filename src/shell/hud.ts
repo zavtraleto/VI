@@ -8,7 +8,21 @@ import { signalLook } from '../signal/scene';
 import { fitCursor, pointCursor } from './cursor';
 import { loadShellFonts } from './fonts';
 import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, SCORE_PLACES, counterLeft, counterWidth, hudLayout, undoButton, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_GAP, TOOL_PAD, type FloorAxes, type HudLayout } from './hudLayout';
-import { CAPITAL_TOP, ICON_MUTE_CROSS, ICON_MUTE_SPEAKER, ICON_PAUSE, ICON_RESTART, ICON_SOUND, ICON_UNDO, iconWidth } from './icons';
+import {
+  CAPITAL_TOP,
+  ICON_MUTE_CROSS,
+  ICON_MUTE_CROSS_TALL,
+  ICON_MUTE_SPEAKER,
+  ICON_MUTE_SPEAKER_TALL,
+  ICON_PAUSE,
+  ICON_PAUSE_TALL,
+  ICON_RESTART,
+  ICON_RESTART_TALL,
+  ICON_SOUND,
+  ICON_SOUND_TALL,
+  ICON_UNDO,
+  iconWidth,
+} from './icons';
 import { zoneAt } from './input';
 import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, pictureSize, type Box, type Insets, type Point } from './layout';
@@ -857,7 +871,7 @@ export class GameHud {
     const box = layout.pause;
     const pressed = this.held?.zone.id === 'pause';
     if (pressed) kit.box(box, ink);
-    kit.iconIn(ICON_PAUSE, box, pressed ? kit.palette.bg : ink);
+    kit.iconIn(layout.tallIcons ? ICON_PAUSE_TALL : ICON_PAUSE, box, pressed ? kit.palette.bg : ink);
     this.zones.push({ id: 'pause', rect: kit.toWindow(layout.zones.pause), action: () => this.actions.onPause() });
   }
 
@@ -869,7 +883,7 @@ export class GameHud {
     if (!box) return;
     const pressed = this.held?.zone.id === 'retry';
     if (pressed) kit.box(box, ink);
-    kit.iconIn(ICON_RESTART, box, pressed ? kit.palette.bg : ink);
+    kit.iconIn(layout.tallIcons ? ICON_RESTART_TALL : ICON_RESTART, box, pressed ? kit.palette.bg : ink);
     this.zones.push({ id: 'retry', rect: kit.toWindow(layout.zones.restart ?? box), action: () => this.actions.onRestart() });
   }
 
@@ -885,10 +899,10 @@ export class GameHud {
     const pressed = this.held?.zone.id === 'sound';
     if (pressed) kit.box(box, ink);
     if (muted) {
-      kit.iconIn(ICON_MUTE_SPEAKER, box, pressed ? faint : dim);
-      kit.iconIn(ICON_MUTE_CROSS, box, pressed ? bg : ink);
+      kit.iconIn(layout.tallIcons ? ICON_MUTE_SPEAKER_TALL : ICON_MUTE_SPEAKER, box, pressed ? faint : dim);
+      kit.iconIn(layout.tallIcons ? ICON_MUTE_CROSS_TALL : ICON_MUTE_CROSS, box, pressed ? bg : ink);
     } else {
-      kit.iconIn(ICON_SOUND, box, pressed ? bg : ink);
+      kit.iconIn(layout.tallIcons ? ICON_SOUND_TALL : ICON_SOUND, box, pressed ? bg : ink);
     }
     this.zones.push({ id: 'sound', rect: kit.toWindow(layout.zones.sound ?? box), action: () => this.actions.onSound() });
   }
