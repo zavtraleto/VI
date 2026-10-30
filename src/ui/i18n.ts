@@ -14,7 +14,7 @@ import { WORDS } from './lang/words';
  */
 const RU = {
   newBest: 'Новый рекорд',
-  notSaved: 'Хранилище недоступно: рекорд не сохранён',
+  notSaved: 'Не получилось сохранить рекорд',
   hintFloor: 'На полу ты толкаешь кубы',
   hintMount: 'Зайди на появляющийся куб',
   hintChain: 'Добавляй такие же, пока они тонут',
@@ -26,7 +26,7 @@ const RU = {
   levelStranded: 'Тупик: с этой кости некуда идти',
   // On the floor a die is pushed and never turned, and the one way up is a die that is leaving.
   levelFloorStuck: 'Тупик: с пола нечего толкнуть и не на что подняться',
-  levelFloorFaces: 'Тупик: с пола кость не повернуть, а граней на комбо не хватает',
+  levelFloorFaces: 'Тупик: с пола кости только толкают, а нужных граней мало',
   levelShort: 'Ходы кончились. Не хватило: {short}',
   // What is said in the window a level opens with, a message at a time; a blank line parts two
   // messages. A combo is as many dice side by side as their face has pips; a chain is a combo
@@ -111,9 +111,9 @@ const RU = {
   // player: the owner's words of 15 October 2026, plain and clear, with a little mystery kept. The other six languages
   // say the same and have not been read by a native speaker.
   roadHintChain: 'К [уходящему комбо] можно добавлять кости.',
-  roadHintWalk: 'По [уходящим костям] можно ходить.',
-  roadHintPush: 'Спустись по [уходящим костям] и [толкай].',
-  roadHintClimb: '[Уходящие кости] позволяют подниматься и опускаться.',
+  roadHintWalk: 'Комбо [уходит] не сразу. По [уходящим костям] можно ходить.',
+  roadHintPush: 'Спустись по [уходящим костям] на пол. С пола кости [толкают].',
+  roadHintClimb: 'С пола наверх и обратно — по [уходящим костям].',
   hintSeven: 'Сумма точек на [противоположных гранях] всегда равна [7].',
   // The line act II opened with, a draft of 13 October 2026: no board carries it now.
   hintLinkMove: '[Звено] даёт комбо ещё ход.',
@@ -121,19 +121,19 @@ const RU = {
   hintRollIn: 'В [уходящую кость] тоже можно [вкатиться].',
   // The windows of the 1s (the levels to a hundred, decision 7): the owner's words of 26 October 2026, «единица под
   // игроком не уходит, а пододвинутая единица — уходит»; the lines are the executor's.
-  hintOnes: '[1:Единица] у [уходящих костей] уводит все [1:единицы]. Твоя остаётся.',
+  hintOnes: 'Подкати [1:единицу] к [уходящим] — уйдут все остальные [1:единицы].',
   hintOnesPush: 'Толкни [1:единицу] к [уходящим], и уйдёт она сама.',
   // The window after the last board of the row: the words in braces lead to the endless session (the owner, 15 October 2026).
   // The word in the title of the window of a transmission, before the number of its figure.
   signalTitle: 'ПЕРЕДАЧА',
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
   liveIntro: 'Это не уровень: [прямой сеанс]. Кости приходят сами. [Три минуты], счёт отдельный. {Пропустить}',
-  shellProtocol: 'СЕАНС БЕЗ СРОКА',
-  shellLevels: 'ОЧИСТКА ПОЛЯ',
-  shellRecords: 'ЖУРНАЛ СЕАНСОВ',
-  shellSystem: 'ПАРАМЕТРЫ',
-  shellHowTo: 'ПОРЯДОК РАБОТЫ',
-  shellReadme: 'СОПРОВОДИТЕЛЬНАЯ ЗАПИСКА',
+  shellProtocol: 'КОСТИ ИДУТ БЕЗ КОНЦА',
+  shellLevels: 'УБЕРИ С ПОЛЯ ВСЕ КОСТИ',
+  shellRecords: 'ЛУЧШИЕ ИГРОКИ',
+  shellSystem: 'ЗВУК, ЯЗЫК И ДРУГОЕ',
+  shellHowTo: 'ПРАВИЛА ЗА МИНУТУ',
+  shellReadme: 'ЗАПИСКА ИЗ ИНСТИТУТА',
   // How the game is played, as the file of the menu says it: the rules that hold wherever dice are
   // rolled, in the plain words of the instruction, then what a level asks for and what a session does.
   howRoll: 'Ты стоишь на кости и катишь её: боковая грань ложится наверх.\nВ пустую клетку кость катится вместе с тобой. На соседнюю кость ты просто переходишь.\nНапротив всегда семь: под единицей лежит шестёрка.',
@@ -141,15 +141,15 @@ const RU = {
   howChain: 'Комбо уходит не сразу.\nПока оно уходит, докати к нему ещё кость с той же гранью: она уйдёт вместе с ним. Это цепочка.',
   howOnes: 'Единицы в комбо не собираются.\nПодведи единицу к уходящему комбо — и уйдут все остальные единицы на поле.',
   howLevels: 'УРОВНИ: убери с поля все кости.\nГрани в углу — те, которые нужно собрать.\nПравила пола здесь свои: наверх — только по уходящей кости.',
-  howLive: 'ПРЯМОЙ СЕАНС: три минуты по правилам ПРОТОКОЛА, между главами.\nМожно пропустить.',
-  howProtocol: 'ПРОТОКОЛ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — сеанс окончен.',
+  howLive: 'ПРЯМОЙ СЕАНС: три минуты бесконечного режима между главами.\nМожно пропустить.',
+  howProtocol: 'БЕСКОНЕЧНЫЙ РЕЖИМ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — игра окончена.',
   // What a player sends out with a link to the game: the score is what was sent to the other side.
   shareScore: 'VI — передано на ту сторону: {score}',
 };
 
 const EN: typeof RU = {
   newBest: 'New best',
-  notSaved: 'Storage unavailable: record not saved',
+  notSaved: 'Your best could not be saved',
   hintFloor: 'On the floor you push cubes',
   hintMount: 'Step onto a rising cube',
   hintChain: 'Add matching cubes while they sink',
@@ -159,7 +159,7 @@ const EN: typeof RU = {
   levelStuck: 'Dead end: {left} left on the board, and a combo takes {need}',
   levelStranded: 'Dead end: there is nowhere to go from this die',
   levelFloorStuck: 'Dead end: nothing to push from the floor and nothing to go up by',
-  levelFloorFaces: 'Dead end: a push turns no die, and too few faces show for a combo',
+  levelFloorFaces: 'Dead end: from the floor dice only slide, and too few faces are right for a combo',
   levelShort: 'Out of moves. Short by: {short}',
   lessonThrees:
     'Hello! Welcome to Visual Interconnection. I am the lab assistant here, and today I am teaching you to work the table.\n\n' +
@@ -224,30 +224,30 @@ const EN: typeof RU = {
   ruleGlass: 'You can roll over a leaving die. If the face matches, the die joins the chain.',
   ruleFives: 'Only 5s work. A combo is five 5s side by side.',
   roadHintChain: 'Dice can be added to a [leaving combo].',
-  roadHintWalk: 'You can walk on [leaving dice].',
-  roadHintPush: 'Go down the [leaving dice] and [push].',
-  roadHintClimb: '[Leaving dice] let you climb up and down.',
+  roadHintWalk: 'A combo [leaves] slowly. You can walk on [leaving dice].',
+  roadHintPush: 'Go down [leaving dice] to the floor. There, [push] dice.',
+  roadHintClimb: 'Up from the floor and back: by [leaving dice].',
   hintSeven: '[Opposite faces] always add up to [7].',
   hintLinkMove: 'A [link] gives the combo a move.',
   hintRollIn: 'You can [roll into] a [leaving die], too.',
-  hintOnes: 'A [1:one] by [leaving dice] takes all [1:ones]. Yours stays.',
+  hintOnes: 'Roll a [1:one] to [leaving dice]: the other [1:ones] go.',
   hintOnesPush: 'Push a [1:one] to [leaving dice], and it goes too.',
   signalTitle: 'TRANSMISSION',
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
   liveIntro: 'Not a level: a [live session]. The dice come by themselves. [Three minutes], scored on its own. {Skip}',
-  shellProtocol: 'SESSION WITHOUT LIMIT',
+  shellProtocol: 'THE DICE KEEP COMING',
   shellLevels: 'CLEAR THE BOARD',
-  shellRecords: 'SESSION LOG',
-  shellSystem: 'PARAMETERS',
-  shellHowTo: 'OPERATING PROCEDURE',
-  shellReadme: 'ACCOMPANYING NOTE',
+  shellRecords: 'THE BEST PLAYERS',
+  shellSystem: 'SOUND, LANGUAGE AND MORE',
+  shellHowTo: 'THE RULES IN A MINUTE',
+  shellReadme: 'A NOTE FROM THE INSTITUTE',
   howRoll: 'You stand on a die and roll it: a side face comes up on top.\nInto an empty cell the die rolls with you. Onto a die next to you, you simply step.\nOpposite faces make seven: under a 1 lies a 6.',
   howCombo: 'A combo is as many dice side by side as their top face has pips: two 2s, three 3s, six 6s.\nA finished combo leaves.',
   howChain: 'A combo does not leave at once.\nWhile it is leaving, roll one more die with the same face up to it: it leaves with the combo. This is a chain.',
   howOnes: 'Ones make no combo.\nBring a 1 to a leaving combo, and every other 1 on the board leaves.',
   howLevels: 'LEVELS: clear every die off the board.\nThe faces in the corner are the ones to put together.\nThe floor has rules of its own here: the only way up is a leaving die.',
-  howLive: 'LIVE SESSION: three minutes by the rules of PROTOCOL, between chapters.\nCan be skipped.',
-  howProtocol: 'PROTOCOL: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the session is over.',
+  howLive: 'LIVE SESSION: three minutes of endless play between chapters.\nCan be skipped.',
+  howProtocol: 'ENDLESS: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the game is over.',
   shareScore: 'VI — sent to the other side: {score}',
 };
 

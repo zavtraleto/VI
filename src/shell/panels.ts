@@ -260,10 +260,10 @@ export function recordsPanel(table: () => RecordsTable, actions: RecordsActions)
   const rows: PanelRow[] = [
     {
       kind: 'table',
-      head: () => RECORDS.name,
+      head: () => word(RECORDS.name),
       status: () => {
         const link = table().link;
-        return link === 'waiting' ? RECORDS.waiting : link === 'failed' ? RECORDS.failed : '';
+        return link === 'waiting' ? word(RECORDS.waiting) : link === 'failed' ? word(RECORDS.failed) : '';
       },
       empty: () => `${RECORDS.empty.native} ${word(RECORDS.empty.name)}`,
       lines: 12,
@@ -337,7 +337,7 @@ export function levelsPanel(
           const level = levels[index];
           if (!level) return '';
           if ('live' in level) return LIVE_SESSION;
-          return level.faces ? `${GOAL.face} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
+          return level.faces ? `${word(GOAL.face)} ${level.faces.join(' ')} · ${goalText(level.goal)}` : goalText(level.goal);
         },
         program: true,
       },

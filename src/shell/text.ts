@@ -1,10 +1,11 @@
 import type { GoalLine } from '../rules';
-import type { LanguageCode, TextKey } from '../ui/i18n';
+import { word, type LanguageCode, type TextKey } from '../ui/i18n';
 
 /**
- * Everything the shell says, in one place. The program speaks Japanese and English: its labels
- * are Japanese, its names and values English. One dry line per file is in the language of the
- * player and comes through `t()`.
+ * Everything the shell says, in one place. Beside each word stands its Japanese, in kana; the word
+ * itself is said in the language of the player: it is asked for by its English name through
+ * `word()`. The owner, 30 October 2026: the game speaks to people, plainly and kindly, and keeps
+ * its mystery without the voice of an office. One line per file of the menu comes through `t()`.
  *
  * Every kanji used here has to be in the font: run `npm run fonts` after changing the Japanese.
  */
@@ -65,8 +66,8 @@ export const STATUS = {
   sessions: 'かいすう',
 } as const;
 
-/** The keys, on a screen that has them: "move", "decide". */
-export const LEGEND = '←↑↓→ いどう   ENTER けってい';
+/** The keys, on a screen that has them: what the arrows and the Enter key do, said through `word()`. */
+export const LEGEND = { move: 'MOVE', pick: 'SELECT' } as const;
 
 /** What a file of the menu shows under its name. */
 export type FileField = 'bestEndless' | 'levels' | 'rules' | 'readme' | 'sessions' | 'revision';
@@ -82,8 +83,8 @@ export interface MenuFile {
   line: TextKey;
   /** What the bar of its record says it does. */
   exec: (typeof EXEC)[keyof typeof EXEC];
-  /** Label and kind of the value under the name. */
-  field: readonly [label: string, kind: FileField];
+  /** Label of the value under the name, in kana and by its English name, and the kind of the value. */
+  field: readonly [native: string, name: string, kind: FileField];
 }
 
 /**
@@ -96,17 +97,17 @@ export interface MenuFile {
  */
 export const MENU_FILES: readonly MenuFile[] = [
   /** "Level": the levels of the game; "clear". */
-  { id: 'levels', face: 1, name: 'LEVELS', native: 'レベル', line: 'shellLevels', exec: EXEC.play, field: ['クリア', 'levels'] },
-  /** "Protocol"; "high score". */
-  { id: 'protocol', face: 2, name: 'PROTOCOL', native: 'プロトコル', line: 'shellProtocol', exec: EXEC.play, field: ['ハイスコア', 'bestEndless'] },
+  { id: 'levels', face: 1, name: 'LEVELS', native: 'レベル', line: 'shellLevels', exec: EXEC.play, field: ['クリア', 'CLEARED', 'levels'] },
+  /** "Infinity": the game without an end; "high score". */
+  { id: 'protocol', face: 2, name: 'ENDLESS', native: 'むげん', line: 'shellProtocol', exec: EXEC.play, field: ['ハイスコア', 'BEST', 'bestEndless'] },
   /** "Explanation": how the game is played, on the pieces of the road; "rules". */
-  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: 'せつめい', line: 'shellHowTo', exec: EXEC.read, field: ['ルール', 'rules'] },
-  /** "To begin with": the note that came with the program; "last": the day it was last written to. */
-  { id: 'readme', face: 4, name: 'README', native: 'はじめに', line: 'shellReadme', exec: EXEC.read, field: ['さいしゅう', 'readme'] },
-  /** "Records"; "number of entries". */
-  { id: 'records', face: 5, name: 'RECORDS', native: 'きろく', line: 'shellRecords', exec: EXEC.open, field: ['けんすう', 'sessions'] },
+  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: 'せつめい', line: 'shellHowTo', exec: EXEC.read, field: ['ルール', 'RULES', 'rules'] },
+  /** "Story": the note that came with the program; "date": the day it was last written to. */
+  { id: 'readme', face: 4, name: 'STORY', native: 'ものがたり', line: 'shellReadme', exec: EXEC.read, field: ['ひづけ', 'DATE', 'readme'] },
+  /** "Records": the best scores of the endless game; "number of entries". */
+  { id: 'records', face: 5, name: 'HIGH SCORES', native: 'きろく', line: 'shellRecords', exec: EXEC.open, field: ['けんすう', 'GAMES', 'sessions'] },
   /** "Settings"; "revision". */
-  { id: 'system', face: 6, name: 'SYSTEM', native: 'せってい', line: 'shellSystem', exec: EXEC.open, field: ['かいてい', 'revision'] },
+  { id: 'system', face: 6, name: 'SETTINGS', native: 'せってい', line: 'shellSystem', exec: EXEC.open, field: ['かいてい', 'VERSION', 'revision'] },
 ];
 
 /** The day the note that came with the program was last written to, by the era: the day before the last start. */
@@ -133,19 +134,17 @@ export function shortScore(score: number): string {
   return `${Math.floor(value / 1_000_000)}M`;
 }
 
-/** What the session shows while it runs: the names of its readings. */
+/** What the session shows while it runs: the names of its readings, in English, said through `word()`. */
 export const HUD = {
-  /** "Score". */
-  score: 'スコア',
-  /** "Best". */
-  best: 'ベスト',
+  score: 'SCORE',
+  best: 'BEST',
   level: 'LV',
-  /** "Connection": the steps the contact has taken, and the dice sent at which the next one comes. */
-  link: 'せつぞく',
-  /** "Detected": what the link reads once the program has found a pattern on it. */
-  found: 'けんしゅつ',
-  /** "Full": every cell holds a die, and the seconds left to free one. */
-  full: 'まんぱい',
+  /** The steps the contact has taken, and the dice sent at which the next one comes. */
+  link: 'LINK',
+  /** What the link reads once the program has found a pattern on it. */
+  found: 'SIGNAL',
+  /** Every cell holds a die, and the seconds left to free one. */
+  full: 'NO ROOM',
   /** "Take back", "again": what can be pressed over the board. */
   undo: 'とりけし',
   retry: 'やりなおし',
@@ -154,12 +153,13 @@ export const HUD = {
 /**
  * The three lines of a level in the top left corner: its number, the moves of this try, and the
  * fewest the board is known to be cleared in (the owner, 28 October 2026: BEST → PAR; 29 October
- * 2026: LEVEL, CURRENT, PAR one under the other). Words of the program, not translated.
+ * 2026: one under the other; 30 October 2026: CURRENT → MOVES). Said through `word()`; PAR is the
+ * same in every language.
  */
-export const READS = { level: 'LEVEL', current: 'CURRENT', best: 'PAR' } as const;
+export const READS = { level: 'LEVEL', current: 'MOVES', best: 'PAR' } as const;
 
-/** What a line of the goal of a level goes under, where it is written and not drawn. */
-export const GOAL = { dice: 'SEND', face: 'FACE', links: 'CHAIN', cleared: 'LEFT', clear: 'CLEAR' } as const;
+/** What a line of the goal of a level goes under, where it is written and not drawn: English names, said through `word()`. */
+export const GOAL = { dice: 'DICE', face: 'FACE', links: 'CHAIN', cleared: 'LEFT', clear: 'CLEAR' } as const;
 
 
 /** Links of a chain are few: their count takes one place while it fits; a count of dice takes two. */
@@ -167,7 +167,7 @@ const goalPlaces = (line: GoalLine): number => (line.what === 'links' && line.ne
 
 /** The name of a line of a goal: what it counts. A face is named with its number. */
 export function goalLabel(line: GoalLine): string {
-  return line.what === 'face' ? `${GOAL.face} ${line.value}` : GOAL[line.what];
+  return line.what === 'face' ? `${word(GOAL.face)} ${line.value}` : word(GOAL[line.what]);
 }
 
 /** How far a line of a goal has come: `03/04`; of a board to clear, the dice that still stand. */
@@ -180,9 +180,9 @@ export function goalProgress(line: GoalLine): string {
 export function goalText(lines: readonly GoalLine[]): string {
   return lines
     .map((line) => {
-      if (line.what === 'cleared') return `${GOAL.clear} ${digits(line.need, 2)}`;
-      if (line.what === 'face') return `${GOAL.face} ${line.value} ×${digits(line.need, 2)}`;
-      return `${GOAL[line.what]} ${digits(line.need, goalPlaces(line))}`;
+      if (line.what === 'cleared') return `${word(GOAL.clear)} ${digits(line.need, 2)}`;
+      if (line.what === 'face') return `${word(GOAL.face)} ${line.value} ×${digits(line.need, 2)}`;
+      return `${word(GOAL[line.what])} ${digits(line.need, goalPlaces(line))}`;
     })
     .join(' · ');
 }
@@ -199,15 +199,15 @@ export const PANELS = {
   /** "Result". */
   result: { native: 'けっか', name: 'RESULT' },
   /** "Records". */
-  records: { native: 'きろく', name: 'RECORDS' },
+  records: { native: 'きろく', name: 'HIGH SCORES' },
   /** "Settings". */
-  system: { native: 'せってい', name: 'SYSTEM' },
+  system: { native: 'せってい', name: 'SETTINGS' },
   /** "Rules". */
   rules: { native: 'ルール', name: 'RULES' },
   /** "Explanation": how the game is played. */
   howto: { native: 'せつめい', name: 'HOW TO PLAY' },
-  /** "To begin with": the note that came with the program. */
-  readme: { native: 'はじめに', name: 'README' },
+  /** "Story": the note that came with the program. */
+  readme: { native: 'ものがたり', name: 'STORY' },
   /** "Clear". */
   cleared: { native: 'クリア', name: 'CLEARED' },
   /** "Level": the levels of the game. */
@@ -227,8 +227,8 @@ export const COMMANDS = {
   /** "Try again". */
   restart: { native: 'やりなおす', name: 'RESTART' },
   again: { native: 'もういちど', name: 'AGAIN' },
-  records: { native: 'きろく', name: 'RECORDS' },
-  system: { native: 'せってい', name: 'SYSTEM' },
+  records: { native: 'きろく', name: 'HIGH SCORES' },
+  system: { native: 'せってい', name: 'SETTINGS' },
   /** "Menu". */
   menu: { native: 'メニュー', name: 'MENU' },
   levels: { native: 'レベル', name: 'LEVELS' },
@@ -254,11 +254,11 @@ export const COMMANDS = {
   sent: { native: 'そうしんずみ', name: 'SENT' },
   failed: { native: 'しっぱい', name: 'FAILED' },
   /**
-   * "Route": the way of a board shown by the swipe sign, for an advertisement of the platform; and
+   * "Hint": the way of a board shown by the swipe sign, for an advertisement of the platform; and
    * "doubling": the score of a live session doubled for one. `AD` says beforehand that one comes
    * (docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md).
    */
-  showWay: { native: 'ルート', name: 'SHOW WAY · AD' },
+  showWay: { native: 'ヒント', name: 'HINT · AD' },
   double: { native: 'ダブル', name: 'DOUBLE · AD' },
 } as const satisfies Record<string, PanelName>;
 
@@ -281,16 +281,16 @@ export const RESULT = {
 
 /** The log of sessions: its name and the heads of its columns. */
 export const RECORDS = {
-  /** The log is of the one session there is, and goes under its name: the file of the menu that plays it. */
-  title: { native: 'プロトコル', name: 'PROTOCOL' },
+  /** The best scores of the endless game, under the name of the file of the menu that opens them. */
+  title: { native: 'きろく', name: 'HIGH SCORES' },
   /** "No entries". */
   empty: { native: 'きろくなし', name: 'NO ENTRY' },
-  /** "Name": the head of the column of whose session a line is. */
-  name: 'なまえ',
-  /** "Connecting": the players of the platform are on their way. */
-  waiting: 'せつぞくちゅう',
-  /** "No connection": they did not come. */
-  failed: 'せつぞくなし',
+  /** The head of the column of whose game a line is. English names, said through `word()`. */
+  name: 'NAME',
+  /** The players of the platform are on their way. */
+  waiting: 'CONNECTING',
+  /** They did not come. */
+  failed: 'OFFLINE',
   /** A player the platform has no name for. */
   nameless: 'NO NAME',
   /** The line of the one who plays, where no platform has a name for them. */

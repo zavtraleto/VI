@@ -193,13 +193,13 @@ describe('the log of sessions', () => {
   it('is one log under the name of the one session there is, with no tabs', () => {
     const spec = recordsPanel(table, { onBack: nothing });
     expect(spec.rows.filter((candidate) => candidate.kind === 'tabs')).toHaveLength(0);
-    expect(typeof spec.title === 'function' ? spec.title() : spec.title).toEqual({ native: 'プロトコル', name: 'PROTOCOL' });
+    expect(typeof spec.title === 'function' ? spec.title() : spec.title).toEqual({ native: 'きろく', name: 'HIGH SCORES' });
   });
 
   it('shows the lines by name, with their places and the line of the one who plays', () => {
     const spec = recordsPanel(table, { onBack: nothing });
     const log = row(spec, 'table');
-    expect(log.head()).toBe('なまえ');
+    expect(log.head()).toBe('NAME');
     expect(log.status?.()).toBe('');
     const rows = log.rows();
     expect(rows.slice(0, 2)).toEqual([
@@ -218,12 +218,12 @@ describe('the log of sessions', () => {
     const spec = recordsPanel(table, { onBack: nothing });
     const log = row(spec, 'table');
     shown = { lines: [], link: 'waiting' };
-    expect(log.head()).toBe('なまえ');
+    expect(log.head()).toBe('NAME');
     expect(log.rows()).toEqual([]);
     expect(log.empty()).toBe('きろくなし NO ENTRY');
-    expect(log.status?.()).toBe('せつぞくちゅう');
+    expect(log.status?.()).toBe('CONNECTING');
     shown = { ...shown, link: 'failed' };
-    expect(log.status?.()).toBe('せつぞくなし');
+    expect(log.status?.()).toBe('OFFLINE');
     // The head and what the platform has to say of itself fit the panel of a phone side by side.
     expect(textWidth(`No. ${log.head()} ${log.status?.()}`)).toBeLessThanOrEqual(248);
   });

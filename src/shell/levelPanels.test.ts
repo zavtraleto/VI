@@ -42,7 +42,7 @@ const CLEAR: GoalLine[] = [{ what: 'cleared', value: 0, have: 11, need: 16 }];
 
 describe('the goal of a level, as the program writes it', () => {
   it('names dice of any face, dice of one face, links of a chain and dice left to clear', () => {
-    expect(goalLabel(SEND[0])).toBe('SEND');
+    expect(goalLabel(SEND[0])).toBe('DICE');
     expect(goalLabel(ORDER[0])).toBe('FACE 2');
     expect(goalLabel(CHAIN[0])).toBe('CHAIN');
     expect(goalLabel(CLEAR[0])).toBe('LEFT');
@@ -61,7 +61,7 @@ describe('the goal of a level, as the program writes it', () => {
   });
 
   it('is written with nothing counted where a level is only picked', () => {
-    expect(goalText(SEND)).toBe('SEND 12');
+    expect(goalText(SEND)).toBe('DICE 12');
     expect(goalText(ORDER)).toBe('FACE 2 ×04 · FACE 3 ×06');
     expect(goalText(CHAIN)).toBe('CHAIN 3');
     expect(goalText(CLEAR)).toBe('CLEAR 16');
@@ -112,7 +112,7 @@ describe('the list of levels', () => {
   it('writes the goal of the level in focus in the font of the program', () => {
     const cells = row(levelsPanel(levels, 0, { onPick: nothing, onBack: nothing }), 'levels');
     expect(cells.program).toBe(true);
-    expect(cells.note(0)).toBe('SEND 12');
+    expect(cells.note(0)).toBe('DICE 12');
     expect(cells.note(1)).toBe('FACE 2 ×04 · FACE 3 ×06');
     expect(cells.note(2)).toBe('CHAIN 3');
     expect(cells.note(9)).toBe('');
@@ -734,7 +734,7 @@ describe('the files of the menu that are read', () => {
     const first = readmePanel(pages, 0, actions);
     const middle = readmePanel(pages, 1, actions);
     const last = readmePanel(pages, 2, actions);
-    expect(first.title).toEqual({ native: PANELS.readme.native, name: 'README 1/3' });
+    expect(first.title).toEqual({ native: PANELS.readme.native, name: 'STORY 1/3' });
     expect(first.rows.filter((candidate) => candidate.kind === 'say').map((candidate) => (candidate as { text: string }).text)).toEqual(['one', 'two']);
     expect(commands(first)).toEqual(['back', 'next']);
     expect(commands(middle)).toEqual(['back', 'next']);

@@ -244,7 +244,7 @@ export class MenuScreen implements ShellScreen {
     this.drawWire(kit, layout, projection, channel);
     this.drawNames(kit, names);
     this.drawRecord(kit, layout, file, channel, focus.pressed);
-    if (layout.legend !== null) kit.text(LEGEND, layout.header.left, layout.legend, palette.dim);
+    if (layout.legend !== null) kit.text(`←↑↓→ ${word(LEGEND.move)}   ENTER ${word(LEGEND.pick)}`, layout.header.left, layout.legend, palette.dim);
   }
 
   /** The file in focus becomes the one the figure stands on. */
@@ -439,7 +439,7 @@ export class MenuScreen implements ShellScreen {
     const nameEnd = kit.text(word(file.name), left, box.y + RECORD_NAME, ink, { scale: 2, bold: true });
     kit.text(file.native, nameEnd + CELL_W, box.y + RECORD_NATIVE, dim);
     kit.text(t(file.line), left, box.y + RECORD_LINE, ink);
-    kit.field(file.field[0], this.value(file.field[1]), left, right, box.y + RECORD_FIELD, dim, ink);
+    kit.field(`${file.field[0]} ${word(file.field[1])}`, this.value(file.field[2]), left, right, box.y + RECORD_FIELD, dim, ink);
 
     const exec = layout.exec;
     const label = `${file.exec.native} ${word(file.exec.name)}`;

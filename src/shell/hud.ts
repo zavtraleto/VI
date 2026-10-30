@@ -592,7 +592,7 @@ export class GameHud {
     // The stars of a pass keep under the readings and inside the window.
     // A step of the contact: the program says so over the board, for as long as its cell blinks.
     if (view.header.kind === 'session' && timeMs < this.stageFlash) {
-      const text = `${program >= 1 ? HUD.found : HUD.link} ${digits(view.header.stage, 2)}/${digits(view.header.steps, 2)}`;
+      const text = `${program >= 1 ? word(HUD.found) : word(HUD.link)} ${digits(view.header.stage, 2)}/${digits(view.header.steps, 2)}`;
       this.flagged(text, Math.round(stage.x + (stage.w - kit.measure(text)) / 2), Math.round(stage.y + 6), blink === 0);
     }
     // A plaque over a heap of a level keeps inside what the edges of the screen leave of the window.
@@ -814,7 +814,7 @@ export class GameHud {
     const { left, end, mid, rowA, rowB, rowC, big, tight } = layout;
     const { drift } = decay;
 
-    kit.text(HUD.score, left + this.adrift(1, drift), rowA, dim);
+    kit.text(word(HUD.score), left + this.adrift(1, drift), rowA, dim);
     this.score(left, big, timeMs, decay);
 
     // The record so far; it is the session's own from the moment the session passes it.
@@ -826,18 +826,18 @@ export class GameHud {
     let covered = false;
     if (session.danger !== null) {
       // The board is full. Its own rhythm, so it never reads as decoration.
-      const text = `${HUD.full}${digits(session.danger, 2)}`;
+      const text = `${word(HUD.full)} ${digits(session.danger, 2)}`;
       flagged(text, mid, rowA, blink === 0);
-      covered = mid + kit.measure(text) > end - kit.measure(HUD.best) - 4;
+      covered = mid + kit.measure(text) > end - kit.measure(word(HUD.best)) - 4;
     } else if (clock !== null && tight) {
       flagged(clock, mid, rowA, session.clock! <= 10 && blink === 0);
     } else {
-      const tag = `${HUD.level} ${digits(session.level, 2)}`;
+      const tag = `${word(HUD.level)} ${digits(session.level, 2)}`;
       flagged(tag, mid, rowA, timeMs < this.levelFlash && blink === 0);
       if (clock !== null) flagged(clock, mid, rowB, session.clock! <= 10 && blink === 0);
     }
 
-    if (!covered) kit.text(HUD.best, end + this.adrift(2, drift), rowA, dim, { align: 'right' });
+    if (!covered) kit.text(word(HUD.best), end + this.adrift(2, drift), rowA, dim, { align: 'right' });
     this.counter(Math.max(session.best, session.score), 6, end, rowB, 1, 'right', record);
 
     // The link: a cell for every step the contact can take, lit as far as it has gone, and
@@ -846,7 +846,7 @@ export class GameHud {
     const pitch = session.steps > 10 ? 4 : 7;
     const cells = session.steps * pitch;
     const next = session.next === null ? '' : digits(session.next, 4);
-    let label: string = program >= 1 ? HUD.found : HUD.link;
+    let label: string = program >= 1 ? word(HUD.found) : word(HUD.link);
     let tail = next;
     const width = (): number => (label ? kit.measure(label) + 4 : 0) + cells + (tail ? 4 + kit.measure(tail) : 0);
     if (end - width() < mid - 4) tail = '';
@@ -886,27 +886,27 @@ export class GameHud {
     const { left, right, lines } = layout;
     const { drift } = decay;
 
-    kit.text(HUD.score, left + this.adrift(1, drift), lines.label, dim);
+    kit.text(word(HUD.score), left + this.adrift(1, drift), lines.label, dim);
     this.score(left, lines.big, timeMs, decay);
 
     if (session.danger !== null) {
       // The board is full. Its own rhythm, so it never reads as decoration.
-      this.flagged(`${HUD.full}${digits(session.danger, 2)}`, left, lines.tag, blink === 0);
+      this.flagged(`${word(HUD.full)} ${digits(session.danger, 2)}`, left, lines.tag, blink === 0);
     } else {
-      const tag = `${HUD.level} ${digits(session.level, 2)}`;
+      const tag = `${word(HUD.level)} ${digits(session.level, 2)}`;
       this.flagged(tag, left, lines.tag, timeMs < this.levelFlash && blink === 0);
       const clock = clockText(session.clock);
       if (clock !== null) this.flagged(clock, right - kit.measure(clock), lines.tag, session.clock! <= 10 && blink === 0);
     }
 
     const record = session.score > session.best;
-    kit.text(HUD.best, left + this.adrift(2, drift), lines.best, dim);
+    kit.text(word(HUD.best), left + this.adrift(2, drift), lines.best, dim);
     this.counter(Math.max(session.best, session.score), 6, right, lines.best, 1, 'right', record);
 
     // The link: the score of its next step beside its name, and under them a cell for every
     // step the contact can take, lit as far as it has gone. Once the program has found a
     // pattern on the link, that is what it reads.
-    const label = program >= 1 ? HUD.found : HUD.link;
+    const label = program >= 1 ? word(HUD.found) : word(HUD.link);
     if (timeMs < this.stageFlash) this.flagged(label, left + this.adrift(3, drift), lines.link, blink === 0);
     else kit.text(label, left + this.adrift(3, drift), lines.link, program >= 1 ? ink : dim);
     if (session.next !== null) kit.text(digits(session.next, 4), right, lines.link, dim, { align: 'right' });
@@ -941,7 +941,7 @@ export class GameHud {
   }
 
   /**
-   * The readings of a level, the same on a tall picture and a wide one: `LEVEL`, `CURRENT` and
+   * The readings of a level, the same on a tall picture and a wide one: `LEVEL`, `MOVES` and
    * `PAR` one under the other in the top left corner, the names at the left edge and the numbers
    * ending in one column, and a line of its goal under them where it has one. No score.
    */
@@ -949,14 +949,14 @@ export class GameHud {
     const { kit } = this;
     const { ink, dim, faint } = kit.palette;
     const { left, moves } = layout;
-    const names = [READS.level, READS.current, READS.best];
+    const names = [READS.level, READS.current, READS.best].map(word);
     const right = left + Math.max(...names.map((name) => kit.measure(name))) + CELL_W + kit.measure('000');
-    kit.text(READS.level, left, layout.tag.y, dim);
+    kit.text(word(READS.level), left, layout.tag.y, dim);
     if (level.number === null) kit.text('---', right, layout.tag.y, faint, { align: 'right' });
     else kit.text(digits(level.number, 3), right, layout.tag.y, ink, { align: 'right' });
-    kit.text(READS.current, left, moves[0], dim);
+    kit.text(word(READS.current), left, moves[0], dim);
     kit.text(digits(level.made, 3), right, moves[0], ink, { align: 'right' });
-    kit.text(READS.best, left, moves[1], dim);
+    kit.text(word(READS.best), left, moves[1], dim);
     if (level.best === null) kit.text('---', right, moves[1], faint, { align: 'right' });
     else kit.text(digits(level.best, 3), right, moves[1], ink, { align: 'right' });
     if (level.goal.length > 0) this.goalLine(level.goal[0], right, layout.goal, left);
