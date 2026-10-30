@@ -254,7 +254,9 @@ export function startSoundLab(): void {
     relaid: () => fire({ kind: 'relaid' }),
     failed: () => fire({ kind: 'failed' }),
     stars: () => {
+      // One by one, and all three to a chord, as the window between two boards has it after the third.
       for (let index = 0; index < 3; index++) later(index * 190, () => fire({ kind: 'star', index }));
+      later(2 * 190 + 600, () => fire({ kind: 'starsAll' }));
     },
     linesMiddle: () => wave(5, [], { x: 2, z: 2 }),
     linesCorner: () => wave(5, [], { x: 0, z: 4 }),

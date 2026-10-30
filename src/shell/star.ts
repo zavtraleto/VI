@@ -134,16 +134,26 @@ export function starTones(colours: StarColours): string[] {
   return tones;
 }
 
-/** How the light of a star stands at a moment: `flare` 0 to 1 is the burst it comes on with, `shimmer` -1 to 1 its slow breathing. */
+/**
+ * How the light of a star stands at a moment: `flare` 0 to 1 is the burst it comes on with,
+ * `shimmer` -1 to 1 its slow breathing, `blaze` 0 to 1 the white blaze of all three stars held,
+ * brighter and wider than the burst.
+ */
 export interface StarGlow {
   flare: number;
   shimmer: number;
+  blaze?: number;
 }
 
 /** The light around a star: from this many radii out, to this many, in this many steps. */
 const GLOW_FAR = 1.75;
 const GLOW_NEAR = 0.9;
 const GLOW_STEPS = 10;
+
+/** The light of a blaze: from this many radii out, to this many, in this many steps. */
+const BLAZE_FAR = 2.3;
+const BLAZE_NEAR = 1.3;
+const BLAZE_STEPS = 8;
 
 /** The long rays of a star reach this many radii from its middle at rest; the short ones between them, this share of that. */
 const RAY = 1.9;
@@ -164,7 +174,9 @@ export function paintStar(kit: StarKit, cx: number, cy: number, radius: number, 
   const y0 = Math.round(cy);
   const flare = Math.max(0, Math.min(1, glow.flare));
   const breath = 1 + 0.15 * Math.max(-1, Math.min(1, glow.shimmer));
-  const strong = breath * (1 + 0.8 * flare);
+  const blaze = Math.max(0, Math.min(1, glow.blaze ?? 0));
+  // The rays of a blaze reach as far as those of the burst, and no further.
+  const strong = breath * (1 + 0.8 * Math.max(flare, blaze));
   // The light around: thin discs one in another, each a little of the colour, so that it grows towards the star in
   // many small steps and no ring of it is seen; the deep blue widest, the pale light nearest.
   for (let i = 0; i < GLOW_STEPS; i++) {
@@ -181,12 +193,23 @@ export function paintStar(kit: StarKit, cx: number, cy: number, radius: number, 
       kit.light(x0 + dx * i, y0 + dy * i, 1, 1, colours.core, most * left * left);
     }
   };
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) ray(dx, dy, long, 0.75);
-  for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) ray(dx, dy, Math.round(long * RAY_SHORT * 0.7), 0.4);
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) ray(dx, dy, long, Math.min(1, 0.75 + 0.25 * blaze));
+  for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) ray(dx, dy, Math.round(long * RAY_SHORT * 0.7), 0.4 + 0.4 * blaze);
   // The heart is hotter than the facets show: white over them, and all of the star at the height of its burst.
   kit.halo(x0 + 0.5, y0, r * 0.45 * breath, colours.core, 0.35 + 0.25 * flare);
   kit.halo(x0 + 0.5, y0, r * 0.22, colours.core, 0.6);
   if (flare > 0) kit.halo(x0 + 0.5, y0, r * 1.05, colours.core, 0.5 * flare);
+  // The blaze: the star nearly white through, and a wide white light round it.
+  if (blaze > 0) {
+    // Wide, in steps as the glow is, so that no ring of it is seen.
+    for (let i = 0; i < BLAZE_STEPS; i++) {
+      const share = i / (BLAZE_STEPS - 1);
+      kit.halo(x0 + 0.5, y0, r * (BLAZE_FAR - (BLAZE_FAR - BLAZE_NEAR) * share), colours.light, (0.03 + 0.05 * share) * blaze);
+    }
+    // The star itself white, its points kept: the light goes over its shape, not round it.
+    for (const run of starShape(r).runs) kit.light(x0 + run.x, y0 + run.y, run.w, 1, colours.core, 0.75 * blaze);
+    kit.halo(x0 + 0.5, y0, r * 0.4, colours.core, 0.6 * blaze);
+  }
 }
 
 /** Draws a star that is not held: its outline alone, dull and smeared, with no light. */

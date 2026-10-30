@@ -74,9 +74,10 @@ export type PanelRow =
   /**
    * What a level has earned, out of three. With `shine` they are the large stars of a pass, that
    * give light: they light up one after another, each with a flare and `onLit`, and then stand;
-   * `still` has them all lit at once, without the flare, and `onLit` once.
+   * `still` has them all lit at once, without the flare, and `onLit` once. Where all three are
+   * held, they then blaze once together, with `onAll`; `still` has `onAll` and no blaze.
    */
-  | { kind: 'stars'; count: number; shine?: { still: boolean; onLit?: (index: number) => void } }
+  | { kind: 'stars'; count: number; shine?: { still: boolean; onLit?: (index: number) => void; onAll?: () => void } }
   /**
    * Prose in the language of the player, in the voice. With `when`, its room is kept and it is
    * said once that holds. With `after`, its words are typed out, once so many signs of the
@@ -165,6 +166,24 @@ const SHINE_FLARE_MS = 650;
 /** A star grows from this share of its size to this share, and settles back to its size. */
 const SHINE_FROM = 0.5;
 const SHINE_PEAK = 1.3;
+/**
+ * All three held (the owner, 30 October 2026: «моргнуть ещё раз, всеми тремя и насыщено,
+ * светло»): this long after the third lights up, when its flare is nearly gone, the three blaze
+ * once together - up in the first of these milliseconds, down slowly over the second.
+ */
+const BLAZE_AFTER_MS = 600;
+const BLAZE_UP_MS = 70;
+const BLAZE_DOWN_MS = 900;
+/** When the three blaze, in milliseconds after the first star lights up. */
+const BLAZE_FROM_MS = SHINE_STEP_MS * 2 + BLAZE_AFTER_MS;
+
+/** The blaze of all three stars, `since` milliseconds after it began: 0 to 1, quickly up and slowly down. */
+function blazeAt(since: number): number {
+  if (since < 0) return 0;
+  if (since < BLAZE_UP_MS) return Math.sin((since / BLAZE_UP_MS) * (Math.PI / 2));
+  const left = Math.max(0, 1 - (since - BLAZE_UP_MS) / BLAZE_DOWN_MS);
+  return left * left;
+}
 
 /** The size of a star that began to light `since` milliseconds ago, as a share of its own: quickly past it, then slowly back. */
 function shineSize(since: number): number {
@@ -280,6 +299,8 @@ export class PanelScreen implements ShellScreen {
   private shineFrom: number | null = null;
   private now = 0;
   private shineHeard = 0;
+  /** The chord of all three stars has been heard. */
+  private shineAllHeard = false;
 
   constructor(
     private readonly context: ShellContext,
@@ -321,14 +342,20 @@ export class PanelScreen implements ShellScreen {
     this.shineFrom ??= timeMs;
     const before = this.now;
     this.now = timeMs;
-    const { still, onLit } = row.shine;
+    const { still, onLit, onAll } = row.shine;
     const age = timeMs - this.shineFrom - SHINE_WAIT_MS;
     const lit = still ? row.count : age < 0 ? 0 : Math.min(row.count, Math.floor(age / SHINE_STEP_MS) + 1);
     // With motion kept low they all stand at once, and one is heard.
     for (; this.shineHeard < lit; this.shineHeard++) if (!still || this.shineHeard === row.count - 1) onLit?.(this.shineHeard);
+    const all = row.count >= 3;
+    // The chord of all three: with the blaze, or with motion kept low at once, after the star.
+    if (all && !this.shineAllHeard && (still || age >= BLAZE_FROM_MS)) {
+      this.shineAllHeard = true;
+      onAll?.();
+    }
     if (still) return before === 0;
-    // Once the last has flared they stand, and are drawn once more, still.
-    const over = SHINE_WAIT_MS + SHINE_STEP_MS * Math.max(0, row.count - 1) + SHINE_FLARE_MS;
+    // Once the last has flared, and all three have blazed, they stand, and are drawn once more, still.
+    const over = SHINE_WAIT_MS + (all ? BLAZE_FROM_MS + BLAZE_UP_MS + BLAZE_DOWN_MS : SHINE_STEP_MS * Math.max(0, row.count - 1) + SHINE_FLARE_MS);
     if (before - this.shineFrom >= over) return false;
     return timeMs - this.shineFrom >= over || Math.floor(timeMs / SHINE_FRAME_MS) !== Math.floor(before / SHINE_FRAME_MS);
   }
@@ -338,6 +365,7 @@ export class PanelScreen implements ShellScreen {
     const { still } = row.shine!;
     const age = this.now - (this.shineFrom ?? this.now) - SHINE_WAIT_MS;
     const first = Math.round(centre - SHINE_STEP);
+    const blaze = still || row.count < 3 ? 0 : blazeAt(age - BLAZE_FROM_MS);
     for (let i = 0; i < 3; i++) {
       const cx = first + i * SHINE_STEP;
       const since = still ? Infinity : age - i * SHINE_STEP_MS;
@@ -345,7 +373,7 @@ export class PanelScreen implements ShellScreen {
       if (i >= row.count || since < SHINE_GROW_MS) paintStarGhost(kit, cx, cy, SHINE_STAR, kit.palette.star);
       if (i >= row.count || since < 0) continue;
       const left = Math.max(0, 1 - since / SHINE_FLARE_MS);
-      paintStar(kit, cx, cy, SHINE_STAR * shineSize(since), kit.palette.star, { flare: left * left, shimmer: 0 });
+      paintStar(kit, cx, cy, SHINE_STAR * shineSize(since), kit.palette.star, { flare: left * left, shimmer: 0, blaze });
     }
   }
 

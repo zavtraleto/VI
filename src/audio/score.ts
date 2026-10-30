@@ -81,6 +81,8 @@ export type Cue =
   | { kind: 'lines'; draw: boolean; step: number; of: number; seconds: number; left: number; right: number; share: number; last: boolean }
   // A star of a level that is passed lights up: the first of them is 0.
   | { kind: 'star'; index: number }
+  // All three stars of a level are held: they flare once more together, to a chord.
+  | { kind: 'starsAll' }
   // What comes back from the other side: the notes the player has just played, as their frequencies.
   | { kind: 'reply'; heard: readonly number[] }
   // The interface of the program.
@@ -173,6 +175,14 @@ export function lineSteps(segments: readonly GridSegment[], size: number): LineS
 
 /** The degrees the stars of a level light up on: the root, the fourth and the fifth of the mode as it stands. */
 const STAR_DEGREES = [0, 2, 3];
+/**
+ * The chord of three stars, as degrees of the bell: the fifth under the stars, their root, the
+ * fifth over it and the octave the ladder of the stars comes to. The mode has no third that
+ * would make it major: root, fifths and octaves are what is open and bright in every mode.
+ * It is struck from below, quickly, a note this far after the last.
+ */
+const ALL_STARS_ROLL = 0.035;
+const allStarsDegrees = (octave: number): number[] => [3, octave, octave + 3, 2 * octave];
 
 /**
  * The least time between two sounds of a kind, in seconds: a group of dice goes under on one
@@ -660,6 +670,30 @@ function play(cue: Cue, kit: Kit): Note[] {
     case 'star': {
       const index = clamp(Math.round(cue.index), 0, STAR_DEGREES.length - 1);
       return [bell('star', kit.bell(STAR_DEGREES[index] + octave), { gain: 0.18 * bells, pan: (index - 1) * 0.3, decay: num('bellTail') * 0.8, bright: 0.9, echo: 1.3, wide: 0.3 })];
+    }
+    case 'starsAll': {
+      // Bells struck from below, the last of them, the octave, left to ring longest; and under
+      // them, warm, the root and its fifth held low on soft sines, coming in a little after.
+      const degrees = allStarsDegrees(octave);
+      const tail = num('bellTail');
+      const notes: Note[] = degrees.map((degree, i) => {
+        const along = i / (degrees.length - 1);
+        return bell('starsAll', kit.bell(degree), {
+          at: i * ALL_STARS_ROLL,
+          gain: (0.11 + 0.05 * along) * bells,
+          pan: (along - 0.5) * 0.5,
+          decay: tail * (0.9 + 0.5 * along),
+          bright: 0.8 + 0.3 * along,
+          echo: 1.5,
+          wide: 0.5,
+        });
+      });
+      const warm = num('lowGain') * 0.3 * bells;
+      notes.push(
+        low('starsAllWarm', degreeHz(tune, 0), { at: 0.02, attack: 0.06, gain: warm, pan: -0.15, decay: tail * 1.1, drop: 1, fall: 0 }),
+        low('starsAllWarm', degreeHz(tune, 3), { at: 0.02, attack: 0.06, gain: warm * 0.7, pan: 0.15, decay: tail, drop: 1, fall: 0 }),
+      );
+      return notes;
     }
     case 'reply': {
       // What the player has just played comes back: later, softly, from far off - and not quite

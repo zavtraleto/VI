@@ -3,7 +3,8 @@ import { Climb } from './climb';
 import { textWidth } from './layout';
 import { LANGUAGES, setLanguage } from '../ui/i18n';
 import { clearedPanel, languagePanel, liveResultPanel, pausePanel, recordsPanel, resultPanel, systemPanel, type RecordsTable } from './panels';
-import type { PanelRow, PanelSpec } from './screens/panel';
+import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
+import type { ShellContext } from './screen';
 
 const nothing = (): void => undefined;
 
@@ -305,5 +306,30 @@ describe('the window between two boards', () => {
     const spec = clearedPanel({ moves: 7, par: null, stars: null, still: true }, { onNext: nothing, onAgain: nothing });
     expect(spec.rows.some((one) => one.kind === 'stars')).toBe(false);
     expect(row(spec, 'field', 1).value).toBe('---');
+  });
+
+  /** What a window of `stars` lets be heard, frame by frame, over two and a half seconds. */
+  function heard(stars: number, still: boolean): { at: number; what: string }[] {
+    const out: { at: number; what: string }[] = [];
+    let now = 0;
+    const spec = clearedPanel(
+      { moves: 3, par: 3, stars, still },
+      { onNext: nothing, onAgain: nothing, onStar: (index) => out.push({ at: now, what: `star ${index}` }), onAllStars: () => out.push({ at: now, what: 'all' }) },
+    );
+    const screen = new PanelScreen({} as ShellContext, spec);
+    for (now = 1; now <= 2500; now += 16) screen.update(now);
+    return out;
+  }
+
+  it('meets all three stars with the chord once, after the third, and not fewer', () => {
+    const three = heard(3, false);
+    expect(three.map((one) => one.what)).toEqual(['star 0', 'star 1', 'star 2', 'all']);
+    expect(three[3].at - three[2].at).toBeGreaterThan(400);
+    expect(heard(2, false).map((one) => one.what)).toEqual(['star 0', 'star 1']);
+  });
+
+  it('with motion kept low has the chord at once, after the one star that is heard', () => {
+    expect(heard(3, true).map((one) => one.what)).toEqual(['star 2', 'all']);
+    expect(heard(2, true).map((one) => one.what)).toEqual(['star 1']);
   });
 });

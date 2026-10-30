@@ -534,9 +534,9 @@ export interface ClearedData {
  * fewest; then the large command that goes on to the next board, in focus, and under it the
  * command that starts this one over, of the size of a line of the menu.
  */
-export function clearedPanel(data: ClearedData, actions: { onNext: () => void; onAgain: () => void; onStar?: (index: number) => void }): PanelSpec {
+export function clearedPanel(data: ClearedData, actions: { onNext: () => void; onAgain: () => void; onStar?: (index: number) => void; onAllStars?: () => void }): PanelSpec {
   const rows: PanelRow[] = [];
-  if (data.stars !== null) rows.push({ kind: 'stars', count: data.stars, shine: { still: data.still, onLit: actions.onStar } });
+  if (data.stars !== null) rows.push({ kind: 'stars', count: data.stars, shine: { still: data.still, onLit: actions.onStar, onAll: actions.onAllStars } });
   rows.push(
     { kind: 'field', label: RESULT.moves, value: digits(data.moves, 3) },
     { kind: 'field', label: RESULT.par, value: data.par === null ? '---' : digits(data.par, 3) },

@@ -72,6 +72,8 @@ export class ShellLab {
   copied: string | null = null;
   /** What the session of the sample of the way up the log came to. */
   climbScore = 27770;
+  /** The stars of the sample of the window between two boards. */
+  clearedStars = 2;
   /** The settings as they are stored, changed here in memory only and never saved. */
   private readonly settings: Settings = loadSettings();
   /** The interface is heard here as in the game. */
@@ -93,6 +95,8 @@ export class ShellLab {
     window.addEventListener('keydown', unlock);
     const score = Number(query.get('score'));
     if (query.has('score') && Number.isFinite(score)) this.climbScore = Math.max(0, Math.round(score));
+    const stars = Number(query.get('stars'));
+    if (query.has('stars') && Number.isFinite(stars)) this.clearedStars = Math.max(0, Math.min(3, Math.round(stars)));
     this.values = this.shell.values;
     for (const name of Object.keys(SHELL_PARAMS)) {
       const text = query.get(name);
@@ -175,8 +179,11 @@ export class ShellLab {
           { onAgain: nothing, onRecords: nothing, onMenu: nothing },
         );
       case 'cleared':
-        // The window between two boards: two stars of three, light by light; `&ui=0` and a reload show them lighting up again.
-        return clearedPanel({ moves: 5, par: 3, stars: 2, still: this.settings.reducedMotion === true }, { onNext: nothing, onAgain: () => this.show('cleared'), onStar: (index) => this.audio.play({ kind: 'star', index }) });
+        // The window between two boards: two stars of three (`&stars=` in the address), light by light; «ещё раз» shows them lighting up again.
+        return clearedPanel(
+          { moves: 5, par: 3, stars: this.clearedStars, still: this.settings.reducedMotion === true },
+          { onNext: nothing, onAgain: () => this.show('cleared'), onStar: (index) => this.audio.play({ kind: 'star', index }), onAllStars: () => this.audio.play({ kind: 'starsAll' }) },
+        );
       case 'climb': {
         // A session goes up the sample of the log: its score is `climbScore`, or `&score=` in the address.
         const record = this.climbScore > SAMPLE_BEST;

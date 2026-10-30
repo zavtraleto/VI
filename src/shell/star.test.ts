@@ -66,7 +66,7 @@ describe('the shape of a star', () => {
 describe('a star as it is drawn', () => {
   it('lights nothing further than its reach, at rest or at the height of its burst', () => {
     for (const radius of [4, 12, 22]) {
-      for (const glow of [{ flare: 0, shimmer: 0 }, { flare: 1, shimmer: 1 }, { flare: 0.4, shimmer: -1 }]) {
+      for (const glow of [{ flare: 0, shimmer: 0 }, { flare: 1, shimmer: 1 }, { flare: 0.4, shimmer: -1 }, { flare: 1, shimmer: 1, blaze: 1 }]) {
         const { kit, reach, count } = recorder(100, 100);
         paintStar(kit, 100, 100, radius, COLOURS, glow);
         expect(count()).toBeGreaterThan(20);

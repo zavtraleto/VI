@@ -57,6 +57,7 @@ const EVERY: Cue[] = [
   { kind: 'lines', draw: false, step: 2, of: 6, seconds: 0.12, left: -0.5, right: 0.6, share: 0.7, last: false },
   { kind: 'lines', draw: true, step: 6, of: 6, seconds: 0.18, left: 0.1, right: 0.2, share: 1, last: true },
   { kind: 'star', index: 2 },
+  { kind: 'starsAll' },
   { kind: 'reply', heard: [500, 750, 1000] },
   { kind: 'uiStep', face: 4 },
   { kind: 'uiStep', face: null },
@@ -456,6 +457,26 @@ describe('a level', () => {
     expect(stars.every((note) => note.voice === 'bell')).toBe(true);
     expect(stars[1].hz).toBeGreaterThan(stars[0].hz);
     expect(stars[2].hz).toBeGreaterThan(stars[1].hz);
+  });
+
+  it('meets all three stars with a quick roll of bells up to the octave over them, warm sines under it', () => {
+    const notes = notesFor({ kind: 'starsAll' }, setup());
+    const bells = notes.filter((note) => note.voice === 'bell');
+    const warm = notes.filter((note) => note.voice === 'low');
+    expect(bells.length).toBe(4);
+    expect(warm.length).toBe(2);
+    for (let i = 1; i < bells.length; i++) {
+      expect(bells[i].hz).toBeGreaterThan(bells[i - 1].hz);
+      expect(bells[i].at).toBeGreaterThan(bells[i - 1].at);
+    }
+    // Very short: the whole roll is struck in under a fifth of a second.
+    expect(bells[bells.length - 1].at).toBeLessThan(0.2);
+    // It comes to the octave of the root of the stars: above the last of them.
+    const third = notesFor({ kind: 'star', index: 2 }, setup())[0];
+    const first = notesFor({ kind: 'star', index: 0 }, setup())[0];
+    expect(bells[bells.length - 1].hz).toBeGreaterThan(third.hz);
+    expect(bells[bells.length - 1].hz / first.hz).toBeCloseTo(2, 1);
+    for (const note of warm) expect(note.hz).toBeLessThan(bells[0].hz);
   });
 
   it('meets a wall with a dull knock and a low, louder than a step of the interface that cannot be taken', () => {

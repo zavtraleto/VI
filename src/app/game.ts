@@ -1758,6 +1758,7 @@ export class Game {
           },
           onAgain: () => this.startRun('level'),
           onStar: (index) => this.audio.play({ kind: 'star', index }),
+          onAllStars: () => this.audio.play({ kind: 'starsAll' }),
         },
       ),
       false,
