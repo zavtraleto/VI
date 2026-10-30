@@ -69,7 +69,7 @@ import { h } from '../ui/dom';
 import { readmePages } from '../ui/readme';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive, liveArchive } from './archive';
-import { clockLeft, secondsLeft } from './clock';
+import { clockGone, clockLeft, secondsLeft } from './clock';
 import { Hints } from './hints';
 import { shortOf } from './levelStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
@@ -2742,8 +2742,9 @@ export class Game {
             // A live session is measured against its own best, not against Endless.
             best: state.mode === 'live' && this.live ? (this.settings.levels.lives[this.live.code]?.best ?? 0) : this.bestScore(),
             level: state.level,
-            clock: clockLeft(state),
-            danger: secondsLeft(state),
+            // A live session counts down what it has left; Endless counts up what it has run (word of the owner, 30 October 2026).
+            clock: clockLeft(state) ?? clockGone(state),
+            down: state.mode === 'live',
             stage: this.ritual.stage,
             steps: CONTACT_STEPS.length,
             next: nextThreshold(state.removed),
@@ -2766,13 +2767,13 @@ export class Game {
               left: UNDO_LIMIT === null ? undefined : this.undosLeft,
               // Every third move taken back brings an advertisement where the platform shows them: the button counts down to it.
               untilAd: platform.interstitialSupported ? UNDOS_PER_AD - (this.settings.undosForAd ?? 0) : undefined,
-              muted: this.settings.muted,
             }
-          : { canUndo: false, urgent: false, retryOnly: true, muted: this.settings.muted }
+          : { canUndo: false, urgent: false, retryOnly: true }
         : null,
       stage,
       contact: { program: this.ritual.look.program, peak: this.ritual.look.peak },
       reducedMotion,
+      muted: this.settings.muted,
     };
   }
 

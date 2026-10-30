@@ -136,27 +136,21 @@ export function shortScore(score: number): string {
 
 /** What the session shows while it runs: the names of its readings, in English, said through `word()`. */
 export const HUD = {
-  score: 'SCORE',
-  best: 'BEST',
-  level: 'LV',
   /** The steps the contact has taken, and the dice sent at which the next one comes. */
   link: 'LINK',
   /** What the link reads once the program has found a pattern on it. */
   found: 'SIGNAL',
-  /** Every cell holds a die, and the seconds left to free one. */
-  full: 'NO ROOM',
   /** "Take back", "again": what can be pressed over the board. */
   undo: 'とりけし',
   retry: 'やりなおし',
 } as const;
 
 /**
- * The three lines of a level in the top left corner: its number, the moves of this try, and the
- * fewest the board is known to be cleared in (the owner, 28 October 2026: BEST → PAR; 29 October
- * 2026: one under the other; 30 October 2026: CURRENT → MOVES). Said through `word()`; PAR is the
- * same in every language.
+ * The one word of the readings over the board: `LEVEL 17`, large, in the top left corner of a
+ * level (the owner, 30 October 2026; the moves and the par under it go with no names, and a
+ * session reads its score and its clock with none). A word of the program, not translated.
  */
-export const READS = { level: 'LEVEL', current: 'MOVES', best: 'PAR' } as const;
+export const READS = { level: 'LEVEL' } as const;
 
 /** What a line of the goal of a level goes under, where it is written and not drawn: English names, said through `word()`. */
 export const GOAL = { dice: 'DICE', face: 'FACE', links: 'CHAIN', cleared: 'LEFT', clear: 'CLEAR' } as const;

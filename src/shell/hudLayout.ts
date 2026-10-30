@@ -2,18 +2,21 @@ import type { Size } from '../display/sizing';
 import { CELL_H, CELL_W, MIN_ZONE, isWide, zoneOf, type Box, type Insets, type Point } from './layout';
 import { BUTTON_H, EDGE, GAP, UNIT } from './theme';
 
-/** Places of the large number: a score of six digits at twice the size. */
-const SCORE_PLACES = 6;
-/** Places of a reading in the middle: `LV 01`, a clock. */
-const MID_PLACES = 5;
+/** Places of the score: seven digits at twice the size, zeros and all (word of the owner, 30 October 2026). */
+export const SCORE_PLACES = 7;
+/**
+ * How wide the readings in the top left corner are, in cells of a letter: the largest of them,
+ * `LEVEL 100` at twice the size, and a score of seven digits, fit in it. A wide picture keeps a
+ * column this wide down its left side, levels and sessions alike.
+ */
+const READINGS_CELLS = 16;
 
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
 
 /**
- * The readings of a session, in pixels of the picture. On a tall screen they are a band
- * across the top and the board starts below it. On a wide one they are a column down the
- * left side and the board has the whole height: there a band would be mostly empty, and with
- * its large pixels far too tall.
+ * The readings over the board, in pixels of the picture: lines in the top left corner and the
+ * buttons in the top right one. On a tall screen the board starts below them. On a wide one the
+ * lines are a column down the left side and the board has the whole height.
  */
 export interface HudLayout {
   wide: boolean;
@@ -83,79 +86,85 @@ export function hudLayout(picture: Size, safe: Insets, zoom: number, needs: Head
     return { x, y, w: Math.min(picture.width, grown.x + grown.w) - x, h: Math.min(picture.height, grown.y + grown.h) - y };
   };
   const wide = isWide(picture);
-  const layout = needs.level ? levelLayout(picture, safe, left, top, needs, wide) : wide ? columnLayout(left, top, needs) : bandLayout(picture, safe, left, top, needs);
+  const layout = needs.level ? levelLayout(picture, safe, left, top, needs, wide) : sessionLayout(picture, safe, left, top, needs, wide);
   return { ...layout, zones: { pause: zone(layout.pause)!, restart: zone(layout.restart), sound: zone(layout.sound) } };
 }
 
-/**
- * The readings of a session as a band across the top of a tall picture: the score on the left,
- * the buttons in the right corner, a gap apart.
- */
-function bandLayout(picture: Size, safe: Insets, left: number, top: number, needs: HeaderNeeds): Omit<HudLayout, 'zones'> {
+/** The buttons of the readings in the top right corner, side by side a gap apart: the pause in the corner, the one that starts over left of it where there is one, the sound left of those where it does not reach `clear`. */
+function corner(picture: Size, safe: Insets, top: number, needs: HeaderNeeds, clear: number): { right: number; pause: Box; restart: Box | null; sound: Box | null } {
   const right = picture.width - ceilTo(safe.right, CELL_W) - EDGE;
-  const rowA = top;
-  const rowB = top + CELL_H;
-  const rowC = top + CELL_H * 2;
-  // The large number stands under its name, two rows tall.
-  const big = rowB;
-  const rule = rowC + CELL_H + UNIT;
   const side = BUTTON_H;
   const pause: Box = { x: right - side, y: top, w: side, h: side };
   const restart: Box | null = needs.restart ? { x: pause.x - GAP - side, y: top, w: side, h: side } : null;
-  const mid = left + SCORE_PLACES * CELL_W * 2 + EDGE;
-  // The button of the sound stands left of the one that starts over, where it does not reach the large number.
-  const soundAt = restart ? restart.x - GAP - side : 0;
-  const sound: Box | null = needs.sound && restart && soundAt >= mid ? { x: soundAt, y: top, w: side, h: side } : null;
-  const end = (sound ?? restart ?? pause).x - EDGE;
+  const soundAt = (restart ?? pause).x - GAP - side;
+  const sound: Box | null = needs.sound && soundAt >= clear ? { x: soundAt, y: top, w: side, h: side } : null;
+  return { right, pause, restart, sound };
+}
+
+/**
+ * The readings of a session, the same on a tall picture and a wide one, in the key of those of a
+ * level (word of the owner, 30 October 2026: the score is what matters, the time left comes
+ * second, the rest goes; the score needs no name): in the top left corner the score twice the
+ * size, and under it one line for the time a live session has left, or the seconds a full board
+ * has; the sound and the pause in the top right corner. On a tall picture the board starts under
+ * them; on a wide one they are a column down the left, as wide as the column of a level.
+ */
+function sessionLayout(picture: Size, safe: Insets, left: number, top: number, needs: HeaderNeeds, wide: boolean): Omit<HudLayout, 'zones'> {
+  // A line of the readings: a row of text and a unit of air under it.
+  const label = top;
+  // The score stands two rows tall at the top, the time a unit under it.
+  const big = top;
+  const time = big + CELL_H * 2 + UNIT;
+  const rule = time + CELL_H;
+  const end = left + READINGS_CELLS * CELL_W;
+  const { right, pause, restart, sound } = corner(picture, safe, top, needs, end);
+  const below = Math.max(rule, wide ? 0 : top + BUTTON_H) + UNIT;
   return {
-    wide: false,
-    height: rule + UNIT,
-    column: 0,
-    lines: { label: rowA, big, tag: rowA, best: rowB, link: rowC, cells: rowC },
-    net: { x: left, y: rule + UNIT + GAP },
+    wide,
+    height: wide ? 0 : below,
+    column: wide ? end + EDGE : 0,
+    lines: { label, big, tag: time, best: time, link: time, cells: time },
+    net: { x: left, y: below + GAP },
     left,
     right,
-    rowA,
-    rowB,
-    rowC,
+    rowA: label,
+    rowB: time,
+    rowC: time,
     big,
-    mid,
+    mid: left,
     end,
-    tight: end - SCORE_PLACES * CELL_W < mid + MID_PLACES * CELL_W + CELL_W / 2,
+    tight: false,
     pause,
     restart,
     sound,
-    tag: { x: mid, y: rowA },
-    goal: rowA,
-    moves: [rowB, rowC],
+    tag: { x: left, y: label },
+    goal: time,
+    moves: [big, time],
     rule,
   };
 }
 
 /**
  * The readings of a level, the same on a tall picture and a wide one (word of the owner,
- * 29 October 2026): in the top left corner three lines, `LEVEL`, `CURRENT` and `PAR`, a line of
- * its goal under them where it has one, and the faces it asks for right under those; its
- * buttons in the top right corner, side by side a gap apart. A level has no score. On a tall
- * picture the board starts under the lines; on a wide one the lines are a column down the left
- * and the board has the whole height, its top right corner under the buttons.
+ * 30 October 2026): in the top left corner `LEVEL 17` twice the size, the moves and the par
+ * under it as `005:003`, a line of its goal under them where it has one, and the faces it asks
+ * for right under those; its buttons in the top right corner, side by side a gap apart. A level
+ * has no score. On a tall picture the board starts under the lines; on a wide one the lines are
+ * a column down the left and the board has the whole height, its top right corner under the buttons.
  */
 function levelLayout(picture: Size, safe: Insets, left: number, top: number, needs: HeaderNeeds, wide: boolean): Omit<HudLayout, 'zones'> {
-  const right = picture.width - ceilTo(safe.right, CELL_W) - EDGE;
   // A line of the readings: a row of text and a unit of air under it.
   const line = CELL_H + UNIT;
-  const rows = [top, top + line, top + line * 2] as const;
-  const goal = rows[2] + line;
-  const rule = (needs.goal ? goal : rows[2]) + CELL_H;
-  // As wide as the column of a session, so that the board stands where it did beside it.
-  const end = left + SCORE_PLACES * CELL_W * 2;
-  const side = BUTTON_H;
-  const pause: Box = { x: right - side, y: top, w: side, h: side };
-  const restart: Box | null = needs.restart ? { x: pause.x - GAP - side, y: top, w: side, h: side } : null;
+  // `LEVEL 17` two rows tall at the top, as a score stands; the moves and the par a unit under it, the goal a line under those.
+  const moves = top + CELL_H * 2 + UNIT;
+  const rows = [top, moves, moves] as const;
+  const goal = moves + line;
+  const rule = (needs.goal ? goal : moves) + CELL_H;
+  // As wide as the column of a session, so that the board stands where it does beside it.
+  const end = left + READINGS_CELLS * CELL_W;
   // The button of the sound, left of the one that starts over, where it does not reach the lines.
-  const soundAt = restart ? restart.x - GAP - side : 0;
-  const sound: Box | null = needs.sound && restart && soundAt >= end ? { x: soundAt, y: top, w: side, h: side } : null;
-  const below = Math.max(rule, wide ? 0 : top + side) + UNIT;
+  const { right, pause, restart, sound } = corner(picture, safe, top, needs, end);
+  const below = Math.max(rule, wide ? 0 : top + BUTTON_H) + UNIT;
   return {
     wide,
     height: wide ? 0 : below,
@@ -179,32 +188,6 @@ function levelLayout(picture: Size, safe: Insets, left: number, top: number, nee
     moves: [rows[1], rows[2]],
     rule,
   };
-}
-
-/**
- * The readings of a session as a column down the left side: as wide as the large number, one
- * reading to a line, and the buttons under them, side by side a gap apart.
- */
-function columnLayout(left: number, top: number, needs: HeaderNeeds): Omit<HudLayout, 'zones'> {
-  const width = SCORE_PLACES * CELL_W * 2;
-  const right = left + width;
-  const label = top;
-  const big = label + CELL_H;
-  const tag = big + CELL_H * 2 + UNIT;
-  // A line of the column: a row of text and a unit of air under it.
-  const line = CELL_H + UNIT;
-  const side = BUTTON_H;
-  const withSound = Boolean(needs.sound && needs.restart);
-  const square = (place: number, y: number): Box => ({ x: left + place * (side + GAP), y, w: side, h: side });
-  const buttons = (y: number): { pause: Box; restart: Box | null; sound: Box | null } =>
-    withSound ? { sound: square(0, y), restart: square(1, y), pause: square(2, y) } : needs.restart ? { sound: null, restart: square(0, y), pause: square(1, y) } : { sound: null, restart: null, pause: square(0, y) };
-  const shared = { wide: true, height: 0, column: right + EDGE, left, right, big, mid: left, end: right, tight: false, tag: { x: left, y: tag } };
-  const best = tag + line;
-  const link = best + line;
-  const cells = link + line;
-  const rule = cells + CELL_H;
-  const placed = buttons(rule + GAP);
-  return { ...shared, ...placed, lines: { label, big, tag, best, link, cells }, net: { x: left, y: placed.pause.y + side + GAP }, rowA: label, rowB: tag, rowC: link, goal: best, moves: [best, link], rule };
 }
 
 /** How the floor of the board lies on screen: where a cell to the east and a cell to the south lead, y pointing down. */

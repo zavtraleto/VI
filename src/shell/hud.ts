@@ -7,11 +7,11 @@ import type { Dir, GoalLine } from '../rules';
 import { signalLook } from '../signal/scene';
 import { fitCursor, pointCursor } from './cursor';
 import { loadShellFonts } from './fonts';
-import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, counterLeft, counterWidth, hudLayout, undoButton, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_GAP, TOOL_PAD, type FloorAxes, type HudLayout } from './hudLayout';
+import { COUNTER_CUBE, COUNTER_GAP, NOTE_SIZE, SCORE_PLACES, counterLeft, counterWidth, hudLayout, undoButton, netBounds, netCellAt, boxesMeet, signBeside, signPlace, signTurn, turned, TOOL_GAP, TOOL_PAD, type FloorAxes, type HudLayout } from './hudLayout';
 import { CAPITAL_TOP, ICON_MUTE_CROSS, ICON_MUTE_SPEAKER, ICON_PAUSE, ICON_RESTART, ICON_SOUND, ICON_UNDO, iconWidth } from './icons';
 import { zoneAt } from './input';
 import { FACE_PIPS, Kit } from './kit';
-import { CELL_H, CELL_W, pictureSize, type Box, type Insets, type Point } from './layout';
+import { CELL_H, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
 import { praiseWord } from './praise';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
@@ -30,10 +30,10 @@ export interface HudSession {
   score: number;
   best: number;
   level: number;
-  /** Seconds left of a live session; null in a session with no clock. */
-  clock: number | null;
-  /** Seconds left to free a cell of a board that is full. */
-  danger: number | null;
+  /** Seconds the clock reads: left of a live session, or run so far of an Endless one. */
+  clock: number;
+  /** The clock counts down: a live session, whose last ten seconds blink. */
+  down: boolean;
   /** Steps the contact has taken, out of how many there are, and the score of the next one. */
   stage: number;
   steps: number;
@@ -167,6 +167,8 @@ export interface HudView {
    */
   contact: { program: number; peak: number };
   reducedMotion: boolean;
+  /** The player has turned the sound off: the button of the sound, in the top right corner of a level and of a session, is crossed out. */
+  muted: boolean;
 }
 
 export interface HudTools {
@@ -180,8 +182,6 @@ export interface HudTools {
    * counted, where the platform shows one: the number stands after the word, and the last one reads `UNDO · AD`.
    */
   untilAd?: number;
-  /** The player has turned the sound off: the button of the sound is crossed out. */
-  muted: boolean;
 }
 
 /** What the contact does to the readings at one moment. */
@@ -423,9 +423,7 @@ export class GameHud {
   private netDrawn = '';
   /** The score as it is shown: it runs up to the score as it is. */
   private shown = 0;
-  private lastLevel = 1;
   private lastStage = 0;
-  private levelFlash = 0;
   private stageFlash = 0;
   /** The multipliers now over the board, by chain: the number, its channel, where it stands, when the chain last grew and until when it is shown. */
   private readonly chains = new Map<number, Multiplier>();
@@ -484,9 +482,7 @@ export class GameHud {
     this.hit = { at: -Infinity, value: 0, tier: 0 };
     this.shown = 0;
     // The stars of a pass are not put away: the board after it is put on under them.
-    this.lastLevel = 1;
     this.lastStage = 0;
-    this.levelFlash = 0;
     this.stageFlash = 0;
     this.chains.clear();
     this.said.clear();
@@ -526,7 +522,7 @@ export class GameHud {
     const css = safeInsets();
     const safe = { top: css.top / zoom, right: css.right / zoom, bottom: css.bottom / zoom, left: css.left / zoom };
     const header = view.header;
-    const layout = hudLayout({ width: kit.width, height: kit.height }, safe, zoom, { restart: view.tools !== null, sound: view.tools !== null && header.kind === 'level', level: header.kind === 'level', goal: header.kind === 'level' && header.goal.length > 0 });
+    const layout = hudLayout({ width: kit.width, height: kit.height }, safe, zoom, { restart: view.tools !== null, sound: true, level: header.kind === 'level', goal: header.kind === 'level' && header.goal.length > 0 });
     this.lastTime = timeMs;
     this.headerHeight = layout.wide ? 0 : Math.round(layout.height * zoom - css.top);
     this.columnWidth = layout.wide ? Math.round(layout.column * zoom - css.left) : 0;
@@ -535,7 +531,7 @@ export class GameHud {
     // What moves by itself: only these make the picture be drawn again while nothing else changes.
     const still = view.reducedMotion;
     const blink = still ? 1 : Math.floor(timeMs / BLINK_MS) % 2;
-    const flashing = timeMs < this.levelFlash || timeMs < this.stageFlash;
+    const flashing = timeMs < this.stageFlash;
     const bumps = [...this.chains.values()].some((chain) => timeMs < chain.joined + BUMP_MS);
     // A multiplier that is shown swings, and goes out: the picture is drawn anew for it, thirty times a second.
     const swings = this.chains.size === 0 ? 0 : still ? this.chains.size : Math.floor(timeMs / 33);
@@ -557,7 +553,7 @@ export class GameHud {
       this.lockSince = timeMs;
     }
     const locking = lock && !still && timeMs < this.lockSince + kit.number('lockSnapMs') ? Math.floor(timeMs) : 0;
-    const state = [JSON.stringify(lock), locking, swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [JSON.stringify(lock), locking, swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), view.muted, JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       const turn = this.signTurnAt(sign, timeMs, still);
       if (turn === this.signTurned) return;
@@ -575,8 +571,7 @@ export class GameHud {
     this.voice.begin();
     kit.begin();
     if (view.header.kind === 'session') {
-      if (layout.wide) this.drawSessionWide(view.header, layout, timeMs, blink, program, decay);
-      else this.drawSession(view.header, layout, timeMs, blink, program, decay);
+      this.drawSession(view.header, layout, timeMs, blink, decay);
     } else {
       this.drawLevel(view.header, layout);
     }
@@ -615,7 +610,7 @@ export class GameHud {
     this.signTurned = this.signTurnAt(sign, timeMs, still);
     if (view.header.kind === 'level') this.drawPause(layout);
     if (view.tools) this.drawRestart(layout);
-    if (view.tools) this.drawSound(layout, view.tools.muted);
+    this.drawSound(layout, view.muted);
     if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, layout.left);
     if (view.note) {
       const width = Math.min(view.stage.width - 24, 460);
@@ -652,8 +647,6 @@ export class GameHud {
         this.shown += Math.max(1, Math.ceil(gap * 0.2));
         this.actions.onCount?.();
       }
-      if (header.level !== null && header.level > this.lastLevel) this.levelFlash = timeMs + FLASH_MS;
-      if (header.level !== null) this.lastLevel = header.level;
       if (header.stage > this.lastStage) this.stageFlash = timeMs + FLASH_MS;
       this.lastStage = header.stage;
     } else if (header.kind === 'level') {
@@ -689,17 +682,6 @@ export class GameHud {
     return { x: rect.x / zoom, y: rect.y / zoom, w: rect.width / zoom, h: rect.height / zoom };
   }
 
-  /** A number with its leading zeros stepped back: the counter of an instrument. */
-  private counter(value: number, places: number, x: number, y: number, scale: number, align: 'left' | 'right', strong: boolean): void {
-    const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
-    const text = digits(value, places);
-    const zeros = Math.min(text.length - 1, text.length - String(Math.max(0, Math.round(value))).length);
-    const left = align === 'right' ? x - kit.measure(text, scale) : x;
-    const after = kit.text(text.slice(0, zeros), left, y, faint, { scale });
-    kit.text(text.slice(zeros), after, y, strong ? ink : dim, { scale, bold: strong });
-  }
-
   /**
    * The score: the large counter, digit by digit. Points that have just reached it light it in
    * their colour and lift it for a moment. As the contact grows a digit may be in a foreign
@@ -707,10 +689,10 @@ export class GameHud {
    */
   private score(x: number, y: number, timeMs: number, decay: Decay): void {
     const { kit } = this;
-    const { ink, faint, dim } = kit.palette;
+    const { ink, dim } = kit.palette;
     const scale = 2;
-    const text = digits(this.shown, 6);
-    const zeros = Math.min(text.length - 1, text.length - String(Math.max(0, Math.round(this.shown))).length);
+    // Seven digits from the start, zeros and all, in one tone (word of the owner, 30 October 2026).
+    const text = digits(this.shown, SCORE_PLACES);
     const since = timeMs - this.hit.at;
     const lit = since >= 0 && since < HIT_MS;
     const colour = lit && this.hit.value > 0 ? this.beatColour(this.hit.value) : ink;
@@ -720,7 +702,6 @@ export class GameHud {
     for (let i = 0; i < text.length; i++) {
       const sign = text[i];
       const wide = kit.measure(sign, scale);
-      const strong = i >= zeros;
       if (decay.falling?.index === i) {
         // It has come off: it falls out of the readings, and its place stays empty.
         const fall = decay.falling.phase * decay.falling.phase * 150;
@@ -728,7 +709,7 @@ export class GameHud {
       } else if (decay.foreign === i) {
         kit.foreign(sign, at + 1, y + lift, CELL_H * scale, sayColors(this.look.shell).ink);
       } else {
-        kit.text(sign, at, y + (strong ? lift : 0), strong ? colour : faint, { scale, bold: strong });
+        kit.text(sign, at, y + lift, colour, { scale, bold: true });
       }
       at += wide;
     }
@@ -808,63 +789,17 @@ export class GameHud {
     }
   }
 
-  private drawSession(session: HudSession, layout: HudLayout, timeMs: number, blink: number, program: number, decay: Decay): void {
-    const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
-    const { left, end, mid, rowA, rowB, rowC, big, tight } = layout;
-    const { drift } = decay;
-
-    kit.text(word(HUD.score), left + this.adrift(1, drift), rowA, dim);
+  /**
+   * The readings of a session, in the key of those of a level (word of the owner, 30 October
+   * 2026): the score, large, in seven digits with no name; under it the clock alone, the time a
+   * live session has left, its last ten seconds blinking, or the time an Endless one has run.
+   * Nothing else.
+   */
+  private drawSession(session: HudSession, layout: HudLayout, timeMs: number, blink: number, decay: Decay): void {
+    const { left, rowB, big } = layout;
     this.score(left, big, timeMs, decay);
-
-    // The record so far; it is the session's own from the moment the session passes it.
-    const record = session.score > session.best;
-    const flagged = (text: string, x: number, y: number, on: boolean): void => this.flagged(text, x, y, on);
-
-    // The middle: what the session is, and the time a live session has left; its last ten seconds blink.
     const clock = clockText(session.clock);
-    let covered = false;
-    if (session.danger !== null) {
-      // The board is full. Its own rhythm, so it never reads as decoration.
-      const text = `${word(HUD.full)} ${digits(session.danger, 2)}`;
-      flagged(text, mid, rowA, blink === 0);
-      covered = mid + kit.measure(text) > end - kit.measure(word(HUD.best)) - 4;
-    } else if (clock !== null && tight) {
-      flagged(clock, mid, rowA, session.clock! <= 10 && blink === 0);
-    } else {
-      const tag = `${word(HUD.level)} ${digits(session.level, 2)}`;
-      flagged(tag, mid, rowA, timeMs < this.levelFlash && blink === 0);
-      if (clock !== null) flagged(clock, mid, rowB, session.clock! <= 10 && blink === 0);
-    }
-
-    if (!covered) kit.text(word(HUD.best), end + this.adrift(2, drift), rowA, dim, { align: 'right' });
-    this.counter(Math.max(session.best, session.score), 6, end, rowB, 1, 'right', record);
-
-    // The link: a cell for every step the contact can take, lit as far as it has gone, and
-    // the score of the next step. What does not fit beside the large number is left out.
-    // Once the program has found a pattern on the link, that is what it reads.
-    const pitch = session.steps > 10 ? 4 : 7;
-    const cells = session.steps * pitch;
-    const next = session.next === null ? '' : digits(session.next, 4);
-    let label: string = program >= 1 ? word(HUD.found) : word(HUD.link);
-    let tail = next;
-    const width = (): number => (label ? kit.measure(label) + 4 : 0) + cells + (tail ? 4 + kit.measure(tail) : 0);
-    if (end - width() < mid - 4) tail = '';
-    if (end - width() < mid - 4) label = '';
-    let at = end - width();
-    if (label) {
-      const fresh = timeMs < this.stageFlash;
-      if (fresh) this.flagged(label, at + this.adrift(3, drift), rowC, blink === 0);
-      else kit.text(label, at + this.adrift(3, drift), rowC, program >= 1 ? ink : dim);
-      at += kit.measure(label) + 4;
-    }
-    for (let i = 0; i < session.steps; i++) {
-      const cell: Box = { x: at + i * pitch, y: rowC + 4 + this.adrift(10 + i, drift * 0.6), w: pitch - 2, h: 9 };
-      const fresh = i === session.stage - 1 && timeMs < this.stageFlash;
-      if (i < session.stage && !(fresh && blink === 0)) kit.box(cell, ink);
-      else kit.frame(cell, faint);
-    }
-    if (tail) kit.text(tail, at + cells + 4, rowC, dim);
+    if (clock !== null) this.flagged(clock, left + this.adrift(2, decay.drift), rowB, session.down && session.clock <= 10 && blink === 0);
   }
 
   /** A reading that calls for the eye: filled while `on`, plain otherwise. */
@@ -876,46 +811,6 @@ export class GameHud {
       kit.text(text, x, y, bg, { bold: true });
     } else {
       kit.text(text, x, y, ink);
-    }
-  }
-
-  /** The readings of a session as a column: one to a line, as wide as the large number. */
-  private drawSessionWide(session: HudSession, layout: HudLayout, timeMs: number, blink: number, program: number, decay: Decay): void {
-    const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
-    const { left, right, lines } = layout;
-    const { drift } = decay;
-
-    kit.text(word(HUD.score), left + this.adrift(1, drift), lines.label, dim);
-    this.score(left, lines.big, timeMs, decay);
-
-    if (session.danger !== null) {
-      // The board is full. Its own rhythm, so it never reads as decoration.
-      this.flagged(`${word(HUD.full)} ${digits(session.danger, 2)}`, left, lines.tag, blink === 0);
-    } else {
-      const tag = `${word(HUD.level)} ${digits(session.level, 2)}`;
-      this.flagged(tag, left, lines.tag, timeMs < this.levelFlash && blink === 0);
-      const clock = clockText(session.clock);
-      if (clock !== null) this.flagged(clock, right - kit.measure(clock), lines.tag, session.clock! <= 10 && blink === 0);
-    }
-
-    const record = session.score > session.best;
-    kit.text(word(HUD.best), left + this.adrift(2, drift), lines.best, dim);
-    this.counter(Math.max(session.best, session.score), 6, right, lines.best, 1, 'right', record);
-
-    // The link: the score of its next step beside its name, and under them a cell for every
-    // step the contact can take, lit as far as it has gone. Once the program has found a
-    // pattern on the link, that is what it reads.
-    const label = program >= 1 ? word(HUD.found) : word(HUD.link);
-    if (timeMs < this.stageFlash) this.flagged(label, left + this.adrift(3, drift), lines.link, blink === 0);
-    else kit.text(label, left + this.adrift(3, drift), lines.link, program >= 1 ? ink : dim);
-    if (session.next !== null) kit.text(digits(session.next, 4), right, lines.link, dim, { align: 'right' });
-    const pitch = Math.max(4, Math.floor((right - left + 2) / Math.max(1, session.steps)));
-    for (let i = 0; i < session.steps; i++) {
-      const cell: Box = { x: left + i * pitch, y: lines.cells + this.adrift(10 + i, drift * 0.6), w: pitch - 2, h: 9 };
-      const fresh = i === session.stage - 1 && timeMs < this.stageFlash;
-      if (i < session.stage && !(fresh && blink === 0)) kit.box(cell, ink);
-      else kit.frame(cell, faint);
     }
   }
 
@@ -941,25 +836,19 @@ export class GameHud {
   }
 
   /**
-   * The readings of a level, the same on a tall picture and a wide one: `LEVEL`, `MOVES` and
-   * `PAR` one under the other in the top left corner, the names at the left edge and the numbers
-   * ending in one column, and a line of its goal under them where it has one. No score.
+   * The readings of a level, the same on a tall picture and a wide one, in the key of those of a
+   * session (word of the owner, 30 October 2026): `LEVEL 17` large in the top left corner, as
+   * large as a score; under it the moves of this try and the fewest the board is known to be
+   * cleared in, `005:003`, with no names - the window between the boards says what they are; and
+   * a line of its goal under them where it has one. No score.
    */
   private drawLevel(level: HudLevel, layout: HudLayout): void {
     const { kit } = this;
-    const { ink, dim, faint } = kit.palette;
+    const { ink } = kit.palette;
     const { left, moves } = layout;
-    const names = [READS.level, READS.current, READS.best].map(word);
-    const right = left + Math.max(...names.map((name) => kit.measure(name))) + CELL_W + kit.measure('000');
-    kit.text(word(READS.level), left, layout.tag.y, dim);
-    if (level.number === null) kit.text('---', right, layout.tag.y, faint, { align: 'right' });
-    else kit.text(digits(level.number, 3), right, layout.tag.y, ink, { align: 'right' });
-    kit.text(word(READS.current), left, moves[0], dim);
-    kit.text(digits(level.made, 3), right, moves[0], ink, { align: 'right' });
-    kit.text(word(READS.best), left, moves[1], dim);
-    if (level.best === null) kit.text('---', right, moves[1], faint, { align: 'right' });
-    else kit.text(digits(level.best, 3), right, moves[1], ink, { align: 'right' });
-    if (level.goal.length > 0) this.goalLine(level.goal[0], right, layout.goal, left);
+    kit.text(`${READS.level} ${level.number ?? '---'}`, left, layout.tag.y, ink, { scale: 2, bold: true });
+    kit.text(`${digits(level.made, 3)}:${level.best === null ? '---' : digits(level.best, 3)}`, left, moves[0], ink);
+    if (level.goal.length > 0) this.goalLine(level.goal[0], layout.end, layout.goal, left);
   }
 
   private drawPause(layout: HudLayout): void {

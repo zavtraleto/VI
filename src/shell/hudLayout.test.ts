@@ -9,21 +9,24 @@ const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
 const AXES: FloorAxes = { east: { x: 0.87, y: 0.31 }, south: { x: -0.5, y: 0.53 } };
 
 describe('the readings of a session', () => {
-  it('keep the large number, the middle and the right side apart on every picture', () => {
+  it('stand in the top left corner as the score twice the size and a line for the time under it, with the sound and the pause in the top right corner', () => {
     for (const [width, height, zoom] of [
       [240, 520, 1.33],
       [281, 609, 1.33],
       [320, 693, 1.33],
       [400, 400, 2],
     ]) {
-      const layout = hudLayout({ width, height }, NO_INSETS, zoom);
+      const layout = hudLayout({ width, height }, NO_INSETS, zoom, { sound: true });
       expect(layout.wide).toBe(false);
-      expect(layout.mid).toBeGreaterThanOrEqual(layout.left + 6 * CELL_W * 2);
+      expect(layout.end).toBe(layout.left + 16 * CELL_W);
+      // The score of six digits never reaches the pause.
       expect(layout.end).toBeLessThan(layout.pause.x);
       expect(layout.pause.x + layout.pause.w).toBeLessThanOrEqual(width);
-      // The score of six digits on the right never reaches the middle reading on its row.
-      if (!layout.tight) expect(layout.end - 6 * CELL_W).toBeGreaterThanOrEqual(layout.mid + 5 * CELL_W);
+      expect(layout.big).toBe(layout.rowA);
+      expect(layout.rowB).toBe(layout.big + 36);
       expect(layout.height).toBeGreaterThan(layout.rule);
+      expect(layout.restart).toBeNull();
+      expect(layout.sound).toEqual({ x: layout.pause.x - 32, y: layout.pause.y, w: 24, h: 24 });
     }
   });
 
@@ -41,31 +44,22 @@ describe('the readings of a session', () => {
     expect(notched.height).toBeGreaterThanOrEqual(plain.height + 30);
   });
 
-  it('say when the picture is too narrow for two readings in the middle', () => {
-    expect(hudLayout({ width: 240, height: 520 }, NO_INSETS, 1.33).tight).toBe(true);
-    expect(hudLayout({ width: 320, height: 693 }, NO_INSETS, 1.33).tight).toBe(false);
-  });
-
-  it('stand in a column down the left of a wide picture and take none of its height', () => {
+  it('stand in a column down the left of a wide picture and take none of its height, the pause in the top right corner', () => {
     for (const [width, height, zoom] of [
       [640, 360, 2],
       [640, 360, 3],
       [609, 281, 1.33],
     ]) {
-      const layout = hudLayout({ width, height }, NO_INSETS, zoom);
+      const layout = hudLayout({ width, height }, NO_INSETS, zoom, { sound: true });
       expect(layout.wide).toBe(true);
       expect(layout.height).toBe(0);
-      expect(layout.column).toBeGreaterThanOrEqual(6 * CELL_W * 2 + 16);
+      expect(layout.column).toBe(16 * CELL_W + 16);
       expect(layout.column).toBeLessThan(width / 3);
-      const { lines } = layout;
-      // One reading to a line, none over another, the pause under them, the net under the pause.
-      expect([lines.label, lines.big, lines.tag, lines.best, lines.link, lines.cells]).toEqual(
-        [lines.label, lines.big, lines.tag, lines.best, lines.link, lines.cells].sort((a, b) => a - b),
-      );
-      expect(lines.tag).toBeGreaterThanOrEqual(lines.big + 32);
-      expect(layout.pause.y).toBeGreaterThan(layout.rule);
+      expect(layout.rowB).toBeGreaterThanOrEqual(layout.big + 32);
+      expect(layout.pause.x + layout.pause.w).toBe(width - 8);
+      expect(layout.pause.y).toBe(layout.rowA);
       expect(layout.zones.pause.h * zoom).toBeGreaterThanOrEqual(MIN_ZONE);
-      expect(layout.net.y).toBeGreaterThanOrEqual(layout.pause.y + layout.pause.h);
+      expect(layout.net.y).toBeGreaterThan(layout.rule);
       expect(layout.net.y + 70).toBeLessThan(height);
     }
   });
@@ -281,7 +275,7 @@ describe('the plaque of a short combo', () => {
 describe('the readings of a level', () => {
   const NEEDS = { restart: true, sound: true, level: true };
 
-  it('stand in the top left corner as three lines, the same on a tall picture and a wide one, with no score', () => {
+  it('stand in the top left corner as LEVEL N twice the size and the moves and the par under it, the same on a tall picture and a wide one, with no score', () => {
     for (const [width, height, zoom] of [
       [240, 520, 1.33],
       [270, 480, 1.33],
@@ -293,9 +287,9 @@ describe('the readings of a level', () => {
       for (const goal of [true, false]) {
         const layout = hudLayout({ width, height }, NO_INSETS, zoom, { ...NEEDS, goal });
         expect(layout.tag).toEqual({ x: layout.left, y: 4 });
-        expect(layout.moves).toEqual([24, 44]);
-        if (goal) expect(layout.goal).toBe(64);
-        expect(layout.rule).toBe((goal ? 64 : 44) + 16);
+        expect(layout.moves).toEqual([40, 40]);
+        if (goal) expect(layout.goal).toBe(60);
+        expect(layout.rule).toBe((goal ? 60 : 40) + 16);
         // The faces it asks for stand right under the lines.
         expect(layout.net).toEqual({ x: layout.left, y: layout.rule + 4 + 8 });
         expect(layout.height).toBe(layout.wide ? 0 : layout.rule + 4);
@@ -329,9 +323,9 @@ describe('the readings of a level', () => {
 
   it('give a wide picture a column as wide as that of a session, and a tall one a band', () => {
     const wide = hudLayout({ width: 640, height: 360 }, NO_INSETS, 3, NEEDS);
-    expect([wide.wide, wide.column, wide.height]).toEqual([true, 112, 0]);
+    expect([wide.wide, wide.column, wide.height]).toEqual([true, 144, 0]);
     const tall = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, NEEDS);
-    expect([tall.wide, tall.column, tall.height]).toEqual([false, 0, 64]);
+    expect([tall.wide, tall.column, tall.height]).toEqual([false, 0, 60]);
   });
 });
 
@@ -384,41 +378,44 @@ describe('the pictures of the buttons', () => {
 describe('the readings on the grid of the interface', () => {
   const LEVEL = { restart: true, sound: true, level: true, goal: true };
 
-  it('stand on a tall phone as the grid has them: three buttons 24 a side, 8 apart, the three lines of a level on the left', () => {
+  it('stand on a tall phone as the grid has them: three buttons 24 a side, 8 apart, the readings of a level on the left', () => {
     const level = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, LEVEL);
     expect(level.pause).toEqual({ x: 238, y: 4, w: 24, h: 24 });
     expect(level.restart).toEqual({ x: 206, y: 4, w: 24, h: 24 });
     expect(level.sound).toEqual({ x: 174, y: 4, w: 24, h: 24 });
     expect(level.tag).toEqual({ x: 8, y: 4 });
-    expect(level.moves).toEqual([24, 44]);
-    expect(level.goal).toBe(64);
-    expect(level.height).toBe(84);
-    expect(level.net).toEqual({ x: 8, y: 92 });
+    expect(level.moves).toEqual([40, 40]);
+    expect(level.goal).toBe(60);
+    expect(level.height).toBe(80);
+    expect(level.net).toEqual({ x: 8, y: 88 });
     // A finger's zone around each: 36 a side, cut at the top of the picture.
     expect(level.zones.pause).toEqual({ x: 232, y: 0, w: 36, h: 34 });
     const session = hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33);
     expect(session.pause).toEqual({ x: 238, y: 4, w: 24, h: 24 });
-    expect([session.rule, session.height, session.end]).toEqual([56, 60, 230]);
+    expect([session.big, session.rowB]).toEqual([4, 40]);
+    expect([session.rule, session.height, session.end]).toEqual([56, 60, 136]);
     expect(session.net.y).toBe(68);
+    expect(hudLayout({ width: 270, height: 480 }, NO_INSETS, 1.33, { sound: true }).sound).toEqual({ x: 206, y: 4, w: 24, h: 24 });
   });
 
   it('stand on a desk as the grid has them: the lines of a level in the column, its buttons in the top right corner', () => {
     const level = hudLayout({ width: 640, height: 360 }, NO_INSETS, 3, LEVEL);
-    expect([level.tag.y, level.moves[0], level.moves[1], level.goal]).toEqual([4, 24, 44, 64]);
+    expect([level.tag.y, level.moves[0], level.moves[1], level.goal]).toEqual([4, 40, 40, 60]);
     expect([level.sound!.x, level.restart!.x, level.pause.x]).toEqual([544, 576, 608]);
     expect([level.sound!.y, level.pause.w, level.pause.h]).toEqual([4, 24, 24]);
-    expect(level.rule).toBe(80);
-    expect(level.net.y).toBe(92);
-    expect(level.column).toBe(112);
+    expect(level.rule).toBe(76);
+    expect(level.net.y).toBe(88);
+    expect(level.column).toBe(144);
     // On a desk the mouse needs no field around a button: its zone is the button.
     expect(level.zones.pause).toEqual(level.pause);
     const plain = hudLayout({ width: 640, height: 360 }, NO_INSETS, 3, { ...LEVEL, goal: false });
-    expect(plain.net.y).toBe(72);
+    expect(plain.net.y).toBe(68);
     const session = hudLayout({ width: 640, height: 360 }, NO_INSETS, 3);
-    const { lines } = session;
-    expect([lines.best, lines.link, lines.cells, session.rule]).toEqual([76, 96, 116, 132]);
-    expect(session.pause).toEqual({ x: 8, y: 140, w: 24, h: 24 });
-    expect(session.net.y).toBe(session.rule + 40);
+    expect([session.big, session.rowB, session.rule]).toEqual([4, 40, 56]);
+    expect(session.pause).toEqual({ x: 608, y: 4, w: 24, h: 24 });
+    expect(hudLayout({ width: 640, height: 360 }, NO_INSETS, 3, { sound: true }).sound).toEqual({ x: 576, y: 4, w: 24, h: 24 });
+    expect(session.column).toBe(144);
+    expect(session.net.y).toBe(68);
   });
 
   it('have zones that lie in the window and reach over each other by 4 at the most', () => {
