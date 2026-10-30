@@ -16,7 +16,7 @@ npm run pack -- crazygames
 
 Пишет `release/vi-<версия>-crazygames.zip`. Одна сборка без архива — `VI_PLATFORM=crazygames npm run build` (в PowerShell: `$env:VI_PLATFORM='crazygames'; npm run build`).
 
-**Реклама.** На Basic Launch CrazyGames рекламу не показывает, а кнопка рекламы, которая ничего не делает, — причина отказа. Поэтому по умолчанию сборка без рекламы: кнопок `SHOW WAY · AD` и `DOUBLE · AD` нет, межстраничной нет. Для Full Launch архив собирается с ней:
+**Реклама.** На Basic Launch CrazyGames рекламу не показывает, а кнопка рекламы, которая ничего не делает, — причина отказа. Поэтому по умолчанию сборка без рекламы: кнопок `SHOW WAY · AD` и `DOUBLE · AD` нет, межстраничной нет. Владелец 30 октября 2026: на CrazyGames рекламы сейчас нет — собирать без флага. Включается она только по его слову, и до того решить рекламу после каждой третьей отмены (она идёт посреди уровня, CrazyGames это запрещает). Сборка с рекламой:
 
 ```bash
 VITE_CRAZYGAMES_ADS=on npm run pack -- crazygames
