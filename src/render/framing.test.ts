@@ -50,7 +50,7 @@ describe('fitBoard', () => {
 });
 
 describe('viewMode', () => {
-  const plain = { forced: 'auto', whole: false, reducedMotion: false } as const;
+  const plain = { forced: 'auto', reducedMotion: false } as const;
 
   it('follows the player where a cell of the whole board would be small', () => {
     // A phone held upright: the board is as wide as the screen.
@@ -64,14 +64,13 @@ describe('viewMode', () => {
     expect(viewMode(55.9, 56, plain)).toBe('follow');
   });
 
-  it('keeps the whole board for a player who asks for it, and with motion kept low', () => {
-    expect(viewMode(30, 56, { ...plain, whole: true })).toBe('full');
+  it('keeps the whole board with motion kept low', () => {
     expect(viewMode(30, 56, { ...plain, reducedMotion: true })).toBe('full');
   });
 
   it('takes a view named in the address as it is', () => {
     expect(viewMode(90, 56, { ...plain, forced: 'follow' })).toBe('follow');
-    expect(viewMode(90, 56, { forced: 'follow', whole: true, reducedMotion: true })).toBe('follow');
+    expect(viewMode(90, 56, { forced: 'follow', reducedMotion: true })).toBe('follow');
     expect(viewMode(30, 56, { ...plain, forced: 'full' })).toBe('full');
   });
 });

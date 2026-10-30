@@ -31,7 +31,7 @@ describe('the panels of the program', () => {
   it('open with the focus on something that can be pressed', () => {
     const specs = [
       pausePanel(PAUSE),
-      systemPanel({ values: () => ({ muted: false, reducedMotion: false, shake: true, control: 'swipe', view: 'auto', language: 'en' }), onToggle: nothing, onLanguage: nothing, onBack: nothing }),
+      systemPanel({ values: () => ({ muted: false, reducedMotion: false, control: 'swipe', language: 'en' }), onToggle: nothing, onLanguage: nothing, onBack: nothing }),
       languagePanel({ languages: LANGUAGES, current: 'pt', onPick: nothing, onBack: nothing }),
       resultPanel({ score: 10, best: 20, maxChain: 2, ticks: 100, tickMs: 20, note: null }, { onAgain: nothing, onRecords: nothing, onMenu: nothing }),
       recordsPanel(() => ({ lines: [] }), { onBack: nothing }),
@@ -68,33 +68,38 @@ describe('the panels of the program', () => {
   });
 
   it('show a setting as it stands now', () => {
-    const values = { muted: false, reducedMotion: false, shake: true, control: 'swipe' as 'swipe' | 'tap', view: 'auto' as 'auto' | 'full', language: 'en' as const };
-    const spec = systemPanel({
-      values: () => values,
-      onToggle: (key) => {
-        if (key === 'muted') values.muted = !values.muted;
-        if (key === 'view') values.view = values.view === 'auto' ? 'full' : 'auto';
-        if (key === 'control') values.control = values.control === 'swipe' ? 'tap' : 'swipe';
-      },
-      onLanguage: nothing,
-      onBack: nothing,
-    });
-    const sound = row(spec, 'switch');
+    const values = { muted: false, reducedMotion: false, control: 'swipe' as 'swipe' | 'tap', language: 'en' as const };
+    const panel = (touch: boolean) =>
+      systemPanel({
+        values: () => values,
+        touch,
+        onToggle: (key) => {
+          if (key === 'muted') values.muted = !values.muted;
+          if (key === 'reducedMotion') values.reducedMotion = !values.reducedMotion;
+          if (key === 'control') values.control = values.control === 'swipe' ? 'tap' : 'swipe';
+        },
+        onLanguage: nothing,
+        onBack: nothing,
+      });
+    const line = (touch: boolean, id: string) => {
+      const found = panel(touch).rows.find((candidate) => candidate.kind === 'switch' && candidate.id === id);
+      if (found?.kind !== 'switch') throw new Error(`no switch ${id}`);
+      return found;
+    };
+    const sound = row(panel(false), 'switch');
     expect(sound.value()).toBe('ON');
     sound.action();
     expect(sound.value()).toBe('OFF');
-    // The camera follows by itself, or is kept on the whole board.
-    const view = spec.rows.find((candidate) => candidate.kind === 'switch' && candidate.id === 'view');
-    if (view?.kind !== 'switch') throw new Error('no switch of the view');
-    expect(view.value()).toBe('AUTO');
-    view.action();
-    expect(view.value()).toBe('FIXED');
-    // The board is played by swipes, or by taps and the mouse.
-    const control = spec.rows.find((candidate) => candidate.kind === 'switch' && candidate.id === 'control');
-    if (control?.kind !== 'switch') throw new Error('no switch of the control');
-    expect(control.value()).toBe('SWIPE');
-    control.action();
-    expect(control.value()).toBe('TAP');
+    // The shake and the motion are one line: all of the effects, or calm.
+    expect(line(false, 'effects').value()).toBe('ALL');
+    line(false, 'effects').action();
+    expect(line(false, 'effects').value()).toBe('CALM');
+    // The way to play is named by what the player does on the device: keys or the mouse at a computer, swipes or taps on a phone.
+    expect(line(false, 'control').value()).toBe('KEYS');
+    expect(line(true, 'control').value()).toBe('SWIPE');
+    line(false, 'control').action();
+    expect(line(false, 'control').value()).toBe('MOUSE');
+    expect(line(true, 'control').value()).toBe('TAP');
   });
 
   it('say what there is to say about a record under the readings of a result', () => {
@@ -262,7 +267,7 @@ describe('the languages of the voice', () => {
   });
 
   it('are named in the settings by the one that is set', () => {
-    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'swipe' as const, view: 'auto' as const, language: 'ru' as const });
+    const values = () => ({ muted: false, reducedMotion: false, control: 'swipe' as const, language: 'ru' as const });
     const spec = systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing });
     const line = spec.rows.find((candidate) => candidate.kind === 'switch' && candidate.id === 'language');
     expect(line?.kind === 'switch' && line.value()).toBe('РУССКИЙ');
@@ -273,8 +278,8 @@ describe('the tools of development', () => {
   const tool = { id: 'playtest', label: { native: 'DEV', name: 'PLAYTEST' }, action: nothing };
 
   it('are in a panel only when they are passed to it', () => {
-    const values = () => ({ muted: false, reducedMotion: false, shake: true, control: 'swipe' as const, view: 'auto' as const, language: 'en' as const });
-    expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'control', 'view', 'language', 'back']);
+    const values = () => ({ muted: false, reducedMotion: false, control: 'swipe' as const, language: 'en' as const });
+    expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing }))).toEqual(['sound', 'effects', 'control', 'language', 'back']);
     expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
   });
 });

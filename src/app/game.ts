@@ -54,6 +54,7 @@ import {
   type RunState,
   type ShortGroup,
 } from '../rules';
+import { pointCursor } from '../shell/cursor';
 import { GameHud, type HudCounter, type HudLabel, type HudLock, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
 import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, systemPanel, type LevelsEntry, type SystemValues } from '../shell/panels';
@@ -456,6 +457,8 @@ export class Game {
   private tapTarget: { x: number; z: number } | null = null;
   /** The cell the mouse points at with the board as it was, and whether a click there takes the player anywhere. */
   private hoverPlan: { key: string; cell: { x: number; z: number } | null } = { key: '', cell: null };
+  /** The mouse is over a cell a click would take the player to: the cursor turns inside out, as over a button. */
+  private pointsBoard = false;
   private readonly ritual = new Ritual();
   private readonly audio = new AudioEngine();
   private readonly hints = new Hints();
@@ -856,7 +859,10 @@ export class Game {
    * the one a click where the mouse is would take them to. None where a click would do nothing.
    */
   private lockView(state: RunState): HudLock | null {
-    if (this.settings.control !== 'tap' || !this.inputEnabled()) return null;
+    if (this.settings.control !== 'tap' || !this.inputEnabled()) {
+      this.pointsBoard = false;
+      return null;
+    }
     let cell: { x: number; z: number } | null = null;
     if (this.controller.following && this.tapTarget) cell = this.tapTarget;
     else {
@@ -871,6 +877,8 @@ export class Game {
         }
         cell = this.hoverPlan.cell;
       }
+      // While a way is being gone the cursor keeps what it was: the board under it is on the move.
+      this.pointsBoard = cell !== null;
     }
     if (!cell) return null;
     const box = this.stage.getBoundingClientRect();
@@ -2229,21 +2237,20 @@ export class Game {
     }, SHARED_MS);
   }
 
-  /** What the player can set: sound, motion, shake, the camera, the language. In development the tools of the playtest open from here. */
+  /** What the player can set: sound, effects, the way to play, the language. In development the tools of the playtest open from here. */
   private showSystem(back: () => void, home?: string): void {
     const { tools } = this;
     const values = (): SystemValues => ({
       muted: this.settings.muted,
       reducedMotion: prefersReducedMotion(this.settings),
-      shake: this.settings.shake,
       control: this.settings.control,
-      view: this.settings.view,
       language: language(),
     });
     this.shell.showPanel(
       systemPanel({
         values,
         home,
+        touch: coarsePointer,
         // Back from the list of languages the panel stands on the line it was left at.
         onLanguage: () => this.showLanguages(() => this.showSystem(back, 'language')),
         onToggle: (key) => {
@@ -2252,13 +2259,9 @@ export class Game {
             this.applySound();
           } else if (key === 'reducedMotion') {
             this.settings.reducedMotion = !prefersReducedMotion(this.settings);
-          } else if (key === 'shake') {
-            this.settings.shake = !this.settings.shake;
-          } else if (key === 'control') {
+          } else {
             this.settings.control = this.settings.control === 'tap' ? 'swipe' : 'tap';
             this.controller.cancel();
-          } else {
-            this.settings.view = this.settings.view === 'full' ? 'auto' : 'full';
           }
           saveSettings(this.settings);
           platform.track('settings_changed', { setting: key, value: String(values()[key]) });
@@ -2813,8 +2816,6 @@ export class Game {
         warn: state.cubes.length >= state.config.warnOccupied && !state.over,
         danger: danger !== null,
         reducedMotion,
-        shake: this.settings.shake,
-        whole: this.settings.view === 'full',
         // The frame stays for as long as the group the die was of is going.
         ghosts: state.levelRun ? this.ghosts.filter((ghost) => state.reactions.some((reaction) => reaction.id === ghost.reactionId)) : [],
         onLeaving: (event) => this.onLeaving(event),
@@ -2850,6 +2851,7 @@ export class Game {
     const hudFrom = performance.now();
     // Under the command the program opens on, the readings keep their room and are not shown: nothing is on that screen but the board and the command.
     this.hud.frame(shown ? this.hudView(state, stage, lit, reducedMotion) : null, time, this.starting);
+    pointCursor('board', shown && this.pointsBoard);
     span('hud', hudFrom);
     // The readings stand above the board on a tall screen and beside it on a wide one: the
     // box of the page that keeps their room follows them.

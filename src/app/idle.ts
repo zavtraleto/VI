@@ -8,7 +8,8 @@
 /** When the plaque blinks and when the sign comes, in milliseconds of waiting, and how many wasted moves bring the sign at once. A null is a thing the piece does not do. */
 export interface IdleRule {
   blinkMs: number | null;
-  signMs: number;
+  /** Null: the piece shows no sign at all, however long the player waits, and not after dead ends either. */
+  signMs: number | null;
   wasted: number | null;
 }
 
@@ -51,7 +52,7 @@ export class Idle {
   at(timeMs: number, hurry = false): IdleView {
     const { blinkMs, signMs, wasted } = this.rule;
     const waited = this.since === null ? 0 : (this.pausedAt ?? timeMs) - this.since;
-    const sign = hurry || waited >= signMs || (wasted !== null && this.wasted >= wasted);
+    const sign = signMs !== null && (hurry || waited >= signMs || (wasted !== null && this.wasted >= wasted));
     return { blink: !sign && blinkMs !== null && waited >= blinkMs, sign };
   }
 }

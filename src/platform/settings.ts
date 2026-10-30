@@ -3,12 +3,6 @@ import { CAMPAIGN, placeOfCode, type LiveStat } from '../levels/campaign';
 import type { Place } from '../levels/row';
 import { loadJson, saveJson } from './storage';
 
-/**
- * How the board is seen: `auto` follows the player where the whole board would be small on
- * the screen, `full` keeps the whole board in view everywhere.
- */
-export type ViewSetting = 'auto' | 'full';
-
 /** How the board is played: `swipe` by swipes, `tap` by a tap or a click on a cell. The keys step either way. */
 export type ControlSetting = 'swipe' | 'tap';
 
@@ -74,12 +68,10 @@ export interface Settings {
   /** The long boot of the first start has been shown: later starts get the short one. */
   bootSeen: boolean;
   muted: boolean;
-  /** null follows the system preference. */
+  /** Effects kept calm: no shake of the screen, motion kept low. null follows the system preference. */
   reducedMotion: boolean | null;
-  shake: boolean;
   /** How the board is played: by swipes, or by taps and the mouse (docs/superpowers/specs/2026-10-29-vi-tap-control-design.md). The keys step either way. */
   control: ControlSetting;
-  view: ViewSetting;
   /** The language the player has picked, as `src/ui/i18n.ts` names it; null follows the platform, then the browser. */
   language: string | null;
   /** Overrides of gameplay variables set in the debug panel. */
@@ -123,9 +115,7 @@ export function loadSettings(): Settings {
     bootSeen: false,
     muted: false,
     reducedMotion: null,
-    shake: true,
     control: 'swipe',
-    view: 'auto',
     language: null,
     tuning: {},
     camera: { ...DEFAULT_CAMERA },
@@ -159,6 +149,13 @@ export function loadSettings(): Settings {
   // The buttons in place of swipes and the place behind the board are gone from the settings (the owner, 29 October 2026): what was kept of them goes.
   delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).controlMode;
   delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).backdrop;
+  // The shake and the motion are one line of the settings, and the camera is gone from them (the owner,
+  // 30 October 2026). A player who had turned the shake off and left the motion to the system keeps
+  // the effects calm; the camera follows where the board would be small, as it did by default.
+  const old = loaded as Partial<{ shake: boolean; view: string }>;
+  if (old.shake === false && loaded.reducedMotion === null) loaded.reducedMotion = true;
+  delete old.shake;
+  delete old.view;
   // A save from before taps plays by swipes, as the game did.
   if (loaded.control !== 'tap') loaded.control = 'swipe';
   // A save from before the advertisement after undos has taken none back since one.

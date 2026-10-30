@@ -239,7 +239,6 @@ export class BoardLab {
       warn: false,
       danger: false,
       reducedMotion: false,
-      shake: true,
       onLeaving: (event) => {
         if (event.final) {
           // The dice of the finale are under: the lines of the board go and come, as in a passage.

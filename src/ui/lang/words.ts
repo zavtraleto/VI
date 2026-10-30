@@ -64,16 +64,15 @@ export const WORDS = {
   YOU: { ru: 'ТЫ', es: 'TÚ', pt: 'VOCÊ', tr: 'SEN', de: 'DU', fr: 'TOI' },
   // The settings and their values.
   SOUND: { ru: 'ЗВУК', es: 'SONIDO', pt: 'SOM', tr: 'SES', de: 'TON', fr: 'SON' },
-  MOTION: { ru: 'ДВИЖЕНИЕ', es: 'MOVIMIENTO', pt: 'MOVIMENTO', tr: 'HAREKET', de: 'BEWEGUNG', fr: 'MOUVEMENT' },
-  SHAKE: { ru: 'ТРЯСКА', es: 'SACUDIDA', pt: 'TREMOR', tr: 'SARSINTI', de: 'WACKELN', fr: 'SECOUSSE' },
-  CONTROL: { ru: 'ВВОД', es: 'CONTROL', pt: 'CONTROLE', tr: 'KONTROL', de: 'EINGABE', fr: 'CONTRÔLE' },
-  CAMERA: { ru: 'КАМЕРА', es: 'CÁMARA', pt: 'CÂMERA', tr: 'KAMERA', de: 'KAMERA', fr: 'CAMÉRA' },
+  EFFECTS: { ru: 'ЭФФЕКТЫ', es: 'EFECTOS', pt: 'EFEITOS', tr: 'EFEKTLER', de: 'EFFEKTE', fr: 'EFFETS' },
+  // The owner, 30 October 2026: «на русском "ввод" пусть будет».
+  CONTROLS: { ru: 'ВВОД', es: 'CONTROLES', pt: 'CONTROLES', tr: 'KONTROL', de: 'EINGABE', fr: 'CONTRÔLES' },
   ON: { ru: 'ВКЛ', es: 'SÍ', pt: 'SIM', tr: 'AÇIK', de: 'AN', fr: 'OUI' },
   OFF: { ru: 'ВЫКЛ', es: 'NO', pt: 'NÃO', tr: 'KAPALI', de: 'AUS', fr: 'NON' },
-  FULL: { ru: 'ПОЛНОЕ', es: 'COMPLETO', pt: 'COMPLETO', tr: 'TAM', de: 'VOLL', fr: 'COMPLET' },
-  LESS: { ru: 'МЕНЬШЕ', es: 'REDUCIDO', pt: 'REDUZIDO', tr: 'AZ', de: 'WENIGER', fr: 'RÉDUIT' },
-  AUTO: { ru: 'АВТО', es: 'AUTO', pt: 'AUTO', tr: 'OTO', de: 'AUTO', fr: 'AUTO' },
+  ALL: { ru: 'ВСЕ', es: 'TODOS', pt: 'TODOS', tr: 'TÜMÜ', de: 'ALLE', fr: 'TOUS' },
+  CALM: { ru: 'СПОКОЙНО', es: 'SUAVES', pt: 'SUAVES', tr: 'SAKİN', de: 'RUHIG', fr: 'CALMES' },
   SWIPE: { ru: 'СВАЙПЫ', es: 'GESTOS', pt: 'GESTOS', tr: 'KAYDIRMA', de: 'WISCHEN', fr: 'GESTES' },
   TAP: { ru: 'НАЖАТИЯ', es: 'TOQUES', pt: 'TOQUES', tr: 'DOKUNMA', de: 'TIPPEN', fr: 'TOUCHER' },
-  FIXED: { ru: 'ВСЁ ПОЛЕ', es: 'FIJA', pt: 'FIXA', tr: 'SABİT', de: 'FEST', fr: 'FIXE' },
+  KEYS: { ru: 'КЛАВИШИ', es: 'TECLAS', pt: 'TECLAS', tr: 'TUŞLAR', de: 'TASTEN', fr: 'CLAVIER' },
+  MOUSE: { ru: 'МЫШЬ', es: 'RATÓN', pt: 'MOUSE', tr: 'FARE', de: 'MAUS', fr: 'SOURIS' },
 } as const satisfies Record<string, Record<'ru' | 'es' | 'pt' | 'tr' | 'de' | 'fr', string>>;

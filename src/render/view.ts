@@ -119,10 +119,8 @@ export interface SceneParams {
   warn: boolean;
   /** The board is full and the rescue countdown is running. */
   danger: boolean;
+  /** Motion kept low: no shake, no lean, the whole board in view, the leaving of dice shortened. */
   reducedMotion: boolean;
-  shake: boolean;
-  /** The player keeps the whole board in view, however small it is on this screen. */
-  whole?: boolean;
   /**
    * Cells a die that was going stood on until another die was rolled over it: its group is still
    * going, and the cell keeps the frame of the group.
@@ -989,7 +987,7 @@ export class BoardView {
     // keeps, by what the address names.
     const forced = VIEWS.includes(String(values.view)) ? (values.view as ViewChoice) : 'auto';
     // Boards that are given one frame are seen one way: by the cell of that frame.
-    const mode = viewMode(this.asked?.cell ?? this.wholeCell, n('minCell'), { forced, whole: params.whole === true, reducedMotion });
+    const mode = viewMode(this.asked?.cell ?? this.wholeCell, n('minCell'), { forced, reducedMotion });
     if (mode !== this.mode) {
       this.mode = mode;
       this.resize();
@@ -1162,12 +1160,12 @@ export class BoardView {
 
     this.camera.position.copy(this.cameraHome);
     // A beat leans the camera in for a moment.
-    const zoom = params.shake && !reducedMotion ? 1 + this.punch.value(n('punchDecayMs')) : 1;
+    const zoom = !reducedMotion ? 1 + this.punch.value(n('punchDecayMs')) : 1;
     if (this.mode === 'full' && Math.abs(zoom - this.camera.zoom) > 1e-5) {
       this.camera.zoom = zoom;
       this.camera.updateProjectionMatrix();
     }
-    if (params.shake && !reducedMotion && this.tremor > 0) {
+    if (!reducedMotion && this.tremor > 0) {
       const amount = this.tremor * 0.09;
       this.camera.position
         .addScaledVector(this.cameraRight, Math.sin(timeMs / 13) * amount)

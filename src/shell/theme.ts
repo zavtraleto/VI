@@ -147,11 +147,11 @@ export const SHELL_GROUPS = {
      * cell, the top face of a die over a die (the owner, 29 October 2026).
      */
     lockGap: number(3, 0, 16, 1),
-    lockArm: number(0.3, 0.05, 0.5, 0.01),
+    lockArm: number(0.2, 0.05, 0.5, 0.01),
     lockStuds: flag(true),
-    lockFrom: number(8, 0, 40, 1),
+    lockFrom: number(10, 0, 40, 1),
     lockSnapMs: number(140, 0, 600, 10),
-    lockLight: number(0.45, 0, 1, 0.05),
+    lockLight: number(0.2, 0, 1, 0.05),
   },
   motion: {
     /** How long a pressed zone answers before its action, in milliseconds. */

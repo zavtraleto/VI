@@ -104,6 +104,13 @@ describe('the wait of a stage', () => {
   it('takes every rule a place can wait by as it is written', () => {
     for (const rule of Object.values(IDLE_RULES)) {
       const idle = new Idle(rule);
+      idle.acted(0, 99);
+      if (rule.signMs === null) {
+        // A rule with no sign shows none, after any wait, any waste, and in a hurry.
+        expect(idle.at(3_600_000).sign).toBe(false);
+        expect(idle.at(0, true).sign).toBe(false);
+        continue;
+      }
       idle.acted(0, 0);
       expect(idle.at(rule.signMs - 1).sign).toBe(false);
       expect(idle.at(rule.signMs).sign).toBe(true);

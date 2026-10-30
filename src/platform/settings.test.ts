@@ -35,6 +35,19 @@ describe('the experiments a player has saved', () => {
     expect('tutorialDone' in loadSettings()).toBe(false);
   });
 
+  it('keep the effects calm for a player who had turned the shake off, and let go of the shake and the camera', () => {
+    saved({ shake: false, reducedMotion: null, view: 'full' });
+    const calm = loadSettings();
+    expect(calm.reducedMotion).toBe(true);
+    expect('shake' in calm).toBe(false);
+    expect('view' in calm).toBe(false);
+    // Motion the player set themselves stays as they set it; a shake left on changes nothing.
+    saved({ shake: false, reducedMotion: false });
+    expect(loadSettings().reducedMotion).toBe(false);
+    saved({ shake: true, reducedMotion: null });
+    expect(loadSettings().reducedMotion).toBeNull();
+  });
+
   it('let go of the tasks that were played: the game has no tasks any more', () => {
     saved({ puzzle: { stars: { 1: 3 }, stats: {}, rulesSeen: true } });
     expect('puzzle' in loadSettings()).toBe(false);

@@ -224,13 +224,14 @@ export class RoadWait {
  * What a place does while the player waits, by the word its help says: the first piece shows its sign
  * from the start and brings it back in six seconds or after three moves that led nowhere; a lesson
  * blinks its plaque from four seconds, shows the sign from eight, and counts the moves wasted; a free
- * piece does as a lesson and counts none (that count asks the solver after every move, and on an open
- * board the answer costs a frame that hangs). The thresholds are a first guess; the owner has not named them.
+ * piece, every one after the second, blinks its plaque as a lesson does and shows no sign at all, not
+ * after dead ends either (the owner, 30 October 2026: the hints that show swipes or keys «не должны
+ * появляться после второго уровня»). The thresholds are a first guess; the owner has not named them.
  */
 export const IDLE_RULES: Readonly<Record<'first' | 'lesson' | 'free', IdleRule>> = {
   first: { blinkMs: null, signMs: 6000, wasted: 3 },
   lesson: { blinkMs: 4000, signMs: 8000, wasted: 3 },
-  free: { blinkMs: 4000, signMs: 8000, wasted: null },
+  free: { blinkMs: 4000, signMs: null, wasted: null },
 };
 
 /**

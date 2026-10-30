@@ -8,7 +8,8 @@ import { solveFrom } from '../rules/levelSolver';
 import { createRun, step } from '../rules/sim';
 import type { Dir, LevelSpec, RunState } from '../rules/types';
 import { shownHeight } from '../render/leaving';
-import { IDLE_RULES, SIGN_FREE_STATES, SIGN_MAX_STATES, roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
+import type { IdleRule } from './idle';
+import { IDLE_RULES, RoadWait, SIGN_FREE_STATES, SIGN_MAX_STATES, roadWait, signAt, signBody, signHeight, signMode, stepsTo, wastedMoves } from './signWay';
 
 // The solver as it is, with its calls counted.
 vi.mock('../rules/levelSolver', async (original) => {
@@ -28,8 +29,8 @@ const COMMON = { arrival: 'none', goal: { kind: 'clear' }, moves: 0, undos: 3, s
 /**
  * Three pieces of the first edition of the road, kept here as the small boards the sign is
  * tried on: each is a few boards in all, so what the sign says on every one of them is known.
- * They go by the codes they had, which name pieces of the road still, all three of which wait as
- * a free piece does (`IDLE_RULES.free`). The first and the second piece are those of the road itself.
+ * They go by the codes they had, which name pieces of the road still, the waits here try them as
+ * a wait that shows its sign and counts no moves (`QUIET`). The first and the second piece are those of the road itself.
  *
  *   # 2      . 2 . .      . . 3 3
  *   A #      . # . .      . . # #
@@ -75,6 +76,9 @@ const counts = (help: Help): boolean => help.wait !== undefined && IDLE_RULES[he
 const FIRST: Help = { sign: 'N', wait: 'first' };
 const LESSON: Help = { wait: 'lesson' };
 const FREE: Help = { wait: 'free' };
+/** A wait that shows its sign and counts no wasted moves, as a free piece did until 30 October 2026: the machinery is tried on it. */
+const QUIET: IdleRule = { blinkMs: 4000, signMs: 8000, wasted: null };
+const quiet = (hurry = false): RoadWait => new RoadWait(undefined, QUIET, hurry);
 const start = (spec: LevelSpec): RunState => createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
 
 /** Gives a command and runs the level until the world stands and the player is free, as a move is made. */
@@ -362,7 +366,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows nothing and asks nothing of a board that moves, and counts the wait from when it stands', () => {
     const state = start(pieceOf('R03'));
-    const wait = roadWait(FREE)!;
+    const wait = quiet();
     expect(wait.frame(state, 0, true)).toEqual(NOTHING);
     expect(wait.frame(state, 9000, true)).toEqual({ dir: 'E', blink: false });
     step(state, 'N');
@@ -382,7 +386,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows nothing under a panel, and does not count its time', () => {
     const state = start(pieceOf('R03'));
-    const wait = roadWait(FREE)!;
+    const wait = quiet();
     expect(wait.frame(state, 0, true)).toEqual(NOTHING);
     expect(wait.frame(state, 3000, false)).toEqual(NOTHING);
     expect(wait.frame(state, 90_000, false)).toEqual(NOTHING);
@@ -421,10 +425,23 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     expect(seen[2]).toBe(signAt(state).dir);
   });
 
-  it('counts no wasted moves on a free piece: its sign waits its seconds however the board is rolled about', () => {
-    expect(IDLE_RULES.free.wasted).toBeNull();
+  it('shows no sign on a free piece, however long the player waits and however often it comes to a dead end; its plaque blinks', () => {
+    // The owner, 30 October 2026: the hints that show swipes or keys do not come after the second level.
+    expect(IDLE_RULES.free.signMs).toBeNull();
     const state = start(pieceOf('R03'));
     const wait = roadWait(FREE)!;
+    expect(wait.frame(state, 0, true)).toEqual(NOTHING);
+    expect(wait.frame(state, 4000, true)).toEqual({ dir: null, blink: true });
+    expect(wait.frame(state, 600_000, true)).toEqual({ dir: null, blink: true });
+    const hurried = roadWait(FREE, true)!;
+    expect(hurried.frame(state, 0, true)).toEqual(NOTHING);
+    expect(hurried.frame(state, 600_000, true).dir).toBeNull();
+  });
+
+  it('counts no wasted moves where the rule counts none: its sign waits its seconds however the board is rolled about', () => {
+    expect(IDLE_RULES.free.wasted).toBeNull();
+    const state = start(pieceOf('R03'));
+    const wait = quiet();
     let time = 0;
     for (const dir of ['N', 'S', 'N', 'S', 'N'] as const) {
       expect(wait.frame(state, time, true)).toEqual(NOTHING);
@@ -438,7 +455,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows nothing of a level that is over', () => {
     const state = start(pieceOf('R03'));
-    const wait = roadWait(FREE)!;
+    const wait = quiet();
     wait.frame(state, 0, true);
     go(state, 'E');
     expect(state.endReason).toBe('passed');
@@ -449,7 +466,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     const asked = vi.mocked(solveFrom);
     const spec = fileBoard('R05');
     const state = start(spec);
-    const wait = roadWait(FREE)!;
+    const wait = quiet();
     asked.mockClear();
     for (let time = 0; time < 8000; time += 16) wait.frame(state, time, true);
     expect(asked).not.toHaveBeenCalled();
@@ -466,7 +483,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
     expect(wait.frame(state, 20_000, true).dir).toBe(signAt(state, SIGN_FREE_STATES).dir);
     // A piece in a hurry is due at once on every board: one asking for each.
     asked.mockClear();
-    const hurried = roadWait(FREE, true)!;
+    const hurried = quiet(true);
     for (let time = 0; time < 1000; time += 16) hurried.frame(state, time, true);
     expect(asked).toHaveBeenCalledTimes(1);
   });
@@ -489,14 +506,14 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('shows the way at once to a piece that is in a hurry, on every board of it, and to no other', () => {
     const state = start(pieceOf('R03'));
-    const hurried = roadWait(FREE, true)!;
+    const hurried = quiet(true);
     expect(hurried.frame(state, 0, true)).toEqual({ dir: 'E', blink: false });
     go(state, 'N');
     // The board after a roll is asked anew and shows its way with no wait.
     expect(hurried.frame(state, 100, true)).toEqual({ dir: signAt(state).dir, blink: false });
     expect(hurried.frame(state, 100, true).dir).not.toBeNull();
     // The count of the dead ends outlives the wait: it is told to the one that is on the board.
-    const calm = roadWait(FREE)!;
+    const calm = quiet();
     expect(calm.frame(state, 0, true)).toEqual(NOTHING);
     calm.hurry = true;
     go(state, 'S');
@@ -507,7 +524,7 @@ describe('what a piece shows while the player waits, frame by frame', () => {
 
   it('keeps the dead-end window as it is: a board that is over shows no sign, hurried or not', () => {
     const state = start(pieceOf('R03'));
-    const hurried = roadWait(FREE, true)!;
+    const hurried = quiet(true);
     go(state, 'E');
     expect(state.over).toBe(true);
     expect(hurried.frame(state, 1000, true)).toEqual(NOTHING);

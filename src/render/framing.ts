@@ -55,8 +55,6 @@ export type ViewChoice = 'auto' | ViewMode;
 export interface ViewAsked {
   /** Named in the address or in the lab: it is taken as it is, over everything else. */
   forced: ViewChoice;
-  /** The player keeps the whole board in view. */
-  whole: boolean;
   reducedMotion: boolean;
 }
 
@@ -67,7 +65,7 @@ export interface ViewAsked {
  */
 export function viewMode(cell: number, minCell: number, asked: ViewAsked): ViewMode {
   if (asked.forced !== 'auto') return asked.forced;
-  if (asked.whole || asked.reducedMotion) return 'full';
+  if (asked.reducedMotion) return 'full';
   return cell < minCell ? 'follow' : 'full';
 }
 

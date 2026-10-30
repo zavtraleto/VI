@@ -134,9 +134,9 @@ describe('the dead ends of a piece', () => {
   it('bring the sign at once to a piece that begins again, and not to one that has had none', () => {
     const spec: LevelSpec = fileBoard('R03');
     const state = createRun({ seed: spec.seed, config: defaultConfig(), level: spec });
-    expect(roadWait({ wait: 'free' }, false)!.frame(state, 0, true)).toEqual({ dir: null, blink: false });
+    expect(roadWait({ wait: 'lesson' }, false)!.frame(state, 0, true)).toEqual({ dir: null, blink: false });
     // Standing on the board the first moment, with no wait at all.
-    expect(roadWait({ wait: 'free' }, true)!.frame(state, 0, true)).toEqual({ dir: 'E', blink: false });
+    expect(roadWait({ wait: 'lesson' }, true)!.frame(state, 0, true)).toEqual({ dir: 'E', blink: false });
   });
 });
 
