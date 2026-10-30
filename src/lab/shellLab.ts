@@ -5,7 +5,7 @@ import { Display } from '../display/display';
 import { loadSettings, type Settings } from '../platform/settings';
 import type { ParamValues } from '../signal/scene';
 import { Climb } from '../shell/climb';
-import { pausePanel, recordsPanel, resultPanel, systemPanel } from '../shell/panels';
+import { clearedPanel, pausePanel, recordsPanel, resultPanel, systemPanel } from '../shell/panels';
 import type { PanelSpec } from '../shell/screens/panel';
 import { Shell, type MenuActions } from '../shell/shell';
 import { COMMANDS, RECORDS } from '../shell/text';
@@ -14,7 +14,7 @@ import { FpsCounter } from '../ui/fps';
 import { t } from '../ui/i18n';
 import { ShellPanel } from './shellPanel';
 
-export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'climb', 'records'] as const;
+export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'cleared', 'climb', 'records'] as const;
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
@@ -174,6 +174,9 @@ export class ShellLab {
           { score: 8020, best: 12840, maxChain: 5, ticks: 24100, tickMs: 20, note: t('newBest') },
           { onAgain: nothing, onRecords: nothing, onMenu: nothing },
         );
+      case 'cleared':
+        // The window between two boards: two stars of three, light by light; `&ui=0` and a reload show them lighting up again.
+        return clearedPanel({ moves: 5, par: 3, stars: 2, still: this.settings.reducedMotion === true }, { onNext: nothing, onAgain: () => this.show('cleared'), onStar: (index) => this.audio.play({ kind: 'star', index }) });
       case 'climb': {
         // A session goes up the sample of the log: its score is `climbScore`, or `&score=` in the address.
         const record = this.climbScore > SAMPLE_BEST;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paintStar, paintStarGhost, paintStarSmall, starReach, starRow, starShape, starTones, type StarKit } from './star';
+import { paintStar, paintStarGhost, paintStarSmall, starReach, starShape, starTones, type StarKit } from './star';
 
 const COLOURS = { core: '#fbfff2', light: '#9fd8ff', deep: '#3d49f0' };
 
@@ -110,18 +110,5 @@ describe('a small star, as a cell of the list has it', () => {
     paintStarGhost(ghost.kit, 20, 20, 4, COLOURS);
     expect(small.count()).toBe(ghost.count());
     expect(small.reach()).toBeLessThanOrEqual(5);
-  });
-});
-
-describe('the row of the three stars', () => {
-  it('takes no more than three quarters of the picture, and is larger on a larger one', () => {
-    for (const width of [150, 180, 240, 270, 360, 640]) {
-      const { radius, gap, wide } = starRow(width);
-      expect(wide).toBe(3 * (2 * radius + 1) + 2 * gap);
-      expect(wide).toBeLessThanOrEqual(width * 0.75);
-      expect(radius).toBeGreaterThanOrEqual(8);
-    }
-    expect(starRow(270).radius).toBeGreaterThan(starRow(180).radius);
-    expect(starRow(640).radius).toBe(22);
   });
 });

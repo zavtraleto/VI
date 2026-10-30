@@ -44,13 +44,17 @@ describe('the screen the program opens on', () => {
     expect(started).toBe(1);
   });
 
-  it('has a button two fingers tall and half the scene wide, in the middle across, on a phone and on a desk', () => {
+  it('has a button two fingers tall, half the scene wide or as wide as はじめる START asks, in the middle across, on a phone and on a desk', () => {
     setLanguage('en');
     for (const [name, window, ratio] of SCREENS) {
-      const { rect } = new StartScreen(context(window, ratio), nothing).items()[0];
+      const made = context(window, ratio);
+      const { rect } = new StartScreen(made, nothing).items()[0];
+      const zoom = window.width / made.picture().width;
+      const label = textWidth(`${COMMANDS.start.native} ${word(COMMANDS.start.name)}`, 2);
       expect(rect.height, name).toBeGreaterThanOrEqual(2 * MIN_ZONE);
       expect(rect.width, name).toBeGreaterThanOrEqual(window.width / 2 - 4);
-      expect(rect.width, name).toBeLessThanOrEqual(window.width / 2 + 4);
+      expect(rect.width, name).toBeGreaterThanOrEqual((label + 48) * zoom - 4);
+      expect(rect.width, name).toBeLessThanOrEqual(Math.max(window.width / 2, (label + 48) * zoom) + 4);
       expect(Math.abs(rect.x + rect.width / 2 - window.width / 2), name).toBeLessThanOrEqual(4);
     }
   });

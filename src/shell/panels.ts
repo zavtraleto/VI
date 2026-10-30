@@ -515,3 +515,34 @@ export function levelResultPanel(
   );
   return { title: data.passed ? PANELS.cleared : PANELS.failed, home: next ? 'next' : undo ? 'undo' : 'again', rows };
 }
+
+/** What the window between two boards shows of the board that is passed. */
+export interface ClearedData {
+  moves: number;
+  /** The fewest moves the board is cleared in; null where they are not known, and then it has no stars. */
+  par: number | null;
+  /** Stars of the pass, out of three; null where the board is not rated. */
+  stars: number | null;
+  /** Motion kept low: the stars stand at once. */
+  still: boolean;
+}
+
+/**
+ * The small window between two boards (word of the owner, 29 October 2026): over the board that
+ * is passed, the stars of the pass light up one after another, under them the moves made and the
+ * fewest; then the large command that goes on to the next board, in focus, and under it the
+ * command that starts this one over, of the size of a line of the menu.
+ */
+export function clearedPanel(data: ClearedData, actions: { onNext: () => void; onAgain: () => void; onStar?: (index: number) => void }): PanelSpec {
+  const rows: PanelRow[] = [];
+  if (data.stars !== null) rows.push({ kind: 'stars', count: data.stars, shine: { still: data.still, onLit: actions.onStar } });
+  rows.push(
+    { kind: 'field', label: RESULT.moves, value: digits(data.moves, 3) },
+    { kind: 'field', label: RESULT.par, value: data.par === null ? '---' : digits(data.par, 3) },
+    // Twice the gap between the lines, not three times: the readings belong to the stars over them.
+    { kind: 'gap', h: 0 },
+    { kind: 'command', id: 'next', label: COMMANDS.next, action: actions.onNext, large: true },
+    { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
+  );
+  return { title: PANELS.cleared, home: 'next', back: actions.onNext, rows };
+}

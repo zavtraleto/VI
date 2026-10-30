@@ -14,7 +14,6 @@ import { FACE_PIPS, Kit } from './kit';
 import { CELL_H, CELL_W, pictureSize, type Box, type Insets, type Point } from './layout';
 import { word } from '../ui/i18n';
 import { praiseWord } from './praise';
-import { paintStar, paintStarGhost, starRow } from './star';
 import { SIGN_KEY, SIGN_KEY_MS, paintSign, signBounds, type SignLook, type SignPlan } from './swipeSign';
 import { COMMANDS, HUD, READS, digits, goalLabel, goalProgress } from './text';
 import { clockHour, mixHex, paletteAt, sayColors, type Palette } from './theme';
@@ -55,19 +54,6 @@ export interface HudLevel {
   best: number | null;
   /** One line per thing the goal counts. */
   goal: readonly GoalLine[];
-}
-
-/**
- * The stars of a level that has just been passed: `stars` of three light up over the board, and
- * the last `fresh` of them, those the player did not hold, fly to the score, each with `points`.
- * `value` is the channel of the combo that passed it; `at` is in CSS pixels of the window.
- */
-export interface HudAward {
-  stars: number;
-  fresh: number;
-  points: number;
-  value: number;
-  at: Point;
 }
 
 /** A face of the net: its value and how many quarter turns its picture lies at. */
@@ -220,8 +206,6 @@ export interface HudActions {
   /** Points of a group have reached the score; the score has counted a little further up. */
   onPoints?(points: number, tier: number): void;
   onCount?(): void;
-  /** A star of a level that is passed has lit up: the first of them is 0. */
-  onStar?(index: number): void;
   /** A button that has nothing to do was pressed. */
   onRefused?(): void;
 }
@@ -250,21 +234,6 @@ const FOREIGN = `${import.meta.env.DEV ? '.overlay, .debug-panel, .lil-gui, ' : 
 const NET_EDGE = 0.07;
 const NET_PIP = 0.12;
 const NET_PIP_ONE = 0.19;
-/** A star of a pass comes on with a burst of its light that takes this long, and then breathes, once in this long. */
-const STAR_FLARE_MS = 320;
-const STAR_BREATH_MS = 1700;
-/** The foot of the row of the stars is this far under the place the game asks for them at, in dots: what keeps them clear of the board. */
-const STAR_FOOT = 7;
-/** A star that flies to the score is this small when it lands, in dots of its radius. */
-const STAR_LAND = 4;
-/**
- * The stars of a pass light up one after another this far apart, stand for this long after the
- * last, and then leave: those that are new fly to the score one after another, the rest go out.
- */
-const STAR_STEP_MS = 190;
-const STAR_HOLD_MS = 1300;
-const STAR_FLY_STEP_MS = 150;
-const STAR_FLY_MS = 460;
 /** How long a reading that has just changed keeps flashing, and a multiplier stays large, in milliseconds. */
 const FLASH_MS = 1200;
 const BUMP_MS = 220;
@@ -399,11 +368,6 @@ function rgb(hex: string): [number, number, number] {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
-/** When the stars of a pass begin to leave, in milliseconds from the first of them: all three have had their turn to light, and have stood. */
-function starsLeave(): number {
-  return STAR_STEP_MS * 2 + STAR_HOLD_MS;
-}
-
 let probe: HTMLElement | null = null;
 
 /** What the edges of the screen keep to themselves in CSS pixels, read from an element padded by them. */
@@ -459,7 +423,6 @@ export class GameHud {
   /** Where points fly to: the middle of the score, in pixels of the picture. */
   private scoreAt: Point = { x: 0, y: 0 };
   /** The stars of the pass just made: where they stand in pixels of the picture, since when, and how many of the new ones have reached the score. */
-  private passed: (HudAward & { born: number; landed: number; lit: number }) | null = null;
   /**
    * The swipe sign of the picture as it was last drawn whole, where the sign can be drawn alone:
    * how it is laid out, the part of the picture it can light (`room`), and what was in that part
@@ -497,13 +460,6 @@ export class GameHud {
     if (beat.points <= 0 || !beat.at) return;
     const zoom = this.kit.zoom;
     this.flyers.push({ points: beat.points, value: beat.value, tier: beat.tier, from: { x: beat.at.x / zoom, y: beat.at.y / zoom }, born: this.lastTime });
-  }
-
-  /** A level is passed: its stars stand over the board, and the new ones fly to the score. */
-  award(award: HudAward): void {
-    const zoom = this.kit.zoom;
-    // A level has no score for the new stars to fly to: all of them go out where they stood.
-    this.passed = { ...award, fresh: 0, at: { x: award.at.x / zoom, y: award.at.y / zoom }, born: this.lastTime, landed: 0, lit: 0 };
   }
 
   /** A new session: nothing of the last one is left flashing. */
@@ -569,7 +525,7 @@ export class GameHud {
     const swings = this.chains.size === 0 ? 0 : still ? this.chains.size : Math.floor(timeMs / 33);
     const decay = this.decayAt(view.header.kind === 'session' ? program : 0, timeMs, still, layout.rule + 2);
     // Points in the air and the score they have just reached are drawn anew every frame.
-    const moving = this.flyers.length > 0 || this.passed !== null || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
+    const moving = this.flyers.length > 0 || timeMs < this.hit.at + HIT_MS ? Math.floor(timeMs) : 0;
     // The swipe sign runs, or blinks, and the picture is not drawn anew for it: only its own part of it is (`signAgain`).
     const sign = view.sign ?? null;
     // A plaque that blinks is drawn anew each time it turns.
@@ -611,7 +567,6 @@ export class GameHud {
     this.drawLabels(timeMs, still);
     this.drawFlyers(timeMs);
     // The stars of a pass keep under the readings and inside the window.
-    if (this.passed) this.drawAward(this.passed, timeMs, still, layout.wide ? safe.top + 10 : layout.height + 6);
     // A step of the contact: the program says so over the board, for as long as its cell blinks.
     if (view.header.kind === 'session' && timeMs < this.stageFlash) {
       const text = `${program >= 1 ? HUD.found : HUD.link} ${digits(view.header.stage, 2)}/${digits(view.header.steps, 2)}`;
@@ -678,20 +633,11 @@ export class GameHud {
       if (header.stage > this.lastStage) this.stageFlash = timeMs + FLASH_MS;
       this.lastStage = header.stage;
     } else if (header.kind === 'level') {
+      // A level has no score, and nothing flies to it.
       this.flyers = [];
-      // A level has no score: the stars of a pass light up over the board and go out there.
-      const { passed } = this;
-      if (passed) {
-        const age = timeMs - passed.born;
-        // A star is heard as it lights up; with motion kept low they all stand at once, and one is heard.
-        const lit = view.reducedMotion ? passed.stars : clamp(Math.floor(age / STAR_STEP_MS) + 1, 0, passed.stars);
-        for (; passed.lit < lit; passed.lit++) if (!view.reducedMotion || passed.lit === passed.stars - 1) this.actions.onStar?.(passed.lit);
-        if (age >= starsLeave() + LABEL_OUT_MS) this.passed = null;
-      }
     } else {
       this.shown = 0;
       this.flyers = [];
-      this.passed = null;
     }
     const seen = new Set<number>();
     for (const label of view.labels) {
@@ -950,62 +896,6 @@ export class GameHud {
   }
 
   /**
-   * The stars of a pass over the board: three, lit one after another, each with a burst of its
-   * light; then the new ones fly to the score and the rest go out. A star that is held gives
-   * light and breathes; one that is not is its outline, dull and smeared (`star.ts`).
-   */
-  private drawAward(passed: NonNullable<GameHud['passed']>, timeMs: number, still: boolean, top: number): void {
-    const { kit } = this;
-    const colours = kit.palette.star;
-    const age = timeMs - passed.born;
-    const leave = starsLeave();
-    const { radius, gap, wide } = starRow(kit.width);
-    const side = radius * 2 + 1;
-    const step = side + gap;
-    // Their lower points stand where the foot of the row is asked for: a larger star goes up from there, not down on the board.
-    const y = Math.max(top + radius, Math.round(passed.at.y + STAR_FOOT - radius));
-    const x0 = Math.round(clamp(passed.at.x - wide / 2, 4, kit.width - wide - 4)) + radius;
-    for (let i = 0; i < 3; i++) {
-      const cx = x0 + i * step;
-      const since = age - i * STAR_STEP_MS;
-      const lit = i < passed.stars && (still || since >= 0);
-      const glow = still ? { flare: 0, shimmer: 0 } : { flare: clamp(1 - since / STAR_FLARE_MS, 0, 1), shimmer: Math.sin((timeMs / STAR_BREATH_MS) * Math.PI * 2 + i * 2.1) };
-      const stand = (): void => {
-        if (lit) paintStar(kit, cx, y, radius, colours, glow);
-        else paintStarGhost(kit, cx, y, radius, colours);
-      };
-      // The stars the player did not hold are the last of those that are lit: they are the ones that fly.
-      const flies = i < passed.stars && i >= passed.stars - passed.fresh;
-      const sets = leave + (i - (passed.stars - passed.fresh)) * STAR_FLY_STEP_MS;
-      if (age < leave || (flies && !still && age < sets)) {
-        stand();
-        continue;
-      }
-      if (!flies || still) {
-        // It goes out where it stood, there and not there, as the tube puts things out.
-        const left = leave + LABEL_OUT_MS - age;
-        if (left <= 0 || (!still && Math.floor(left / 55) % 2 === 1)) continue;
-        stand();
-        continue;
-      }
-      const p = (age - sets) / STAR_FLY_MS;
-      if (p >= 1) continue;
-      const along = (at: number): Point => {
-        const t = clamp(at, 0, 1);
-        // A shallow arc, as the points of a group fly: it leaves sideways and comes in from below.
-        return { x: cx + (this.scoreAt.x - cx) * (1 - (1 - t) ** 2), y: y + (this.scoreAt.y - y) * t * t };
-      };
-      // Behind it, the light it leaves: paler the further back.
-      for (let tail = 5; tail >= 1; tail--) {
-        const at = along(p - tail * 0.05);
-        kit.halo(Math.round(at.x) + 0.5, Math.round(at.y), Math.max(1.5, (radius * (6 - tail)) / 12), colours.light, 0.1 + 0.05 * (5 - tail));
-      }
-      const head = along(p);
-      paintStar(kit, head.x, head.y, Math.round(radius - (radius - STAR_LAND) * clamp(p, 0, 1)), colours, { flare: 0, shimmer: 1 });
-    }
-  }
-
-  /**
    * A line of the goal of a level, its count ending at `right`: the face it asks for as a
    * picture of that face, anything else by its name. `left` puts the name at the left edge
    * of a column; without it the name stands close before the count.
@@ -1050,11 +940,10 @@ export class GameHud {
 
   private drawPause(layout: HudLayout): void {
     const { kit } = this;
-    const { ink, faint } = kit.palette;
+    const { ink } = kit.palette;
     const box = layout.pause;
     const pressed = this.held?.zone.id === 'pause';
     if (pressed) kit.box(box, ink);
-    else kit.frame(box, faint);
     kit.iconIn(ICON_PAUSE, box, pressed ? kit.palette.bg : ink);
     this.zones.push({ id: 'pause', rect: kit.toWindow(layout.zones.pause), action: () => this.actions.onPause() });
   }
@@ -1062,12 +951,11 @@ export class GameHud {
   /** The button that starts a level over: beside the pause, of its size and drawn as it is, with the arrow that goes round in place of the two bars. */
   private drawRestart(layout: HudLayout): void {
     const { kit } = this;
-    const { ink, faint } = kit.palette;
+    const { ink } = kit.palette;
     const box = layout.restart;
     if (!box) return;
     const pressed = this.held?.zone.id === 'retry';
     if (pressed) kit.box(box, ink);
-    else kit.frame(box, faint);
     kit.iconIn(ICON_RESTART, box, pressed ? kit.palette.bg : ink);
     this.zones.push({ id: 'retry', rect: kit.toWindow(layout.zones.restart ?? box), action: () => this.actions.onRestart() });
   }
@@ -1083,7 +971,6 @@ export class GameHud {
     if (!box) return;
     const pressed = this.held?.zone.id === 'sound';
     if (pressed) kit.box(box, ink);
-    else kit.frame(box, faint);
     if (muted) {
       kit.iconIn(ICON_MUTE_SPEAKER, box, pressed ? faint : dim);
       kit.iconIn(ICON_MUTE_CROSS, box, pressed ? bg : ink);

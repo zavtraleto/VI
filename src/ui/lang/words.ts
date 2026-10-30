@@ -36,6 +36,8 @@ export const WORDS = {
   MENU: { ru: 'МЕНЮ', es: 'MENÚ', pt: 'MENU', tr: 'MENÜ', de: 'MENÜ', fr: 'MENU' },
   BACK: { ru: 'НАЗАД', es: 'ATRÁS', pt: 'VOLTAR', tr: 'GERİ', de: 'ZURÜCK', fr: 'RETOUR' },
   NEXT: { ru: 'ДАЛЬШЕ', es: 'SIGUIENTE', pt: 'PRÓXIMO', tr: 'SONRAKİ', de: 'WEITER', fr: 'SUIVANT' },
+  // The fewest moves of a board: a word of the program, the same in every language (the owner, 28 October 2026).
+  PAR: { ru: 'PAR', es: 'PAR', pt: 'PAR', tr: 'PAR', de: 'PAR', fr: 'PAR' },
   EXIT: { ru: 'ВЫХОД', es: 'SALIR', pt: 'SAIR', tr: 'ÇIKIŞ', de: 'BEENDEN', fr: 'QUITTER' },
   START: { ru: 'НАЧАТЬ', es: 'EMPEZAR', pt: 'COMEÇAR', tr: 'BAŞLA', de: 'START', fr: 'COMMENCER' },
   UNDO: { ru: 'ОТМЕНИТЬ', es: 'DESHACER', pt: 'DESFAZER', tr: 'GERİ AL', de: 'RÜCKGÄNGIG', fr: 'ANNULER' },

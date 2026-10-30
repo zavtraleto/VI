@@ -22,7 +22,7 @@ import { finaleMs, type LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
 import { CAMPAIGN, LIVES, campaignDone, campaignFocus, campaignList, plaquesOf } from '../levels/campaign';
 import type { Live } from '../levels/row';
-import { STAR_POINTS, levelStars, starsHeld } from '../levels/progress';
+import { levelStars } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
 import { messagesOf } from '../levels/voices';
 import {
@@ -54,7 +54,7 @@ import {
 } from '../rules';
 import { GameHud, type HudCounter, type HudLabel, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, systemPanel, type LevelsEntry, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, systemPanel, type LevelsEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -212,12 +212,6 @@ const UNDOS_PER_AD = 3;
  * while moves can be taken back, so its failed tries alone hardly grow.
  */
 const WAY_AFTER_STUCK = 3;
-/**
- * The stars of a pass stand in the one place whatever the board is: in the middle of the stage,
- * this share of its height down from its top. It is where they stood over a board of three by
- * three, on a tall screen and on a wide one.
- */
-const STARS_DOWN = { tall: 0.138, wide: 0.08 };
 /** How long the side of the seal that a swipe pointed at stays lit after the finger has let go. */
 const SEAL_LINGER_MS = 280;
 /** Of the signs the laboratory's assistant prints, one in so many is heard: a click to every sign is a rattle. */
@@ -369,6 +363,9 @@ export class Game {
     /** The clock of the passage has been set to the frame the dice were seen under. */
     aligned: boolean;
     beaten: boolean;
+    /** The window between two boards has been shown, and the passage waits under it until the player goes on. */
+    cleared: boolean;
+    held: boolean;
     lit: number;
     risen: number;
     order: number[];
@@ -387,8 +384,6 @@ export class Game {
   private landing: { player: { x: number; z: number }; origin: { x: number; z: number } } | null = null;
   /** The board that is on is seen in a frame counted here, for the window as the view had it at this count; -1: in its own, which the view keeps. */
   private framedAt = -1;
-  /** What the level of the list just passed came to, shown in the readings until the first move on the board after it. */
-  private gained: { stars: number; fresh: number } | null = null;
   /** Ticks of the level in hand that have been played: its own tick stands still between moves and is no clock. */
   private levelTicks = 0;
   /** Moves of the try in hand that have been taken back. */
@@ -478,7 +473,6 @@ export class Game {
     onSound: () => this.toggleSound(),
     onPoints: (points, tier) => this.audio.points(points, tier),
     onCount: () => this.audio.count(),
-    onStar: (index) => this.audio.play({ kind: 'star', index }),
     onRefused: () => this.audio.ui({ kind: 'stuck' }),
   });
   /** The water the board lies on, a probe, under what leaks through. `?water=off` leaves it out. */
@@ -1461,6 +1455,8 @@ export class Game {
       liveAsked: false,
       aligned: false,
       beaten: true,
+      cleared: false,
+      held: false,
       lit: 0,
       risen: 0,
       order: order.map((die) => cubes[die].id),
@@ -1472,7 +1468,6 @@ export class Game {
     this.view.finale(state, prefersReducedMotion(this.settings));
     // The board answers on the frame the combo is made, as it answers any combo: light, ring and one chord.
     this.answerPassed();
-    this.awardStars();
   }
 
   /**
@@ -1488,6 +1483,8 @@ export class Game {
    */
   private runPassage(dt: number): void {
     const passage = this.passage!;
+    // Under the window between two boards the passage stands: its clock does not run.
+    if (passage.held) return;
     const { passing } = this;
     const reduced = prefersReducedMotion(this.settings);
     const times = this.readTimes();
@@ -1515,6 +1512,16 @@ export class Game {
         now = passageAt(passage.elapsed, times, passage.counts, reduced, this.passageNow);
       }
       if (now.phase === 'combo' || now.phase === 'sink') return;
+      // The window between two boards, once the dice are under and their strike has rung out; the
+      // lines go after it, from their start. After the last board the window of the level comes instead.
+      if (!passage.cleared && passage.next !== null) {
+        if (passage.elapsed < marks.sink + FINALE_WINDOW_MS) return;
+        passage.cleared = true;
+        passage.held = true;
+        passage.elapsed = marks.sink;
+        this.showCleared(passage);
+        return;
+      }
       // A live session stands after the board that is passed: it is offered before anything after it, the end of the row too.
       if (!passage.liveAsked) {
         passage.liveAsked = true;
@@ -1606,18 +1613,28 @@ export class Game {
   }
 
   /**
-   * The stars of the pass that has just been made stand over the board, and those the player did
-   * not hold fly to the score. A board with no fewest moves known is not rated and shows none.
+   * The small window between two boards (word of the owner, 29 October 2026): the stars of the
+   * pass, the moves made and the fewest, the command that goes on and the one that starts the
+   * board over. The passage waits under it; going on lets it run from where it stood.
    */
-  private awardStars(): void {
-    const { gained, state } = this;
-    this.gained = null;
-    if (!gained) return;
-    const stage = this.stageRect();
-    // Always in the one place, whatever the board is: in the middle of the width of the stage, a set share of its height down from its top.
-    const p = { x: stage.width / 2, y: stage.height * (stage.height > stage.width ? STARS_DOWN.tall : STARS_DOWN.wide) };
-    const last = state.cubes.reduce<(typeof state.cubes)[number] | null>((latest, cube) => (!latest || cube.t < latest.t ? cube : latest), null);
-    this.hud.award({ stars: gained.stars, fresh: gained.fresh, points: STAR_POINTS, value: last?.ori.top ?? 0, at: { x: Math.round(stage.x + p.x), y: Math.round(stage.y + p.y) } });
+  private showCleared(passage: NonNullable<Game['passage']>): void {
+    const run = this.state.levelRun!;
+    const par = run.spec.par ?? null;
+    this.frames.flush(this.lastFrame);
+    this.shell.showPanel(
+      clearedPanel(
+        { moves: run.moves, par, stars: par === null ? null : levelStars(run.moves, par), still: prefersReducedMotion(this.settings) },
+        {
+          onNext: () => {
+            this.shell.hide();
+            if (this.passage === passage) passage.held = false;
+          },
+          onAgain: () => this.startRun('level'),
+          onStar: (index) => this.audio.play({ kind: 'star', index }),
+        },
+      ),
+      false,
+    );
   }
 
   /**
@@ -1788,10 +1805,7 @@ export class Game {
     this.later.flush();
     this.levelCounted = true;
     // A board of the lab is counted by the lab: nothing of it is kept for the player or told to anyone.
-    if (this.labSpec !== null) {
-      this.gained = null;
-      return;
-    }
+    if (this.labSpec !== null) return;
     const { state } = this;
     const run = state.levelRun!;
     const { spec } = run;
@@ -1805,10 +1819,7 @@ export class Game {
       stat.passes++;
       stat.firstPassTry ??= stat.tries;
       stat.bestLeft = Math.max(stat.bestLeft ?? 0, left);
-      const held = starsHeld(stat.bestMoves, spec.par);
       stat.bestMoves = Math.min(stat.bestMoves ?? run.moves, run.moves);
-      // The stars of this pass, and how many of them the player did not hold: those are what the score gains.
-      this.gained = spec.par !== undefined ? { stars: levelStars(run.moves, spec.par), fresh: starsHeld(stat.bestMoves, spec.par) - held } : null;
       // The place the player stands on, passed, moves them to the place after it; a place played out of
       // turn, further on or behind, moves nothing. Asked before the place is written as passed.
       if (this.place !== null) {

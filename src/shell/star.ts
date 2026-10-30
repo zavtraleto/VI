@@ -215,14 +215,3 @@ export function paintStarSmall(kit: StarKit, cx: number, cy: number, radius: num
   const tones = starTones(colours);
   for (const run of starShape(radius).runs) kit.rect(x0 + run.x, y0 + run.y, run.w, 1, tones[run.tone]);
 }
-
-/** How large the stars of a pass are and how far apart, for a picture `width` dots wide: three of them and their gaps take no more than three quarters of it. */
-export function starRow(width: number): { radius: number; gap: number; wide: number } {
-  let radius = Math.max(8, Math.min(22, Math.round(width * 0.085)));
-  const row = (r: number): { radius: number; gap: number; wide: number } => {
-    const gap = Math.max(4, Math.round(r * 0.5));
-    return { radius: r, gap, wide: 3 * (2 * r + 1) + 2 * gap };
-  };
-  while (radius > 4 && row(radius).wide > width * 0.75) radius--;
-  return row(radius);
-}

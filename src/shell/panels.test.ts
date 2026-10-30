@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Climb } from './climb';
 import { textWidth } from './layout';
 import { LANGUAGES, setLanguage } from '../ui/i18n';
-import { languagePanel, liveResultPanel, pausePanel, recordsPanel, resultPanel, systemPanel, type RecordsTable } from './panels';
+import { clearedPanel, languagePanel, liveResultPanel, pausePanel, recordsPanel, resultPanel, systemPanel, type RecordsTable } from './panels';
 import type { PanelRow, PanelSpec } from './screens/panel';
 
 const nothing = (): void => undefined;
@@ -269,5 +269,29 @@ describe('the tools of development', () => {
     const values = () => ({ muted: false, reducedMotion: false, shake: true, view: 'auto' as const, language: 'en' as const });
     expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, onBack: nothing }))).toEqual(['sound', 'motion', 'shake', 'view', 'language', 'back']);
     expect(pressed(systemPanel({ values, onToggle: nothing, onLanguage: nothing, tools: [tool], onBack: nothing }))).toContain('playtest');
+  });
+});
+
+describe('the window between two boards', () => {
+  it('shows the stars, the moves and the fewest, and goes on from its large command', () => {
+    let gone = 0;
+    const spec = clearedPanel({ moves: 5, par: 3, stars: 2, still: false }, { onNext: () => gone++, onAgain: nothing });
+    expect(spec.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'gap', 'command', 'command']);
+    expect(row(spec, 'stars').count).toBe(2);
+    expect(row(spec, 'stars').shine?.still).toBe(false);
+    expect([row(spec, 'field', 0).value, row(spec, 'field', 1).value]).toEqual(['005', '003']);
+    expect(row(spec, 'field', 1).label.name).toBe('PAR');
+    expect(pressed(spec)).toEqual(['next', 'again']);
+    expect([row(spec, 'command', 0).large, row(spec, 'command', 1).large]).toEqual([true, undefined]);
+    expect(spec.home).toBe('next');
+    // Esc goes on, as the large command does.
+    spec.back?.();
+    expect(gone).toBe(1);
+  });
+
+  it('has no stars on a board whose fewest moves are not known', () => {
+    const spec = clearedPanel({ moves: 7, par: null, stars: null, still: true }, { onNext: nothing, onAgain: nothing });
+    expect(spec.rows.some((one) => one.kind === 'stars')).toBe(false);
+    expect(row(spec, 'field', 1).value).toBe('---');
   });
 });

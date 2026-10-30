@@ -271,6 +271,8 @@ export const RESULT = {
   /** "Time". */
   time: { native: 'タイム', name: 'TIME' },
   moves: { native: 'てかず', name: 'MOVES' },
+  /** "Par": the fewest moves a board is cleared in. A word of the program, not translated (the owner, 28 October 2026). */
+  par: { native: 'パー', name: 'PAR' },
   /** "Still": the moves a passed level had left. */
   left: { native: 'あと', name: 'MOVES LEFT' },
   /** "Rank": the place the session took in the log. */

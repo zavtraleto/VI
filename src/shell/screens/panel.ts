@@ -3,7 +3,7 @@ import type { Kit } from '../kit';
 import { CELL_H, CELL_W, fingerOf, textWidth, zoneOf, type Box, type Dir4 } from '../layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { word } from '../../ui/i18n';
-import { paintStarSmall, type StarColours } from '../star';
+import { paintStar, paintStarGhost, paintStarSmall, type StarColours } from '../star';
 import { BAR_H, BUTTON_H, EDGE, GAP, PANEL_SAY_SIZE, UNIT } from '../theme';
 import { LIVE_WORD, digits, shortScore, type PanelName } from '../text';
 
@@ -14,6 +14,8 @@ export interface PanelCommand {
   action: () => void;
   /** It acts inside the press itself: see `ShellItem.instant`. */
   instant?: boolean;
+  /** The command the panel is about: twice as tall as a button, its word twice the size. */
+  large?: boolean;
 }
 
 /** A line of a panel, from top to bottom. */
@@ -69,8 +71,12 @@ export type PanelRow =
       program?: boolean;
       said?: (index: number) => boolean;
     }
-  /** What a level has earned, out of three. */
-  | { kind: 'stars'; count: number }
+  /**
+   * What a level has earned, out of three. With `shine` they are the large stars of a pass, that
+   * give light: they light up one after another, each with a flare and `onLit`, and then stand;
+   * `still` has them all lit at once, without the flare, and `onLit` once.
+   */
+  | { kind: 'stars'; count: number; shine?: { still: boolean; onLit?: (index: number) => void } }
   /**
    * Prose in the language of the player, in the voice. With `when`, its room is kept and it is
    * said once that holds. With `after`, its words are typed out, once so many signs of the
@@ -79,7 +85,7 @@ export type PanelRow =
    * With `room`, the line is as tall as the tallest of those texts takes, whichever it says.
    */
   | { kind: 'say'; text: string; size?: number; dim?: boolean; when?: () => boolean; after?: number; large?: boolean; room?: readonly string[] }
-  | { kind: 'gap' };
+  | { kind: 'gap'; h?: number };
 
 /**
  * A line of a log. `own` marks the line of the one who is playing: it is written in full
@@ -142,6 +148,37 @@ const PIPS: readonly (readonly [number, number][])[] = [[], [[0, 0]], [[0, 0], [
 /** The stars of a result: their radius, and from the middle of one to the next. */
 const RESULT_STAR = 6;
 const RESULT_STAR_STEP = 20;
+/**
+ * The large stars of a pass, on the grid: their radius is the height of a button, and each stands
+ * in a square of its own five lines of text on a side, so that there is air around it.
+ * The first waits a moment after the panel; then one by one, this far apart, each grows out of
+ * its outline past its size and settles, and flares, the light falling off slowly. Then they
+ * stand: a panel that is drawn anew every frame takes most of the frame on a desk.
+ */
+const SHINE_STAR = BUTTON_H;
+const SHINE_H = CELL_H * 5;
+const SHINE_STEP = SHINE_H;
+const SHINE_WAIT_MS = 250;
+const SHINE_STEP_MS = 300;
+const SHINE_GROW_MS = 260;
+const SHINE_FLARE_MS = 650;
+/** A star grows from this share of its size to this share, and settles back to its size. */
+const SHINE_FROM = 0.5;
+const SHINE_PEAK = 1.3;
+
+/** The size of a star that began to light `since` milliseconds ago, as a share of its own: quickly past it, then slowly back. */
+function shineSize(since: number): number {
+  const t = Math.min(1, since / SHINE_GROW_MS);
+  const rise = 0.45;
+  if (t < rise) {
+    const u = t / rise;
+    return SHINE_FROM + (SHINE_PEAK - SHINE_FROM) * (1 - (1 - u) * (1 - u));
+  }
+  const u = (t - rise) / (1 - rise);
+  return SHINE_PEAK - (SHINE_PEAK - 1) * u * u * (3 - 2 * u);
+}
+/** While they light up the stars are drawn anew this often, in milliseconds: thirty times a second. */
+const SHINE_FRAME_MS = 33;
 /** The fewest rows of cells of the levels a panel shows where the list does not fit and scrolls. */
 const LEVELS_SHOWN_MIN = 3;
 /** The zones of the arrows of a list that scrolls; their bars are buttons. */
@@ -239,6 +276,10 @@ export class PanelScreen implements ShellScreen {
    */
   private logTop: number | null = null;
   private logShift = 0;
+  /** The large stars: when the panel was first drawn, the time now, and how many have been heard to light up. */
+  private shineFrom: number | null = null;
+  private now = 0;
+  private shineHeard = 0;
 
   constructor(
     private readonly context: ShellContext,
@@ -255,6 +296,7 @@ export class PanelScreen implements ShellScreen {
 
   update(timeMs: number): boolean {
     let changed = this.spec.live?.(timeMs) ?? false;
+    if (this.shine(timeMs)) changed = true;
     const typed = this.spec.typed?.(timeMs) ?? 0;
     if (typed !== this.typed) {
       this.typed = typed;
@@ -270,6 +312,41 @@ export class PanelScreen implements ShellScreen {
 
   back(): void {
     this.spec.back?.();
+  }
+
+  /** The large stars, frame by frame: they are heard as they light up, and drawn anew while they flare. */
+  private shine(timeMs: number): boolean {
+    const row = this.spec.rows.find((one): one is Extract<PanelRow, { kind: 'stars' }> => one.kind === 'stars' && one.shine !== undefined);
+    if (!row?.shine) return false;
+    this.shineFrom ??= timeMs;
+    const before = this.now;
+    this.now = timeMs;
+    const { still, onLit } = row.shine;
+    const age = timeMs - this.shineFrom - SHINE_WAIT_MS;
+    const lit = still ? row.count : age < 0 ? 0 : Math.min(row.count, Math.floor(age / SHINE_STEP_MS) + 1);
+    // With motion kept low they all stand at once, and one is heard.
+    for (; this.shineHeard < lit; this.shineHeard++) if (!still || this.shineHeard === row.count - 1) onLit?.(this.shineHeard);
+    if (still) return before === 0;
+    // Once the last has flared they stand, and are drawn once more, still.
+    const over = SHINE_WAIT_MS + SHINE_STEP_MS * Math.max(0, row.count - 1) + SHINE_FLARE_MS;
+    if (before - this.shineFrom >= over) return false;
+    return timeMs - this.shineFrom >= over || Math.floor(timeMs / SHINE_FRAME_MS) !== Math.floor(before / SHINE_FRAME_MS);
+  }
+
+  /** The large stars of a pass in a line, `cy` their middle: those lit give light, the rest are their dull outline. */
+  private shineRow(kit: Kit, row: Extract<PanelRow, { kind: 'stars' }>, centre: number, cy: number): void {
+    const { still } = row.shine!;
+    const age = this.now - (this.shineFrom ?? this.now) - SHINE_WAIT_MS;
+    const first = Math.round(centre - SHINE_STEP);
+    for (let i = 0; i < 3; i++) {
+      const cx = first + i * SHINE_STEP;
+      const since = still ? Infinity : age - i * SHINE_STEP_MS;
+      // Its outline stays under it while it grows into it.
+      if (i >= row.count || since < SHINE_GROW_MS) paintStarGhost(kit, cx, cy, SHINE_STAR, kit.palette.star);
+      if (i >= row.count || since < 0) continue;
+      const left = Math.max(0, 1 - since / SHINE_FLARE_MS);
+      paintStar(kit, cx, cy, SHINE_STAR * shineSize(since), kit.palette.star, { flare: left * left, shimmer: 0 });
+    }
   }
 
   draw(kit: Kit, focus: ShellFocus): void {
@@ -438,7 +515,9 @@ export class PanelScreen implements ShellScreen {
           break;
         }
         case 'stars':
-          this.starRow(kit, row.count, 3, plate.x + plate.w / 2, box.y + Math.floor(box.h / 2), RESULT_STAR, RESULT_STAR_STEP, kit.palette.star);
+          // A star with a point up reaches higher than lower: its middle stands a little low, so that it sits in the middle of its line.
+          if (row.shine) this.shineRow(kit, row, plate.x + plate.w / 2, box.y + Math.floor(box.h / 2) + Math.round(SHINE_STAR * 0.1));
+          else this.starRow(kit, row.count, 3, plate.x + plate.w / 2, box.y + Math.floor(box.h / 2), RESULT_STAR, RESULT_STAR_STEP, kit.palette.star);
           break;
         case 'say':
           if (row.when?.() ?? true) {
@@ -529,16 +608,18 @@ export class PanelScreen implements ShellScreen {
     const { bg, ink, dim, faint } = kit.palette;
     const on = focus.focus === command.id;
     const pressed = focus.pressed === command.id;
-    const y = box.y + Math.round((box.h - CELL_H) / 2);
     const text = named(command.label);
-    // A narrow part has room for the name alone.
-    const label = kit.measure(text) > box.w - 20 ? word(command.label.name) : text;
+    // A large command has its word twice the size where it fits so; a narrow part has room for the name alone.
+    const room = box.w - COMMAND_ROOM;
+    const scale = command.large && Math.min(kit.measure(text, 2), kit.measure(word(command.label.name), 2)) <= room ? 2 : 1;
+    const label = kit.measure(text, scale) > room ? word(command.label.name) : text;
+    const y = box.y + Math.round((box.h - CELL_H * scale) / 2);
     if (on && !pressed) {
       kit.box(box, ink);
-      kit.text(label, box.x + box.w / 2, y, bg, { align: 'center', bold: true });
+      kit.text(label, box.x + box.w / 2, y, bg, { align: 'center', bold: true, scale });
     } else {
       kit.frame(box, on ? ink : faint);
-      kit.text(label, box.x + box.w / 2, y, on ? ink : dim, { align: 'center' });
+      kit.text(label, box.x + box.w / 2, y, on ? ink : dim, { align: 'center', scale });
     }
     if (on) kit.mark(box);
   }
@@ -801,12 +882,14 @@ export class PanelScreen implements ShellScreen {
     const height = (row: PanelRow, lines: number): number => {
       switch (row.kind) {
         case 'field':
-        case 'stars':
           return CELL_H;
+        case 'stars':
+          return row.shine ? SHINE_H : CELL_H;
         case 'number':
         case 'standing':
           return CELL_H * 3;
         case 'command':
+          return row.large ? BUTTON_H * 2 : BUTTON_H;
         case 'commands':
         case 'switch':
         case 'tabs':
@@ -823,7 +906,7 @@ export class PanelScreen implements ShellScreen {
           return ceilTo(tallest / zoom, UNIT);
         }
         case 'gap':
-          return GAP;
+          return row.h ?? GAP;
       }
     };
     // A log gives up lines before the panel grows past the screen.

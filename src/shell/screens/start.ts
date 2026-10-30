@@ -19,7 +19,7 @@ const ceilTo = (value: number, step: number): number => Math.ceil(value / step) 
  * What the program opens on once it has started: the board that waits, stepped back as it is
  * under the pause, and over it one command, START, in the language of the player. It is the
  * filled command of a panel with the red mark of the seventh on it, at twice the size: two
- * fingers tall and half the scene wide, wider where its word asks for it. Nothing else is on
+ * fingers tall and half the scene wide, wider where its words ask for it. Nothing else is on
  * the screen.
  */
 export class StartScreen implements ShellScreen {
@@ -49,7 +49,7 @@ export class StartScreen implements ShellScreen {
     kit.veil();
     const name = word(COMMANDS.start.name);
     const full = `${COMMANDS.start.native} ${name}`;
-    // A narrow button has room for the name alone.
+    // A button the screen keeps narrow has room for the name alone.
     const label = kit.measure(full, SCALE) > box.w - 2 * PAD ? name : full;
     const y = box.y + Math.round((box.h - CELL_H * SCALE) / 2);
     if (focus.pressed === START_ID) {
@@ -74,7 +74,8 @@ export class StartScreen implements ShellScreen {
     const safe = this.context.safe();
     const zoom = window.height / Math.max(1, picture.height);
     const room = picture.width - safe.left - safe.right;
-    const wordWidth = textWidth(word(COMMANDS.start.name), SCALE);
+    // Wide enough for the word of the program and the name both (the owner, 30 October 2026); narrower only where the screen is.
+    const wordWidth = textWidth(`${COMMANDS.start.native} ${word(COMMANDS.start.name)}`, SCALE);
     const w = Math.min(room - 2 * MARGIN, Math.max(Math.round(picture.width / 2), wordWidth + 2 * PAD));
     const h = Math.max(CELL_H * SCALE + 16, ceilTo((2 * MIN_ZONE) / Math.max(0.1, zoom), 4));
     const upright = window.height > window.width;
