@@ -2,6 +2,7 @@
 
 > Вид: решение. Статус: построено. Дата: 2026-10-15. Принято владельцем 15 октября 2026 (чат Fable): способ «выбор модуля при сборке»; построено 15 октября 2026, v0.2.61, по плану «platform-layer» (в истории git, см. индекс).
 > Что заменит: `src/platform/bridge.ts` (уходит целиком), `public/playgama-bridge-config.json` (переезжает в `platforms/playgama/`), вызов плагина `@playgama/bridge/vite` в `vite.config.ts`. Что будет жить в коде: src/platform/platform.ts, platforms/none.ts, platforms/playgama/adapter.ts, platforms/playgama/vite.ts, platforms/playgama/playgama-bridge-config.json, platforms/playgama/README.md, vite.config.ts, scripts/pack.mjs, src/main.ts, src/app/game.ts, src/platform/storage.ts.
+> Позже: 30 октября 2026 реестр плагинов площадок переехал из `vite.config.ts` в `platforms/plugins.ts` (раздел 7, шаг 2: строка пишется туда); по разделу 7 добавлен адаптер `platforms/crazygames/`.
 
 Исполнитель читает эту спеку и файлы, названные в разделе 4. Весь проект заново не изучается.
 

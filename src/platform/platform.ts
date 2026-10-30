@@ -14,7 +14,7 @@ export type PlatformMessage =
   | 'level_resumed'
   | 'player_got_achievement';
 
-/** Where a rewarded advertisement stands, as `platforms/playgama/playgama-bridge-config.json` names it: the way on a board, the doubled score of a live session. */
+/** Where a rewarded advertisement stands: the way on a board, the doubled score of a live session. An adapter names it to its platform as it is here. */
 export type RewardedPlacement = 'show_way' | 'double_score';
 
 /** Plain values of an analytics event. */

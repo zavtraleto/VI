@@ -23,7 +23,8 @@ npm run dev
 ```bash
 npm test        # тесты правил, раннера, ввода
 npm run build   # продакшн-сборка в dist/
-npm run pack -- playgama   # сборка и архив для площадки: release/vi-<версия>-playgama.zip
+npm run pack -- playgama     # сборка и архив для площадки: release/vi-<версия>-playgama.zip
+npm run pack -- crazygames   # то же для CrazyGames: release/vi-<версия>-crazygames.zip
 npm run fonts   # пересобрать набор японских знаков после правки src/shell/text.ts
 ```
 
@@ -31,12 +32,14 @@ npm run fonts   # пересобрать набор японских знако�
 
 - В продакшн-сборке нет инструментов разработки: лаборатории, панель плейтеста, дебаг-панель и счётчик кадров загружаются только под `import.meta.env.DEV`. Исключение — строки замера `?perf`: они грузятся в любой сборке, но только по адресу.
 - Обфускация кода игры выключена: она добавляет 230 КБ к файлу игры и 0,2 мс к кадру. Включается явно: `VI_OBFUSCATE=1 npm run build` (`javascript-obfuscator`, настройки в [vite.config.ts](vite.config.ts)). three.js в любом случае лежит отдельным файлом `vendor`.
-- Игра не знает ни одной площадки: она получает платформу из `@platform` и знает только тип `Platform` ([src/platform/platform.ts](src/platform/platform.ts)) — язык, сохранения, пауза и звук по событиям платформы, `game_ready`, реклама между сессиями, таблица игроков, аналитика. Площадка подставляется при сборке с `VI_PLATFORM`: её адаптер и файлы лежат в [platforms/](platforms/). Без неё — `none`, и сборка идёт без SDK и его файлов; дев-сервер, тесты и сборка для GitHub Pages — всегда `none`. Устройство и как добавить площадку — [спека](docs/superpowers/specs/2026-10-15-vi-platform-layer-design.md).
+- Игра не знает ни одной площадки: она получает платформу из `@platform` и знает только тип `Platform` ([src/platform/platform.ts](src/platform/platform.ts)) — язык, сохранения, пауза и звук по событиям платформы, `game_ready`, реклама между сессиями, таблица игроков, аналитика. Площадка подставляется при сборке с `VI_PLATFORM`: её адаптер и файлы лежат в [platforms/](platforms/), плагины сборки площадок перечислены в [platforms/plugins.ts](platforms/plugins.ts). SDK площадки — тонкий клиент: игра зовёт только `Platform`, адаптер переводит это в вызовы SDK. Без неё — `none`, и сборка идёт без SDK и его файлов; дев-сервер, тесты и сборка для GitHub Pages — всегда `none`. Устройство и как добавить площадку — [спека](docs/superpowers/specs/2026-10-15-vi-platform-layer-design.md).
 - Реклама: после сессии без срока — когда игрок уходит с итога и передача-ответ закончилась. Не чаще раза в 120 секунд, и никогда поверх игры.
 
-## Выкладка на Playgama
+## Выкладка на площадки
 
 Архив для Playgama — `npm run pack -- playgama`, он пишется в `release/vi-<версия>-playgama.zip` со скриптом Bridge SDK и его настройками. Кабинет, таблицы, токен и порядок выгрузки — [platforms/playgama/README.md](platforms/playgama/README.md).
+
+Архив для CrazyGames — `npm run pack -- crazygames`, со скриптом SDK v3 с их адреса; по умолчанию без рекламы (Basic Launch), с рекламой — `VITE_CRAZYGAMES_ADS=on`. Сборка, проверка и настройки кабинета — [platforms/crazygames/README.md](platforms/crazygames/README.md); требования площадки и что из них есть — [docs/VI_CrazyGames_Research.md](docs/VI_CrazyGames_Research.md).
 
 ## Журнал сеансов
 
@@ -53,29 +56,7 @@ npm run fonts   # пересобрать набор японских знако�
 
 ## Аналитика
 
-События уходят через `platform.track` (на Playgama — `analytics.send` Bridge SDK), имена — как просит платформа (`progression_*`, `performance_sample`). Значения — только числа, строки и флаги; ничего об игроке.
-
-| Событие | Когда | Что в нём |
-|---|---|---|
-| `progression_started` | начало сессии | `step_id`: `endless` |
-| `progression_completed` | пройден уровень сессии (`endless_level`) | уровень: сколько длился, сколько костей пришло и ушло, сколько стоит на поле, счёт; сессия — сводка ниже |
-| `progression_failed` | поле заполнено; игрок ушёл или начал заново (`reason`: `full`, `left`, `restart`, `skipped`) | сводка сессии |
-| `progression_resumed` | игрок вернулся в партию, прерванную уходом со страницы | `step_id`, сколько секунд партия уже шла |
-| `session_checkpoint` | каждая целая минута сессии | минута, счёт, уровень, костей на поле, убрано, длиннейшая цепочка, секунды в опасности |
-| `performance_sample` | каждые 30 секунд игры | кадры активной игры: средний FPS, перцентили времени кадра, число долгих кадров, ошибки |
-| `settings_changed`, `records_opened`, `player_registered` | настройка, журнал, вход | что изменено |
-| `result_shared` | игрок поделился результатом | `mode`, `score`, `how` (`sent`, `copied`, `failed`) |
-| `reward_double` | игрок досмотрел рекламу за удвоение счёта в итоге сеанса вживую (с 0.2.80) | `step_id`, `step_index` сеанса, `score` — удвоенный счёт |
-
-Значения обучения Endless (`tutorial`, `tutorial_step`) и пазлов (`task`) ушли вместе с их кодом 15 октября 2026. У уровня `step_id` — `level_<id>`, например `level_P06`; в событиях попытки уровня (`progression_completed`, `progression_failed`) с 0.2.80 есть `hinted` — показан ли на этой попытке путь доски за рекламу.
-
-Сеанс вживую (с 0.2.79): `step_id` — код сеанса `live-<ступень>` (`live-1` … `live-7`), `step_index` — номер места, после которого он стоит (с 0.2.85 — 16, 28, 43, 56, 71, 85, 92). `progression_started` — начало сеанса; `progression_completed` — сеанс дошёл до конца по часам, со сводкой сессии и `ticks`; `progression_failed` с `reason`: `full` — поле заполнилось раньше часов, `skipped` — ссылка «пропустить» в окне перед сеансом (только `step_id` и `step_index`), `left` — уход в меню, `restart` — заново из паузы. `session_checkpoint` и уровни сессии (`endless_level`) сеанс не шлёт.
-
-Сводка сессии (по ней настраивается темп и приход костей): `rules` — ключ правил, `score`, `level`, `duration_sec`, `max_chain`, `best_chain_score`, `clears`, `removed`, `spawned`, `cubes_end`, `first_clear_sec`, `steps`, `blocked_steps`, `falls`, `ground_sec`, `floor_climbs` (подъёмы с пола на кость, которую нельзя толкнуть), `dock_descents` и `dock_climbs` (сходы с уходящей кости на клетку рядом с цепочкой и подъёмы с такой клетки на стоящую кость), `danger_sec`, `saves` (сколько раз поле уходило от опасной отметки), `chain_quiet_max_sec`, `match_2`…`match_6` (группы по числу на гранях), `ones`, `chains_2`, `chains_3`, `chains_4plus` (цепочки по длине), `contact`, `scored`, `best`. Считает [src/app/telemetry.ts](src/app/telemetry.ts).
-
-В сводку сессии входят и показания, по которым сверяются боты ([src/rules/bot.ts](src/rules/bot.ts)): `drought_max_sec` (самое долгое ожидание очистки), `gifts` (подарки режиссёра), `clean_boards` (чистое поле), `wave` (до какой волны дошла партия). И то, что партия значит внутри визита: `run_index` (какая по счёту), `losses_in_row` (сколько партий подряд до неё кончились заполненным полем), `since_last_run_sec` (пауза после прошлой партии), `resumed` (партия продолжена после ухода со страницы), `control` (`swipe` — свайпы, `tap` — клик и тап по полю; клавиши работают при обоих), `touch` (сенсорный экран).
-
-Где смотреть: кабинет разработчика Playgama, раздел аналитики игры; агент читает те же данные через `get_game_telemetry_analytics`. Пока игра в статусе черновика, сводки там нет.
+Какие события игра шлёт площадке, с какими полями и куда они уходят на каждой площадке — [docs/VI_Analytics.md](docs/VI_Analytics.md).
 
 ## Возврат в партию
 
@@ -154,4 +135,4 @@ npm run fonts   # пересобрать набор японских знако�
 | `src/audio` | Звук, синтезированный в коде на WebAudio, без файлов и без фона: строй и ноты граней (`scale.ts`), что играть на событие правил, на удар, на действие интерфейса и на окно передачи, и когда отвечает та сторона (`score.ts`), голоса (`voices.ts`), варианты без повторов (`variation.ts`), параметры (`params.ts`), контекст, эхо и ограничитель (`engine.ts`), числа шума и эха, посчитанные заранее, до первого нажатия (`stock.ts`) |
 | `src/ui` | Тексты на языке игрока и инструменты разработки: панель плейтеста, дебаг-панель, счётчик кадров, строки замера (`perf.ts`). Интерфейса игрока здесь больше нет |
 | `src/platform` | Хранилище, настройки и тип платформы: `platform.ts` — `Platform` и `none`; игра читает платформу только из `@platform` |
-| `platforms` | Адаптеры площадок, подставляются при сборке (`VI_PLATFORM`): `none.ts`, `playgama/` |
+| `platforms` | Адаптеры площадок, подставляются при сборке (`VI_PLATFORM`): `none.ts`, `playgama/`, `crazygames/`, реестр плагинов сборки `plugins.ts` |

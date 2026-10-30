@@ -12,7 +12,7 @@ import { bindTaps } from '../input/tap';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
 import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, noteUndoForAd, prefersReducedMotion, raiseLive, saveSettings, type LevelStat, type Settings } from '../platform/settings';
-import { loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
+import { hasSaved, loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { Water } from '../render/water';
 import { topTurn } from '../render/orientationQuat';
@@ -88,6 +88,7 @@ import { goalOf } from '../levels/goalFaces';
 import { SIGN_MAX_STATES, roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
 import { madeMove, wayBack, wayDir, wayMoved, wayOf, type ShownWay } from './wayPress';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
+import { gameOpened, watchWhere, type Where } from './health';
 
 // What the game asks of the table and the sign-in of the platform, where it has them, and how it sends a result out.
 
@@ -126,8 +127,12 @@ function shareOut(text: string): Promise<Shared> {
   return platform.share(platform.gameUrl === null ? text : `${text}\n${platform.gameUrl}`);
 }
 
-/** The advertisement of the platform between sessions. One that was open took the keys with it: the game takes them back. */
-function interstitial(next: () => void): void {
+/**
+ * The advertisement of the platform between sessions. One that was open took the keys with it: the game takes them back.
+ * The analytics hear what brought it: the platform counts what it showed, but not why it was asked for.
+ */
+function interstitial(reason: 'session_end' | 'live_end' | 'undos', next: () => void): void {
+  if (platform.interstitialSupported) platform.track('ad_requested', { kind: 'interstitial', reason });
   platform.interstitial(() => {
     takeFocus();
     next();
@@ -342,6 +347,13 @@ export class Game {
   awake = false;
   /** The program has opened: its boot is over, and a board can be put on at once. */
   private booted = false;
+  /** The player has been here before: something was kept for them when the program opened. */
+  private readonly returning = hasSaved(SETTINGS_KEY);
+  /** The page was hidden during this run, and the analytics were told: once a run, and once in the menu. */
+  private hiddenTold = false;
+  private menuHiddenTold = false;
+  /** The way for an advertisement was offered on this try, and the analytics were told. */
+  private wayOfferTold = false;
   /** The board waits under the one command the program opens on: nothing of the session is shown over it. */
   private starting = false;
   /** The level on the board was laid under that command and has not been reported as started: it is, once, with the player's first move or step on it. */
@@ -590,7 +602,11 @@ export class Game {
       this.applySound();
     });
 
-    document.addEventListener('visibilitychange', () => this.setAway('page', document.hidden));
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.noteHidden();
+      this.setAway('page', document.hidden);
+    });
+    watchWhere(() => this.where());
     // A page that is closed or thrown out of memory says so here, if it says anything at all.
     window.addEventListener('pagehide', () => {
       this.later.flush();
@@ -1134,9 +1150,10 @@ export class Game {
       gone = true;
       this.shell.hide();
       // An advertisement watched for the doubled score is the advertisement of this result: none comes after it.
-      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial(next)));
+      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial('live_end', next)));
     };
     let offered = platform.rewardedSupported;
+    if (offered) platform.track('reward_offered', { placement: 'double_score', ...liveStep(live) });
     const double = (): void => {
       if (this.rewardAsked) return;
       this.rewardAsked = true;
@@ -1144,6 +1161,7 @@ export class Game {
         this.rewardAsked = false;
         offered = false;
         takeFocus();
+        platform.track('reward_result', { placement: 'double_score', rewarded, ...liveStep(live) });
         if (rewarded) {
           // The session stays as it ended (the rules are not touched): what is doubled is the score the panel shows and the best it is kept as.
           doubled = true;
@@ -1231,6 +1249,8 @@ export class Game {
     this.undosMade = 0;
     this.beforeCommand = null;
     this.levelTicks = 0;
+    this.hiddenTold = false;
+    this.wayOfferTold = false;
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
@@ -1327,7 +1347,7 @@ export class Game {
     // its sound wait while it is on by the events of the platform (`setAway`); where it shows none, nothing waits.
     const advert = noteUndoForAd(this.settings, UNDOS_PER_AD);
     this.later.after(() => saveSettings(this.settings), 'settings');
-    if (advert) interstitial(() => undefined);
+    if (advert) interstitial('undos', () => undefined);
   }
 
   /**
@@ -2022,9 +2042,11 @@ export class Game {
     if (!way || this.rewardAsked) return;
     this.rewardAsked = true;
     const runner = this.runner;
+    const step = this.step();
     platform.rewarded('show_way', (rewarded) => {
       this.rewardAsked = false;
       takeFocus();
+      platform.track('reward_result', { placement: 'show_way', rewarded, ...step });
       // The pause that asked has to be the one still up: nothing else is started from under the player.
       if (!rewarded || this.runner !== runner || this.inMenu || !this.paused) return;
       const stat = this.levelRecord();
@@ -2032,6 +2054,43 @@ export class Game {
       saveSettings(this.settings);
       this.startRun('level');
       this.wayShown = { moves: way, off: null };
+    });
+  }
+
+  /** Where the player is, as the analytics name it. */
+  private where(): Where {
+    if (!this.booted) return 'loading';
+    if (this.labSpec !== null) return 'lab';
+    if (this.inMenu) return 'menu';
+    return this.kind;
+  }
+
+  /**
+   * The page is hidden: the player may have gone for good. Where they were is told once a run
+   * (and once in the menu), so the last thing seen of a player who never comes back says where
+   * they left. The page that is closed outright often says nothing more than this.
+   */
+  private noteHidden(): void {
+    const where = this.where();
+    if (where === 'loading' || where === 'lab') return;
+    const visit_sec = Math.round(performance.now() / 1000);
+    if (where === 'menu') {
+      if (this.menuHiddenTold) return;
+      this.menuHiddenTold = true;
+      platform.track('page_hidden', { where, visit_sec });
+      return;
+    }
+    if (this.hiddenTold) return;
+    this.hiddenTold = true;
+    const run = this.state.levelRun;
+    platform.track('page_hidden', {
+      where,
+      visit_sec,
+      ...this.step(),
+      run_sec: this.seconds(),
+      over: this.state.over,
+      paused: this.paused,
+      ...(run ? { moves: run.moves, undos: this.undosMade } : { score: this.state.score }),
     });
   }
 
@@ -2141,6 +2200,11 @@ export class Game {
 
   private showPause(): void {
     const onWay = this.wayOffered() ? () => this.askWay() : undefined;
+    // That the way was offered is told once a try: the share of offers taken is what the analytics want.
+    if (onWay && !this.wayOfferTold) {
+      this.wayOfferTold = true;
+      platform.track('reward_offered', { placement: 'show_way', ...this.step() });
+    }
     this.shell.showPanel(
       pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu(), onWay, onSystem: () => this.showSystem(() => this.showPause()) }),
       false,
@@ -2389,7 +2453,7 @@ export class Game {
     // After it, at the break between sessions, the platform may show its advertisement.
     const answered = (next: () => void): void => {
       this.shell.hide();
-      this.signal.answer(this.sceneStep(), () => interstitial(next));
+      this.signal.answer(this.sceneStep(), () => interstitial('session_end', next));
     };
     result();
   }
@@ -2399,6 +2463,7 @@ export class Game {
     this.settings.hintsSeen.push(id);
     saveSettings(this.settings);
     this.hints.show(t(id));
+    platform.track('tutorial_hint', { hint: id });
   }
 
   private onTick(state: RunState): void {
@@ -2880,6 +2945,7 @@ export class Game {
     if (!this.announced && this.shell.ready) {
       this.announced = true;
       platform.tell('game_ready');
+      gameOpened(this.returning, language());
       // Whatever was pressed on the platform's page while the game was loading, the keys are the game's now.
       takeFocus();
     }

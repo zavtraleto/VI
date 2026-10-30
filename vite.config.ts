@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import JavaScriptObfuscator from 'javascript-obfuscator';
 import type { Plugin, PluginOption } from 'vite';
 import { defineConfig } from 'vitest/config';
-import { playgama } from './platforms/playgama/vite';
+import { PLATFORM_PLUGINS } from './platforms/plugins';
 import { viBoards } from './vite.boards';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
@@ -81,9 +81,6 @@ function woff2Only(): Plugin {
     },
   };
 }
-
-/** The plugins a platform adds to its build: the SDK in the page, its files. A platform without any is not named here. */
-const PLATFORM_PLUGINS: Record<string, () => PluginOption[]> = { playgama };
 
 /**
  * The platform a build is made for: `VI_PLATFORM`, read by `vite build` only. The dev server

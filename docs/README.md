@@ -124,6 +124,8 @@
 | Документ | Вид | Что в нём |
 |---|---|---|
 | [VI_Playgama_Page.md](VI_Playgama_Page.md) | истина | тексты страницы игры в кабинете Playgama (временные) |
+| [VI_Analytics.md](VI_Analytics.md) | истина | события аналитики: прогрессия, открытие игры, ошибки, сохранения, уход со страницы, реклама; поля; куда уходят на Playgama и CrazyGames |
+| [VI_CrazyGames_Research.md](VI_CrazyGames_Research.md) | исследование | CrazyGames 30 октября 2026: этапы выпуска, требования сверены с игрой (есть / нет / решает владелец), чего у площадки нет, её советы по опыту игрока |
 | [superpowers/specs/2026-10-15-vi-platform-layer-design.md](superpowers/specs/2026-10-15-vi-platform-layer-design.md) | решение | **Построено 15 октября 2026, v0.2.61.** Слой платформы: игра знает только тип `Platform` и его реализацию `none`, площадка — адаптер `platforms/<имя>/`, подставляется псевдонимом `@platform` при сборке с `VI_PLATFORM`; сборка без площадки без SDK; `npm run pack -- playgama`; как добавить Poki или CrazyGames |
 | [superpowers/plans/2026-10-03-vi-ads-in-world.md](superpowers/plans/2026-10-03-vi-ads-in-world.md) | план | реклама в мире игры; не выполнен |
 

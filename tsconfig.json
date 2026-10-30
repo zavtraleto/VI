@@ -15,5 +15,5 @@
     "paths": { "@platform": ["./platforms/none.ts"] }
   },
   "include": ["src", "platforms"],
-  "exclude": ["platforms/*/vite.ts"]
+  "exclude": ["platforms/*/vite.ts", "platforms/plugins.ts"]
 }
