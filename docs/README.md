@@ -123,7 +123,7 @@
 
 | Документ | Вид | Что в нём |
 |---|---|---|
-| [VI_Playgama_Page.md](VI_Playgama_Page.md) | истина | тексты страницы игры в кабинете Playgama (временные) |
+| [VI_Playgama_Page.md](VI_Playgama_Page.md) | истина | тексты страницы игры в кабинете Playgama: описание и How to play |
 | [VI_CrazyGames_Page.md](VI_CrazyGames_Page.md) | истина | тексты формы отправки на CrazyGames: описание, управление, ответы формы (звук через SDK, сохранения Data, без рекламы) |
 | [VI_Analytics.md](VI_Analytics.md) | истина | события аналитики: прогрессия, открытие игры, ошибки, сохранения, уход со страницы, реклама; поля; куда уходят на Playgama и CrazyGames |
 | [VI_CrazyGames_Research.md](VI_CrazyGames_Research.md) | исследование | CrazyGames 30 октября 2026: этапы выпуска, требования сверены с игрой (есть / нет / решает владелец), чего у площадки нет, её советы по опыту игрока |
