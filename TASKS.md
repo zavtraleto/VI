@@ -24,8 +24,9 @@
 | 12 | Открытие без boot сразу на `START`, мгновенный `START`, тихий щелчок включения, `STORY` отдельным чанком; замер до/после, разбор остальных чанков | `src/app/game.ts`, `src/shell/`, `src/audio/score.ts`, `src/ui/readme.ts`, [README.md](README.md) «Продакшн-сборка» | developer | M | `npm test`, typecheck, build, docs-check, путь в `vi-dev`, замер по CDP |
 | 13 | Список уровней во весь экран: пластина на экран, 12 клеток в ряду на столе, клетки по высоте в оставшееся место, `MENU` у низа (вариант «А» из трёх словами; глав нет) | `src/shell/screens/panel.ts`, `src/shell/panels.ts`, `src/shell/theme.ts`, `docs/art/VI_Visual_Spec.md` 8.4, `docs/art/VI_Interface_Layer.md` | ui-ux-designer | S | `npm test`, typecheck, build, docs-check; путь игрока на 360×640 и 1920×1080 |
 | 14 | Вид по словам владельца 4 ноября: зона двух комбо светится цветами обеих групп по очереди в такт 700 мс; с воды убраны «пятна Роршаха» (присутствия, `shadeFace`) | `src/render/signs.ts`, `src/render/marks.ts`, `src/render/water.ts`, `src/render/params.ts`, `src/lab/boardPanel.ts`, `docs/art/VI_World_Logic.md`, `docs/art/VI_Visual_Language.md` | art-director | S | `npm test`, typecheck, build, docs-check; место 50 на 360×640, 1024×768 и 1920×1080; вода 3 мин; `?perf` до/после |
+| 11 | Слепые места аналитики: `page_hidden`/`load_hidden` до слушателей Bridge (`visibilitychange`, `pagehide`), поля рекламы и ухода, `left` без хода | `src/app/health.ts`, `src/app/adverts.ts`, `src/app/leaving.ts`, `src/app/game.ts`, [docs/VI_Analytics.md](docs/VI_Analytics.md) | developer | S | тесты с заглушкой платформы (`health`, `adverts`, `leaving`); `vi-dev`: скрытие, `pagehide`, меню, LEVELS |
 
-Задача 14 вышла в 0.2.97 (2026-11-04). Задача 13 вышла в 0.2.96 (2026-11-04). Задача 12 вышла в 0.2.95 (2026-11-04). Задачи 1–4 вышли в `main` коммитом `8906af0`, версия 0.2.94 (2026-11-04): `npm test` 2472, `npm run typecheck`, `npm run build`, `node scripts/docs-check.mjs`, QA в preview. Копия битого сохранения не сделана — вопрос `W11`.
+Задача 11 вышла в 0.2.98 (2026-11-04). Задача 14 вышла в 0.2.97 (2026-11-04). Задача 13 вышла в 0.2.96 (2026-11-04). Задача 12 вышла в 0.2.95 (2026-11-04). Задачи 1–4 вышли в `main` коммитом `8906af0`, версия 0.2.94 (2026-11-04): `npm test` 2472, `npm run typecheck`, `npm run build`, `node scripts/docs-check.mjs`, QA в preview. Копия битого сохранения не сделана — вопрос `W11`.
 
 ## Следующие
 
@@ -39,7 +40,6 @@
 | 8 | Разбор воронки по местам из телеметрии Playgama: `progression_failed` по `step_index`, `page_hidden`, уход на загрузке | кабинет Playgama, [docs/VI_Analytics.md](docs/VI_Analytics.md), «Где смотреть» | game-designer | S | отчёт с числами и их объёмом; выводы только при достаточном трафике |
 | 9 | `docs-check` в CI перед сборкой | `.github/workflows/deploy.yml` | developer | S | прогон workflow на ветке; «ок» владельца — это меняет выкладку |
 | 10 | Хрупкие тесты: время на стене и закреплённые числа ряда | `src/app/signWay.test.ts:177-180`, `src/levels/depth.test.ts:55-59`, `src/levels/row.test.ts:129-134` | qa-engineer | S | `npm test` трижды подряд под нагрузкой |
-| 11 | Слепые места аналитики: уход во время boot не виден (`noteHidden` молчит, пока `booted` false; снято в 0.2.95 — boot убран, игра «открыта» с конструктора), `page_hidden` теряется в пачке Bridge при закрытии вкладки, в `ad_requested` нет места и времени визита | `src/app/game.ts`, `platforms/playgama/adapter.ts`, [docs/VI_Analytics.md](docs/VI_Analytics.md) | developer | S | тест на `noteHidden` до boot; qa — закрытие вкладки на загрузке и в уровне |
 
 ### Список для задачи 5
 
