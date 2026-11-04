@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import voiceUrl from './people/voice.webp';
+import type { Band } from './bands';
 import { NOVEL_LOOK, figureBox, figureMask, type FigureMask } from './record';
 
 /** The corners of the figure's picture are put where `uBox` says, in shares of the frame. */
@@ -17,7 +18,7 @@ void main() {
 /**
  * The figure as her picture, graded into the cold of the place (`NOVEL_LOOK.figure.grade`), with
  * the marks of the signal on her - her light parts glowing, every other line a little darker,
- * grain, now and then a band of lines slipping sideways - and a light at her edge, a little over
+ * grain, her lines slipping sideways where a band of interference crosses her - and a light at her edge, a little over
  * the edge itself and more out past it, as a figure stands against a light behind it. The colours
  * are worked in the numbers of the picture as it is stored, and given to the layer linear.
  */
@@ -31,6 +32,7 @@ uniform float uSaturation;
 uniform float uContrast;
 uniform float uTone;
 uniform float uWarmth;
+uniform float uLift;
 uniform float uBright;
 uniform float uHaloAmount;
 uniform float uRimAmount;
@@ -63,7 +65,7 @@ void main() {
   c = clamp((c - 0.5) * uContrast + 0.5, 0.0, 1.0);
   float l = luma(c);
   float middle = 1.0 - abs(l * 2.0 - 1.0);
-  c = mix(c, mix(uShadow, uHigh, l), uTone * (1.0 - uWarmth * middle));
+  c = mix(c, mix(mix(uShadow, uHigh, uLift), uHigh, l), uTone * (1.0 - uWarmth * middle));
   c *= uBright;
 
   // The signal on her.
@@ -141,9 +143,6 @@ export class VoiceFigure {
   /** How far she is the one who speaks, 0..1, as it is now; null before the first frame. */
   private speaking: number | null = null;
   private last = 0;
-  /** When the next band of lines slips, and when the last one began. */
-  private nextSlip: number | null = null;
-  private slipFrom = -Infinity;
 
   private constructor(
     private readonly mask: FigureMask,
@@ -163,6 +162,7 @@ export class VoiceFigure {
         uContrast: { value: look.grade.contrast },
         uTone: { value: look.grade.tone },
         uWarmth: { value: look.grade.warmth },
+        uLift: { value: look.grade.lift },
         uBright: { value: 1 },
         uHaloAmount: { value: 0 },
         uRimAmount: { value: 0 },
@@ -193,17 +193,18 @@ export class VoiceFigure {
 
   /**
    * Sets the figure for a frame of this shape (`aspect`, width over height). `speaking`: the voice
-   * is the one who speaks now. `shadow` is the dark of the place her shadows go into. With `still`
-   * she does not breathe, no lines slip, and the grain stands.
+   * is the one who speaks now. `shadow` is the dark of the place her shadows go into. `band` is the
+   * band of interference over the frame now, or null: her lines slip where it crosses her. With
+   * `still` she does not breathe and the grain stands.
    */
-  update(timeMs: number, aspect: number, speaking: boolean, shadow: string, still: boolean): void {
+  update(timeMs: number, aspect: number, speaking: boolean, shadow: string, still: boolean, band: Band | null = null): void {
     const look = NOVEL_LOOK.figure;
     const target = speaking ? 1 : 0;
     const dt = Math.max(0, timeMs - this.last);
     this.last = timeMs;
     this.speaking = this.speaking === null ? target : this.speaking + (target - this.speaking) * (1 - Math.exp(-dt / Math.max(1, look.fadeMs)));
     const light = look.operator + (look.voice - look.operator) * this.speaking;
-    const bright = look.operatorBright + (1 - look.operatorBright) * this.speaking;
+    const bright = look.grade.exposure * (look.operatorBright + (1 - look.operatorBright) * this.speaking);
 
     const breath = still ? 0 : look.breath * Math.sin((timeMs / look.breathMs) * Math.PI * 2);
     const at = figureBox(aspect, this.sprite, breath);
@@ -214,7 +215,9 @@ export class VoiceFigure {
     const padY = (mask.pad / inner.height) * at.height;
     this.box.set(at.left - padX, at.bottom - padY, at.width + padX * 2, at.height + padY * 2);
 
-    this.slipAt(timeMs, still, inner);
+    // The band in the shares of the quad of her picture.
+    const box = this.box;
+    this.slip.set(band ? (band.y - box.y) / box.w : 0, band ? Math.max(0.001, band.half / box.w) : 0.01, band && !still ? (band.strength * look.slipShift) / box.z : 0);
     const uniforms = this.material.uniforms;
     stored(shadow, uniforms.uShadow.value as THREE.Vector3);
     uniforms.uBright.value = bright;
@@ -225,27 +228,8 @@ export class VoiceFigure {
     uniforms.uFrame.value = still ? 0 : (Math.floor((timeMs * 24) / 1000) % 64) * 7;
   }
 
-  /** The band of lines that slips now and then: where it is and how far it has gone, in the shares of the picture's quad. */
-  private slipAt(timeMs: number, still: boolean, inner: { width: number; height: number }): void {
-    const look = NOVEL_LOOK.figure;
-    const { mask, slip } = this;
-    const [from, to] = look.slipEvery;
-    const gap = (): number => from + Math.random() * (to - from);
-    this.nextSlip ??= timeMs + gap();
-    if (!still && timeMs >= this.nextSlip) {
-      this.slipFrom = timeMs;
-      this.nextSlip = timeMs + gap();
-      slip.x = (mask.pad + Math.random() * inner.height) / mask.height;
-      slip.y = Math.max(0.001, ((look.slipBand / 2) * inner.height) / mask.height);
-    }
-    const into = (timeMs - this.slipFrom) / Math.max(1, look.slipMs);
-    // It goes and comes back as a swing does, never by a jump.
-    slip.z = still || into < 0 || into > 1 ? 0 : Math.sin(into * Math.PI) * ((look.slipShift * inner.width) / mask.width);
-  }
-
   /** A record has closed: the next one starts where it is told to, not where this one left off. */
   reset(): void {
     this.speaking = null;
-    this.nextSlip = null;
   }
 }

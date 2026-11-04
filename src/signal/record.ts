@@ -23,36 +23,36 @@ export const NOVEL_LOOK = {
    * The colours below are laid over it.
    */
   contact: 0.25,
-  /** The place of each record, by its code, and the colours laid over its mood: dark, cold, blue-green. */
+  /** The place of each record, by its code, and the colours laid over its mood: dark, cold, blue (the owner, 4 November 2026: «сделай синее и холоднее»). */
   scenes: {
     // 01: the sea with the pole at night. The pole stands aside, where the figure leaves room for it.
     n01: {
       recipe: 'sea_pole',
-      values: { skyTop: '#060f15', skyHorizon: '#1b3640', ground: '#0a1a20', lightAmount: 0.3, glint: 0, glow: 0 },
+      values: { skyTop: '#050a18', skyHorizon: '#1a2a4a', ground: '#08122a', lightAmount: 0.3, glint: 0, glow: 0 },
       /** Where the pole stands across the frame, as a share of half its width from the middle, to the right. */
       pole: 0.62,
-      poleColor: '#14232a',
+      poleColor: '#111a2e',
       /** The dark of the place: the shadows of the figure go into it, so she stands in the place and is not laid over it. */
-      fill: '#0a171d',
+      fill: '#08101f',
     },
     // 02: the room with the chair, under a cold lamp.
     n02: {
       recipe: 'room_chair',
-      values: { wall: '#2a3c42', floor: '#17252a', lampColor: '#9cc9d1', dark: '#091317', ambient: 0.4 },
+      values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 },
       pole: 0,
       poleColor: '',
-      fill: '#0c181c',
+      fill: '#0a1121',
     },
     // 03: the corridor, the door at the end the one cold light.
     n03: {
       recipe: 'corridor_door',
       values: {
-        wall: '#2c3f45', wallLow: '#1f3035', floor: '#162327', ceiling: '#25363b', doorColor: '#0b1417',
-        doorLight: '#86c0c9', lampColor: '#98c3ca', dark: '#071013', ambient: 0.4,
+        wall: '#27344c', wallLow: '#1a2539', floor: '#11192a', ceiling: '#212c42', doorColor: '#0a0f20',
+        doorLight: '#8eaee0', lampColor: '#9eb4de', dark: '#060a16', ambient: 0.4,
       },
       pole: 0,
       poleColor: '',
-      fill: '#0a1518',
+      fill: '#08101d',
     },
   } as Record<string, NovelScene>,
   /** The voice of the other side, a figure to the waist standing in the middle of the frame. */
@@ -63,35 +63,39 @@ export const NOVEL_LOOK = {
     maxWidth: 0.86,
     /** Where its middle stands across the frame, 0..1. */
     x: 0.5,
-    /** The colour of the light at its edge: cold, pale. */
-    halo: '#9fd8e0',
+    /** The colour of the light at its edge and of her glow: cold, pale blue. */
+    halo: '#a6c4f4',
     /** How far the light spreads out past the edge, as a share of the figure's height. */
     haloWidth: 0.035,
-    /** How strong that light is, 0..1, at its strongest: kept low, so it does not argue with the face. */
-    haloAmount: 0.3,
+    /** How strong that light is, 0..1, at its strongest: strong enough that she does not get lost in the dark of the place. */
+    haloAmount: 0.6,
     /** How deep the light comes in over the edge itself, as a share of the figure's height. */
     rimWidth: 0.012,
     /** How strong it is there, 0..1. */
-    rimAmount: 0.25,
+    rimAmount: 0.5,
     /**
      * The colour of her picture, graded towards the cold television of the owner's reference.
      * In this order: the colour is taken out down to `saturation`; the contrast is raised about
      * the middle grey; then the picture goes `tone` of the way towards a scale of its own
-     * lightness, from the dark of the place (`fill` of the scene) to `highlight`; and in the
-     * middle tones `warmth` of what it was before the scale is kept, so the skin stays warm.
+     * lightness, from the dark of the place (`fill` of the scene) lifted `lift` of the way towards
+     * `highlight`, to `highlight`; in the middle tones `warmth` of what it was before the scale is
+     * kept, so the face reads and is not a grey mask; and last all of it is made `exposure` times
+     * as bright, so she stands out of the place and is not lost in it.
      */
     grade: {
-      saturation: 0.45,
-      contrast: 1.12,
-      tone: 0.6,
-      highlight: '#a9dce3',
-      warmth: 0.4,
+      saturation: 0.4,
+      contrast: 1.22,
+      tone: 0.62,
+      highlight: '#b6cdf4',
+      lift: 0.07,
+      warmth: 0.25,
+      exposure: 1.3,
     },
-    /** How bright she is while the operator speaks, as a share of how bright she is while she does. */
-    operatorBright: 0.6,
+    /** How bright she is while the operator speaks, as a share of how bright she is while she does: quieter, still seen. */
+    operatorBright: 0.82,
     /** How much of the light at her edge and of her glow there is while she speaks, and while the operator does. */
     voice: 1,
-    operator: 0.35,
+    operator: 0.6,
     /** Milliseconds the brightness and the light take to come most of the way to their new strength. */
     fadeMs: 500,
     /**
@@ -99,27 +103,38 @@ export const NOVEL_LOOK = {
      * parts of her picture glow softly in `halo`, past themselves by `halationWidth` of her height;
      * only what is lighter than `halationFrom` glows.
      */
-    halation: 0.35,
-    halationWidth: 0.02,
-    halationFrom: 0.55,
+    halation: 0.75,
+    halationWidth: 0.028,
+    halationFrom: 0.45,
     /** How dark every other line of the picture is over her, 0..1. */
     scanlines: 0.06,
     /** Grain over her, 0..1: new 24 times a second, and still with motion kept low. */
     grain: 0.05,
-    /**
-     * Now and then a band of her lines slips sideways a little and comes back, softly: every
-     * `slipEvery` milliseconds (both ends, by chance), for `slipMs`, a band `slipBand` of her
-     * height, by `slipShift` of her width. None with motion kept low.
-     */
-    slipEvery: [4000, 9000],
-    slipMs: 260,
-    slipBand: 0.05,
-    slipShift: 0.006,
+    /** Where a band of interference crosses her, her lines slip sideways by this share of the frame's width at its strongest. */
+    slipShift: 0.008,
     /** The figure breathes: it grows by this share and back, once in this many milliseconds. None with motion kept low. */
     breath: 0.004,
     breathMs: 5600,
     /** Rows of the picture her picture and its edge are worked out in: the picture of a transmission has 240. */
     maskLines: 320,
+  },
+  /**
+   * Bands of interference over the whole frame (the owner, 4 November 2026: «полосы помех -
+   * нужны»): one at a time, once in `every` milliseconds (both ends, by chance), a band `height`
+   * of the frame high (both ends). `rollShare` of them run down the frame from the top in
+   * `rollMs`; the others light up where they are and fade in `flareMs`. A band is lighter by
+   * `light` in `color`, broken into streaks along its lines by `noise`, and the figure's lines
+   * slip where it crosses her; it grows and fades, never by a jump. None with motion kept low.
+   */
+  bands: {
+    every: [3500, 8000],
+    height: [0.03, 0.08],
+    rollShare: 0.6,
+    rollMs: 1800,
+    flareMs: 600,
+    light: 0.07,
+    noise: 0.1,
+    color: '#bcd2f5',
   },
 } as const;
 

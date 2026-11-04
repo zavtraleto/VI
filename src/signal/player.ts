@@ -10,6 +10,7 @@ import { GLIMPSE_SECONDS, cardScene, cardTitle, stepCard, type SignalCard } from
 import { stepLook } from './director';
 import { lineText, pickLine } from './sceneLines';
 import { language, t } from '../ui/i18n';
+import { RecordBands } from './bands';
 import { VoiceFigure } from './figure';
 import { hintCard } from './hintFrame';
 import { SignalLeak, type LeakKind } from './leak';
@@ -164,6 +165,8 @@ export class SignalPlayer {
   /** The voice of the other side, once its picture has come; asked for with the first record. */
   private figure: VoiceFigure | null = null;
   private figureLoading: Promise<VoiceFigure | null> | null = null;
+  /** The bands of interference of a record, made with the first one. */
+  private bands: RecordBands | null = null;
   /** Sessions still to start before the next glimpse. */
   private untilGlimpse = 0;
   /** An answer has just been shown: the session that starts right after it gets no glimpse. */
@@ -401,10 +404,16 @@ export class SignalPlayer {
     playing.instance.update(timeMs, rect.width / Math.max(1, rect.height));
     this.picture.render(playing.instance.scene, playing.instance.camera, { rect });
     const { record, told } = playing;
-    if (record && this.figure) {
-      const speaking = record.recording.lines[record.line]?.who === 'voice';
-      this.figure.update(timeMs, rect.width / Math.max(1, rect.height), speaking, novelScene(record.recording.code).fill, record.recording.reduced);
-      this.picture.renderOver(this.figure.scene, this.figure.camera, { rect });
+    if (record) {
+      const { reduced } = record.recording;
+      const bands = (this.bands ??= new RecordBands());
+      const banded = bands.update(timeMs, reduced);
+      if (this.figure) {
+        const speaking = record.recording.lines[record.line]?.who === 'voice';
+        this.figure.update(timeMs, rect.width / Math.max(1, rect.height), speaking, novelScene(record.recording.code).fill, reduced, bands.now);
+        this.picture.renderOver(this.figure.scene, this.figure.camera, { rect });
+      }
+      if (banded) this.picture.renderOver(bands.scene, bands.camera, { rect });
     }
 
     const opened = Math.min(1, elapsed / OPEN_MS);
@@ -470,7 +479,9 @@ export class SignalPlayer {
           new Promise((resolve) => window.setTimeout(resolve, FIGURE_PATIENCE_MS)),
         ])
       : null;
-    playing.warmed = Promise.all([this.picture.warm(playing.instance.scene, playing.instance.camera), figure]).then(() => (playing.ready = true));
+    const bands = record ? (this.bands ??= new RecordBands()) : null;
+    const banded = bands ? this.picture.warm(bands.scene, bands.camera) : null;
+    playing.warmed = Promise.all([this.picture.warm(playing.instance.scene, playing.instance.camera), figure, banded]).then(() => (playing.ready = true));
     this.drawn = '';
     this.written = '';
   }
@@ -485,7 +496,10 @@ export class SignalPlayer {
     this.picture.look.opacity = 0;
     this.words.look.opacity = 0;
     this.chrome.look.opacity = 0;
-    if (playing.record) this.figure?.reset();
+    if (playing.record) {
+      this.figure?.reset();
+      this.bands?.reset();
+    }
     if (playing.start !== null) this.onSound?.({ kind: 'close' });
     const onLink = link ? playing.told?.telling.onLink : undefined;
     if (onLink) onLink();
