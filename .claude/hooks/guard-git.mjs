@@ -77,7 +77,7 @@ function refusal({ sub, args }) {
       return null;
     case 'push':
       if (has(args, '--force', '-f', '--force-with-lease') || args.some((a) => a.startsWith('--force')) || short(args, 'f'))
-        return '`git push --force` переписывает историю origin. Публикация — только `git push origin HEAD:main` после rebase на origin/main и «ок» пользователя.';
+        return '`git push --force` переписывает историю origin. Публикация — только `git push origin HEAD:main` после rebase на origin/main и зелёных проверок.';
       if (args.some((a) => a.startsWith('+'))) return 'Refspec с `+` — это push с силой. Публикация — только обычным push после rebase.';
       return null;
     case 'checkout':
