@@ -11,11 +11,11 @@ export interface NovelEntry {
   stars: number;
 }
 
-/** The records, by the sum they open on, the lowest first. */
+/** The records, by the sum they open on, the lowest first: one every 20 stars (the owner, 4 November 2026). */
 export const NOVEL: readonly NovelEntry[] = [
-  { code: 'n01', stars: 1 },
-  { code: 'n02', stars: 20 },
-  { code: 'n03', stars: 45 },
+  { code: 'n01', stars: 20 },
+  { code: 'n02', stars: 40 },
+  { code: 'n03', stars: 60 },
 ];
 
 /**

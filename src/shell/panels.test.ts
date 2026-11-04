@@ -348,14 +348,14 @@ describe('the records of the link, under ?novel', () => {
   it('list the note first in STORY, an open record by its title and a closed one by the sum it opens on, which is not pressed', () => {
     const picked: string[] = [];
     const spec = storyPanel(
-      [{ kind: 'readme' }, { kind: 'record', number: 1, title: 'Reception', stars: 1 }, { kind: 'record', number: 3, title: null, stars: 45 }],
+      [{ kind: 'readme' }, { kind: 'record', number: 1, title: 'Reception', stars: 20 }, { kind: 'record', number: 3, title: null, stars: 60 }],
       { onReadme: () => picked.push('readme'), onRecord: (number) => picked.push(`record ${number}`), onBack: () => picked.push('back') },
     );
     expect(spec.rows.map((one) => one.kind)).toEqual(['command', 'command', 'field', 'gap', 'command']);
     expect(pressed(spec)).toEqual(['readme', 'record-1', 'back']);
     expect(row(spec, 'command', 0).label.name).toBe('README');
     expect(row(spec, 'command', 1).label.name).toBe('01 · RECEPTION');
-    expect(row(spec, 'field', 0)).toMatchObject({ label: { name: '03' }, value: 'STARS 045' });
+    expect(row(spec, 'field', 0)).toMatchObject({ label: { name: '03' }, value: 'STARS 060' });
     expect(spec.home).toBe('readme');
     row(spec, 'command', 0).action();
     row(spec, 'command', 1).action();

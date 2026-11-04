@@ -4,9 +4,9 @@ import { novelEpisode } from '../ui/novel';
 import { NOVEL, NOVEL_FLAG, novelDue, novelKey, novelNext } from './novel';
 
 describe('the records of the link', () => {
-  it('are three, on 1, 20 and 45 stars, in order', () => {
+  it('are three, one every 20 stars, in order', () => {
     expect(NOVEL.map((entry) => entry.code)).toEqual(['n01', 'n02', 'n03']);
-    expect(NOVEL.map((entry) => entry.stars)).toEqual([1, 20, 45]);
+    expect(NOVEL.map((entry) => entry.stars)).toEqual([20, 40, 60]);
   });
 
   it('are kept among the windows told as novel:<code>', () => {
@@ -24,33 +24,34 @@ describe('the record due', () => {
   });
 
   it('is the one the sum has come to, and none once its window was shown, skipped or seen', () => {
-    expect(novelDue(1, [])?.code).toBe('n01');
-    expect(novelDue(19, [novelKey('n01')])).toBeUndefined();
-    expect(novelDue(20, [novelKey('n01')])?.code).toBe('n02');
+    expect(novelDue(19, [])).toBeUndefined();
+    expect(novelDue(20, [])?.code).toBe('n01');
+    expect(novelDue(39, [novelKey('n01')])).toBeUndefined();
+    expect(novelDue(40, [novelKey('n01')])?.code).toBe('n02');
   });
 
   it('is the lower first where the sum has passed two at once; the other comes on the next passage', () => {
-    expect(novelDue(30, [])?.code).toBe('n01');
-    expect(novelDue(30, [novelKey('n01')])?.code).toBe('n02');
+    expect(novelDue(45, [])?.code).toBe('n01');
+    expect(novelDue(45, [novelKey('n01')])?.code).toBe('n02');
     expect(novelDue(300, [novelKey('n01'), novelKey('n02')])?.code).toBe('n03');
     expect(novelDue(300, NOVEL.map((entry) => novelKey(entry.code)))).toBeUndefined();
   });
 
   it('pays no heed to other windows told', () => {
-    expect(novelDue(1, ['live:L1', 'end:100'])?.code).toBe('n01');
+    expect(novelDue(20, ['live:L1', 'end:100'])?.code).toBe('n01');
   });
 });
 
 describe('the record next', () => {
   it('is the first the sum has not come to, with the stars still wanting', () => {
-    expect(novelNext(0)).toEqual({ entry: NOVEL[0], number: 1, left: 1 });
-    expect(novelNext(1)).toEqual({ entry: NOVEL[1], number: 2, left: 19 });
-    expect(novelNext(17)).toEqual({ entry: NOVEL[1], number: 2, left: 3 });
-    expect(novelNext(44)).toEqual({ entry: NOVEL[2], number: 3, left: 1 });
+    expect(novelNext(0)).toEqual({ entry: NOVEL[0], number: 1, left: 20 });
+    expect(novelNext(20)).toEqual({ entry: NOVEL[1], number: 2, left: 20 });
+    expect(novelNext(37)).toEqual({ entry: NOVEL[1], number: 2, left: 3 });
+    expect(novelNext(59)).toEqual({ entry: NOVEL[2], number: 3, left: 1 });
   });
 
   it('is none once the sum has come to the last', () => {
-    expect(novelNext(45)).toBeUndefined();
+    expect(novelNext(60)).toBeUndefined();
     expect(novelNext(300)).toBeUndefined();
   });
 });
