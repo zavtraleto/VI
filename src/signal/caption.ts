@@ -84,6 +84,8 @@ export interface CaptionBox {
 /** What was drawn that can be pressed: the words of the link, one box a line, in pixels of the canvas. */
 export interface CaptionDrawn {
   link: CaptionBox[];
+  /** The dark band under the words, when one was asked for. */
+  plate?: CaptionBox;
 }
 
 /**
@@ -169,7 +171,7 @@ export function wordsShown(text: string, elapsedMs: number, perWordMs = HINT_WOR
 }
 
 /** How wide the words get on the plate, and how far its bottom stays from the bottom of the frame. */
-const PLATE_WIDTH = 0.86;
+export const PLATE_WIDTH = 0.86;
 const PLATE_BOTTOM = 0.06;
 
 /**
@@ -206,6 +208,7 @@ export function drawCaption(
     const band = (lines.length + 1) * pitch;
     ctx.fillStyle = colors.plate;
     ctx.fillRect(x, bottom - band, width, band);
+    drawn.plate = { x, y: bottom - band, w: width, h: band };
     // The letters stand from the fourth row of their sixteen: a dot higher looks the middle of the band.
     topOf = (i) => bottom - band + pitch / 2 + i * pitch + (pitch - tall) / 2 - dot;
   } else {

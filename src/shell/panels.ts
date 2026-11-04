@@ -544,40 +544,6 @@ export function clearedPanel(data: ClearedData, actions: { onNext: () => void; o
   return { title: PANELS.cleared, home: 'next', back: actions.onNext, rows };
 }
 
-/** A record of the link as its panel shows it: its number, its title, and its lines with the name of whoever says each. */
-export interface NovelPage {
-  number: number;
-  title: string;
-  lines: readonly { who: string; text: string }[];
-}
-
-/**
- * A record of the link, under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md):
- * its number and title in the bar, under it the name of the one who speaks, dim, and the line they
- * say, whole, in the voice. `NEXT` goes to the next line, and on the last `EXIT` closes the record;
- * `SKIP` closes it at once. The line keeps the room of the longest of the record.
- */
-export function novelPanel(record: NovelPage, line: number, actions: { onLine: (line: number) => void; onClose: () => void }): PanelSpec {
-  const last = Math.max(0, record.lines.length - 1);
-  const at = Math.min(Math.max(0, line), last);
-  const said = record.lines[at];
-  const skip: PanelCommand = { id: 'skip', label: COMMANDS.skip, action: actions.onClose };
-  const forward: PanelCommand = at < last
-    ? { id: 'next', label: COMMANDS.next, action: () => actions.onLine(at + 1) }
-    : { id: 'exit', label: COMMANDS.exit, action: actions.onClose };
-  return {
-    title: { native: PANELS.novel.native, name: `${word(PANELS.novel.name)} ${digits(record.number, 2)} · ${record.title.toUpperCase()}` },
-    home: forward.id,
-    back: actions.onClose,
-    rows: [
-      { kind: 'say', text: said?.who ?? '', dim: true, large: true },
-      { kind: 'say', text: said?.text ?? '', large: true, room: record.lines.map((each) => each.text) },
-      { kind: 'gap' },
-      { kind: 'commands', stacked: true, commands: [skip, forward] },
-    ],
-  };
-}
-
 /** A line of the list `STORY`: the note, or a record of the link, open with its title or closed with the sum it opens on. */
 export type StoryEntry = { kind: 'readme' } | { kind: 'record'; number: number; title: string | null; stars: number };
 

@@ -57,7 +57,7 @@ import {
 import { pointCursor } from '../shell/cursor';
 import { GameHud, type HudCounter, type HudLabel, type HudLock, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, novelPanel, pausePanel, readmePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type LevelsEntry, type StoryEntry, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type LevelsEntry, type StoryEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
 import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
@@ -1172,7 +1172,7 @@ export class Game {
         mark();
         if (this.passage !== passage) return;
         passage.held = true;
-        this.showNovel(entry.code, 0, () => {
+        this.showNovel(entry.code, () => {
           this.shell.hide();
           if (this.passage === passage) passage.held = false;
         });
@@ -1195,14 +1195,24 @@ export class Game {
     return next ? `${digits(sum, 3)} · ${t('novelRecord')} ${digits(next.number, 2)} — ${next.left}` : digits(sum, 3);
   }
 
-  /** A record of the link, at a line of it: `onClose` is what comes after `EXIT`, `SKIP` and Esc. */
-  private showNovel(code: string, line: number, onClose: () => void): void {
+  /**
+   * A record of the link, as a transmission of its own (`SignalPlayer.record`): `onClose` is what
+   * comes after its last line, its word in the bar and Esc. A window under it stays where it is.
+   */
+  private showNovel(code: string, onClose: () => void): void {
     const index = NOVEL.findIndex((entry) => entry.code === code);
     const episode = novelEpisode(code, language());
     if (index < 0 || !episode) return onClose();
     const names = { operator: t('novelOperator'), voice: t('novelVoice') };
-    const page = { number: index + 1, title: episode.title, lines: episode.lines.map(({ who, text }) => ({ who: names[who], text })) };
-    this.shell.showPanel(novelPanel(page, line, { onLine: (next) => this.showNovel(code, next, onClose), onClose }), true);
+    this.signal.record({
+      code,
+      title: `${word(PANELS.novel.name)} ${digits(index + 1, 2)} · ${episode.title.toUpperCase()}`,
+      skip: word(COMMANDS.skip.name),
+      lines: episode.lines.map(({ who, text }) => ({ who, name: names[who], text })),
+      wordMs: Number(this.look.board.hintWordMs),
+      reduced: prefersReducedMotion(this.settings),
+      onDone: onClose,
+    });
   }
 
   /** The result of a live session: what it came to is kept and told, and the panel says it. After it the platform may show its advertisement, as after a session of Endless. */
@@ -2270,7 +2280,7 @@ export class Game {
               levels.told.push(novelKey(entry.code));
               this.later.after(() => saveSettings(this.settings), 'settings');
             }
-            this.showNovel(entry.code, 0, () => this.showStory(`record-${number}`));
+            this.showNovel(entry.code, () => this.showStory(`record-${number}`));
           },
           onBack: () => this.showMenu('readme'),
         },
