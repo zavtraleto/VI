@@ -15,7 +15,7 @@ const importsOf = (file: string): string[] => {
   return [...text.matchAll(/from '\.\/([A-Za-z]+)'/g)].map((match) => match[1]);
 };
 
-const OF_LEVELS = ['levelBot', 'levelScore', 'levelGraph', 'levelProof', 'levelReport', 'levelSolver', 'reach'];
+const OF_LEVELS = ['levelBot', 'humanBot', 'levelScore', 'levelGraph', 'levelProof', 'levelReport', 'levelSolver', 'reach'];
 const OF_THE_CLOCK = ['bot', 'paceBot'];
 
 describe('the two families of bots', () => {

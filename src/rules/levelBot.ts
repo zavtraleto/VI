@@ -124,6 +124,13 @@ export interface Persona {
    * with it. With none, it knows every face of every die.
    */
   misread?: number;
+  /**
+   * How much the player sees the figure the board is to make (docs/superpowers/specs/2026-11-04-vi-level-craft-design.md,
+   * section 3): every roll a standing die still needs to show a face of the level on top (none, one for a face on a side,
+   * two for the bottom) costs the board so much. A person who sees «a cross of fives» rolls towards it, though nothing
+   * leaves for moves; a player who only counts the dice standing does not. With none, the board is worth what stands.
+   */
+  figure?: number;
 }
 
 export const PERSONAS = {
@@ -201,6 +208,13 @@ const FLOOR = 0.5;
 const DOWN = 5;
 const DOWN_A_DIE = 15;
 
+/** The rolls a die needs to show one of the faces on top, where it stands: none, one from a side, two from the bottom. */
+export function rollsToFace(ori: Orientation, faces: readonly number[]): number {
+  if (faces.includes(ori.top)) return 0;
+  if ([ori.north, ori.south, ori.east, ori.west].some((face) => faces.includes(face))) return 1;
+  return 2;
+}
+
 /** What a board is worth to a persona. */
 function worthOf(state: RunState, persona: Persona, depth: number): number {
   if (state.endReason === 'passed') return CLEARED - depth;
@@ -214,6 +228,7 @@ function worthOf(state: RunState, persona: Persona, depth: number): number {
   let worth = -10 * standing.length - depth * 0.01;
   // The dice left cannot make a group of their own: they are lost unless they join the one that is going.
   if (persona.counts && standing.length < smallestGroup(spec)) worth -= 40;
+  if (persona.figure && spec.faces) worth -= persona.figure * standing.reduce((sum, cube) => sum + rollsToFace(cube.ori, spec.faces!), 0);
   if (state.player.level !== 'ground') return worth;
   // Down on the floor: is there a move at all, and a way back up?
   const { places, moves } = scan(state);

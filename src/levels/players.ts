@@ -52,6 +52,9 @@ export const CROWD: readonly CrowdBoard[] = [
   { code: 'two-pairs-2', began: 10, passed: 9, failedPlayers: 3, failures: 4 },
 ];
 
+/** The commit of the row the owner played on 4 November 2026 (0.2.93): two of its boards were cut down after. */
+export const PLAYED_AT = '1d44051';
+
 /** A board as the owner played it on 4 November 2026: the moves of his first passing try. */
 export interface OwnerPlay {
   place: number;
