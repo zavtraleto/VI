@@ -3192,86 +3192,97 @@ export const ROW: Row = {
     {
       "number": 34,
       "chapter": 5,
-      "code": "climb-twos-threes-1",
+      "code": "fours-round-the-hole-1",
       "spec": {
-        "id": "climb-twos-threes-1",
-        "seed": 8114,
+        "id": "fours-round-the-hole-1",
+        "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 1,
+            "z": 1
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          4
         ],
-        "norm": 6,
+        "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          4
         ],
         "layout": {
           "start": {
-            "x": 3,
-            "z": 0
+            "x": 2,
+            "z": 1
           },
           "dice": [
             {
-              "x": 1,
+              "x": 0,
               "z": 0,
-              "top": 2,
+              "top": 4,
               "north": 1
             },
             {
-              "x": 3,
-              "z": 0,
-              "top": 2,
-              "north": 4
-            },
-            {
               "x": 1,
-              "z": 2,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 2,
-              "top": 6,
+              "z": 0,
+              "top": 4,
               "north": 2
             },
             {
               "x": 0,
-              "z": 3,
-              "top": 3,
-              "north": 1
+              "z": 1,
+              "top": 4,
+              "north": 2
             },
             {
               "x": 2,
-              "z": 3,
-              "top": 3,
+              "z": 1,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 4,
               "north": 5
             }
           ]
         },
-        "undos": 3,
-        "chapter": 0,
-        "par": 5,
+        "par": 4,
         "exact": true,
         "solution": [
-          "3,0,S",
-          "3,1,W",
-          "2,1,N",
-          "1,2,S,p",
-          "2,2,W"
+          "2,2,E",
+          "3,2,N",
+          "3,1,N",
+          "3,0,W"
         ]
       },
       "role": "apply",
-      "archetype": "K v P ^ L on 2 3 (lift link loop push twoFaces)",
-      "emotion": "flow",
+      "archetype": "K on 4: the fifth four goes round the hole",
+      "emotion": "insight",
       "help": {}
     },
     {
@@ -3366,74 +3377,91 @@ export const ROW: Row = {
     {
       "number": 36,
       "chapter": 5,
-      "code": "climb-threes-2",
+      "code": "tight-fours-threes-1",
       "spec": {
-        "id": "climb-threes-2",
+        "id": "tight-fours-threes-1",
         "seed": 0,
-        "size": 4,
+        "size": 3,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          3
+          3,
+          4
         ],
-        "norm": 5,
+        "norm": 7,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          3
+          3,
+          4
         ],
         "layout": {
           "start": {
-            "x": 0,
+            "x": 2,
             "z": 0
           },
           "dice": [
             {
               "x": 0,
               "z": 0,
-              "top": 1,
-              "north": 2
+              "top": 3,
+              "north": 6
             },
             {
-              "x": 3,
-              "z": 1,
+              "x": 1,
+              "z": 0,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 0,
               "top": 3,
-              "north": 1
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 5,
+              "north": 4
             },
             {
               "x": 1,
               "z": 2,
-              "top": 3,
-              "north": 1
+              "top": 4,
+              "north": 5
             },
             {
               "x": 2,
               "z": 2,
-              "top": 3,
-              "north": 5
-            },
-            {
-              "x": 3,
-              "z": 3,
-              "top": 3,
-              "north": 5
+              "top": 5,
+              "north": 1
             }
           ]
         },
-        "par": 3,
+        "par": 6,
         "exact": true,
         "solution": [
-          "0,0,S",
+          "0,1,S",
+          "1,1,W",
+          "2,2,N",
+          "2,1,W",
           "0,1,E",
-          "3,1,S,p"
+          "1,1,N"
         ]
       },
-      "role": "rest",
-      "archetype": "K v Q on 3 (lift link push)",
-      "emotion": "relief",
+      "role": "apply",
+      "archetype": "K K on 4 3: a tight room, the leaving heap is the room for the last two",
+      "emotion": "flow",
       "help": {}
     },
     {
@@ -3626,6 +3654,36 @@ export const ROW: Row = {
         "id": "ones-fours-1",
         "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 1
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
@@ -3873,102 +3931,135 @@ export const ROW: Row = {
     {
       "number": 42,
       "chapter": 6,
-      "code": "ones-twos-3",
+      "code": "roll-fours-link-1",
       "spec": {
-        "id": "ones-twos-3",
-        "seed": 30282,
+        "id": "roll-fours-link-1",
+        "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 1
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          1,
-          2
+          4
         ],
         "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          1,
-          2
+          4
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 1,
             "z": 0
           },
           "dice": [
             {
-              "x": 3,
+              "x": 0,
               "z": 0,
               "top": 6,
               "north": 2
             },
             {
               "x": 1,
-              "z": 1,
-              "top": 1,
-              "north": 5
+              "z": 0,
+              "top": 4,
+              "north": 1
             },
             {
-              "x": 3,
+              "x": 0,
               "z": 1,
-              "top": 2,
-              "north": 6
+              "top": 6,
+              "north": 2
             },
             {
               "x": 2,
               "z": 2,
-              "top": 3,
-              "north": 1
+              "top": 4,
+              "north": 6
             },
             {
-              "x": 2,
+              "x": 1,
               "z": 3,
-              "top": 2,
+              "top": 6,
               "north": 3
             }
           ]
         },
-        "chapter": 0,
         "par": 5,
         "exact": true,
         "solution": [
-          "3,0,W",
-          "2,0,S",
-          "2,2,E",
-          "2,3,E,p",
-          "1,1,E,p"
+          "0,1,E",
+          "0,0,S",
+          "0,1,S",
+          "0,2,E",
+          "1,3,N"
         ]
       },
       "role": "apply",
-      "archetype": "K L v Q U on 2 (lift link ones push seven)",
-      "emotion": "trick",
+      "archetype": "K L on 4: fours by rolls, a roll-in link",
+      "emotion": "insight",
       "help": {}
     },
     {
       "number": 43,
       "chapter": 6,
-      "code": "link-fives-1",
+      "code": "collapse-3",
       "spec": {
-        "id": "link-fives-1",
-        "seed": 0,
+        "id": "collapse-3",
+        "seed": 30120,
         "size": 4,
+        "holes": [
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 1
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          5
+          6
         ],
         "norm": 6,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          5
+          6
         ],
         "layout": {
           "start": {
@@ -3977,53 +4068,57 @@ export const ROW: Row = {
           },
           "dice": [
             {
+              "x": 0,
+              "z": 0,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 0,
+              "top": 6,
+              "north": 3
+            },
+            {
               "x": 2,
-              "z": 1,
-              "top": 4,
+              "z": 0,
+              "top": 6,
               "north": 5
             },
             {
               "x": 1,
-              "z": 2,
-              "top": 5,
-              "north": 3
-            },
-            {
-              "x": 2,
-              "z": 2,
-              "top": 5,
+              "z": 1,
+              "top": 6,
               "north": 3
             },
             {
               "x": 1,
-              "z": 3,
-              "top": 5,
+              "z": 2,
+              "top": 3,
               "north": 1
             },
             {
               "x": 2,
-              "z": 3,
-              "top": 5,
-              "north": 1
-            },
-            {
-              "x": 3,
-              "z": 3,
-              "top": 6,
-              "north": 2
+              "z": 2,
+              "top": 3,
+              "north": 5
             }
           ]
         },
-        "par": 2,
+        "chapter": 0,
+        "par": 5,
         "exact": true,
         "solution": [
-          "3,3,N",
-          "2,1,S"
+          "2,0,S",
+          "1,2,W",
+          "0,2,N",
+          "2,2,W",
+          "2,1,N"
         ]
       },
       "role": "rest",
-      "archetype": "K ~ L on 5 (glass link walk)",
-      "emotion": "gift",
+      "archetype": "six sixes, an easy heap",
+      "emotion": "payoff",
       "help": {}
     },
     {
@@ -4211,47 +4306,47 @@ export const ROW: Row = {
     {
       "number": 46,
       "chapter": 6,
-      "code": "ones-twos-4",
+      "code": "twos-then-fives-1",
       "spec": {
-        "id": "ones-twos-4",
+        "id": "twos-then-fives-1",
         "seed": 0,
         "size": 5,
         "holes": [
-          {
-            "x": 3,
-            "z": 0
-          },
-          {
-            "x": 4,
-            "z": 0
-          },
-          {
-            "x": 3,
-            "z": 1
-          },
-          {
-            "x": 4,
-            "z": 1
-          },
-          {
-            "x": 3,
-            "z": 2
-          },
-          {
-            "x": 4,
-            "z": 2
-          },
           {
             "x": 0,
             "z": 3
           },
           {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
             "x": 3,
             "z": 3
           },
           {
             "x": 4,
             "z": 3
+          },
+          {
+            "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
+            "z": 4
           },
           {
             "x": 4,
@@ -4263,63 +4358,81 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          1,
-          2
+          2,
+          5
         ],
-        "norm": 4,
+        "norm": 7,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          1,
-          2
+          2,
+          5
         ],
         "layout": {
           "start": {
-            "x": 2,
-            "z": 2
+            "x": 1,
+            "z": 0
           },
           "dice": [
             {
               "x": 1,
               "z": 0,
-              "top": 1,
-              "north": 4
+              "top": 6,
+              "north": 3
             },
             {
               "x": 2,
               "z": 0,
               "top": 2,
-              "north": 1
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 5,
+              "north": 6
             },
             {
               "x": 2,
               "z": 2,
-              "top": 1,
-              "north": 2
+              "top": 5,
+              "north": 4
             },
             {
-              "x": 1,
-              "z": 4,
-              "top": 1,
-              "north": 2
+              "x": 3,
+              "z": 2,
+              "top": 5,
+              "north": 6
             }
           ]
         },
         "par": 6,
         "exact": true,
         "solution": [
-          "2,2,S",
-          "2,3,W",
-          "1,3,N",
-          "1,2,N",
+          "1,1,S",
+          "1,0,S",
           "1,1,E",
-          "1,0,E,p"
+          "3,0,W",
+          "2,0,S",
+          "1,2,N"
         ]
       },
       "role": "apply",
-      "archetype": "K v U on 2 (lift loop ones push)",
-      "emotion": "recognition",
+      "archetype": "K K on 2 5: a small heap opens the way to the big one",
+      "emotion": "insight",
       "help": {}
     },
     {
@@ -4489,78 +4602,100 @@ export const ROW: Row = {
     {
       "number": 49,
       "chapter": 6,
-      "code": "ones-twos-5",
+      "code": "fives-bridge-link-1",
       "spec": {
-        "id": "ones-twos-5",
-        "seed": 30282,
+        "id": "fives-bridge-link-1",
+        "seed": 0,
         "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          1,
-          2
+          5
         ],
-        "norm": 5,
+        "norm": 6,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          1,
-          2
+          5
         ],
         "layout": {
           "start": {
-            "x": 3,
+            "x": 2,
             "z": 0
           },
           "dice": [
             {
-              "x": 3,
+              "x": 1,
               "z": 0,
-              "top": 6,
-              "north": 2
+              "top": 3,
+              "north": 6
+            },
+            {
+              "x": 2,
+              "z": 0,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 4,
+              "north": 1
             },
             {
               "x": 1,
               "z": 1,
-              "top": 1,
+              "top": 6,
               "north": 2
             },
             {
-              "x": 2,
+              "x": 0,
               "z": 2,
-              "top": 6,
+              "top": 5,
               "north": 3
             },
             {
-              "x": 3,
+              "x": 1,
               "z": 2,
-              "top": 2,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 3,
-              "top": 2,
-              "north": 3
+              "top": 5,
+              "north": 6
             }
           ]
         },
-        "chapter": 0,
-        "par": 4,
+        "par": 5,
         "exact": true,
         "solution": [
-          "3,0,S",
-          "2,2,E",
-          "1,1,E,p",
-          "2,3,E,p"
+          "1,0,W",
+          "1,1,N",
+          "0,1,E",
+          "0,0,S",
+          "0,1,S"
         ]
       },
       "role": "apply",
-      "archetype": "K ~ L v U Q on 2 (glass lift link ones push seven walk)",
-      "emotion": "mastery",
+      "archetype": "K ~ L on 5: the die left out catches the heap by a link",
+      "emotion": "recognition",
       "help": {}
     },
     {
@@ -4673,6 +4808,184 @@ export const ROW: Row = {
     {
       "number": 51,
       "chapter": 7,
+      "code": "climb-fours-1",
+      "spec": {
+        "id": "climb-fours-1",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 5,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 1,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 2,
+              "north": 3
+            }
+          ]
+        },
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "1,3,E",
+          "1,2,N",
+          "2,3,W",
+          "1,3,N",
+          "1,1,S,p",
+          "1,2,N"
+        ]
+      },
+      "role": "apply",
+      "archetype": "K v ^ L on 4 (lift link)",
+      "emotion": "tension",
+      "help": {}
+    },
+    {
+      "number": 52,
+      "chapter": 7,
+      "code": "ones-threes-1",
+      "spec": {
+        "id": "ones-threes-1",
+        "seed": 31570,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 0
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          1,
+          3
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          1,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 1
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 1,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 1,
+              "north": 2
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 1,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 6,
+              "north": 4
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "2,1,S",
+          "2,2,S",
+          "1,2,E",
+          "1,3,N",
+          "2,3,E,p"
+        ]
+      },
+      "role": "apply",
+      "archetype": "K v U on 3 (lift ones push seven)",
+      "emotion": "insight",
+      "help": {}
+    },
+    {
+      "number": 53,
+      "chapter": 7,
       "code": "climb-threes-fours-2",
       "spec": {
         "id": "climb-threes-fours-2",
@@ -4758,166 +5071,6 @@ export const ROW: Row = {
       "role": "apply",
       "archetype": "K v ^ K on 3 4 (lift twoFaces)",
       "emotion": "flow",
-      "help": {}
-    },
-    {
-      "number": 52,
-      "chapter": 7,
-      "code": "ones-threes-1",
-      "spec": {
-        "id": "ones-threes-1",
-        "seed": 31570,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          1,
-          3
-        ],
-        "norm": 6,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          1,
-          3
-        ],
-        "layout": {
-          "start": {
-            "x": 2,
-            "z": 1
-          },
-          "dice": [
-            {
-              "x": 2,
-              "z": 1,
-              "top": 6,
-              "north": 5
-            },
-            {
-              "x": 3,
-              "z": 1,
-              "top": 1,
-              "north": 2
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 3,
-              "north": 5
-            },
-            {
-              "x": 1,
-              "z": 2,
-              "top": 1,
-              "north": 2
-            },
-            {
-              "x": 3,
-              "z": 2,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 1,
-              "z": 3,
-              "top": 6,
-              "north": 4
-            }
-          ]
-        },
-        "chapter": 0,
-        "par": 5,
-        "exact": true,
-        "solution": [
-          "2,1,S",
-          "2,2,S",
-          "1,2,E",
-          "1,3,N",
-          "2,3,E,p"
-        ]
-      },
-      "role": "apply",
-      "archetype": "K v U on 3 (lift ones push seven)",
-      "emotion": "insight",
-      "help": {}
-    },
-    {
-      "number": 53,
-      "chapter": 7,
-      "code": "climb-fours-1",
-      "spec": {
-        "id": "climb-fours-1",
-        "seed": 0,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          4
-        ],
-        "norm": 5,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          4
-        ],
-        "layout": {
-          "start": {
-            "x": 1,
-            "z": 2
-          },
-          "dice": [
-            {
-              "x": 2,
-              "z": 1,
-              "top": 4,
-              "north": 6
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 4,
-              "north": 2
-            },
-            {
-              "x": 1,
-              "z": 2,
-              "top": 3,
-              "north": 5
-            },
-            {
-              "x": 2,
-              "z": 2,
-              "top": 4,
-              "north": 2
-            },
-            {
-              "x": 1,
-              "z": 3,
-              "top": 2,
-              "north": 3
-            }
-          ]
-        },
-        "par": 6,
-        "exact": true,
-        "solution": [
-          "1,3,E",
-          "1,2,N",
-          "2,3,W",
-          "1,3,N",
-          "1,1,S,p",
-          "1,2,N"
-        ]
-      },
-      "role": "apply",
-      "archetype": "K v ^ L on 4 (lift link)",
-      "emotion": "tension",
       "help": {}
     },
     {
@@ -5319,17 +5472,16 @@ export const ROW: Row = {
     {
       "number": 58,
       "chapter": 7,
-      "code": "P08",
+      "code": "tight-room-1",
       "spec": {
-        "id": "P08",
-        "seed": 10110,
-        "size": 4,
+        "id": "tight-room-1",
+        "seed": 30471,
+        "size": 3,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          2,
           3
         ],
         "norm": 6,
@@ -5337,66 +5489,67 @@ export const ROW: Row = {
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
           3
         ],
         "layout": {
           "start": {
-            "x": 2,
-            "z": 1
+            "x": 1,
+            "z": 2
           },
           "dice": [
             {
               "x": 1,
               "z": 0,
               "top": 3,
-              "north": 5
-            },
-            {
-              "x": 3,
-              "z": 0,
-              "top": 6,
               "north": 2
             },
             {
-              "x": 1,
-              "z": 1,
+              "x": 2,
+              "z": 0,
               "top": 3,
               "north": 5
             },
             {
-              "x": 2,
+              "x": 0,
               "z": 1,
-              "top": 6,
-              "north": 4
+              "top": 5,
+              "north": 1
             },
             {
-              "x": 2,
+              "x": 1,
+              "z": 1,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 0,
               "z": 2,
-              "top": 6,
-              "north": 2
+              "top": 5,
+              "north": 4
             },
             {
-              "x": 3,
-              "z": 3,
-              "top": 2,
-              "north": 4
+              "x": 1,
+              "z": 2,
+              "top": 5,
+              "north": 1
             }
           ]
         },
         "chapter": 0,
-        "par": 4,
+        "par": 6,
         "exact": true,
         "solution": [
-          "2,1,N",
-          "3,0,S",
-          "3,1,W",
-          "2,2,S"
+          "1,1,E",
+          "2,1,S",
+          "0,1,E",
+          "0,2,N",
+          "1,2,N",
+          "1,1,E"
         ]
       },
       "role": "apply",
-      "archetype": "which first",
-      "emotion": "recognition",
+      "archetype": "tight room",
+      "emotion": "trick",
       "help": {}
     },
     {
@@ -5516,82 +5669,101 @@ export const ROW: Row = {
     {
       "number": 60,
       "chapter": 7,
-      "code": "ones-threes-2",
+      "code": "fours-then-twos-1",
       "spec": {
-        "id": "ones-threes-2",
+        "id": "fours-then-twos-1",
         "seed": 0,
-        "size": 3,
+        "size": 4,
+        "holes": [
+          {
+            "x": 0,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          1,
-          3
+          2,
+          4
         ],
-        "norm": 5,
+        "norm": 6,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          1,
-          3
+          2,
+          4
         ],
         "layout": {
           "start": {
             "x": 2,
-            "z": 0
+            "z": 2
           },
           "dice": [
             {
-              "x": 1,
-              "z": 0,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 2,
+              "x": 0,
               "z": 0,
               "top": 5,
-              "north": 1
+              "north": 6
             },
             {
               "x": 1,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 2,
+              "z": 0,
+              "top": 4,
               "north": 6
             },
             {
               "x": 2,
+              "z": 0,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 1,
               "z": 2,
               "top": 6,
               "north": 3
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 2,
+              "north": 4
             }
           ]
         },
-        "chapter": 0,
-        "par": 8,
+        "par": 4,
         "exact": true,
         "solution": [
-          "1,1,S",
           "2,2,N",
-          "2,1,W",
-          "2,0,S",
-          "1,1,W",
-          "1,2,N",
-          "0,2,E",
-          "2,1,N,p"
+          "0,0,S",
+          "0,1,E",
+          "1,2,E"
         ]
       },
       "role": "apply",
-      "archetype": "K ~ L v U on 3 (lift link ones push walk)",
-      "emotion": "recognition",
+      "archetype": "K K on 4 2: fours, then a pair from the leaving heap",
+      "emotion": "relief",
       "help": {}
     },
     {
@@ -5851,82 +6023,82 @@ export const ROW: Row = {
     {
       "number": 64,
       "chapter": 9,
-      "code": "ready-fours-1",
+      "code": "ones-threes-2",
       "spec": {
-        "id": "ready-fours-1",
+        "id": "ones-threes-2",
         "seed": 0,
-        "size": 4,
-        "holes": [
-          {
-            "x": 2,
-            "z": 0
-          },
-          {
-            "x": 2,
-            "z": 2
-          },
-          {
-            "x": 2,
-            "z": 3
-          }
-        ],
+        "size": 3,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          4
+          1,
+          3
         ],
-        "norm": 4,
+        "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          4
+          1,
+          3
         ],
         "layout": {
           "start": {
-            "x": 0,
-            "z": 1
+            "x": 2,
+            "z": 0
           },
           "dice": [
             {
-              "x": 0,
-              "z": 1,
-              "top": 4,
-              "north": 5
+              "x": 1,
+              "z": 0,
+              "top": 3,
+              "north": 1
             },
             {
               "x": 2,
-              "z": 1,
-              "top": 4,
-              "north": 5
+              "z": 0,
+              "top": 5,
+              "north": 1
             },
             {
-              "x": 3,
+              "x": 1,
               "z": 1,
-              "top": 4,
-              "north": 2
+              "top": 3,
+              "north": 1
             },
             {
-              "x": 3,
+              "x": 0,
               "z": 2,
-              "top": 4,
+              "top": 2,
               "north": 6
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 6,
+              "north": 3
             }
           ]
         },
-        "par": 3,
+        "chapter": 0,
+        "par": 8,
         "exact": true,
         "solution": [
-          "0,1,N",
-          "0,0,E",
-          "1,0,S"
+          "1,1,S",
+          "2,2,N",
+          "2,1,W",
+          "2,0,S",
+          "1,1,W",
+          "1,2,N",
+          "0,2,E",
+          "2,1,N,p"
         ]
       },
-      "role": "rest",
-      "archetype": "ready heap",
-      "emotion": "gift",
+      "role": "apply",
+      "archetype": "K ~ L v U on 3 (lift link ones push walk)",
+      "emotion": "recognition",
       "help": {}
     },
     {
@@ -8379,16 +8551,17 @@ export const ROW: Row = {
     {
       "number": 91,
       "chapter": 14,
-      "code": "tight-room-1",
+      "code": "P08",
       "spec": {
-        "id": "tight-room-1",
-        "seed": 30471,
-        "size": 3,
+        "id": "P08",
+        "seed": 10110,
+        "size": 4,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
+          2,
           3
         ],
         "norm": 6,
@@ -8396,67 +8569,66 @@ export const ROW: Row = {
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
+          2,
           3
         ],
         "layout": {
           "start": {
-            "x": 1,
-            "z": 2
+            "x": 2,
+            "z": 1
           },
           "dice": [
             {
               "x": 1,
               "z": 0,
               "top": 3,
+              "north": 5
+            },
+            {
+              "x": 3,
+              "z": 0,
+              "top": 6,
               "north": 2
             },
             {
-              "x": 2,
-              "z": 0,
+              "x": 1,
+              "z": 1,
               "top": 3,
               "north": 5
             },
             {
-              "x": 0,
+              "x": 2,
               "z": 1,
-              "top": 5,
-              "north": 1
-            },
-            {
-              "x": 1,
-              "z": 1,
-              "top": 5,
-              "north": 3
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 5,
+              "top": 6,
               "north": 4
             },
             {
-              "x": 1,
+              "x": 2,
               "z": 2,
-              "top": 5,
-              "north": 1
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 2,
+              "north": 4
             }
           ]
         },
         "chapter": 0,
-        "par": 6,
+        "par": 4,
         "exact": true,
         "solution": [
-          "1,1,E",
-          "2,1,S",
-          "0,1,E",
-          "0,2,N",
-          "1,2,N",
-          "1,1,E"
+          "2,1,N",
+          "3,0,S",
+          "3,1,W",
+          "2,2,S"
         ]
       },
       "role": "apply",
-      "archetype": "tight room",
-      "emotion": "trick",
+      "archetype": "which first",
+      "emotion": "recognition",
       "help": {}
     },
     {

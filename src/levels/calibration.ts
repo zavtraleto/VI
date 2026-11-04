@@ -136,6 +136,8 @@ export const OWNER_WORD: readonly { board: string; rule: 17 | 18; words: string 
   { board: 'ones-over-leaving-1', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
   // Place 56 of the rebuild (0.2.89), a step out of the band of its decade: the owner's word of 28 October at the rebuild.
   { board: 'two-combos-3', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
-  // Place 58 of the rebuild (0.2.89), a step out of the band of its decade: the owner's word of 28 October at the rebuild.
-  { board: 'P08', rule: 18, words: 'если что-то получается не идеално - оставляй. поправим позже.' },
+  // Place 58 since the playtest of 4 November 2026, a step over the band of its decade: the owner's word of 28 October on the board.
+  // Place 43 since the playtest of 4 November 2026, the rest before the third live session: the owner's word of 12 October on the board.
+  { board: 'collapse-3', rule: 18, words: 'изи катка! сразу три звезды за пять ходов, всё просто и на поверхности' },
+  { board: 'tight-room-1', rule: 18, words: 'не самый сложный, в районе 50-60 мне кажется' },
 ];

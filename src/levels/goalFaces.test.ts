@@ -6,9 +6,10 @@ import { ROW } from './row.gen';
 const placed = (code: string) => ROW.places.find((place) => place.code === code)!.spec;
 
 describe('the faces a level asks for', () => {
-  it('are those on the way of the board, smallest first, whatever faces its chapter names', () => {
+  it('are those on the way of the board, in the order the way puts them together, whatever faces its chapter names (4 November 2026)', () => {
     expect(goalFaces(placed('H06'))).toEqual([3]);
-    expect(goalFaces(placed('R11'))).toEqual([2, 3]);
+    // Three 3s first, then two 2s: left to right as the way goes, not smallest first.
+    expect(goalFaces(placed('R11'))).toEqual([3, 2]);
     // Named 2 and 3 (as its file did before step 2 of the third campaign), the way makes one combo of 3s.
     expect(placed('C1-05').faces).toEqual([3]);
     expect(goalFaces({ ...placed('C1-05'), faces: [2, 3] })).toEqual([3]);
@@ -26,8 +27,8 @@ describe('the faces a level asks for', () => {
   it('count the dice of each that go on the way', () => {
     // Three 3s, then two 2s.
     expect(goalOf(placed('R11'))).toEqual([
-      { face: 2, dice: 2 },
       { face: 3, dice: 3 },
+      { face: 2, dice: 2 },
     ]);
     expect(goalOf({ ...placed('R11'), solution: undefined, faces: [2] })).toEqual([{ face: 2, dice: null }]);
   });
@@ -40,7 +41,8 @@ describe('the faces a level asks for', () => {
 
   it('take the 1s where the way of the board sends them, and only there (the 1s on every level, 26 October 2026)', () => {
     const broom = boardOf('broom-3');
-    expect(goalFaces(broom)).toEqual([1, 4]);
+    // The 4s go first, the 1s after them.
+    expect(goalFaces(broom)).toEqual([4, 1]);
     const ones = goalOf(broom).find((goal) => goal.face === 1)!;
     expect(ones.dice).toBeGreaterThan(0);
     expect(goalFaces(placed('R03'))).not.toContain(1);

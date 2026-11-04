@@ -254,7 +254,8 @@ function facesByWay(row: readonly Stop[]): Violation[] {
   for (const stop of row) {
     const named = (stop.spec.faces ?? []).filter((face) => face >= 2).sort((x, y) => x - y);
     // The 1s the way sends are not counted, as those the board names are not.
-    const way = goalFaces(stop.spec).filter((face) => face >= 2);
+    // The goal shows the faces in the order of the way (4 November 2026); the rule asks only which they are.
+    const way = goalFaces(stop.spec).filter((face) => face >= 2).sort((x, y) => x - y);
     if (String(named) !== String(way)) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} называет грани ${named.join(' ')}, а на пути — ${way.join(' ')}` });
     if (stop.spec.only) out.push({ rule: 4, at: stop.number, text: `${placeOf(stop)} ставит only, а доска ряда его не ставит` });
   }
@@ -384,7 +385,7 @@ const spanOf = (from: Stop, to: Stop): string => `места ${from.number}–${
  */
 function facesSpread(row: readonly Stop[]): Violation[] {
   const out: Violation[] = [];
-  const faces = row.map((stop) => goalFaces(stop.spec).filter((face) => face >= 2));
+  const faces = row.map((stop) => goalFaces(stop.spec).filter((face) => face >= 2).sort((x, y) => x - y));
   const { from, window, distinct } = SPREAD_FACES;
   for (let start = row.findIndex((stop) => stop.number >= from); start >= 0 && start + window <= row.length; start++) {
     const seen = [...new Set(faces.slice(start, start + window).flat())].sort((a, b) => a - b);
@@ -443,7 +444,6 @@ export const KNOWN_REPEATS: readonly string[] = [
   'места 61 (bridge-5) и 79 (P09): одна мысль — K ~ L, link walk, грани 3',
   'места 59 (under-fives-1) и 83 (dd-21-wood-fives): одна раскладка',
   'места 84 (dd-14-turn-to-fours) и 85 (dd-72-fours-and-one): одна мысль — K, грани 4',
-  'места 49 (ones-twos-5) и 86 (P06): одна раскладка',
   'места 47 (rescue-3) и 92 (rescue-4): одна мысль — K v Q, lift link push seven, грани 4',
   'места 7 (H07) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
   'места 7 (H07) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',

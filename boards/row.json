@@ -65,9 +65,9 @@
         { "board": "lift-first-1", "role": "meet", "teaches": "lift", "archetype": "lift by a combo made below", "emotion": "surprise", "event": "first way up", "help": { "hint": "roadHintClimb" } },
         { "board": "climb-twos-fours-1", "role": "apply", "archetype": "K L v ^ K on 2 4 (glass lift link twoFaces)", "emotion": "recognition" },
         { "board": "climb-threes-1", "role": "apply", "archetype": "K ~ L v ^ L on 3 (glass lift link walk)", "emotion": "mastery" },
-        { "board": "climb-twos-threes-1", "role": "apply", "archetype": "K v P ^ L on 2 3 (lift link loop push twoFaces)", "emotion": "flow" },
+        { "board": "fours-round-the-hole-1", "role": "apply", "archetype": "K on 4: the fifth four goes round the hole", "emotion": "insight" },
         { "board": "climb-threes-fours-1", "role": "apply", "archetype": "K v P on 3 4 (lift push twoFaces)", "emotion": "insight" },
-        { "board": "climb-threes-2", "role": "rest", "archetype": "K v Q on 3 (lift link push)", "emotion": "relief" },
+        { "board": "tight-fours-threes-1", "role": "apply", "archetype": "K K on 4 3: a tight room, the leaving heap is the room for the last two", "emotion": "flow" },
         { "board": "climb-twos-1", "role": "peak", "archetype": "K v ^ K ~ L on 2 (lift link walk)", "emotion": "fiero" },
         { "board": "ones-twos-1", "role": "meet", "teaches": "ones", "archetype": "K O K on 2 (ones)", "emotion": "surprise", "help": { "hint": "hintOnes" } },
         { "board": "ones-fours-1", "role": "apply", "archetype": "K ~ L v U on 4 (glass lift link ones push seven walk)", "emotion": "tension" },
@@ -79,14 +79,14 @@
       "floor": "open",
       "places": [
         { "board": "ones-twos-2", "role": "meet", "teaches": "ones", "archetype": "K v U Q on 2 (lift link ones push seven)", "emotion": "insight", "help": { "hint": "hintOnesPush" } },
-        { "board": "ones-twos-3", "role": "apply", "archetype": "K L v Q U on 2 (lift link ones push seven)", "emotion": "trick" },
-        { "board": "link-fives-1", "role": "rest", "archetype": "K ~ L on 5 (glass link walk)", "emotion": "gift" },
+        { "board": "roll-fours-link-1", "role": "apply", "archetype": "K L on 4: fours by rolls, a roll-in link", "emotion": "insight" },
+        { "board": "collapse-3", "role": "rest", "archetype": "six sixes, an easy heap", "emotion": "payoff", "note": "the owner's word of 12 October, «изи катка… простой, дофаминовый», against D 7.5 of the bots" },
         { "board": "ones-fours-2", "role": "twist", "archetype": "K v U on 4 (lift ones push seven)", "emotion": "trick" },
         { "board": "climb-twos-2", "role": "twist", "archetype": "K v ^ K v Q on 2 (lift link push)", "emotion": "tension" },
-        { "board": "ones-twos-4", "role": "apply", "archetype": "K v U on 2 (lift loop ones push)", "emotion": "recognition" },
+        { "board": "twos-then-fives-1", "role": "apply", "archetype": "K K on 2 5: a small heap opens the way to the big one", "emotion": "insight" },
         { "board": "rescue-3", "role": "apply", "archetype": "five fours go, with a trap", "emotion": "payoff" },
         { "board": "dd-15-no-way-down", "role": "apply", "archetype": "all from above", "emotion": "mastery" },
-        { "board": "ones-twos-5", "role": "apply", "archetype": "K ~ L v U Q on 2 (glass lift link ones push seven walk)", "emotion": "mastery" },
+        { "board": "fives-bridge-link-1", "role": "apply", "archetype": "K ~ L on 5: the die left out catches the heap by a link", "emotion": "recognition" },
         { "board": "climb-twos-threes-3", "role": "peak", "archetype": "K ~ K v ^ L v ^ L on 2 3 (lift link seven twoFaces walk)", "emotion": "fiero" }
       ]
     },
@@ -94,16 +94,16 @@
       "title": "fifty",
       "floor": "open",
       "places": [
-        { "board": "climb-threes-fours-2", "role": "apply", "archetype": "K v ^ K on 3 4 (lift twoFaces)", "emotion": "flow" },
-        { "board": "ones-threes-1", "role": "apply", "archetype": "K v U on 3 (lift ones push seven)", "emotion": "insight" },
         { "board": "climb-fours-1", "role": "apply", "archetype": "K v ^ L on 4 (lift link)", "emotion": "tension" },
+        { "board": "ones-threes-1", "role": "apply", "archetype": "K v U on 3 (lift ones push seven)", "emotion": "insight" },
+        { "board": "climb-threes-fours-2", "role": "apply", "archetype": "K v ^ K on 3 4 (lift twoFaces)", "emotion": "flow" },
         { "board": "roll-threes-1", "role": "apply", "archetype": "K on 3", "emotion": "payoff" },
         { "board": "ones-over-leaving-1", "role": "rest", "archetype": "ones over leaving", "emotion": "surprise" },
         { "board": "two-combos-3", "role": "apply", "archetype": "which first", "emotion": "recognition" },
         { "board": "climb-twos-threes-4", "role": "apply", "archetype": "K v ^ K on 2 3 (glass lift seven twoFaces)", "emotion": "trick" },
-        { "board": "P08", "role": "apply", "archetype": "which first", "emotion": "recognition" },
+        { "board": "tight-room-1", "role": "apply", "archetype": "tight room", "emotion": "trick", "note": "the owner's word of 28 October, «не самый сложный, в районе 50-60»: moved from 91 at the playtest of 4 November" },
         { "board": "under-fives-1", "role": "peak", "archetype": "K on 5 (seven)", "emotion": "fiero" },
-        { "board": "ones-threes-2", "role": "apply", "archetype": "K ~ L v U on 3 (lift link ones push walk)", "emotion": "recognition" }
+        { "board": "fours-then-twos-1", "role": "apply", "archetype": "K K on 4 2: fours, then a pair from the leaving heap", "emotion": "relief" }
       ]
     },
     {
@@ -119,7 +119,7 @@
       "floor": "open",
       "places": [
         { "board": "pair-and-fours-1", "role": "peak", "archetype": "which first", "emotion": "fiero" },
-        { "board": "ready-fours-1", "role": "rest", "archetype": "ready heap", "emotion": "gift" }
+        { "board": "ones-threes-2", "role": "apply", "archetype": "K ~ L v U on 3 (lift link ones push walk)", "emotion": "recognition" }
       ]
     },
     {
@@ -176,7 +176,7 @@
         { "board": "tight-room-5", "role": "apply", "archetype": "tight room", "emotion": "recognition" },
         { "board": "three-moves-1", "role": "peak", "archetype": "three moves: floor, link, order", "emotion": "fiero" },
         { "board": "dd-20-chain-on-the-run", "role": "event", "archetype": "a long chain with a choice", "emotion": "flow", "event": "a long chain with a choice" },
-        { "board": "tight-room-1", "role": "apply", "archetype": "tight room", "emotion": "trick", "note": "a combo on the first move loses the board: the first-move trap after trap-5 (81), ten places on" },
+        { "board": "P08", "role": "apply", "archetype": "which first", "emotion": "recognition" },
         { "board": "rescue-4", "role": "rest", "archetype": "the last four pushed in", "emotion": "gift" }
       ]
     },
@@ -198,7 +198,7 @@
   "lives": [
     { "after": "act-k17", "step": 1 },
     { "after": "domino-3", "step": 2 },
-    { "after": "link-fives-1", "step": 3, "note": "about the 43rd place, after a rest; step 3" },
+    { "after": "collapse-3", "step": 3, "note": "about the 43rd place, after a rest; step 3" },
     { "after": "ones-over-leaving-1", "step": 4, "note": "about the 55th place, after a rest; step 4" },
     { "after": "rescue-1", "step": 5, "note": "about the 71st place, after a rest; step 5" },
     { "after": "P06", "step": 6, "note": "about the 85th place, the end of the chapter eighty; step 6" },

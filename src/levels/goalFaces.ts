@@ -8,14 +8,18 @@ export interface GoalFace {
 }
 
 /** The faces, each once and smallest first; the 1s with them only where `ones` says (those the way sends). */
-const ascending = (faces: Iterable<number>, ones = false): number[] => [...new Set(faces)].filter((face) => face >= (ones ? 1 : 2)).sort((a, b) => a - b);
+const ascending = (faces: Iterable<number>, ones = false): number[] => inTurn(faces, ones).sort((a, b) => a - b);
+
+/** The faces, each once, in the order they first come; the 1s with them only where `ones` says. */
+const inTurn = (faces: Iterable<number>, ones = false): number[] => [...new Set(faces)].filter((face) => face >= (ones ? 1 : 2));
 
 /**
  * The faces a level asks the player to put together, shown in the corner where the seal lay (word
- * of the owner, 16 October 2026): those whose combos and links are on the way the board keeps,
- * smallest first, so that they do not tell which goes first, each with the dice of it that go on
- * that way. A board that keeps no way, or a way that no longer holds, shows the faces it names,
- * with no count. The 1s are among them where the way sends them (the 1s go on every level since 26 October
+ * of the owner, 16 October 2026): those whose combos and links are on the way the board keeps, left
+ * to right in the order that way puts them together (word of the owner, 4 November 2026: «важно
+ * показывать их в правильной очерёдности слева направо… возьми это за правило для подсказок»;
+ * smallest first until then), each with the dice of it that go on that way. A board that keeps no
+ * way, or a way that no longer holds, shows the faces it names, smallest first, with no count. The 1s are among them where the way sends them (the 1s go on every level since 26 October
  * 2026); a board that keeps no way does not show a 1 it names.
  */
 export function goalOf(spec: LevelSpec): GoalFace[] {
@@ -23,7 +27,7 @@ export function goalOf(spec: LevelSpec): GoalFace[] {
   if (!spec.solution || spec.solution.length === 0) return named;
   try {
     const { state, values } = tryWay(spec, spec.solution.map(moveOf));
-    const found = ascending(values, true);
+    const found = inTurn(values, true);
     if (state.endReason !== 'passed' || found.length === 0) return named;
     const sent = state.levelRun!.sent;
     return found.map((face) => ({ face, dice: sent[face - 1] }));
