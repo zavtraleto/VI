@@ -21,8 +21,9 @@
 | 3 | Тесты путей сбоя хранилища: `reject`, битый JSON, `save_failed`, откат на браузер | `src/platform/storage.test.ts` | qa-engineer | S | `npm test` |
 | 4 | R3: правило «меняется форма `RunState`/`RunConfig` — меняется `KeptRun.version` или `RULES_VERSION`» и тест-сторож на ключи состояния | `src/app/savedRun.ts`, `src/rules/config.ts:10`, `src/rules/types.ts` | architect → developer | S | новый тест в `src/app/savedRun.test.ts`; строка в [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md), раздел 7 |
 | 12 | Открытие без boot сразу на `START`, мгновенный `START`, тихий щелчок включения, `STORY` отдельным чанком; замер до/после, разбор остальных чанков | `src/app/game.ts`, `src/shell/`, `src/audio/score.ts`, `src/ui/readme.ts`, [README.md](README.md) «Продакшн-сборка» | developer | M | `npm test`, typecheck, build, docs-check, путь в `vi-dev`, замер по CDP |
+| 13 | Список уровней во весь экран: пластина на экран, 12 клеток в ряду на столе, клетки по высоте в оставшееся место, `MENU` у низа (вариант «А» из трёх словами; глав нет) | `src/shell/screens/panel.ts`, `src/shell/panels.ts`, `src/shell/theme.ts`, `docs/art/VI_Visual_Spec.md` 8.4, `docs/art/VI_Interface_Layer.md` | ui-ux-designer | S | `npm test`, typecheck, build, docs-check; путь игрока на 360×640 и 1920×1080 |
 
-Задача 12 вышла в 0.2.95 (2026-11-04). Задачи 1–4 вышли в `main` коммитом `8906af0`, версия 0.2.94 (2026-11-04): `npm test` 2472, `npm run typecheck`, `npm run build`, `node scripts/docs-check.mjs`, QA в preview. Копия битого сохранения не сделана — вопрос `W11`.
+Задача 13 вышла в 0.2.96 (2026-11-04). Задача 12 вышла в 0.2.95 (2026-11-04). Задачи 1–4 вышли в `main` коммитом `8906af0`, версия 0.2.94 (2026-11-04): `npm test` 2472, `npm run typecheck`, `npm run build`, `node scripts/docs-check.mjs`, QA в preview. Копия битого сохранения не сделана — вопрос `W11`.
 
 ## Следующие
 
