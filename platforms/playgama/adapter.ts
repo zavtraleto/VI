@@ -23,6 +23,8 @@ const INIT_PATIENCE_MS = 8000;
 const AD_SILENCE_MS = 1500;
 /** One that is being fetched and has not opened by then is not waited for. */
 const AD_LOADING_MS = 8000;
+/** One on screen that the platform has not said is closed by then is taken as failed: the game does not wait in its pause for ever. */
+const AD_OPEN_MS = 60_000;
 /** The break the advertisement stands in: named in `playgama-bridge-config.json`. */
 const AD_PLACEMENT = 'session_end';
 
@@ -175,10 +177,11 @@ export const platform = {
         finish();
         return;
       }
-      // While it is being fetched it is given some time; once it is on screen, only its end counts.
+      // While it is being fetched it is given some time; once it is on screen, its end, up to a limit.
       window.clearTimeout(timer);
       if (state === LOADING) timer = window.setTimeout(finish, AD_LOADING_MS);
-      else if (state !== OPENED) timer = window.setTimeout(finish, AD_SILENCE_MS);
+      else if (state === OPENED) timer = window.setTimeout(finish, AD_OPEN_MS);
+      else timer = window.setTimeout(finish, AD_SILENCE_MS);
     };
     bridge.advertisement.on(bridge.EVENT_NAME.INTERSTITIAL_STATE_CHANGED, onState);
     try {
@@ -222,10 +225,11 @@ export const platform = {
         finish();
         return;
       }
-      // While it is being fetched it is given some time; once it is on screen, only its end counts.
+      // While it is being fetched it is given some time; once it is on screen, its end, up to a limit.
       window.clearTimeout(timer);
       if (state === LOADING) timer = window.setTimeout(finish, AD_LOADING_MS);
-      else if (state !== OPENED && state !== REWARDED) timer = window.setTimeout(finish, AD_SILENCE_MS);
+      else if (state === OPENED || state === REWARDED) timer = window.setTimeout(finish, AD_OPEN_MS);
+      else timer = window.setTimeout(finish, AD_SILENCE_MS);
     };
     bridge.advertisement.on(bridge.EVENT_NAME.REWARDED_STATE_CHANGED, onState);
     try {

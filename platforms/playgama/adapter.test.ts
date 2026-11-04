@@ -165,4 +165,82 @@ describe('a rewarded advertisement on Playgama', () => {
     expect(done).toHaveBeenCalledTimes(1);
     expect(done).toHaveBeenCalledWith(false);
   });
+
+  it('is not waited for past a minute on screen when the platform never says it closed', async () => {
+    const sdk = rewardedSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    vi.useFakeTimers();
+    const done = vi.fn();
+    platform.rewarded('show_way', done);
+    sdk.send('loading', 'opened', 'rewarded');
+    vi.advanceTimersByTime(59_999);
+    expect(done).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(done).toHaveBeenCalledTimes(1);
+    // What was watched is given: the platform said so before it fell silent.
+    expect(done).toHaveBeenCalledWith(true);
+    expect(sdk.listening()).toBe(false);
+  });
+});
+
+/** An SDK that shows advertisements over the whole screen: the states it goes through are given by the test. */
+function interstitialSdk() {
+  const listeners = new Map<string, (state: string) => void>();
+  const bridge = {
+    initialize: () => Promise.resolve(),
+    gameVersion: '',
+    EVENT_NAME: { INTERSTITIAL_STATE_CHANGED: 'interstitial_state_changed' },
+    INTERSTITIAL_STATE: { LOADING: 'loading', OPENED: 'opened', CLOSED: 'closed', FAILED: 'failed' },
+    platform: { language: 'en', getServerTime: () => Promise.reject(new Error('no clock')) },
+    leaderboards: { type: 'not_available' },
+    player: { isAuthorizationSupported: false, isGuest: true },
+    advertisement: {
+      isInterstitialSupported: true,
+      on: (event: string, listener: (state: string) => void) => listeners.set(event, listener),
+      off: (event: string) => listeners.delete(event),
+      showInterstitial: () => undefined,
+    },
+  };
+  vi.stubGlobal('window', globalThis);
+  const send = (...states: string[]): void => {
+    for (const state of states) listeners.get('interstitial_state_changed')?.(state);
+  };
+  return { bridge, send, listening: () => listeners.size > 0 };
+}
+
+describe('an advertisement over the whole screen on Playgama', () => {
+  it('lets the game go on once it is closed', async () => {
+    const sdk = interstitialSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    const done = vi.fn();
+    platform.interstitial(done);
+    sdk.send('loading', 'opened');
+    expect(done).not.toHaveBeenCalled();
+    sdk.send('closed');
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(sdk.listening()).toBe(false);
+  });
+
+  it('is not waited for past a minute on screen when the platform never says it closed, as if it failed', async () => {
+    const sdk = interstitialSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    vi.useFakeTimers();
+    const done = vi.fn();
+    platform.interstitial(done);
+    sdk.send('loading', 'opened');
+    vi.advanceTimersByTime(59_999);
+    expect(done).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(sdk.listening()).toBe(false);
+    // A close that comes after all changes nothing.
+    sdk.send('closed');
+    expect(done).toHaveBeenCalledTimes(1);
+  });
 });

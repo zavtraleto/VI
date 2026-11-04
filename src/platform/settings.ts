@@ -1,7 +1,7 @@
 import { RULES_VERSION, defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
 import { CAMPAIGN, placeOfCode, type LiveStat } from '../levels/campaign';
 import type { Place } from '../levels/row';
-import { loadJson, saveJson } from './storage';
+import { loadJson, saveJson, tellBroken } from './storage';
 
 /** How the board is played: `swipe` by swipes, `tap` by a tap or a click on a cell. The keys step either way. */
 export type ControlSetting = 'swipe' | 'tap';
@@ -108,8 +108,22 @@ export const DEFAULT_CAMERA = { yaw: 30, pitch: 38, swipeTilt: 0.5 } as const;
 const OLD_CAMERA = { yaw: 25, pitch: 48 } as const;
 const MAX_RUNS = 60;
 
+/**
+ * The settings as they were kept, brought to the form of this build. A save broken in its fields
+ * (`mend`) and one that cannot be read at all open the game on the defaults of what is broken,
+ * and the analytics is told (`save_failed`, `parse`).
+ */
 export function loadSettings(): Settings {
-  const fallback: Settings = {
+  try {
+    return settle(loadJson(KEY, defaults()));
+  } catch {
+    tellBroken();
+    return settle(defaults());
+  }
+}
+
+function defaults(): Settings {
+  return {
     experiments: defaultExperiments(),
     hintsSeen: [],
     bootSeen: false,
@@ -125,7 +139,12 @@ export function loadSettings(): Settings {
     undosForAd: 0,
     heardLines: [],
   };
-  const loaded = loadJson(KEY, fallback);
+}
+
+/** What was loaded, mended field by field and brought from the forms of earlier builds. */
+function settle(loaded: Settings): Settings {
+  const fallback = defaults();
+  if (mend(loaded as unknown as Loose, fallback)) tellBroken();
   loaded.experiments = { ...defaultExperiments(), ...loaded.experiments };
   // Climbing from the floor was an experiment before the rules of 0.8, and every save of that
   // time has it switched off. It is a rule now: such a save takes the default.
@@ -166,6 +185,111 @@ export function loadSettings(): Settings {
     loaded.camera = { ...DEFAULT_CAMERA };
   }
   return loaded;
+}
+
+type Loose = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is Loose => typeof value === 'object' && value !== null && !Array.isArray(value);
+const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const isText = (value: unknown): value is string => typeof value === 'string';
+const isFlag = (value: unknown): value is boolean => typeof value === 'boolean';
+
+/**
+ * Brings a loaded save to the form of the settings field by field, before the forms of earlier
+ * builds are brought over: a field of the wrong kind takes its default, and an entry of a list or
+ * a table that is not of its kind goes, while the rest of the save stays. A field that is absent is
+ * left as it is: that is a save from before the field, and what follows gives it its value. True
+ * where anything was mended.
+ */
+function mend(loaded: Loose, fallback: Settings): boolean {
+  let broken = false;
+  /** The field takes the default where it is there and not of its kind; a default of undefined leaves it absent. */
+  const field = (at: Loose, key: string, ok: (value: unknown) => boolean, value: () => unknown): void => {
+    if (at[key] === undefined || ok(at[key])) return;
+    const given = value();
+    if (given === undefined) delete at[key];
+    else at[key] = given;
+    broken = true;
+  };
+  /** A table of the save: none where it is not one, and without the entries that are not of their kind. */
+  const table = (at: Loose, key: string, entry: (value: unknown) => boolean): Loose | undefined => {
+    field(at, key, isRecord, () => ({}));
+    const kept = at[key] as Loose | undefined;
+    if (!kept) return undefined;
+    for (const [name, value] of Object.entries(kept)) {
+      if (entry(value)) continue;
+      delete kept[name];
+      broken = true;
+    }
+    return kept;
+  };
+  /** A list of texts: none where it is not one, and without what is not a text. */
+  const texts = (at: Loose, key: string): void => {
+    field(at, key, Array.isArray, () => []);
+    const list = at[key] as unknown[] | undefined;
+    if (!list || list.every(isText)) return;
+    at[key] = list.filter(isText);
+    broken = true;
+  };
+
+  const experiments = table(loaded, 'experiments', () => true);
+  if (experiments) for (const key of Object.keys(fallback.experiments)) field(experiments, key, isFlag, () => undefined);
+  field(loaded, 'rulesVersion', isText, () => undefined);
+  texts(loaded, 'hintsSeen');
+  field(loaded, 'bootSeen', isFlag, () => fallback.bootSeen);
+  field(loaded, 'muted', isFlag, () => fallback.muted);
+  field(loaded, 'reducedMotion', (value) => value === null || isFlag(value), () => null);
+  field(loaded, 'control', (value) => value === 'swipe' || value === 'tap', () => fallback.control);
+  field(loaded, 'language', (value) => value === null || isText(value), () => null);
+  table(loaded, 'tuning', isNumber);
+  const camera = table(loaded, 'camera', () => true);
+  if (camera) for (const key of Object.keys(DEFAULT_CAMERA)) field(camera, key, isNumber, () => undefined);
+  field(loaded, 'debugPanel', isFlag, () => fallback.debugPanel);
+  const runs = table(loaded, 'runs', Array.isArray);
+  for (const [kind, list] of Object.entries(runs ?? {}) as [string, unknown[]][]) {
+    if (list.every(isRunRecord)) continue;
+    runs![kind] = list.filter(isRunRecord);
+    broken = true;
+  }
+  const levels = table(loaded, 'levels', () => true);
+  if (levels) {
+    table(levels, 'passed', isFlag);
+    field(levels, 'at', isText, () => undefined);
+    field(levels, 'rowEdition', isNumber, () => undefined);
+    texts(levels, 'told');
+    const stats = table(levels, 'stats', isRecord);
+    if (stats) for (const stat of Object.values(stats)) broken = mendStat(stat as Loose) || broken;
+    const lives = table(levels, 'lives', isRecord);
+    for (const live of Object.values(lives ?? {}) as Loose[]) {
+      for (const key of ['best', 'plays']) {
+        if (isNumber(live[key])) continue;
+        broken ||= live[key] !== undefined;
+        live[key] = 0;
+      }
+    }
+  }
+  field(loaded, 'undosForAd', isNumber, () => fallback.undosForAd);
+  texts(loaded, 'heardLines');
+  return broken;
+}
+
+function isRunRecord(value: unknown): value is RunRecord {
+  return isRecord(value) && isNumber(value.score) && isNumber(value.chain) && isNumber(value.ticks) && isText(value.date);
+}
+
+/** The counts of a level as `levelStat` makes them; what is absent or not of its kind takes its default. True where something was there and not of its kind. */
+function mendStat(stat: Loose): boolean {
+  let broken = false;
+  const take = (key: string, ok: (value: unknown) => boolean, value: unknown): void => {
+    if (ok(stat[key])) return;
+    broken ||= stat[key] !== undefined;
+    stat[key] = value;
+  };
+  const counted = (value: unknown): boolean => value === null || isNumber(value);
+  for (const key of ['tries', 'passes', 'fails', 'undos', 'stuck', 'playMs', 'hinted']) take(key, isNumber, 0);
+  for (const key of ['firstPassTry', 'bestLeft', 'bestMoves']) take(key, counted, null);
+  take('short', (value) => Array.isArray(value) && value.every(isNumber), []);
+  return broken;
 }
 
 /** The edition of what is kept of the levels: the row of row.json (docs/superpowers/specs/2026-10-15-vi-row-json-design.md, section 5.2). */

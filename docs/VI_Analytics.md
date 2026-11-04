@@ -1,6 +1,6 @@
 # VI — аналитика
 
-> Вид: истина. Статус: в силе. Дата: 2026-10-30. Проверено: 2026-10-30.
+> Вид: истина. Статус: в силе. Дата: 2026-11-04. Проверено: 2026-10-30.
 > Что заменило: —. Что живёт в коде: `src/app/telemetry.ts`, `src/app/health.ts`, вызовы `platform.track` в `src/app/game.ts` и `src/platform/storage.ts`.
 > Какие события игра шлёт в аналитику площадки, с какими полями, и куда они уходят на каждой площадке.
 
@@ -42,7 +42,7 @@
 | `game_loaded` | первая картинка игры на экране, раз за визит | `load_ms` (от начала загрузки страницы), `page_ms` (страница и скрипты), `platform_ms` (старт SDK), `storage_ms` (чтение сохранений), `game_ms` (сборка игры до первой картинки), `returning` (сохранение уже было), `language`, `touch`, `width`, `height` (окно, шаг 10 px), `dpr`, `hidden_while_loading`, `game_version` |
 | `load_hidden` | страница скрыта до первой картинки (игрок ушёл с загрузки или переключил вкладку), раз за визит | `stage`: `platform`, `storage`, `game`; `elapsed_ms`, `game_version` |
 | `game_error` | ошибка скрипта, отвергнутое обещание, не загрузился файл, потерян контекст WebGL; не больше 5 за визит, одинаковые — раз | `kind`: `error`, `rejection`, `asset`, `context_lost`; `name` (`TypeError` и другие встроенные, иначе `other`); `source`: `game`, `vendor`, `external` (SDK, реклама), `other`; `where`; `game_version` |
-| `save_failed` | сохранение не записалось или не прочиталось, раз за визит на вид | `stage`: `read`, `write`, `parse`; `store`: `platform`, `browser` |
+| `save_failed` | сохранение не записалось или не прочиталось, раз за визит на вид. `read` — и когда площадка не ответила на чтение за 3 с (игра открывается на хранилище браузера); `parse` — и когда сохранение неожиданной формы: не запись полей, поле не того вида (оно берёт значение по умолчанию, остальное сохранение остаётся), сохранённая партия Endless не той формы | `stage`: `read`, `write`, `parse`; `store`: `platform`, `browser` |
 | `page_hidden` | страница скрыта во время игры (раз за попытку) или в меню (раз за визит): последнее, что видно от игрока, который ушёл | `where`, `visit_sec`; в игре ещё `step_id`, `step_index`, `run_sec`, `over`, `paused`, у уровня `moves`, `undos`, у сеанса `score` |
 | `performance_sample` | каждые ~30 секунд активной игры | по гайду Playgama: `target_fps`, `fps_avg`, `fps_p10`, `frame_time_*`, `frames_over_*ms`, `js_error_count`, `unhandled_rejection_count`, `webgl_context_loss_count`, `game_version` |
 

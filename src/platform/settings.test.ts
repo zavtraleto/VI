@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
 import { FIXTURE } from '../levels/rowFixture';
-import { ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, levelStat, loadSettings, noteLive, noteUndoForAd, raiseLive, saveSettings, toRowEdition, type RowKept } from './settings';
+import { DEFAULT_CAMERA, ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, levelStat, loadSettings, noteLive, noteUndoForAd, raiseLive, saveSettings, toRowEdition, type RowKept } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -252,5 +252,133 @@ describe('the way shown on a level for an advertisement', () => {
     levelStat(first, 'R07').hinted++;
     expect(saveSettings(first)).toBe(true);
     expect(levelStat(loadSettings(), 'R07').hinted).toBe(1);
+  });
+});
+
+/** The browser's storage holding what an earlier start saved, as text, whatever it is. */
+function savedText(raw: string): void {
+  vi.stubGlobal('window', { localStorage: { getItem: (key: string) => (key === SETTINGS_KEY ? raw : null), setItem: () => undefined } });
+}
+
+/** Settings and the platform as a fresh page has them, with what the platform is told. */
+async function freshStart(): Promise<{ loadSettings: typeof loadSettings; tracked: { event: string; data?: object }[] }> {
+  vi.resetModules();
+  const { platform } = await import('@platform');
+  const tracked: { event: string; data?: object }[] = [];
+  vi.spyOn(platform, 'track').mockImplementation((event, data) => void tracked.push({ event, data }));
+  return { loadSettings: (await import('./settings')).loadSettings, tracked };
+}
+
+describe('a save broken in its fields', () => {
+  const nothing = (): ReturnType<typeof loadSettings> => {
+    saved(null);
+    return loadSettings();
+  };
+
+  it('opens the game when what the levels keep is null: those fields start empty', () => {
+    saved({ muted: true, levels: { passed: null, stats: null, told: null, lives: null, rowEdition: ROW_EDITION } });
+    const settings = loadSettings();
+    expect(settings.levels.passed).toEqual({});
+    expect(settings.levels.stats).toEqual({});
+    expect(settings.levels.told).toEqual([]);
+    expect(settings.levels.lives).toEqual({});
+    expect(settings.muted).toBe(true);
+    expect(() => {
+      levelStat(settings, 'R01').tries++;
+      noteLive(settings, 'L1', 10);
+    }).not.toThrow();
+  });
+
+  it('gives a broken field its default and keeps the rest of the save', () => {
+    const stat = { tries: 4, passes: 1, fails: 3, firstPassTry: 4, bestLeft: null, bestMoves: 9, undos: 2, stuck: 0, short: [1, 2], playMs: 9000, hinted: 0 };
+    const run = { score: 120, chain: 3, ticks: 900, date: '2026-10-30' };
+    saved({
+      muted: true,
+      bootSeen: 'yes',
+      debugPanel: 1,
+      reducedMotion: 'calm',
+      control: 5,
+      language: 7,
+      hintsSeen: ['a', 3],
+      heardLines: [null, 'x'],
+      undosForAd: null,
+      experiments: { soloOne: true, floorClimb: 'on' },
+      rulesVersion: RULES_VERSION,
+      tuning: { stepMs: 180, warnMs: 'slow' },
+      camera: { yaw: null, pitch: 40 },
+      runs: { endless: [run, null, { ...run, score: 'many' }], other: 'none' },
+      levels: {
+        rowEdition: ROW_EDITION,
+        at: 12,
+        passed: { R01: true, R02: 'yes' },
+        told: ['live:L1', null],
+        stats: { R01: stat, R02: 7, R03: { ...stat, tries: null, short: 'none', firstPassTry: 'x' } },
+        lives: { L1: { best: 50, plays: 2 }, L2: null, L3: { best: 'x', plays: 1 } },
+      },
+    });
+    const settings = loadSettings();
+    expect(settings.muted).toBe(true);
+    expect(settings.bootSeen).toBe(false);
+    expect(settings.debugPanel).toBe(false);
+    expect(settings.reducedMotion).toBeNull();
+    expect(settings.control).toBe('swipe');
+    expect(settings.language).toBeNull();
+    expect(settings.hintsSeen).toEqual(['a']);
+    expect(settings.heardLines).toEqual(['x']);
+    expect(settings.undosForAd).toBe(0);
+    expect(settings.experiments).toEqual({ ...defaultExperiments(), soloOne: true });
+    expect(settings.tuning).toEqual({ stepMs: 180 });
+    expect(settings.camera).toEqual({ yaw: 30, pitch: 40, swipeTilt: 0.5 });
+    expect(settings.runs).toEqual({ endless: [run] });
+    expect(bestOf(settings, 'endless', 'score')).toBe(120);
+    expect(settings.levels.at).toBeUndefined();
+    expect(settings.levels.passed).toEqual({ R01: true });
+    expect(settings.levels.told).toEqual(['live:L1']);
+    expect(settings.levels.stats).toEqual({ R01: stat, R03: { ...stat, tries: 0, short: [], firstPassTry: null } });
+    expect(settings.levels.lives).toEqual({ L1: { best: 50, plays: 2 }, L3: { best: 0, plays: 1 } });
+  });
+
+  it('opens on the defaults when what was kept is not a save at all', () => {
+    for (const raw of ['5', '"text"', '[1,2,3]', 'true', 'null']) {
+      savedText(raw);
+      expect(loadSettings()).toEqual(nothing());
+    }
+  });
+
+  it('opens on the defaults however strange the fields are, and never throws', () => {
+    for (const levels of [5, 'x', [], { stats: { R01: 'x' } }, { lives: [1] }, { passed: [true] }]) {
+      saved({ levels, runs: 'x', camera: 'x', experiments: [1], tuning: null, hintsSeen: {}, heardLines: 5 });
+      expect(() => loadSettings()).not.toThrow();
+      const settings = loadSettings();
+      expect(settings.camera).toEqual({ ...DEFAULT_CAMERA });
+      expect(settings.experiments).toEqual(defaultExperiments());
+      expect(settings.runs).toEqual({});
+      expect(settings.tuning).toEqual({});
+      expect(settings.hintsSeen).toEqual([]);
+      expect(settings.heardLines).toEqual([]);
+    }
+  });
+
+  it('is told to the analytics once, as what could not be read', async () => {
+    saved({ levels: { passed: null, rowEdition: ROW_EDITION } });
+    const start = await freshStart();
+    start.loadSettings();
+    start.loadSettings();
+    expect(start.tracked).toEqual([{ event: 'save_failed', data: { stage: 'parse', store: 'browser' } }]);
+  });
+
+  it('is not told for a save from before a field was there: an absent field is an old save, not a broken one', async () => {
+    saved({ muted: true, levels: { passed: { R01: true }, stats: { R01: { tries: 1, passes: 1, fails: 0, firstPassTry: 1, bestLeft: null, short: [], playMs: 10 } }, rowEdition: ROW_EDITION } });
+    const start = await freshStart();
+    const settings = start.loadSettings();
+    expect(settings.levels.told).toEqual([]);
+    expect(start.tracked).toEqual([]);
+  });
+
+  it('is told for what was kept that is not a save at all', async () => {
+    savedText('[1,2,3]');
+    const start = await freshStart();
+    start.loadSettings();
+    expect(start.tracked).toEqual([{ event: 'save_failed', data: { stage: 'parse', store: 'browser' } }]);
   });
 });

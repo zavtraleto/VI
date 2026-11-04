@@ -80,22 +80,24 @@ TypeScript 7.0 (`strict`, `noUnused*`, target ES2022), Vite 8.3 (сборка ro
 | Адаптер | Что реализует |
 |---|---|
 | `none` (`src/platform/platform.ts`, `platforms/none.ts`) | ничего: хранилище — браузер, реклама — нет, `share` — системный или буфер |
-| `platforms/playgama/adapter.ts` | Bridge SDK: `init` с терпением 8 с, язык, серверное время, хранилище, сообщения, пауза и звук, межстраничная и по желанию, аналитика и `performance_sample`, таблица игроков, вход, `gameUrl` песочницы |
+| `platforms/playgama/adapter.ts` | Bridge SDK: `init` с терпением 8 с, язык, серверное время, хранилище, сообщения, пауза и звук, межстраничная и по желанию (на экране ждётся не дольше 60 с, `AD_OPEN_MS`), аналитика и `performance_sample`, таблица игроков, вход, `gameUrl` песочницы |
 | `platforms/crazygames/adapter.ts` | SDK v3: `init` с терпением 8 с, язык, хранилище `data`, gameplay start/stop, пауза на рекламу, звук; реклама только при `VITE_CRAZYGAMES_ADS=on`; аналитики, таблицы и входа нет |
 
 Кабинеты и выгрузка — `platforms/playgama/README.md`, `platforms/crazygames/README.md`; события аналитики — [docs/VI_Analytics.md](docs/VI_Analytics.md).
 
 ## 7. Хранилище
 
-Один слой — `src/platform/storage.ts`: без площадки — `localStorage`, на площадке — `platform.storage` (все ключи читаются одним вызовом в `src/main.ts`, дальше копия в памяти, запись всех ключей одним вызовом). Сбой — событие `save_failed`.
+Один слой — `src/platform/storage.ts`: без площадки — `localStorage`, на площадке — `platform.storage` (все ключи читаются одним вызовом в `src/main.ts`, дальше копия в памяти, запись всех ключей одним вызовом). Чтение площадки ждётся не дольше 3 с (`READ_PATIENCE_MS`): не ответила или отказала — визит идёт на `localStorage`. Сбой — событие `save_failed`.
 
 | Ключ | Где объявлен | Что |
 |---|---|---|
 | `vi.settings.v3` | `src/platform/settings.ts` (`SETTINGS_KEY`) | настройки, рекорды Endless, прогресс ряда, звёзды и статистика мест, сеансы вживую |
-| `vi.run.v1` | `src/app/savedRun.ts` (`RUN_KEY`) | прерванная партия Endless; не поднимается под другой `RULES_VERSION` |
+| `vi.run.v1` | `src/app/savedRun.ts` (`RUN_KEY`) | прерванная партия Endless; не поднимается под другими `KeptRun.version` (`KEPT_VERSION`, сейчас 2) и `RULES_VERSION`, и не той формы |
 | `vi.samples.v2` | `src/app/game.ts` | ступень качества, срок 3 дня; только `localStorage` |
 
-Версия — в имени ключа; цепочки переносов между ключами нет. Старые формы правит `loadSettings()` по полям; перенос прогресса дороги на ряд — `toRowEdition()`. Держат тесты `src/platform/settings.test.ts`, `src/platform/storage.test.ts`, `src/app/savedRun.test.ts`.
+Версия — в имени ключа; цепочки переносов между ключами нет. Старые формы правит `loadSettings()` по полям; перенос прогресса дороги на ряд — `toRowEdition()`. Битое сохранение запуск не роняет: поле не того вида берёт значение по умолчанию (`mend` в `settings.ts`), не разобранное целиком — умолчания, партия не той формы отпускается; во всех случаях `save_failed` с `parse`. Держат тесты `src/platform/settings.test.ts`, `src/platform/storage.test.ts`, `src/app/savedRun.test.ts`.
+
+Правило: меняется форма `RunState` или его правил (`RulesConfig`) — поднимается `KeptRun.version` (`KEPT_VERSION` в `src/app/savedRun.ts`) или `RULES_VERSION`; сторож — тест формы в `src/app/savedRun.test.ts` (`KEPT_FORM`).
 
 ## 8. Тесты
 
@@ -105,7 +107,6 @@ Vitest, блок `test` в `vite.config.ts`: `src/**/*.test.ts`, `platforms/**/*
 
 - `src/app/game.ts` — без теста (отмена, реклама после отмен, сохранение при уходе, возврат, награды); также `standings.ts`, `stats.ts`, `clock.ts`, `hints.ts`.
 - `src/display/present.ts`, `layer.ts`, `display.ts`; `src/render/view.ts`, `water.ts`, `cubes.ts`; `src/shell/hud.ts` (косвенно — `hudLayout.test.ts`), `shell.ts`, `kit.ts`, `screens/panel.ts`; `src/audio/engine.ts`; `src/signal/player.ts`.
-- Пути сбоя хранилища (`reject`, битый JSON, откат на браузер) — не тестируются.
 - Хрупкие: время на стене (`src/app/signWay.test.ts:177-180`, `src/levels/depth.test.ts:55-59`), 22 теста с тайм-аутом от 10 с, `src/levels/row.test.ts:129-134` закрепляет 100 мест и места сеансов.
 
 ## 9. Инструменты разработки
@@ -137,9 +138,9 @@ P0 — ломает игрока; P1 — ломает выпуск или раз
 
 | # | Риск | Где |
 |---|---|---|
-| R1 | Чтение сохранений с площадки ждёт без тайм-аута: SDK не ответил — чёрный экран навсегда, `game_ready` не уходит | `src/platform/storage.ts:38`, `src/main.ts:19` |
-| R2 | Сохранение с «битым по типам» полем роняет каждый запуск: проверяется только верхний уровень, `loadSettings()` без try | `src/platform/settings.ts:128-144`, `src/platform/storage.ts:66`, `src/main.ts:21` |
-| R3 | Сохранённая партия проверяется по `RULES_VERSION` (`'0.9'` с 3 октября), а форма `RunState`/`RunConfig` менялась (`c2c5c48`, `fef9bab`) | `src/rules/config.ts:10`, `src/app/savedRun.ts:31-38`, `:49` |
+| R1 | Чтение сохранений с площадки ждёт без тайм-аута: SDK не ответил — чёрный экран навсегда, `game_ready` не уходит. Исправлено (предел 3 с), ждёт QA | `src/platform/storage.ts:38`, `src/main.ts:19` |
+| R2 | Сохранение с «битым по типам» полем роняет каждый запуск: проверяется только верхний уровень, `loadSettings()` без try. Исправлено (проверка по полям), ждёт QA | `src/platform/settings.ts:128-144`, `src/platform/storage.ts:66`, `src/main.ts:21` |
+| R3 | Сохранённая партия проверяется по `RULES_VERSION` (`'0.9'` с 3 октября), а форма `RunState`/`RunConfig` менялась (`c2c5c48`, `fef9bab`). Исправлено (`KEPT_VERSION` 2 и тест формы), ждёт QA | `src/rules/config.ts:10`, `src/app/savedRun.ts:31-38`, `:49` |
 | R4 | `game.ts` — бог-объект без тестов и главная точка конфликтов (32 коммита с 15 октября) | `src/app/game.ts`: отмена `:1311-1351`, сохранение `:690-760` |
 | R5 | Страница-истина ROADMAP описывает 0.2.25 и 30 досок; агенты читают её первой | `docs/ROADMAP.md:3`, `:10-14` против `src/levels/row.test.ts:129-134` |
 

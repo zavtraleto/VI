@@ -30,12 +30,32 @@ function tellFailure(stage: 'read' | 'write' | 'parse', where: 'platform' | 'bro
   }
 }
 
+/**
+ * A save of a form the game does not expect: a field of the wrong kind, a run that is not one.
+ * Told as what is kept that could not be read, where it was read from.
+ */
+export function tellBroken(): void {
+  tellFailure('parse', kept ? 'platform' : 'browser');
+}
+
+/** A read of the platform that has not answered by then is not waited for: the game opens on the browser's storage. */
+const READ_PATIENCE_MS = 3000;
+
+/** The answer of the platform, or a refusal once its patience is over. */
+function readInTime(platformStore: PlatformStorage, keys: readonly string[]): Promise<(string | null)[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const patience = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('no answer')), READ_PATIENCE_MS);
+  });
+  return Promise.race([platformStore.read(keys), patience]).finally(() => clearTimeout(timer));
+}
+
 /** Reads everything the game keeps, in one call, before anything asks for it. */
 export async function openStorage(keys: readonly string[]): Promise<void> {
   const platformStore = platform.storage;
   if (!platformStore) return;
   try {
-    const values = await platformStore.read(keys);
+    const values = await readInTime(platformStore, keys);
     kept = new Map();
     store = platformStore;
     keys.forEach((key, i) => {
@@ -44,7 +64,7 @@ export async function openStorage(keys: readonly string[]): Promise<void> {
       if (value !== null) kept!.set(key, value);
     });
   } catch {
-    // The platform cannot be read: the browser's own storage is used.
+    // The platform cannot be read, or has not answered in time: the browser's own storage is used.
     tellFailure('read', 'platform');
     kept = null;
     store = null;
@@ -63,7 +83,14 @@ export function loadJson<T>(key: string, fallback: T): T {
   let raw: string | null = null;
   try {
     raw = kept ? (kept.get(key) ?? null) : window.localStorage.getItem(key);
-    return raw === null ? fallback : { ...fallback, ...(JSON.parse(raw) as Partial<T>) };
+    if (raw === null) return fallback;
+    const value: unknown = JSON.parse(raw);
+    // What is kept is a record of fields, or nothing (null); a number, a text or a list is not a save.
+    if (value !== null && (typeof value !== 'object' || Array.isArray(value))) {
+      tellBroken();
+      return fallback;
+    }
+    return { ...fallback, ...(value as Partial<T> | null) };
   } catch {
     available = false;
     tellFailure(raw === null ? 'read' : 'parse', kept ? 'platform' : 'browser');
