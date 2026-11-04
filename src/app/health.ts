@@ -31,6 +31,7 @@ let where: () => Where = () => 'loading';
 const errorsSeen = new Set<string>();
 let errorsSent = 0;
 let hiddenWhileLoading = false;
+let hiddenNote: () => void = () => undefined;
 
 function send(event: string, data: PlatformData): void {
   if (platformUp) platform.track(event, data);
@@ -106,12 +107,33 @@ export function watchHealth(): void {
     noteError('rejection', nameOf(event.reason), sourceOf(firstFile((event.reason as Error | undefined)?.stack)));
   });
   window.addEventListener('webglcontextlost', () => noteError('context_lost', 'other', 'game'), true);
-  // A player who leaves before the game has opened: where the opening stood, and for how long it had gone.
+  // The page is hidden or put away. These listeners stand before the platform starts, and so before
+  // its own: the Bridge SDK of Playgama sends what it holds as the page is hidden or put away
+  // (`sendBeacon`), and nothing after that until the page is seen again. Said here, an event lies
+  // in its queue before it goes; said after, it is lost with a page that is closed.
+  const left = (): void => {
+    // A player who leaves before the game has opened: where the opening stood, and for how long it had gone.
+    if (!ready && !hiddenWhileLoading) {
+      hiddenWhileLoading = true;
+      send('load_hidden', { stage, elapsed_ms: Math.round(performance.now()), game_version: import.meta.env.VI_VERSION });
+    }
+    hiddenNote();
+  };
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden || ready || hiddenWhileLoading) return;
-    hiddenWhileLoading = true;
-    send('load_hidden', { stage, elapsed_ms: Math.round(performance.now()), game_version: import.meta.env.VI_VERSION });
+    if (document.hidden) left();
   });
+  // A tab closed while it is seen is put away before it is hidden.
+  window.addEventListener('pagehide', left);
+}
+
+/** What the game says of a page that is hidden or put away: called before the platform sends what it holds. */
+export function watchHidden(note: () => void): void {
+  hiddenNote = note;
+}
+
+/** The seconds of the visit, from the start of the loading of the page. */
+export function visitSeconds(): number {
+  return Math.round(performance.now() / 1000);
 }
 
 /** The platform has started (or there is none): what was waiting is sent. */

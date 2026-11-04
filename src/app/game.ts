@@ -89,7 +89,9 @@ import { goalOf } from '../levels/goalFaces';
 import { SIGN_MAX_STATES, roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
 import { madeMove, wayBack, wayDir, wayMoved, wayOf, type ShownWay } from './wayPress';
 import { FrameSampler, RunTally, checkpoint, levelSummary, runSummary, type EventData } from './telemetry';
-import { gameOpened, watchWhere, type Where } from './health';
+import { gameOpened, visitSeconds, watchHidden, watchWhere, type Where } from './health';
+import { adOpen, adsAsked, askInterstitial, askRewarded, type InterstitialReason } from './adverts';
+import { hiddenData, tellsLeaving } from './leaving';
 
 // What the game asks of the table and the sign-in of the platform, where it has them, and how it sends a result out.
 
@@ -130,11 +132,10 @@ function shareOut(text: string): Promise<Shared> {
 
 /**
  * The advertisement of the platform between sessions. One that was open took the keys with it: the game takes them back.
- * The analytics hear what brought it: the platform counts what it showed, but not why it was asked for.
+ * The analytics hear what brought it and where the player stood (`src/app/adverts.ts`).
  */
-function interstitial(reason: 'session_end' | 'live_end' | 'undos', next: () => void): void {
-  if (platform.interstitialSupported) platform.track('ad_requested', { kind: 'interstitial', reason });
-  platform.interstitial(() => {
+function interstitial(reason: InterstitialReason, step: EventData, next: () => void): void {
+  askInterstitial(reason, step, () => {
     takeFocus();
     next();
   });
@@ -613,11 +614,10 @@ export class Game {
       this.applySound();
     });
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) this.noteHidden();
-      this.setAway('page', document.hidden);
-    });
+    document.addEventListener('visibilitychange', () => this.setAway('page', document.hidden));
     watchWhere(() => this.where());
+    // Heard before the platform sends what it holds as the page goes (`watchHealth`).
+    watchHidden(() => this.noteHidden());
     // A page that is closed or thrown out of memory says so here, if it says anything at all.
     window.addEventListener('pagehide', () => {
       this.later.flush();
@@ -999,8 +999,11 @@ export class Game {
   private leaveRun(how: 'menu' | 'restart'): void {
     // What was owed of the board is said before anything is said of leaving it.
     this.later.flush();
-    if (!this.opened || this.inMenu || this.state.over || this.state.tick === 0) return;
+    // Before the program opens there may be no run at all.
+    if (!this.opened) return;
     const { state } = this;
+    const run = { opened: this.opened, inMenu: this.inMenu, over: state.over, tick: state.tick, level: state.levelRun !== null, unsaid: this.unsaid };
+    if (!tellsLeaving(run)) return;
     const reached: EventData = state.levelRun ? this.levelTry() : { ...runSummary(state, this.tally), ...this.visit() };
     platform.track('progression_failed', { ...this.step(), reason: how === 'menu' ? 'left' : 'restart', duration_sec: this.seconds(), ...reached });
     // A run given up is not one to come back to.
@@ -1239,18 +1242,18 @@ export class Game {
       gone = true;
       this.shell.hide();
       // An advertisement watched for the doubled score is the advertisement of this result: none comes after it.
-      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial('live_end', next)));
+      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial('live_end', liveStep(live), next)));
     };
     let offered = platform.rewardedSupported;
     if (offered) platform.track('reward_offered', { placement: 'double_score', ...liveStep(live) });
     const double = (): void => {
       if (this.rewardAsked) return;
       this.rewardAsked = true;
-      platform.rewarded('double_score', (rewarded) => {
+      askRewarded('double_score', liveStep(live), (rewarded) => {
         this.rewardAsked = false;
         offered = false;
         takeFocus();
-        platform.track('reward_result', { placement: 'double_score', rewarded, ...liveStep(live) });
+        platform.track('reward_result', { placement: 'double_score', rewarded, ...liveStep(live), visit_sec: visitSeconds() });
         if (rewarded) {
           // The session stays as it ended (the rules are not touched): what is doubled is the score the panel shows and the best it is kept as.
           doubled = true;
@@ -1438,7 +1441,7 @@ export class Game {
     // its sound wait while it is on by the events of the platform (`setAway`); where it shows none, nothing waits.
     const advert = noteUndoForAd(this.settings, UNDOS_PER_AD);
     this.later.after(() => saveSettings(this.settings), 'settings');
-    if (advert) interstitial('undos', () => undefined);
+    if (advert) interstitial('undos', this.step(), () => undefined);
   }
 
   /**
@@ -2141,10 +2144,10 @@ export class Game {
     this.rewardAsked = true;
     const runner = this.runner;
     const step = this.step();
-    platform.rewarded('show_way', (rewarded) => {
+    askRewarded('show_way', step, (rewarded) => {
       this.rewardAsked = false;
       takeFocus();
-      platform.track('reward_result', { placement: 'show_way', rewarded, ...step });
+      platform.track('reward_result', { placement: 'show_way', rewarded, ...step, visit_sec: visitSeconds() });
       // The pause that asked has to be the one still up: nothing else is started from under the player.
       if (!rewarded || this.runner !== runner || this.inMenu || !this.paused) return;
       const stat = this.levelRecord();
@@ -2164,32 +2167,31 @@ export class Game {
   }
 
   /**
-   * The page is hidden: the player may have gone for good. Where they were is told once a run
-   * (and once in the menu), so the last thing seen of a player who never comes back says where
-   * they left. The page that is closed outright often says nothing more than this.
+   * The page is hidden or put away: the player may have gone for good. Where they were is told once
+   * a run (and once in the menu), so the last thing seen of a player who never comes back says where
+   * they left. The page that is closed outright says nothing more than this.
    */
   private noteHidden(): void {
     const where = this.where();
     if (where === 'loading' || where === 'lab') return;
-    const visit_sec = Math.round(performance.now() / 1000);
-    if (where === 'menu') {
-      if (this.menuHiddenTold) return;
-      this.menuHiddenTold = true;
-      platform.track('page_hidden', { where, visit_sec });
-      return;
-    }
-    if (this.hiddenTold) return;
-    this.hiddenTold = true;
+    if (where === 'menu' ? this.menuHiddenTold : this.hiddenTold) return;
+    if (where === 'menu') this.menuHiddenTold = true;
+    else this.hiddenTold = true;
     const run = this.state.levelRun;
-    platform.track('page_hidden', {
+    const data = hiddenData({
       where,
-      visit_sec,
-      ...this.step(),
-      run_sec: this.seconds(),
+      visitSec: visitSeconds(),
+      place: this.place === null ? null : (CAMPAIGN[this.place]?.number ?? null),
+      step: this.step(),
+      runSec: this.seconds(),
       over: this.state.over,
       paused: this.paused,
-      ...(run ? { moves: run.moves, undos: this.undosMade } : { score: this.state.score }),
+      level: run ? { moves: run.moves, undos: this.undosMade } : null,
+      score: this.state.score,
+      adOpen: adOpen(),
+      ads: adsAsked(),
     });
+    platform.track('page_hidden', data);
   }
 
   /** The part of the window the board has, in CSS pixels. */
@@ -2607,7 +2609,7 @@ export class Game {
     // After it, at the break between sessions, the platform may show its advertisement.
     const answered = (next: () => void): void => {
       this.shell.hide();
-      this.signal.answer(this.sceneStep(), () => interstitial('session_end', next));
+      this.signal.answer(this.sceneStep(), () => interstitial('session_end', this.step(), next));
     };
     result();
   }
