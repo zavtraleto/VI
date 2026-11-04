@@ -60,13 +60,20 @@ describe('the figure of the voice', () => {
     expect(breathing.bottom).toBe(0);
   });
 
-  it('has light outside its edge and over it, none far from it, and none along the cut at the waist', () => {
+  it('has light outside its edge and over it, none far from it, none along the cut at the waist, and a glow of its light parts', () => {
     // A square figure in the middle of a picture, cut by its bottom edge.
     const width = 40;
     const height = 40;
-    const alpha = new Uint8Array(width * height);
-    for (let y = 10; y < height; y++) for (let x = 10; x < 30; x++) alpha[y * width + x] = 255;
-    const mask = figureMask(alpha, width, height);
+    // Dark, with a light patch on it high up: the face.
+    const pixels = new Uint8Array(width * height * 4);
+    for (let y = 10; y < height; y++) {
+      for (let x = 10; x < 30; x++) {
+        const at = (y * width + x) * 4;
+        const lit = y >= 12 && y < 20 && x >= 16 && x < 24;
+        pixels.set(lit ? [230, 200, 180, 255] : [20, 20, 24, 255], at);
+      }
+    }
+    const mask = figureMask(pixels, width, height);
     const at = (x: number, y: number, channel: number): number => mask.data[((y + mask.pad) * mask.width + x + mask.pad) * 4 + channel];
     expect(mask.width).toBe(width + mask.pad * 2);
     // The figure itself.
@@ -81,5 +88,9 @@ describe('the figure of the voice', () => {
     // The cut at the waist: the figure goes on below it, so the edge there is not one.
     expect(at(20, height - 1, 2)).toBe(255);
     expect(at(20, height + 1, 0)).toBe(255);
+    // Its picture is kept as it was; its light parts glow, and the dark does not.
+    expect(Array.from(mask.color.slice(((16 + mask.pad) * mask.width + 20 + mask.pad) * 4, ((16 + mask.pad) * mask.width + 20 + mask.pad) * 4 + 4))).toEqual([230, 200, 180, 255]);
+    expect(at(20, 16, 3)).toBeGreaterThan(0);
+    expect(at(20, 35, 3)).toBe(0);
   });
 });

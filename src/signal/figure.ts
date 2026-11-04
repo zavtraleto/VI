@@ -15,29 +15,77 @@ void main() {
 `;
 
 /**
- * The figure as a silhouette: filled with a colour near the dark around it, and lit at its edge,
- * a little over the edge itself and more out past it, as a figure stands against a light behind
- * it. Nothing of what is inside the picture is shown: no face, no detail.
+ * The figure as her picture, graded into the cold of the place (`NOVEL_LOOK.figure.grade`), with
+ * the marks of the signal on her - her light parts glowing, every other line a little darker,
+ * grain, now and then a band of lines slipping sideways - and a light at her edge, a little over
+ * the edge itself and more out past it, as a figure stands against a light behind it. The colours
+ * are worked in the numbers of the picture as it is stored, and given to the layer linear.
  */
 const FRAGMENT = /* glsl */ `
 uniform sampler2D uMask;
-uniform vec3 uFill;
+uniform sampler2D uColor;
+uniform vec3 uShadow;
+uniform vec3 uHigh;
 uniform vec3 uHalo;
+uniform float uSaturation;
+uniform float uContrast;
+uniform float uTone;
+uniform float uWarmth;
+uniform float uBright;
 uniform float uHaloAmount;
 uniform float uRimAmount;
+uniform float uHalation;
+uniform float uScan;
+uniform float uGrain;
+uniform float uFrame;
+uniform vec3 uSlip;
 
 varying vec2 vUv;
 
+float luma(vec3 c) {
+  return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 void main() {
-  vec3 mask = texture2D(uMask, vec2(vUv.x, 1.0 - vUv.y)).rgb;
+  // A band of lines that slips: the further from its middle, the less.
+  float slip = uSlip.z * (1.0 - smoothstep(0.0, uSlip.y, abs(vUv.y - uSlip.x)));
+  vec2 uv = vec2(vUv.x - slip, 1.0 - vUv.y);
+  vec4 mask = texture2D(uMask, uv);
+  vec3 src = texture2D(uColor, uv).rgb;
+
+  // The grade: less colour, a little more contrast, then towards a scale of its own lightness from
+  // the dark of the place to the cold light, less of the way in the middle tones.
+  vec3 c = mix(vec3(luma(src)), src, uSaturation);
+  c = clamp((c - 0.5) * uContrast + 0.5, 0.0, 1.0);
+  float l = luma(c);
+  float middle = 1.0 - abs(l * 2.0 - 1.0);
+  c = mix(c, mix(uShadow, uHigh, l), uTone * (1.0 - uWarmth * middle));
+  c *= uBright;
+
+  // The signal on her.
+  c += uHalo * mask.a * uHalation;
+  c *= 1.0 - uScan * step(0.5, fract(gl_FragCoord.y * 0.5));
+  c += (hash(floor(gl_FragCoord.xy) + uFrame) - 0.5) * uGrain;
+
   float body = mask.r;
   float rim = body * (1.0 - mask.b) * uRimAmount;
   float outside = mask.g * (1.0 - body) * uHaloAmount;
   float alpha = body + outside;
   if (alpha <= 0.002) discard;
-  gl_FragColor = vec4((uFill * (body - rim) + uHalo * (rim + outside)) / alpha, alpha);
+  vec3 color = (c * (body - rim) + uHalo * (rim + outside)) / alpha;
+  gl_FragColor = vec4(pow(clamp(color, 0.0, 1.0), vec3(2.2)), alpha);
 }
 `;
+
+/** A colour as the numbers it is written with, 0..1, not made linear: the grade works in these. */
+function stored(hex: string, into = new THREE.Vector3()): THREE.Vector3 {
+  const value = Number.parseInt(hex.replace('#', ''), 16) || 0;
+  return into.set(((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255);
+}
 
 /** The picture of the voice of the other side, as it is worked out once; null while it has not come, or could not. */
 let loading: Promise<{ mask: FigureMask; sprite: number } | null> | null = null;
@@ -58,10 +106,7 @@ function loadMask(): Promise<{ mask: FigureMask; sprite: number } | null> {
       canvas.height = height;
       const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(image, 0, 0, width, height);
-      const pixels = ctx.getImageData(0, 0, width, height).data;
-      const alpha = new Uint8Array(width * height);
-      for (let i = 0; i < alpha.length; i++) alpha[i] = pixels[i * 4 + 3];
-      return { mask: figureMask(alpha, width, height), sprite };
+      return { mask: figureMask(ctx.getImageData(0, 0, width, height).data, width, height), sprite };
     })
     .catch(() => {
       // Asked for again by the next record.
@@ -71,39 +116,61 @@ function loadMask(): Promise<{ mask: FigureMask; sprite: number } | null> {
   return loading;
 }
 
+function dataTexture(data: Uint8Array, width: number, height: number): THREE.DataTexture {
+  const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 /**
  * The voice of the other side in a record of the link: a figure to the waist in the middle of the
- * frame, drawn over the picture of the place and under the band of the words. Its picture is
- * fetched with the first record, not before. The light at its edge is stronger while the voice
- * speaks than while the operator does, and goes from one to the other slowly.
+ * frame, drawn over the picture of the place and under the band of the words, and going through
+ * the signal of the transmission with it. Its picture is fetched with the first record, not
+ * before. While the operator speaks she is dimmer and her light is less; it goes from one to the
+ * other slowly.
  */
 export class VoiceFigure {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.Camera();
   private readonly material: THREE.ShaderMaterial;
   private readonly box = new THREE.Vector4();
-  /** How much of its light the edge has now, as a share of the strongest; null before the first frame. */
-  private glow: number | null = null;
+  private readonly slip = new THREE.Vector3(0, 0.01, 0);
+  /** How far she is the one who speaks, 0..1, as it is now; null before the first frame. */
+  private speaking: number | null = null;
   private last = 0;
+  /** When the next band of lines slips, and when the last one began. */
+  private nextSlip: number | null = null;
+  private slipFrom = -Infinity;
 
   private constructor(
     private readonly mask: FigureMask,
     /** The picture of the figure, width over height, without the air around it. */
     private readonly sprite: number,
   ) {
-    const texture = new THREE.DataTexture(mask.data, mask.width, mask.height, THREE.RGBAFormat);
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.generateMipmaps = false;
-    texture.needsUpdate = true;
+    const look = NOVEL_LOOK.figure;
     this.material = new THREE.ShaderMaterial({
       uniforms: {
-        uMask: { value: texture },
+        uMask: { value: dataTexture(mask.data, mask.width, mask.height) },
+        uColor: { value: dataTexture(mask.color, mask.width, mask.height) },
         uBox: { value: this.box },
-        uFill: { value: new THREE.Color() },
-        uHalo: { value: new THREE.Color(NOVEL_LOOK.figure.halo) },
+        uShadow: { value: new THREE.Vector3() },
+        uHigh: { value: stored(look.grade.highlight) },
+        uHalo: { value: stored(look.halo) },
+        uSaturation: { value: look.grade.saturation },
+        uContrast: { value: look.grade.contrast },
+        uTone: { value: look.grade.tone },
+        uWarmth: { value: look.grade.warmth },
+        uBright: { value: 1 },
         uHaloAmount: { value: 0 },
         uRimAmount: { value: 0 },
+        uHalation: { value: 0 },
+        uScan: { value: look.scanlines },
+        uGrain: { value: look.grain },
+        uFrame: { value: 0 },
+        uSlip: { value: this.slip },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -126,14 +193,18 @@ export class VoiceFigure {
 
   /**
    * Sets the figure for a frame of this shape (`aspect`, width over height). `speaking`: the voice
-   * is the one who speaks now. `fill` is the colour of its body. With `still` it does not breathe.
+   * is the one who speaks now. `shadow` is the dark of the place her shadows go into. With `still`
+   * she does not breathe, no lines slip, and the grain stands.
    */
-  update(timeMs: number, aspect: number, speaking: boolean, fill: string, still: boolean): void {
+  update(timeMs: number, aspect: number, speaking: boolean, shadow: string, still: boolean): void {
     const look = NOVEL_LOOK.figure;
-    const target = speaking ? look.voice : look.operator;
+    const target = speaking ? 1 : 0;
     const dt = Math.max(0, timeMs - this.last);
     this.last = timeMs;
-    this.glow = this.glow === null ? target : this.glow + (target - this.glow) * (1 - Math.exp(-dt / Math.max(1, look.fadeMs)));
+    this.speaking = this.speaking === null ? target : this.speaking + (target - this.speaking) * (1 - Math.exp(-dt / Math.max(1, look.fadeMs)));
+    const light = look.operator + (look.voice - look.operator) * this.speaking;
+    const bright = look.operatorBright + (1 - look.operatorBright) * this.speaking;
+
     const breath = still ? 0 : look.breath * Math.sin((timeMs / look.breathMs) * Math.PI * 2);
     const at = figureBox(aspect, this.sprite, breath);
     // The picture with the air around it: the light outside the figure is drawn in that air.
@@ -142,14 +213,39 @@ export class VoiceFigure {
     const padX = (mask.pad / inner.width) * at.width;
     const padY = (mask.pad / inner.height) * at.height;
     this.box.set(at.left - padX, at.bottom - padY, at.width + padX * 2, at.height + padY * 2);
+
+    this.slipAt(timeMs, still, inner);
     const uniforms = this.material.uniforms;
-    (uniforms.uFill.value as THREE.Color).set(fill);
-    uniforms.uHaloAmount.value = Math.min(1, look.haloAmount * this.glow);
-    uniforms.uRimAmount.value = Math.min(1, look.rimAmount * this.glow);
+    stored(shadow, uniforms.uShadow.value as THREE.Vector3);
+    uniforms.uBright.value = bright;
+    uniforms.uHaloAmount.value = Math.min(1, look.haloAmount * light);
+    uniforms.uRimAmount.value = Math.min(1, look.rimAmount * light);
+    uniforms.uHalation.value = look.halation * light;
+    // New grain 24 times a second; with motion kept low it stands as it is.
+    uniforms.uFrame.value = still ? 0 : (Math.floor((timeMs * 24) / 1000) % 64) * 7;
   }
 
-  /** A record has closed: the next one starts its light where it is told to, not where this one left it. */
+  /** The band of lines that slips now and then: where it is and how far it has gone, in the shares of the picture's quad. */
+  private slipAt(timeMs: number, still: boolean, inner: { width: number; height: number }): void {
+    const look = NOVEL_LOOK.figure;
+    const { mask, slip } = this;
+    const [from, to] = look.slipEvery;
+    const gap = (): number => from + Math.random() * (to - from);
+    this.nextSlip ??= timeMs + gap();
+    if (!still && timeMs >= this.nextSlip) {
+      this.slipFrom = timeMs;
+      this.nextSlip = timeMs + gap();
+      slip.x = (mask.pad + Math.random() * inner.height) / mask.height;
+      slip.y = Math.max(0.001, ((look.slipBand / 2) * inner.height) / mask.height);
+    }
+    const into = (timeMs - this.slipFrom) / Math.max(1, look.slipMs);
+    // It goes and comes back as a swing does, never by a jump.
+    slip.z = still || into < 0 || into > 1 ? 0 : Math.sin(into * Math.PI) * ((look.slipShift * inner.width) / mask.width);
+  }
+
+  /** A record has closed: the next one starts where it is told to, not where this one left off. */
   reset(): void {
-    this.glow = null;
+    this.speaking = null;
+    this.nextSlip = null;
   }
 }
