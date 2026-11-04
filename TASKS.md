@@ -11,6 +11,7 @@
 | # | Что | Где | Кому | Разм. | Проверка |
 |---|---|---|---|---|---|
 | T0 | Настройка студии: шесть агентов, hooks, раздел «Студия» в CLAUDE.md и README, документы студии в корне | `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`, `CLAUDE.md`, `README.md`, `PROJECT_CONTEXT.md`, `GAME_DESIGN.md`, `TECHNICAL_ARCHITECTURE.md`, `TASKS.md`, `DECISIONS.md`, `CHANGELOG.md` | директор | M | `node scripts/docs-check.mjs`; hooks — JSON в stdin, коды 2 и 0; `npm test`, `npm run typecheck`, `npm run build`. Сделано: в `main` с `feafe0c` |
+| T-novel | Новелла за звёзды, первая простая сборка — под флагом, ждёт слова владельца о включении | `src/app/novel.ts`, `src/ui/novel.ts`, `src/shell/panels.ts`, `src/app/game.ts`; [спека](docs/superpowers/specs/2026-11-04-vi-star-novel-design.md) | game-designer, developer | S–M | `npm test`, `npm run typecheck`, `npm run build`, docs-check; preview 360×640 и 1920×1080 с `?novel` и без |
 
 ## Сделано
 

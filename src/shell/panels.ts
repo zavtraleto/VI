@@ -570,7 +570,7 @@ export function novelPanel(record: NovelPage, line: number, actions: { onLine: (
     home: forward.id,
     back: actions.onClose,
     rows: [
-      { kind: 'say', text: said?.who ?? '', dim: true },
+      { kind: 'say', text: said?.who ?? '', dim: true, large: true },
       { kind: 'say', text: said?.text ?? '', large: true, room: record.lines.map((each) => each.text) },
       { kind: 'gap' },
       { kind: 'commands', stacked: true, commands: [skip, forward] },
