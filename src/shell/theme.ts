@@ -25,6 +25,12 @@ export const GROUP = 16;
 export const BUTTON_H = 24;
 export const BAR_H = 20;
 export const MARK = 4;
+/**
+ * The list of the levels takes the whole screen (the owner, 4 November 2026: «сделать из него
+ * полноэкранный визуально понятный список»): across a wide picture it has as many cells as are
+ * this wide with a gap between them, and never fewer than across a tall one (six).
+ */
+export const LEVEL_CELL_W = 40;
 
 /** Letters of the voice, in CSS pixels: prose is one size wherever it stands - a line of a panel, the README, the note under the list of the levels, the note over the board. */
 export const PANEL_SAY_SIZE = 16;

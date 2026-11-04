@@ -316,6 +316,8 @@ export function levelsPanel(
   };
   return {
     title: PANELS.levels,
+    // On the whole screen (the owner, 4 November 2026: «полноэкранный визуально понятный список»).
+    full: true,
     home: `level-${current}`,
     back: actions.onBack,
     rows: [

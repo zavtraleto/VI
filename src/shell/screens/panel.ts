@@ -4,7 +4,7 @@ import { CELL_H, CELL_W, fingerOf, textWidth, zoneOf, type Box, type Dir4 } from
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { word } from '../../ui/i18n';
 import { paintStar, paintStarGhost, paintStarSmall, type StarColours } from '../star';
-import { BAR_H, BUTTON_H, EDGE, GAP, MARK, PANEL_SAY_SIZE, UNIT } from '../theme';
+import { BAR_H, BUTTON_H, EDGE, GAP, LEVEL_CELL_W, MARK, PANEL_SAY_SIZE, UNIT } from '../theme';
 import { LIVE_WORD, digits, shortScore, type PanelName } from '../text';
 
 /** Something a panel can be told to do: a line that is pressed. */
@@ -94,6 +94,11 @@ export type TableLine = readonly [label: string, value: string, own?: boolean, p
 export interface PanelSpec {
   title: PanelName | (() => PanelName);
   rows: readonly PanelRow[];
+  /**
+   * The panel takes the whole screen: as wide and as tall as the picture less its edges, its last
+   * line at the bottom. A list of the levels in it has its cells as tall as fills what is left.
+   */
+  full?: boolean;
   /** The bar of the name blinks: what the name says has just happened. */
   flash?: () => boolean;
   /** The panel moves by itself: asked every frame, answers true when it has to be drawn again. */
@@ -121,10 +126,8 @@ const WIDTH = 264;
  */
 const SAY_LARGE_TALL = 15;
 const SAY_LARGE_WIDE = 12;
-/** Cells of the levels across a tall picture and across a wide one. */
+/** Cells of the levels across a tall picture; across a wide one, as many as `LEVEL_CELL_W` makes of its width, and no fewer. */
 const LEVELS_TALL = 6;
-// Six on a wide picture too (the owner, 29 October 2026): a cell with room for a large number.
-const LEVELS_WIDE = 6;
 /**
  * Space between two cells of the levels: the gap of the grid, as between the lines of a panel
  * (the owner, 30 October 2026: «отступы между квадратиками побольше»). A cell is as tall as a
@@ -284,6 +287,8 @@ export class PanelScreen implements ShellScreen {
   private typed = 0;
   /** The first row of the cells of the levels in sight, where the list scrolls; null till the panel is laid out. */
   private top: number | null = null;
+  /** Height of a cell of the levels where a panel on the whole screen grows them to fill it; null where they are as tall as a finger. Laid out by `plan`. */
+  private cellTall: number | null = null;
   /** CSS pixels the wheel has turned the list that do not make a row yet, down counted up: the small steps of a touchpad add up. */
   private wheeled = 0;
   /** The list going on by itself after a finger let it go: rows a millisecond, down counted up, and the time it was last moved; 0 and null while it stands. */
@@ -708,9 +713,11 @@ export class PanelScreen implements ShellScreen {
     return { x: box.x + index * (width + GAP), y: box.y, w: index === count - 1 ? box.x + box.w - (box.x + index * (width + GAP)) : width, h: box.h };
   }
 
-  private levelColumns(): number {
+  /** Cells across a list `width` wide: six on a tall picture, on a wide one as many as are `LEVEL_CELL_W` wide. */
+  private levelColumns(width: number): number {
     const picture = this.context.picture();
-    return picture.width > picture.height ? LEVELS_WIDE : LEVELS_TALL;
+    if (picture.width <= picture.height) return LEVELS_TALL;
+    return Math.max(LEVELS_TALL, Math.floor((width + CELL_GAP) / (LEVEL_CELL_W + CELL_GAP)));
   }
 
   /** CSS pixels of the window to a pixel of the picture. */
@@ -729,7 +736,7 @@ export class PanelScreen implements ShellScreen {
 
   /** Height of a cell of the list: what a finger needs, and no lower than its number and its stars take. */
   private cellHeight(): number {
-    return Math.max(CELL_LEAST, fingerOf(this.zoom()));
+    return this.cellTall ?? Math.max(CELL_LEAST, fingerOf(this.zoom()));
   }
 
   /**
@@ -738,16 +745,18 @@ export class PanelScreen implements ShellScreen {
    * end of a row begins the next.
    */
   private levelCells(row: Extract<PanelRow, { kind: 'levels' }>, box: Box): Box[] {
-    const columns = this.levelColumns();
+    const columns = this.levelColumns(box.w);
     const tall = this.cellHeight();
     const wide = Math.floor((box.w - CELL_GAP * (columns - 1)) / columns);
+    // The dots the whole cells leave over are shared to both sides.
+    const left = box.x + Math.floor((box.w - (wide * columns + CELL_GAP * (columns - 1))) / 2);
     const liveSpan = textWidth(LIVE_WORD) + 4 <= wide ? 1 : 2;
     let slot = 0;
     return row.levels.map((level) => {
       const span = level.live ? Math.min(columns, liveSpan) : 1;
       if ((slot % columns) + span > columns) slot += columns - (slot % columns);
       const cell = {
-        x: box.x + (slot % columns) * (wide + CELL_GAP),
+        x: left + (slot % columns) * (wide + CELL_GAP),
         y: box.y + Math.floor(slot / columns) * (tall + CELL_GAP),
         w: wide * span + CELL_GAP * (span - 1),
         h: tall,
@@ -933,7 +942,8 @@ export class PanelScreen implements ShellScreen {
   private widths(): { width: number; inner: number } {
     const picture = this.context.picture();
     const safe = this.context.safe();
-    const width = Math.min(WIDTH, picture.width - safe.left - safe.right - EDGE * 2);
+    const across = picture.width - safe.left - safe.right - EDGE * 2;
+    const width = this.spec.full ? across : Math.min(WIDTH, across);
     return { width, inner: width - EDGE * 2 };
   }
 
@@ -972,6 +982,8 @@ export class PanelScreen implements ShellScreen {
     const zoom = this.zoom();
     const { width, inner } = this.widths();
     const room = picture.height - safe.top - safe.bottom - EDGE * 2;
+    // The cells are as tall as a finger, till a panel on the whole screen grows them below.
+    this.cellTall = null;
 
     // Rows of cells of the levels in sight: all of them, unless the panel would grow past the screen.
     let shown = Infinity;
@@ -1015,6 +1027,12 @@ export class PanelScreen implements ShellScreen {
     if (list?.kind === 'levels') {
       shown = this.levelRows(list, inner);
       while (shown > LEVELS_SHOWN_MIN && total() > room) shown--;
+      // On the whole screen, the rows in sight grow, on the grid, into the room they leave over.
+      if (this.spec.full && shown < this.levelRows(list, inner)) {
+        const base = this.cellHeight();
+        const grown = Math.floor(((shown * (base + CELL_GAP) + room - total()) / shown - CELL_GAP) / UNIT) * UNIT;
+        if (grown > base) this.cellTall = grown;
+      }
       // The first time, the row of the cell of the place stands in sight, about the middle.
       if (this.top === null) {
         const step = this.cellHeight() + CELL_GAP;
@@ -1024,15 +1042,18 @@ export class PanelScreen implements ShellScreen {
     }
 
     const tall = total();
+    // On the whole screen, what is left over stands before the last line, which stands at the bottom.
+    const spare = this.spec.full ? Math.max(0, room - tall) : 0;
     const plate: Box = {
       x: Math.round(safe.left + (picture.width - safe.left - safe.right - width) / 2),
-      y: Math.round(safe.top + EDGE + Math.max(0, (room - tall) / 2)),
+      y: Math.round(safe.top + EDGE + (this.spec.full ? 0 : Math.max(0, (room - tall) / 2))),
       w: width,
-      h: tall,
+      h: tall + spare,
     };
     const placed: Placed[] = [];
     let y = plate.y + 1 + BAR_H + GAP;
-    for (const row of rows) {
+    for (const [i, row] of rows.entries()) {
+      if (i === rows.length - 1) y += spare;
       const h = height(row, lines);
       placed.push({ row, box: { x: plate.x + EDGE, y, w: inner, h }, ...(row.kind === 'levels' ? { shown } : {}) });
       y += h + GAP;

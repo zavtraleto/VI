@@ -224,14 +224,14 @@ describe('the panels on the grid', () => {
     });
   });
 
-  it.each(SCREENS)('lay the cells of the levels on a %s six across, a gap of the grid apart, as tall as a finger', (name, window, ratio) => {
+  it.each(SCREENS)('lay the cells of the levels on a %s across the whole screen, six on a phone and twelve on a desk, a gap of the grid apart, grown on the grid to fill it', (name, window, ratio) => {
     const shown = context(window, ratio);
     const zoom = window.height / shown.picture().height;
     const cells = new PanelScreen(shown, levelsPanel(campaignCells({ passed: {}, stats: {} }), 0, { onPick: nothing, onBack: nothing }), true)
       .items()
       .filter((item) => item.id.startsWith('level-'))
       .map((item) => ({ x: item.rect.x / zoom, y: item.rect.y / zoom, w: item.rect.width / zoom, h: item.rect.height / zoom }));
-    const [w, h, across] = name === 'phone' ? [33, 36, 6] : [34, 36, 6];
+    const [w, h, across] = name === 'phone' ? [33, 40, 6] : [43, 44, 12];
     expect(cells[0].w).toBeCloseTo(w, 6);
     expect(cells[0].h).toBeCloseTo(h, 6);
     expect(cells[1].x - cells[0].x).toBeCloseTo(w + 8, 6);
@@ -451,11 +451,30 @@ describe('the list of the levels on a screen', () => {
     expect(ids()).toEqual(first);
   });
 
-  it('scrolls on a desk too, since the row is a hundred places: four rows of six in sight from the first, the rest a scroll away', () => {
+  it.each(SCREENS)('takes the whole screen of a %s: the plate from edge to edge, the menu at its bottom, the cells across its width', (_name, window, ratio) => {
+    const shown = context(window, ratio);
+    const picture = shown.picture();
+    const zoom = window.height / picture.height;
+    const screen = new PanelScreen(shown, levelsPanel(cells, 0, actions), true);
+    const { plate } = (screen as unknown as { plan(): { plate: { x: number; y: number; w: number; h: number } } }).plan();
+    expect(plate).toEqual({ x: 8, y: 8, w: picture.width - 16, h: picture.height - 16 });
+    const back = screen.items().find((item) => item.id === 'back')!;
+    // The drawn command ends an edge of the grid above the bottom of the plate.
+    const drawnBottom = (back.rect.y + back.rect.height) / zoom;
+    expect(drawnBottom).toBeGreaterThanOrEqual(plate.y + plate.h - 1 - 8 - 6);
+    expect(drawnBottom).toBeLessThanOrEqual(plate.y + plate.h);
+    const level = screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.rect);
+    const left = Math.min(...level.map((rect) => rect.x)) / zoom;
+    const right = Math.max(...level.map((rect) => rect.x + rect.width)) / zoom;
+    expect(left - (plate.x + 8)).toBeLessThanOrEqual(4);
+    expect(plate.x + plate.w - 8 - right).toBeLessThanOrEqual(4);
+  });
+
+  it('scrolls on a desk too, since the row is a hundred places: four rows of twelve in sight from the first, the rest a scroll away', () => {
     const screen = new PanelScreen(context(SCREENS[1][1], SCREENS[1][2]), levelsPanel(cells, 0, actions), true);
     const shown = screen.items().filter((item) => item.id.startsWith('level-')).length;
     expect(shown).toBeLessThan(cells.length);
-    expect(shown).toBe(24);
+    expect(shown).toBe(48);
     screen.scroll('down', 4000, 'level-0');
     expect(screen.items().map((item) => item.id)).toContain(`level-${cells.length - 1}`);
   });
