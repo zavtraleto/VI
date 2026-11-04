@@ -39,3 +39,16 @@
 - Сообщение коммита короткое: заголовок до 70 знаков о том, что изменилось, и не больше пяти строк тела — зачем и что проверено. Рассуждения, слова владельца и история решения живут в документах, не в коммите: `git log` читает каждый агент.
 - Принятую пользователем правку не держать незакоммиченной: спросить «коммит?» сразу. Незакоммиченные файлы — то, из-за чего папку нельзя подтянуть.
 - Если в рабочем дереве всё же лежат чужие незакоммиченные правки — в коммит брать только свои файлы, без `git add -A`.
+
+## Студия
+
+- Координирует чат-директор: не пишет код, разбирает задачу, делегирует агентам из `.claude/agents/`, принимает отчёты и интегрирует.
+- **game-designer** (`opus`) — ряд, доски, обучение, прогрессия, Endless: разбор, мерила, варианты и спеки по словам владельца; код не пишет.
+- **architect** (`opus`) — план с точными путями перед задачей и ревью после; только читает.
+- **developer** (`opus`; на багфикс — `sonnet`) — реализация по плану, тесты, правка страницы-истины.
+- **art-director** (`opus`) — исполняет принесённый владельцем слой вида в `src/render`, `src/display`, `src/signal`.
+- **ui-ux-designer** (`opus`) — экраны, панели, ввод и слова интерфейса в `src/shell` и `src/ui`.
+- **qa-engineer** (`sonnet`) — тесты, типы, сборка, docs-check, путь игрока в preview на 360×640 и 1920×1080, баги.
+- Порядок задачи: разведка → план с точными путями → исполнитель в своём worktree → qa-engineer → публикатор директора после «ок» владельца (fetch, rebase на `origin/main`, проверки, `git push origin HEAD:main`).
+- Документы студии в корне: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) — вход, [TASKS.md](TASKS.md) — доска, [DECISIONS.md](DECISIONS.md) — журнал решений студии, [CHANGELOG.md](CHANGELOG.md) — версии, [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md) — код, [GAME_DESIGN.md](GAME_DESIGN.md) — карта дизайна. Они указывают на страницы `docs/`, а не пересказывают их.
+- Hooks в [.claude/settings.json](.claude/settings.json): `guard-git.mjs` перед Bash и PowerShell отказывает `git reset --hard`, `push --force`, `checkout --`, `restore` без `--staged`, `stash`, `clean -f`, `add -A`/`.`, `branch -D`, `worktree remove --force`; `docs-check.mjs` после правки `docs/*.md`, `README.md` или `CLAUDE.md` запускает `node scripts/docs-check.mjs`.

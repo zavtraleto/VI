@@ -136,3 +136,7 @@ npm run fonts   # пересобрать набор японских знако�
 | `src/ui` | Тексты на языке игрока и инструменты разработки: панель плейтеста, дебаг-панель, счётчик кадров, строки замера (`perf.ts`). Интерфейса игрока здесь больше нет |
 | `src/platform` | Хранилище, настройки и тип платформы: `platform.ts` — `Platform` и `none`; игра читает платформу только из `@platform` |
 | `platforms` | Адаптеры площадок, подставляются при сборке (`VI_PLATFORM`): `none.ts`, `playgama/`, `crazygames/`, реестр плагинов сборки `plugins.ts` |
+
+## Студия
+
+Проект ведёт студия агентов: роли, модели, порядок задачи и hooks — [CLAUDE.md](CLAUDE.md), раздел «Студия». Вход для нового чата — [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md), доска задач — [TASKS.md](TASKS.md), устройство кода — [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md).
