@@ -212,21 +212,19 @@ export const BOARD_GROUPS = {
     cloudGlint: number(1, 0, 1, 0.01),
     /**
      * The murk under the water: dark stuff the deep currents carry and draw out into threads, as
-     * cream in coffee, lying in clouds of its own that gather and part; now and then it comes
-     * together into a face or a blot folded in two, and runs apart («как будто под водой что-то
-     * происходит, но неясно что»; «движение под водой и на глубине»; 29 October: «группы пятен,
-     * переливание и перетекание. немного странное и жуткое», «основной референс по "подводному
-     * движению" это диффузия в кофе, чае и других подобных жидкостях», and of what comes
-     * together, «изредка почти лицо»). It darkens the water and not the sky in it. How dark, 0
-     * for none; how large, in cells; how fast it is carried, in cells a second; how soft its edge
-     * is; about how many seconds from one thing that comes together to the next, 0 for none; how
-     * far the slope of a wave moves it.
+     * cream in coffee, lying in clouds of its own that gather and part («как будто под водой
+     * что-то происходит, но неясно что»; «движение под водой и на глубине»; 29 October: «группы
+     * пятен, переливание и перетекание. немного странное и жуткое», «основной референс по
+     * "подводному движению" это диффузия в кофе, чае и других подобных жидкостях»). It darkens
+     * the water and not the sky in it. How dark, 0 for none; how large, in cells; how fast it is
+     * carried, in cells a second; how soft its edge is; how far the slope of a wave moves it.
+     * What once came together out of it now and then, a face or a blot folded in two, is gone
+     * (4 November 2026: «убрать пятна роршаха»).
      */
     shadeDark: number(0.6, 0, 1, 0.01),
     shadeSize: number(3, 0.3, 10, 0.1),
     shadeSpeed: number(0.08, 0, 0.5, 0.005),
     shadeSoft: number(0.3, 0.02, 1, 0.01),
-    shadeFace: number(80, 0, 400, 5),
     refract: number(1.5, 0, 4, 0.05),
     /**
      * Rings that come from past the frame, from nothing that is seen («игрок делает круги сам, а

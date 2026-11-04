@@ -11,6 +11,8 @@ const MAX_MARKS = 9 * 9;
 /** Most marks that can be going out at once, and how long one takes to. */
 const MAX_FADING = 16;
 const MARK_OUT_MS = 280;
+/** The beat of the light of a chain: its marks, the glass of its dice and its shelves swell and ebb once in this long. */
+export const CHAIN_PULSE_MS = 700;
 
 /** A mark as it lay on the last frame: where, of what value, turned how. */
 interface Lain {
@@ -90,7 +92,7 @@ export class ChainMarks {
   }
 
   sync(state: RunState, timeMs: number, reducedMotion: boolean): void {
-    const opacity = reducedMotion ? 1 : 0.82 + 0.18 * Math.sin((timeMs / 700) * Math.PI * 2);
+    const opacity = reducedMotion ? 1 : 0.82 + 0.18 * Math.sin((timeMs / CHAIN_PULSE_MS) * Math.PI * 2);
     for (const material of this.materials) material.opacity = opacity;
     const dt = this.lastTime === 0 ? 0 : Math.min(100, Math.max(0, timeMs - this.lastTime));
     this.lastTime = timeMs;

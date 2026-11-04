@@ -104,7 +104,6 @@ const LABELS: Record<string, string> = {
   shadeDark: 'под водой: темнота (0 — нет)',
   shadeSize: 'под водой: размер, клеток',
   shadeSpeed: 'под водой: скорость течений',
-  shadeFace: 'под водой: присутствие раз в N с (0 — нет)',
   refract: 'под водой: преломление',
   shadeSoft: 'под водой: размытость краёв',
   outerEvery: 'круги извне: раз в N с (0 — нет)',
@@ -262,9 +261,8 @@ export class BoardPanel {
         folder.add({ back: () => lab.showSample() }, 'back').name('Вернуть образец доски');
       }
       if (group === 'water') {
-        // Only here: what comes now and then, asked for now, to be looked at.
+        // Only here: a ring that comes now and then, asked for now, to be looked at.
         folder.add({ ring: () => lab.water?.outerRing() }, 'ring').name('Круг извне сейчас');
-        folder.add({ come: () => lab.water?.presence() }, 'come').name('Присутствие сейчас');
       }
       for (const [name, spec] of Object.entries(params)) this.control(folder, lab.look.board, name, spec);
       folder.close();

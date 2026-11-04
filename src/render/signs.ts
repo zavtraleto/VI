@@ -3,8 +3,10 @@ import { DELTA, DIRS, cubeAt, inChain, isDock, isStep, type RunState } from '../
 import type { ParamValues } from '../signal/scene';
 import type { Palette } from '../shell/theme';
 import { CUBE_SIZE } from './cubes';
+import { inOutSine } from './ease';
 import type { HeightOf } from './leaving';
 import { LIGHT } from './light';
+import { CHAIN_PULSE_MS } from './marks';
 import { socketTexture } from './textures';
 
 /** Most signs there can be at one height: one on every cell of the largest board. */
@@ -28,9 +30,26 @@ const SHELF_OUT_MS = 420;
 const SHELF_LINE = 0.03;
 const SHELF_FILL = 0.6;
 
+/**
+ * The light of a cell beside more than one chain, at a time: of which of their values it is, the
+ * next one, and how far it has gone over to that one, 0 to 1. The cell is lit by each chain in
+ * turn, on the beat of their light (`CHAIN_PULSE_MS`): one beat it holds one, the next it goes
+ * over to the next, so every chain it is beside is seen on it. All such cells go in step.
+ * `count` is how many chains; with one there is nothing to go over to.
+ */
+export function zoneTurn(count: number, timeMs: number): { from: number; to: number; share: number } {
+  if (count <= 1) return { from: 0, to: 0, share: 0 };
+  const beats = Math.max(0, timeMs) / CHAIN_PULSE_MS;
+  const turn = Math.floor(beats / 2);
+  const from = turn % count;
+  const going = beats / 2 - turn;
+  return { from, to: (from + 1) % count, share: going < 0.5 ? 0 : inOutSine((going - 0.5) * 2) };
+}
+
 /** The sign of a cell beside a chain: what it is, and how much of it is here, 0 to 1. */
 interface Dock {
-  value: number;
+  /** The values of the chains it is beside, the least first. */
+  values: number[];
   /** How high its shelf lies; 0 where it has none. */
   lift: number;
   /** When the cell came into the zone. */
@@ -120,7 +139,8 @@ export class ChainSigns {
   /** How high the top of the chain is beside a cell: the highest of its dice there. */
   private readonly tops = new Map<number, number>();
   private readonly dockColours: THREE.Color[] = [];
-  private readonly cells = new Map<number, number>();
+  /** The values of the chains beside each cell, the least first. */
+  private readonly cells = new Map<number, number[]>();
   /** The signs now on the board, those going out among them, by cell. */
   private readonly held = new Map<number, Dock>();
   private lastTime = 0;
@@ -131,6 +151,8 @@ export class ChainSigns {
   private readonly whole = new THREE.Vector3(1, 1, 1);
   private readonly upright = new THREE.Quaternion();
   private readonly colour = new THREE.Color();
+  /** The light of the cell being laid, before how much of its sign is here. */
+  private readonly tint = new THREE.Color();
 
   constructor(private readonly values: ParamValues) {
     const lying = new THREE.PlaneGeometry(1, 1);
@@ -196,7 +218,7 @@ export class ChainSigns {
         const z = cube.z + DELTA[dir].dz;
         if (x < 0 || z < 0 || x >= size || z >= size) continue;
         const cell = x + z * size;
-        if (!this.cells.has(cell)) this.cells.set(cell, value);
+        this.join(cell, value);
         this.tops.set(cell, Math.max(this.tops.get(cell) ?? 0, face));
       }
     }
@@ -204,23 +226,24 @@ export class ChainSigns {
     for (const cell of [...this.cells.keys()]) if (!isDock(state, cell % size, Math.floor(cell / size))) this.cells.delete(cell);
     // A cell a die of the chain stood on until it was rolled over keeps the sign of the chain: the die is
     // gone at once, and its place in the group is not.
-    for (const ghost of ghosts) this.cells.set(ghost.x + ghost.z * size, ghost.value);
+    for (const ghost of ghosts) this.join(ghost.x + ghost.z * size, ghost.value);
 
     // With the steps of the docks a free cell beside a chain is walked on from the top of its
     // dice as well as from the floor: it has a shelf up there, which comes down with them.
     const upper = state.config.experiments.dockSteps ? n('dockTop') : 0;
     const { player } = state;
     for (const dock of this.held.values()) dock.wanted = false;
-    for (const [cell, value] of this.cells) {
+    for (const [cell, values] of this.cells) {
       const x = cell % size;
       const z = Math.floor(cell / size);
       let dock = this.held.get(cell);
       if (!dock) {
-        dock = { value, lift: 0, born: timeMs, here: 0, shelf: 0, wanted: true, shelved: false };
+        dock = { values: [...values], lift: 0, born: timeMs, here: 0, shelf: 0, wanted: true, shelved: false };
         this.held.set(cell, dock);
       }
       const free = isDock(state, x, z);
-      dock.value = value;
+      dock.values.length = 0;
+      dock.values.push(...values);
       dock.wanted = true;
       dock.lift = upper > 0 && free ? (this.tops.get(cell) ?? 0) : 0;
       // The zone has just come to the cell; or the player's next step can use it; or they stand on it.
@@ -244,15 +267,18 @@ export class ChainSigns {
     this.docks.material.opacity = n('dockBright');
     this.shelf.uDot.value = Math.max(1, dot);
     this.shelf.uCover.value = n('shelfDots');
-    this.shelf.uStrength.value = upper * (reducedMotion ? 1 : 0.8 + 0.2 * Math.sin((timeMs / 700) * Math.PI * 2));
+    this.shelf.uStrength.value = upper * (reducedMotion ? 1 : 0.8 + 0.2 * Math.sin((timeMs / CHAIN_PULSE_MS) * Math.PI * 2));
     let docks = 0;
     let raised = 0;
     for (const [cell, dock] of this.held) {
       const x = cell % size;
       const z = Math.floor(cell / size);
-      docks = this.lay(this.docks, docks, x, 0.012, z, dock.value, dock.here);
+      // A cell beside two chains or more is lit by each in turn: none of them hides another there.
+      const { from, to, share } = zoneTurn(dock.values.length, timeMs);
+      this.tint.copy(this.dockColours[dock.values[from] - 1]).lerp(this.dockColours[dock.values[to] - 1], share);
+      docks = this.lay(this.docks, docks, x, 0.012, z, dock.here);
       const shelf = dock.here * dock.shelf * Math.min(1, dock.lift / RAISED_FADE);
-      if (dock.lift > 0 && shelf > 0) raised = this.lay(this.raised, raised, x, dock.lift, z, dock.value, shelf);
+      if (dock.lift > 0 && shelf > 0) raised = this.lay(this.raised, raised, x, dock.lift, z, shelf);
     }
     this.show(this.docks, n('dockBright') > 0 ? docks : 0);
     this.show(this.raised, upper > 0 ? raised : 0);
@@ -275,12 +301,24 @@ export class ChainSigns {
     return lift;
   }
 
-  /** Lays the sign of a cell at a height, as much of it as is here. Returns how many signs the mesh holds after that. */
-  private lay(mesh: THREE.InstancedMesh, count: number, x: number, y: number, z: number, value: number, strength: number): number {
+  /** A cell is beside a chain of this value: it is one of the chains the cell's light is of. */
+  private join(cell: number, value: number): void {
+    const values = this.cells.get(cell);
+    if (!values) {
+      this.cells.set(cell, [value]);
+      return;
+    }
+    if (values.includes(value)) return;
+    values.push(value);
+    values.sort((a, b) => a - b);
+  }
+
+  /** Lays the sign of a cell at a height in the light of `tint`, as much of it as is here. Returns how many signs the mesh holds after that. */
+  private lay(mesh: THREE.InstancedMesh, count: number, x: number, y: number, z: number, strength: number): number {
     if (count >= MAX_DOCKS) return count;
     this.at.set(x, y, z);
     mesh.setMatrixAt(count, this.matrix.compose(this.at, this.upright, this.whole));
-    mesh.setColorAt(count, this.colour.copy(this.dockColours[value - 1]).multiplyScalar(strength));
+    mesh.setColorAt(count, this.colour.copy(this.tint).multiplyScalar(strength));
     return count + 1;
   }
 

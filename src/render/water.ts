@@ -158,12 +158,6 @@ uniform float uSkyFlow;
 uniform vec4 uCloud;
 /** What lies dark under the water: how dark, how large in cells, how fast it is carried in cells a second, how soft its edge is. */
 uniform vec4 uShade;
-/** Something that comes up out of the murk now and then: where, how large in cells, how far it has come, 0 to 1 (0: nothing). */
-uniform vec4 uFace;
-/** Right along the screen on the water, and up the screen, shortened as the water is seen: a cell up the screen is this much of a cell across it. */
-uniform vec4 uFaceAxes;
-/** What it is: below a half a face, above a blot folded in two; and a seed. */
-uniform vec2 uFaceKind;
 /** Rings that come from past the frame: where each started in the world, how far it has run, and how high it is now. */
 uniform vec4 uOuter[${OUTER}];
 /** How wide the crest of such a ring is, in cells. */
@@ -256,39 +250,6 @@ float murk(vec2 at) {
   return smoothstep(0.52 - uShade.w * 0.5, 0.52 + uShade.w, d) * where;
 }
 
-/**
- * Now and then the murk comes together into something, holds a few seconds and runs apart: two
- * dark places side by side over a third, which the eye takes for a face (the eyes and the mouth
- * are what a face is found by: Omer et al., "What is a face? Critical features for face
- * detection", 2019), or a blot that is the same on its left and its right, as a Rorschach blot
- * is. Both stand upright on the screen: what is the same to the left and the right is seen as a
- * thing far more often. Its outline is the murk's own, so it never quite is anything.
- */
-float presence(vec2 at) {
-  if (uFace.w <= 0.0) return 0.0;
-  vec2 d = at - uFace.xy;
-  vec2 q = vec2(dot(d, uFaceAxes.xy), dot(d, uFaceAxes.zw)) / uFace.z;
-  if (dot(q, q) > 4.0) return 0.0;
-  float u = uFace.w;
-  float shown = smoothstep(0.0, 0.4, u) * (1.0 - smoothstep(0.6, 1.0, u));
-  // It comes out of the murk and goes back into it: smeared before and after.
-  float smear = 0.15 + 0.6 * (1.0 - shown);
-  vec2 s = vec2(abs(q.x), q.y);
-  vec2 wob = vec2(ink(s * 0.9 + uFaceKind.y), ink(s * 0.9 + uFaceKind.y + 0.5)) - 0.5;
-  vec2 w = s + wob * smear;
-  vec2 h = w / vec2(0.85, 1.05);
-  float hull = exp(-dot(h, h) * 1.6);
-  float f;
-  if (uFaceKind.x < 0.5) {
-    vec2 e = (w - vec2(0.32, 0.2)) / vec2(0.15, 0.12);
-    vec2 m = (w - vec2(0.0, -0.34)) / vec2(0.26, 0.08);
-    f = max(exp(-dot(e, e)), 0.8 * exp(-dot(m, m))) + 0.25 * hull;
-  } else {
-    f = smoothstep(0.45, 0.7, ink(w * 0.8 + uFaceKind.y) * (0.4 + 0.9 * hull));
-  }
-  return clamp(f, 0.0, 1.0) * shown;
-}
-
 /** The clouds over the water at a place of the sky the water gives back, 0 to 1: large and soft, the wind takes them over. */
 float clouds(vec2 sky) {
   float turn = 0.58 + 0.3 * sin(uTime * 0.01);
@@ -362,7 +323,7 @@ void main() {
   // Something dark moves deep under the water. It darkens the water itself, not what the water
   // gives back: the sky lies over it. Deep, so it is soft, and the swell rocks it far.
   vec2 deep = at + normal.xz * uLook.y;
-  float shade = 1.0 - (1.0 - murk(deep)) * (1.0 - presence(deep));
+  float shade = murk(deep);
   vec3 colour = uDark * (1.0 - uShade.x * shade * (1.0 - 0.5 * uCalm.y * sheet));
 
   // The sky is far off, so what of it is seen goes with the frame; a slope moves it, so it rocks
@@ -543,9 +504,6 @@ export class Water {
   private readonly outer: { x: number; z: number; at: number; height: number }[] = [];
   private readonly outerRings: THREE.Vector4[] = Array.from({ length: OUTER }, () => new THREE.Vector4());
   private nextOuter = -1;
-  /** What comes up out of the murk: where, when by the clock of the water, what it is; when the next one comes. */
-  private face: { x: number; z: number; at: number; kind: number; seed: number; size: number } | null = null;
-  private nextFace = -1;
   /** How far past the frame they start, in cells. */
   private far = 0;
   private readonly seen = { x: 0, z: 0, reach: 1 };
@@ -622,9 +580,6 @@ export class Water {
           uSkyFlow: { value: 0 },
           uCloud: { value: new THREE.Vector4() },
           uShade: { value: new THREE.Vector4() },
-          uFace: { value: new THREE.Vector4() },
-          uFaceAxes: { value: new THREE.Vector4(1, 0, 0, 1) },
-          uFaceKind: { value: new THREE.Vector2() },
           uOuter: { value: this.outerRings },
           uOuterWidth: { value: 1 },
           uLampAt: { value: new THREE.Vector3() },
@@ -761,7 +716,6 @@ export class Water {
     this.seen.z = look.z + forward.z * sunk;
     this.seen.reach = Math.hypot(across, depth);
     this.outerFrame(n, from.still ? 0 : quiet);
-    this.faceFrame(n, across, depth);
     uniforms.uOuterWidth.value = Math.max(0.1, n('outerWidth'));
     // The middle of the frame of the board on the floor: the lamp and the eye stand by it.
     look.set((camera.left + camera.right) / 2, (camera.top + camera.bottom) / 2, 0).applyMatrix4(camera.matrixWorld);
@@ -786,71 +740,6 @@ export class Water {
     this.plane.scale.set(reach, reach, 1);
     layer.render(this.scene, this.camera);
     void timeMs;
-  }
-
-  /**
-   * Something comes up out of the murk now and then, on a time of its own and never on a beat,
-   * somewhere in the frame and never under the board: a face, or a blot. It stands upright on
-   * the screen, as the eye finds such things.
-   */
-  private faceFrame(n: (name: string) => number, across: number, depth: number): void {
-    const { uniforms } = this.plane.material;
-    const every = n('shadeFace');
-    const life = 12;
-    const face = uniforms.uFace.value as THREE.Vector4;
-    if (every <= 0) {
-      this.face = null;
-      this.nextFace = -1;
-      face.set(0, 0, 1, 0);
-      return;
-    }
-    if (this.nextFace < 0 || this.nextFace > this.clock + every * 1.5) this.nextFace = this.clock + every * (0.3 + this.random());
-    if (!this.face && this.clock >= this.nextFace) this.startFace(across, depth);
-    const one = this.face;
-    if (!one || this.clock - one.at >= life) {
-      if (one) {
-        this.face = null;
-        this.nextFace = this.clock + every * (0.5 + this.random());
-      }
-      face.set(0, 0, 1, 0);
-      return;
-    }
-    face.set(one.x, one.z, Math.max(0.5, n('shadeSize')) * one.size, Math.max(0.001, (this.clock - one.at) / life));
-    (uniforms.uFaceKind.value as THREE.Vector2).set(one.kind, one.seed);
-    const { forward } = this;
-    const flat = Math.hypot(forward.x, forward.z) || 1;
-    const awayX = forward.x / flat;
-    const awayZ = forward.z / flat;
-    const short = Math.max(0.3, Math.abs(forward.y));
-    (uniforms.uFaceAxes.value as THREE.Vector4).set(-awayZ, awayX, awayX * short, awayZ * short);
-  }
-
-  /** Something comes up now, out of turn: the lab asks for one to look at. */
-  presence(): void {
-    const { uFrame } = this.plane.material.uniforms;
-    const frame = uFrame.value as THREE.Vector4;
-    this.face = null;
-    this.startFace(frame.z, frame.w);
-  }
-
-  private startFace(across: number, depth: number): void {
-    const { forward } = this;
-    const flat = Math.hypot(forward.x, forward.z) || 1;
-    const awayX = forward.x / flat;
-    const awayZ = forward.z / flat;
-    // Somewhere in the frame, off the board: under its cells the water is still and dim. Where
-    // the board leaves no room, nothing comes this time.
-    const low = { x: this.origin.x - 1.5, z: this.origin.z - 1.5 };
-    const high = { x: this.origin.x + this.size + 0.5, z: this.origin.z + this.size + 0.5 };
-    for (let i = 0; i < 20; i++) {
-      const a = (this.random() * 2 - 1) * across * 0.75;
-      const b = (this.random() * 2 - 1) * depth * 0.65;
-      const x = this.seen.x - awayZ * a + awayX * b;
-      const z = this.seen.z + awayX * a + awayZ * b;
-      if (x >= low.x && x <= high.x && z >= low.z && z <= high.z) continue;
-      this.face = { x, z, at: this.clock, kind: this.random() < 0.55 ? 0 : 1, seed: this.random() * 10, size: 0.8 + 0.5 * this.random() };
-      return;
-    }
   }
 
   /** A ring comes from past the frame now, out of turn: the lab asks for one to look at. */
