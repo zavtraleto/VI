@@ -1,0 +1,48 @@
+/**
+ * The records of the link, a first plain build under `?novel`
+ * (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md): the stars of the row add up, and on
+ * a sum a record opens, a short scene of two voices. Which ones there are, on what sums, and which
+ * one is due. What a record says is in `src/ui/novel.ts`.
+ */
+
+/** A record of the link: its code, and the sum of the stars it opens on. */
+export interface NovelEntry {
+  code: string;
+  stars: number;
+}
+
+/** The records, by the sum they open on, the lowest first. */
+export const NOVEL: readonly NovelEntry[] = [
+  { code: 'n01', stars: 1 },
+  { code: 'n02', stars: 20 },
+  { code: 'n03', stars: 45 },
+];
+
+/**
+ * The records are there only where the address asks for them, `?novel`: a player without it sees
+ * nothing of them. False where there is no page to ask, as in a test.
+ */
+export const NOVEL_FLAG: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('novel');
+
+/** How a record is kept among the windows a player has been shown (`LevelProgress.told`): once there, its window does not come again. */
+export function novelKey(code: string): string {
+  return `novel:${code}`;
+}
+
+/**
+ * The record whose window comes after a passage: the lowest the sum has come to whose window has
+ * not been shown, played or put off. One a passage: where the sum has come to two, the other
+ * comes on the next. Undefined where none is due.
+ */
+export function novelDue(sum: number, told: readonly string[], novel: readonly NovelEntry[] = NOVEL): NovelEntry | undefined {
+  return novel.find((entry) => sum >= entry.stars && !told.includes(novelKey(entry.code)));
+}
+
+/**
+ * The record the sum has not come to yet, the lowest of them: it, its number counted from one, and
+ * the stars still wanting. Undefined once the sum has come to the last.
+ */
+export function novelNext(sum: number, novel: readonly NovelEntry[] = NOVEL): { entry: NovelEntry; number: number; left: number } | undefined {
+  const index = novel.findIndex((entry) => sum < entry.stars);
+  return index < 0 ? undefined : { entry: novel[index], number: index + 1, left: novel[index].stars - sum };
+}

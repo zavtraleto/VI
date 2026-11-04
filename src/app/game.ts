@@ -23,7 +23,7 @@ import { finaleMs, type LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
 import { CAMPAIGN, LIVES, campaignDone, campaignFocus, campaignList, plaquesOf } from '../levels/campaign';
 import type { Live } from '../levels/row';
-import { levelStars } from '../levels/progress';
+import { levelStars, starsSum } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
 import { messagesOf } from '../levels/voices';
 import {
@@ -57,15 +57,16 @@ import {
 import { pointCursor } from '../shell/cursor';
 import { GameHud, type HudCounter, type HudLabel, type HudLock, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, systemPanel, type LevelsEntry, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, novelPanel, pausePanel, readmePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type LevelsEntry, type StoryEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, type PanelName } from '../shell/text';
+import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { boardShapes, boxCorners, pickCell, type CellShape } from './tapPick';
 import { makesGroup, planTap, stepHolds } from './tapWay';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
+import { novelEpisode } from '../ui/novel';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive, liveArchive } from './archive';
 import { clockGone, clockLeft, secondsLeft } from './clock';
@@ -74,6 +75,7 @@ import { shortOf } from './levelStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
 import { CONTACT_STEPS, Ritual, nextThreshold } from './ritual';
 import { Later } from './later';
+import { NOVEL, NOVEL_FLAG, novelDue, novelKey, novelNext } from './novel';
 import { Runner, frameBound } from './runner';
 import { mark, span } from './spans';
 import { standings, type PlayerLine, type Standing } from './standings';
@@ -374,6 +376,8 @@ export class Game {
     endAsked: boolean;
     /** Whether a live session after the board has been looked for: once, before the end of the row. */
     liveAsked: boolean;
+    /** Whether a record of the link has been looked for, under `?novel`: once, after the live session and before the end of the row. */
+    novelAsked: boolean;
     /** The clock of the passage has been set to the frame the dice were seen under. */
     aligned: boolean;
     beaten: boolean;
@@ -1143,6 +1147,64 @@ export class Game {
     return this.signal.busy;
   }
 
+  /**
+   * Under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md): the window before a
+   * record of the link the sum of the stars has come to, once for a record. A tap after its words
+   * opens the record, and the passage waits under it; its link puts the record off to `STORY` and
+   * the passage goes on. Either way the window does not come again. True when the window is up.
+   */
+  private offerNovel(passage: NonNullable<Game['passage']>): boolean {
+    if (!NOVEL_FLAG || this.labSpec !== null || this.place === null) return false;
+    const { levels } = this.settings;
+    const entry = novelDue(this.starTotal(), levels.told);
+    if (!entry) return false;
+    const mark = (): void => {
+      levels.told.push(novelKey(entry.code));
+      this.later.after(() => saveSettings(this.settings), 'settings');
+    };
+    this.signal.tell({
+      text: t('novelIntro'),
+      wordMs: Number(this.look.board.hintWordMs),
+      reduced: prefersReducedMotion(this.settings),
+      // The link puts the record off: a key that closes the window opens it, and Enter is no way to put it off.
+      linkByKey: false,
+      onDone: () => {
+        mark();
+        if (this.passage !== passage) return;
+        passage.held = true;
+        this.showNovel(entry.code, 0, () => {
+          this.shell.hide();
+          if (this.passage === passage) passage.held = false;
+        });
+      },
+      onLink: mark,
+    });
+    return this.signal.busy;
+  }
+
+  /** The stars held on every board of the row, by the fewest moves each was passed in. */
+  private starTotal(): number {
+    const { stats } = this.settings.levels;
+    return starsSum(CAMPAIGN.map(({ spec }) => spec), (id) => stats[id]?.bestMoves);
+  }
+
+  /** Under `?novel`, the line of the window between two boards: the sum of the stars, and how far the next record is; the sum alone after the last. */
+  private starLine(): string {
+    const sum = this.starTotal();
+    const next = novelNext(sum);
+    return next ? `${digits(sum, 3)} · ${t('novelRecord')} ${digits(next.number, 2)} — ${next.left}` : digits(sum, 3);
+  }
+
+  /** A record of the link, at a line of it: `onClose` is what comes after `EXIT`, `SKIP` and Esc. */
+  private showNovel(code: string, line: number, onClose: () => void): void {
+    const index = NOVEL.findIndex((entry) => entry.code === code);
+    const episode = novelEpisode(code, language());
+    if (index < 0 || !episode) return onClose();
+    const names = { operator: t('novelOperator'), voice: t('novelVoice') };
+    const page = { number: index + 1, title: episode.title, lines: episode.lines.map(({ who, text }) => ({ who: names[who], text })) };
+    this.shell.showPanel(novelPanel(page, line, { onLine: (next) => this.showNovel(code, next, onClose), onClose }), true);
+  }
+
   /** The result of a live session: what it came to is kept and told, and the panel says it. After it the platform may show its advertisement, as after a session of Endless. */
   private showLiveResult(): void {
     const { state } = this;
@@ -1599,6 +1661,7 @@ export class Game {
       struck: false,
       endAsked: false,
       liveAsked: false,
+      novelAsked: false,
       aligned: false,
       beaten: true,
       cleared: false,
@@ -1672,6 +1735,11 @@ export class Game {
       if (!passage.liveAsked) {
         passage.liveAsked = true;
         if (this.offerLive() || this.passage !== passage) return;
+      }
+      // Under `?novel`, a record of the link the sum of the stars has come to: after the live session, before the end of the row.
+      if (!passage.novelAsked) {
+        passage.novelAsked = true;
+        if (this.offerNovel(passage) || passage.held || this.passage !== passage) return;
       }
       // The last board of the row that was left is passed: the end of the row is said before what comes after it.
       if (!passage.endAsked) {
@@ -1769,7 +1837,7 @@ export class Game {
     this.frames.flush(this.lastFrame);
     this.shell.showPanel(
       clearedPanel(
-        { moves: run.moves, par, stars: par === null ? null : levelStars(run.moves, par), still: prefersReducedMotion(this.settings) },
+        { moves: run.moves, par, stars: par === null ? null : levelStars(run.moves, par), still: prefersReducedMotion(this.settings), starLine: NOVEL_FLAG ? this.starLine() : undefined },
         {
           onNext: () => {
             this.shell.hide();
@@ -2144,7 +2212,7 @@ export class Game {
       case 'rules':
         return this.showHowTo();
       case 'readme':
-        return this.showReadme();
+        return NOVEL_FLAG ? this.showStory() : this.showReadme();
       case 'records':
         return this.showRecords(() => this.showMenu());
       case 'system':
@@ -2161,18 +2229,55 @@ export class Game {
     );
   }
 
-  /** The note that came with the program, from the menu: a page to a window. Back leads to the menu. */
-  private showReadme(page = 0): void {
+  /** The note that came with the program, from the menu: a page to a window. Back leads to the menu, or to `back` where it is given. */
+  private showReadme(page = 0, back?: () => void): void {
     if (!this.readme) {
-      // Behind the first picture it has almost always come. If not, it opens when it comes, unless the player has gone on from the menu by then.
+      // Behind the first picture it has almost always come. If not, it opens when it comes, unless the player has gone on by then:
+      // from the menu, while the menu is up; from the list of `STORY`, while a panel is up and it is not the menu.
       void this.loadReadme().then((module) => {
-        if (module && this.shell.inMenu) this.showReadme(page);
+        if (module && (back ? this.shell.visible && !this.shell.inMenu : this.shell.inMenu)) this.showReadme(page, back);
       });
       return;
     }
     // A screen that lies on its side and is low holds a paragraph or two, not a page.
     const low = this.display.width > this.display.height && this.display.height < README_LOW;
-    this.shell.showPanel(readmePanel(this.readme.readmePages(language(), low ? README_SIGNS : undefined), page, { onPage: (next) => this.showReadme(next), onBack: () => this.showMenu('readme') }), true);
+    this.shell.showPanel(readmePanel(this.readme.readmePages(language(), low ? README_SIGNS : undefined), page, { onPage: (next) => this.showReadme(next, back), onBack: back ?? (() => this.showMenu('readme')) }), true);
+  }
+
+  /**
+   * Under `?novel`, what the file `STORY` of the menu opens: the note, then the records of the link,
+   * the ones the sum of the stars has come to by their titles and the others by the sum they open on.
+   * A record read from here is seen: its window does not come after a passage. Back leads to the menu.
+   */
+  private showStory(home?: string): void {
+    // The note is a chunk of its own: asked for now, it is there by the time its line is pressed.
+    void this.loadReadme();
+    const sum = this.starTotal();
+    const entries: StoryEntry[] = [
+      { kind: 'readme' },
+      ...NOVEL.map((entry, index): StoryEntry => ({ kind: 'record', number: index + 1, title: sum >= entry.stars ? (novelEpisode(entry.code, language())?.title ?? null) : null, stars: entry.stars })),
+    ];
+    const { levels } = this.settings;
+    this.shell.showPanel(
+      storyPanel(
+        entries,
+        {
+          onReadme: () => this.showReadme(0, () => this.showStory('readme')),
+          onRecord: (number) => {
+            const entry = NOVEL[number - 1];
+            if (!entry) return;
+            if (!levels.told.includes(novelKey(entry.code))) {
+              levels.told.push(novelKey(entry.code));
+              this.later.after(() => saveSettings(this.settings), 'settings');
+            }
+            this.showNovel(entry.code, 0, () => this.showStory(`record-${number}`));
+          },
+          onBack: () => this.showMenu('readme'),
+        },
+        home,
+      ),
+      true,
+    );
   }
 
   /** The main menu. `home` is the file of it the player has come back from: the figure waits there. */

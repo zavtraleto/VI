@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Climb } from './climb';
-import { textWidth } from './layout';
-import { LANGUAGES, setLanguage } from '../ui/i18n';
-import { clearedPanel, languagePanel, liveResultPanel, pausePanel, recordsPanel, resultPanel, systemPanel, type RecordsTable } from './panels';
+import { CELL_W, textWidth } from './layout';
+import { LANGUAGES, setLanguage, t, word } from '../ui/i18n';
+import { clearedPanel, languagePanel, liveResultPanel, novelPanel, pausePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type RecordsTable } from './panels';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
 import type { ShellContext } from './screen';
 
@@ -331,5 +331,72 @@ describe('the window between two boards', () => {
   it('with motion kept low has the chord at once, after the one star that is heard', () => {
     expect(heard(3, true).map((one) => one.what)).toEqual(['star 2', 'all']);
     expect(heard(2, true).map((one) => one.what)).toEqual(['star 1']);
+  });
+});
+
+describe('the records of the link, under ?novel', () => {
+  const RECORD = { number: 2, title: 'Reply', lines: [{ who: 'OPERATOR', text: 'One.' }, { who: 'VOICE', text: 'two, longer.' }] };
+
+  it('put the sum of the stars on a line under the stars of the window between two boards, and nothing without it', () => {
+    const spec = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: '017 · RECORD 02 — 3' }, { onNext: nothing, onAgain: nothing });
+    expect(spec.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'field', 'gap', 'command', 'command']);
+    expect(row(spec, 'field', 0).label).toEqual({ native: 'ほし', name: '' });
+    expect(row(spec, 'field', 0).value).toBe('017 · RECORD 02 — 3');
+    const plain = clearedPanel({ moves: 5, par: 3, stars: 2, still: false }, { onNext: nothing, onAgain: nothing });
+    expect(plain.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'gap', 'command', 'command']);
+  });
+
+  it('say a line at a time, the name of who says it dim over it, NEXT to the next and EXIT on the last; SKIP closes at once', () => {
+    const lines: number[] = [];
+    let closed = 0;
+    const actions = { onLine: (line: number) => lines.push(line), onClose: () => closed++ };
+    const first = novelPanel(RECORD, 0, actions);
+    const title = first.title as { native: string; name: string };
+    expect(title).toEqual({ native: 'きろく', name: 'RECORD 02 · REPLY' });
+    expect(row(first, 'say', 0)).toMatchObject({ text: 'OPERATOR', dim: true });
+    expect(row(first, 'say', 1)).toMatchObject({ text: 'One.', large: true, room: ['One.', 'two, longer.'] });
+    expect(pressed(first)).toEqual(['skip', 'next']);
+    expect(first.home).toBe('next');
+    row(first, 'commands').commands[1].action();
+    expect(lines).toEqual([1]);
+    row(first, 'commands').commands[0].action();
+    expect(closed).toBe(1);
+    const last = novelPanel(RECORD, 1, actions);
+    expect(row(last, 'say', 0).text).toBe('VOICE');
+    expect(pressed(last)).toEqual(['skip', 'exit']);
+    row(last, 'commands').commands[1].action();
+    last.back?.();
+    expect(closed).toBe(3);
+  });
+
+  it('list the note first in STORY, an open record by its title and a closed one by the sum it opens on, which is not pressed', () => {
+    const picked: string[] = [];
+    const spec = storyPanel(
+      [{ kind: 'readme' }, { kind: 'record', number: 1, title: 'Reception', stars: 1 }, { kind: 'record', number: 3, title: null, stars: 45 }],
+      { onReadme: () => picked.push('readme'), onRecord: (number) => picked.push(`record ${number}`), onBack: () => picked.push('back') },
+    );
+    expect(spec.rows.map((one) => one.kind)).toEqual(['command', 'command', 'field', 'gap', 'command']);
+    expect(pressed(spec)).toEqual(['readme', 'record-1', 'back']);
+    expect(row(spec, 'command', 0).label.name).toBe('README');
+    expect(row(spec, 'command', 1).label.name).toBe('01 · RECEPTION');
+    expect(row(spec, 'field', 0)).toMatchObject({ label: { name: '03' }, value: 'STARS 045' });
+    expect(spec.home).toBe('readme');
+    row(spec, 'command', 0).action();
+    row(spec, 'command', 1).action();
+    spec.back?.();
+    expect(picked).toEqual(['readme', 'record 1', 'back']);
+  });
+
+  it('have their words fit a panel of a phone in every language', () => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      const cleared = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: `017 · ${t('novelRecord')} 02 — 19` }, { onNext: nothing, onAgain: nothing });
+      const line = row(cleared, 'field', 0);
+      expect(textWidth(`${line.label.native} ${word(line.label.name)}`) + 2 * CELL_W + textWidth(String(line.value)), code).toBeLessThanOrEqual(248);
+      const title = novelPanel({ ...RECORD, title: 'Reception' }, 0, { onLine: nothing, onClose: nothing }).title as { native: string; name: string };
+      expect(textWidth(`${title.native}  ${word(title.name)}`), code).toBeLessThanOrEqual(252);
+      for (const name of [t('novelOperator'), t('novelVoice')]) expect(name, code).toBe(name.toLocaleUpperCase(code));
+    }
+    setLanguage('en');
   });
 });

@@ -195,6 +195,10 @@ export const PANELS = {
   failed: { native: 'しっぱい', name: 'FAILED' },
   /** "New record": what a result is named once the session has taken its place above the best there was. */
   record: { native: 'しんきろく', name: 'NEW RECORD' },
+  /** "Record": a record of the link, under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md). */
+  novel: { native: 'きろく', name: 'RECORD' },
+  /** "Story": the list the file of the menu opens under `?novel`, the note first and the records after it. */
+  story: { native: 'ものがたり', name: 'STORY' },
 } as const satisfies Record<string, PanelName>;
 
 /** What a panel can be told to do. */
@@ -217,6 +221,8 @@ export const COMMANDS = {
   exit: { native: 'おわる', name: 'EXIT' },
   /** "Start". */
   start: { native: 'はじめる', name: 'START' },
+  /** "Skip": a record of the link under `?novel`, closed before its last line. */
+  skip: { native: 'スキップ', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
   undo: { native: 'とりけし', name: 'UNDO' },
   /** The move taken back that brings an advertisement of the platform after it says so. */
@@ -252,6 +258,8 @@ export const RESULT = {
   left: { native: 'あと', name: 'MOVES LEFT' },
   /** "Rank": the place the session took in the log. */
   rank: { native: 'ランク', name: 'RANK' },
+  /** "Stars": the sum of the stars of the row, under `?novel`. */
+  stars: { native: 'ほし', name: 'STARS' },
 } as const satisfies Record<string, PanelName>;
 
 /** The log of sessions: its name and the heads of its columns. */

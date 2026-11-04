@@ -518,6 +518,8 @@ export interface ClearedData {
   stars: number | null;
   /** Motion kept low: the stars stand at once. */
   still: boolean;
+  /** Under `?novel`: the sum of the stars of the row and how far the next record of the link is, a line under the stars. */
+  starLine?: string;
 }
 
 /**
@@ -529,6 +531,8 @@ export interface ClearedData {
 export function clearedPanel(data: ClearedData, actions: { onNext: () => void; onAgain: () => void; onStar?: (index: number) => void; onAllStars?: () => void }): PanelSpec {
   const rows: PanelRow[] = [];
   if (data.stars !== null) rows.push({ kind: 'stars', count: data.stars, shine: { still: data.still, onLit: actions.onStar, onAll: actions.onAllStars } });
+  // The kana of the stars alone: the line has no room for the word of a language too (ESTRELLAS · REGISTRO).
+  if (data.starLine !== undefined) rows.push({ kind: 'field', label: { native: RESULT.stars.native, name: '' }, value: data.starLine });
   rows.push(
     { kind: 'field', label: RESULT.moves, value: digits(data.moves, 3) },
     { kind: 'field', label: RESULT.par, value: data.par === null ? '---' : digits(data.par, 3) },
@@ -538,4 +542,61 @@ export function clearedPanel(data: ClearedData, actions: { onNext: () => void; o
     { kind: 'command', id: 'again', label: COMMANDS.again, action: actions.onAgain },
   );
   return { title: PANELS.cleared, home: 'next', back: actions.onNext, rows };
+}
+
+/** A record of the link as its panel shows it: its number, its title, and its lines with the name of whoever says each. */
+export interface NovelPage {
+  number: number;
+  title: string;
+  lines: readonly { who: string; text: string }[];
+}
+
+/**
+ * A record of the link, under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md):
+ * its number and title in the bar, under it the name of the one who speaks, dim, and the line they
+ * say, whole, in the voice. `NEXT` goes to the next line, and on the last `EXIT` closes the record;
+ * `SKIP` closes it at once. The line keeps the room of the longest of the record.
+ */
+export function novelPanel(record: NovelPage, line: number, actions: { onLine: (line: number) => void; onClose: () => void }): PanelSpec {
+  const last = Math.max(0, record.lines.length - 1);
+  const at = Math.min(Math.max(0, line), last);
+  const said = record.lines[at];
+  const skip: PanelCommand = { id: 'skip', label: COMMANDS.skip, action: actions.onClose };
+  const forward: PanelCommand = at < last
+    ? { id: 'next', label: COMMANDS.next, action: () => actions.onLine(at + 1) }
+    : { id: 'exit', label: COMMANDS.exit, action: actions.onClose };
+  return {
+    title: { native: PANELS.novel.native, name: `${word(PANELS.novel.name)} ${digits(record.number, 2)} · ${record.title.toUpperCase()}` },
+    home: forward.id,
+    back: actions.onClose,
+    rows: [
+      { kind: 'say', text: said?.who ?? '', dim: true },
+      { kind: 'say', text: said?.text ?? '', large: true, room: record.lines.map((each) => each.text) },
+      { kind: 'gap' },
+      { kind: 'commands', stacked: true, commands: [skip, forward] },
+    ],
+  };
+}
+
+/** A line of the list `STORY`: the note, or a record of the link, open with its title or closed with the sum it opens on. */
+export type StoryEntry = { kind: 'readme' } | { kind: 'record'; number: number; title: string | null; stars: number };
+
+/**
+ * What the file `STORY` of the menu opens under `?novel`: the note first, then the records of the
+ * link. An open record is named by its title and opens; a closed one says the sum of the stars it
+ * opens on, and is not pressed. `home` is the line the list opens on.
+ */
+export function storyPanel(
+  entries: readonly StoryEntry[],
+  actions: { onReadme: () => void; onRecord: (number: number) => void; onBack: () => void },
+  home = 'readme',
+): PanelSpec {
+  const rows: PanelRow[] = entries.map((entry): PanelRow => {
+    if (entry.kind === 'readme') return { kind: 'command', id: 'readme', label: { native: PANELS.story.native, name: 'README' }, action: actions.onReadme };
+    const number = digits(entry.number, 2);
+    if (entry.title === null) return { kind: 'field', label: { native: PANELS.novel.native, name: number }, value: `${word(RESULT.stars.name)} ${digits(entry.stars, 3)}` };
+    return { kind: 'command', id: `record-${entry.number}`, label: { native: PANELS.novel.native, name: `${number} · ${entry.title.toUpperCase()}` }, action: () => actions.onRecord(entry.number) };
+  });
+  rows.push({ kind: 'gap' }, { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
+  return { title: PANELS.story, home, back: actions.onBack, rows };
 }

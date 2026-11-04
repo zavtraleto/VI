@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest';
+import { LANGUAGES } from '../ui/i18n';
+import { novelEpisode } from '../ui/novel';
+import { NOVEL, NOVEL_FLAG, novelDue, novelKey, novelNext } from './novel';
+
+describe('the records of the link', () => {
+  it('are three, on 1, 20 and 45 stars, in order', () => {
+    expect(NOVEL.map((entry) => entry.code)).toEqual(['n01', 'n02', 'n03']);
+    expect(NOVEL.map((entry) => entry.stars)).toEqual([1, 20, 45]);
+  });
+
+  it('are kept among the windows told as novel:<code>', () => {
+    expect(novelKey('n02')).toBe('novel:n02');
+  });
+
+  it('are behind the address ?novel: a page without it, or a test, has none', () => {
+    expect(NOVEL_FLAG).toBe(false);
+  });
+});
+
+describe('the record due', () => {
+  it('is none before the first star', () => {
+    expect(novelDue(0, [])).toBeUndefined();
+  });
+
+  it('is the one the sum has come to, and none once its window was shown, skipped or seen', () => {
+    expect(novelDue(1, [])?.code).toBe('n01');
+    expect(novelDue(19, [novelKey('n01')])).toBeUndefined();
+    expect(novelDue(20, [novelKey('n01')])?.code).toBe('n02');
+  });
+
+  it('is the lower first where the sum has passed two at once; the other comes on the next passage', () => {
+    expect(novelDue(30, [])?.code).toBe('n01');
+    expect(novelDue(30, [novelKey('n01')])?.code).toBe('n02');
+    expect(novelDue(300, [novelKey('n01'), novelKey('n02')])?.code).toBe('n03');
+    expect(novelDue(300, NOVEL.map((entry) => novelKey(entry.code)))).toBeUndefined();
+  });
+
+  it('pays no heed to other windows told', () => {
+    expect(novelDue(1, ['live:L1', 'end:100'])?.code).toBe('n01');
+  });
+});
+
+describe('the record next', () => {
+  it('is the first the sum has not come to, with the stars still wanting', () => {
+    expect(novelNext(0)).toEqual({ entry: NOVEL[0], number: 1, left: 1 });
+    expect(novelNext(1)).toEqual({ entry: NOVEL[1], number: 2, left: 19 });
+    expect(novelNext(17)).toEqual({ entry: NOVEL[1], number: 2, left: 3 });
+    expect(novelNext(44)).toEqual({ entry: NOVEL[2], number: 3, left: 1 });
+  });
+
+  it('is none once the sum has come to the last', () => {
+    expect(novelNext(45)).toBeUndefined();
+    expect(novelNext(300)).toBeUndefined();
+  });
+});
+
+describe('what a record says', () => {
+  it('is there for every record in every language, a title and lines, the same voices in Russian and English', () => {
+    for (const { code } of NOVEL) {
+      for (const language of LANGUAGES) {
+        const episode = novelEpisode(code, language);
+        expect(episode?.title, `${code} ${language}`).toBeTruthy();
+        expect(episode?.lines.length, `${code} ${language}`).toBeGreaterThan(0);
+      }
+      expect(novelEpisode(code, 'ru')?.lines.map((line) => line.who)).toEqual(novelEpisode(code, 'en')?.lines.map((line) => line.who));
+    }
+    expect(novelEpisode('n01', 'de')).toEqual(novelEpisode('n01', 'en'));
+    expect(novelEpisode('n99', 'en')).toBeUndefined();
+  });
+
+  it('has the other side speak in small letters', () => {
+    for (const { code } of NOVEL) for (const line of novelEpisode(code, 'ru')!.lines) if (line.who === 'voice') expect(line.text).toBe(line.text.toLowerCase());
+  });
+});

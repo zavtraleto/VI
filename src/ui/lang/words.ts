@@ -36,7 +36,10 @@ export const WORDS = {
   LANGUAGE: { ru: 'ЯЗЫК', es: 'IDIOMA', pt: 'IDIOMA', tr: 'DİL', de: 'SPRACHE', fr: 'LANGUE' },
   FAILED: { ru: 'НЕУДАЧА', es: 'FALLIDO', pt: 'FALHOU', tr: 'BAŞARISIZ', de: 'GESCHEITERT', fr: 'ÉCHEC' },
   'NEW RECORD': { ru: 'НОВЫЙ РЕКОРД', es: 'NUEVO RÉCORD', pt: 'NOVO RECORDE', tr: 'YENİ REKOR', de: 'NEUER REKORD', fr: 'NOUVEAU RECORD' },
+  // A record of the link, under `?novel`: the word of `novelRecord` in `src/ui/i18n.ts`.
+  RECORD: { ru: 'ЗАПИСЬ', es: 'REGISTRO', pt: 'REGISTRO', tr: 'KAYIT', de: 'AUFNAHME', fr: 'BANDE' },
   // The commands.
+  SKIP: { ru: 'ПРОПУСТИТЬ', es: 'SALTAR', pt: 'PULAR', tr: 'ATLA', de: 'ÜBERSPRINGEN', fr: 'PASSER' },
   RESUME: { ru: 'ПРОДОЛЖИТЬ', es: 'CONTINUAR', pt: 'CONTINUAR', tr: 'DEVAM ET', de: 'FORTSETZEN', fr: 'REPRENDRE' },
   RESTART: { ru: 'ЗАНОВО', es: 'REINICIAR', pt: 'REINICIAR', tr: 'YENİDEN BAŞLAT', de: 'NEUSTART', fr: 'RECOMMENCER' },
   AGAIN: { ru: 'ЕЩЁ РАЗ', es: 'OTRA VEZ', pt: 'DE NOVO', tr: 'TEKRAR', de: 'NOCHMAL', fr: 'ENCORE' },
@@ -65,6 +68,7 @@ export const WORDS = {
   FEWEST: { ru: 'МИНИМУМ', es: 'MÍNIMO', pt: 'MÍNIMO', tr: 'EN AZ', de: 'MINIMUM', fr: 'MINIMUM' },
   'MOVES LEFT': { ru: 'ОСТАЛОСЬ ХОДОВ', es: 'RESTANTES', pt: 'RESTANTES', tr: 'KALAN HAMLE', de: 'ZÜGE ÜBRIG', fr: 'COUPS RESTANTS' },
   RANK: { ru: 'МЕСТО', es: 'PUESTO', pt: 'POSIÇÃO', tr: 'SIRA', de: 'RANG', fr: 'RANG' },
+  STARS: { ru: 'ЗВЁЗДЫ', es: 'ESTRELLAS', pt: 'ESTRELAS', tr: 'YILDIZ', de: 'STERNE', fr: 'ÉTOILES' },
   'NO ENTRY': { ru: 'НЕТ ЗАПИСЕЙ', es: 'SIN REGISTROS', pt: 'SEM REGISTROS', tr: 'KAYIT YOK', de: 'KEINE EINTRÄGE', fr: 'AUCUNE ENTRÉE' },
   'NO NAME': { ru: 'БЕЗ ИМЕНИ', es: 'SIN NOMBRE', pt: 'SEM NOME', tr: 'İSİMSİZ', de: 'OHNE NAMEN', fr: 'SANS NOM' },
   YOU: { ru: 'ТЫ', es: 'TÚ', pt: 'VOCÊ', tr: 'SEN', de: 'DU', fr: 'TOI' },

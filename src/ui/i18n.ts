@@ -128,6 +128,13 @@ const RU = {
   signalTitle: 'ПЕРЕДАЧА',
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
   liveIntro: 'Это не уровень: [прямой сеанс]. Кости приходят сами. [Три минуты], счёт отдельный. {Пропустить}',
+  // The records of the link, under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md): the window
+  // before a record, whose link puts it off; who speaks in it, our side and the other; the word of a record in the
+  // line of the sum of the stars. What a record says is in `novel.ts`.
+  novelIntro: 'Новая запись связи. {Позже}',
+  novelOperator: 'ОПЕРАТОР',
+  novelVoice: 'ГОЛОС',
+  novelRecord: 'ЗАПИСЬ',
   shellProtocol: 'КОСТИ ИДУТ БЕЗ КОНЦА',
   shellLevels: 'УБЕРИ С ПОЛЯ ВСЕ КОСТИ',
   shellRecords: 'ЛУЧШИЕ ИГРОКИ',
@@ -235,6 +242,10 @@ const EN: typeof RU = {
   signalTitle: 'TRANSMISSION',
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
   liveIntro: 'Not a level: a [live session]. The dice come by themselves. [Three minutes], scored on its own. {Skip}',
+  novelIntro: 'A new record of the link. {Later}',
+  novelOperator: 'OPERATOR',
+  novelVoice: 'VOICE',
+  novelRecord: 'RECORD',
   shellProtocol: 'THE DICE KEEP COMING',
   shellLevels: 'CLEAR THE BOARD',
   shellRecords: 'THE BEST PLAYERS',
