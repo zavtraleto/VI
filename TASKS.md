@@ -20,8 +20,9 @@
 | 2 | R2: проверка формы сохранения по полям с откатом на значения по умолчанию; битое сохранение не роняет запуск и не затирается без копии | `src/platform/settings.ts:128-144`, `src/platform/storage.ts:63-71`, `src/main.ts:21` | architect → developer | M | тесты `src/platform/settings.test.ts` на `null` в `levels.passed/told/lives` |
 | 3 | Тесты путей сбоя хранилища: `reject`, битый JSON, `save_failed`, откат на браузер | `src/platform/storage.test.ts` | qa-engineer | S | `npm test` |
 | 4 | R3: правило «меняется форма `RunState`/`RunConfig` — меняется `KeptRun.version` или `RULES_VERSION`» и тест-сторож на ключи состояния | `src/app/savedRun.ts`, `src/rules/config.ts:10`, `src/rules/types.ts` | architect → developer | S | новый тест в `src/app/savedRun.test.ts`; строка в [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md), раздел 7 |
+| 12 | Открытие без boot сразу на `START`, мгновенный `START`, тихий щелчок включения, `STORY` отдельным чанком; замер до/после, разбор остальных чанков | `src/app/game.ts`, `src/shell/`, `src/audio/score.ts`, `src/ui/readme.ts`, [README.md](README.md) «Продакшн-сборка» | developer | M | `npm test`, typecheck, build, docs-check, путь в `vi-dev`, замер по CDP |
 
-Задачи 1–4 вышли в `main` коммитом `8906af0`, версия 0.2.94 (2026-11-04): `npm test` 2472, `npm run typecheck`, `npm run build`, `node scripts/docs-check.mjs`, QA в preview. Копия битого сохранения не сделана — вопрос `W11`.
+Задача 12 вышла в 0.2.95 (2026-11-04). Задачи 1–4 вышли в `main` коммитом `8906af0`, версия 0.2.94 (2026-11-04): `npm test` 2472, `npm run typecheck`, `npm run build`, `node scripts/docs-check.mjs`, QA в preview. Копия битого сохранения не сделана — вопрос `W11`.
 
 ## Следующие
 
@@ -35,7 +36,7 @@
 | 8 | Разбор воронки по местам из телеметрии Playgama: `progression_failed` по `step_index`, `page_hidden`, уход на загрузке | кабинет Playgama, [docs/VI_Analytics.md](docs/VI_Analytics.md), «Где смотреть» | game-designer | S | отчёт с числами и их объёмом; выводы только при достаточном трафике |
 | 9 | `docs-check` в CI перед сборкой | `.github/workflows/deploy.yml` | developer | S | прогон workflow на ветке; «ок» владельца — это меняет выкладку |
 | 10 | Хрупкие тесты: время на стене и закреплённые числа ряда | `src/app/signWay.test.ts:177-180`, `src/levels/depth.test.ts:55-59`, `src/levels/row.test.ts:129-134` | qa-engineer | S | `npm test` трижды подряд под нагрузкой |
-| 11 | Слепые места аналитики: уход во время boot не виден (`noteHidden` молчит, пока `booted` false), `page_hidden` теряется в пачке Bridge при закрытии вкладки, в `ad_requested` нет места и времени визита | `src/app/game.ts`, `platforms/playgama/adapter.ts`, [docs/VI_Analytics.md](docs/VI_Analytics.md) | developer | S | тест на `noteHidden` до boot; qa — закрытие вкладки на загрузке и в уровне |
+| 11 | Слепые места аналитики: уход во время boot не виден (`noteHidden` молчит, пока `booted` false; снято в 0.2.95 — boot убран, игра «открыта» с конструктора), `page_hidden` теряется в пачке Bridge при закрытии вкладки, в `ad_requested` нет места и времени визита | `src/app/game.ts`, `platforms/playgama/adapter.ts`, [docs/VI_Analytics.md](docs/VI_Analytics.md) | developer | S | тест на `noteHidden` до boot; qa — закрытие вкладки на загрузке и в уровне |
 
 ### Список для задачи 5
 
@@ -85,4 +86,4 @@
 | Тесты вида: `display`, `render/view.ts`, `shell/hud.ts`, `audio/engine.ts`, `signal/player.ts` | см. [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md), раздел 8 | L, по ходу задач в этих файлах |
 | P3: ключ HUD из `JSON.stringify` (`src/shell/hud.ts:559`), два зонда `safe-area`, `'#ffffff'` мимо темы, печать под флагом (`src/app/game.ts:207`), сторож импорта `boardFiles.ts`, `@fontsource/forum` в `package.json`, `ctx.resume()` без catch (`src/audio/engine.ts:333`) | по путям | мелочь; брать попутно, своим набором файлов |
 | План загрузки, задачи 1 и 7–9: замер, preload шрифта, README и передачи отдельными чанками | [план](docs/superpowers/plans/2026-10-15-vi-dead-code-and-loading.md) | слово владельца 15 октября: «загрузка пока не проблема»; задача 9 устарела |
-| Бандл растёт вместе с рядом (`row.gen.ts` в главном чанке) | `src/levels/row.gen.ts`, `vite.config.ts` | P3, пока терпимо |
+| Бандл растёт вместе с рядом (`row.gen.ts` в главном чанке) | `src/levels/row.gen.ts`, `vite.config.ts` | P3: замер 4 ноября — 176 КБ исходника, но 10 КБ gzip; делить незачем |
