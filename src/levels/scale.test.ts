@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BANDS, RANK_BASE, bandOf, difficulty } from './scale';
+import { BANDS, RANK_BASE, SEARCH_WEIGHTS, bandOf, difficulty, riskOf, searchOf } from './scale';
 
 /**
  * The scale of difficulty and the bands of the decades (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md,
@@ -89,5 +89,32 @@ describe('the bands of the decades', () => {
     expect(bandOf(31)?.from).toBe(31);
     expect(bandOf(100)?.from).toBe(91);
     expect(bandOf(101)).toBeNull();
+  });
+});
+
+describe('the risk and the search of a board (spec of 4 November 2026, section 4)', () => {
+  it('reads the risk off how soon the board is lost and how many dice stand on it', () => {
+    expect(riskOf({ lossAt: null, dice: 2 })).toBe(1);
+    expect(riskOf({ lossAt: 1, dice: 8 })).toBe(10);
+    expect(riskOf({ lossAt: 1, dice: 20 })).toBe(10);
+    // 1 + 4.5 * (1/2 + 3/6) = 5.5; a board that cannot be lost, of the same dice: 1 + 4.5 * 0.5 = 3.25, to a half 3.5.
+    expect(riskOf({ lossAt: 2, dice: 5 })).toBe(5.5);
+    expect(riskOf({ lossAt: null, dice: 5 })).toBe(3.5);
+    expect(riskOf({ lossAt: 0, dice: 2 })).toBe(5.5);
+  });
+
+  it('grows as the board is lost sooner, and with more dice', () => {
+    expect(riskOf({ lossAt: 1, dice: 4 })).toBeGreaterThan(riskOf({ lossAt: 3, dice: 4 }));
+    expect(riskOf({ lossAt: 3, dice: 7 })).toBeGreaterThan(riskOf({ lossAt: 3, dice: 4 }));
+  });
+
+  it('reads the search off the players who do not clear the board, the casual one above all', () => {
+    expect(SEARCH_WEIGHTS).toEqual({ casual: 3, careful: 1, planner: 1 });
+    expect(searchOf({ casual: 1, careful: 1, planner: 1 })).toBe(1);
+    expect(searchOf({ casual: 0, careful: 0, planner: 0 })).toBe(10);
+    expect(searchOf({})).toBe(1);
+    // Fails 3 * 0.5 + 0.2 + 0 = 1.7 of 5: 1 + 9 * 0.34 = 4.06, to a half 4.
+    expect(searchOf({ casual: 0.5, careful: 0.8, planner: 1 })).toBe(4);
+    expect(searchOf({ casual: 0.2, careful: 1, planner: 1 })).toBeGreaterThan(searchOf({ casual: 1, careful: 0.2, planner: 1 }));
   });
 });

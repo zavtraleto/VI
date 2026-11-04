@@ -5,7 +5,8 @@
 // at once; then each measure is set against each signal of the people by Spearman's rank correlation.
 //
 //   node scripts/calibrate.mjs              both sets, the table of correlations and the boards
-//   node scripts/calibrate.mjs set=crowd    the players of the platform only (set=owner: the owner only)
+//   node scripts/calibrate.mjs set=crowd    the players of the platform only (set=owner: the owner's moves on 31-60;
+//                                           set=words: his words of 28 October that placed boards of the row, D_ROWS)
 //   workers=6 json
 import { spawn } from 'node:child_process';
 import { availableParallelism } from 'node:os';
@@ -27,6 +28,9 @@ function refuse(what) {
 }
 
 const { CROWD, OWNER_PLAYS, spearman } = await load('/src/levels/players.ts');
+const { D_ROWS } = await load('/src/levels/calibration.ts');
+/** The owner's words of 28 October placing boards of the row (`D_ROWS`, the scale D was tuned on), the first thirty left out: the middle of each band. */
+const WORDS = D_ROWS.filter((row) => row.words !== 'первые тридцать').flatMap((row) => row.codes.map((code) => ({ code, band: (row.lo + row.hi) / 2 })));
 
 /** The passport of one board, from the generator's command. */
 function passport(code) {
@@ -66,6 +70,8 @@ const MEASURES = {
   par: (p) => p.par,
   dice: (p) => p.dice,
   D: (p) => p.d,
+  risk: (p) => p.risk,
+  search: (p) => p.search,
   rank: (p) => p.rank,
   forks: (p) => p.depth?.forks,
   ways: (p) => p.depth?.ways,
@@ -93,6 +99,11 @@ const SIGNALS = {
     },
     rows: CROWD,
   },
+  words: {
+    boards: WORDS.map((w) => w.code),
+    of: { 'his place in words (28 Oct)': (w) => w.band },
+    rows: WORDS,
+  },
   owner: {
     boards: OWNER_PLAYS.map((p) => p.code),
     of: { 'his moves / par': (p) => p.moves / p.par },
@@ -100,8 +111,8 @@ const SIGNALS = {
   },
 };
 
-const sets = named.set ? [named.set] : ['crowd', 'owner'];
-for (const set of sets) if (!SIGNALS[set]) refuse(`no set ${set}: crowd or owner`);
+const sets = named.set ? [named.set] : ['crowd', 'owner', 'words'];
+for (const set of sets) if (!SIGNALS[set]) refuse(`no set ${set}: crowd, owner or words`);
 const measured = await passports([...new Set(sets.flatMap((set) => SIGNALS[set].boards))]);
 
 const report = {};

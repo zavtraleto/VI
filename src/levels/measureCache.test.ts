@@ -60,6 +60,12 @@ describe('the row of the table of the campaign', () => {
     expect(['n', 'board', 'firsts', 'worst', 'lost', 'boards', 'hasty', 'casual'].map((column) => cellOf(row, column))).toEqual(['3', 'R03', '1', '4+', '0+', '12+', '100%', '100%']);
   });
 
+  it('says the risk and the search beside D: R03 has two dice and cannot be lost; every player clears it', () => {
+    expect([cellOf(campaignRow(3, spec, '0:free', MADE), 'risk'), cellOf(campaignRow(3, spec, '0:free', MADE), 'search')]).toEqual(['1', '1']);
+    const hard: SlowMeasures = { ...MADE, shares: { hasty: 0, casual: 0, careful: 0, planner: 0 }, depth: { ...MADE.depth, lossAt: 1 } };
+    expect([cellOf(campaignRow(3, spec, '0:free', hard), 'risk'), cellOf(campaignRow(3, spec, '0:free', hard), 'search')]).toEqual(['5.5', '10']);
+  });
+
   it('says the rank as a number, and past the deep persona as >8', () => {
     expect(cellOf(campaignRow(3, spec, '0:free', MADE), 'rank')).toBe('1');
     const none: SlowMeasures = { ...MADE, shares: { hasty: 0, casual: 0, careful: 0, planner: 0, deep: 0 } };

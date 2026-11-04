@@ -7,7 +7,7 @@ import { normalSpec } from './boardFile';
 import { depthOf, type Depth } from './depth';
 import { firstsOf, hiddenOf, rankOf, rankShares, shareOf, type Shares } from './measures';
 import type { Plot, Want } from './plot';
-import { difficulty } from './scale';
+import { difficulty, riskOf, searchOf } from './scale';
 import { coreKey, coreOf, layoutSim, SAME_LAYOUT, SIMILAR_ROW, similarityOf, type Core } from './signature';
 
 /**
@@ -44,6 +44,9 @@ export interface Passport {
   depth: Depth;
   hidden: number;
   d: number;
+  /** The risk for a new player and the search for a strong one (`riskOf`, `searchOf`): the two scales set against people. */
+  risk: number;
+  search: number;
   firsts: number;
   sig: string;
   /** The board of the row most like this one, and how like; and the place whose core it repeats (rule 16), if one does. */
@@ -153,6 +156,8 @@ export function passportOf(plot: Plot | null, spec: LevelSpec, opts: FinalOption
     depth,
     hidden,
     d,
+    risk: riskOf({ lossAt: depth.lossAt, dice: spec.layout?.dice.length ?? 0 }),
+    search: searchOf(shares),
     firsts: firstsOf(measured, par),
     sig: key,
     nearest,
@@ -291,6 +296,8 @@ export function passportLine(name: string, p: Passport): string {
   return [
     name,
     `D ${p.d}`,
+    `risk ${p.risk}`,
+    `search ${p.search}`,
     `rank ${p.rank ?? '>8'}`,
     `par ${p.par}`,
     `dice ${p.dice}`,

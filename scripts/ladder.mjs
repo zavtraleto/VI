@@ -20,7 +20,7 @@
 //                                            moves that keep it in hand, the walk over the boards a player can come to (walk=300 boards unless said;
 //                                            a `+` where it was cut) and the shares of the hasty and the casual persona
 //   node scripts/ladder.mjs campaign         the table for the whole row of the campaign (src/levels/campaign.ts), each board with its number in the row
-//                                            and its chapter and role (`1:meet`): the columns of the road, and D, rank, forks, loss, hid, ways,
+//                                            and its chapter and role (`1:meet`): the columns of the road, and D, risk, search, rank, forks, loss, hid, ways,
 //                                            reader and sig (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md, section 8); under it
 //                                            the boards of one road, the calibration of the scale and of the likeness, the places out of their
 //                                            band, and the rules of the grammar the row breaks. The slow measures of a board are kept in
