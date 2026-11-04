@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fileBoard } from './boardFiles';
-import { checkPlot, plotLength, plotOfBoard, plotWord, varyPlot, type Plot } from './plot';
+import { PLOT_KINDS, checkPlot, framedPlot, plotLength, plotOfBoard, plotWord, thoughtLine, varyPlot, type Plot } from './plot';
 import { PLOTS } from './plots';
 
 const BOARDS = ['act-k23', 'act-k25', 'hidden-face-1'];
@@ -101,5 +101,36 @@ describe('varyPlot', () => {
     expect(grown.events.map((event) => event.kind)).toEqual(['combo', 'link', 'link', 'link']);
     expect(grown.dice.length).toBe(plot.dice.length + 1);
     expect(plotLength(grown)).toEqual([5, 6]);
+  });
+});
+
+describe('the thought of a place (docs/superpowers/specs/2026-11-04-vi-level-craft-design.md, section 5)', () => {
+  const base = PLOTS['act-k23'];
+
+  it('makes a frame a square with the cells past it cut', () => {
+    const framed = framedPlot({ ...base, holes: undefined, frame: { w: 4, h: 2 } });
+    expect(framed.size).toBe(4);
+    expect(framed.holes).toHaveLength(8);
+    expect(framed.holes!.every(({ z }) => z >= 2)).toBe(true);
+    expect(framedPlot(base)).toBe(base);
+  });
+
+  it('keeps holes of its own beside those of the frame', () => {
+    const framed = framedPlot({ ...base, holes: [{ x: 0, z: 0 }], frame: { w: 3, h: 3 } });
+    expect(framed.holes).toContainEqual({ x: 0, z: 0 });
+  });
+
+  it('says its kind, idea, lemma, means and frame in the line of the note', () => {
+    expect(thoughtLine({ ...base, kind: 'insight', idea: 'толкнуть единицу', lemma: 'ones-stay', tools: ['узкое место'], frame: { w: 5, h: 3 } })).toBe(
+      'вид: озарение; мысль: толкнуть единицу; лемма: ones-stay; средства: узкое место; поле 5×3',
+    );
+    expect(thoughtLine(base)).toBe('');
+  });
+
+  it('refuses a kind it does not know, too many means, and a frame too small', () => {
+    expect(checkPlot({ ...base, kind: 'bravery' as never }).some((one) => one.startsWith('kind'))).toBe(true);
+    expect(checkPlot({ ...base, tools: ['a', 'b', 'c', 'd'] }).some((one) => one.startsWith('tools'))).toBe(true);
+    expect(checkPlot({ ...base, frame: { w: 2, h: 2 } }).some((one) => one.startsWith('frame'))).toBe(true);
+    expect(Object.keys(PLOT_KINDS)).toHaveLength(9);
   });
 });

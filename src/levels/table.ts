@@ -13,6 +13,7 @@ import { BARRED, held, knownRepeat, markOf, type Barred, type SlowFacts, type Vi
 import type { SlowMeasures } from './measureCache';
 import { explorerFacts, firstsOf, hiddenOf, lostOf, nearOf, rankOf, rankShares, shareOf, tailOf, trapOf, turnsOf, type Shares } from './measures';
 import { BANDS, difficulty, riskOf, searchOf } from './scale';
+import { troublesOf, type CraftMeasures } from './craft';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { SIMILAR_NEAR, SIMILAR_ROW, coreKey, coreOf, similarity } from './signature';
 import { walkBoards, type Walk } from './walk';
@@ -111,7 +112,7 @@ export function roadTable(rows: readonly string[][]): string {
  * the depth a player has to think, the forks, the loss, the hidden dice, the ways, the share of the player who reads only
  * what a person sees, and the short key of its thought.
  */
-export const CAMPAIGN_HEAD: readonly string[] = [...ROAD_HEAD, 'D', 'risk', 'search', 'rank', 'forks', 'loss', 'hid', 'ways', 'reader', 'sig'];
+export const CAMPAIGN_HEAD: readonly string[] = [...ROAD_HEAD, 'D', 'risk', 'search', 'rank', 'forks', 'loss', 'hid', 'ways', 'reader', 'sig', 'narrow', 'беды'];
 
 /**
  * Every slow measure of a board, once: what the table of the campaign, the passport of a place and the slow rules
@@ -143,9 +144,11 @@ export function dOf(spec: LevelSpec, m: SlowMeasures): number {
  * `search`, the two scales set against people (`riskOf`, `searchOf` in `src/levels/scale.ts`); `rank`, or
  * `>8` where even the deep player does not clear it; `forks`; `loss`, the fewest moves it can be lost after (`-` where it
  * cannot) and the share of the boards up to par that are lost (`~` where it is of a sample); `hid`; `ways`, the shortest
- * and the long ways (`+` where the graph or the ways were not counted whole); `reader`; and `sig`, the key of its core.
+ * and the long ways (`+` where the graph or the ways were not counted whole); `reader`; `sig`, the key of its core; and of
+ * the craft measures (`src/levels/craft.ts`), `narrow`, the narrow steps of the way, and `беды`, its troubles in the
+ * owner's words (`?` where the craft measures were not given).
  */
-export function campaignRow(number: number, spec: LevelSpec, role: string, m: SlowMeasures): string[] {
+export function campaignRow(number: number, spec: LevelSpec, role: string, m: SlowMeasures, c?: CraftMeasures): string[] {
   const { depth } = m;
   const rank = rankOf(m.shares);
   const cut = !depth.complete || depth.waysCapped || depth.longCapped ? '+' : '';
@@ -161,6 +164,8 @@ export function campaignRow(number: number, spec: LevelSpec, role: string, m: Sl
     `${depth.ways}/${depth.waysLong}${cut}`,
     percent(m.reader),
     coreKey(coreOf(spec)),
+    c ? String(c.craft.narrow) : '?',
+    c ? troublesOf(c).join(', ') || '-' : '?',
   ];
 }
 

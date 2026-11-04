@@ -10,9 +10,11 @@
 //   node scripts/lay.mjs lay from=act-k21 vary=rolls1   lay the plot read off a board (its way), varied: the same thought,
 //                                                       other layouts; vary= rolls1 (a move more), link (one die more),
 //                                                       face2-3 (2s become 3s), joined by commas
-//     workers=6 limit=200000 seed=1 states=20000 upto=laid|path|lesson|final final=40 keep=10 dry loose json
-//     (limit: layouts up to which every one is laid, more are sampled; final: boards measured in full;
-//      keep: boards written; dry: only the size of the space; loose: write the best boards even where they miss a gate)
+//     workers=6 limit=200000 seed=1 states=20000 upto=laid|path|lesson|final final=12 keep=5 dry loose json
+//     (limit: layouts up to which every one is laid, more are sampled; final: boards measured in full, a dozen; keep: boards
+//      written, five, of other shapes first; dry: only the size of the space; loose: write the best boards even where they miss a gate)
+//     kind=insight idea="…" lemma="…" frame=5x3   the thought of the place over the plot's own (src/levels/plot.ts, PLOT_KINDS):
+//      the kind orders the finalists after the gates and the troubles, the frame makes the field a rectangle, all go into the note
 //   node scripts/lay.mjs passport file=<board>          the passport of any board: the measures of the scale and how like
 //                                                       the row it is
 //
@@ -31,7 +33,7 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 
 const COMMANDS = {
   plots: { keys: [], flags: ['json'] },
-  lay: { keys: ['plot', 'from', 'vary', 'workers', 'limit', 'seed', 'states', 'upto', 'final', 'keep', 'share', 'phase', 'runs', 'row', 'd'], flags: ['dry', 'loose', 'rejudge', 'json'] },
+  lay: { keys: ['plot', 'from', 'vary', 'workers', 'limit', 'seed', 'states', 'upto', 'final', 'keep', 'share', 'phase', 'runs', 'row', 'd', 'kind', 'idea', 'lemma', 'frame'], flags: ['dry', 'loose', 'rejudge', 'json'] },
   passport: { keys: ['file', 'plot', 'runs', 'row'], flags: ['json'] },
 };
 
@@ -106,6 +108,19 @@ function plotAsked() {
     if (!band) refuse(`${command}: "d=${named.d}" is no band of D, as in d=3.5-5`);
     plot = { ...plot, want: { ...plot.want, d: [Number(band[1]), Number(band[2])] } };
   }
+  // The thought of the place said on the line: kind, idea, lemma, and a frame that makes the field a rectangle.
+  if (named.kind !== undefined) {
+    if (!(named.kind in plotLib.PLOT_KINDS)) refuse(`${command}: "kind=${named.kind}" is none of ${Object.keys(plotLib.PLOT_KINDS).join(', ')}`);
+    plot = { ...plot, kind: named.kind };
+  }
+  if (named.idea !== undefined) plot = { ...plot, idea: named.idea };
+  if (named.lemma !== undefined) plot = { ...plot, lemma: named.lemma };
+  if (named.frame !== undefined) {
+    const frame = /^(\d)x(\d)$/.exec(named.frame);
+    if (!frame) refuse(`${command}: "frame=${named.frame}" is no frame, as in frame=5x3`);
+    plot = { ...plot, frame: { w: Number(frame[1]), h: Number(frame[2]) }, name: `${plot.name}-f${frame[1]}x${frame[2]}` };
+  }
+  plot = plotLib.framedPlot(plot);
   const faults = plotLib.checkPlot(plot);
   if (faults.length > 0) refuse(`${command}: the plot ${plot.name} does not hold together:\n${faults.join('\n')}`);
   return plot;
@@ -207,14 +222,15 @@ if (command === 'plots') {
    * whatever they miss); the passports and a line of the report for the stage. Gives back the order and what was written.
    */
   async function writeBatch(measured, round, liked, writtenBefore, lines, from, after) {
-    const ranked = final.rankPassports(measured, plot.want, liked);
+    const ranked = final.rankPassports(measured, plot.want, liked, plot.kind);
     const holding = ranked.filter((one) => one.passport.misses.length === 0);
     lines.push(`3 final   ${from}${holding.length} hold every gate   ${after}`);
     const misses = {};
     for (const one of ranked) for (const miss of one.passport.misses) misses[miss.replace(/[\d.]+/g, '#')] = (misses[miss.replace(/[\d.]+/g, '#')] ?? 0) + 1;
     if (Object.keys(misses).length) lines.push(`  gates missed: ${Object.entries(misses).sort((a, b) => b[1] - a[1]).map(([miss, n]) => `${miss} ${n}`).join('; ')}`);
     const playedKeys = batchState().playedKeys;
-    const toWrite = (flag('loose') ? ranked : holding).filter((one) => !playedKeys.has(final.boardKey(one.spec))).slice(0, number('keep', 10));
+    // Five of a dozen, of other shapes first: the owner plays them blind, one by one (his answer of 13 October).
+    const toWrite = final.otherShapesFirst((flag('loose') ? ranked : holding).filter((one) => !playedKeys.has(final.boardKey(one.spec))), number('keep', 5));
     const { batchFile, batchTaken } = await load('/src/levels/labText.ts');
     const histories = existsSync(resolve(boardsDir, '.history')) ? readdirSync(resolve(boardsDir, '.history')) : [];
     const taken = batchTaken(readdirSync(boardsDir), histories);
@@ -223,7 +239,7 @@ if (command === 'plots') {
     for (const one of toWrite) {
       const p = one.passport;
       const spec = { ...one.spec, faces: plot.faces ?? [...new Set(faces.filter((face) => face !== 1))].sort((a, b) => a - b), par: p.par, exact: true, solution: p.way };
-      const { name, text } = batchFile(spec, plot.name, taken, date, `замысел ${plot.name}, круг ${round}${plot.brief ? `: ${plot.brief}` : ''}`);
+      const { name, text } = batchFile(spec, plot.name, taken, date, `замысел ${plot.name}, круг ${round}${plot.brief ? `: ${plot.brief}` : ''}${plotLib.thoughtLine(plot) ? `; ${plotLib.thoughtLine(plot)}` : ''}`);
       taken.push(name);
       writeFileSync(resolve(boardsDir, `${name}.txt`), text);
       written.push({ name, passport: p });
@@ -325,7 +341,7 @@ if (command === 'plots') {
     }
     mkdirSync(out, { recursive: true });
     // What the batch is laid from, so that the workshop can ask for ten more of it.
-    writeFileSync(resolve(out, 'args.json'), JSON.stringify({ args: ['plot', 'from', 'vary'].filter((key) => named[key] !== undefined).map((key) => `${key}=${named[key]}`) }));
+    writeFileSync(resolve(out, 'args.json'), JSON.stringify({ args: ['plot', 'from', 'vary', 'kind', 'idea', 'lemma', 'frame'].filter((key) => named[key] !== undefined).map((key) => `${key}=${named[key]}`) }));
     const round = readdirSync(out).filter((file) => /^report-\d+\.txt$/.test(file)).length + 1;
     const { writtenBefore, playedKeys, offShapes, liked } = batchState();
     const began = Date.now();
@@ -374,7 +390,7 @@ if (command === 'plots') {
     let written = [];
     let ranked = [];
     if (upto === 'final' && passed.length > 0) {
-      const finalists = final.pickFinalists(passed, number('final', 40));
+      const finalists = final.pickFinalists(passed, number('final', 12));
       writeFileSync(resolve(out, 'finalists.json'), JSON.stringify(finalists.map((one) => ({ spec: one.spec, longestDetour: one.longestDetour }))));
       const shapes = new Set(passed.map((one) => one.shape)).size;
       const measured = [];

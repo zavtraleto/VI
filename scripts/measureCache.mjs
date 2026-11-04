@@ -32,3 +32,31 @@ export function writeMeasures(root, key, measures) {
   writeFileSync(torn, `${JSON.stringify(measures, null, 2)}\n`);
   renameSync(torn, file);
 }
+
+/**
+ * The cache of the craft measures of the boards of the row (src/levels/craft.ts, `craftMeasuresOf`): the way move by move,
+ * the people of src/rules/humanBot.ts and what the troubles read, one file to a board, boards/.craft/<key>.json, by the same key.
+ */
+const craftFileOf = (root, key) => {
+  if (!KEY.test(key)) throw new Error(`no key of the cache: "${key}"`);
+  return resolve(root, 'boards', '.craft', `${key}.json`);
+};
+
+export function readCraft(root, key) {
+  const file = craftFileOf(root, key);
+  if (!existsSync(file)) return null;
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+export function writeCraft(root, key, craft) {
+  const file = craftFileOf(root, key);
+  mkdirSync(resolve(file, '..'), { recursive: true });
+  const torn = `${file}.${process.pid}.tmp`;
+  writeFileSync(torn, `${JSON.stringify(craft, null, 2)}
+`);
+  renameSync(torn, file);
+}

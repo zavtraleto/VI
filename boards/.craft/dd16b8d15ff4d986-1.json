@@ -1,0 +1,28 @@
+{
+  "par": 6,
+  "hidden": 2,
+  "safeFirst": true,
+  "craft": {
+    "counter": 0,
+    "choice": 0.16666666666666666,
+    "narrow": 5,
+    "lastShare": 0.7142857142857143,
+    "motif": "K"
+  },
+  "people": {
+    "newcomer": {
+      "first": 0.5,
+      "failedOnce": 0.5,
+      "gaveUp": 0.3,
+      "tries": 1.7142857142857142,
+      "moves": 16
+    },
+    "owner": {
+      "first": 0.35,
+      "failedOnce": 0.65,
+      "gaveUp": 0.1,
+      "tries": 3.5555555555555554,
+      "moves": 11
+    }
+  }
+}

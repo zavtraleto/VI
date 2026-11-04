@@ -21,7 +21,8 @@
 //                                            a `+` where it was cut) and the shares of the hasty and the casual persona
 //   node scripts/ladder.mjs campaign         the table for the whole row of the campaign (src/levels/campaign.ts), each board with its number in the row
 //                                            and its chapter and role (`1:meet`): the columns of the road, and D, risk, search, rank, forks, loss, hid, ways,
-//                                            reader and sig (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md, section 8); under it
+//                                            reader and sig (docs/superpowers/specs/2026-10-28-vi-progression-tools-design.md, section 8), narrow and беды
+//                                            (src/levels/craft.ts; kept in boards/.craft/<key>.json beside the measures); under it
 //                                            the boards of one road, the calibration of the scale and of the likeness, the places out of their
 //                                            band, and the rules of the grammar the row breaks. The slow measures of a board are kept in
 //                                            boards/.measures/<key>.json (src/levels/measureCache.ts, kept in git): a board found there is not
@@ -59,7 +60,7 @@ const args = process.argv.slice(2);
 const named = Object.fromEntries(args.filter((arg) => arg.includes('=')).map((arg) => arg.split('=')));
 const flag = (name) => args.includes(name);
 // `todo=` is given by the master of `campaign` to its workers only.
-const known = ['place', 'recipes', 'walk', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep', 'places', 'todo'];
+const known = ['place', 'recipes', 'walk', 'chapter', 'seeds', 'from', 'states', 'boards', 'only', 'workers', 'share', 'skills', 'keep', 'places', 'todo', 'crafttodo'];
 for (const key of Object.keys(named)) {
   if (!known.includes(key)) throw new Error(`cannot read "${key}=": write it as place=P06, seeds=300, from=1, states=3000000, boards=20 or workers=6`);
 }
@@ -117,7 +118,8 @@ if (flag('limit')) {
   const { CAMPAIGN } = await load('/src/levels/campaign.ts');
   const { campaignNotes, campaignRow, campaignTable, dOf, grammarText, slowMeasuresOf, ROAD_WALK_LIMIT } = await load('/src/levels/table.ts');
   const { cacheKey } = await load('/src/levels/measureCache.ts');
-  const { readMeasures, writeMeasures } = await import('./measureCache.mjs');
+  const { craftMeasuresOf } = await load('/src/levels/craft.ts');
+  const { readMeasures, writeMeasures, readCraft, writeCraft } = await import('./measureCache.mjs');
   const stops = CAMPAIGN;
   const walk = Number(named.walk ?? ROAD_WALK_LIMIT);
   const roleOf = (stop) => `${stop.chapter}:${stop.role}`;
@@ -126,6 +128,11 @@ if (flag('limit')) {
     const todo = (named.todo ?? '').split(',').filter((one) => one !== '').map(Number);
     todo.forEach((index, at) => {
       if (mine(at)) console.log(JSON.stringify({ index, measures: slowMeasuresOf(stops[index].spec, stops[index].teaches, walk) }));
+    });
+    // The craft measures (src/levels/craft.ts) of the places the master has none of: the way move by move, the people, the troubles.
+    const craftTodo = (named.crafttodo ?? '').split(',').filter((one) => one !== '').map(Number);
+    craftTodo.forEach((index, at) => {
+      if (mine(at)) console.log(JSON.stringify({ index, craft: craftMeasuresOf(stops[index].spec) }));
     });
   } else {
     const began = Date.now();
@@ -150,7 +157,20 @@ if (flag('limit')) {
         console.error(`${++done} of ${todo.length} boards measured: ${stops[index].number} ${stops[index].code}, ${Math.round((Date.now() - began) / 1000)} s`);
       }, todo.length);
     }
-    console.log(campaignTable(asked.map((index) => campaignRow(stops[index].number, stops[index].spec, roleOf(stops[index]), measures[index]))));
+    // The craft measures, kept in boards/.craft/ under the same key and measured by the workers where they are not.
+    const crafts = [];
+    for (const index of asked) crafts[index] = cached && !flag('fresh') ? readCraft(root, keys[index]) : null;
+    const craftTodo = asked.filter((index) => !crafts[index]);
+    if (craftTodo.length > 0) {
+      console.error(`${craftTodo.length} boards without their craft measures, to measure`);
+      let made = 0;
+      await shareOut([`crafttodo=${craftTodo.join(',')}`], ({ index, craft }) => {
+        crafts[index] = craft;
+        if (cached) writeCraft(root, keys[index], craft);
+        console.error(`${++made} of ${craftTodo.length} craft measures: ${stops[index].number} ${stops[index].code}, ${Math.round((Date.now() - began) / 1000)} s`);
+      }, craftTodo.length);
+    }
+    console.log(campaignTable(asked.map((index) => campaignRow(stops[index].number, stops[index].spec, roleOf(stops[index]), measures[index], crafts[index]))));
     // Under the table: the boards of one road, the calibration of the scale and of the likeness, the places out of their band.
     console.log('\n' + campaignNotes(asked.map((index) => stops[index]), asked.map((index) => measures[index])));
     // And the rules of the grammar the row breaks (docs/superpowers/specs/2026-10-14-vi-campaign-2-design.md, section 3), the slow

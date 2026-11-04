@@ -1,10 +1,11 @@
 import { defaultConfig } from '../rules/config';
 import { humanFacts, HUMANS, type HumanFacts } from '../rules/humanBot';
 import { scoreOf } from '../rules/levelScore';
-import { playMove, solveFrom, tellMove, type SolverMove } from '../rules/levelSolver';
+import { moveOf, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
 import { scan } from '../rules/reach';
 import { createRun } from '../rules/sim';
 import type { LevelSpec, RunState } from '../rules/types';
+import { hiddenOf, safeFirstOf } from './measures';
 
 /**
  * The passport of the kind of a board and its troubles (docs/superpowers/specs/2026-11-04-vi-level-craft-design.md,
@@ -123,4 +124,29 @@ export function troublesOf(facts: TroubleFacts): string[] {
   if (people.newcomer.first >= 0.9 && craft.counter === 0 && craft.narrow <= 1) out.push('видно сразу');
   if (!facts.safeFirst) out.push('облом первым ходом');
   return out;
+}
+
+/**
+ * What the table of the row keeps of a board beside its slow measures, in a cache of its own (`boards/.craft/<key>.json`,
+ * scripts/measureCache.mjs): the way move by move, the two people, and what the troubles read. JSON values only.
+ */
+export interface CraftMeasures {
+  par: number;
+  hidden: number;
+  safeFirst: boolean;
+  craft: CraftFacts;
+  people: People;
+}
+
+/** The craft measures of a board, on its own way or the solver's. */
+export function craftMeasuresOf(spec: LevelSpec, people = 20): CraftMeasures {
+  const way = spec.solution ? spec.solution.map(moveOf) : (solveLevel(spec).solution?.moves ?? []);
+  const measured: LevelSpec = { ...spec, par: spec.par ?? way.length };
+  return {
+    par: measured.par ?? way.length,
+    hidden: hiddenOf(measured, way),
+    safeFirst: safeFirstOf(measured),
+    craft: craftOf(measured, way),
+    people: peopleOf(measured, people),
+  };
 }

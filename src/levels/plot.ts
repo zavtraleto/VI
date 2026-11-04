@@ -115,6 +115,61 @@ export interface Plot {
   want?: Want;
   /** A line for the note of the files. */
   brief?: string;
+  /**
+   * The thought of the place (docs/superpowers/specs/2026-11-04-vi-level-craft-design.md, sections 1 and 5): the kind of
+   * excellence the board is after, the sentence of its solution, the consequence of the rules it stands on, and the one to
+   * three means of its kind it uses. Written into the note of every board laid; the kind also orders the finalists.
+   */
+  kind?: PlotKind;
+  idea?: string;
+  lemma?: string;
+  tools?: readonly string[];
+  /**
+   * The field as a rectangle, `w` cells west to east and `h` north to south, in the corner of the square: a choice of
+   * the plot for its look or its difficulty, not what is left over (the owner, 4 November 2026: «размер и форма поля
+   * могут задавать как эстетику так и сложность»). Turned into `size` and `holes` by `framedPlot`.
+   */
+  frame?: { w: number; h: number };
+}
+
+/**
+ * The kinds of excellence of the owner's words (docs/VI_Puzzle_Fun_Research.md, section 2), in his words: an insight,
+ * a surprise of a rule, polishing, plan and order, tight, a domino, a trick, the beauty of the figure, a task of Devil Dice.
+ */
+export const PLOT_KINDS = {
+  insight: 'озарение',
+  rule: 'удивление правилу',
+  polish: 'шлифовка',
+  order: 'план и порядок',
+  tight: 'тесно',
+  domino: 'домино',
+  trick: 'хитрость',
+  beauty: 'красота фигуры и поля',
+  devil: 'ясная доска Devil Dice',
+} as const;
+
+export type PlotKind = keyof typeof PLOT_KINDS;
+
+/** A plot with its frame made a square and holes: the side is the longer of the two, the cells past the frame are cut. */
+export function framedPlot(plot: Plot): Plot {
+  if (!plot.frame) return plot;
+  const { w, h } = plot.frame;
+  const size = Math.max(w, h);
+  const cut = new Map((plot.holes ?? []).map((hole) => [`${hole.x},${hole.z}`, hole]));
+  for (let z = 0; z < size; z++) for (let x = 0; x < size; x++) if (x >= w || z >= h) cut.set(`${x},${z}`, { x, z });
+  return { ...plot, size, holes: [...cut.values()] };
+}
+
+/** The line a plot's thought adds to the note of a board: its kind, idea and lemma, as far as said. */
+export function thoughtLine(plot: Plot): string {
+  const parts = [
+    plot.kind ? `вид: ${PLOT_KINDS[plot.kind]}` : '',
+    plot.idea ? `мысль: ${plot.idea}` : '',
+    plot.lemma ? `лемма: ${plot.lemma}` : '',
+    plot.tools?.length ? `средства: ${plot.tools.join(', ')}` : '',
+    plot.frame ? `поле ${plot.frame.w}×${plot.frame.h}` : '',
+  ].filter(Boolean);
+  return parts.join('; ');
 }
 
 /** The word of a batch, as `BATCH_WORD` of `labText.ts` has it: not imported, to keep this module light. */
@@ -155,6 +210,13 @@ export function checkPlot(plot: Plot): string[] {
   const wrong: string[] = [];
   if (!WORD.test(plot.name)) wrong.push(`name "${plot.name}" is no word of a batch`);
   if (!Number.isInteger(plot.size) || plot.size < 2 || plot.size > 8) wrong.push(`size ${plot.size} is not 2 to 8`);
+  if (plot.kind !== undefined && !(plot.kind in PLOT_KINDS)) wrong.push(`kind "${plot.kind}" is none of ${Object.keys(PLOT_KINDS).join(', ')}`);
+  if (plot.tools && (plot.tools.length < 1 || plot.tools.length > 3)) wrong.push(`tools: one to three means of the kind, not ${plot.tools.length}`);
+  if (plot.frame) {
+    const { w, h } = plot.frame;
+    if (![w, h].every((side) => Number.isInteger(side) && side >= 2 && side <= 8)) wrong.push(`frame ${w}×${h}: each side 2 to 8`);
+    else if (w * h < plot.dice.length + 1) wrong.push(`frame ${w}×${h} holds fewer cells than the dice and one`);
+  }
   const names = new Set<string>();
   for (const die of plot.dice) {
     if (!/^[a-z0-9]{1,3}$/.test(die.name)) wrong.push(`die "${die.name}": a name is a letter or a few`);

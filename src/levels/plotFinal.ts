@@ -6,7 +6,7 @@ import type { LevelSpec } from '../rules/types';
 import { normalSpec } from './boardFile';
 import { depthOf, type Depth } from './depth';
 import { firstsOf, hiddenOf, rankOf, rankShares, safeFirstOf, shareOf, type Shares } from './measures';
-import type { Plot, Want } from './plot';
+import type { Plot, PlotKind, Want } from './plot';
 import { difficulty, riskOf, searchOf } from './scale';
 import { craftOf, peopleOf, troublesOf, type CraftFacts, type People } from './craft';
 import { coreKey, coreOf, layoutSim, SAME_LAYOUT, SIMILAR_ROW, similarityOf, type Core } from './signature';
@@ -249,7 +249,35 @@ export const DETOUR_MARK = 6;
  * The order the finalists are given in: fewer gates missed first; then a way round after a mistake no longer than
  * `DETOUR_MARK`; then D nearer the middle of the plot's band; then more long ways; then a shorter way round.
  */
-export function rankPassports<T extends { passport: Passport }>(finalists: readonly T[], want: Want | undefined, liked: readonly Passport[] = []): T[] {
+/**
+ * How well a passport shows the kind of its plot, lower first: the narrow steps for an insight, an order and a trick (the
+ * one number that went with the owner's «огонь», 0.54 on 31-60), the share of the last group for a domino, the long ways
+ * for polishing; nothing for the other kinds. Read after the gates and the troubles, never as a gate.
+ */
+export function kindOrder(p: Passport, kind: PlotKind | undefined): number {
+  if (!p.craft) return 0;
+  if (kind === 'insight' || kind === 'order' || kind === 'trick') return -p.craft.narrow;
+  if (kind === 'domino') return -p.craft.lastShare;
+  if (kind === 'polish') return -p.depth.waysLong;
+  return 0;
+}
+
+/** Up to `keep` of the ranked, one of every shape first in their order, then the rest in theirs. */
+export function otherShapesFirst<T extends { shape: string }>(ranked: readonly T[], keep: number): T[] {
+  const firsts: T[] = [];
+  const rest: T[] = [];
+  const seen = new Set<string>();
+  for (const one of ranked) {
+    if (seen.has(one.shape)) rest.push(one);
+    else {
+      seen.add(one.shape);
+      firsts.push(one);
+    }
+  }
+  return [...firsts, ...rest].slice(0, keep);
+}
+
+export function rankPassports<T extends { passport: Passport }>(finalists: readonly T[], want: Want | undefined, liked: readonly Passport[] = [], kind?: PlotKind): T[] {
   const middle = want?.d ? (want.d[0] + want.d[1]) / 2 : null;
   const near = new Map(finalists.map((one) => [one, likeDistance(one.passport, liked)]));
   return [...finalists].sort((a, b) => {
@@ -259,6 +287,7 @@ export function rankPassports<T extends { passport: Passport }>(finalists: reado
       pa.misses.length - pb.misses.length ||
       // The bots' playtest as a stage: of two boards that hold the plot alike, the one with fewer of the owner's troubles first.
       (pa.troubles?.length ?? 0) - (pb.troubles?.length ?? 0) ||
+      kindOrder(pa, kind) - kindOrder(pb, kind) ||
       near.get(a)! - near.get(b)! ||
       Number(pa.longestDetour > DETOUR_MARK) - Number(pb.longestDetour > DETOUR_MARK) ||
       (middle === null ? 0 : Math.abs(pa.d - middle) - Math.abs(pb.d - middle)) ||
@@ -312,7 +341,7 @@ export function passportLine(name: string, p: Passport): string {
     `D ${p.d}`,
     `risk ${p.risk}`,
     `search ${p.search}`,
-    p.craft ? `counter ${p.craft.counter} choice ${Math.round(p.craft.choice * 100)}% last ${Math.round(p.craft.lastShare * 100)}%` : '',
+    p.craft ? `narrow ${p.craft.narrow} counter ${p.craft.counter} choice ${Math.round(p.craft.choice * 100)}% last ${Math.round(p.craft.lastShare * 100)}%` : '',
     p.people ? `newcomer ${Math.round(p.people.newcomer.first * 100)}%/${Math.round(p.people.newcomer.gaveUp * 100)}% owner ${Math.round(p.people.owner.first * 100)}% ${p.people.owner.tries?.toFixed(1) ?? '—'}t` : '',
     p.troubles?.length ? `беды: ${p.troubles.join(', ')}` : '',
     `rank ${p.rank ?? '>8'}`,

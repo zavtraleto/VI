@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fileBoard } from './boardFiles';
 import { CAMPAIGN } from './campaign';
-import { likeDistance, missesOf, passportOf, pickFinalists, rankPassports, rowBoardsOf, shapeOf, twoOff, type Passport } from './plotFinal';
+import { kindOrder, likeDistance, missesOf, otherShapesFirst, passportOf, pickFinalists, rankPassports, rowBoardsOf, shapeOf, twoOff, type Passport } from './plotFinal';
 
 describe('the last stage of the generator', () => {
   it('reads a board of the row as a repeat of itself, and as new where it deepens that board', () => {
@@ -47,5 +47,24 @@ describe('the last stage of the generator', () => {
     expect(pickFinalists(passed, 9).map((one) => one.order)).toEqual([1, 2, 3]);
     const at = (d: number, misses: string[]) => ({ passport: { d, misses, longestDetour: 0, depth: { waysLong: 1 } } as unknown as Passport });
     expect(rankPassports([at(9, []), at(7.5, []), at(7.5, ['x'])], { d: [7, 8] }).map((one) => one.passport.d)).toEqual([7.5, 9, 7.5]);
+  });
+});
+
+describe('the five of a dozen (docs/superpowers/specs/2026-11-04-vi-level-craft-design.md, section 5)', () => {
+  it('takes one of every shape first, then the rest in order', () => {
+    const ranked = [{ shape: 'a', n: 1 }, { shape: 'a', n: 2 }, { shape: 'b', n: 3 }, { shape: 'c', n: 4 }, { shape: 'a', n: 5 }];
+    expect(otherShapesFirst(ranked, 4).map((one) => one.n)).toEqual([1, 3, 4, 2]);
+    expect(otherShapesFirst(ranked, 2).map((one) => one.n)).toEqual([1, 3]);
+  });
+
+  it('orders by the kind after the gates and the troubles: the narrow steps for an insight', () => {
+    const p = (narrow: number) =>
+      ({ d: 5, misses: [], troubles: [], longestDetour: 0, depth: { waysLong: 1 }, craft: { narrow, lastShare: 0 } }) as unknown as Passport;
+    expect(kindOrder(p(4), 'insight')).toBeLessThan(kindOrder(p(1), 'insight'));
+    expect(kindOrder(p(4), 'beauty')).toBe(0);
+    const ranked = rankPassports([{ passport: p(1) }, { passport: p(4) }], undefined, [], 'insight');
+    expect(ranked.map((one) => one.passport.craft.narrow)).toEqual([4, 1]);
+    const troubled = { ...p(6), troubles: ['видно сразу'] } as Passport;
+    expect(rankPassports([{ passport: troubled }, { passport: p(1) }], undefined, [], 'insight')[0].passport.craft.narrow).toBe(1);
   });
 });
