@@ -189,6 +189,8 @@ export interface HudTools {
   canUndo: boolean;
   urgent: boolean;
   retryOnly?: boolean;
+  /** The button that starts the level over blinks, as the one that takes a move back does at a dead end: the best finish from the board lies far (word of the owner, 4 November 2026). */
+  retryLit?: boolean;
   /** How many moves can still be taken back, where they are counted: the number stands after the word of the button. */
   left?: number;
   /**
@@ -623,7 +625,7 @@ export class GameHud {
     }
     this.signTurned = this.signTurnAt(sign, timeMs, still);
     if (view.header.kind === 'level') this.drawPause(layout);
-    if (view.tools) this.drawRestart(layout);
+    if (view.tools) this.drawRestart(layout, view.tools.retryLit === true, blink);
     this.drawSound(layout, view.muted);
     if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, layout.left);
     if (view.note) {
@@ -875,15 +877,19 @@ export class GameHud {
     this.zones.push({ id: 'pause', rect: kit.toWindow(layout.zones.pause), action: () => this.actions.onPause() });
   }
 
-  /** The button that starts a level over: beside the pause, of its size and drawn as it is, with the arrow that goes round in place of the two bars. */
-  private drawRestart(layout: HudLayout): void {
+  /**
+   * The button that starts a level over: beside the pause, of its size and drawn as it is, with the
+   * arrow that goes round in place of the two bars. Lit, it blinks as the button that takes a move
+   * back does at a dead end: starting over is the way now.
+   */
+  private drawRestart(layout: HudLayout, lit: boolean, blink: number): void {
     const { kit } = this;
-    const { ink } = kit.palette;
+    const { ink, faint } = kit.palette;
     const box = layout.restart;
     if (!box) return;
     const pressed = this.held?.zone.id === 'retry';
     if (pressed) kit.box(box, ink);
-    kit.iconIn(layout.tallIcons ? ICON_RESTART_TALL : ICON_RESTART, box, pressed ? kit.palette.bg : ink);
+    kit.iconIn(layout.tallIcons ? ICON_RESTART_TALL : ICON_RESTART, box, pressed ? kit.palette.bg : lit && blink !== 0 ? faint : ink);
     this.zones.push({ id: 'retry', rect: kit.toWindow(layout.zones.restart ?? box), action: () => this.actions.onRestart() });
   }
 

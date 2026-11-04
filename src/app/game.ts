@@ -84,6 +84,8 @@ import { FILE_LEADS, atAfter, liveDue, liveKey, orderOf, passageAt, passageMarks
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
+import { askable, wayVerdict, type WayVerdict } from './levelWay';
+import { LevelWayWork } from './levelWayWork';
 import { roadCounters } from './roadCounters';
 import { goalOf } from '../levels/goalFaces';
 import { SIGN_MAX_STATES, roadWait, signBody, signMode, type RoadWait, type Waiting } from './signWay';
@@ -238,6 +240,8 @@ const PASSAGE_STEP_MS = 100;
  * first, the window after.
  */
 const FAIL_HOLD_MS = 900;
+/** How long the button that starts a level over blinks, once a try, when the best finish from the board lies far (word of the owner, 4 November 2026, «Б»). */
+const RETRY_LIT_MS = 4_000;
 /** The passage waits for the frame the dice of the last combo are drawn going under; past this long after their time it goes on without it (a picture that is not drawn says nothing). */
 const FINALE_WAIT_MS = 250;
 /** Where no board comes after the one that is passed, its window waits this long after the dice of the finale are under: the board is seen empty first. */
@@ -354,6 +358,18 @@ export class Game {
   private menuHiddenTold = false;
   /** The way for an advertisement was offered on this try, and the analytics were told. */
   private wayOfferTold = false;
+  /**
+   * What the solver says of the board as it stands (word of the owner, 4 November 2026: «А + Б»,
+   * docs/VI_Levels_Playtest_2026-11-04.md, section 3), counted aside (`levelWay.ts`). A board it
+   * shows cannot be cleared is a dead end (`noWay`): no move is made on it, and the button that
+   * takes the move back is lit. A board whose best finish lies far lights the button that starts
+   * the level over, for a moment, once a try (`retryLitAt`).
+   */
+  private readonly wayWork = new LevelWayWork();
+  private way: { key: string; verdict: WayVerdict } = { key: '', verdict: 'unknown' };
+  private noWay = false;
+  private retryLitAt: number | null = null;
+  private retryLitTold = false;
   /** The board waits under the one command the program opens on: nothing of the session is shown over it. */
   private starting = false;
   /** The level on the board was laid under that command and has not been reported as started: it is, once, with the player's first move or step on it. */
@@ -1343,6 +1359,11 @@ export class Game {
     this.levelTicks = 0;
     this.hiddenTold = false;
     this.wayOfferTold = false;
+    // A new try: what the solver said of the last board is not said of this one, and the button that starts over may light once again.
+    this.way = { key: '', verdict: 'unknown' };
+    this.noWay = false;
+    this.retryLitAt = null;
+    this.retryLitTold = false;
     this.failedAt = null;
     this.levelCounted = false;
     this.ghosts = [];
@@ -1389,6 +1410,11 @@ export class Game {
   /** The next command, with the board as it stands remembered in case the command is a move that can be taken back. */
   private takeCommand(): Dir | null {
     const cmd = this.controller.take(this.now());
+    // A board the solver has shown cannot be cleared is a dead end: nothing is done on it but taking the move back or starting over.
+    if (cmd && this.noWay) {
+      this.audio.ui({ kind: 'stuck' });
+      return null;
+    }
     if (cmd && !this.moved) {
       this.moved = true;
       mark('first-move');
@@ -2835,6 +2861,23 @@ export class Game {
    * and until the count of a board has come the plaques of the board before stay over the heaps
    * that have not changed.
    */
+  /**
+   * What the solver says of the board as it stands, counted aside once its world stands: on a
+   * level that is not over, can be taken back move by move and keeps its fewest moves. Until the
+   * count of a board has come nothing is said of it. A board of the lab that is only shown is not asked.
+   */
+  private wayNow(state: RunState): WayVerdict {
+    const run = state.levelRun;
+    if (!run || !this.undoable || this.labFrozen || this.rewind || this.passage || !askable(state)) return 'unknown';
+    const key = boardKey(state);
+    if (this.way.key !== key) {
+      const found = this.wayWork.found(key, state);
+      if (!found) return 'unknown';
+      this.way = { key, verdict: wayVerdict(found, run.moves, run.spec.par) };
+    }
+    return this.way.verdict;
+  }
+
   private hintedGroups(state: RunState): ShortGroup[] {
     const key = boardKey(state);
     if (key !== this.hinted.key) {
@@ -2918,7 +2961,8 @@ export class Game {
           ? // A dead end is left by taking the move back: no window comes, and the button is the one to press.
             {
               canUndo: this.history.length > 0 && !this.rewind && this.undosLeft > 0,
-              urgent: this.state.over && deadEnd(this.state),
+              urgent: (this.state.over && deadEnd(this.state)) || this.noWay,
+              retryLit: this.retryLitAt !== null && this.lastFrame - this.retryLitAt < RETRY_LIT_MS,
               left: UNDO_LIMIT === null ? undefined : this.undosLeft,
               // Every third move taken back brings an advertisement where the platform shows them: the button counts down to it.
               untilAd: platform.interstitialSupported ? UNDOS_PER_AD - (this.settings.undosForAd ?? 0) : undefined,
@@ -2960,6 +3004,13 @@ export class Game {
     }
     // What is owed outside is paid on a frame in which nothing moves.
     this.later.frame(running && this.state.player.action !== null);
+    // The way of the board as it stands: lost is a dead end (A), and lost or far lights the button that starts over once a try (B).
+    const verdict = this.wayNow(this.state);
+    this.noWay = verdict === 'lost';
+    if ((verdict === 'lost' || verdict === 'far') && !this.retryLitTold) {
+      this.retryLitTold = true;
+      this.retryLitAt = time;
+    }
     let state = this.state;
     // What a level came to is written down on the frame it ends: its end may yet be cut by starting it over.
     if (state.over && state.levelRun && !this.levelCounted) this.countLevel();
