@@ -3,7 +3,6 @@ import type { Size } from '../display/sizing';
 import { LANGUAGES, setLanguage, word } from '../ui/i18n';
 import { MIN_ZONE, pictureSize, textWidth } from './layout';
 import type { ShellContext } from './screen';
-import { BootScreen } from './screens/boot';
 import { StartScreen } from './screens/start';
 import { COMMANDS } from './text';
 import { shellDefaults } from './theme';
@@ -92,37 +91,5 @@ describe('the screen the program opens on', () => {
       }
     }
     setLanguage('en');
-  });
-});
-
-describe('the boot', () => {
-  it('has a command to pass it in the bottom right corner the first time on a device, in every language', () => {
-    for (const code of LANGUAGES) {
-      setLanguage(code);
-      for (const [name, window, ratio] of SCREENS) {
-        const items = new BootScreen(context(window, ratio), true, nothing).items();
-        expect(items.map((item) => item.id), `${code} ${name}`).toEqual(['skip']);
-        const { rect } = items[0];
-        expect(rect.height, `${code} ${name}`).toBeGreaterThanOrEqual(MIN_ZONE);
-        expect(rect.x, `${code} ${name}`).toBeGreaterThan(window.width / 2);
-        expect(rect.y, `${code} ${name}`).toBeGreaterThan(window.height / 2);
-        expect(rect.x + rect.width, `${code} ${name}`).toBeLessThanOrEqual(window.width);
-        expect(rect.y + rect.height, `${code} ${name}`).toBeLessThanOrEqual(window.height);
-      }
-    }
-    setLanguage('en');
-  });
-
-  it('is passed by that command, once', () => {
-    let done = 0;
-    const screen = new BootScreen(context(SCREENS[0][1], SCREENS[0][2]), true, () => done++);
-    const [skip] = screen.items();
-    skip.action();
-    skip.action();
-    expect(done).toBe(1);
-  });
-
-  it('has no such command on a later start', () => {
-    expect(new BootScreen(context(SCREENS[0][1], SCREENS[0][2]), false, nothing).items()).toEqual([]);
   });
 });

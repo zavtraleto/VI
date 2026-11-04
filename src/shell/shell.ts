@@ -8,7 +8,6 @@ import { ShellInput } from './input';
 import { Kit } from './kit';
 import { pictureSize, type Insets } from './layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen, ShellSound } from './screen';
-import { BootScreen } from './screens/boot';
 import { MenuScreen, type MenuActions, type MenuData } from './screens/menu';
 import { PanelScreen, type PanelSpec } from './screens/panel';
 import { StartScreen } from './screens/start';
@@ -49,7 +48,7 @@ function safeInsets(): Insets {
 }
 
 /**
- * The interface of the found program: its boot, its menu, its screens. It is one layer of
+ * The interface of the found program: its START, its menu, its screens. It is one layer of
  * the one canvas — a picture of few pixels, drawn as a tube shows it — and takes the pointer
  * and the keyboard while it is on screen. Whoever owns the frame calls `frame()` before the
  * display presents.
@@ -133,11 +132,6 @@ export class Shell {
         this.sound({ kind: 'back' });
         this.act(() => this.screen?.back?.());
       },
-      skip: () => {
-        if (!this.screen?.skip) return false;
-        this.screen.skip();
-        return true;
-      },
     });
     this.loadFonts();
   }
@@ -146,19 +140,14 @@ export class Shell {
     return this.screen !== null;
   }
 
-  /** The screen hides the board altogether (boot, menu) instead of lying over it (pause). */
-  get covers(): boolean {
-    return this.screen !== null && this.covering;
+  /** The main menu is on screen, and nothing over it. */
+  get inMenu(): boolean {
+    return this.screen instanceof MenuScreen;
   }
 
-  /**
-   * Starts the program: the long boot the first time on this device, the short one after.
-   * `onDone` comes when it has run or been passed, and is where the next screen is shown.
-   */
-  boot(onDone: () => void): void {
-    const first = !this.settings.bootSeen;
-    this.settings.bootSeen = true;
-    this.show(new BootScreen(this.context, first, onDone), true);
+  /** The screen hides the board altogether (menu) instead of lying over it (pause). */
+  get covers(): boolean {
+    return this.screen !== null && this.covering;
   }
 
   /** The main menu. `home` is the file the figure waits on, where the player comes back from one. */
@@ -239,7 +228,7 @@ export class Shell {
       }
     }
     this.hearFocus();
-    // An action or the end of the boot may have put another screen up, or none.
+    // An action may have put another screen up, or none.
     screen = this.screen;
     if (!screen) return;
     if (screen.update(timeMs)) this.dirty = true;

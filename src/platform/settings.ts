@@ -65,8 +65,6 @@ export interface Settings {
   /** The version of the rules the experiments were saved under; absent in what was saved before 0.8. */
   rulesVersion?: string;
   hintsSeen: string[];
-  /** The long boot of the first start has been shown: later starts get the short one. */
-  bootSeen: boolean;
   muted: boolean;
   /** Effects kept calm: no shake of the screen, motion kept low. null follows the system preference. */
   reducedMotion: boolean | null;
@@ -126,7 +124,6 @@ function defaults(): Settings {
   return {
     experiments: defaultExperiments(),
     hintsSeen: [],
-    bootSeen: false,
     muted: false,
     reducedMotion: null,
     control: 'swipe',
@@ -164,6 +161,8 @@ function settle(loaded: Settings): Settings {
   delete (loaded.levels as Partial<{ fixedSaid: boolean }>).fixedSaid;
   // The exercise of Endless is gone from the game (the owner, 15 October 2026): what was kept of it goes.
   delete (loaded as Partial<{ tutorialDone: boolean }>).tutorialDone;
+  // The boot is gone from the game (the owner, 4 November 2026): whether it was seen is kept no more.
+  delete (loaded as Partial<{ bootSeen: boolean }>).bootSeen;
   loaded.language ??= null;
   // The buttons in place of swipes and the place behind the board are gone from the settings (the owner, 29 October 2026): what was kept of them goes.
   delete (loaded as Partial<{ controlMode: string; backdrop: boolean }>).controlMode;
@@ -236,7 +235,6 @@ function mend(loaded: Loose, fallback: Settings): boolean {
   if (experiments) for (const key of Object.keys(fallback.experiments)) field(experiments, key, isFlag, () => undefined);
   field(loaded, 'rulesVersion', isText, () => undefined);
   texts(loaded, 'hintsSeen');
-  field(loaded, 'bootSeen', isFlag, () => fallback.bootSeen);
   field(loaded, 'muted', isFlag, () => fallback.muted);
   field(loaded, 'reducedMotion', (value) => value === null || isFlag(value), () => null);
   field(loaded, 'control', (value) => value === 'swipe' || value === 'tap', () => fallback.control);

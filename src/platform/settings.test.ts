@@ -35,6 +35,13 @@ describe('the experiments a player has saved', () => {
     expect('tutorialDone' in loadSettings()).toBe(false);
   });
 
+  it('let go of whether the boot was seen: the game has no boot any more', () => {
+    saved({ bootSeen: true, muted: true });
+    const settings = loadSettings();
+    expect('bootSeen' in settings).toBe(false);
+    expect(settings.muted).toBe(true);
+  });
+
   it('keep the effects calm for a player who had turned the shake off, and let go of the shake and the camera', () => {
     saved({ shake: false, reducedMotion: null, view: 'full' });
     const calm = loadSettings();
@@ -294,7 +301,6 @@ describe('a save broken in its fields', () => {
     const run = { score: 120, chain: 3, ticks: 900, date: '2026-10-30' };
     saved({
       muted: true,
-      bootSeen: 'yes',
       debugPanel: 1,
       reducedMotion: 'calm',
       control: 5,
@@ -318,7 +324,6 @@ describe('a save broken in its fields', () => {
     });
     const settings = loadSettings();
     expect(settings.muted).toBe(true);
-    expect(settings.bootSeen).toBe(false);
     expect(settings.debugPanel).toBe(false);
     expect(settings.reducedMotion).toBeNull();
     expect(settings.control).toBe('swipe');

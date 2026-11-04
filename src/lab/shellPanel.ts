@@ -15,7 +15,6 @@ const FOLDERS: Record<keyof typeof SHELL_GROUPS, string> = {
   aim: 'Грани цели',
   lock: 'Рамка цели',
   motion: 'Движение',
-  boot: 'Boot',
 };
 
 /** What the parameters are called on the panel; one without a name here shows its own. */
@@ -76,14 +75,8 @@ const LABELS: Record<string, string> = {
   logoNodes: 'число узлов',
   logoArrange: 'расположение узлов',
   logoTrack: 'разрядка букв логотипа, точек',
-  bootLogoScale: 'размер логотипа в boot, ×',
   pressMs: 'отклик на нажатие, мс',
   idleHz: 'частота шума каналов, Гц',
-  bootMs: 'первый запуск, мс',
-  bootShortMs: 'повторный запуск, мс',
-  bootDarkMs: 'тёмный экран, мс',
-  bootLinkMs: 'задержка LINK DEVICE, мс',
-  bootLogoMs: 'логотип, мс',
 };
 
 /** The controls of the shell's lab: the screen, its sample state, every parameter of the look by folders. */
@@ -94,11 +87,6 @@ export class ShellPanel {
     // The panel edits this copy and tells the lab; the lab stays the owner of the state.
     const head = {
       screen: lab.screen,
-      first: lab.first,
-      replay: () => {
-        lab.show('boot');
-        shown();
-      },
       copy: () => {
         void lab.copy().then((done) => {
           copy.name(done ? 'Скопировано' : 'Не вышло скопировать');
@@ -115,14 +103,6 @@ export class ShellPanel {
       .add(head, 'screen', [...SHELL_SCREENS])
       .name('экран')
       .onChange((name: ShellScreenName) => lab.show(name));
-    gui
-      .add(head, 'first')
-      .name('boot: первый запуск')
-      .onChange((value: boolean) => {
-        lab.setFirst(value);
-        shown();
-      });
-    gui.add(head, 'replay').name('boot: повторить');
     // The way up the log: the score of the session that goes up it, and the way once more.
     gui.add(lab, 'climbScore', 0, 250000, 10).name('подъём: счёт сессии');
     gui.add({ climb: () => (lab.show('climb'), shown()) }, 'climb').name('подъём: показать');

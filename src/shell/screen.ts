@@ -47,10 +47,8 @@ export type ShellSound =
   /** A panel has come up, or gone, by something other than a press on the interface itself. */
   | { kind: 'open' }
   | { kind: 'close' }
-  /** The boot: a line of the check, the answer of a line (`found` is false for the device that is not there), the logo. */
-  | { kind: 'check' }
-  | { kind: 'answer'; found: boolean }
-  | { kind: 'logo' }
+  /** The program is switched on, as it opens. */
+  | { kind: 'power' }
   /**
    * The result of a session goes up the log: a line is gone past (`along` is how high in the
    * log the session stands, 0 to 1), a record of one of the six or the player's own best is gone
@@ -118,8 +116,6 @@ export interface ShellScreen {
   swipe?(dir: 'left' | 'right', x: number, y: number): string | null;
   /** Esc and the system's "back". */
   back?(): void;
-  /** Any press or key, on a screen that only waits to be passed. */
-  skip?(): void;
   /**
    * Draws what the screen has in three dimensions into the layer under the text, over the dark
    * of the tube. Returns false when it has nothing of the kind.

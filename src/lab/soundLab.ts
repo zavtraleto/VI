@@ -280,17 +280,7 @@ export function startSoundLab(): void {
       later(2500 + 8 * 600 + 1200, () => fire(link(4, 2, 5)));
     },
     // The program and the other side.
-    boot: () => {
-      // The check of the first start as the boot has it: a line, its answer, a wait before the device that is not there.
-      halt();
-      for (let i = 0; i < 5; i++) {
-        later(i * 420, () => engine.ui({ kind: 'check' }));
-        if (i < 4) later(i * 420 + 190, () => engine.ui({ kind: 'answer', found: true }));
-      }
-      later(4 * 420 + 1500, () => engine.ui({ kind: 'answer', found: false }));
-      later(4 * 420 + 3300, () => engine.ui({ kind: 'logo' }));
-    },
-    logo: () => engine.ui({ kind: 'logo' }),
+    power: () => engine.ui({ kind: 'power' }),
     menu: () => {
       // The figure walks the six dice of the menu.
       halt();
@@ -438,8 +428,7 @@ export function startSoundLab(): void {
   contact.add(actions, 'deep').name('Игра при полном контакте');
 
   const program = gui.addFolder('Программа и та сторона');
-  program.add(actions, 'boot').name('Первая загрузка: проверка и логотип');
-  program.add(actions, 'logo').name('Логотип: шесть граней');
+  program.add(actions, 'power').name('Включение: тихий тёплый щелчок');
   program.add(actions, 'menu').name('Меню: фигура идёт по костям');
   program.add(actions, 'menuStep').name('Меню: шаг на кость (грань выше)');
   program.add(actions, 'panelStep').name('Панель: шаг по строкам');

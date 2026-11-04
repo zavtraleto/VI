@@ -14,7 +14,7 @@ import { FpsCounter } from '../ui/fps';
 import { t } from '../ui/i18n';
 import { ShellPanel } from './shellPanel';
 
-export const SHELL_SCREENS = ['boot', 'menu', 'pause', 'system', 'result', 'cleared', 'climb', 'records'] as const;
+export const SHELL_SCREENS = ['menu', 'pause', 'system', 'result', 'cleared', 'climb', 'records'] as const;
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
@@ -66,8 +66,6 @@ export class ShellLab {
   /** The look of the shell; the panel is bound to this object. */
   readonly values: ParamValues;
   screen: ShellScreenName;
-  /** The boot is shown as the first start of the program, with the check. */
-  first: boolean;
   /** What the last copy put on the clipboard. */
   copied: string | null = null;
   /** What the session of the sample of the way up the log came to. */
@@ -84,7 +82,6 @@ export class ShellLab {
     const query = new URLSearchParams(window.location.search);
     const screen = query.get('screen');
     this.screen = SHELL_SCREENS.includes(screen as ShellScreenName) ? (screen as ShellScreenName) : 'menu';
-    this.first = query.get('first') !== '0';
 
     // Under the page's own interface the pointer would scroll and zoom; here it only presses.
     document.documentElement.style.touchAction = 'none';
@@ -128,22 +125,13 @@ export class ShellLab {
 
   show(screen: ShellScreenName): void {
     this.screen = screen;
-    if (screen === 'boot') {
-      this.settings.bootSeen = !this.first;
-      // As in the game: the menu follows the boot.
-      this.shell.boot(() => this.showMenu());
-    } else if (screen === 'menu') {
+    if (screen === 'menu') {
       this.showMenu();
     } else {
       // Here a panel stands alone: there is no board under it.
       this.shell.showPanel(this.samplePanel(screen), true);
     }
     this.writeAddress();
-  }
-
-  setFirst(first: boolean): void {
-    this.first = first;
-    this.show('boot');
   }
 
   /** Back to the look as it is defined. */
@@ -165,7 +153,7 @@ export class ShellLab {
   }
 
   /** A panel with sample data; what it is told to do does nothing. */
-  private samplePanel(screen: Exclude<ShellScreenName, 'boot' | 'menu'>): PanelSpec {
+  private samplePanel(screen: Exclude<ShellScreenName, 'menu'>): PanelSpec {
     const nothing = (): void => undefined;
     const values = { muted: false, reducedMotion: false, control: 'swipe' as const, language: 'en' as const };
     switch (screen) {

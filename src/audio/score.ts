@@ -92,9 +92,8 @@ export type Cue =
   | { kind: 'uiBack' }
   | { kind: 'uiOpen' }
   | { kind: 'uiClose' }
-  | { kind: 'bootCheck' }
-  | { kind: 'bootAnswer'; found: boolean }
-  | { kind: 'logo' }
+  /** The program is switched on. */
+  | { kind: 'power' }
   // The result of a session goes up the log of sessions: a line is gone past, `along` the log
   // from its last line (0) to its top (1); a record of one of the six, or the player's own best,
   // is gone past; the place is taken.
@@ -214,9 +213,7 @@ export const INTERFACE: readonly Cue['kind'][] = [
   'uiBack',
   'uiOpen',
   'uiClose',
-  'bootCheck',
-  'bootAnswer',
-  'logo',
+  'power',
   'rank',
   'rankPast',
   'rankSet',
@@ -737,32 +734,14 @@ function play(cue: Cue, kit: Kit): Note[] {
       return [click('open', degreeHz(tune, 3, clickOctave), { gain: 0.11 * program, decay: num('clickLen') })];
     case 'uiClose':
       return [click('close', degreeHz(tune, 0, clickOctave), { gain: 0.1 * program, decay: num('clickLen') * 0.8 })];
-    case 'bootCheck':
-      // A line of the check is written: the tone the program is tuned from, for an instant.
-      return [click('check', degreeHz(tune, 0, clickOctave - 1), { gain: 0.1 * program, decay: 0.014, bright: 0.6 })];
-    case 'bootAnswer':
-      if (cue.found) return [click('answer', degreeHz(tune, 3, clickOctave - 1), { gain: 0.11 * program, decay: num('clickLen') })];
-      // The device is not there: the semitone of the mode, downwards and dull.
+    case 'power':
+      // The program is switched on: one click, very quiet, low and muffled, as the switch of a set
+      // with valves, and the warmth of the set coming up under it (the owner, 4 November 2026:
+      // "очень тихий, и приятный низкий щелчок, загадочный, тёплый и ламповый").
       return [
-        click('absent', degreeHz(tune, 1, 0), { gain: 0.2 * program, decay: 0.09, dull: true }),
-        click('absent', degreeHz(tune, 0, 0), { at: 0.13, gain: 0.2 * program, decay: 0.12, dull: true }),
+        click('power', degreeHz(tune, 0, 0), { gain: 0.06 * program, decay: 0.07, dull: true, echo: 1.2 }),
+        low('power', degreeHz(tune, 0, -1), { at: 0.01, gain: num('lowGain') * 0.12 * program, decay: num('lowLen') * 0.8, drop: 1.2, fall: 0.03, echo: 1.2 }),
       ];
-    case 'logo': {
-      // The six faces one after another, as a hand goes over six strings: the name of the program as a chord.
-      const notes = [1, 2, 3, 4, 5, 6].map((face, i) =>
-        bell('logo', kit.bell(faceDegree(steps, face)), {
-          at: i * 0.05 * (1 + 0.06 * i),
-          gain: (face === 6 ? 0.12 : 0.095) * bells,
-          pan: (i % 2 === 0 ? -1 : 1) * (0.15 + 0.1 * i),
-          decay: num('bellTail') * 1.5,
-          bright: 0.85,
-          echo: 1.5,
-          wide: 0.5,
-        }),
-      );
-      notes.push(low('low', degreeHz(tune, 0, -1), { gain: num('lowGain') * 0.3 * bells, decay: num('lowLen') * 1.4, drop: num('lowDrop'), fall: 0.06 }));
-      return notes;
-    }
     case 'rank':
       // A line of the log is gone past: the program counts it with its click, and the higher
       // the session stands in the log, the higher the click.

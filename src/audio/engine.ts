@@ -457,7 +457,7 @@ export class AudioEngine {
   play(cue: Cue): void {
     const { ctx, chain } = this;
     if (!ctx || !chain) {
-      if (cue.kind === 'logo') this.owed = cue;
+      if (cue.kind === 'power') this.owed = cue;
       return;
     }
     if (this.muted || this.suspended) return;
@@ -544,14 +544,8 @@ export class AudioEngine {
       case 'close':
         this.play({ kind: 'uiClose' });
         break;
-      case 'check':
-        this.play({ kind: 'bootCheck' });
-        break;
-      case 'answer':
-        this.play({ kind: 'bootAnswer', found: event.found });
-        break;
-      case 'logo':
-        this.play({ kind: 'logo' });
+      case 'power':
+        this.play({ kind: 'power' });
         break;
       case 'climb':
         this.play({ kind: 'rank', along: event.along });

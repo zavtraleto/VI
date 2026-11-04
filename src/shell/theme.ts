@@ -1,5 +1,4 @@
 import type { ParamSpec, ParamValues } from '../signal/scene';
-import type { BootTiming } from './bootScript';
 import type { MarkArrangement } from './layout';
 
 const number = (value: number, min: number, max: number, step: number): ParamSpec => ({ kind: 'number', value, min, max, step });
@@ -114,8 +113,6 @@ export const SHELL_GROUPS = {
     logoArrange: choice('grid', ['grid', 'ring', 'row'] satisfies MarkArrangement[]),
     /** Dots between two letters of the logo. */
     logoTrack: number(3, 0, 8, 1),
-    /** How many times its own size the logo of the boot is. */
-    bootLogoScale: number(3, 1, 6, 1),
   },
   aim: {
     /**
@@ -159,13 +156,6 @@ export const SHELL_GROUPS = {
     /** How many times a second the levels of the channels move. */
     idleHz: number(4, 0, 15, 1),
   },
-  boot: {
-    bootMs: number(6000, 2500, 10000, 100),
-    bootShortMs: number(1200, 300, 3000, 50),
-    bootDarkMs: number(400, 0, 1500, 50),
-    bootLinkMs: number(1100, 0, 3000, 50),
-    bootLogoMs: number(1500, 300, 3000, 50),
-  },
 } satisfies Record<string, Record<string, ParamSpec>>;
 
 export const SHELL_PARAMS: Record<string, ParamSpec> = Object.assign({}, ...Object.values(SHELL_GROUPS));
@@ -203,18 +193,6 @@ export function parseShellValue(name: string, text: string): number | string | b
 }
 
 const num = (values: ParamValues, name: string): number => Number(values[name] ?? 0);
-
-export function bootTiming(values: ParamValues): BootTiming {
-  return {
-    totalMs: num(values, 'bootMs'),
-    shortMs: num(values, 'bootShortMs'),
-    darkMs: num(values, 'bootDarkMs'),
-    linkMs: num(values, 'bootLinkMs'),
-    logoMs: num(values, 'bootLogoMs'),
-    // The tube has no half-lit state: the logo is there or it is not.
-    fadeMs: 0,
-  };
-}
 
 /** The colours of prose: its letters, its key words, the ring around them and the band under them. */
 export interface SayColors {

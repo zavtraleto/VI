@@ -52,7 +52,6 @@ export const WORDS = {
   SHARE: { ru: 'ПОДЕЛИТЬСЯ', es: 'COMPARTIR', pt: 'COMPARTILHAR', tr: 'PAYLAŞ', de: 'TEILEN', fr: 'PARTAGER' },
   COPIED: { ru: 'СКОПИРОВАНО', es: 'COPIADO', pt: 'COPIADO', tr: 'KOPYALANDI', de: 'KOPIERT', fr: 'COPIÉ' },
   SENT: { ru: 'ОТПРАВЛЕНО', es: 'ENVIADO', pt: 'ENVIADO', tr: 'GÖNDERİLDİ', de: 'GESENDET', fr: 'ENVOYÉ' },
-  SKIP: { ru: 'ПРОПУСТИТЬ', es: 'SALTAR', pt: 'PULAR', tr: 'ATLA', de: 'ÜBERSPRINGEN', fr: 'PASSER' },
   // A command that brings an advertisement of the platform says so: the word for one stands in it.
   'HINT · AD': { ru: 'ПОДСКАЗКА ЗА РЕКЛАМУ', es: 'PISTA · ANUNCIO', pt: 'DICA · ANÚNCIO', tr: 'İPUCU · REKLAM', de: 'TIPP · WERBUNG', fr: 'INDICE · PUB' },
   'UNDO · AD': { ru: 'ОТМЕНИТЬ · РЕКЛАМА', es: 'DESHACER · ANUNCIO', pt: 'DESFAZER · ANÚNCIO', tr: 'GERİ AL · REKLAM', de: 'RÜCKGÄNGIG · WERBUNG', fr: 'ANNULER · PUB' },

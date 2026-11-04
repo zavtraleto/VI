@@ -23,7 +23,11 @@ export function span(name: string, from: number, least = SLOW_MS): void {
   }
 }
 
-/** Marks a moment of the page: `vi-play` is the press of the command that starts, `vi-first-move` the first move taken. */
+/**
+ * Marks a moment of the page: `vi-ready` is the first picture with the program's letters,
+ * `vi-start` the command that starts on screen and pressable, `vi-play` its press, `vi-first-move`
+ * the first move taken.
+ */
 export function mark(name: string): void {
   try {
     performance.mark(`vi-${name}`);

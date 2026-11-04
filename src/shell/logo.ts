@@ -1,5 +1,5 @@
 import type { Kit } from './kit';
-import { CELL_H, markNodes, type MarkArrangement } from './layout';
+import { markNodes, type MarkArrangement } from './layout';
 import { LOGO_TEXT } from './text';
 
 /**
@@ -17,13 +17,6 @@ const LOGO_GLYPHS: Readonly<Record<string, readonly string[]>> = {
 /** The row of a line the letters start on: where the capitals of the font start. */
 const LOGO_TOP = 3;
 
-/** Width of the letters of the logo, in dots, with `track` dots between two letters. */
-function lettersWidth(track: number): number {
-  let width = 0;
-  for (const sign of LOGO_TEXT) width += (LOGO_GLYPHS[sign]?.[0].length ?? 0) + track;
-  return width - track;
-}
-
 /** The mark as it is set now, for letters `scale` times their own size. */
 function markOf(kit: Kit, scale: number) {
   const shape = markNodes(kit.number('logoNodes'), String(kit.values.logoArrange) as MarkArrangement);
@@ -37,12 +30,6 @@ function markOf(kit: Kit, scale: number) {
 
 function trackOf(kit: Kit): number {
   return Math.max(0, Math.round(kit.number('logoTrack')));
-}
-
-/** Width of the logo at a scale, in pixels of the picture. */
-export function logoWidth(kit: Kit, scale: number): number {
-  const mark = markOf(kit, scale);
-  return mark.width + mark.gap + lettersWidth(trackOf(kit)) * scale;
 }
 
 /**
@@ -69,9 +56,4 @@ export function drawLogo(kit: Kit, x: number, y: number, scale: number, color: s
     });
     left += (rows[0].length + track) * scale;
   }
-}
-
-/** Height of a row the logo takes at a scale. */
-export function logoHeight(scale: number): number {
-  return CELL_H * scale;
 }

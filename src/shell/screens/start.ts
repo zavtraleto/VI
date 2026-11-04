@@ -16,7 +16,7 @@ const THUMB = 8;
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
 
 /**
- * What the program opens on once it has started: the board that waits, stepped back as it is
+ * What the program opens on: the board that waits, stepped back as it is
  * under the pause, and over it one command, START, in the language of the player. It is the
  * filled command of a panel with the red mark of the seventh on it, at twice the size: two
  * fingers tall and half the scene wide, wider where its words ask for it. Nothing else is on
@@ -36,7 +36,8 @@ export class StartScreen implements ShellScreen {
     const sx = window.width / Math.max(1, picture.width);
     const sy = window.height / Math.max(1, picture.height);
     const box = this.box();
-    return [{ id: START_ID, rect: { x: box.x * sx, y: box.y * sy, width: box.w * sx, height: box.h * sy }, action: this.onStart }];
+    // It acts inside the press: the board is the player's on the frame of the press, with no answer of the button before it.
+    return [{ id: START_ID, rect: { x: box.x * sx, y: box.y * sy, width: box.w * sx, height: box.h * sy }, action: this.onStart, instant: true }];
   }
 
   update(): boolean {

@@ -65,13 +65,14 @@ TypeScript 7.0 (`strict`, `noUnused*`, target ES2022), Vite 8.3 (сборка ro
 
 ## 5. Сборка и выкладка
 
-- `npm run build` = `tsc --noEmit && vite build`; конфиг — `vite.config.ts`: `base './'`, версия из `package.json` в `import.meta.env.VI_VERSION`, без sourcemap, чанк `vendor` для `node_modules`. Код игры, `vendor`, воркер подсказки комбо, строки `?perf`; лабораторий и инструментов разработки в сборке нет (`import.meta.env.DEV`).
+- `npm run build` = `tsc --noEmit && vite build`; конфиг — `vite.config.ts`: `base './'`, версия из `package.json` в `import.meta.env.VI_VERSION`, без sourcemap, чанк `vendor` для `node_modules`. Код игры, `vendor`, воркер подсказки комбо, строки `?perf`, текст `STORY` (`src/ui/readme.ts`; запрашивается за первым кадром); лабораторий и инструментов разработки в сборке нет (`import.meta.env.DEV`).
 - `VI_PLATFORM` (только `vite build`): `@platform` → `platforms/none.ts` или `platforms/<имя>/adapter.ts`; плагины площадок — `platforms/plugins.ts`. Дев-сервер, тесты и Pages — всегда `none`.
 - Обфускация — только `VI_OBFUSCATE=1` (`javascript-obfuscator`, чанк `vendor` не трогает).
 - `npm run pack -- playgama|crazygames` (`scripts/pack.mjs`) — сборка под площадку и zip в `release/vi-<версия>-<площадка>.zip`.
 - `.github/workflows/deploy.yml`: на push в `main` — `npm ci`, `npm test`, `npm run build`, выкладка `dist/` на GitHub Pages. `docs-check` в CI не входит.
 - Дев-сервер `vite` на 5183 (`.claude/launch.json`: `vi-dev`; `vi-build` — `vite preview` на 5184); плагин `vite.boards.ts` даёт мастерской API `/__boards` только в `serve`.
-- Размер (сборка 30 октября): код игры 707 КБ (239 gzip; `row.gen.ts` — 176 КБ исходника), `vendor` 546 КБ, Bridge 307 КБ.
+- Размер (сборка 4 ноября): код игры 673 КБ (228 gzip; `row.gen.ts` — 176 КБ исходника, но 10 КБ gzip), `STORY` 29 КБ (13 gzip), `vendor` 546 КБ (137 gzip; почти весь — рендерер three.js), Bridge 307 КБ. Что ещё можно вынести и почему не вынесено — замер 4 ноября в [README](README.md), «Продакшн-сборка».
+- Экрана загрузки нет (с 4 ноября 2026): `Game` сразу ставит `START` или паузу сохранённой партии; до шрифта программы слой тёмный. Сообщения площадке до первой картинки ждут `game_ready` (`toPlatform` в `src/app/game.ts`). Метки `performance`: `vi-ready` (первая картинка), `vi-start` (`START` на экране), `vi-play`, `vi-first-move` (`src/app/spans.ts`).
 
 ## 6. Платформы
 

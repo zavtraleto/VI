@@ -66,10 +66,7 @@ const EVERY: Cue[] = [
   { kind: 'uiBack' },
   { kind: 'uiOpen' },
   { kind: 'uiClose' },
-  { kind: 'bootCheck' },
-  { kind: 'bootAnswer', found: true },
-  { kind: 'bootAnswer', found: false },
-  { kind: 'logo' },
+  { kind: 'power' },
   { kind: 'rank', along: 0.4 },
   { kind: 'rankPast', own: true, along: 0.5 },
   { kind: 'rankPast', own: false, along: 0.9 },
@@ -633,8 +630,8 @@ describe('the other side', () => {
     expect(note.voice).toBe('click');
     expect(note.echo).toBe(0);
     expect(note.decay).toBeLessThanOrEqual(0.02);
-    // Quieter than a line of the check at the start: there is a click to a sign, not to a line.
-    expect(note.gain).toBeLessThan(notesFor({ kind: 'bootCheck' }, setup())[0].gain);
+    // Quieter than the click that shuts a panel: there is a click to a sign, not to a line.
+    expect(note.gain).toBeLessThan(notesFor({ kind: 'uiClose' }, setup())[0].gain);
     // On a note of the mode, not a comma under it: it is the program that prints, not the other side that sings.
     const semis = 12 * Math.log2(note.hz / ROOT);
     expect(Math.abs(semis - Math.round(semis))).toBeLessThan(0.001);
@@ -672,7 +669,7 @@ describe('the program', () => {
   });
 
   it('speaks in its own dry voice', () => {
-    const kinds: Cue[] = [{ kind: 'uiStep', face: null }, { kind: 'uiRun' }, { kind: 'uiBack' }, { kind: 'uiStuck' }, { kind: 'uiOpen' }, { kind: 'uiClose' }, { kind: 'bootCheck' }, { kind: 'bootAnswer', found: true }];
+    const kinds: Cue[] = [{ kind: 'uiStep', face: null }, { kind: 'uiRun' }, { kind: 'uiBack' }, { kind: 'uiStuck' }, { kind: 'uiOpen' }, { kind: 'uiClose' }];
     for (const cue of kinds) for (const note of notesFor(cue, setup())) expect(note.voice).toBe('click');
   });
 
@@ -680,22 +677,17 @@ describe('the program', () => {
     expect(notesFor({ kind: 'uiOpen' }, setup())[0].hz).not.toBe(notesFor({ kind: 'uiClose' }, setup())[0].hz);
   });
 
-  it('answers a line of the check that finds its device, and falls a semitone, dull, for the one that is not there', () => {
-    const found = notesFor({ kind: 'bootAnswer', found: true }, setup());
-    expect(found.length).toBe(1);
-    expect(found[0].dull).toBe(false);
-    const absent = notesFor({ kind: 'bootAnswer', found: false }, setup());
-    expect(absent.length).toBe(2);
-    expect(absent.every((note) => note.dull)).toBe(true);
-    expect(absent[0].hz / absent[1].hz).toBeCloseTo(2 ** (1 / 12), 6);
-    expect(absent[1].at).toBeGreaterThan(absent[0].at);
-  });
-
-  it('says its name as the six faces one after another, the six an octave over the one', () => {
-    const notes = part(notesFor({ kind: 'logo' }, setup()), 'logo');
-    expect(notes.map((note) => note.hz.toFixed(3))).toEqual([1, 2, 3, 4, 5, 6].map((face) => faceHz(face).toFixed(3)));
-    for (let i = 1; i < notes.length; i++) expect(notes[i].at).toBeGreaterThan(notes[i - 1].at);
-    expect(notes[5].hz / notes[0].hz).toBeCloseTo(2, 9);
+  it('is switched on with one quiet, low, muffled click and a low under it, on the root of the mode', () => {
+    const notes = notesFor({ kind: 'power' }, setup());
+    expect(notes.map((note) => note.voice)).toEqual(['click', 'low']);
+    const [snap, warm] = notes;
+    expect(snap.dull).toBe(true);
+    // Quieter than any other click of the program.
+    for (const cue of [{ kind: 'uiOpen' }, { kind: 'uiClose' }, { kind: 'uiStuck' }] as Cue[]) expect(snap.gain).toBeLessThan(notesFor(cue, setup())[0].gain);
+    // Low: far under the clicks of the interface, and its low an octave under it.
+    expect(snap.hz).toBeLessThan(notesFor({ kind: 'uiClose' }, setup())[0].hz / 4);
+    expect(snap.hz / warm.hz).toBeCloseTo(2, 9);
+    expect(warm.gain).toBeLessThan(0.1);
   });
 
   it('holds one long quiet note of the other side while a window stands open', () => {
@@ -776,7 +768,7 @@ describe('the program', () => {
   });
 
   it('is heard while a session waits; the session is not', () => {
-    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'logo', 'rank', 'rankPast', 'rankSet', 'sign', 'typed', 'window', 'windowShut', 'told'] as const) expect(INTERFACE).toContain(kind);
+    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'power', 'rank', 'rankPast', 'rankSet', 'sign', 'typed', 'window', 'windowShut', 'told'] as const) expect(INTERFACE).toContain(kind);
     for (const kind of ['roll', 'group', 'chain', 'danger', 'points', 'reply'] as const) expect(INTERFACE).not.toContain(kind);
   });
 });

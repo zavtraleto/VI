@@ -13,21 +13,6 @@ import { word, type LanguageCode, type TextKey } from '../ui/i18n';
 export const LOGO_TEXT = 'VIZAVI';
 export const REVISION = 'REV 2.06';
 
-/** The check of the first start: what is checked and what it answers. The last line is the link device. */
-export const BOOT_CHECK: readonly (readonly [label: string, value: string])[] = [
-  ['MEMORY CHECK', '64M'],
-  ['VI CORE', '2.06'],
-  ['DISPLAY', 'OK'],
-  ['AUDIO', 'OK'],
-  ['LINK DEVICE', 'NOT FOUND'],
-];
-
-/** The heading of the check: "starting up". */
-export const BOOT_HEAD = 'きどうちゅう';
-/** The line after the check, and the one line of every later start. */
-export const BOOT_TAIL = 'EMULATION MODE AVAILABLE';
-export const BOOT_SHORT = 'EMULATION MODE';
-
 /** The record of the one who sits at the program: the seventh, whom it does not know. */
 export const SUBJECT = {
   /** "Subject file". */
@@ -232,8 +217,6 @@ export const COMMANDS = {
   exit: { native: 'おわる', name: 'EXIT' },
   /** "Start". */
   start: { native: 'はじめる', name: 'START' },
-  /** "Skip": the long boot of the first start, passed. */
-  skip: { native: 'スキップ', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
   undo: { native: 'とりけし', name: 'UNDO' },
   /** The move taken back that brings an advertisement of the platform after it says so. */

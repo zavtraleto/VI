@@ -66,7 +66,6 @@ import { makesGroup, planTap, stepHolds } from './tapWay';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
-import { readmePages } from '../ui/readme';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive, liveArchive } from './archive';
 import { clockGone, clockLeft, secondsLeft } from './clock';
@@ -345,8 +344,6 @@ export class Game {
   private labFrozen = false;
   /** The lab keeps the board on while the page is hidden: no pause comes over it, and the sound falls silent as ever (`?lab=workshop`). */
   awake = false;
-  /** The program has opened: its boot is over, and a board can be put on at once. */
-  private booted = false;
   /** The player has been here before: something was kept for them when the program opened. */
   private readonly returning = hasSaved(SETTINGS_KEY);
   /** The page was hidden during this run, and the analytics were told: once a run, and once in the menu. */
@@ -442,6 +439,16 @@ export class Game {
   private opened = false;
   /** The platform has been told that the game can be played. */
   private announced = false;
+  /**
+   * What is told to the platform before the game's first picture: it waits for `game_ready`,
+   * which the platform has to hear first (CrazyGames counts the opening up to the first start of
+   * play). Null once the game is ready: everything is told at once.
+   */
+  private untold: (() => void)[] | null = [];
+  /** The note that came with the program (`STORY`): a chunk of its own, asked for behind the first picture. */
+  private readme: typeof import('../ui/readme') | null = null;
+  /** The command the program opens on has been on screen with its letters, and its moment is marked. */
+  private startSeen = false;
   /** The platform lets the game sound. */
   private platformSound = true;
   /** What keeps the game waiting from outside: the page is hidden, the platform has asked for a pause. */
@@ -504,7 +511,7 @@ export class Game {
   });
   /** The water the board lies on, a probe, under what leaks through. `?water=off` leaves it out. */
   private readonly water = quality().water ? new Water(this.display, this.world) : null;
-  /** The program around the game: boot, menu, panels. Its layers come after the board's, so they lie over it. */
+  /** The program around the game: START, menu, panels. Its layers come after the board's, so they lie over it. */
   private readonly shell = new Shell(this.display, this.settings, { values: this.look.shell, blocked: () => this.toolsOpen, sound: (event) => this.audio.ui(event) });
   /** What comes from the other side: a transmission in a window of the program, over the board. */
   private readonly signal = new SignalPlayer(this.display, this.shell.values, this.world);
@@ -630,36 +637,43 @@ export class Game {
     this.opened = true;
     this.inMenu = true;
     this.audio.setPaused(true);
-    this.shell.boot(() => {
-      this.booted = true;
-      if (this.labSpec !== null) {
-        // A board of the lab was asked for while the program opened: it opens on that board.
-        this.saveWithoutRun();
-        this.runLevel(this.labSpec, false);
-        return;
-      }
-      if (LEVELS_PROBE) {
-        // The probe opens on its list. A run kept from before is left in storage, for a start without the probe.
-        this.saveWithoutRun();
-        this.showLevels();
-        return;
-      }
-      if (PLACE_PROBE !== null) {
-        this.saveWithoutRun();
-        this.startPlace(PLACE_PROBE);
-        return;
-      }
-      // A run the player was taken away from waits for them on its pause; otherwise, the board
-      // they will play, under the one command that starts it. A lab opens on the menu.
-      const kept = this.keptRun();
-      // The long boot is shown once per device. What was kept of the run has been read and goes
-      // out of storage with the same save.
-      this.saveWithoutRun();
-      if (kept) this.continueRun(kept);
-      else if (LAB) this.showMenu();
-      else this.showStart();
-    });
+    this.openOn();
     requestAnimationFrame((time) => this.frame(time));
+  }
+
+  /**
+   * What the program opens on, at once: no screen of its own comes before the game, the player
+   * is taken straight to the play (the owner, 4 November 2026). Its first picture is drawn once
+   * the font of the program has come.
+   */
+  private openOn(): void {
+    // The program is switched on as it opens. The sound is not open yet: it is heard with the first press.
+    this.audio.ui({ kind: 'power' });
+    if (LEVELS_PROBE) {
+      // The probe opens on its list. A run kept from before is left in storage, for a start without the probe.
+      this.saveWithoutRun();
+      this.showLevels();
+      return;
+    }
+    if (PLACE_PROBE !== null) {
+      this.saveWithoutRun();
+      this.startPlace(PLACE_PROBE);
+      return;
+    }
+    // A run the player was taken away from waits for them on its pause; otherwise, the board
+    // they will play, under the one command that starts it. A lab opens on the menu.
+    const kept = this.keptRun();
+    // What was kept of the run has been read and goes out of storage with the same save.
+    this.saveWithoutRun();
+    if (kept) this.continueRun(kept);
+    else if (LAB) this.showMenu();
+    else this.showStart();
+  }
+
+  /** Tells the platform something now, or once the game is ready if it is not yet. */
+  private toPlatform(report: () => void): void {
+    if (this.untold) this.untold.push(report);
+    else report();
   }
 
   /** Draws the board with what the governor has come down to, and keeps the step for the next visit. */
@@ -767,8 +781,12 @@ export class Game {
     this.ritual.update(kept.state.removed, 0);
     this.resumed = true;
     this.runIndex++;
-    platform.track('progression_resumed', { ...this.step(), duration_sec: this.seconds() });
-    platform.tell('level_started', this.kind);
+    const step = { ...this.step(), duration_sec: this.seconds() };
+    const kind = this.kind;
+    this.toPlatform(() => {
+      platform.track('progression_resumed', step);
+      platform.tell('level_started', kind);
+    });
     this.pause();
   }
 
@@ -816,14 +834,13 @@ export class Game {
 
   /**
    * Puts a board that is in no list on the board and plays it by the rules as they are: the door
-   * of the lab of the levels (`?board=`, `?lab=workshop`). Asked for before the program has opened,
-   * the board is put on when it does.
+   * of the lab of the levels (`?board=`, `?lab=workshop`).
    */
   playBoard(spec: LevelSpec): void {
     this.labSpec = spec;
     this.labFrozen = false;
     this.place = null;
-    if (this.booted) this.runLevel(spec, false);
+    this.runLevel(spec, false);
   }
 
   /**
@@ -834,7 +851,7 @@ export class Game {
     this.labSpec = spec;
     this.labFrozen = true;
     this.place = null;
-    if (this.booted) this.runLevel(spec, false);
+    this.runLevel(spec, false);
   }
 
   /** A move given as a key gives it, pressed and let go: the lab plays a way with it, a move at a time. */
@@ -1062,7 +1079,7 @@ export class Game {
       platform.tell('level_started', kind);
     }
     // Now and then something is seen before the session, for less than a second. Not before
-    // the first frame: that run is only set up behind the boot.
+    // the first frame: that run is only set up behind what the program opens on.
     if (this.lastFrame > 0) this.signal.glimpse(this.sceneStep());
   }
 
@@ -1262,6 +1279,8 @@ export class Game {
     // Where every step may be a move that counts, a held direction is one step.
     this.controller.setRepeat(!state.levelRun);
     this.inMenu = false;
+    // A board put on over the command the program opens on (a board of the lab, `?board=`) is played with its figure.
+    if (this.starting) this.view.showFigure(true);
     this.starting = false;
     // A level that waited to be reported and was never played is not reported at all.
     this.unsaid = false;
@@ -1474,7 +1493,7 @@ export class Game {
     };
     // Said from a move, it waits for the move to be over: the frame the die sets off on does nothing for the platform.
     if (late) this.later.after(say);
-    else say();
+    else this.toPlatform(say);
   }
 
   /**
@@ -2060,7 +2079,7 @@ export class Game {
 
   /** Where the player is, as the analytics name it. */
   private where(): Where {
-    if (!this.booted) return 'loading';
+    if (!this.opened) return 'loading';
     if (this.labSpec !== null) return 'lab';
     if (this.inMenu) return 'menu';
     return this.kind;
@@ -2133,11 +2152,27 @@ export class Game {
     }
   }
 
+  /** The note that came with the program, fetched once; a fetch that failed is asked for again next time. */
+  private loadReadme(): Promise<typeof import('../ui/readme') | null> {
+    if (this.readme) return Promise.resolve(this.readme);
+    return import('../ui/readme').then(
+      (module) => (this.readme = module),
+      () => null,
+    );
+  }
+
   /** The note that came with the program, from the menu: a page to a window. Back leads to the menu. */
   private showReadme(page = 0): void {
+    if (!this.readme) {
+      // Behind the first picture it has almost always come. If not, it opens when it comes, unless the player has gone on from the menu by then.
+      void this.loadReadme().then((module) => {
+        if (module && this.shell.inMenu) this.showReadme(page);
+      });
+      return;
+    }
     // A screen that lies on its side and is low holds a paragraph or two, not a page.
     const low = this.display.width > this.display.height && this.display.height < README_LOW;
-    this.shell.showPanel(readmePanel(readmePages(language(), low ? README_SIGNS : undefined), page, { onPage: (next) => this.showReadme(next), onBack: () => this.showMenu('readme') }), true);
+    this.shell.showPanel(readmePanel(this.readme.readmePages(language(), low ? README_SIGNS : undefined), page, { onPage: (next) => this.showReadme(next), onBack: () => this.showMenu('readme') }), true);
   }
 
   /** The main menu. `home` is the file of it the player has come back from: the figure waits there. */
@@ -2186,7 +2221,10 @@ export class Game {
     this.audio.setPaused(true);
     this.later.flush();
     // A level that has not been reported as started is not reported as paused, nor as going on again.
-    if (!this.unsaid) platform.tell('level_paused', this.levelName());
+    if (!this.unsaid) {
+      const name = this.levelName();
+      this.toPlatform(() => platform.tell('level_paused', name));
+    }
     this.showPause();
   }
 
@@ -2859,7 +2897,7 @@ export class Game {
     const { experiments } = this.settings;
     const reducedMotion = prefersReducedMotion(this.settings);
     this.root.classList.toggle('reduced-motion', reducedMotion);
-    // Under the boot and the menu the board is neither drawn nor shown, and its interface is put away.
+    // Under the menu the board is neither drawn nor shown, and its interface is put away.
     const covered = this.shell.covers;
     // A transmission takes the screen the same way: the interface of the session is put away.
     this.root.classList.toggle('shell-open', covered || this.signal.busy);
@@ -2945,10 +2983,21 @@ export class Game {
     // The first picture with the program's own letters is on screen: the platform takes its loading screen away.
     if (!this.announced && this.shell.ready) {
       this.announced = true;
+      mark('ready');
       platform.tell('game_ready');
       gameOpened(this.returning, language());
+      const untold = this.untold ?? [];
+      this.untold = null;
+      for (const report of untold) report();
+      // What only the menu needs comes behind the first picture, not before it.
+      void this.loadReadme();
       // Whatever was pressed on the platform's page while the game was loading, the keys are the game's now.
       takeFocus();
+    }
+    // The command the program opens on is on screen with its letters, and takes a press from this frame on.
+    if (this.starting && !this.startSeen && this.shell.ready) {
+      this.startSeen = true;
+      mark('start');
     }
   }
 }

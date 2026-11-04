@@ -128,8 +128,6 @@ export interface InputHost {
   /** A key asked for a step, and there is nowhere to go that way. */
   stuck(): void;
   back(): void;
-  /** Passes a screen that only waits; false where the screen is not of that kind. */
-  skip(): boolean;
 }
 
 /**
@@ -195,7 +193,6 @@ export class ShellInput {
 
   private onDown(e: PointerEvent): void {
     if (this.taken(e) || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    if (this.host.skip()) return;
     this.from = { x: e.clientX, y: e.clientY };
     this.before = this.focus;
     this.dragging = null;
@@ -306,10 +303,6 @@ export class ShellInput {
 
   private onKey(e: KeyboardEvent): void {
     if (e.ctrlKey || e.metaKey || e.altKey || this.taken(e)) return;
-    if (this.host.skip()) {
-      e.preventDefault();
-      return;
-    }
     const dir = KEY_DIR[e.code];
     if (dir) {
       e.preventDefault();
