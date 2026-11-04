@@ -11,10 +11,17 @@
 | # | Что | Где | Кому | Разм. | Проверка |
 |---|---|---|---|---|---|
 | T0 | Настройка студии: шесть агентов, hooks, раздел «Студия» в CLAUDE.md и README, документы студии в корне | `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`, `CLAUDE.md`, `README.md`, `PROJECT_CONTEXT.md`, `GAME_DESIGN.md`, `TECHNICAL_ARCHITECTURE.md`, `TASKS.md`, `DECISIONS.md`, `CHANGELOG.md` | директор | M | `node scripts/docs-check.mjs`; hooks — JSON в stdin, коды 2 и 0; `npm test`, `npm run typecheck`, `npm run build`. Сделано: в `main` с `feafe0c` |
-| 1 | R1: предел ожидания чтения хранилища площадки, при сбое — откат на браузер и `save_failed`; заодно предел у межстраничной в OPENED и награды | `src/platform/storage.ts:38`, `src/main.ts:19`, `platforms/playgama/adapter.ts:176-181`, `:221-225` | architect → developer | S | тест на `read`, который не отвечает; `platforms/playgama/adapter.test.ts`; qa — запуск через `vi-build`. Сделано в worktree, ждёт QA |
-| 2 | R2: проверка формы сохранения по полям с откатом на значения по умолчанию; битое сохранение не роняет запуск и не затирается без копии | `src/platform/settings.ts:128-144`, `src/platform/storage.ts:63-71`, `src/main.ts:21` | architect → developer | M | тесты `src/platform/settings.test.ts` на `null` в `levels.passed/told/lives`. Сделано в worktree, ждёт QA; копия битого сохранения не сделана — нужен новый ключ, ждёт решения |
-| 3 | Тесты путей сбоя хранилища: `reject`, битый JSON, `save_failed`, откат на браузер | `src/platform/storage.test.ts` | qa-engineer | S | `npm test`. Сделано в worktree, ждёт QA |
-| 4 | R3: правило «меняется форма `RunState`/`RunConfig` — меняется `KeptRun.version` или `RULES_VERSION`» и тест-сторож на ключи состояния | `src/app/savedRun.ts`, `src/rules/config.ts:10`, `src/rules/types.ts` | architect → developer | S | новый тест в `src/app/savedRun.test.ts`; строка в [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md), раздел 7. Сделано в worktree, ждёт QA |
+
+## Сделано
+
+| # | Что | Где | Кому | Разм. | Проверка |
+|---|---|---|---|---|---|
+| 1 | R1: предел ожидания чтения хранилища площадки, при сбое — откат на браузер и `save_failed`; заодно предел у межстраничной в OPENED и награды | `src/platform/storage.ts:38`, `src/main.ts:19`, `platforms/playgama/adapter.ts:176-181`, `:221-225` | architect → developer | S | тест на `read`, который не отвечает; `platforms/playgama/adapter.test.ts`; qa — запуск через `vi-build` |
+| 2 | R2: проверка формы сохранения по полям с откатом на значения по умолчанию; битое сохранение не роняет запуск и не затирается без копии | `src/platform/settings.ts:128-144`, `src/platform/storage.ts:63-71`, `src/main.ts:21` | architect → developer | M | тесты `src/platform/settings.test.ts` на `null` в `levels.passed/told/lives` |
+| 3 | Тесты путей сбоя хранилища: `reject`, битый JSON, `save_failed`, откат на браузер | `src/platform/storage.test.ts` | qa-engineer | S | `npm test` |
+| 4 | R3: правило «меняется форма `RunState`/`RunConfig` — меняется `KeptRun.version` или `RULES_VERSION`» и тест-сторож на ключи состояния | `src/app/savedRun.ts`, `src/rules/config.ts:10`, `src/rules/types.ts` | architect → developer | S | новый тест в `src/app/savedRun.test.ts`; строка в [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md), раздел 7 |
+
+Задачи 1–4 вышли в `main` коммитом `8906af0`, версия 0.2.94 (2026-11-04): `npm test` 2472, `npm run typecheck`, `npm run build`, `node scripts/docs-check.mjs`, QA в preview. Копия битого сохранения не сделана — вопрос `W11`.
 
 ## Следующие
 
@@ -28,6 +35,7 @@
 | 8 | Разбор воронки по местам из телеметрии Playgama: `progression_failed` по `step_index`, `page_hidden`, уход на загрузке | кабинет Playgama, [docs/VI_Analytics.md](docs/VI_Analytics.md), «Где смотреть» | game-designer | S | отчёт с числами и их объёмом; выводы только при достаточном трафике |
 | 9 | `docs-check` в CI перед сборкой | `.github/workflows/deploy.yml` | developer | S | прогон workflow на ветке; «ок» владельца — это меняет выкладку |
 | 10 | Хрупкие тесты: время на стене и закреплённые числа ряда | `src/app/signWay.test.ts:177-180`, `src/levels/depth.test.ts:55-59`, `src/levels/row.test.ts:129-134` | qa-engineer | S | `npm test` трижды подряд под нагрузкой |
+| 11 | Слепые места аналитики: уход во время boot не виден (`noteHidden` молчит, пока `booted` false), `page_hidden` теряется в пачке Bridge при закрытии вкладки, в `ad_requested` нет места и времени визита | `src/app/game.ts`, `platforms/playgama/adapter.ts`, [docs/VI_Analytics.md](docs/VI_Analytics.md) | developer | S | тест на `noteHidden` до boot; qa — закрытие вкладки на загрузке и в уровне |
 
 ### Список для задачи 5
 
@@ -63,6 +71,8 @@
 | W8 | Чужие незакоммиченные правки в основной папке: `docs/README.md`, `docs/VI_Playgama_Page.md`, `docs/art/VI_Claims.md` — мешают `git pull --ff-only` и задаче 5 | основная папка | чат основной папки | S | `git status` в основной папке чист | чей это чат и коммитить ли |
 | W9 | Архив вымышленных игроков: пересчитать по нынешним правилам или оставить | `scripts/archive.mjs` → `src/app/archiveData.ts` | developer | S | `node scripts/archive.mjs probe` | `Q8` |
 | W10 | Новички на телефоне на местах 1–30 и первом сеансе (стена 27–28) | — | game-designer (план плейтеста) | S | слова игроков записаны | кого звать |
+| W11 | Копия битого сохранения под новым ключом — нужна ли (сейчас битое затирается умолчаниями) | `src/platform/settings.ts`, `src/platform/storage.ts` | developer | S | тест: битое сохранение остаётся под новым ключом | да / нет |
+| W12 | Битый не-JSON `vi.run.v1` лежит до первой партии Endless и шлёт `save_failed parse` при каждом запуске (`src/app/game.ts:756`, `saveWithoutRun`) — стирать без копии? | `src/app/game.ts:756`, `src/app/savedRun.ts` | developer | S | тест: битый `vi.run.v1` не шлёт `save_failed` второй раз | да / нет |
 
 ## Отложено
 
