@@ -121,3 +121,43 @@ export function spearman(a: readonly number[], b: readonly number[]): number | n
   }
   return da === 0 || db === 0 ? null : num / Math.sqrt(da * db);
 }
+
+/** The owner's mark of a place of 31-60 on 4 November 2026, in his scale, as his playtest put his words (row 0.2.93). */
+export interface OwnerMark {
+  place: number;
+  code: string;
+  mark: 'огонь' | 'норм' | 'мимо';
+}
+
+export const OWNER_MARKS: readonly OwnerMark[] = [
+  { place: 31, code: 'lift-first-1', mark: 'норм' },
+  { place: 32, code: 'climb-twos-fours-1', mark: 'норм' },
+  { place: 33, code: 'climb-threes-1', mark: 'норм' },
+  { place: 34, code: 'climb-twos-threes-1', mark: 'мимо' },
+  { place: 35, code: 'climb-threes-fours-1', mark: 'норм' },
+  { place: 36, code: 'climb-threes-2', mark: 'мимо' },
+  { place: 37, code: 'climb-twos-1', mark: 'норм' },
+  { place: 38, code: 'ones-twos-1', mark: 'огонь' },
+  { place: 39, code: 'ones-fours-1', mark: 'огонь' },
+  { place: 40, code: 'climb-twos-threes-2', mark: 'норм' },
+  { place: 41, code: 'ones-twos-2', mark: 'огонь' },
+  { place: 42, code: 'ones-twos-3', mark: 'мимо' },
+  { place: 43, code: 'link-fives-1', mark: 'мимо' },
+  { place: 44, code: 'ones-fours-2', mark: 'норм' },
+  { place: 45, code: 'climb-twos-2', mark: 'норм' },
+  { place: 46, code: 'ones-twos-4', mark: 'мимо' },
+  { place: 47, code: 'rescue-3', mark: 'норм' },
+  { place: 48, code: 'dd-15-no-way-down', mark: 'огонь' },
+  { place: 49, code: 'ones-twos-5', mark: 'мимо' },
+  { place: 50, code: 'climb-twos-threes-3', mark: 'норм' },
+  { place: 51, code: 'climb-threes-fours-2', mark: 'норм' },
+  { place: 52, code: 'ones-threes-1', mark: 'огонь' },
+  { place: 53, code: 'climb-fours-1', mark: 'огонь' },
+  { place: 54, code: 'roll-threes-1', mark: 'огонь' },
+  { place: 55, code: 'ones-over-leaving-1', mark: 'норм' },
+  { place: 56, code: 'two-combos-3', mark: 'огонь' },
+  { place: 57, code: 'climb-twos-threes-4', mark: 'норм' },
+  { place: 58, code: 'P08', mark: 'мимо' },
+  { place: 59, code: 'under-fives-1', mark: 'огонь' },
+  { place: 60, code: 'ones-threes-2', mark: 'норм' },
+];

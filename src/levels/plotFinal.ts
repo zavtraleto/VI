@@ -5,9 +5,10 @@ import { scoreOf } from '../rules/levelScore';
 import type { LevelSpec } from '../rules/types';
 import { normalSpec } from './boardFile';
 import { depthOf, type Depth } from './depth';
-import { firstsOf, hiddenOf, rankOf, rankShares, shareOf, type Shares } from './measures';
+import { firstsOf, hiddenOf, rankOf, rankShares, safeFirstOf, shareOf, type Shares } from './measures';
 import type { Plot, Want } from './plot';
 import { difficulty, riskOf, searchOf } from './scale';
+import { craftOf, peopleOf, troublesOf, type CraftFacts, type People } from './craft';
 import { coreKey, coreOf, layoutSim, SAME_LAYOUT, SIMILAR_ROW, similarityOf, type Core } from './signature';
 
 /**
@@ -47,6 +48,10 @@ export interface Passport {
   /** The risk for a new player and the search for a strong one (`riskOf`, `searchOf`): the two scales set against people. */
   risk: number;
   search: number;
+  /** What the way asks move by move, how the newcomer and the owner of `humanBot.ts` play it, and its troubles (`src/levels/craft.ts`). */
+  craft: CraftFacts;
+  people: People;
+  troubles: string[];
   firsts: number;
   sig: string;
   /** The board of the row most like this one, and how like; and the place whose core it repeats (rule 16), if one does. */
@@ -75,6 +80,8 @@ export const LOSS_STATES = 8_000;
 
 export interface FinalOptions {
   runs?: number;
+  /** People of `humanBot.ts` a board is played by, one a seed: twenty unless said. */
+  people?: number;
   row?: readonly RowBoard[];
   longestDetour?: number;
 }
@@ -143,6 +150,8 @@ export function passportOf(plot: Plot | null, spec: LevelSpec, opts: FinalOption
   const depth = depthOf(measured, { par, maxStates: DEPTH_STATES, lossSolves: LOSS_SOLVES, lossStates: LOSS_STATES });
   const hidden = hiddenOf(measured, way);
   const d = difficulty({ rank, forks: depth.forks, hidden, lossAt: depth.lossAt, par });
+  const craft = craftOf(measured, way);
+  const people = peopleOf(measured, opts.people ?? 20);
   const { sig: key, nearest, sameCore, sameLayout } = kinOf(plot, measured, opts.row ?? []);
   const passport: Omit<Passport, 'misses'> = {
     par,
@@ -158,6 +167,9 @@ export function passportOf(plot: Plot | null, spec: LevelSpec, opts: FinalOption
     d,
     risk: riskOf({ lossAt: depth.lossAt, dice: spec.layout?.dice.length ?? 0 }),
     search: searchOf(shares),
+    craft,
+    people,
+    troubles: troublesOf({ par, hidden, safeFirst: safeFirstOf(measured), craft, people }),
     firsts: firstsOf(measured, par),
     sig: key,
     nearest,
@@ -245,6 +257,8 @@ export function rankPassports<T extends { passport: Passport }>(finalists: reado
     const pb = b.passport;
     return (
       pa.misses.length - pb.misses.length ||
+      // The bots' playtest as a stage: of two boards that hold the plot alike, the one with fewer of the owner's troubles first.
+      (pa.troubles?.length ?? 0) - (pb.troubles?.length ?? 0) ||
       near.get(a)! - near.get(b)! ||
       Number(pa.longestDetour > DETOUR_MARK) - Number(pb.longestDetour > DETOUR_MARK) ||
       (middle === null ? 0 : Math.abs(pa.d - middle) - Math.abs(pb.d - middle)) ||
@@ -298,6 +312,9 @@ export function passportLine(name: string, p: Passport): string {
     `D ${p.d}`,
     `risk ${p.risk}`,
     `search ${p.search}`,
+    p.craft ? `counter ${p.craft.counter} choice ${Math.round(p.craft.choice * 100)}% last ${Math.round(p.craft.lastShare * 100)}%` : '',
+    p.people ? `newcomer ${Math.round(p.people.newcomer.first * 100)}%/${Math.round(p.people.newcomer.gaveUp * 100)}% owner ${Math.round(p.people.owner.first * 100)}% ${p.people.owner.tries?.toFixed(1) ?? '—'}t` : '',
+    p.troubles?.length ? `беды: ${p.troubles.join(', ')}` : '',
     `rank ${p.rank ?? '>8'}`,
     `par ${p.par}`,
     `dice ${p.dice}`,

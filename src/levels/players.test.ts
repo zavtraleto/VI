@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { BOARD_TEXTS } from './boardFiles';
-import { CROWD, OWNER_PLAYS, spearman } from './players';
+import { CROWD, OWNER_MARKS, OWNER_PLAYS, spearman } from './players';
 
 describe('what people did on the boards', () => {
   it('names boards that are there, each once', () => {
     const codes = [...CROWD.map((b) => b.code), ...OWNER_PLAYS.map((p) => p.code)];
     expect(new Set(codes).size).toBe(codes.length);
     for (const code of codes) expect(BOARD_TEXTS.has(code), code).toBe(true);
+  });
+
+  it('holds a mark of the owner for every place of 31-60', () => {
+    expect(OWNER_MARKS.map((m) => m.place)).toEqual(Array.from({ length: 30 }, (_, i) => 31 + i));
+    for (const m of OWNER_MARKS) expect(BOARD_TEXTS.has(m.code), m.code).toBe(true);
   });
 
   it('holds counts that agree with themselves', () => {
