@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cellShare, drawnShare, farthest, gridSegments, waveFrom, type GridSegment } from './gridLines';
+import { cellDrawn, cellReach, cellShare, drawnShare, farthest, gridSegments, waveFrom, type GridSegment } from './gridLines';
 
 /** Every cell of a square but those named: the cells cut out of it. */
 function holesBut(size: number, kept: readonly [x: number, z: number][]): { x: number; z: number }[] {
@@ -173,5 +173,30 @@ describe('how much of a side is drawn', () => {
     expect(drawnShare(0, 4, share)).toBeCloseTo(1);
     expect(drawnShare(1, 4, share)).toBeCloseTo(0);
     expect(cellShare(0)).toBe(1);
+  });
+});
+
+describe('what lies under the cells comes with their lines', () => {
+  it('a cell comes from its first side begun to its last side whole', () => {
+    const sides = waveFrom(gridSegments(3, []), { x: 0, z: 0 });
+    const far = farthest(sides);
+    const { from, to } = cellReach(sides, 3);
+    // The cell the wave starts from: its four sides are the first step.
+    expect([from[0], to[0]]).toEqual([0, 1]);
+    // The far corner comes last, and is whole only when the wave is.
+    expect(to[8]).toBe(far + 1);
+    for (let at = 0; at < 9; at++) expect(from[at]).toBeLessThan(to[at]);
+  });
+
+  it('nothing of the board is under the water before the wave comes to it', () => {
+    const sides = waveFrom(gridSegments(4, [{ x: 3, z: 3 }]), { x: 0, z: 0 });
+    const far = farthest(sides);
+    const { from, to } = cellReach(sides, 4);
+    // Half way through the first step only the cell the wave starts from is begun; the far cells are not.
+    expect(cellDrawn(from[0], to[0], far, 0.5 / (far + 1))).toBeCloseTo(0.5);
+    expect(cellDrawn(from[2 + 2 * 4], to[2 + 2 * 4], far, cellShare(far))).toBe(0);
+    // A cell no side touches is not come to before the whole.
+    expect(cellDrawn(-1, -1, far, 0.99)).toBe(0);
+    for (let at = 0; at < 15; at++) expect(cellDrawn(from[at], to[at], far, 1)).toBe(1);
   });
 });

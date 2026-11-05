@@ -10,7 +10,7 @@ import { quality } from '../display/quality';
 import { CubeMeshes, GLOW_LAYER, type CubeGlow } from './cubes';
 import { FRAME_MARGIN, RIM, SIDE_MARGIN, boardBounds, frameOf, frameOfPiece, shapeKey, sightOf, type BoardShape, type Frame, type Sight } from './board';
 import { cellPixels, fillOf, fitBoard, follow, followFocus, followFrame, viewMode, type FrameBounds, type ViewChoice, type ViewMode } from './framing';
-import { gridSegments, waveFrom, type GridSegment } from './gridLines';
+import { cellDrawn, cellReach, farthest, gridSegments, waveFrom, type GridSegment } from './gridLines';
 import { laidFace } from './laid';
 import { LeavingShow, shownHeight, type HeightOf, type LeavingEvent } from './leaving';
 import { LineGrid } from './lineGrid';
@@ -247,6 +247,8 @@ export class BoardView {
   private sides: GridSegment[] = [];
   /** The same sides as the last wave sent through them found them; none before a wave. */
   private waved: GridSegment[] = [];
+  /** When that wave comes to every cell (`cellReach`), and how much of each is there on this frame: the water lays the board by it. */
+  private under: { from: Float32Array; to: Float32Array; far: number; cells: Float32Array } | null = null;
   /**
    * How much of the lines is drawn, 0 to 1; whether they are being drawn or erased; and the
    * cell the wave starts from, in the cells of the board that is on, null until one is named.
@@ -615,6 +617,7 @@ export class BoardView {
     this.sides = gridSegments(size, shape.holes);
     this.grid.set(this.sides);
     this.waved = [];
+    this.under = null;
     this.wave.share = 1;
     this.wave.drawing = true;
     this.wave.from = null;
@@ -644,6 +647,8 @@ export class BoardView {
       wave.from = { x: from.x, z: from.z };
       this.waved = waveFrom(this.sides, wave.from);
       this.grid.set(this.waved);
+      const { size } = this.board;
+      this.under = { ...cellReach(this.waved, size), far: farthest(this.waved), cells: new Float32Array(size * size) };
     }
     wave.share = Math.min(1, Math.max(0, share));
     wave.drawing = drawing;
@@ -1240,6 +1245,14 @@ export class BoardView {
       from.hush = this.hush;
       // The whole board in view: the water lies still under a board that a beat shakes and leans in on.
       from.home = follows ? null : this.cameraHome;
+      // The board lies on the water as much as its lines are drawn: cell by cell with the wave.
+      const { under, wave: lines } = this;
+      if (under && lines.share < 1) {
+        for (let at = 0; at < under.cells.length; at++) under.cells[at] = cellDrawn(under.from[at], under.to[at], under.far, lines.share);
+        this.water.cover(under.cells, lines.share);
+      } else {
+        this.water.cover(null, 1);
+      }
       this.water.frame(dt, timeMs, this.camera, place, values, from);
     }
     layer.render(this.scene, this.camera, { rect: drawn });

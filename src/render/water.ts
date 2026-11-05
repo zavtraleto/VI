@@ -169,6 +169,8 @@ uniform vec3 uEyeAt;
 uniform vec2 uGlint;
 /** The far of the water: how much lighter it is at the top of the frame; one over the height of the picture; what the rings lose under the cells of the board. */
 uniform vec3 uFar;
+/** How much of the board is laid on the water, 0 to 1: the calm in its cells cut out comes and goes with it. */
+uniform float uLaid;
 uniform sampler2D uNoise;
 uniform mat4 uReflect;
 uniform sampler2D uMask;
@@ -277,7 +279,7 @@ void main() {
   float sheet = clamp(texture2D(uMask, (cell + 1.5) / (size + 2.0)).r * 2.0, 0.0, 1.0);
   vec2 out2 = max(-0.5 - cell, cell - (size - 0.5));
   float inside = 1.0 - smoothstep(-0.25, 0.25, max(out2.x, out2.y));
-  float quiet = uCalm.x * mix(inside * uCalm.z, 1.0, sheet);
+  float quiet = uCalm.x * mix(inside * uCalm.z * uLaid, 1.0, sheet);
 
   // The swell is soft humps, not lines: the picture of them laid over the water three times.
   // Twice small, the two going different ways, so that what is seen of them never stands as a
@@ -480,6 +482,9 @@ export class Water {
   private readonly plane: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   private readonly noise = noiseTexture();
   private mask: THREE.DataTexture;
+  /** The cells of the board that is on, 255 where a cell is; and what of them was last laid (`cover`), null for all. */
+  private cells = new Uint8Array(1);
+  private covered: Float32Array | null = null;
   private laid = '';
   private readonly origin = { x: 0, z: 0 };
   private size = 1;
@@ -586,6 +591,7 @@ export class Water {
           uEyeAt: { value: new THREE.Vector3() },
           uGlint: { value: new THREE.Vector2() },
           uFar: { value: new THREE.Vector3() },
+          uLaid: { value: 1 },
           uNoise: { value: this.noise },
           uReflect: { value: new THREE.Matrix4() },
           uMask: { value: this.mask },
@@ -629,6 +635,35 @@ export class Water {
     // in the world, in the picture of the board that comes.
     if (was.laid) this.carry(was);
     else this.still();
+  }
+
+  /**
+   * How much of every cell of the board is laid on the water on this frame, 0 to 1, by cell
+   * `x + z * size`; null: all of it. The sheet the board is comes cell by cell with the lines of
+   * the board and goes with them, so its shape is never seen on the water before the board is
+   * (the owner, 5 November 2026: «область под доской темнеет и игрок сразу видит форму поля…
+   * убери это»). `whole` is how much of the board is laid in all: the calm of its cells cut out.
+   */
+  cover(cells: Float32Array | null, whole: number): void {
+    this.plane.material.uniforms.uLaid.value = Math.min(1, Math.max(0, whole));
+    if (cells === null && this.covered === null) return;
+    const { size } = this;
+    const side = size + 2;
+    const data = this.mask.image.data as Uint8Array;
+    let changed = false;
+    for (let z = 0; z < size; z++) {
+      for (let x = 0; x < size; x++) {
+        const at = ((z + 1) * side + x + 1) * 4;
+        const there = this.cells[x + z * size];
+        const value = cells === null ? there : Math.round(there * Math.min(1, Math.max(0, cells[x + z * size] ?? 1)));
+        if (data[at] !== value) {
+          data[at] = value;
+          changed = true;
+        }
+      }
+    }
+    this.covered = cells;
+    if (changed) this.mask.needsUpdate = true;
   }
 
   /** Takes the rings over from the picture they were counted in, of a board that lay at `was`, into the picture of the board that is on. */
@@ -941,9 +976,14 @@ export class Water {
     const side = shape.size + 2;
     const data = new Uint8Array(side * side * 4);
     const cut = new Set(shape.holes.map((cell) => `${cell.x},${cell.z}`));
+    // What is laid of the board comes over these (`cover`); a new board is laid whole until it is told otherwise.
+    this.cells = new Uint8Array(shape.size * shape.size);
+    this.covered = null;
     for (let z = 0; z < shape.size; z++) {
       for (let x = 0; x < shape.size; x++) {
-        if (!cut.has(`${x},${z}`)) data[((z + 1) * side + x + 1) * 4] = 255;
+        if (cut.has(`${x},${z}`)) continue;
+        this.cells[x + z * shape.size] = 255;
+        data[((z + 1) * side + x + 1) * 4] = 255;
       }
     }
     const texture = new THREE.DataTexture(data, side, side);

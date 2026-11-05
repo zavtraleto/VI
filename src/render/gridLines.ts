@@ -158,3 +158,48 @@ export function drawnShare(reach: number, far: number, share: number): number {
 export function cellShare(far: number): number {
   return 1 / (far + 1);
 }
+
+/**
+ * When the wave comes to every cell of a board of `size` cells a side: from the step its first
+ * side begins in to the step its last side is whole in, by cell, `x + z * size`. What lies under
+ * a cell comes with its lines, not before them (the owner, 5 November 2026: «область под доской
+ * темнеет и игрок сразу видит форму поля… убери это»). A cell no side touches has from and to
+ * both -1; a cell cut out is touched by the sides of the cells around it, and the mask that
+ * reads this has nothing there anyway.
+ */
+export function cellReach(segments: readonly GridSegment[], size: number): { from: Float32Array; to: Float32Array } {
+  const from = new Float32Array(size * size).fill(Infinity);
+  const to = new Float32Array(size * size).fill(-1);
+  const touch = (x: number, z: number, reach: number): void => {
+    if (x < 0 || z < 0 || x >= size || z >= size) return;
+    const at = x + z * size;
+    from[at] = Math.min(from[at], reach);
+    to[at] = Math.max(to[at], reach + 1);
+  };
+  for (const { ax, az, bx, bz, reach } of segments) {
+    const x = Math.min(ax, bx);
+    const z = Math.min(az, bz);
+    // A side along x lies between the cells north and south of it, one along z between those west and east.
+    if (az === bz) {
+      touch(x, z - 1, reach);
+      touch(x, z, reach);
+    } else {
+      touch(x - 1, z, reach);
+      touch(x, z, reach);
+    }
+  }
+  for (let at = 0; at < from.length; at++) if (from[at] === Infinity) from[at] = -1;
+  return { from, to };
+}
+
+/**
+ * How much of a cell is there at share 0..1 of the wave, for a cell the wave comes to from step
+ * `from` to step `to` (`cellReach`) of a wave of `far + 1` parts: 0 before its first side begins,
+ * 1 once its last is whole, and between as its sides are drawn. Erasing is the same run back.
+ */
+export function cellDrawn(from: number, to: number, far: number, share: number): number {
+  if (share >= 1) return 1;
+  if (to < 0) return 0;
+  const at = share * (far + 1);
+  return Math.min(1, Math.max(0, (at - from) / Math.max(1e-6, to - from)));
+}
