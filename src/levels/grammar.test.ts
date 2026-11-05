@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { solveLevel } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import { CAMPAIGN, type Stop } from './campaign';
-import { BARRED, HELD, KNOWN_REPEATS, REPEAT_FROM, WARNING, fastGrammar, held, knownRepeat, lessonOf, markOf, needsOf, repeatsOf, slowGrammar } from './grammar';
+import { BARRED, HELD, KNOWN_REPEATS, PAIR_MARK, REPEAT_FROM, WARNING, fastGrammar, held, knownRepeat, lessonOf, markOf, needsOf, repeatsOf, slowGrammar, twentyOf } from './grammar';
 import { boardOf as anyBoard } from './boardSets';
 import { turnedBoard } from './edits';
 
@@ -622,5 +622,55 @@ describe('rule 1 past the 30th and the 60th place', () => {
     expect(slow1(order(45), ['two-pairs-2'])).toEqual([]);
     expect(slow1(order(45), [])).toEqual(['место 45 (R05) учит order, а из мест 46–48 его требует 0 досок']);
     expect(slow1(order(65), [])).toEqual([]);
+  });
+});
+
+describe('a pair of the row: one layout, another thought, let be by rule 16', () => {
+  // H06 and hidden-face-1 are one layout (rule 16) and two thoughts: a combo of three 3s in four moves and in six, with the seven.
+  const at = (codes: readonly (string | [string, Partial<Stop>])[], from: number) =>
+    rowOf(codes).map((stop, i) => ({ ...stop, number: from + i }));
+  const lines = (row: readonly Stop[]) => repeatsOf(row).filter((one) => one.rule === 16 || one.pair);
+
+  it('holds one layout of two places of the row that are no pair', () => {
+    const found = lines(at(['H06', 'hidden-face-1'], 61));
+    expect(found.map((one) => [one.text, held(one)])).toEqual([['места 61 (H06) и 62 (hidden-face-1): одна раскладка', true]]);
+  });
+
+  it('lets the one layout of a pair declared at the second place be, and says it with its mark', () => {
+    const found = lines(at(['H06', ['hidden-face-1', { pair: 'H06' }]], 61));
+    const layout = found.find((one) => one.rule === 16)!;
+    expect(layout.text).toBe('места 61 (H06) и 62 (hidden-face-1): одна раскладка');
+    expect(held(layout)).toBe(false);
+    expect(markOf(layout)).toBe(PAIR_MARK);
+    expect(PAIR_MARK).toBe(' (пара, слово владельца 5 ноября 2026)');
+    // Rule 17 says the likeness of the two too, with the same mark.
+    expect(found.filter((one) => one.rule === 17).every((one) => markOf(one) === PAIR_MARK)).toBe(true);
+    expect(found.filter(held)).toEqual([]);
+  });
+
+  it('holds a pair that is not of the place just before it', () => {
+    const found = lines(at(['H06', 'first-sixes-1', ['hidden-face-1', { pair: 'H06' }]], 61));
+    expect(found.filter(held).map((one) => one.text)).toEqual([
+      'место 63 (hidden-face-1): пара с H06 — пара только с местом прямо перед ним',
+      'места 61 (H06) и 63 (hidden-face-1): одна раскладка',
+    ]);
+  });
+
+  it('holds a pair of one thought: one thought stays a repeat', () => {
+    const found = lines(at(['two-combos-3', ['two-combos-5', { pair: 'two-combos-3' }]], 61));
+    expect(found.filter(held).map((one) => one.text)).toEqual([
+      'место 62 (two-combos-5): пара с two-combos-3 — одна мысль, а пара — другая мысль на той же раскладке',
+      'места 61 (two-combos-3) и 62 (two-combos-5): одна мысль — K ~ K, seven twoFaces walk, грани 3 4',
+    ]);
+  });
+
+  it('holds a second pair in a twenty, and lets one be in the next', () => {
+    const two: (string | [string, Partial<Stop>])[] = ['H06', ['hidden-face-1', { pair: 'H06' }], 'climb-twos-threes-4', ['act-k25', { pair: 'climb-twos-threes-4' }]];
+    const second = lines(at(two, 61)).filter(held).map((one) => one.text);
+    expect(second).toEqual(['место 64 (act-k25): пара с climb-twos-threes-4 — вторая пара в двадцатке 61–80', 'места 63 (climb-twos-threes-4) и 64 (act-k25): одна раскладка']);
+    // 79 and 80 are of 61–80, 81 and 82 of 81–100: one pair to each.
+    expect(lines(at(two, 79)).filter(held)).toEqual([]);
+    expect(twentyOf(80)).toBe(3);
+    expect(twentyOf(81)).toBe(4);
   });
 });

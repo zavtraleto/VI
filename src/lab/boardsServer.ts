@@ -213,8 +213,8 @@ const words = (value: unknown): boolean => value === undefined || typeof value =
 /** What a place says but its board, as the page sends it; null where a key or a word is none of the row (`row.ts`). */
 function placeOf(said: unknown): PlaceFields | null {
   if (!isObject(said) || !keysOf(said, PLACE_KEYS.filter((key) => key !== 'board'), ['role', 'archetype'])) return null;
-  const { role, teaches, archetype, event, note, help } = said;
-  if (!oneOf(role, ROLES) || typeof archetype !== 'string' || archetype.trim() === '' || !words(event) || !words(note)) return null;
+  const { role, teaches, archetype, event, note, help, pair } = said;
+  if (!oneOf(role, ROLES) || typeof archetype !== 'string' || archetype.trim() === '' || !words(event) || !words(note) || !words(pair)) return null;
   if (teaches !== undefined && !oneOf(teaches, TECHNIQUES)) return null;
   if (help !== undefined) {
     if (!isObject(help) || !keysOf(help, HELP_KEYS, [])) return null;

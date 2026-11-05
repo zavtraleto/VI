@@ -85,7 +85,9 @@ export function rowEdit(file: RowFile, op: RowOp): RowEdit {
     return { file: next, statuses: { [board]: op.status } };
   }
   if (op.op === 'edit') {
-    places[at.index] = copyPlace({ board, ...op.place });
+    // The form of the page says nothing of a pair (`RowPlaceFile.pair`): one written in row.json stays.
+    const pair = places[at.index].pair;
+    places[at.index] = copyPlace({ board, ...(pair !== undefined ? { pair } : {}), ...op.place });
     return { file: next, statuses: {} };
   }
   const up = op.way === 'up';

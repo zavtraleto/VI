@@ -39,6 +39,8 @@ export interface Violation {
   scale?: true;
   /** The board of the place a line of rule 17 or 18 is of, by which the owner's word may let it be (`OWNER_WORD`). */
   board?: string;
+  /** A line of a pair declared in the row (`Place.pair`): the one layout of rule 16 let be, or the likeness of rule 17 said of it. */
+  pair?: true;
 }
 
 /**
@@ -66,7 +68,13 @@ export const KNOWN_REPEAT = ' (известный повтор)';
 export const OWNER_MARK = ' (слово владельца)';
 
 /** What the line of a rule broken ends with, under the table and in the workshop: nothing where it holds the row back. */
-export const markOf = (one: Violation): string => (knownRepeat(one) ? KNOWN_REPEAT : ownerWord(one) ? OWNER_MARK : held(one) ? '' : WARNING);
+export const markOf = (one: Violation): string => (one.pair ? PAIR_MARK : knownRepeat(one) ? KNOWN_REPEAT : ownerWord(one) ? OWNER_MARK : held(one) ? '' : WARNING);
+
+/** What the line of a pair declared in the row ends with: its one layout is let be by the owner's word. */
+export const PAIR_MARK = ' (пара, слово владельца 5 ноября 2026)';
+
+/** The twenty of the row a place is in, from 0: 1–20, 21–40, …, 61–80, 81–100. A twenty has one pair at most. */
+export const twentyOf = (number: number): number => Math.floor((number - 1) / 20);
 
 /** What the walk and the personas found of a board, for the slow rules. */
 export interface SlowFacts {
@@ -478,12 +486,30 @@ export function repeatsOf(row: readonly Stop[]): Violation[] {
   const keys = cores.map((core) => JSON.stringify(core));
   // The likeness of the layout of a place judged to each place before it, read once for both rules.
   const layouts = row.map((stop, i) => (stop.number < REPEAT_FROM ? [] : row.slice(0, i).map((other) => layoutSim(stop.spec, other.spec))));
+  // The pairs declared in the row (`Place.pair`): a place and the one just before it, of another thought, the first of its
+  // twenty. One that is not is held, with what is wrong; one that is lets its one layout be.
+  const paired = new Map<number, number>();
+  const twenties = new Set<number>();
+  row.forEach((stop, i) => {
+    if (stop.pair === undefined || stop.number < REPEAT_FROM) return;
+    const before = row[i - 1];
+    const where = `${placeOf(stop)}: пара с ${stop.pair}`;
+    if (!before || before.code !== stop.pair || before.number !== stop.number - 1) out.push({ rule: 16, at: stop.number, text: `${where} — пара только с местом прямо перед ним` });
+    else if (keys[i] === keys[i - 1]) out.push({ rule: 16, at: stop.number, text: `${where} — одна мысль, а пара — другая мысль на той же раскладке` });
+    else if (twenties.has(twentyOf(stop.number))) {
+      const from = twentyOf(stop.number) * 20 + 1;
+      out.push({ rule: 16, at: stop.number, text: `${where} — вторая пара в двадцатке ${from}–${from + 19}` });
+    } else {
+      twenties.add(twentyOf(stop.number));
+      paired.set(i, i - 1);
+    }
+  });
   row.forEach((stop, i) => {
     if (stop.number < REPEAT_FROM) return;
     for (let j = 0; j < i; j++) {
       const other = row[j];
       const pair = `места ${other.number} (${other.spec.id}) и ${stop.number} (${stop.spec.id})`;
-      if (layouts[i][j] >= SAME_LAYOUT) out.push({ rule: 16, at: stop.number, text: `${pair}: одна раскладка` });
+      if (layouts[i][j] >= SAME_LAYOUT) out.push({ rule: 16, at: stop.number, text: `${pair}: одна раскладка`, ...(paired.get(i) === j ? { warning: true as const, pair: true as const } : {}) });
       else if (keys[i] === keys[j]) out.push({ rule: 16, at: stop.number, text: `${pair}: одна мысль — ${coreText(cores[i])}` });
     }
   });
@@ -495,7 +521,8 @@ export function repeatsOf(row: readonly Stop[]): Violation[] {
     const near = flag.near - SIMILAR_NEAR >= flag.sim - SIMILAR_ROW;
     const [at, sim] = near ? [flag.nearAt, flag.near] : [flag.at, flag.sim];
     const where = `место ${at} (${byNumber.get(at)!.spec.id})${near ? ' из пяти перед ним' : ''}`;
-    out.push({ rule: 17, at: number, text: `${placeOf(stop)}: похоже на ${where}, ${twoDigits(sim)}`, warning: true, board: stop.spec.id });
+    const ofPair = paired.get(row.indexOf(stop)) === row.indexOf(byNumber.get(at)!);
+    out.push({ rule: 17, at: number, text: `${placeOf(stop)}: похоже на ${where}, ${twoDigits(sim)}`, warning: true, board: stop.spec.id, ...(ofPair ? { pair: true as const } : {}) });
   }
   return out;
 }

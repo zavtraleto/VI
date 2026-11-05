@@ -50,6 +50,12 @@ export interface RowPlaceFile {
   /** A note for people, not read by the game. */
   note?: string;
   help?: Help;
+  /**
+   * The board of the place just before this one, where the two are a pair: one layout, another thought (the owner,
+   * 5 November 2026: «разрешить одну пару «та же доска с одним изменением» на двадцатку»). Rule 16 lets the one layout of
+   * a pair be, one pair to a twenty (`repeatsOf` in `grammar.ts`); not read by the game.
+   */
+  pair?: string;
 }
 
 export interface RowChapterFile {
@@ -78,6 +84,8 @@ export interface Place {
   emotion?: Emotion;
   event?: string;
   help: Help;
+  /** The board of the place before this one it is a pair with (`RowPlaceFile.pair`). */
+  pair?: string;
 }
 
 /** A chapter of the laid row: the indices of its first and its last place in `places`. */
@@ -96,7 +104,7 @@ export interface Row {
 
 /** The keys row.json knows, in the order it is written in (`rowFileText` of rowEdit.ts). */
 export const CHAPTER_KEYS = ['title', 'faces', 'floor', 'places'] as const;
-export const PLACE_KEYS = ['board', 'role', 'teaches', 'archetype', 'emotion', 'event', 'note', 'help'] as const;
+export const PLACE_KEYS = ['board', 'role', 'teaches', 'archetype', 'emotion', 'event', 'note', 'help', 'pair'] as const;
 export const HELP_KEYS = ['hint', 'sign', 'plaques', 'wait', 'camera'] as const;
 
 /** Reads the text of row.json: JSON, with a list of chapters. What each holds is asked by `buildRow`. */
@@ -134,6 +142,7 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
       if (help.plaques !== undefined) oneOf(where, 'plaques', help.plaques, PLAQUES);
       if (help.wait !== undefined) oneOf(where, 'wait', help.wait, WAITS);
       if (help.camera !== undefined) oneOf(where, 'camera', help.camera, CAMERAS);
+      if (said.pair !== undefined && typeof said.pair !== 'string') throw new Error(`${where}: pair names the board of the place before it`);
       const before = seen.get(said.board);
       if (before !== undefined) throw new Error(`row: ${said.board} is in the row twice (places ${before} and ${number})`);
       seen.set(said.board, number);
@@ -158,6 +167,7 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
         ...(said.emotion !== undefined ? { emotion: said.emotion } : {}),
         ...(said.event !== undefined ? { event: said.event } : {}),
         help: { ...help },
+        ...(said.pair !== undefined ? { pair: said.pair } : {}),
       });
     }
     chapters.push({ id, title: chapter.title, faces: chapter.faces ? [...chapter.faces] : null, first, last: places.length - 1 });
