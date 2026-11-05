@@ -1,35 +1,16 @@
 import type { GoalLine } from '../rules';
-import { word, type LanguageCode, type TextKey } from '../ui/i18n';
+import { word, type LanguageCode } from '../ui/i18n';
 
 /**
  * Everything the shell says, in one place. Beside each word stands its Japanese, in kana; the word
  * itself is said in the language of the player: it is asked for by its English name through
  * `word()`. The owner, 30 October 2026: the game speaks to people, plainly and kindly, and keeps
- * its mystery without the voice of an office. One line per file of the menu comes through `t()`.
+ * its mystery without the voice of an office.
  *
  * Every kanji used here has to be in the font: run `npm run fonts` after changing the Japanese.
  */
 
 export const LOGO_TEXT = 'VIZAVI';
-export const REVISION = 'REV 2.06';
-
-/** The record of the one who sits at the program: the seventh, whom it does not know. */
-export const SUBJECT = {
-  /** "Subject file". */
-  title: 'ひけんしゃファイル',
-  number: 'No.07',
-  fields: [
-    /** "Subject". */
-    ['ひけんしゃ', '07'],
-    /** "Registration". */
-    ['とうろく', 'UNREGISTERED'],
-    /** "Connection". */
-    ['せつぞく', 'NONE'],
-    /** "Previous start", by the era: Heisei 13 is 2001. */
-    ['ぜんかいきどう', 'H13.03.21'],
-  ],
-} as const;
-
 /** Over the six dice: "Fig. 1, development" — the net of a die. */
 export const SPACE_CAPTION = 'ず1 てんかいず';
 
@@ -44,32 +25,19 @@ export const EXEC = {
   open: { native: 'ひらく', name: 'OPEN' },
 } as const;
 
-export const STATUS = {
-  channels: 'CH',
-  mode: 'EMULATION',
-  /** "Sessions". */
-  sessions: 'かいすう',
-} as const;
-
-/** The keys, on a screen that has them: what the arrows and the Enter key do, said through `word()`. */
-export const LEGEND = { move: 'MOVE', pick: 'SELECT' } as const;
-
-/** What a file of the menu shows under its name. */
-export type FileField = 'bestEndless' | 'levels' | 'rules' | 'readme' | 'sessions' | 'revision';
+/** What the line under the name of a card of the menu shows. */
+export type FileField = 'levels' | 'bestEndless' | 'rules' | 'story' | 'sessions' | 'language';
 
 export interface MenuFile {
   id: string;
   /** The face of the die this file is, 1 to 6. */
   face: number;
+  /** Its name, by its English one, said through `word()`. */
   name: string;
-  /** The same in the language of the program. */
-  native: string;
-  /** The one dry line, in the language of the player. */
-  line: TextKey;
-  /** What the bar of its record says it does. */
+  /** What its command says it does. */
   exec: (typeof EXEC)[keyof typeof EXEC];
-  /** Label of the value under the name, in kana and by its English name, and the kind of the value. */
-  field: readonly [native: string, name: string, kind: FileField];
+  /** The line under its name: what it counts, by its English name, and the kind of the value. */
+  field: readonly [label: string, kind: FileField];
 }
 
 /**
@@ -78,28 +46,22 @@ export interface MenuFile {
  * the settings of the program, the session without a limit faces the log, and what is read -
  * how the game is played, and the note that came with the program - stands on either side.
  * The exercise and the tasks had the three and the four until 6 October 2026; both are gone
- * from the program since 15 October 2026.
+ * from the program since 15 October 2026. Since 5 November 2026 a file is a card, named in the
+ * language of the player alone (docs/superpowers/specs/2026-11-05-vi-menu-design.md).
  */
 export const MENU_FILES: readonly MenuFile[] = [
-  /** "Level": the levels of the game; "clear". */
-  { id: 'levels', face: 1, name: 'LEVELS', native: 'レベル', line: 'shellLevels', exec: EXEC.play, field: ['クリア', 'CLEARED', 'levels'] },
-  /** "Infinity": the game without an end; "high score". */
-  { id: 'protocol', face: 2, name: 'ENDLESS', native: 'むげん', line: 'shellProtocol', exec: EXEC.play, field: ['ハイスコア', 'BEST', 'bestEndless'] },
-  /** "Explanation": how the game is played, on the pieces of the road; "rules". */
-  { id: 'howto', face: 3, name: 'HOW TO PLAY', native: 'せつめい', line: 'shellHowTo', exec: EXEC.read, field: ['ルール', 'RULES', 'rules'] },
-  /** "Story": the note that came with the program; "date": the day it was last written to. */
-  { id: 'readme', face: 4, name: 'STORY', native: 'ものがたり', line: 'shellReadme', exec: EXEC.read, field: ['ひづけ', 'DATE', 'readme'] },
-  /** "Records": the best scores of the endless game; "number of entries". */
-  { id: 'records', face: 5, name: 'HIGH SCORES', native: 'きろく', line: 'shellRecords', exec: EXEC.open, field: ['けんすう', 'GAMES', 'sessions'] },
-  /** "Settings"; "revision". */
-  { id: 'system', face: 6, name: 'SETTINGS', native: 'せってい', line: 'shellSystem', exec: EXEC.open, field: ['かいてい', 'VERSION', 'revision'] },
+  { id: 'levels', face: 1, name: 'LEVELS', exec: EXEC.play, field: ['CLEARED', 'levels'] },
+  { id: 'protocol', face: 2, name: 'ENDLESS', exec: EXEC.play, field: ['BEST', 'bestEndless'] },
+  { id: 'howto', face: 3, name: 'HOW TO PLAY', exec: EXEC.read, field: ['RULES', 'rules'] },
+  /** The note that came with the program and the records of the link: how many of the records are open. */
+  { id: 'readme', face: 4, name: 'STORY', exec: EXEC.read, field: ['RECORDS', 'story'] },
+  /** The best scores of the endless game; how many sessions there are on record. */
+  { id: 'records', face: 5, name: 'HIGH SCORES', exec: EXEC.open, field: ['GAMES', 'sessions'] },
+  { id: 'system', face: 6, name: 'SETTINGS', exec: EXEC.open, field: ['LANGUAGE', 'language'] },
 ];
 
-/** The day the note that came with the program was last written to, by the era: the day before the last start. */
-export const README_DATE = 'H13.03.20';
-
-/** The arrows that turn the record of the menu to the file before and the file after. */
-export const PAGER = { prev: '←', next: '→' } as const;
+/** The command of the menu: it goes on with the levels where the player stopped, or plays the first. */
+export const MENU_COMMAND = { going: 'CONTINUE', first: 'PLAY' } as const;
 
 /** A count as the program writes it: with leading zeros. */
 export function digits(value: number, places: number): string {
@@ -208,6 +170,8 @@ export const COMMANDS = {
   levels: { native: 'レベル', name: 'LEVELS' },
   /** "Back". */
   back: { native: 'もどる', name: 'BACK' },
+  /** "Back": from the list of the levels to the board left in pause; its number is written after it. */
+  toLevel: { native: 'もどる', name: 'TO LEVEL' },
   /** "To the next". */
   next: { native: 'つぎへ', name: 'NEXT' },
   /** "Exit". */

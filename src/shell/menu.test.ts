@@ -1,15 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Size } from '../display/sizing';
 import { LANGUAGES, setLanguage } from '../ui/i18n';
-import { MIN_ZONE, pictureSize, type Box, type MenuLayout } from './layout';
+import { MIN_ZONE, pictureSize, type Box } from './layout';
 import type { ShellContext } from './screen';
-import { MenuScreen } from './screens/menu';
+import { MenuScreen, type MenuActions } from './screens/menu';
 import { shellDefaults } from './theme';
 import type { Voice } from './voice';
 
 const nothing = (): void => undefined;
-const ACTIONS = { onEndless: nothing, onLevels: nothing, onHowTo: nothing, onReadme: nothing, onRecords: nothing, onSystem: nothing };
-const DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 34, rules: 8, sessions: 12 };
+const DATA = { bestEndless: 870, levelsDone: 7, levelsTotal: 100, rules: 9, sessions: 12, storyOpen: 1, storyTotal: 3, language: 'ENGLISH', place: 8 };
+
+/** Actions that write down which one ran. */
+function recorded(): { actions: MenuActions; ran: string[] } {
+  const ran: string[] = [];
+  const say = (name: string) => () => void ran.push(name);
+  return {
+    ran,
+    actions: { onEndless: say('endless'), onLevels: say('levels'), onHowTo: say('howto'), onReadme: say('readme'), onRecords: say('records'), onSystem: say('system'), onPlay: say('play') },
+  };
+}
 
 function context(window: Size, ratio: number, focus: (id: string) => void = nothing): ShellContext {
   const values = shellDefaults();
@@ -26,27 +35,16 @@ function context(window: Size, ratio: number, focus: (id: string) => void = noth
   };
 }
 
-type Rect = { x: number; y: number; width: number; height: number };
-
-/** How far two rectangles reach into each other: the smaller of how far across and how far down, 0 where they do not meet. */
-const reach = (one: Rect, other: Rect): number =>
-  Math.max(0, Math.min(Math.min(one.x + one.width, other.x + other.width) - Math.max(one.x, other.x), Math.min(one.y + one.height, other.y + other.height) - Math.max(one.y, other.y)));
-
 const meet = (one: Box, other: Box): boolean => one.x < other.x + other.w && other.x < one.x + one.w && one.y < other.y + other.h && other.y < one.y + one.h;
+const inside = (inner: Box, outer: Box): boolean => inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.w <= outer.x + outer.w && inner.y + inner.h <= outer.y + outer.h;
 
 /** A phone held upright and a desk screen: the window in CSS pixels and the pixels of the canvas to one of them. */
-const SCREENS: readonly [name: string, window: Size, ratio: number][] = [
-  ['phone', { width: 360, height: 640 }, 3],
-  ['desk', { width: 1920, height: 1080 }, 1],
-];
+const PHONE: [Size, number] = [{ width: 360, height: 640 }, 3];
+const DESK: [Size, number] = [{ width: 1920, height: 1080 }, 1];
 
-/** What the screen has worked out for its picture: the blocks of the menu, where the dice hang, the key under them. */
-interface Plan {
-  layout: MenuLayout;
-  zoom: number;
-  names: { net: Box; key: Box | null };
-}
-const planOf = (menu: MenuScreen): Plan => (menu as unknown as { plan(): Plan }).plan();
+type DeskPlan = { kind: 'desk'; net: Box; command: Box; cards: { file: { id: string }; box: Box }[] };
+type PhonePlan = { kind: 'phone'; net: Box; card: Box; prev: Box; next: Box; command: Box; dots: number };
+const planOf = <P>(menu: MenuScreen): P => (menu as unknown as { plan(): P }).plan();
 
 // The dice of the menu paint their pips on a canvas: here a canvas that keeps nothing will do.
 beforeAll(() => {
@@ -55,117 +53,127 @@ beforeAll(() => {
 });
 afterAll(() => vi.unstubAllGlobals());
 
-describe('the names of the files of the menu', () => {
-  it('stand beside their dice on a desk in every language: one for each file, in the window, large enough for a finger, none over another', () => {
-    const window = { width: 1920, height: 1080 };
-    for (const language of LANGUAGES) {
-      setLanguage(language);
-      const menu = new MenuScreen(context(window, 1), ACTIONS, DATA);
-      const names = menu.items().filter((item) => item.id.startsWith('name-'));
-      expect(names.map((item) => item.id).sort(), language).toEqual(['name-howto', 'name-levels', 'name-protocol', 'name-readme', 'name-records', 'name-system']);
-      for (const item of names) {
-        expect(item.rect.height, language).toBeGreaterThanOrEqual(MIN_ZONE);
-        expect(item.rect.x, language).toBeGreaterThanOrEqual(0);
-        expect(item.rect.x + item.rect.width, language).toBeLessThanOrEqual(window.width);
-      }
-      // Two names a row apart may reach over each other by a step of the grid: the nearer middle takes the press.
-      const { zoom } = planOf(menu);
-      for (let a = 0; a < names.length; a++) for (let b = a + 1; b < names.length; b++) expect(reach(names[a].rect, names[b].rect), `${language} ${names[a].id} ${names[b].id}`).toBeLessThanOrEqual(4 * zoom + 1e-6);
-      menu.dispose();
-    }
-    setLanguage('en');
-  });
-
-  it('stand the figure on their file when pressed', () => {
-    const focused: string[] = [];
-    const menu = new MenuScreen(context({ width: 1920, height: 1080 }, 1, (id) => focused.push(id)), ACTIONS, DATA);
-    menu.items().find((item) => item.id === 'name-records')!.action();
-    expect(focused).toEqual(['records']);
+describe('the main menu on a desk', () => {
+  it('stands as the spec lays it out at 1920 by 1080: three cards a side, the dice between them, the command under the dice', () => {
+    const menu = new MenuScreen(context(...DESK), recorded().actions, DATA);
+    const plan = planOf<DeskPlan>(menu);
+    expect(plan.kind).toBe('desk');
+    expect(plan.net).toEqual({ x: 192, y: 40, w: 256, h: 256 });
+    expect(plan.command).toEqual({ x: 192, y: 304, w: 256, h: 40 });
+    const at = (id: string): Box => plan.cards.find((card) => card.file.id === id)!.box;
+    expect([at('howto'), at('records'), at('system')]).toEqual([40, 164, 288].map((y) => ({ x: 8, y, w: 160, h: 56 })));
+    expect([at('protocol'), at('levels'), at('readme')]).toEqual([40, 164, 288].map((y) => ({ x: 472, y, w: 160, h: 56 })));
     menu.dispose();
   });
 
-  it('are a key under the net on a phone, which is not pressed: the dice are', () => {
-    const menu = new MenuScreen(context({ width: 360, height: 640 }, 3), ACTIONS, DATA);
-    expect(menu.items().filter((item) => item.id.startsWith('name-'))).toEqual([]);
+  it('keeps the logo, the cards, the dice and the command apart and in the picture', () => {
+    const menu = new MenuScreen(context(...DESK), recorded().actions, DATA);
+    const plan = planOf<DeskPlan>(menu);
+    const whole: Box = { x: 0, y: 0, w: 640, h: 360 };
+    const blocks: [string, Box][] = [['logo', { x: 8, y: 8, w: 96, h: 16 }], ['dice', plan.net], ['command', plan.command], ...plan.cards.map((card): [string, Box] => [card.file.id, card.box])];
+    for (const [name, box] of blocks) expect(inside(box, whole), name).toBe(true);
+    for (let a = 0; a < blocks.length; a++) for (let b = a + 1; b < blocks.length; b++) expect(meet(blocks[a][1], blocks[b][1]), `${blocks[a][0]} ${blocks[b][0]}`).toBe(false);
+    menu.dispose();
+  });
+
+  it('opens a file at once by its card or by its die, the two one zone; the command starts the place', () => {
+    const { actions, ran } = recorded();
+    const menu = new MenuScreen(context(...DESK), actions, DATA);
+    const items = menu.items();
+    const records = items.filter((item) => item.id === 'records');
+    expect(records).toHaveLength(2);
+    for (const item of records) {
+      expect(item.confirm).toBeFalsy();
+      item.action();
+    }
+    items.find((item) => item.id === 'play')!.action();
+    expect(ran).toEqual(['records', 'records', 'play']);
+    for (const { id, rect } of items) {
+      expect(rect.height, id).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(rect.x, id).toBeGreaterThanOrEqual(0);
+      expect(rect.x + rect.width, id).toBeLessThanOrEqual(1920 + 1e-6);
+    }
+    menu.dispose();
+  });
+
+  it('opens with the focus on the command and the figure on the levels, or on the file the player came back from', () => {
+    const menu = new MenuScreen(context(...DESK), recorded().actions, DATA);
+    expect(menu.home).toBe('play');
+    expect(menu.move('play', 'up')).toBe('levels');
+    menu.dispose();
+    const back = new MenuScreen(context(...DESK), recorded().actions, DATA, 'system');
+    expect(back.move('play', 'up')).toBe('system');
+    back.dispose();
+  });
+
+  it('walks the net with the keys, and goes down to the command where the net ends', () => {
+    const menu = new MenuScreen(context(...DESK), recorded().actions, DATA);
+    expect(menu.move('levels', 'up')).toBe('protocol');
+    expect(menu.move('levels', 'left')).toBe('howto');
+    expect(menu.move('levels', 'down')).toBe('records');
+    expect(menu.move('system', 'down')).toBe('play');
+    expect(menu.swipe('left')).toBeNull();
     menu.dispose();
   });
 });
 
-describe('the main menu', () => {
-  it('has every zone in the window, a finger large, none reaching over another by more than a step of the grid, on a phone and on a desk', () => {
-    setLanguage('en');
-    for (const [name, window, ratio] of SCREENS) {
-      const menu = new MenuScreen(context(window, ratio), ACTIONS, DATA);
-      const { zoom } = planOf(menu);
-      const items = menu.items();
-      for (const { id, rect } of items) {
-        expect(rect.x, `${name} ${id}`).toBeGreaterThanOrEqual(0);
-        expect(rect.y, `${name} ${id}`).toBeGreaterThanOrEqual(0);
-        expect(rect.x + rect.width, `${name} ${id}`).toBeLessThanOrEqual(window.width + 1e-6);
-        expect(rect.y + rect.height, `${name} ${id}`).toBeLessThanOrEqual(window.height + 1e-6);
-        expect(rect.height, `${name} ${id}`).toBeGreaterThanOrEqual(MIN_ZONE);
-      }
-      for (let a = 0; a < items.length; a++) {
-        for (let b = a + 1; b < items.length; b++) {
-          expect(reach(items[a].rect, items[b].rect), `${name} ${items[a].id} ${items[b].id}`).toBeLessThanOrEqual(4 * zoom + 1e-6);
-        }
-      }
-      menu.dispose();
-    }
-  });
-
-  it('has square zones a finger wide on the dice and on the arrows of the record', () => {
-    for (const [name, window, ratio] of SCREENS) {
-      const menu = new MenuScreen(context(window, ratio), ACTIONS, DATA);
-      for (const { id, rect } of menu.items().filter((item) => !item.id.startsWith('name-') && item.id !== 'exec')) {
-        expect(rect.width, `${name} ${id}`).toBeGreaterThanOrEqual(MIN_ZONE);
-        expect(rect.width, `${name} ${id}`).toBeCloseTo(rect.height);
-      }
-      menu.dispose();
-    }
-  });
-
-  it('keeps the header, the dice, the key and the record apart', () => {
-    for (const [name, window, ratio] of SCREENS) {
-      const menu = new MenuScreen(context(window, ratio), ACTIONS, DATA);
-      const { layout, names } = planOf(menu);
-      const blocks: [string, Box | null][] = [
-        ['header', layout.header.box],
-        ['dice', names.net],
-        ['key', names.key],
-        ['subject', layout.subject],
-        ['record', layout.record],
-      ];
-      const present = blocks.filter((block): block is [string, Box] => block[1] !== null);
-      for (let a = 0; a < present.length; a++) {
-        for (let b = a + 1; b < present.length; b++) expect(meet(present[a][1], present[b][1]), `${name} ${present[a][0]} ${present[b][0]}`).toBe(false);
-      }
-      menu.dispose();
-    }
-  });
-
-  it('has a key of three rows under the dice of a phone, a gap of the grid from them', () => {
-    const menu = new MenuScreen(context({ width: 360, height: 640 }, 3), ACTIONS, DATA);
-    const { layout, names } = planOf(menu);
-    expect(names.net).toEqual({ x: 8, y: 52, w: 254, h: 186 });
-    expect(names.key).toEqual({ x: 8, y: 246, w: 254, h: 68 });
-    expect(names.key!.y + names.key!.h + 8).toBe(layout.record.y);
+describe('the main menu on a phone', () => {
+  it('has one card at the bottom with its command, the dots under it, its neighbours a gap away at the sides', () => {
+    const menu = new MenuScreen(context(...PHONE), recorded().actions, DATA);
+    const plan = planOf<PhonePlan>(menu);
+    const picture = { x: 0, y: 0, w: 270, h: 480 };
+    expect(plan.kind).toBe('phone');
+    expect(plan.card).toEqual({ x: 23, y: 332, w: 224, h: 128 });
+    expect(inside(plan.card, picture)).toBe(true);
+    expect(inside(plan.command, plan.card)).toBe(true);
+    expect(plan.command.h).toBe(48);
+    expect(plan.dots).toBe(480 - 8 - 6);
+    expect(plan.prev.x + plan.prev.w + 8).toBe(plan.card.x);
+    expect(plan.next.x).toBe(plan.card.x + plan.card.w + 8);
+    // The dice under the logo, behind the cards.
+    expect(plan.net.y).toBeGreaterThanOrEqual(8 + 16 + 16);
     menu.dispose();
   });
 
-  it('puts the arrows of the record in its top corners, as large as a finger: 36 dots on a phone, 24 on a desk', () => {
-    const sides: Record<string, number> = { phone: 36, desk: 24 };
-    for (const [name, window, ratio] of SCREENS) {
-      const side = sides[name];
-      const menu = new MenuScreen(context(window, ratio), ACTIONS, DATA);
-      const { layout, zoom } = planOf(menu);
-      const items = menu.items();
-      const prev = items.find((item) => item.id === 'prev')!.rect;
-      const next = items.find((item) => item.id === 'next')!.rect;
-      const { record } = layout;
-      expect(prev, name).toEqual({ x: record.x * zoom, y: record.y * zoom, width: side * zoom, height: side * zoom });
-      expect(next.x + next.width, name).toBeCloseTo((record.x + record.w) * zoom);
+  it('has every zone in the window and a finger tall; the command a finger tall in every language', () => {
+    for (const language of LANGUAGES) {
+      setLanguage(language);
+      const menu = new MenuScreen(context(...PHONE), recorded().actions, DATA);
+      for (const { id, rect } of menu.items()) {
+        expect(rect.y, `${language} ${id}`).toBeGreaterThanOrEqual(0);
+        expect(rect.x + rect.width, `${language} ${id}`).toBeLessThanOrEqual(360 + 1e-6);
+        expect(rect.y + rect.height, `${language} ${id}`).toBeLessThanOrEqual(640 + 1e-6);
+        expect(rect.height, `${language} ${id}`).toBeGreaterThanOrEqual(MIN_ZONE);
+      }
       menu.dispose();
     }
+    setLanguage('en');
+  });
+
+  it('turns the cards by a swipe, by a tap on a neighbour, by a tap on a die; opens nothing by them', () => {
+    const focused: string[] = [];
+    const { actions, ran } = recorded();
+    const menu = new MenuScreen(context(...PHONE, (id) => focused.push(id)), actions, DATA);
+    expect(menu.swipe('left')).toBe('protocol');
+    expect(menu.swipe('right')).toBe('levels');
+    expect(menu.swipe('right')).toBe('system');
+    menu.items().find((item) => item.id === 'next')!.action();
+    menu.items().find((item) => item.id === 'prev')!.action();
+    menu.items().find((item) => item.id === 'die-readme')!.action();
+    expect(focused).toEqual(['levels', 'system', 'readme']);
+    expect(ran).toEqual([]);
+    menu.dispose();
+  });
+
+  it('opens the list of the levels from their card and starts the place from their command; any other command opens its file', () => {
+    const { actions, ran } = recorded();
+    const menu = new MenuScreen(context(...PHONE), actions, DATA);
+    menu.items().find((item) => item.id === 'levels')!.action();
+    menu.items().find((item) => item.id === 'play')!.action();
+    menu.swipe('left');
+    menu.items().find((item) => item.id === 'play')!.action();
+    menu.items().find((item) => item.id === 'protocol')!.action();
+    expect(ran).toEqual(['levels', 'play', 'endless', 'endless']);
+    menu.dispose();
   });
 });

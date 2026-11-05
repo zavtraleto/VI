@@ -248,6 +248,23 @@ describe('the panels on the grid', () => {
     });
   });
 
+  it.each(SCREENS)('stand the two commands of the list of the levels opened from the pause on a %s in the window, a finger tall, in every language', (name, window, ratio) => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      const shown = context(window, ratio);
+      const spec = levelsPanel(campaignCells({ passed: {}, stats: {} }), 0, { onPick: nothing, onBack: nothing, onReturn: { number: 88, action: nothing } });
+      const items = new PanelScreen(shown, spec, true).items().filter((item) => item.id === 'return' || item.id === 'back');
+      expect(items.map((item) => item.id), `${name} ${code}`).toEqual(['return', 'back']);
+      for (const { id, rect } of items) {
+        expect(rect.height, `${name} ${code} ${id}`).toBeGreaterThanOrEqual(MIN_ZONE);
+        expect(rect.x, `${name} ${code} ${id}`).toBeGreaterThanOrEqual(0);
+        expect(rect.x + rect.width, `${name} ${code} ${id}`).toBeLessThanOrEqual(window.width + 1e-6);
+        expect(rect.y + rect.height, `${name} ${code} ${id}`).toBeLessThanOrEqual(window.height + 1e-6);
+      }
+    }
+    setLanguage('en');
+  });
+
   it.each(SCREENS)('lay the cells of the levels on a %s across the whole screen, six on a phone and twelve on a desk, a gap of the grid apart, grown on the grid to fill it', (name, window, ratio) => {
     const shown = context(window, ratio);
     const zoom = window.height / shown.picture().height;

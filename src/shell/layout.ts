@@ -1,5 +1,5 @@
 import type { Size } from '../display/sizing';
-import { BUTTON_H, EDGE, GAP, UNIT } from './theme';
+import { BUTTON_H, UNIT } from './theme';
 import { glyphAdvance } from './pixelFont';
 
 /** What the edges of the screen keep to themselves: notches, rounded corners. */
@@ -208,92 +208,6 @@ export function netProjection(box: Box, view: NetView): NetProjection {
     target: { x: right.x * centreU + up.x * centreV, y: right.y * centreU + up.y * centreV, z: right.z * centreU + up.z * centreV },
     halfWidth: box.w / (2 * unit),
     halfHeight: box.h / (2 * unit),
-  };
-}
-
-/**
- * Heights of the blocks of the main menu, in pixels of the picture. The header is two lines of
- * text: the first a step of the grid under the top, the second right under it, and the rule
- * under both a step of the grid lower.
- */
-const HEADER_HEIGHT = 44;
-const SUBJECT_HEIGHT = 112;
-const RECORD_HEIGHT = 150;
-/** Where the bar that runs a file stands in its record, from the top of the record. */
-const EXEC_TOP = 117;
-/** Width of the column of records on a wide screen. */
-const COLUMN_WIDTH = 264;
-
-export interface MenuLayout {
-  wide: boolean;
-  /**
-   * The header: the logo and the clock on its first line (`y`), the channels and the revision
-   * on its second (`second`), between `left` and `right`, and the rule under it. `box` is all
-   * of it, the rule too.
-   */
-  header: { box: Box; y: number; second: number; left: number; right: number; rule: number };
-  /** The record of the subject; null where the screen has no room for it. */
-  subject: Box | null;
-  /** Where the six dice hang, with the names of their files. */
-  space: Box;
-  /** The record of the file the figure stands on, and the bar inside it that runs the file, as it is drawn. */
-  record: Box;
-  exec: Box;
-  /** Top of the line that names the keys; null on a tall screen. */
-  legend: number | null;
-}
-
-const floorTo = (value: number, step: number): number => Math.floor(value / step) * step;
-const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
-
-/**
- * The main menu in a picture. The dice are the ground of the whole menu: a tall picture keeps
- * the record of the file at the bottom, under the thumb, and gives the dice everything between
- * it and the header; a wide one puts the dice on the left and the records in a column on the
- * right, the record of the subject over the record of the file where there is room for both.
- * The bar that runs a file is a button of the grid; where a finger needs more, its zone grows
- * (`zoneOf`).
- */
-export function menuLayout(picture: Size, safe: Insets): MenuLayout {
-  const wide = isWide(picture);
-  const left = ceilTo(safe.left, CELL_W) + EDGE;
-  const right = picture.width - ceilTo(safe.right, CELL_W) - EDGE;
-  const top = ceilTo(safe.top, UNIT);
-  const bottom = picture.height - ceilTo(safe.bottom, UNIT);
-  const rule = top + HEADER_HEIGHT;
-  const header = { box: { x: left, y: top, w: right - left, h: HEADER_HEIGHT + 1 }, y: top + EDGE, second: top + EDGE + CELL_H, left, right, rule };
-  const contentTop = rule + GAP;
-  const execOf = (record: Box): Box => ({ x: record.x + EDGE, y: record.y + EXEC_TOP, w: record.w - 2 * EDGE, h: BUTTON_H });
-
-  if (wide) {
-    const legend = bottom - EDGE - CELL_H;
-    const contentBottom = legend - GAP;
-    const columnWidth = Math.min(COLUMN_WIDTH, floorTo((right - left) * 0.5, CELL_W));
-    const columnX = right - columnWidth;
-    const withSubject = contentBottom - contentTop >= SUBJECT_HEIGHT + GAP + RECORD_HEIGHT;
-    const subject: Box | null = withSubject ? { x: columnX, y: contentTop, w: columnWidth, h: SUBJECT_HEIGHT } : null;
-    const recordY = subject ? subject.y + subject.h + GAP : contentTop;
-    const record: Box = { x: columnX, y: recordY, w: columnWidth, h: RECORD_HEIGHT };
-    return {
-      wide,
-      header,
-      subject,
-      space: { x: left, y: contentTop, w: columnX - GAP - left, h: contentBottom - contentTop },
-      record,
-      exec: execOf(record),
-      legend,
-    };
-  }
-
-  const record: Box = { x: left, y: bottom - EDGE - RECORD_HEIGHT, w: right - left, h: RECORD_HEIGHT };
-  return {
-    wide,
-    header,
-    subject: null,
-    space: { x: left, y: contentTop, w: right - left, h: Math.max(CELL_H, record.y - GAP - contentTop) },
-    record,
-    exec: execOf(record),
-    legend: null,
   };
 }
 

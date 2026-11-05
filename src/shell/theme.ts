@@ -32,6 +32,80 @@ export const MARK = 4;
  */
 export const LEVEL_CELL_W = 40;
 
+/**
+ * The main menu of cards on a desk (docs/superpowers/specs/2026-11-05-vi-menu-design.md, section 5),
+ * in dots of a picture 360 tall: two columns of three cards a side of the dice, the command under
+ * the dice. A card is a strip in the colour of its file with the pips of its face at its left and
+ * its name after them, and a line of its value under it.
+ */
+export const MENU_DESK = {
+  /** Width of a column of cards, and the gutter between a column and the dice. */
+  column: 160,
+  gutter: 24,
+  /** The dice get at least this much across; a picture on its side too narrow for that is laid out as a phone (mine, not in the spec). */
+  minNet: 160,
+  /** The cards and the dice start this far down a picture this tall; the cards and the command end this far down it. */
+  height: 360,
+  top: 40,
+  bottom: 344,
+  card: 56,
+  command: 40,
+  /** The strip on top of a card, and the pips of its face on it. */
+  strip: 20,
+  pips: 16,
+  /** A wire leaves its die this many sides of a die from its middle, comes into its card this far under its top, and bends this far outside the card. */
+  wireFrom: 0.7,
+  wireInto: 10,
+  wireBend: 8,
+  /** The light around the lit card: so many rings outside it, and how strong each is; and the light inside it. */
+  glowRings: 4,
+  glowOut: 0.07,
+  glowIn: 0.08,
+  /** How much of the colour of its file the strip of a card at rest keeps, and of `faint` its frame; how much of `dim` its label. */
+  restStrip: 0.72,
+  restFrame: 0.8,
+  restLabel: 0.75,
+  /** How much of `faint` a wire at rest keeps. */
+  restWire: 0.6,
+  /** The light around the command under the pointer: so many rings, each this strong. */
+  commandRings: 3,
+  commandGlow: 0.08,
+  /** The command is written twice its size where it fits with this much room. */
+  commandRoom: 32,
+} as const;
+
+/**
+ * The main menu of cards on a phone (section 6), in dots of a picture 280 wide: the dice over the
+ * whole screen, the card of one file in the middle at the bottom, its neighbours peeping in at the
+ * sides, a row of dots of the pages under it.
+ */
+export const MENU_PHONE = {
+  /** The middle card, and the room between two cards. */
+  card: 224,
+  cardH: 128,
+  gap: 8,
+  /** The neighbours are this much shorter at the top and at the bottom. */
+  inset: 12,
+  /** The strip on top of a card, and the pips of its face on it. */
+  strip: 32,
+  pips: 24,
+  /** The command at the bottom of the middle card. */
+  command: 48,
+  /** The row of dots under the card: its height, and a dot and the step between dots. */
+  dots: 12,
+  dot: 4,
+  dotStep: 8,
+  /** The dice: this far in from either side, this share of the height tall, their middle at this share of the height down. */
+  netSide: 24,
+  netH: 0.62,
+  netMiddle: 0.44,
+  /** How dark the middle card is over the dice, and a neighbour; how much of the colour of its file a neighbour's strip keeps, and of `faint` its frame. */
+  veil: 0.66,
+  sideVeil: 0.6,
+  sideStrip: 0.6,
+  sideFrame: 0.8,
+} as const;
+
 /** Letters of the voice, in CSS pixels: prose is one size wherever it stands - a line of a panel, the README, the note under the list of the levels, the note over the board. */
 export const PANEL_SAY_SIZE = 16;
 export const README_SAY_SIZE = PANEL_SAY_SIZE;

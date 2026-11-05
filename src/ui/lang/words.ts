@@ -21,13 +21,11 @@ export const WORDS = {
   SETTINGS: { ru: 'НАСТРОЙКИ', es: 'AJUSTES', pt: 'AJUSTES', tr: 'AYARLAR', de: 'OPTIONEN', fr: 'RÉGLAGES' },
   'HOW TO PLAY': { ru: 'КАК ИГРАТЬ', es: 'CÓMO JUGAR', pt: 'COMO JOGAR', tr: 'OYNANIŞ', de: 'ANLEITUNG', fr: 'GUIDE' },
   STORY: { ru: 'ИСТОРИЯ', es: 'HISTORIA', pt: 'HISTÓRIA', tr: 'HİKAYE', de: 'GESCHICHTE', fr: 'HISTOIRE' },
-  // What the field under the name of a file of the menu counts.
-  DATE: { ru: 'ДАТА', es: 'FECHA', pt: 'DATA', tr: 'TARİH', de: 'DATUM', fr: 'DATE' },
-  GAMES: { ru: 'ИГР', es: 'PARTIDAS', pt: 'PARTIDAS', tr: 'OYUN', de: 'SPIELE', fr: 'PARTIES' },
-  VERSION: { ru: 'ВЕРСИЯ', es: 'VERSIÓN', pt: 'VERSÃO', tr: 'SÜRÜM', de: 'VERSION', fr: 'VERSION' },
-  // The keys, on a screen that has them.
-  MOVE: { ru: 'ХОДИТЬ', es: 'MOVER', pt: 'MOVER', tr: 'GEZİN', de: 'BEWEGEN', fr: 'BOUGER' },
-  SELECT: { ru: 'ВЫБРАТЬ', es: 'ELEGIR', pt: 'ESCOLHER', tr: 'SEÇ', de: 'WÄHLEN', fr: 'CHOISIR' },
+  // The command of the menu that goes on with the levels where the player stopped.
+  CONTINUE: { ru: 'ПРОДОЛЖИТЬ', es: 'CONTINUAR', pt: 'CONTINUAR', tr: 'DEVAM ET', de: 'FORTSETZEN', fr: 'CONTINUER' },
+  // What the line under the name of a card of the menu counts.
+  GAMES: { ru: 'ИГРЫ', es: 'PARTIDAS', pt: 'PARTIDAS', tr: 'OYUN', de: 'SPIELE', fr: 'PARTIES' },
+  RECORDS: { ru: 'ЗАПИСИ', es: 'REGISTROS', pt: 'REGISTROS', tr: 'KAYITLAR', de: 'AUFNAHMEN', fr: 'BANDES' },
   // The names of panels.
   PAUSE: { ru: 'ПАУЗА', es: 'PAUSA', pt: 'PAUSA', tr: 'DURAKLATILDI', de: 'PAUSE', fr: 'PAUSE' },
   RESULT: { ru: 'РЕЗУЛЬТАТ', es: 'RESULTADO', pt: 'RESULTADO', tr: 'SONUÇ', de: 'ERGEBNIS', fr: 'RÉSULTAT' },
@@ -52,6 +50,8 @@ export const WORDS = {
   RESTART: { ru: 'ЗАНОВО', es: 'REINICIAR', pt: 'REINICIAR', tr: 'YENİDEN BAŞLAT', de: 'NEUSTART', fr: 'RECOMMENCER' },
   AGAIN: { ru: 'ЕЩЁ РАЗ', es: 'OTRA VEZ', pt: 'DE NOVO', tr: 'TEKRAR', de: 'NOCHMAL', fr: 'ENCORE' },
   MENU: { ru: 'МЕНЮ', es: 'MENÚ', pt: 'MENU', tr: 'MENÜ', de: 'MENÜ', fr: 'MENU' },
+  // Back from the list of the levels to the board left in pause, with its number after it.
+  'TO LEVEL': { ru: 'К УРОВНЮ', es: 'AL NIVEL', pt: 'AO NÍVEL', tr: 'SEVİYE', de: 'ZU STUFE', fr: 'AU NIVEAU' },
   BACK: { ru: 'НАЗАД', es: 'ATRÁS', pt: 'VOLTAR', tr: 'GERİ', de: 'ZURÜCK', fr: 'RETOUR' },
   NEXT: { ru: 'ДАЛЬШЕ', es: 'SIGUIENTE', pt: 'PRÓXIMO', tr: 'SONRAKİ', de: 'WEITER', fr: 'SUIVANT' },
   // The fewest moves of a board: a word of the program, the same in every language (the owner, 28 October 2026).

@@ -16,14 +16,23 @@ function clock(ticks: number, tickMs: number): string {
 /**
  * The session waits: it goes on, starts over, or is left for the menu. On a board the player has
  * been stuck on, the way of the board may stand after starting over, for an advertisement (`onWay`,
- * given only then). The settings open from here too (`onSystem`), and come back to this window.
+ * given only then). The list of the levels opens from a board of the row (`onLevels`, given only
+ * there: the owner, 5 November 2026), and the settings (`onSystem`); both come back to this window.
  */
-export function pausePanel(actions: { onResume: () => void; onRestart: () => void; onMenu: () => void; onWay?: () => void; onSystem?: () => void }): PanelSpec {
+export function pausePanel(actions: {
+  onResume: () => void;
+  onRestart: () => void;
+  onMenu: () => void;
+  onWay?: () => void;
+  onLevels?: () => void;
+  onSystem?: () => void;
+}): PanelSpec {
   const rows: PanelRow[] = [
     { kind: 'command', id: 'resume', label: COMMANDS.resume, action: actions.onResume },
     { kind: 'command', id: 'restart', label: COMMANDS.restart, action: actions.onRestart },
   ];
   if (actions.onWay) rows.push({ kind: 'command', id: 'way', label: COMMANDS.showWay, action: actions.onWay });
+  if (actions.onLevels) rows.push({ kind: 'command', id: 'levels', label: COMMANDS.levels, action: actions.onLevels });
   if (actions.onSystem) rows.push({ kind: 'command', id: 'system', label: COMMANDS.system, action: actions.onSystem });
   rows.push({ kind: 'command', id: 'menu', label: COMMANDS.menu, action: actions.onMenu });
   return { title: PANELS.pause, home: 'resume', back: actions.onResume, rows };
@@ -298,15 +307,26 @@ export type LevelsEntry = { passed: boolean; goal: readonly GoalLine[]; faces?: 
  * numbered from one, with the stars of the ones passed, out of three: those of its best pass,
  * and one where `stars` is not said; nothing is written under them (the owner, 30 October 2026).
  * Every cell is open. Only boards stand in it: the calls are a layer of their own (the owner,
- * 5 November 2026). `current` is the index of the board in focus.
+ * 5 November 2026). `current` is the index of the board in focus. Opened from the pause of a
+ * board (`onReturn`), the list leads back to that board, the number of its place given, beside
+ * the menu; back, as Esc and the system's "back", leads to the board too.
  */
-export function levelsPanel(levels: readonly LevelsEntry[], current: number, actions: { onPick: (index: number) => void; onBack: () => void }): PanelSpec {
+export function levelsPanel(
+  levels: readonly LevelsEntry[],
+  current: number,
+  actions: { onPick: (index: number) => void; onBack: () => void; onReturn?: { number: number; action: () => void } },
+): PanelSpec {
+  const menu: PanelCommand = { id: 'back', label: COMMANDS.menu, action: actions.onBack };
+  const { onReturn } = actions;
+  const commands: PanelCommand[] = onReturn
+    ? [{ id: 'return', label: { native: COMMANDS.toLevel.native, name: `← ${word(COMMANDS.toLevel.name)} ${digits(onReturn.number, 2)}` }, action: onReturn.action }, menu]
+    : [menu];
   return {
     title: PANELS.levels,
     // On the whole screen (the owner, 4 November 2026: «полноэкранный визуально понятный список»).
     full: true,
     home: `level-${current}`,
-    back: actions.onBack,
+    back: onReturn ? onReturn.action : actions.onBack,
     rows: [
       {
         kind: 'levels',
@@ -318,10 +338,8 @@ export function levelsPanel(levels: readonly LevelsEntry[], current: number, act
           if (index >= 0 && index < levels.length) actions.onPick(index);
         },
       },
-      {
-        kind: 'commands',
-        commands: [{ id: 'back', label: COMMANDS.menu, action: actions.onBack }],
-      },
+      // Two commands side by side where they fit, one over the other where they do not: the board first.
+      { kind: 'commands', commands },
     ],
   };
 }

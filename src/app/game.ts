@@ -58,7 +58,7 @@ import { GameHud, type HudCounter, type HudLabel, type HudLock, type HudSeal, ty
 import { Climb } from '../shell/climb';
 import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, callResultPanel, callsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type CallsEntry, type StoryEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { CALL, COMMANDS, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
+import { CALL, COMMANDS, LANGUAGE_NAMES, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { boardShapes, boxCorners, pickCell, type CellShape } from './tapPick';
 import { makesGroup, planTap, stepHolds } from './tapWay';
@@ -862,8 +862,13 @@ export class Game {
 
   /** The number of the place of the row the player stands on, whatever is played now. */
   private rowNumber(): number {
+    return CAMPAIGN[this.rowPlace()].number;
+  }
+
+  /** The place of the row the player stands on: the one the program opens on. */
+  private rowPlace(): number {
     const { levels } = this.settings;
-    return CAMPAIGN[openingPlace(levels.at, levels.passed, CAMPAIGN)].number;
+    return openingPlace(levels.at, levels.passed, CAMPAIGN);
   }
 
   /** The level being played, or last played: a board of the lab, or the board of the place of the row. */
@@ -1433,7 +1438,7 @@ export class Game {
             this.startCall(step, 'endless');
           },
           onTalk: (step) => this.showTalk(step, () => this.showCalls(`talk-${step}`)),
-          onBack: () => this.showMenu(),
+          onBack: () => this.showMenu('protocol'),
         },
         home,
       ),
@@ -2392,9 +2397,9 @@ export class Game {
       case 'readme':
         return NOVEL_FLAG ? this.showStory() : this.showReadme();
       case 'records':
-        return this.showRecords(() => this.showMenu());
+        return this.showRecords(() => this.showMenu('records'));
       case 'system':
-        return this.showSystem(() => this.showMenu());
+        return this.showSystem(() => this.showMenu('system'));
     }
   }
 
@@ -2478,6 +2483,8 @@ export class Game {
         onReadme: () => this.open(FILE_LEADS.readme),
         onRecords: () => this.open(FILE_LEADS.records),
         onSystem: () => this.open(FILE_LEADS.system),
+        // The command starts the place the screen the program opens on starts, as the list starts a place.
+        onPlay: () => this.startPlace(this.rowPlace(), true),
       },
       {
         bestEndless: this.bestScore(),
@@ -2485,6 +2492,10 @@ export class Game {
         levelsTotal: CAMPAIGN.length,
         rules: HOW_TO_PLAY.length,
         sessions: Object.values(this.settings.runs).reduce((sum, runs) => sum + runs.length, 0),
+        storyOpen: NOVEL.filter((entry) => this.starTotal() >= entry.stars).length,
+        storyTotal: NOVEL.length,
+        language: LANGUAGE_NAMES[language()].name,
+        place: CAMPAIGN[this.rowPlace()].number,
       },
       home,
     );
@@ -2527,9 +2538,42 @@ export class Game {
       this.wayOfferTold = true;
       platform.track('reward_offered', { placement: 'show_way', ...this.step() });
     }
+    // The list of the levels opens from a board of the row only: not from Endless, nor from a call, nor from a board of the lab.
+    const onLevels = this.kind === 'level' && this.labSpec === null && this.place !== null ? () => this.showLevelsFromPause() : undefined;
     this.shell.showPanel(
-      pausePanel({ onResume: () => this.resume(), onRestart: () => this.startRun(), onMenu: () => this.showMenu(), onWay, onSystem: () => this.showSystem(() => this.showPause()) }),
+      pausePanel({
+        onResume: () => this.resume(),
+        onRestart: () => this.startRun(),
+        onMenu: () => this.showMenu(),
+        onWay,
+        onLevels,
+        onSystem: () => this.showSystem(() => this.showPause()),
+      }),
       false,
+    );
+  }
+
+  /**
+   * The list of the levels from the pause of a board of the row (the owner, 5 November 2026): the
+   * board stays under it, in pause, as it was. Back leads to the pause; the menu leaves the board
+   * as the pause does; another cell leaves it and starts its place. The cell of the board itself
+   * leads back too: it is started over by the command of the pause.
+   */
+  private showLevelsFromPause(): void {
+    const here = this.place;
+    if (here === null) return;
+    const { levels } = this.settings;
+    this.shell.showPanel(
+      levelsPanel(campaignCells(levels), campaignFocus(levels, CAMPAIGN, here), {
+        onPick: (index) => {
+          if (index === here) return this.showPause();
+          this.leaveRun('menu');
+          this.startPlace(index, true);
+        },
+        onBack: () => this.showMenu(),
+        onReturn: { number: CAMPAIGN[here].number, action: () => this.showPause() },
+      }),
+      true,
     );
   }
 

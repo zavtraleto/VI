@@ -3,7 +3,7 @@ import { LANGUAGES, languageOf, setLanguage, t, word } from '../ui/i18n';
 import { WORDS } from '../ui/lang/words';
 import kanji from './fonts/kanji.txt?raw';
 import { textWidth } from './layout';
-import { CALL, COMMANDS, EXEC, MENU_FILES, PANELS, RECORDS, RESULT, SYSTEM } from './text';
+import { CALL, COMMANDS, EXEC, LANGUAGE_NAMES, MENU_COMMAND, MENU_FILES, PANELS, RECORDS, RESULT, SYSTEM } from './text';
 import source from './text.ts?raw';
 import { dayAmount, mixHex, paletteAt, shellDefaults } from './theme';
 
@@ -21,22 +21,37 @@ describe('the files of the menu', () => {
     expect(new Set(MENU_FILES.map((file) => file.id)).size).toBe(6);
   });
 
-  it('have dry lines short enough for the record of a phone, in every language', () => {
+  it('have names that fit their cards in every language: once on the strip of a desk, twice on the strip of a phone', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
       for (const file of MENU_FILES) {
-        const line = t(file.line);
-        expect(line.length, `${file.line} ${code}`).toBeGreaterThan(0);
-        expect(textWidth(line), `${file.line} ${code}`).toBeLessThanOrEqual(240);
-        // The font of the program has no small letters worth reading at this size.
-        expect(line, `${file.line} ${code}`).toBe(line.toLocaleUpperCase(code).replace('{TIME}', '{time}'));
+        // Pips at the left of the strip, half a gap after them, and the edge of the card at the right (MENU_DESK, MENU_PHONE).
+        expect(textWidth(word(file.name)), `${file.name} ${code}`).toBeLessThanOrEqual(160 - (3 + 16 + 4) - 8);
+        expect(textWidth(word(file.name), 2), `${file.name} ${code}`).toBeLessThanOrEqual(224 - (5 + 24 + 4) - 8);
       }
     }
     setLanguage('en');
   });
 
-  it('have names that fit beside their Japanese at twice the size', () => {
-    for (const file of MENU_FILES) expect(textWidth(file.name, 2) + 8 + textWidth(file.native)).toBeLessThanOrEqual(240);
+  it('have the line under the name in every language: what it counts and its value, apart on a card of a desk', () => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      const values: Record<string, string> = { levels: '100/100', bestEndless: '999999', rules: '99', story: '9/9', sessions: '9999', language: LANGUAGE_NAMES[code].name };
+      for (const file of MENU_FILES) {
+        expect(textWidth(word(file.field[0])) + 8 + textWidth(values[file.field[1]]), `${file.field[0]} ${code}`).toBeLessThanOrEqual(160 - 2 * 8);
+      }
+    }
+    setLanguage('en');
+  });
+
+  it('have commands that fit: the one of a desk, and the ones of the cards of a phone', () => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      // At least once their size; twice where there is room (the command of a desk is 256 wide at 640, of a phone 208).
+      for (const word_ of [MENU_COMMAND.going, MENU_COMMAND.first]) expect(textWidth(`${word(word_)} · 99`), `${word_} ${code}`).toBeLessThanOrEqual(256 - 32);
+      for (const file of MENU_FILES) expect(textWidth(`${word(file.exec.name)} · 99`), `${file.exec.name} ${code}`).toBeLessThanOrEqual(208 - 32);
+    }
+    setLanguage('en');
   });
 });
 
@@ -82,7 +97,7 @@ describe('the language of the player', () => {
 describe('the words of the program a player presses', () => {
   const names = (group: Record<string, unknown>): string[] =>
     Object.values(group).flatMap((value) => (typeof value === 'string' ? [value] : value && typeof value === 'object' && 'name' in value ? [String(value.name)] : []));
-  const said = [...MENU_FILES.map((file) => file.name), ...names(EXEC), ...names(PANELS), ...names(COMMANDS), ...names(RESULT), ...names(SYSTEM), CALL.calls.name, CALL.talks.name, CALL.lineLost.name, RECORDS.title.name, RECORDS.empty.name, RECORDS.nameless, RECORDS.you];
+  const said = [...MENU_FILES.flatMap((file) => [file.name, file.field[0]]), MENU_COMMAND.going, MENU_COMMAND.first, ...names(EXEC), ...names(PANELS), ...names(COMMANDS), ...names(RESULT), ...names(SYSTEM), CALL.calls.name, CALL.talks.name, CALL.lineLost.name, RECORDS.title.name, RECORDS.empty.name, RECORDS.nameless, RECORDS.you];
   const inEvery = (check: (code: string) => void): void => {
     for (const code of LANGUAGES) {
       setLanguage(code);
@@ -111,7 +126,6 @@ describe('the words of the program a player presses', () => {
 
   it('fit where the English ones stand: the name of a file, a command, a setting with its value, a reading', () => {
     inEvery((code) => {
-      for (const file of MENU_FILES) expect(textWidth(word(file.name), 2) + 8 + textWidth(file.native), `${file.name} ${code}`).toBeLessThanOrEqual(240);
       for (const command of Object.values(COMMANDS)) expect(textWidth(`${command.native} ${word(command.name)}`), `${command.name} ${code}`).toBeLessThanOrEqual(228);
       for (const title of Object.values(PANELS)) expect(textWidth(`${title.native}  ${word(title.name)} 0/0`), `${title.name} ${code}`).toBeLessThanOrEqual(252);
       const values = [SYSTEM.on, SYSTEM.off, SYSTEM.all, SYSTEM.calm, SYSTEM.swipe, SYSTEM.tap, SYSTEM.keys, SYSTEM.mouse];

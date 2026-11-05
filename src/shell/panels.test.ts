@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Climb } from './climb';
 import { CELL_W, textWidth } from './layout';
 import { LANGUAGES, setLanguage, t, word } from '../ui/i18n';
-import { callResultPanel, clearedPanel, languagePanel, pausePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type RecordsTable } from './panels';
+import { callResultPanel, clearedPanel, languagePanel, levelsPanel, pausePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type RecordsTable } from './panels';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
 import type { ShellContext } from './screen';
 
@@ -53,6 +53,27 @@ describe('the panels of the program', () => {
   it('open the settings from the pause where they are given, before the menu', () => {
     expect(pressed(pausePanel({ ...PAUSE, onSystem: nothing }))).toEqual(['resume', 'restart', 'system', 'menu']);
     expect(pressed(pausePanel({ ...PAUSE, onWay: nothing, onSystem: nothing }))).toEqual(['resume', 'restart', 'way', 'system', 'menu']);
+  });
+
+  it('open the list of the levels from the pause of a board of the row, before the settings; not from the pause of Endless', () => {
+    expect(pressed(pausePanel({ ...PAUSE, onLevels: nothing, onSystem: nothing }))).toEqual(['resume', 'restart', 'levels', 'system', 'menu']);
+    expect(pressed(pausePanel({ ...PAUSE, onWay: nothing, onLevels: nothing, onSystem: nothing }))).toEqual(['resume', 'restart', 'way', 'levels', 'system', 'menu']);
+    // Endless and a call give no `onLevels` (game.ts, showPause): their pause is as it was.
+    expect(pressed(pausePanel({ ...PAUSE, onSystem: nothing }))).not.toContain('levels');
+  });
+
+  it('lead the list of the levels opened from the pause back to the board, by its number, beside the menu; back leads there too', () => {
+    const went: string[] = [];
+    const cells = [{ passed: true, goal: [] }, { passed: false, goal: [] }];
+    const fromPause = levelsPanel(cells, 1, { onPick: nothing, onBack: () => went.push('menu'), onReturn: { number: 7, action: () => went.push('board') } });
+    expect(pressed(fromPause)).toEqual(['return', 'back']);
+    const commands = row(fromPause, 'commands').commands;
+    expect(`${commands[0].label.native} ${commands[0].label.name}`).toBe('もどる ← TO LEVEL 07');
+    fromPause.back!();
+    commands[1].action();
+    expect(went).toEqual(['board', 'menu']);
+    // From the menu, the one command of the list is the menu.
+    expect(pressed(levelsPanel(cells, 1, { onPick: nothing, onBack: nothing }))).toEqual(['back']);
   });
 
   it('have the way for an advertisement in the pause only where it is given, after starting over', () => {

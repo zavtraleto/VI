@@ -18,7 +18,7 @@ export const SHELL_SCREENS = ['menu', 'pause', 'system', 'result', 'cleared', 'c
 export type ShellScreenName = (typeof SHELL_SCREENS)[number];
 
 /** What the menu shows of the player's progress, as a sample. */
-const SAMPLE_DATA = { bestEndless: 12840, levelsDone: 7, levelsTotal: 34, rules: 8, sessions: 12 };
+const SAMPLE_DATA = { bestEndless: 870, levelsDone: 7, levelsTotal: 100, rules: 9, sessions: 12, storyOpen: 1, storyTotal: 3, language: 'ENGLISH', place: 8 };
 /** Players for the sample of the table a platform keeps: one with no name, one with a name too long for the table. */
 const SAMPLE_PLAYERS = ['Green Chicken', '', 'A name far too long for the table', 'Yellow Mackerel'].map((name, i) => ({
   name,
@@ -219,6 +219,7 @@ export class ShellLab {
       onReadme: nothing,
       onRecords: nothing,
       onSystem: nothing,
+      onPlay: nothing,
     };
     this.shell.showMenu(actions, SAMPLE_DATA);
   }

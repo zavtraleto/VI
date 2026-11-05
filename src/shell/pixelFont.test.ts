@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WORDS } from '../ui/lang/words';
-import { LANGUAGES, setLanguage, t } from '../ui/i18n';
 import { glyphAdvance, glyphOf } from './pixelFont';
-import { MENU_FILES } from './text';
 
 /** Letters of the scripts the program draws itself: Latin with its marks, and Cyrillic. */
 const DRAWN = /[A-Za-zÀ-ɏЀ-џ]/u;
@@ -11,11 +9,6 @@ describe('the letters of the program', () => {
   it('are drawn for every word the program writes in its own font, in every language', () => {
     const words: string[] = [];
     for (const entry of Object.entries(WORDS)) words.push(entry[0], ...Object.values(entry[1] as Record<string, string>));
-    for (const language of LANGUAGES) {
-      setLanguage(language);
-      for (const file of MENU_FILES) words.push(t(file.line));
-    }
-    setLanguage('en');
     const missing = new Set<string>();
     for (const text of words) for (const sign of text) if (DRAWN.test(sign) && !glyphOf(sign)) missing.add(sign);
     expect([...missing]).toEqual([]);
