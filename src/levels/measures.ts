@@ -4,7 +4,7 @@ import { levelDeadEnd, shortGroups } from '../rules/level';
 import { GREEDY, PERSONAS, RANK_PERSONAS, explorerOf, personaMove, personaRun, type Persona, type RankName } from '../rules/levelBot';
 import { explore, moveOf, moveText, movesAt, playMove, solveFrom, solveLevel, tellMove, type SolverMove } from '../rules/levelSolver';
 import { scan } from '../rules/reach';
-import { ALL_ORIENTATIONS } from '../rules/orientation';
+import { ALL_ORIENTATIONS, roll } from '../rules/orientation';
 import { createRun } from '../rules/sim';
 import type { Dir, LevelSpec, Orientation, RunState } from '../rules/types';
 import { canonicalWay } from './depth';
@@ -209,6 +209,107 @@ export function loopOf(spec: LevelSpec, way: readonly SolverMove[]): boolean {
     if (j > i + 1 && back && rolled[j] === rolled[i] && from(way[j - 1], back) && back.dir === OPPOSITE[a.dir]) return true;
   }
   return false;
+}
+
+/**
+ * The fixed dice a way meets (the director's word of 5 November 2026 for «Стена», after the owner's of the same day on
+ * the fixed die in the background): `w`, a die rolled round them — moves of one die in a row whose end, the cell and
+ * how the die lies there, it would come to in fewer rolls with the fixed dice taken away than with them, the other dice
+ * that stand left where they are in both;
+ * `x`, a die pushed up against one — the cell past the one it is pushed onto holds a fixed die. Each with the move it
+ * ends on. What is asked is what the fixed ones cost, not what the others do. A fixed die that
+ * only stands by, or goes with a combo, is met by neither: it is the background, not the way.
+ */
+export function wallsOf(spec: LevelSpec, way: readonly SolverMove[]): { at: number; sign: 'w' | 'x' }[] {
+  const out: { at: number; sign: 'w' | 'x' }[] = [];
+  let state = startOf(spec);
+  const { size } = spec;
+  const cut = new Set((spec.holes ?? []).map(({ x, z }) => z * size + x));
+  const fixedAt = (x: number, z: number): boolean => cubeAt(state, x, z)?.fixed === true;
+  /** The cells of the dice that stand, but the one that moves: the fixed ones, and the others. */
+  const standing = (but: number): { walls: Set<number>; others: Set<number> } => {
+    const walls = new Set<number>();
+    const others = new Set<number>();
+    for (const cube of state.cubes) {
+      if (cube.id === but || cube.state !== 'idle') continue;
+      (cube.fixed ? walls : others).add(cube.z * size + cube.x);
+    }
+    return { walls, others };
+  };
+  let run: { at: number; x: number; z: number; ori: Orientation; moves: number; ex: number; ez: number; eori: Orientation; id: number; walls: Set<number>; others: Set<number> } | null = null;
+  const close = (): void => {
+    if (!run) return;
+    // The fixed dice as they stood when the run began: one that goes with the combo the run makes is gone after it.
+    const { walls, others } = run;
+    if (walls.size > 0) {
+      const from = { x: run.x, z: run.z, ori: run.ori };
+      const to = { x: run.ex, z: run.ez, ori: run.eori };
+      // The other dice stand in both counts; only the fixed ones are taken away in the first.
+      const open = rollsBetween(size, cut, others, from, to, run.moves);
+      if (open !== null && open < run.moves) {
+        const shut = rollsBetween(size, cut, new Set([...others, ...walls]), from, to, run.moves);
+        if (shut === null || shut > open) out.push({ at: run.at, sign: 'w' });
+      }
+    }
+    run = null;
+  };
+  way.forEach((move, at) => {
+    const tx = move.x + DELTA[move.dir].dx;
+    const tz = move.z + DELTA[move.dir].dz;
+    if (move.push) {
+      close();
+      if (fixedAt(tx + DELTA[move.dir].dx, tz + DELTA[move.dir].dz)) out.push({ at, sign: 'x' });
+    } else {
+      const cube = cubeAt(state, move.x, move.z);
+      if (cube && (!run || run.id !== cube.id || run.ex !== move.x || run.ez !== move.z)) {
+        close();
+        run = { at, x: move.x, z: move.z, ori: cube.ori, moves: 0, ex: move.x, ez: move.z, eori: cube.ori, id: cube.id, ...standing(cube.id) };
+      }
+      if (run) {
+        run.moves++;
+        run.ex = tx;
+        run.ez = tz;
+        run.eori = roll(run.eori, move.dir);
+        run.at = at;
+      }
+    }
+    state = tellMove(state, move).state;
+  });
+  close();
+  return out;
+}
+
+/** The fewest rolls of a lone die from one cell and lie to another on a board with these cells shut, up to `most`; null past it. */
+export function rollsBetween(
+  size: number,
+  cut: ReadonlySet<number>,
+  shut: ReadonlySet<number>,
+  from: { x: number; z: number; ori: Orientation },
+  to: { x: number; z: number; ori: Orientation },
+  most: number,
+): number | null {
+  const key = (x: number, z: number, o: Orientation) => `${x},${z},${o.top},${o.north}`;
+  const goal = key(to.x, to.z, to.ori);
+  let ring = [from];
+  const seen = new Set([key(from.x, from.z, from.ori)]);
+  for (let rolls = 0; rolls <= most; rolls++) {
+    if (ring.some((one) => key(one.x, one.z, one.ori) === goal)) return rolls;
+    const next: typeof ring = [];
+    for (const one of ring) {
+      for (const dir of DIRS) {
+        const x = one.x + DELTA[dir].dx;
+        const z = one.z + DELTA[dir].dz;
+        if (x < 0 || z < 0 || x >= size || z >= size || cut.has(z * size + x) || shut.has(z * size + x)) continue;
+        const ori = roll(one.ori, dir);
+        const k = key(x, z, ori);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        next.push({ x, z, ori });
+      }
+    }
+    ring = next;
+  }
+  return null;
 }
 
 /**

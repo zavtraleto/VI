@@ -203,12 +203,29 @@ export function routeOf(plot: Plot): string {
 }
 
 /**
+ * The route with the fixed dice the solution meets, as the core reads them off a way (`wallsOf`, `signature.ts`): `w`
+ * before the event of a die that goes round a die (`around`), `x` before that of one pushed up against it (`against`).
+ * Only for the core: the judge holds the way to the route of the rules, which has no such signs.
+ */
+function withWallsOf(plot: Plot, route: string): string {
+  const signs = route.split(' ');
+  const eventsAt = signs.flatMap((sign, at) => (/^[KPLQOU]$/.test(sign) ? [at] : []));
+  const before = new Map<number, string[]>();
+  plot.events.forEach((event, n) => {
+    const by = plot.dice.find((die) => die.name === event.by);
+    const marks = plot.dice.filter((die) => die.event === n && die.comes).flatMap((die) => [...(die.comes!.around ? ['w'] : []), ...(die.comes!.against ? ['x'] : [])]);
+    if (by && marks.length > 0) before.set(eventsAt[n] ?? signs.length, marks);
+  });
+  return signs.flatMap((sign, at) => [...(before.get(at) ?? []), sign]).join(' ');
+}
+
+/**
  * The core a board of the plot will have, as far as the plot says it (`Core` of `signature.ts`): its route, its faces,
  * the moves the route and the dice ask for, and of a plot of one event its dice and the length of its way. The kind of
  * the way weighs nothing, and the moves the layout adds (the seven, a loop) weigh a tenth at most.
  */
 export function plotCore(plot: Plot): Core {
-  const route = routeOf(plot);
+  const route = withWallsOf(plot, routeOf(plot));
   const signs = route.split(' ');
   const needs = new Set<string>();
   if (signs.some((sign) => sign === 'L' || sign === 'Q')) needs.add('link');

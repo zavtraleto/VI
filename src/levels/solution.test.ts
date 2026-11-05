@@ -111,11 +111,16 @@ describe('the thought before the board', () => {
     const [first] = thoughtFloor(wall, row);
     expect(first.code).toBe('H07');
     expect(first.sim).toBe(coreSim(plotCore(wall), row[1].core));
-    expect(first.sim).toBeGreaterThanOrEqual(0.85);
-    // Whatever the length within par 4-5 and whatever moves the layout adds, a combo of three 3s is H06 or H07 at 0.9.
+    // The way round the wall is a sign of the route of its own (`w K`), and the thought is H07's at 0.75, not at 1.
+    expect(plotCore(wall).route).toBe('w K');
+    expect(first.sim).toBeCloseTo(0.75, 5);
     const bound = thoughtBound(wall, row)!;
-    expect(bound.sim).toBeCloseTo(0.9, 5);
+    expect(bound.sim).toBeCloseTo(0.65, 5);
     expect(bound.sim).toBeLessThanOrEqual(first.sim);
+    // With no wall the same combo of three 3s is H06 or H07 at 0.9 at the least, whatever its layout.
+    const loop = readSolution(WALL.replace('/around=w', ''), 'loop');
+    expect(plotCore(loop).route).toBe('K');
+    expect(thoughtBound(loop, row)!.sim).toBeCloseTo(0.9, 5);
   });
 
   it('knows no least likeness of a plot of two events whose route it does not say', () => {

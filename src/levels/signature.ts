@@ -2,7 +2,7 @@ import { scoreOf, type Score } from '../rules/levelScore';
 import { moveOf, moveText, solveLevel, type SolverMove } from '../rules/levelSolver';
 import type { LevelSpec } from '../rules/types';
 import { goalFaces } from './goalFaces';
-import { hiddenOf } from './measures';
+import { hiddenOf, wallsOf } from './measures';
 import { needsOf } from './needs';
 import { sameBoard, turns } from './variety';
 
@@ -35,6 +35,26 @@ export interface Core {
 export type Length = 'short' | 'middle' | 'long';
 export const lengthOf = (moves: number): Length => (moves <= 4 ? 'short' : moves <= 7 ? 'middle' : 'long');
 
+/**
+ * The route with the fixed dice the way meets (`wallsOf`): `w` before the event a die rolled round a fixed die comes to,
+ * `x` before the one a die pushed up against a fixed die comes to, or at the end where none comes after. A way round a
+ * wall is another way than the same loop with none (the director's word of 5 November 2026); a fixed die that only
+ * stands by is no part of the thought, since from 61 on it stands in the background of nearly every board.
+ */
+function withWalls(route: string, beats: Score['beats'], walls: readonly { at: number; sign: 'w' | 'x' }[]): string {
+  if (walls.length === 0) return route;
+  const signs = route === '' ? [] : route.split(' ');
+  // Where the n-th event of the way stands among the signs of the route.
+  const eventsAt = signs.flatMap((sign, at) => (EVENTS.has(sign) ? [at] : []));
+  const before = new Map<number, string[]>();
+  for (const wall of walls) {
+    const n = beats.slice(0, wall.at).filter((beat) => beat.event !== 'none').length;
+    const at = eventsAt[n] ?? signs.length;
+    before.set(at, [...(before.get(at) ?? []), wall.sign]);
+  }
+  return signs.flatMap((sign, at) => [...(before.get(at) ?? []), sign]).concat(before.get(signs.length) ?? []).join(' ');
+}
+
 /** The signs of a route that are events: combos, links and 1s going, by a roll or a push. */
 const EVENTS = new Set(['K', 'P', 'L', 'Q', 'O', 'U']);
 
@@ -45,7 +65,9 @@ function wayOf(spec: LevelSpec): SolverMove[] {
 }
 
 const coreFrom = (spec: LevelSpec, way: readonly SolverMove[]): Core => {
-  const { kind, route } = scoreOf(spec, way);
+  const score = scoreOf(spec, way);
+  const { kind } = score;
+  const route = withWalls(score.route, score.beats, wallsOf(spec, way));
   // The faces are read off the way the core is read by, kept or found.
   const faces = goalFaces({ ...spec, solution: way.map(moveText) }).filter((face) => face !== 1);
   const core: Core = { kind, route, needs: [...needsOf(spec, way)].sort(), faces: [...faces].sort((a, b) => a - b) };

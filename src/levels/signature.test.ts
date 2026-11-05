@@ -5,6 +5,8 @@ import { OWNER_REPEATS, SIMILAR_PAIRS, UNLIKE_PAIRS } from './calibration';
 import { fileBoard } from './boardFiles';
 import { needsOf as grammarNeeds } from './grammar';
 import { needsOf } from './needs';
+import { wallsOf } from './measures';
+import { moveOf } from '../rules/levelSolver';
 import { ALONE_APART, SAME_LAYOUT, SIMILAR_NEAR, SIMILAR_ROW, coreKey, coreOf, coreSim, flaggedBy, layoutSim, shapeClassOf, signatureOf, similarity } from './signature';
 
 /**
@@ -195,5 +197,32 @@ describe('rule 17 on row 0.2.87', () => {
     const others = late.filter((place) => !OWNER_REPEATS.includes(place.code) && flags.get(place.number)!.flagged).map(said);
     expect(missed).toEqual(REPEATS_MISSED);
     expect(others).toEqual(FLAGGED_NOT_CALLED);
+  });
+});
+
+describe('the fixed dice a way meets, in its core', () => {
+  it('reads a die rolled round a fixed one as a sign of the route: the iron wall of Devil Dice 88', () => {
+    const spec = fileBoard('dd-88-iron-wall');
+    expect(wallsOf(spec, spec.solution!.map(moveOf))).toEqual([{ at: 9, sign: 'w' }]);
+    expect(coreOf(spec).route).toBe('w K');
+  });
+
+  it('reads a die pushed up against a fixed one', () => {
+    const spec = fileBoard('stop-1');
+    expect(wallsOf(spec, spec.solution!.map(moveOf)).map((one) => one.sign)).toEqual(['x']);
+    expect(coreOf(spec).route).toBe('K v x P Q');
+  });
+
+  it('reads nothing of a fixed die that only stands by or goes with its combo: the background', () => {
+    for (const id of ['fixed-combo-1', 'dd-72-fours-and-one', 'dd-19-three-threes-apart']) {
+      const spec = fileBoard(id);
+      expect(wallsOf(spec, spec.solution!.map(moveOf))).toEqual([]);
+      expect(coreOf(spec).route).not.toMatch(/[wx]/);
+    }
+  });
+
+  it('keeps a way round a wall apart from the same way with none', () => {
+    const wall = coreOf(fileBoard('dd-88-iron-wall'));
+    expect(coreSim(wall, { ...wall, route: 'K' })).toBeLessThan(SIMILAR_ROW + 0.05);
   });
 });
