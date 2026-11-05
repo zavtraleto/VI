@@ -4,9 +4,9 @@ import { novelEpisode } from '../ui/novel';
 import { NOVEL, NOVEL_FLAG, novelDue, novelKey, novelNext } from './novel';
 
 describe('the records of the link', () => {
-  it('are three, one every 20 stars, in order', () => {
-    expect(NOVEL.map((entry) => entry.code)).toEqual(['n01', 'n02', 'n03']);
-    expect(NOVEL.map((entry) => entry.stars)).toEqual([20, 40, 60]);
+  it('are seven, acts I and II, one every 20 stars, in order', () => {
+    expect(NOVEL.map((entry) => entry.code)).toEqual(['n01', 'n02', 'n03', 'n04', 'n05', 'n06', 'n07']);
+    expect(NOVEL.map((entry) => entry.stars)).toEqual([20, 40, 60, 80, 100, 120, 140]);
   });
 
   it('are kept among the windows told as novel:<code>', () => {
@@ -34,6 +34,7 @@ describe('the record due', () => {
     expect(novelDue(45, [])?.code).toBe('n01');
     expect(novelDue(45, [novelKey('n01')])?.code).toBe('n02');
     expect(novelDue(300, [novelKey('n01'), novelKey('n02')])?.code).toBe('n03');
+    expect(novelDue(130, ['n01', 'n02', 'n03', 'n04', 'n05'].map(novelKey))?.code).toBe('n06');
     expect(novelDue(300, NOVEL.map((entry) => novelKey(entry.code)))).toBeUndefined();
   });
 
@@ -48,10 +49,12 @@ describe('the record next', () => {
     expect(novelNext(20)).toEqual({ entry: NOVEL[1], number: 2, left: 20 });
     expect(novelNext(37)).toEqual({ entry: NOVEL[1], number: 2, left: 3 });
     expect(novelNext(59)).toEqual({ entry: NOVEL[2], number: 3, left: 1 });
+    expect(novelNext(60)).toEqual({ entry: NOVEL[3], number: 4, left: 20 });
+    expect(novelNext(139)).toEqual({ entry: NOVEL[6], number: 7, left: 1 });
   });
 
   it('is none once the sum has come to the last', () => {
-    expect(novelNext(60)).toBeUndefined();
+    expect(novelNext(140)).toBeUndefined();
     expect(novelNext(300)).toBeUndefined();
   });
 });

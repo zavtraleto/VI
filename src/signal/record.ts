@@ -25,24 +25,19 @@ export const NOVEL_LOOK = {
   contact: 0.25,
   /** The place of each record, by its code, and the colours laid over its mood: dark, cold, blue (the owner, 4 November 2026: «сделай синее и холоднее»). */
   scenes: {
+    // Act I: she is a silhouette (the owner, 5 November 2026: «в первом акте можно показать силуэт девушки, а во втором уже раскрыть личность»).
     // 01: the sea with the pole at night. The pole stands aside, where the figure leaves room for it.
     n01: {
       recipe: 'sea_pole',
       values: { skyTop: '#050a18', skyHorizon: '#1a2a4a', ground: '#08122a', lightAmount: 0.3, glint: 0, glow: 0 },
-      /** Where the pole stands across the frame, as a share of half its width from the middle, to the right. */
-      pole: 0.62,
-      poleColor: '#111a2e',
-      /** The dark of the place: the shadows of the figure go into it, so she stands in the place and is not laid over it. */
+      aside: { thing: 'pole', share: 0.62, color: '#111a2e' },
+      /** The dark of the place: the shadows of the figure go into it, so she stands in the place and is not laid over it. A silhouette is filled with it. */
       fill: '#08101f',
+      figure: 'silhouette',
+      revealAt: null,
     },
     // 02: the room with the chair, under a cold lamp.
-    n02: {
-      recipe: 'room_chair',
-      values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 },
-      pole: 0,
-      poleColor: '',
-      fill: '#0a1121',
-    },
+    n02: { recipe: 'room_chair', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'silhouette', revealAt: null },
     // 03: the corridor, the door at the end the one cold light.
     n03: {
       recipe: 'corridor_door',
@@ -50,10 +45,24 @@ export const NOVEL_LOOK = {
         wall: '#27344c', wallLow: '#1a2539', floor: '#11192a', ceiling: '#212c42', doorColor: '#0a0f20',
         doorLight: '#8eaee0', lampColor: '#9eb4de', dark: '#060a16', ambient: 0.4,
       },
-      pole: 0,
-      poleColor: '',
+      aside: null,
       fill: '#08101d',
+      figure: 'silhouette',
+      revealAt: null,
     },
+    // Act II "Room": 04 opens on her silhouette, and on its second line, «Это… лицо», her face comes through.
+    n04: { recipe: 'room_chair', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'silhouette', revealAt: 1 },
+    n05: { recipe: 'room_chair', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'face', revealAt: null },
+    // 06 "Water": dark water under a night sky; its lamp stands aside, as the pole does.
+    n06: {
+      recipe: 'nightwater_lamp',
+      values: { skyTop: '#040818', skyHorizon: '#16244a', ground: '#060d24', glintColor: '#a8c0ec', 'lamp.light': '#a8c0ec' },
+      aside: { thing: 'lamp', share: 0.62, color: '#111a2e' },
+      fill: '#070e1f',
+      figure: 'face',
+      revealAt: null,
+    },
+    n07: { recipe: 'room_chair', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'face', revealAt: null },
   } as Record<string, NovelScene>,
   /** The voice of the other side, a figure to the waist standing in the middle of the frame. */
   figure: {
@@ -117,6 +126,20 @@ export const NOVEL_LOOK = {
     breathMs: 5600,
     /** Rows of the picture her picture and its edge are worked out in: the picture of a transmission has 240. */
     maskLines: 320,
+    /** How strong the light out past her edge, and over the edge itself, is while she is a silhouette. */
+    silhouetteHalo: 0.55,
+    silhouetteRim: 0.7,
+    /**
+     * Her face coming through a silhouette (record 04): it takes `ms` milliseconds, at once with
+     * motion kept low. On the way it breaks up into streaks along her lines by `noise`, the bands of
+     * interference come one after another, `bandLight` times as light and `bandNoise` times as torn.
+     */
+    reveal: {
+      ms: 1800,
+      noise: 0.6,
+      bandLight: 2.5,
+      bandNoise: 2,
+    },
   },
   /**
    * Bands of interference over the whole frame (the owner, 4 November 2026: «полосы помех -
@@ -138,14 +161,30 @@ export const NOVEL_LOOK = {
   },
 } as const;
 
-/** The place of a record and what is laid over it. */
+/** The place of a record and what is laid over it, and how she is seen in it. */
 export interface NovelScene {
   recipe: string;
   values: Partial<ParamValues>;
-  /** Share of half the frame's width the pole stands to the right of the middle; 0 for a place with no pole. */
-  pole: number;
-  poleColor: string;
+  /** The thing of the place that stands aside, to the right, a `share` of half the frame's width from the middle, in `color`; null where it may stand where it stands. */
+  aside: { thing: string; share: number; color: string } | null;
   fill: string;
+  /** How she is seen as the record opens: a silhouette with a light edge, or her face. */
+  figure: 'silhouette' | 'face';
+  /** The line (counted from 0) on which a silhouette's face comes through; null where it does not. */
+  revealAt: number | null;
+}
+
+/**
+ * How far her face is there, 0..1 (0 a silhouette): from the record's look, the line being said,
+ * and how long ago the line her face comes through on began (null before it has). Smooth on the
+ * way; whole at once with motion kept low.
+ */
+export function faceAt(scene: NovelScene, line: number, sinceMs: number | null, still: boolean, look = NOVEL_LOOK.figure.reveal): number {
+  if (scene.figure === 'face') return 1;
+  if (scene.revealAt === null || line < scene.revealAt || sinceMs === null) return 0;
+  if (still) return 1;
+  const t = Math.min(1, Math.max(0, sinceMs / Math.max(1, look.ms)));
+  return t * t * (3 - 2 * t);
 }
 
 /** The look of a record by its code; the first record's for a code there is none of. */
@@ -162,12 +201,13 @@ export function novelCard(code: string, random: () => number, aspect: number): S
   const look = novelScene(code);
   const recipe = RECIPES.find((one) => one.id === look.recipe) ?? RECIPES[0];
   const values: Partial<ParamValues> = { ...look.values };
-  if (look.pole > 0 && recipe.things.includes('pole')) {
+  const { aside } = look;
+  if (aside && recipe.things.includes(aside.thing)) {
     const def = frameDef(recipe);
     const distance = Number(def.params.camDistance.value);
     const halfAcross = Math.tan((Number(def.params.camFov.value) * DEG) / 2) * aspect;
-    values[thingParam('pole', 'x')] = look.pole * halfAcross * distance;
-    values[thingParam('pole', 'color')] = look.poleColor;
+    values[thingParam(aside.thing, 'x')] = aside.share * halfAcross * distance;
+    values[thingParam(aside.thing, 'color')] = aside.color;
   }
   const frame: Frame = { recipe, variant: 'a', values, mixing: 1 };
   const seed = 1 + Math.floor(random() * 9999);

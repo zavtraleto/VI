@@ -41,6 +41,8 @@ uniform float uScan;
 uniform float uGrain;
 uniform float uFrame;
 uniform vec3 uSlip;
+uniform float uFace;
+uniform float uFaceNoise;
 
 varying vec2 vUv;
 
@@ -70,6 +72,9 @@ void main() {
 
   // The signal on her.
   c += uHalo * mask.a * uHalation;
+  // A silhouette is the dark of the place; her face comes through it in streaks along her lines.
+  float streak = hash(vec2(floor(gl_FragCoord.x / 6.0), floor(gl_FragCoord.y)) + uFrame + 31.0);
+  c = mix(uShadow, c, clamp(uFace + (streak - 0.5) * uFaceNoise, 0.0, 1.0));
   c *= 1.0 - uScan * step(0.5, fract(gl_FragCoord.y * 0.5));
   c += (hash(floor(gl_FragCoord.xy) + uFrame) - 0.5) * uGrain;
 
@@ -169,6 +174,8 @@ export class VoiceFigure {
         uHalation: { value: 0 },
         uScan: { value: look.scanlines },
         uGrain: { value: look.grain },
+        uFace: { value: 1 },
+        uFaceNoise: { value: 0 },
         uFrame: { value: 0 },
         uSlip: { value: this.slip },
       },
@@ -195,9 +202,10 @@ export class VoiceFigure {
    * Sets the figure for a frame of this shape (`aspect`, width over height). `speaking`: the voice
    * is the one who speaks now. `shadow` is the dark of the place her shadows go into. `band` is the
    * band of interference over the frame now, or null: her lines slip where it crosses her. With
-   * `still` she does not breathe and the grain stands.
+   * `still` she does not breathe and the grain stands. `face` is how far her face is there, 0..1: 0
+   * is a silhouette, filled with `shadow` and lit at its edge (`faceAt` in `record.ts`).
    */
-  update(timeMs: number, aspect: number, speaking: boolean, shadow: string, still: boolean, band: Band | null = null): void {
+  update(timeMs: number, aspect: number, speaking: boolean, shadow: string, still: boolean, band: Band | null = null, face = 1): void {
     const look = NOVEL_LOOK.figure;
     const target = speaking ? 1 : 0;
     const dt = Math.max(0, timeMs - this.last);
@@ -221,9 +229,14 @@ export class VoiceFigure {
     const uniforms = this.material.uniforms;
     stored(shadow, uniforms.uShadow.value as THREE.Vector3);
     uniforms.uBright.value = bright;
-    uniforms.uHaloAmount.value = Math.min(1, look.haloAmount * light);
-    uniforms.uRimAmount.value = Math.min(1, look.rimAmount * light);
+    const halo = look.silhouetteHalo + (look.haloAmount - look.silhouetteHalo) * face;
+    const rim = look.silhouetteRim + (look.rimAmount - look.silhouetteRim) * face;
+    uniforms.uHaloAmount.value = Math.min(1, halo * light);
+    uniforms.uRimAmount.value = Math.min(1, rim * light);
     uniforms.uHalation.value = look.halation * light;
+    uniforms.uFace.value = face;
+    // On the way from the silhouette to her face, and only then, it breaks up.
+    uniforms.uFaceNoise.value = still ? 0 : look.reveal.noise * Math.sin(face * Math.PI);
     // New grain 24 times a second; with motion kept low it stands as it is.
     uniforms.uFrame.value = still ? 0 : (Math.floor((timeMs * 24) / 1000) % 64) * 7;
   }

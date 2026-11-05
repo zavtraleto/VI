@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { cardScene } from './card';
 import { thingParam } from './compose';
 import { MOODS } from './scene';
-import { NOVEL_LOOK, figureBox, figureMask, novelCard, novelScene } from './record';
+import { NOVEL } from '../app/novel';
+import { NOVEL_LOOK, faceAt, figureBox, figureMask, novelCard, novelScene } from './record';
 
 const seq = (seed: number) => {
   let s = seed;
@@ -16,17 +17,21 @@ function lightness(hex: string): number {
 }
 
 describe('the scene of a record of the link', () => {
-  it('is the sea with the pole, the room and the corridor, for the three records, and the first for any other', () => {
-    expect(novelCard('n01', seq(1), 16 / 9).frame.recipe.id).toBe('sea_pole');
-    expect(novelCard('n02', seq(1), 16 / 9).frame.recipe.id).toBe('room_chair');
-    expect(novelCard('n03', seq(1), 16 / 9).frame.recipe.id).toBe('corridor_door');
+  it('is a place there is for every record: the sea, the room and the corridor, then the room, and the water for 06; the first for any other', () => {
+    const places = NOVEL.map(({ code }) => novelCard(code, seq(1), 16 / 9).frame.recipe.id);
+    expect(places).toEqual(['sea_pole', 'room_chair', 'corridor_door', 'room_chair', 'room_chair', 'nightwater_lamp', 'room_chair']);
     expect(novelScene('n99')).toBe(NOVEL_LOOK.scenes.n01);
+  });
+
+  it('shows her as a silhouette in act I, her face coming through on the second line of 04, and her face from 05 on', () => {
+    expect(NOVEL.map(({ code }) => novelScene(code).figure)).toEqual(['silhouette', 'silhouette', 'silhouette', 'silhouette', 'face', 'face', 'face']);
+    expect(NOVEL.map(({ code }) => novelScene(code).revealAt)).toEqual([null, null, null, 1, null, null, null]);
   });
 
   it('is in the cold mood, stays until it is closed, says nothing of its own, and is dark', () => {
     expect(NOVEL_LOOK.contact * (MOODS.length - 1)).toBe(1);
     expect(MOODS[1]).toBe('sad');
-    for (const code of ['n01', 'n02', 'n03']) {
+    for (const { code } of NOVEL) {
       const card = novelCard(code, seq(3), 9 / 16);
       expect(card.seconds).toBe(Infinity);
       expect(card.caption).toBeNull();
@@ -40,9 +45,37 @@ describe('the scene of a record of the link', () => {
     }
   });
 
-  it('puts the pole of the sea to the side, where the figure leaves room for it', () => {
-    const { values } = cardScene(novelCard('n01', seq(5), 16 / 9));
-    expect(Number(values[thingParam('pole', 'x')])).toBeGreaterThan(0);
+  it('puts the pole of the sea and the lamp of the water to the side, where the figure leaves room for them', () => {
+    expect(Number(cardScene(novelCard('n01', seq(5), 16 / 9)).values[thingParam('pole', 'x')])).toBeGreaterThan(0);
+    expect(Number(cardScene(novelCard('n06', seq(5), 16 / 9)).values[thingParam('lamp', 'x')])).toBeGreaterThan(0);
+  });
+});
+
+describe('her face', () => {
+  const silhouette = novelScene('n01');
+  const coming = novelScene('n04');
+  const face = novelScene('n05');
+
+  it('is not there in a silhouette, and is there whole where it is shown from the start', () => {
+    expect(faceAt(silhouette, 5, null, false)).toBe(0);
+    expect(faceAt(silhouette, 5, 99999, false)).toBe(0);
+    expect(faceAt(face, 0, null, false)).toBe(1);
+  });
+
+  it('comes through on its line, smoothly, in the time the look gives it; at once with motion kept low', () => {
+    const { ms } = NOVEL_LOOK.figure.reveal;
+    expect(faceAt(coming, 0, null, false)).toBe(0);
+    expect(faceAt(coming, 1, 0, false)).toBe(0);
+    let was = 0;
+    for (let t = 16; t <= ms; t += 16) {
+      const now = faceAt(coming, 1, t, false);
+      expect(now).toBeGreaterThanOrEqual(was);
+      expect(now - was).toBeLessThan(0.03);
+      was = now;
+    }
+    expect(faceAt(coming, 1, ms, false)).toBe(1);
+    expect(faceAt(coming, 3, ms * 3, false)).toBe(1);
+    expect(faceAt(coming, 1, 0, true)).toBe(1);
   });
 });
 

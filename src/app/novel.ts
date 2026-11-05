@@ -16,6 +16,11 @@ export const NOVEL: readonly NovelEntry[] = [
   { code: 'n01', stars: 20 },
   { code: 'n02', stars: 40 },
   { code: 'n03', stars: 60 },
+  // Act II "Room" (docs/superpowers/specs/2026-11-05-vi-story-idea-design.md, section 10).
+  { code: 'n04', stars: 80 },
+  { code: 'n05', stars: 100 },
+  { code: 'n06', stars: 120 },
+  { code: 'n07', stars: 140 },
 ];
 
 /**

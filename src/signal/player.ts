@@ -14,7 +14,7 @@ import { RecordBands } from './bands';
 import { VoiceFigure } from './figure';
 import { hintCard } from './hintFrame';
 import { SignalLeak, type LeakKind } from './leak';
-import { novelCard, novelScene } from './record';
+import { NOVEL_LOOK, faceAt, novelCard, novelScene } from './record';
 import { signalLook, type ParamValues, type SceneInstance } from './scene';
 import type { SessionReading } from './terminal';
 import { BAR, windowLayout, type WindowLayout, type WindowPlace } from './window';
@@ -76,6 +76,8 @@ interface Recorded {
   band: CaptionBox | null;
   /** Where a press closes the record, in CSS pixels: the box at the left of the bar and its word at the right. */
   skips: CaptionBox[];
+  /** The frame her face began to come through a silhouette on; null before it has. */
+  revealFrom: number | null;
 }
 
 /** How far the words of a telling have come. */
@@ -288,7 +290,7 @@ export class SignalPlayer {
     }
     const layout = windowLayout(this.pictureNow(), 1, TOLD_PLACE);
     const card = novelCard(recording.code, this.random, layout.content.w / Math.max(1, layout.content.h));
-    const record: Recorded = { recording, line: 0, band: null, skips: [] };
+    const record: Recorded = { recording, line: 0, band: null, skips: [], revealFrom: null };
     this.play(card, card.contact, recording.onDone, false, 1, TOLD_PLACE, this.lineTold(recording, 0), record);
   }
 
@@ -406,11 +408,18 @@ export class SignalPlayer {
     const { record, told } = playing;
     if (record) {
       const { reduced } = record.recording;
+      // A silhouette's face comes through on its line of the record, through the bands of interference.
+      const scene = novelScene(record.recording.code);
+      if (scene.revealAt !== null && record.line >= scene.revealAt) record.revealFrom ??= timeMs;
+      const since = record.revealFrom === null ? null : timeMs - record.revealFrom;
+      const face = faceAt(scene, record.line, since, reduced);
+      const revealing = scene.figure === 'silhouette' && since !== null && !reduced && since < NOVEL_LOOK.figure.reveal.ms;
+      const boost = revealing ? Math.sin((since / NOVEL_LOOK.figure.reveal.ms) * Math.PI) : 0;
       const bands = (this.bands ??= new RecordBands());
-      const banded = bands.update(timeMs, reduced);
+      const banded = bands.update(timeMs, reduced, boost);
       if (this.figure) {
         const speaking = record.recording.lines[record.line]?.who === 'voice';
-        this.figure.update(timeMs, rect.width / Math.max(1, rect.height), speaking, novelScene(record.recording.code).fill, reduced, bands.now);
+        this.figure.update(timeMs, rect.width / Math.max(1, rect.height), speaking, scene.fill, reduced, bands.now, face);
         this.picture.renderOver(this.figure.scene, this.figure.camera, { rect });
       }
       if (banded) this.picture.renderOver(bands.scene, bands.camera, { rect });

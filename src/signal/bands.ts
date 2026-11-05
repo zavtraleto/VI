@@ -36,8 +36,11 @@ export class BandTimer {
     private readonly look = NOVEL_LOOK.bands,
   ) {}
 
-  /** The band at `timeMs`, or null. With `still` (motion kept low) none comes. */
-  at(timeMs: number, still: boolean): Band | null {
+  /**
+   * The band at `timeMs`, or null. With `still` (motion kept low) none comes. With `rush` (her face
+   * coming through) a band comes as soon as the last has gone, without the wait.
+   */
+  at(timeMs: number, still: boolean, rush = false): Band | null {
     const { look, random } = this;
     const between = (range: readonly [number, number]): number => range[0] + random() * (range[1] - range[0]);
     this.next ??= timeMs + between(look.every);
@@ -45,7 +48,7 @@ export class BandTimer {
       this.band = null;
       return null;
     }
-    if (!this.band && timeMs >= this.next) {
+    if (!this.band && (rush || timeMs >= this.next)) {
       const kind: BandKind = random() < look.rollShare ? 'roll' : 'flare';
       const half = between(look.height) / 2;
       this.band = { kind, from: timeMs, ms: kind === 'roll' ? look.rollMs : look.flareMs, y: half + random() * (1 - half * 2), half };
@@ -156,9 +159,18 @@ export class RecordBands {
     this.scene.add(mesh);
   }
 
-  /** Where the band is at `timeMs`; with `still` there is none. True when there is one to draw. */
-  update(timeMs: number, still: boolean): boolean {
-    this.now = this.timer.at(timeMs, still);
+  /**
+   * Where the band is at `timeMs`; with `still` there is none. `boost`, 0..1, is how far her face
+   * is on its way through: the bands come one after another, lighter and more torn
+   * (`NOVEL_LOOK.figure.reveal`). True when there is one to draw.
+   */
+  update(timeMs: number, still: boolean, boost = 0): boolean {
+    const look = NOVEL_LOOK.bands;
+    const reveal = NOVEL_LOOK.figure.reveal;
+    this.now = this.timer.at(timeMs, still, boost > 0);
+    const { uniforms } = this.material;
+    uniforms.uLight.value = look.light * (1 + (reveal.bandLight - 1) * boost);
+    uniforms.uNoise.value = look.noise * (1 + (reveal.bandNoise - 1) * boost);
     const { now } = this;
     this.band.set(now?.y ?? 0, now?.half ?? 0.01, now?.strength ?? 0);
     this.material.uniforms.uFrame.value = (Math.floor((timeMs * 24) / 1000) % 64) * 7;
