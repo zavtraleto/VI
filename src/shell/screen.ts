@@ -49,6 +49,8 @@ export type ShellSound =
   | { kind: 'close' }
   /** The program is switched on, as it opens. */
   | { kind: 'power' }
+  /** A call rings, while its screen is up (src/shell/screens/call.ts). */
+  | { kind: 'ring' }
   /**
    * The result of a session goes up the log: a line is gone past (`along` is how high in the
    * log the session stands, 0 to 1), a record of one of the six or the player's own best is gone

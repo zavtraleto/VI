@@ -5,7 +5,7 @@ import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen
 import { word } from '../../ui/i18n';
 import { paintStar, paintStarGhost, paintStarSmall, type StarColours } from '../star';
 import { BAR_H, BUTTON_H, EDGE, GAP, LEVEL_CELL_W, MARK, PANEL_SAY_SIZE, UNIT } from '../theme';
-import { LIVE_WORD, digits, shortScore, type PanelName } from '../text';
+import { digits, type PanelName } from '../text';
 
 /** Something a panel can be told to do: a line that is pressed. */
 export interface PanelCommand {
@@ -55,14 +55,14 @@ export type PanelRow =
     }
   /**
    * The boards of the levels, as numbered cells with what each has earned, and nothing under them
-   * (the owner, 30 October 2026). `marks` is how many a cell can earn, three when left out. A cell
-   * with `live` is a live session of the row: it has no number, and the boards after it keep
-   * theirs (`liveCell` draws it).
+   * (the owner, 30 October 2026). `marks` is how many a cell can earn, three when left out. Only
+   * boards stand in it: the calls are a layer of their own (the owner, 5 November 2026: «клетки из
+   * списка давай убирать»).
    */
   | {
       kind: 'levels';
       id: string;
-      levels: readonly { stars: number; live?: { best: number | null } }[];
+      levels: readonly { stars: number }[];
       current: number;
       pick: (index: number) => void;
       marks?: number;
@@ -137,9 +137,6 @@ const CELL_GAP = GAP;
 const CELL_LEAST = 36;
 /** The ring round a cell in focus stands this far out from it, inside the gap. */
 const CELL_RING = 2;
-/** The star of a played live session in the corner of its cell: its radius on a tall picture and on a wide one. */
-const CELL_STAR_TALL = 5;
-const CELL_STAR_WIDE = 4;
 /** The stars of a result: their radius, and from the middle of one to the next. */
 const RESULT_STAR = 6;
 const RESULT_STAR_STEP = 20;
@@ -567,18 +564,13 @@ export class PanelScreen implements ShellScreen {
           break;
         }
         case 'levels': {
-          // A live session has no number: the boards are numbered as if it were not there.
-          let number = 0;
           const view = this.levelView(row, box, shown);
           kit.within(view.window, () => view.cells.forEach((cell, i) => {
-            const { live } = row.levels[i];
-            if (!live) number++;
             if (!this.inSight(view, i)) return;
             const id = `${row.id}-${i}`;
             const on = focus.focus === id;
             kit.frame(cell, on || i === row.current ? ink : faint);
-            if (live) this.liveCell(kit, cell, live.best, ink);
-            else this.levelCell(kit, cell, digits(number, 2), row.levels[i].stars, row.marks ?? 3);
+            this.levelCell(kit, cell, digits(i + 1, 2), row.levels[i].stars, row.marks ?? 3);
             // In focus: a ring round the cell, a little out from it, and the red mark of the seventh in its corner.
             if (on) {
               kit.frame({ x: cell.x - CELL_RING, y: cell.y - CELL_RING, w: cell.w + 2 * CELL_RING, h: cell.h + 2 * CELL_RING }, focus.pressed === id ? faint : ink);
@@ -637,26 +629,6 @@ export class PanelScreen implements ShellScreen {
     const thumb = Math.max(4, Math.round((tall * shown) / total));
     const at = Math.round(((tall - thumb) * Math.max(0, Math.min(first, total - shown))) / Math.max(1, total - shown));
     kit.rect(x, y + at, 2, thumb, dim);
-  }
-
-  /**
-   * The cell of a live session in the list of the levels: the word in place of a number, and the
-   * best score in place of the stars where the cell has a line for it, else one square, filled
-   * once the session is played. A proposal (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md,
-   * section 8): the owner leads the look, and this is the one place it is drawn.
-   */
-  private liveCell(kit: Kit, cell: Box, best: number | null, on: string): void {
-    const centre = cell.x + cell.w / 2;
-    const score = best === null ? '' : shortScore(best);
-    const scored = best !== null && cell.h >= CELL_H * 2 + 2 && kit.measure(score) <= cell.w - 4;
-    // The star of a played session stands behind the word, as the stars of a level did.
-    if (!scored && best !== null) {
-      const { dim, faint } = kit.palette;
-      const radius = kit.width > kit.height ? CELL_STAR_WIDE : CELL_STAR_TALL;
-      paintStarSmall(kit, cell.x + cell.w * 0.2, cell.y + cell.h * 0.2, radius, { core: dim, light: dim, deep: faint }, true);
-    }
-    kit.text(LIVE_WORD, centre, cell.y + 2, on, { align: 'center' });
-    if (scored) kit.text(score, centre, cell.y + CELL_H + 1, on, { align: 'center' });
   }
 
   /**
@@ -740,9 +712,7 @@ export class PanelScreen implements ShellScreen {
   }
 
   /**
-   * The cells of the list, row after row. A cell of a live session is as wide as a cell of a board
-   * where the word fits it, and two cells wide where it does not; one that would not fit at the
-   * end of a row begins the next.
+   * The cells of the list, row after row.
    */
   private levelCells(row: Extract<PanelRow, { kind: 'levels' }>, box: Box): Box[] {
     const columns = this.levelColumns(box.w);
@@ -750,20 +720,12 @@ export class PanelScreen implements ShellScreen {
     const wide = Math.floor((box.w - CELL_GAP * (columns - 1)) / columns);
     // The dots the whole cells leave over are shared to both sides.
     const left = box.x + Math.floor((box.w - (wide * columns + CELL_GAP * (columns - 1))) / 2);
-    const liveSpan = textWidth(LIVE_WORD) + 4 <= wide ? 1 : 2;
-    let slot = 0;
-    return row.levels.map((level) => {
-      const span = level.live ? Math.min(columns, liveSpan) : 1;
-      if ((slot % columns) + span > columns) slot += columns - (slot % columns);
-      const cell = {
-        x: left + (slot % columns) * (wide + CELL_GAP),
-        y: box.y + Math.floor(slot / columns) * (tall + CELL_GAP),
-        w: wide * span + CELL_GAP * (span - 1),
-        h: tall,
-      };
-      slot += span;
-      return cell;
-    });
+    return row.levels.map((_, slot) => ({
+      x: left + (slot % columns) * (wide + CELL_GAP),
+      y: box.y + Math.floor(slot / columns) * (tall + CELL_GAP),
+      w: wide,
+      h: tall,
+    }));
   }
 
   /** Rows of cells the list of the levels takes. */

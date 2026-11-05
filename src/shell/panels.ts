@@ -5,7 +5,7 @@ import type { Climb } from './climb';
 import { CELL_W, textWidth } from './layout';
 import type { PanelCommand, PanelRow, PanelSpec, TableLine } from './screens/panel';
 import { README_SAY_SIZE } from './theme';
-import { COMMANDS, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, type PanelName } from './text';
+import { CALL, COMMANDS, EXEC, LANGUAGE_NAMES, PANELS, RECORDS, RESULT, SYSTEM, digits, goalLabel, goalProgress, type PanelName } from './text';
 
 /** A time in ticks as minutes and seconds. */
 function clock(ticks: number, tickMs: number): string {
@@ -169,21 +169,22 @@ export function resultPanel(data: ResultData, actions: { onAgain: () => void; on
 }
 
 /**
- * The result of a live session of the row: its score, the best of this session, the longest
- * chain. With `climb`, the score goes up the log of that session as a session of Endless goes up
- * its own (the owner, 28 October 2026: after a live session the log of all time is shown, as
- * after Endless); the log is the session's own, counted apart. Again, on to the board after it,
- * the score doubled for an advertisement where there is one, or the menu.
+ * The result of a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.3): its
+ * score, the best of its step, the longest chain. With `climb`, the score goes up the log of that
+ * step as a session of Endless goes up its own (the owner, 28 October 2026). Again, on (from the row,
+ * to the board after; from the list of calls, back to it), the score doubled for an advertisement
+ * where there is one, or the menu. A call the board filled says over its score that the line was lost.
  */
-export function liveResultPanel(
-  data: { score: number; best: number; maxChain: number; doubled?: boolean; before?: number },
+export function callResultPanel(
+  data: { score: number; best: number; maxChain: number; doubled?: boolean; before?: number; lost?: boolean; fromList?: boolean },
   actions: { onAgain: () => void; onNext: () => void; onMenu: () => void; onDouble?: () => void },
   climb?: Climb,
 ): PanelSpec {
-  // The score doubled for an advertisement is shown doubled; the session itself is as it ended.
+  // The score doubled for an advertisement is shown doubled; the call itself is as it ended.
   const score = data.doubled ? data.score * 2 : data.score;
   const settled = (): boolean => climb?.done ?? true;
   const rows: PanelRow[] = [];
+  if (data.lost) rows.push({ kind: 'field', label: CALL.lineLost, value: '' });
   if (climb) rows.push(...climbRows(climb));
   else rows.push({ kind: 'number', label: RESULT.score, value: score, places: 6 });
   rows.push(
@@ -195,7 +196,7 @@ export function liveResultPanel(
       stacked: true,
       commands: [
         { id: 'again', label: COMMANDS.again, action: actions.onAgain },
-        { id: 'next', label: COMMANDS.next, action: actions.onNext },
+        { id: 'next', label: data.fromList ? COMMANDS.back : COMMANDS.next, action: actions.onNext },
         // Where the platform has an advertisement to watch for it, and the score has not been doubled yet.
         ...(actions.onDouble ? [{ id: 'double', label: COMMANDS.double, action: actions.onDouble }] : []),
         { id: 'menu', label: COMMANDS.menu, action: actions.onMenu },
@@ -289,31 +290,17 @@ export function recordsPanel(table: () => RecordsTable, actions: RecordsActions)
   return { title: RECORDS.title, home: 'back', back: actions.onBack, rows };
 }
 
-/** A cell of the list of the levels: a board, or a live session of the row with what is said under it. */
-export type LevelsEntry =
-  | { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number }
-  | { live: { code: string; best: number | null } };
+/** A cell of the list of the levels: a board. */
+export type LevelsEntry = { passed: boolean; goal: readonly GoalLine[]; faces?: readonly number[]; stars?: number };
 
 /**
  * Every board of the campaign in one list, the pieces of the road first: a cell to a board,
  * numbered from one, with the stars of the ones passed, out of three: those of its best pass,
  * and one where `stars` is not said; nothing is written under them (the owner, 30 October 2026).
- * Every cell is open. A live session of the row (`live`) stands among them with no number: the
- * boards keep theirs, `onPick` is given the index of a board among the boards, and `onLive` the
- * code of a session. `current` is the index of a cell of the list as it is given.
+ * Every cell is open. Only boards stand in it: the calls are a layer of their own (the owner,
+ * 5 November 2026). `current` is the index of the board in focus.
  */
-export function levelsPanel(
-  levels: readonly LevelsEntry[],
-  current: number,
-  actions: { onPick: (index: number) => void; onLive?: (code: string) => void; onBack: () => void },
-): PanelSpec {
-  // The index of every board among the boards, -1 for a live session.
-  let boards = 0;
-  const boardOf = levels.map((level) => ('live' in level ? -1 : boards++));
-  const liveOf = (index: number) => {
-    const level = levels[index];
-    return level && 'live' in level ? level.live : null;
-  };
+export function levelsPanel(levels: readonly LevelsEntry[], current: number, actions: { onPick: (index: number) => void; onBack: () => void }): PanelSpec {
   return {
     title: PANELS.levels,
     // On the whole screen (the owner, 4 November 2026: «полноэкранный визуально понятный список»).
@@ -324,13 +311,11 @@ export function levelsPanel(
       {
         kind: 'levels',
         id: 'level',
-        levels: levels.map((level) => ('live' in level ? { stars: 0, live: { best: level.live.best } } : { stars: level.stars ?? (level.passed ? 1 : 0) })),
+        levels: levels.map((level) => ({ stars: level.stars ?? (level.passed ? 1 : 0) })),
         marks: 3,
         current,
         pick: (index) => {
-          const live = liveOf(index);
-          if (live) actions.onLive?.(live.code);
-          else if (boardOf[index] !== undefined) actions.onPick(boardOf[index]);
+          if (index >= 0 && index < levels.length) actions.onPick(index);
         },
       },
       {
@@ -564,4 +549,34 @@ export function storyPanel(
   });
   rows.push({ kind: 'gap' }, { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
   return { title: PANELS.story, home, back: actions.onBack, rows };
+}
+
+/** A line of the screen of `ENDLESS`: a call that has come, by its step and its best; or a talk heard, by its step and its title. */
+export type CallsEntry = { kind: 'call'; step: number; best: number } | { kind: 'talk'; step: number; title: string };
+
+/**
+ * What the file `ENDLESS` of the menu opens once a call has come (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md,
+ * section 7.4): free Endless first, then the calls that have come, each to be played again with no
+ * screen of the call before it, then the talks heard, each to be heard again. A call that has not
+ * come is not shown: what comes next, the game does not say. Modelled on `storyPanel`.
+ */
+export function callsPanel(
+  entries: readonly CallsEntry[],
+  actions: { onPlay: () => void; onCall: (step: number) => void; onTalk: (step: number) => void; onBack: () => void },
+  home = 'play',
+): PanelSpec {
+  const rows: PanelRow[] = [{ kind: 'command', id: 'play', label: { native: EXEC.play.native, name: EXEC.play.name }, action: actions.onPlay }];
+  const calls = entries.filter((entry) => entry.kind === 'call');
+  const talks = entries.filter((entry) => entry.kind === 'talk');
+  if (calls.length > 0) rows.push({ kind: 'gap' });
+  for (const entry of calls) {
+    rows.push({ kind: 'command', id: `call-${entry.step}`, label: { native: CALL.calls.native, name: `${digits(entry.step, 2)} · ${digits(entry.best, 6)}` }, action: () => actions.onCall(entry.step) });
+  }
+  if (talks.length > 0) rows.push({ kind: 'gap' });
+  for (const entry of talks) {
+    if (entry.kind !== 'talk') continue;
+    rows.push({ kind: 'command', id: `talk-${entry.step}`, label: { native: CALL.talks.native, name: `${digits(entry.step, 2)} · ${entry.title.toUpperCase()}` }, action: () => actions.onTalk(entry.step) });
+  }
+  rows.push({ kind: 'gap' }, { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
+  return { title: PANELS.endless, home, back: actions.onBack, rows };
 }

@@ -106,17 +106,6 @@ export function digits(value: number, places: number): string {
   return String(Math.max(0, Math.round(value))).padStart(places, '0');
 }
 
-/** What a live session of the row is called in the list of the levels, where a board has its number. */
-export const LIVE_WORD = 'LIVE';
-
-/** A score in four signs at most, where a cell has no more room: 2471, 24K, 710K, 1M. */
-export function shortScore(score: number): string {
-  const value = Math.max(0, Math.round(score));
-  if (value < 10_000) return String(value);
-  if (value < 1_000_000) return `${Math.floor(value / 1000)}K`;
-  return `${Math.floor(value / 1_000_000)}M`;
-}
-
 /** What the session shows while it runs: the names of its readings, in English, said through `word()`. */
 export const HUD = {
   /** The steps the contact has taken, and the dice sent at which the next one comes. */
@@ -199,6 +188,10 @@ export const PANELS = {
   novel: { native: 'きろく', name: 'RECORD' },
   /** "Story": the list the file of the menu opens under `?novel`, the note first and the records after it. */
   story: { native: 'ものがたり', name: 'STORY' },
+  /** "Incoming": the screen of a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.1). */
+  incoming: { native: 'ちゃくしん', name: 'INCOMING' },
+  /** "Endless": the screen the file of the menu opens once a call has come, free Endless and the calls (section 7.4). */
+  endless: { native: 'むげん', name: 'ENDLESS' },
 } as const satisfies Record<string, PanelName>;
 
 /** What a panel can be told to do. */
@@ -239,6 +232,21 @@ export const COMMANDS = {
    */
   showWay: { native: 'ヒント', name: 'HINT · AD' },
   double: { native: 'ダブル', name: 'DOUBLE · AD' },
+  /** "Answer", "refuse": a call is taken, or declined. "Cut": the call is hung up, from under the board. */
+  accept: { native: 'おうとう', name: 'ACCEPT' },
+  decline: { native: 'きょひ', name: 'DECLINE' },
+  hangUp: { native: 'きる', name: 'HANG UP' },
+} as const satisfies Record<string, PanelName>;
+
+/** The words of the calls (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 11), said through `word()`. */
+export const CALL = {
+  /** "Number": who calls, over the line saying that the number is not known. */
+  number: { native: 'ばんごう', name: '??????' },
+  /** "Call", "conversation": the calls that have come and the talks heard, on the screen of `ENDLESS`. */
+  calls: { native: 'つうわ', name: 'CALLS' },
+  talks: { native: 'かいわ', name: 'TALKS' },
+  /** "Cut off": the board filled, and the call ended before its time. */
+  lineLost: { native: 'せつだん', name: 'LINE LOST' },
 } as const satisfies Record<string, PanelName>;
 
 /** The readings of a result. */

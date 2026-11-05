@@ -11,7 +11,7 @@ import { bindKeyboard } from '../input/keyboard';
 import { bindTaps } from '../input/tap';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
-import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, prefersReducedMotion, raiseLive, saveSettings, type LevelStat, type Settings } from '../platform/settings';
+import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteShort, prefersReducedMotion, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { hasSaved, loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { Water } from '../render/water';
@@ -21,8 +21,7 @@ import { boardDefaults, readView, type BoardLook } from '../render/params';
 import type { DicePassing } from '../render/passing';
 import { finaleMs, type LeavingEvent } from '../render/leaving';
 import { BoardView, type Frame } from '../render/view';
-import { CAMPAIGN, LIVES, campaignDone, campaignFocus, campaignList, plaquesOf } from '../levels/campaign';
-import type { Live } from '../levels/row';
+import { CAMPAIGN, campaignCells, campaignDone, campaignFocus, plaquesOf } from '../levels/campaign';
 import { levelStars, starsSum } from '../levels/progress';
 import { lessonsAt, ruleOf } from '../levels/rules';
 import { messagesOf } from '../levels/voices';
@@ -57,9 +56,9 @@ import {
 import { pointCursor } from '../shell/cursor';
 import { GameHud, type HudCounter, type HudLabel, type HudLock, type HudSeal, type HudSign, type HudView } from '../shell/hud';
 import { Climb } from '../shell/climb';
-import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type LevelsEntry, type StoryEntry, type SystemValues } from '../shell/panels';
+import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, callResultPanel, callsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type CallsEntry, type StoryEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { COMMANDS, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
+import { CALL, COMMANDS, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { boardShapes, boxCorners, pickCell, type CellShape } from './tapPick';
 import { makesGroup, planTap, stepHolds } from './tapWay';
@@ -69,7 +68,9 @@ import { h } from '../ui/dom';
 import { novelEpisode } from '../ui/novel';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive, liveArchive } from './archive';
-import { clockGone, clockLeft, secondsLeft } from './clock';
+import { callCame, callCode, callDone, callDue, callStep, callsCame, countBoard, noteCall, raiseCall, type CallEnd } from './calls';
+import { callEpisode } from '../ui/calls';
+import { clockGone, secondsLeft } from './clock';
 import { Hints } from './hints';
 import { shortOf } from './levelStats';
 import { Hitstop, beatsOf, peakBeat, stepBeat, type Beat } from './juice';
@@ -80,7 +81,7 @@ import { Runner, frameBound } from './runner';
 import { mark, span } from './spans';
 import { standings, type PlayerLine, type Standing } from './standings';
 import { statsText } from './stats';
-import { FILE_LEADS, atAfter, liveDue, liveKey, orderOf, passageAt, passageMarks, placeAfterIndex, startPlace as openingPlace, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
+import { FILE_LEADS, atAfter, orderOf, passageAt, passageMarks, placeAfterIndex, startPlace as openingPlace, type FileLead, type PassageCounts, type PassageTimes, type PassageView } from './passage';
 import { RUN_KEY, packRun, unpackRun, type KeptRun } from './savedRun';
 import { DeadEnds, endDue, endKey, probeHint, tellsHint } from './hint';
 import { ComboHintWork, boardKey, stillShort } from './comboHintWork';
@@ -153,14 +154,17 @@ function interstitial(reason: InterstitialReason, step: EventData, place: number
   });
 }
 
-/** A live session of the row as the analytics name it: its code, and the number of the board it stands after. */
-function liveStep(live: Live): EventData {
-  return { step_id: live.code, step_index: CAMPAIGN[live.after].number };
+/**
+ * A call as the analytics name it: its code by its step, and the number of the board it came after;
+ * a call played from the list of `ENDLESS` came after none, 0.
+ */
+function callData(step: number, place: number | null): EventData {
+  return { step_id: callCode(step), step_index: place === null ? 0 : CAMPAIGN[place].number };
 }
 
 const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
-/** What the player picked in the menu, or in the list of levels; a live session of the row is come to from the row or the list. */
+/** What the player picked in the menu, or in the list of levels; `live` is a call, come to from the row or from the list of `ENDLESS`. */
 type RunKind = 'endless' | 'live' | 'level';
 
 /**
@@ -195,7 +199,7 @@ const LAB = import.meta.env.DEV && new URLSearchParams(window.location.search).h
  * are rolled, then what a level asks for and what a session does. Where a window of the levels
  * already says a rule in words that hold everywhere, the words are the same ones.
  */
-const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'lessonGlass', 'lessonFloor', 'howOnes', 'howLevels', 'howLive', 'howProtocol'];
+const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'lessonGlass', 'lessonFloor', 'howOnes', 'howLevels', 'howCall', 'howProtocol'];
 /** A window lower than this, in CSS pixels, and lying on its side shows the note that came with the program so many signs at a time. */
 const README_LOW = 520;
 const README_SIGNS = 330;
@@ -301,9 +305,12 @@ export class Game {
   private paused = false;
   private inMenu = false;
   private kind: RunKind = 'endless';
-  /** The live session of the row in hand, or last in hand, and whether it was come to from the row or from the list. */
-  private live: Live | null = null;
-  private liveFrom: 'row' | 'list' = 'list';
+  /** The call in hand, or last in hand: its step, and whether it came in the row or was played again from the list of `ENDLESS`. */
+  private call: { step: number; from: 'row' | 'endless' } | null = null;
+  /** The call in hand was hung up: its result is up, and the board stands where it was. */
+  private hungUp = false;
+  /** The place last passed in turn, where a call may come after it: the passage asks once (`askCall`). */
+  private callBoard: number | null = null;
   private lastFrame = 0;
   /** Where a swipe has to point for each board direction; follows the camera. */
   private swipeDirs: ScreenDirs = CARDINAL_DIRS;
@@ -396,9 +403,9 @@ export class Game {
     struck: boolean;
     /** Whether the end of the row has been looked for: once, when the dice of the board are under the floor. */
     endAsked: boolean;
-    /** Whether a live session after the board has been looked for: once, before the end of the row. */
-    liveAsked: boolean;
-    /** Whether a record of the link has been looked for, under `?novel`: once, after the live session and before the end of the row. */
+    /** Whether a call after the board has been looked for: once, before the end of the row. */
+    callAsked: boolean;
+    /** Whether a record of the link has been looked for, under `?novel`: once, after the call and before the end of the row. */
     novelAsked: boolean;
     /** The clock of the passage has been set to the frame the dice were seen under. */
     aligned: boolean;
@@ -529,6 +536,7 @@ export class Game {
     live: () => !this.inMenu && !this.shell.visible && !this.toolsOpen && !this.signal.busy,
     onPause: () => this.togglePause(),
     onUndo: () => this.undoLevel(),
+    onHangUp: () => this.hangUp(),
     onRestart: () => this.restartLevel(),
     onSound: () => this.toggleSound(),
     onPoints: (points, tier) => this.audio.points(points, tier),
@@ -984,7 +992,7 @@ export class Game {
 
   /** What the platform calls the thing being played: the session, or a level. */
   private levelName(): string {
-    if (this.kind === 'live' && this.live) return this.live.code;
+    if (this.kind === 'live' && this.call) return callCode(this.call.step);
     return this.kind === 'level' ? `level_${this.levelId()}` : this.kind;
   }
 
@@ -1018,7 +1026,7 @@ export class Game {
       const number = this.boardNumber();
       return number === null ? { step_id: `level_${this.levelId()}` } : { step_id: `level_${this.levelId()}`, step_index: number };
     }
-    if (this.kind === 'live' && this.live) return liveStep(this.live);
+    if (this.kind === 'live' && this.call) return callData(this.call.step, this.place);
     return { step_id: this.kind };
   }
 
@@ -1029,7 +1037,7 @@ export class Game {
     // Before the program opens there may be no run at all.
     if (!this.opened) return;
     const { state } = this;
-    const run = { opened: this.opened, inMenu: this.inMenu, over: state.over, tick: state.tick, level: state.levelRun !== null, unsaid: this.unsaid };
+    const run = { opened: this.opened, inMenu: this.inMenu, over: state.over || this.hungUp, tick: state.tick, level: state.levelRun !== null, unsaid: this.unsaid };
     if (!tellsLeaving(run)) return;
     const reached: EventData = state.levelRun ? this.levelTry() : { ...runSummary(state, this.tally), ...this.visit() };
     platform.track('progression_failed', { ...this.step(), reason: how === 'menu' ? 'left' : 'restart', duration_sec: this.seconds(), ...reached });
@@ -1093,7 +1101,7 @@ export class Game {
       return;
     }
     if (kind === 'live') {
-      if (this.live) this.startLive(this.live, this.liveFrom);
+      if (this.call) this.startCall(this.call.step, this.call.from);
       return;
     }
     this.kind = kind;
@@ -1118,63 +1126,74 @@ export class Game {
   }
 
   /**
-   * A live session of the row begins (docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md):
-   * Endless on its clock, by the rules of its step as they are, whatever the player has set. It stands
-   * after its board: that place is the one in hand, and the one after it is where `NEXT` leads.
+   * A call begins (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 6): Endless on
+   * its clock, by the rules of its step as they are, whatever the player has set. Taken in the row, the
+   * place just passed is the one in hand, and the one after it is where `NEXT` leads; played again from
+   * the list of `ENDLESS`, no place is.
    */
-  private startLive(live: Live, from: 'row' | 'list'): void {
+  private startCall(step: number, from: 'row' | 'endless'): void {
     this.kind = 'live';
-    this.live = live;
-    this.liveFrom = from;
-    this.place = live.after;
+    this.call = { step, from };
+    if (from === 'endless') this.place = null;
     this.labSpec = null;
     this.labFrozen = false;
     const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
-    this.begin(createRun({ seed, config: liveConfig(live.step), live: true }), true);
+    this.begin(createRun({ seed, config: liveConfig(step), live: true }), true);
     this.resumed = false;
-    platform.track('progression_started', this.step());
+    platform.track('progression_started', { ...this.step(), from });
     platform.tell('level_started', this.levelName());
   }
 
   /**
-   * The step of the scenes the player has come to: the furthest live session played, the
-   * first when none is (the owner, 29 October 2026: the further, the darker the scenes).
+   * The step of the scenes the player has come to: the calls seen to an end, the first when none is
+   * (the owner, 29 October 2026: the further, the darker the scenes).
    */
   private sceneStep(): number {
-    const { lives } = this.settings.levels;
-    return Math.max(1, ...LIVES.filter((live) => (lives[live.code]?.plays ?? 0) > 0).map((live) => live.step));
+    return Math.max(1, this.settings.levels.calls.done);
   }
 
   /**
-   * The window before the live session that stands after the place just passed, once for a player:
-   * a tap after its words starts the session, its link skips it and the passage goes on. True when
-   * the window is up: the passage waits under it.
+   * A call after the place just passed in turn, where the rule of the calls has one there
+   * (`callDue`): the screen of the call comes up over the board, and the passage waits under it.
+   * Taken, the call begins; declined, the passage goes on, and the call comes back later, of the same
+   * step. True when the screen is up.
    */
-  private offerLive(): boolean {
-    if (this.labSpec !== null || this.place === null) return false;
-    const { levels } = this.settings;
-    const live = liveDue(this.place, levels.told, LIVES);
-    if (!live) return false;
-    const mark = (): void => {
-      levels.told.push(liveKey(live));
-      this.later.after(() => saveSettings(this.settings), 'settings');
-    };
-    this.signal.tell({
-      text: t('liveIntro'),
-      wordMs: Number(this.look.board.hintWordMs),
-      reduced: prefersReducedMotion(this.settings),
-      // The link skips: a key that closes the window starts the session, and Enter is no way to skip it.
-      linkByKey: false,
-      onDone: () => {
-        mark();
-        this.startLive(live, 'row');
+  private askCall(passage: NonNullable<Game['passage']>): boolean {
+    const place = this.place;
+    const asked = this.callBoard;
+    this.callBoard = null;
+    if (this.labSpec !== null || place === null || asked !== place) return false;
+    const { calls } = this.settings.levels;
+    const step = callDue(place, calls, CAMPAIGN);
+    if (step === null) return false;
+    const since = calls.since;
+    callCame(calls, Math.random);
+    saveSettings(this.settings);
+    platform.track('call_offered', { ...callData(step, place), since });
+    passage.held = true;
+    this.shell.showCall({
+      onAccept: () => {
+        this.shell.hide();
+        this.startCall(step, 'row');
       },
-      onLink: () => {
-        mark();
-        platform.track('progression_failed', { ...liveStep(live), reason: 'skipped' });
+      onDecline: () => {
+        this.shell.hide();
+        platform.track('progression_failed', { ...callData(step, place), reason: 'declined' });
+        if (this.passage === passage) passage.held = false;
       },
     });
-    return this.signal.busy;
+    return true;
+  }
+
+  /** Development: the screen of a call over the board that is on, whatever the rule says (`vi.offerCall()` in the console of the preview). */
+  offerCall(step = callStep(this.settings.levels.calls)): void {
+    this.shell.showCall({
+      onAccept: () => {
+        this.shell.hide();
+        this.startCall(step, 'row');
+      },
+      onDecline: () => this.shell.hide(),
+    });
   }
 
   /**
@@ -1244,22 +1263,43 @@ export class Game {
     });
   }
 
-  /** The result of a live session: what it came to is kept and told, and the panel says it. After it the platform may show its advertisement, as after a session of Endless. */
-  private showLiveResult(): void {
+  /** The call is hung up from under the board: its result comes, and the board stands as it was. */
+  private hangUp(): void {
+    if (this.kind !== 'live' || this.state.mode !== 'live' || this.state.over || this.hungUp || this.resultShown) return;
+    this.hungUp = true;
+    this.resultShown = true;
+    this.controller.cancel();
+    this.endCall('hangup');
+  }
+
+  /**
+   * The result of a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 6):
+   * what it came to is kept and told, and the panel says it. A call that faded out, or was hung up
+   * after a minute, is seen to its end and raises the step, where it is the step the calls stand at.
+   * Once the panel is left, a call seen to its end has its talk, where the talk of its step has not
+   * been heard; otherwise the program answers as after a session. After it the platform may show
+   * its advertisement, as after a session of Endless.
+   */
+  private endCall(how: CallEnd): void {
     const { state } = this;
-    const live = this.live!;
+    const { step, from } = this.call!;
+    const place = this.place;
+    const { calls } = this.settings.levels;
     if (import.meta.env.DEV) this.lastStats = statsText(state);
-    // The best of this session before this play: the log of it is shown as it stood then, and the play goes up it.
-    const previous = this.settings.levels.lives[live.code]?.best ?? 0;
-    const stat = noteLive(this.settings, live.code, state.score);
+    const seconds = (state.tick * state.config.tickMs) / 1000;
+    const done = callDone(how, seconds);
+    // The best of this step before this play: the log of it is shown as it stood then, and the play goes up it.
+    const previous = calls.stats[callCode(step)]?.best ?? 0;
+    noteCall(calls, step, state.score, done);
+    const stat = calls.stats[callCode(step)];
     saveSettings(this.settings);
-    const summary: EventData = { ...this.step(), ...runSummary(state, this.tally), ticks: state.tick };
-    // A session the clock ends is completed; one the board fills before it is failed.
-    const done = state.endReason === 'time';
-    if (done) platform.track('progression_completed', summary);
-    else platform.track('progression_failed', { ...summary, reason: 'full' });
-    platform.tell(done ? 'level_completed' : 'level_failed', this.levelName());
+    const data = callData(step, place);
+    const summary: EventData = { ...data, ...runSummary(state, this.tally), ticks: state.tick };
+    if (how === 'full') platform.track('progression_failed', { ...summary, reason: 'full' });
+    else platform.track('progression_completed', { ...summary, how, done });
+    platform.tell(how === 'full' ? 'level_failed' : 'level_completed', this.levelName());
     this.frames.flush(this.lastFrame);
+    const number = place === null ? this.rowNumber() : CAMPAIGN[place].number;
     // The score may be doubled for an advertisement, once on this result, where the platform shows rewarded ones.
     let doubled = false;
     // The panel is left once: after that, nothing that comes back for it shows it again.
@@ -1268,35 +1308,43 @@ export class Game {
       gone = true;
       this.shell.hide();
       // An advertisement watched for the doubled score is the advertisement of this result: none comes after it.
-      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial('live_end', liveStep(live), CAMPAIGN[live.after].number, next)));
+      const after = (): void => (doubled ? next() : interstitial('live_end', data, number, next));
+      const talk = done && !calls.heard.includes(step) ? callEpisode(step, language()) : null;
+      if (!talk) {
+        this.signal.answer(this.sceneStep(), after);
+        return;
+      }
+      calls.heard.push(step);
+      saveSettings(this.settings);
+      this.showTalk(step, after);
     };
     let offered = platform.rewardedSupported;
-    if (offered) platform.track('reward_offered', { placement: 'double_score', ...liveStep(live) });
+    if (offered) platform.track('reward_offered', { placement: 'double_score', ...data });
     const double = (): void => {
       if (this.rewardAsked) return;
       this.rewardAsked = true;
-      askRewarded('double_score', liveStep(live), (rewarded) => {
+      askRewarded('double_score', data, (rewarded) => {
         this.rewardAsked = false;
         offered = false;
         takeFocus();
-        platform.track('reward_result', { placement: 'double_score', rewarded, ...liveStep(live), visit_sec: visitSeconds() });
+        platform.track('reward_result', { placement: 'double_score', rewarded, ...data, visit_sec: visitSeconds() });
         if (rewarded) {
-          // The session stays as it ended (the rules are not touched): what is doubled is the score the panel shows and the best it is kept as.
+          // The call stays as it ended (the rules are not touched): what is doubled is the score the panel shows and the best it is kept as.
           doubled = true;
-          raiseLive(this.settings, live.code, state.score * 2);
+          raiseCall(calls, step, state.score * 2);
           saveSettings(this.settings);
-          platform.track('reward_double', { ...liveStep(live), score: state.score * 2 });
+          platform.track('reward_double', { ...data, score: state.score * 2 });
         }
         if (!gone) show();
       });
     };
     const show = (): void => {
-      // The score goes up the log of this session (the owner, 28 October 2026); doubled, it goes up it again.
+      // The score goes up the log of this step (the owner, 28 October 2026); doubled, it goes up it again.
       const score = doubled ? state.score * 2 : state.score;
       const name = this.ownName();
       const climb = new Climb(
         {
-          lines: standings(liveArchive(live.step, platform.now()), [], { name, score: previous }),
+          lines: standings(liveArchive(step, platform.now()), [], { name, score: previous }),
           score,
           name,
           record: score > previous,
@@ -1306,11 +1354,11 @@ export class Game {
         (event) => this.audio.ui(event),
       );
       this.shell.showPanel(
-        liveResultPanel(
-          { score: state.score, best: stat.best, before: previous, maxChain: state.maxChain, doubled },
+        callResultPanel(
+          { score: state.score, best: stat.best, before: previous, maxChain: state.maxChain, doubled, lost: how === 'full', fromList: from === 'endless' },
           {
-            onAgain: () => answered(() => this.startLive(live, this.liveFrom)),
-            onNext: () => answered(() => this.afterLive(live)),
+            onAgain: () => answered(() => this.startCall(step, from)),
+            onNext: () => answered(() => (from === 'endless' ? this.showCalls() : this.afterCall(place))),
             onMenu: () => answered(() => this.showMenu()),
             onDouble: offered ? double : undefined,
           },
@@ -1322,10 +1370,81 @@ export class Game {
     show();
   }
 
-  /** On from a live session to the board after the one it stands after; after the last, the end of the row is said, and then the menu. */
-  private afterLive(live: Live): void {
-    const next = live.after + 1;
-    if (next < CAMPAIGN.length) {
+  /**
+   * The talk with the caller after a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md,
+   * section 8): as a record of the link is shown (`SignalPlayer.record`), over the place of a record
+   * of the novel by the step of the call, the early ones light and the later darker, with no figure in
+   * it: the caller has none yet. `onClose` comes after it; it is told whether it was heard to its end.
+   */
+  private showTalk(step: number, onClose: () => void): void {
+    const episode = callEpisode(step, language());
+    if (!episode) return onClose();
+    let whole = false;
+    const names = { caller: t('callerName'), program: '' };
+    this.signal.record({
+      code: `n${digits(Math.min(7, Math.max(1, step)), 2)}`,
+      title: `${word(CALL.talks.name)} ${digits(step, 2)} · ${episode.title.toUpperCase()}`,
+      skip: word(COMMANDS.skip.name),
+      lines: episode.lines.map(({ who, text }) => ({ who, name: names[who], text })),
+      figure: false,
+      wordMs: Number(this.look.board.hintWordMs),
+      reduced: prefersReducedMotion(this.settings),
+      onLast: () => (whole = true),
+      onDone: () => {
+        platform.track('call_heard', { step_id: callCode(step), skipped: !whole });
+        onClose();
+      },
+    });
+  }
+
+  /**
+   * What the file `ENDLESS` opens once a call has come (section 7.4): free Endless, the calls that have
+   * come to play again, and the talks heard to hear again.
+   */
+  private showCalls(home?: string): void {
+    this.leaveRun('menu');
+    this.inMenu = true;
+    this.paused = false;
+    this.controller.cancel();
+    this.audio.setPaused(true);
+    this.tools?.hide();
+    const { calls } = this.settings.levels;
+    const entries: CallsEntry[] = [
+      ...callsCame(calls).map((step): CallsEntry => ({ kind: 'call', step, best: calls.stats[callCode(step)]?.best ?? 0 })),
+      ...[...calls.heard].sort((a, b) => a - b).flatMap((step): CallsEntry[] => {
+        const episode = callEpisode(step, language());
+        return episode ? [{ kind: 'talk', step, title: episode.title }] : [];
+      }),
+    ];
+    this.shell.showPanel(
+      callsPanel(
+        entries,
+        {
+          onPlay: () => {
+            this.shell.hide();
+            this.inMenu = false;
+            this.audio.setPaused(false);
+            this.startRun('endless');
+          },
+          onCall: (step) => {
+            this.shell.hide();
+            this.inMenu = false;
+            this.audio.setPaused(false);
+            this.startCall(step, 'endless');
+          },
+          onTalk: (step) => this.showTalk(step, () => this.showCalls(`talk-${step}`)),
+          onBack: () => this.showMenu(),
+        },
+        home,
+      ),
+      true,
+    );
+  }
+
+  /** On from a call taken in the row to the board after the one it came after; after the last, the end of the row is said, and then the menu. */
+  private afterCall(place: number | null): void {
+    const next = (place ?? -1) + 1;
+    if (place !== null && next < CAMPAIGN.length) {
       this.startPlace(next, true);
       return;
     }
@@ -1339,7 +1458,6 @@ export class Game {
     if (!this.tellEnd(menu)) menu();
   }
 
-  /** Puts a new run on the board and clears away what the previous one left on screen. */
   private begin(state: RunState, riseIn: boolean): void {
     this.leaveRun('restart');
     // A board put on in the middle of a passage ends it: its dice stand as the rules have them.
@@ -1401,6 +1519,7 @@ export class Game {
     this.audio.setPaused(false);
     this.paused = false;
     this.resultShown = false;
+    this.hungUp = false;
     this.tools?.hide();
     this.shell.hide();
     this.hud.reset();
@@ -1704,7 +1823,7 @@ export class Game {
       swapped: false,
       struck: false,
       endAsked: false,
-      liveAsked: false,
+      callAsked: false,
       novelAsked: false,
       aligned: false,
       beaten: true,
@@ -1775,12 +1894,12 @@ export class Game {
         this.showCleared(passage);
         return;
       }
-      // A live session stands after the board that is passed: it is offered before anything after it, the end of the row too.
-      if (!passage.liveAsked) {
-        passage.liveAsked = true;
-        if (this.offerLive() || this.passage !== passage) return;
+      // A call may come after the board passed in turn: before anything after it, the end of the row too.
+      if (!passage.callAsked) {
+        passage.callAsked = true;
+        if (this.askCall(passage) || passage.held || this.passage !== passage) return;
       }
-      // Under `?novel`, a record of the link the sum of the stars has come to: after the live session, before the end of the row.
+      // Under `?novel`, a record of the link the sum of the stars has come to: after the call, before the end of the row.
       if (!passage.novelAsked) {
         passage.novelAsked = true;
         if (this.offerNovel(passage) || passage.held || this.passage !== passage) return;
@@ -2045,20 +2164,11 @@ export class Game {
     // The list opens where the player stands: on the prologue, the place kept of them, whatever they play out of turn; past it, the
     // place of a chapter being played, or the first of the chapters not passed (`campaignFocus`).
     const focus = campaignFocus(levels, CAMPAIGN, this.kind === 'level' && this.labSpec === null ? this.place : null);
-    // The live sessions stand among the boards with no number: the cell in focus is counted through them.
-    const list = campaignList(levels);
-    const entries: LevelsEntry[] = list.map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best } }));
-    let boards = -1;
-    const current = Math.max(0, list.findIndex((item) => item.kind === 'board' && ++boards === focus));
+    // Only the boards, with their numbers: the calls are a layer of their own (the owner, 5 November 2026).
     this.shell.showPanel(
-      levelsPanel(entries, current, {
+      levelsPanel(campaignCells(levels), focus, {
         // A place starts as it does by its address, with no screen before it, and the row goes on from it.
         onPick: (index) => this.startPlace(index, true),
-        // A live session starts at once from its cell, with no window before it.
-        onLive: (code) => {
-          const live = LIVES.find((one) => one.code === code);
-          if (live) this.startLive(live, 'list');
-        },
         onBack: () => this.showMenu(),
       }),
       true,
@@ -2093,6 +2203,10 @@ export class Game {
       // turn, further on or behind, moves nothing. Asked before the place is written as passed.
       if (this.place !== null) {
         const { levels } = this.settings;
+        // A board passed in turn counts towards the next call, and the passage asks whether one comes after it.
+        const inTurn = this.labSpec === null && openingPlace(levels.at, levels.passed, CAMPAIGN) === this.place;
+        this.callBoard = inTurn ? this.place : null;
+        if (inTurn) countBoard(levels.calls);
         levels.at = atAfter(levels.at, this.place, CAMPAIGN, levels.passed);
         if (CAMPAIGN[this.place].help.wait) this.deadEnds.forget();
       }
@@ -2271,7 +2385,8 @@ export class Game {
       case 'levels':
         return this.showLevels();
       case 'endless':
-        return this.startRun('endless');
+        // Once a call has come, the file opens its screen: free Endless and the calls. Before that it starts at once, as it did.
+        return this.settings.levels.calls.came ? this.showCalls() : this.startRun('endless');
       case 'rules':
         return this.showHowTo();
       case 'readme':
@@ -2376,7 +2491,7 @@ export class Game {
   }
 
   private togglePause(): void {
-    if (this.state.over || this.inMenu) return;
+    if (this.state.over || this.hungUp || this.inMenu) return;
     if (this.paused) this.resume();
     else this.pause();
   }
@@ -2962,12 +3077,12 @@ export class Game {
         : {
             kind: 'session',
             score: state.score,
-            // A live session is measured against its own best, not against Endless.
-            best: state.mode === 'live' && this.live ? (this.settings.levels.lives[this.live.code]?.best ?? 0) : this.bestScore(),
+            // A call is measured against the best of its step, not against Endless.
+            best: state.mode === 'live' && this.call ? (this.settings.levels.calls.stats[callCode(this.call.step)]?.best ?? 0) : this.bestScore(),
             level: state.level,
-            // A live session counts down what it has left; Endless counts up what it has run (word of the owner, 30 October 2026).
-            clock: clockLeft(state) ?? clockGone(state),
-            down: state.mode === 'live',
+            // A call counts up the time it has run, as a telephone does (section 7.2); so does Endless (word of the owner, 30 October 2026).
+            clock: clockGone(state),
+            down: false,
             stage: this.ritual.stage,
             steps: CONTACT_STEPS.length,
             next: nextThreshold(state.removed),
@@ -2992,6 +3107,8 @@ export class Game {
             }
           : { canUndo: false, urgent: false, retryOnly: true }
         : null,
+      // A call is hung up from where a level takes a move back.
+      hangUp: state.mode === 'live' && !state.over && !this.hungUp && !this.passage,
       stage,
       contact: { program: this.ritual.look.program, peak: this.ritual.look.peak },
       reducedMotion,
@@ -3010,7 +3127,7 @@ export class Game {
     // A level has its air: while its board is on, and quieter while it waits under a window.
     this.audio.setAmbient(this.state.levelRun !== null && !this.inMenu, this.paused);
     // The board a passage has put on waits until it is whole: its world stands and it takes no command.
-    const running = !this.paused && !this.inMenu && !this.state.over && !this.signal.busy && !this.passage && !this.rewind;
+    const running = !this.paused && !this.inMenu && !this.state.over && !this.hungUp && !this.signal.busy && !this.passage && !this.rewind;
     if (this.governor?.frame(dt, running && !document.hidden)) this.applySamples();
     this.frames.frame(running && !document.hidden, dt, time);
     let alpha = 0;
@@ -3048,7 +3165,7 @@ export class Game {
       const held = lost && this.undoable && this.history.length > 0 && this.undosLeft > 0 && deadEnd(state);
       if (!held && (!lost || this.failHeld(time))) {
         this.resultShown = true;
-        if (state.mode === 'live') this.showLiveResult();
+        if (state.mode === 'live') this.endCall(state.endReason === 'time' ? 'faded' : 'full');
         else if (!state.levelRun) this.showResult();
         else if (lost) this.showLevelResult();
         else this.startPassage();
@@ -3106,7 +3223,8 @@ export class Game {
       this.view.draw(state, alpha, time, {
         overlay: {
           boardPreview: experiments.boardPreview,
-          matchHint: experiments.matchHint,
+          // The first call shows where a move makes a group (section 6): the gentlest of them plays along.
+          matchHint: experiments.matchHint || (state.mode === 'live' && this.call?.step === 1),
         },
         contact: this.ritual.look,
         warn: state.cubes.length >= state.config.warnOccupied && !state.over,

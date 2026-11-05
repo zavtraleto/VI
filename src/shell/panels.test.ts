@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Climb } from './climb';
 import { CELL_W, textWidth } from './layout';
 import { LANGUAGES, setLanguage, t, word } from '../ui/i18n';
-import { clearedPanel, languagePanel, liveResultPanel, pausePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type RecordsTable } from './panels';
+import { callResultPanel, clearedPanel, languagePanel, pausePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type RecordsTable } from './panels';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
 import type { ShellContext } from './screen';
 
@@ -61,11 +61,11 @@ describe('the panels of the program', () => {
     expect(spec.home).toBe('resume');
   });
 
-  it('have the score of a live session doubled for an advertisement once, and the command only where it is given', () => {
+  it('have the score of a call doubled for an advertisement once, and the command only where it is given', () => {
     const live = { onAgain: nothing, onNext: nothing, onMenu: nothing };
-    expect(pressed(liveResultPanel({ score: 120, best: 300, maxChain: 2 }, live))).toEqual(['again', 'next', 'menu']);
-    expect(pressed(liveResultPanel({ score: 120, best: 300, maxChain: 2 }, { ...live, onDouble: nothing }))).toEqual(['again', 'next', 'double', 'menu']);
-    expect(row(liveResultPanel({ score: 120, best: 300, maxChain: 2, doubled: true }, live), 'number').value).toBe(240);
+    expect(pressed(callResultPanel({ score: 120, best: 300, maxChain: 2 }, live))).toEqual(['again', 'next', 'menu']);
+    expect(pressed(callResultPanel({ score: 120, best: 300, maxChain: 2 }, { ...live, onDouble: nothing }))).toEqual(['again', 'next', 'double', 'menu']);
+    expect(row(callResultPanel({ score: 120, best: 300, maxChain: 2, doubled: true }, live), 'number').value).toBe(240);
   });
 
   it('show a setting as it stands now', () => {

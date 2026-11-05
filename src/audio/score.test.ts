@@ -79,6 +79,7 @@ const EVERY: Cue[] = [
   { kind: 'window', figure: 4, seconds: 3, glimpse: true },
   { kind: 'windowShut' },
   { kind: 'told' },
+  { kind: 'ring' },
 ];
 
 describe('a group sent', () => {
@@ -768,7 +769,7 @@ describe('the program', () => {
   });
 
   it('is heard while a session waits; the session is not', () => {
-    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'power', 'rank', 'rankPast', 'rankSet', 'sign', 'typed', 'window', 'windowShut', 'told'] as const) expect(INTERFACE).toContain(kind);
+    for (const kind of ['uiStep', 'uiRun', 'uiBack', 'power', 'rank', 'rankPast', 'rankSet', 'sign', 'typed', 'window', 'windowShut', 'told', 'ring'] as const) expect(INTERFACE).toContain(kind);
     for (const kind of ['roll', 'group', 'chain', 'danger', 'points', 'reply'] as const) expect(INTERFACE).not.toContain(kind);
   });
 });

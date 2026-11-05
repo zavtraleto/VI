@@ -547,6 +547,9 @@ export class AudioEngine {
       case 'power':
         this.play({ kind: 'power' });
         break;
+      case 'ring':
+        this.play({ kind: 'ring' });
+        break;
       case 'climb':
         this.play({ kind: 'rank', along: event.along });
         break;

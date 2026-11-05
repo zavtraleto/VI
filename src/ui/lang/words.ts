@@ -36,6 +36,14 @@ export const WORDS = {
   LANGUAGE: { ru: 'ЯЗЫК', es: 'IDIOMA', pt: 'IDIOMA', tr: 'DİL', de: 'SPRACHE', fr: 'LANGUE' },
   FAILED: { ru: 'НЕУДАЧА', es: 'FALLIDO', pt: 'FALHOU', tr: 'BAŞARISIZ', de: 'GESCHEITERT', fr: 'ÉCHEC' },
   'NEW RECORD': { ru: 'НОВЫЙ РЕКОРД', es: 'NUEVO RÉCORD', pt: 'NOVO RECORDE', tr: 'YENİ REKOR', de: 'NEUER REKORD', fr: 'NOUVEAU RECORD' },
+  // The calls (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 11).
+  INCOMING: { ru: 'ВХОДЯЩИЙ', es: 'ENTRANTE', pt: 'CHAMADA', tr: 'GELEN ARAMA', de: 'EINGEHEND', fr: 'APPEL ENTRANT' },
+  ACCEPT: { ru: 'ПРИНЯТЬ', es: 'ACEPTAR', pt: 'ATENDER', tr: 'KABUL ET', de: 'ANNEHMEN', fr: 'RÉPONDRE' },
+  DECLINE: { ru: 'СБРОСИТЬ', es: 'RECHAZAR', pt: 'RECUSAR', tr: 'REDDET', de: 'ABLEHNEN', fr: 'REFUSER' },
+  'HANG UP': { ru: 'ПОЛОЖИТЬ ТРУБКУ', es: 'COLGAR', pt: 'DESLIGAR', tr: 'KAPAT', de: 'AUFLEGEN', fr: 'RACCROCHER' },
+  CALLS: { ru: 'ЗВОНКИ', es: 'LLAMADAS', pt: 'CHAMADAS', tr: 'ARAMALAR', de: 'ANRUFE', fr: 'APPELS' },
+  TALKS: { ru: 'РАЗГОВОРЫ', es: 'CHARLAS', pt: 'CONVERSAS', tr: 'KONUŞMALAR', de: 'GESPRÄCHE', fr: 'ÉCHANGES' },
+  'LINE LOST': { ru: 'СВЯЗЬ ПРЕРВАЛАСЬ', es: 'SIN LÍNEA', pt: 'LINHA CAIU', tr: 'HAT KOPTU', de: 'LEITUNG WEG', fr: 'LIGNE COUPÉE' },
   // A record of the link, under `?novel`: the word of `novelRecord` in `src/ui/i18n.ts`.
   RECORD: { ru: 'ЗАПИСЬ', es: 'REGISTRO', pt: 'REGISTRO', tr: 'KAYIT', de: 'AUFNAHME', fr: 'BANDE' },
   // The commands.

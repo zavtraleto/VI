@@ -57,14 +57,22 @@ export interface Recording {
   title: string;
   /** The word in the bar the record is closed by before its end. */
   skip: string;
-  /** Who says each line, by name, and what they say. */
-  lines: readonly { who: 'operator' | 'voice'; name: string; text: string }[];
+  /**
+   * Who says each line, by name, and what they say. The voice of the other side comes through the
+   * picture; the operator, and the caller of a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md,
+   * section 8), on the dark band under their name; the program's own lines on the band with no name.
+   */
+  lines: readonly { who: 'operator' | 'voice' | 'caller' | 'program'; name: string; text: string }[];
+  /** The figure of the voice stands in the place; false for a call, whose caller has no figure yet. True when left out. */
+  figure?: boolean;
   /** Milliseconds a word; 0 puts the words of a line there at once. */
   wordMs: number;
   /** Motion kept low: the words stand whole at once, and the figure stands still. */
   reduced: boolean;
   /** The record has been closed: by its end, its word in the bar, or Esc. */
   onDone: () => void;
+  /** Its last line has been read to the end and pressed past: told just before `onDone`, and only then. */
+  onLast?: () => void;
 }
 
 /** How far a record has come. */
@@ -343,6 +351,7 @@ export class SignalPlayer {
     if (playing.elapsed < SKIP_AFTER_MS) return;
     if (record) {
       if (record.line + 1 >= record.recording.lines.length) {
+        record.recording.onLast?.();
         this.finish();
         return;
       }
@@ -413,11 +422,12 @@ export class SignalPlayer {
       if (scene.revealAt !== null && record.line >= scene.revealAt) record.revealFrom ??= timeMs;
       const since = record.revealFrom === null ? null : timeMs - record.revealFrom;
       const face = faceAt(scene, record.line, since, reduced);
-      const revealing = scene.figure === 'silhouette' && since !== null && !reduced && since < NOVEL_LOOK.figure.reveal.ms;
+      const shown = record.recording.figure !== false;
+      const revealing = shown && scene.figure === 'silhouette' && since !== null && !reduced && since < NOVEL_LOOK.figure.reveal.ms;
       const boost = revealing ? Math.sin((since / NOVEL_LOOK.figure.reveal.ms) * Math.PI) : 0;
       const bands = (this.bands ??= new RecordBands());
       const banded = bands.update(timeMs, reduced, boost);
-      if (this.figure) {
+      if (this.figure && shown) {
         const speaking = record.recording.lines[record.line]?.who === 'voice';
         this.figure.update(timeMs, rect.width / Math.max(1, rect.height), speaking, scene.fill, reduced, bands.now, face);
         this.picture.renderOver(this.figure.scene, this.figure.camera, { rect });
@@ -624,13 +634,14 @@ export class SignalPlayer {
     const said = record.recording.lines[record.line];
     if (!said) return;
     const scale = this.chrome.height / Math.max(1, this.display.height);
-    if (said.who === 'operator') {
+    if (said.who !== 'voice') {
       const options = { plate: true, words: told.words, dot: 1, colors: sayColors(this.shell) };
       const drawn = drawCaption(this.chrome.ctx, said.text, content.x, content.y, content.w, content.h, options);
       if (drawn.plate) record.band = { x: drawn.plate.x / scale, y: drawn.plate.y / scale, w: drawn.plate.w / scale, h: drawn.plate.h / scale };
     }
     const band = record.band;
-    if (!band) return;
+    // The program's own line has no name over it.
+    if (!band || said.who === 'program') return;
     const x = Math.round((band.x + (band.w * (1 - PLATE_WIDTH)) / 2) * scale);
     const y = Math.round(band.y * scale) - BAR;
     kit.box({ x, y, w: kit.measure(said.name) + 8, h: BAR }, ink);

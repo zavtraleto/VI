@@ -20,6 +20,7 @@ import {
   ICON_RESTART_TALL,
   ICON_SOUND,
   ICON_SOUND_TALL,
+  ICON_HANGUP,
   ICON_UNDO,
   iconWidth,
 } from './icons';
@@ -173,6 +174,8 @@ export interface HudView {
   lock?: HudLock | null;
   /** The two buttons of a level. `retryOnly` leaves the one that starts over, where no move can be taken back. */
   tools: HudTools | null;
+  /** A call is on: the button that hangs it up stands where a level has the one that takes a move back. */
+  hangUp?: boolean;
   /** The part of the window the board has, in CSS pixels. */
   stage: Rect;
   /**
@@ -224,6 +227,8 @@ export interface HudActions {
   live(): boolean;
   onPause(): void;
   onUndo(): void;
+  /** The call is hung up. */
+  onHangUp?(): void;
   onRestart(): void;
   /** The button of the sound was pressed: the sound goes off, or comes back. */
   onSound(): void;
@@ -564,7 +569,7 @@ export class GameHud {
       this.lockSince = timeMs;
     }
     const locking = lock && !still && timeMs < this.lockSince + kit.number('lockSnapMs') ? Math.floor(timeMs) : 0;
-    const state = [JSON.stringify(lock), locking, swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), view.muted, JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
+    const state = [JSON.stringify(lock), locking, swings, JSON.stringify(view.header), JSON.stringify(view.seal), JSON.stringify(aim), rising, JSON.stringify(view.labels), JSON.stringify(view.note), JSON.stringify(view.counters ?? null), plaque, signed, JSON.stringify(view.tools), view.hangUp === true, view.muted, JSON.stringify(view.stage), still, Math.floor(program), this.shown, blink, flashing, bumps, moving, JSON.stringify(decay), kit.width, kit.height, kit.palette.ink, kit.palette.bg].join('|');
     if (state === this.drawn) {
       const turn = this.signTurnAt(sign, timeMs, still);
       if (turn === this.signTurned) return;
@@ -623,6 +628,7 @@ export class GameHud {
     if (view.tools) this.drawRestart(layout, view.tools.retryLit === true, blink);
     this.drawSound(layout, view.muted);
     if (view.tools && !view.tools.retryOnly) this.drawUndo(view.tools, stage, blink, layout.left);
+    if (view.hangUp) this.drawHangUp(stage, layout.left);
     if (view.note) {
       const width = Math.min(view.stage.width - 24, 460);
       this.voice.say({
@@ -1259,6 +1265,26 @@ export class GameHud {
     kit.icon(ICON_UNDO, ix, line + CAPITAL_TOP, colour);
     kit.text(this.undoWord(tools), ix + iconWidth(ICON_UNDO) + TOOL_GAP, line, colour);
     if (tools.canUndo) this.zones.push({ id: 'undo', rect: kit.toWindow(box), action: () => this.actions.onUndo() });
+  }
+
+  /**
+   * The button that hangs a call up (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md,
+   * section 7.2): where a level has the one that takes a move back, laid out by the same rule
+   * (`undoButton`), a handset and its word, with no frame.
+   */
+  private drawHangUp(stage: Box, left: number): void {
+    const { kit } = this;
+    const { ink, dim } = kit.palette;
+    const label = word(COMMANDS.hangUp.name);
+    const bottom = Math.min(stage.y + stage.h, kit.height - safeInsets().bottom / kit.zoom);
+    const room: Box = { ...stage, h: bottom - stage.y };
+    const { tall, box } = undoButton(room, kit.zoom, iconWidth(ICON_HANGUP), kit.measure(label), Math.max(0, left - TOOL_PAD));
+    const colour = this.held?.zone.id === 'hangup' ? dim : ink;
+    const ix = box.x + TOOL_PAD;
+    const line = box.y + Math.round((tall - CELL_H) / 2);
+    kit.icon(ICON_HANGUP, ix, line + CAPITAL_TOP, colour);
+    kit.text(label, ix + iconWidth(ICON_HANGUP) + TOOL_GAP, line, colour);
+    this.zones.push({ id: 'hangup', rect: kit.toWindow(box), action: () => this.actions.onHangUp?.() });
   }
 
   private zoneAt(e: PointerEvent): Zone | null {

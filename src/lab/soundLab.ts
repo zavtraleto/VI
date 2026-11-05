@@ -281,6 +281,7 @@ export function startSoundLab(): void {
     },
     // The program and the other side.
     power: () => engine.ui({ kind: 'power' }),
+    ring: () => engine.ui({ kind: 'ring' }),
     menu: () => {
       // The figure walks the six dice of the menu.
       halt();
@@ -429,6 +430,7 @@ export function startSoundLab(): void {
 
   const program = gui.addFolder('Программа и та сторона');
   program.add(actions, 'power').name('Включение: тихий тёплый щелчок');
+  program.add(actions, 'ring').name('Звонок: два тихих тона');
   program.add(actions, 'menu').name('Меню: фигура идёт по костям');
   program.add(actions, 'menuStep').name('Меню: шаг на кость (грань выше)');
   program.add(actions, 'panelStep').name('Панель: шаг по строкам');

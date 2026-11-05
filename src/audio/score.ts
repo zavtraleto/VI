@@ -108,7 +108,9 @@ export type Cue =
   | { kind: 'window'; figure: number; seconds: number; glimpse: boolean }
   | { kind: 'windowShut' }
   // A hint is told: the program says something of its own, calmly.
-  | { kind: 'told' };
+  | { kind: 'told' }
+  // A call rings: two short quiet tones and a pause, while its screen is up.
+  | { kind: 'ring' };
 
 /** What a cue is turned into notes with: the values of the panel, the contact, and the sound's own chance. */
 export interface Setup {
@@ -222,6 +224,7 @@ export const INTERFACE: readonly Cue['kind'][] = [
   'window',
   'windowShut',
   'told',
+  'ring',
 ];
 
 /** The clicks of the way up the log rise by this many octaves from its last line to its top. */
@@ -846,6 +849,17 @@ function play(cue: Cue, kit: Kit): Note[] {
     }
     case 'windowShut':
       return [click('close', degreeHz(tune, 0, clickOctave), { gain: 0.1 * program, decay: num('clickLen') * 0.8 })];
+    case 'ring': {
+      // A call rings (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.1): in the
+      // tune of the program, quiet, two short tones of the same note with a breath between them, and
+      // nothing held. The screen of the call plays it again and again while it is up.
+      const gain = 0.06 * num('toldGain') * bells;
+      const short = { decay: 0.12, bright: 0.5, echo: 0.6, wide: 0.2 };
+      return [
+        bell('ring', kit.bell(4), { ...short, gain }),
+        bell('ring', kit.bell(4), { ...short, at: 0.22, gain }),
+      ];
+    }
   }
 }
 

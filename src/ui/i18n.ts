@@ -127,7 +127,9 @@ const RU = {
   // The word in the title of the window of a transmission, before the number of its figure.
   signalTitle: 'ПЕРЕДАЧА',
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
-  liveIntro: 'Это не уровень: [прямой сеанс]. Кости приходят сами. [Три минуты], счёт отдельный. {Пропустить}',
+  callUnknown: 'Номер не определён',
+  callLength: 'звонок · около трёх минут',
+  callerName: '???',
   // The records of the link, under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md): the window
   // before a record, whose link puts it off; who speaks in it, our side and the other; the word of a record in the
   // line of the sum of the stars. What a record says is in `novel.ts`.
@@ -148,7 +150,7 @@ const RU = {
   howChain: 'Комбо уходит не сразу.\nПока оно уходит, докати к нему ещё кость с той же гранью: она уйдёт вместе с ним. Это цепочка.',
   howOnes: 'Единицы в комбо не собираются.\nПодведи единицу к уходящему комбо — и уйдут все остальные единицы на поле.',
   howLevels: 'УРОВНИ: убери с поля все кости.\nГрани в углу — те, которые нужно собрать.\nПравила пола здесь свои: наверх — только по уходящей кости.',
-  howLive: 'ПРЯМОЙ СЕАНС: три минуты бесконечного режима между главами.\nМожно пропустить.',
+  howCall: 'ЗВОНКИ: иногда между уровнями кто-то звонит.\nМожно принять или сбросить.',
   howProtocol: 'БЕСКОНЕЧНЫЙ РЕЖИМ: кости приходят сами.\nЦепочка умножает счёт.\nПоле заполнилось и не освободилось — игра окончена.',
   // What a player sends out with a link to the game: the score is what was sent to the other side.
   shareScore: 'VI — передано на ту сторону: {score}',
@@ -241,7 +243,9 @@ const EN: typeof RU = {
   hintOnesPush: 'Push a [1:one] to [leaving dice], and it goes too.',
   signalTitle: 'TRANSMISSION',
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
-  liveIntro: 'Not a level: a [live session]. The dice come by themselves. [Three minutes], scored on its own. {Skip}',
+  callUnknown: 'Number unknown',
+  callLength: 'call · about three minutes',
+  callerName: '???',
   novelIntro: 'A new record of the link. {Later}',
   novelOperator: 'OPERATOR',
   novelVoice: 'VOICE',
@@ -257,7 +261,7 @@ const EN: typeof RU = {
   howChain: 'A combo does not leave at once.\nWhile it is leaving, roll one more die with the same face up to it: it leaves with the combo. This is a chain.',
   howOnes: 'Ones make no combo.\nBring a 1 to a leaving combo, and every other 1 on the board leaves.',
   howLevels: 'LEVELS: clear every die off the board.\nThe faces in the corner are the ones to put together.\nThe floor has rules of its own here: the only way up is a leaving die.',
-  howLive: 'LIVE SESSION: three minutes of endless play between chapters.\nCan be skipped.',
+  howCall: 'CALLS: now and then someone calls between the levels.\nTake it or decline.',
   howProtocol: 'ENDLESS: the dice come by themselves.\nA chain multiplies the score.\nThe board fills up and stays full: the game is over.',
   shareScore: 'VI — sent to the other side: {score}',
 };

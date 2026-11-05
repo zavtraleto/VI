@@ -11,6 +11,7 @@ import type { ShellContext, ShellFocus, ShellItem, ShellScreen, ShellSound } fro
 import { MenuScreen, type MenuActions, type MenuData } from './screens/menu';
 import { PanelScreen, type PanelSpec } from './screens/panel';
 import { StartScreen } from './screens/start';
+import { CallScreen } from './screens/call';
 import { clockHour, paletteAt, shellDefaults, type Palette } from './theme';
 import { Voice } from './voice';
 
@@ -170,6 +171,15 @@ export class Shell {
    */
   showStart(onStart: () => void): void {
     this.show(new StartScreen(this.context, onStart), false);
+  }
+
+  /**
+   * The screen of an incoming call over the board that waits: the board stays in sight and steps
+   * back (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.1).
+   */
+  showCall(actions: { onAccept: () => void; onDecline: () => void }): void {
+    if (!this.acting) this.sound({ kind: 'open' });
+    this.show(new CallScreen(this.context, actions), false);
   }
 
   /** The font of the program has come: what is on screen is written with it. */

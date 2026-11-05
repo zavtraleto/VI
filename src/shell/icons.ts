@@ -26,6 +26,23 @@ export const ICON_UNDO: Icon = [
   '..#######..',
 ];
 
+/**
+ * A handset lying down, its two ends turned to the floor: the call is hung up
+ * (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.2). As tall as a capital.
+ */
+export const ICON_HANGUP: Icon = [
+  '...........',
+  '...........',
+  '..#######..',
+  '.#########.',
+  '##.......##',
+  '##.......##',
+  '###.....###',
+  '###.....###',
+  '...........',
+  '...........',
+];
+
 /** The arrow that goes round, clockwise, its head at the top: the level from the start. */
 export const ICON_RESTART: Icon = [
   '......##...',

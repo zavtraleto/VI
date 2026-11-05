@@ -2,17 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type { GoalLine } from '../rules';
 import type { Size } from '../display/sizing';
 import { fileBoard } from '../levels/boardFiles';
-import { campaignCells, campaignList } from '../levels/campaign';
+import { campaignCells } from '../levels/campaign';
 import { FIXTURE } from '../levels/rowFixture';
 import { MIN_ZONE, pictureSize, textWidth } from './layout';
 import { LANGUAGES, setLanguage, word } from '../ui/i18n';
 import { readmePages } from '../ui/readme';
-import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, liveResultPanel, pausePanel, readmePanel, recordsPanel } from './panels';
+import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, callResultPanel, callsPanel, pausePanel, readmePanel, recordsPanel } from './panels';
 import { Climb } from './climb';
 import { nextFocus } from './input';
 import type { ShellContext } from './screen';
 import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
-import { COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText } from './text';
+import { CALL, COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText } from './text';
+import { CallScreen, callLayout } from './screens/call';
 import { shellDefaults } from './theme';
 import type { Voice } from './voice';
 
@@ -130,34 +131,23 @@ describe('the list of levels', () => {
   });
 });
 
-describe('a live session in the list of levels', () => {
-  const live = (best: number | null) => ({ live: { code: 'live-1', best } });
-  const levels = [{ passed: true, goal: SEND }, live(null), { passed: false, goal: ORDER }];
-
-  it('stands among the boards with no number: a board picked is told by its index among the boards, a session by its code', () => {
-    const picked: (number | string)[] = [];
-    const spec = levelsPanel(levels, 2, { onPick: (index) => picked.push(index), onLive: (code) => picked.push(code), onBack: nothing });
+describe('the list of levels', () => {
+  it('holds the boards alone, numbered by their place: the calls are not in it', () => {
+    const picked: number[] = [];
+    const spec = levelsPanel([{ passed: true, goal: SEND }, { passed: false, goal: ORDER }], 1, { onPick: (index) => picked.push(index), onBack: nothing });
     const cells = row(spec, 'levels');
-    expect(cells.levels).toEqual([{ stars: 1 }, { stars: 0, live: { best: null } }, { stars: 0 }]);
-    expect(spec.home).toBe('level-2');
+    expect(cells.levels).toEqual([{ stars: 1 }, { stars: 0 }]);
+    expect(spec.home).toBe('level-1');
     cells.pick(0);
     cells.pick(1);
-    cells.pick(2);
-    expect(picked).toEqual([0, 'live-1', 1]);
-  });
-
-  it('writes nothing under it, played or not', () => {
-    const cells = row(levelsPanel(levels, 0, { onPick: nothing, onBack: nothing }), 'levels');
-    expect(Object.keys(cells)).not.toContain('note');
-    const played = row(levelsPanel([live(2471)], 0, { onPick: nothing, onBack: nothing }), 'levels');
-    expect(played.levels[0]).toEqual({ stars: 0, live: { best: 2471 } });
+    expect(picked).toEqual([0, 1]);
   });
 });
 
-describe('the result of a live session', () => {
+describe('the result of a call', () => {
   it('reads its score, its best and its chain, and leads again, on, or to the menu', () => {
     const done: string[] = [];
-    const spec = liveResultPanel({ score: 1200, best: 2471, maxChain: 5 }, { onAgain: () => done.push('again'), onNext: () => done.push('next'), onMenu: () => done.push('menu') });
+    const spec = callResultPanel({ score: 1200, best: 2471, maxChain: 5 }, { onAgain: () => done.push('again'), onNext: () => done.push('next'), onMenu: () => done.push('menu') });
     expect(spec.title).toBe(PANELS.result);
     expect(spec.home).toBe('next');
     expect(row(spec, 'number')).toMatchObject({ label: RESULT.score, value: 1200 });
@@ -173,13 +163,47 @@ describe('the result of a live session', () => {
   });
   it('goes up the log of its session where it is given one, as a session of Endless does, the best shown as it was until the place is taken', () => {
     const climb = new Climb({ lines: [{ name: 'Teal Otter', score: 3000, own: false }, { name: 'YOU', score: 900, own: true }], score: 1200, name: 'YOU', record: true, reduced: true });
-    const spec = liveResultPanel({ score: 1200, best: 1200, before: 900, maxChain: 5 }, { onAgain: nothing, onNext: nothing, onMenu: nothing }, climb);
+    const spec = callResultPanel({ score: 1200, best: 1200, before: 900, maxChain: 5 }, { onAgain: nothing, onNext: nothing, onMenu: nothing }, climb);
     expect(spec.rows.map((one) => one.kind).slice(0, 2)).toEqual(['standing', 'climb']);
     expect(spec.home).toBe('next');
     climb.update(0);
     climb.update(60_000);
     expect(climb.done).toBe(true);
     expect(typeof spec.title === 'function' ? spec.title() : spec.title).toBe(PANELS.record);
+  });
+
+  it('leads back to the list of calls in place of on, where it was played from there', () => {
+    const spec = callResultPanel({ score: 10, best: 10, maxChain: 1, fromList: true }, { onAgain: nothing, onNext: nothing, onMenu: nothing });
+    const next = row(spec, 'commands').commands.find((command) => command.id === 'next');
+    expect(next?.label).toBe(COMMANDS.back);
+  });
+
+  it('says the line was lost over its score, where the board filled, and nothing of it otherwise', () => {
+    const lost = callResultPanel({ score: 10, best: 10, maxChain: 1, lost: true }, { onAgain: nothing, onNext: nothing, onMenu: nothing });
+    expect(lost.rows[0]).toMatchObject({ kind: 'field', label: CALL.lineLost });
+    const whole = callResultPanel({ score: 10, best: 10, maxChain: 1 }, { onAgain: nothing, onNext: nothing, onMenu: nothing });
+    expect(whole.rows.some((one) => one.kind === 'field' && one.label === CALL.lineLost)).toBe(false);
+  });
+});
+
+describe('the screen of ENDLESS once a call has come', () => {
+  it('plays free Endless first, then the calls that have come, then the talks heard, and leads back', () => {
+    const done: string[] = [];
+    const spec = callsPanel(
+      [
+        { kind: 'call', step: 1, best: 2471 },
+        { kind: 'call', step: 2, best: 0 },
+        { kind: 'talk', step: 1, title: 'Line check' },
+      ],
+      { onPlay: () => done.push('play'), onCall: (step) => done.push(`call ${step}`), onTalk: (step) => done.push(`talk ${step}`), onBack: () => done.push('back') },
+    );
+    expect(spec.title).toBe(PANELS.endless);
+    expect(spec.home).toBe('play');
+    expect(commands(spec)).toEqual(['play', 'call-1', 'call-2', 'talk-1', 'back']);
+    const names = spec.rows.flatMap((one) => (one.kind === 'command' ? [one.label.name] : []));
+    expect(names).toEqual(['PLAY', '01 · 002471', '02 · 000000', '01 · LINE CHECK', 'BACK']);
+    for (const one of spec.rows) if (one.kind === 'command') one.action();
+    expect(done).toEqual(['play', 'call 1', 'call 2', 'talk 1', 'back']);
   });
 });
 
@@ -247,7 +271,7 @@ describe('the result of a live session on a screen', () => {
     for (const language of LANGUAGES) {
       setLanguage(language);
       const climb = new Climb({ lines, score: 2471, name: 'YOU', record: true, reduced: true });
-      const spec = liveResultPanel({ score: 2471, best: 2471, before: 0, maxChain: 6 }, { onAgain: nothing, onNext: nothing, onMenu: nothing, onDouble: nothing }, climb);
+      const spec = callResultPanel({ score: 2471, best: 2471, before: 0, maxChain: 6, lost: true }, { onAgain: nothing, onNext: nothing, onMenu: nothing, onDouble: nothing }, climb);
       const shown = context(window, ratio);
       const screen = new PanelScreen(shown, spec, false);
       const items = screen.items();
@@ -287,7 +311,7 @@ describe('the logs of the panels on a screen', () => {
 
   it.each(SCREENS)('scroll on a %s the log a result goes up once the place is taken, and not before', (_name, window, ratio) => {
     const climb = new Climb({ lines, score: 3050, name: 'YOU', record: false });
-    const screen = new PanelScreen(context(window, ratio), liveResultPanel({ score: 3050, best: 3050, maxChain: 2 }, { onAgain: nothing, onNext: nothing, onMenu: nothing }, climb), false);
+    const screen = new PanelScreen(context(window, ratio), callResultPanel({ score: 3050, best: 3050, maxChain: 2 }, { onAgain: nothing, onNext: nothing, onMenu: nothing }, climb), false);
     climb.update(0);
     expect(screen.scroll('down', 100, 'next')).toBeNull();
     climb.finish();
@@ -480,17 +504,16 @@ describe('the list of the levels on a screen', () => {
   });
 });
 
-describe('the list of the levels with its live sessions on a screen', () => {
-  const kept = { passed: { R01: true }, stats: {}, lives: { 'live-2': { best: 24261, plays: 1 } } };
-  const entries = campaignList(kept).map((item) => (item.kind === 'board' ? item.cell : { live: { code: item.code, best: item.best } }));
+describe('the list of the levels on a screen', () => {
+  const kept = { passed: { R01: true }, stats: {} };
+  const entries = campaignCells(kept);
   const actions = { onPick: nothing, onBack: nothing };
 
-  it.each(SCREENS)('fits the window of a %s: a cell for every board and session, none over another, each large enough for a finger', (_name, window, ratio) => {
+  it.each(SCREENS)('fits the window of a %s: a cell for every board, none over another, each large enough for a finger', (_name, window, ratio) => {
     const screen = new PanelScreen(context(window, ratio), levelsPanel(entries, 0, actions), true);
     const items = screen.items().filter((item) => item.id.startsWith('level-'));
     expect(items.length).toBeGreaterThan(0);
     expect(items.length).toBeLessThanOrEqual(entries.length);
-    expect(entries.filter((entry) => 'live' in entry)).toHaveLength(7);
     for (const item of items) {
       expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
@@ -504,13 +527,43 @@ describe('the list of the levels with its live sessions on a screen', () => {
         expect(one.x + one.width <= other.x || other.x + other.width <= one.x || one.y + one.height <= other.y || other.y + other.height <= one.y).toBe(true);
       }
     }
-    // A session's cell holds its word: as wide as a board's where the word fits, two of them where it does not.
-    const picture = context(window, ratio).picture();
-    const zoom = window.height / picture.height;
-    const board = items[0].rect.width / zoom;
-    const live = items[entries.findIndex((entry) => 'live' in entry)].rect.width / zoom;
-    expect(live).toBeGreaterThanOrEqual(textWidth('LIVE') + 4 - 0.5);
-    expect(live === board || live > board * 2).toBe(true);
+  });
+});
+
+describe('the screen of an incoming call on a screen', () => {
+  it.each(SCREENS)('has its two buttons on the window of a %s, side by side, each larger than a finger, accept in focus', (_name, window, ratio) => {
+    const made = context(window, ratio);
+    let accepted = 0;
+    let declined = 0;
+    const screen = new CallScreen(made, { onAccept: () => accepted++, onDecline: () => declined++ });
+    const items = screen.items();
+    expect(items.map((item) => item.id)).toEqual(['decline', 'accept']);
+    expect(screen.home).toBe('accept');
+    const [decline, accept] = items.map((item) => item.rect);
+    for (const rect of [decline, accept]) {
+      expect(rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
+      expect(rect.x).toBeGreaterThanOrEqual(0);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(window.width);
+      expect(rect.y + rect.height).toBeLessThanOrEqual(window.height);
+    }
+    expect(decline.x + decline.width).toBeLessThanOrEqual(accept.x);
+    expect(decline.y).toBe(accept.y);
+    // The board is still seen above the buttons: they stand in the lower part of the window.
+    expect(accept.y).toBeGreaterThan(window.height / 2);
+    items[1].action();
+    screen.back?.();
+    expect([accepted, declined]).toEqual([1, 1]);
+  });
+
+  it('fits the word of each button into it, in every language', () => {
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      const picture = pictureSize({ width: 360 * 3, height: 640 * 3 }, Number(shellDefaults().pixelsTall), Number(shellDefaults().pixelsWide));
+      const layout = callLayout(picture, { width: 360, height: 640 }, { top: 0, right: 0, bottom: 0, left: 0 });
+      for (const name of [COMMANDS.accept.name, COMMANDS.decline.name]) expect(textWidth(word(name)), `${name} ${code}`).toBeLessThanOrEqual(layout.accept.w - 12);
+    }
+    setLanguage('en');
   });
 });
 
