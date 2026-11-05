@@ -1,5 +1,5 @@
 import { frameDef } from './compose';
-import { randomFrame, stepFrame, stepLook, type Frame } from './director';
+import { ECHO_CONTACT, callFrame, callScene, randomFrame, type Frame } from './director';
 import { LINES } from './lines';
 import { MOODS, contactValues, type Mood, type ParamValues, type SceneDef } from './scene';
 
@@ -70,13 +70,14 @@ export function randomCard(random: () => number, contact: number, seconds = ANSW
 }
 
 /**
- * A transmission of a step of the scenes (`STEP_LOOKS`): the further the player has come, the
- * darker and heavier. `caption` is what the other side says under it, or nothing.
+ * A transmission of a call: the scene of that call (`CALL_SCENES`), and `caption`, what the voices on
+ * the line say under it, or nothing. An echo, after Endless and in a glimpse, is the same scene lighter.
  */
-export function stepCard(random: () => number, step: number, caption: string | null, seconds = ANSWER_SECONDS): SignalCard {
-  const frame = stepFrame(random, step);
+export function callCard(random: () => number, call: number, caption: string | null, echo = false, seconds = ANSWER_SECONDS): SignalCard {
+  const frame = callFrame(call);
   const seed = 1 + Math.floor(random() * 9999);
-  return { frame, contact: stepLook(step).contact, seed, figure: figureOf(frame), caption, seconds };
+  const contact = callScene(call).contact * (echo ? ECHO_CONTACT : 1);
+  return { frame, contact, seed, figure: figureOf(frame), caption, seconds };
 }
 
 /** The scene of a card and the values it is built from. */

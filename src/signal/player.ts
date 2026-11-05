@@ -6,8 +6,7 @@ import { Kit } from '../shell/kit';
 import { pictureSize } from '../shell/layout';
 import { clockHour, paletteAt, sayColors } from '../shell/theme';
 import { PLATE_WIDTH, captionLook, drawCaption, plainCaption, wordsShown, type CaptionBox } from './caption';
-import { GLIMPSE_SECONDS, cardScene, cardTitle, stepCard, type SignalCard } from './card';
-import { stepLook } from './director';
+import { GLIMPSE_SECONDS, callCard, cardScene, cardTitle, type SignalCard } from './card';
 import { lineText, pickLine } from './sceneLines';
 import { language, t } from '../ui/i18n';
 import { RecordBands } from './bands';
@@ -160,7 +159,7 @@ export class SignalPlayer {
   onHeard: (() => void) | null = null;
   /** In development `?signal=always` shows one before every session, to look at them without waiting. */
   private readonly always = import.meta.env.DEV && new URLSearchParams(window.location.search).get('signal') === 'always';
-  /** In development `?scene=3` makes every transmission one of that step, and a glimpse before every session says its line too: to look at the steps. */
+  /** In development `?scene=3` makes every transmission the scene of that call, and a glimpse before every session says its line too: to look at the scenes. */
   private readonly sceneProbe = import.meta.env.DEV ? Number(new URLSearchParams(window.location.search).get('scene') ?? NaN) : NaN;
   private readonly picture: Layer;
   /** The words of the other side, written over the picture. */
@@ -215,18 +214,19 @@ export class SignalPlayer {
   }
 
   /**
-   * The answer to a session: a scene of the step the player has come to (`SCENE_STEPS`), and a
-   * line of the other side under it, one not heard yet. `onDone` comes when it is over.
+   * The answer to a call, or to an Endless session: the scene of the call (`CALL_SCENES`), and a line
+   * of the voices on the line under it, one not heard yet. After a call it is that call's scene; after
+   * Endless an `echo`, the scene of the last call seen to an end, lighter. `onDone` comes when it is over.
    */
-  answer(step: number, onDone: () => void): void {
+  answer(call: number, onDone: () => void, echo = false): void {
     if (!this.enabled) {
       onDone();
       return;
     }
-    if (this.sceneProbe > 0) step = this.sceneProbe;
-    const line = pickLine(stepLook(step).tier, this.heard, this.random);
+    if (this.sceneProbe > 0) call = this.sceneProbe;
+    const line = pickLine(call, this.heard, this.random);
     this.onHeard?.();
-    const card = stepCard(this.random, step, lineText(line, language()));
+    const card = callCard(this.random, call, lineText(line, language()), echo);
     this.play(
       card,
       card.contact,
@@ -240,8 +240,8 @@ export class SignalPlayer {
     );
   }
 
-  /** Before a session, once in a few: a transmission of the step the player has come to, for some seconds, with nothing to say. */
-  glimpse(step: number): void {
+  /** Before a session, once in a few: an echo of the last call seen to an end, for some seconds, with nothing to say. */
+  glimpse(call: number): void {
     const answered = this.answered;
     this.answered = false;
     this.leak?.reset();
@@ -252,12 +252,12 @@ export class SignalPlayer {
     if (answered || (this.untilGlimpse > 0 && !this.always && !probe)) return;
     this.untilGlimpse = this.glimpseGap();
     if (probe) {
-      const line = pickLine(stepLook(this.sceneProbe).tier, this.heard, this.random);
-      const card = stepCard(this.random, this.sceneProbe, lineText(line, language()));
+      const line = pickLine(this.sceneProbe, this.heard, this.random);
+      const card = callCard(this.random, this.sceneProbe, lineText(line, language()));
       this.play(card, card.contact, () => undefined, false, 1, TOLD_PLACE);
       return;
     }
-    const card = stepCard(this.random, step, null, GLIMPSE_SECONDS);
+    const card = callCard(this.random, call, null, true, GLIMPSE_SECONDS);
     this.play(card, card.contact, () => undefined, true);
   }
 

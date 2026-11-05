@@ -5,10 +5,10 @@ import type { ParamValues } from './scene';
 import { THINGS } from './things';
 
 /**
- * What is put in a frame, by chance and by how strong the contact is. The stronger it is, the
- * less things keep to their own places: that is the merge, shown and never said.
- *
- * For now this is all chance. The story will decide these things later; the steps stay.
+ * What is put in a frame. A frame by chance (`randomFrame`) keeps to the contact of the session it
+ * comes in: the stronger it is, the less things keep to their own places, the merge, shown and never
+ * said; the leaks behind the field are such frames. A frame of a call (`callFrame`) is the scene of
+ * that call, the same every time.
  */
 
 /** A frame to show: what it is made of, and how its things stand. */
@@ -143,89 +143,66 @@ export function randomFrame(random: () => number, contact: number, ask: FrameAsk
 }
 
 /**
- * How far the player has come, as the step of the scenes: the number of the furthest live
- * session played, 1..7 (the owner, 29 October 2026: «у первых live сессий… спокойные, светлые
- * сцены… постепенно, чем дальше проходит игрок, тем жёстче и темнее становятся сцены»).
+ * The scenes of the calls (docs/superpowers/specs/2026-11-05-vi-scenes-story-binding-design.md, section
+ * 2): every call has a scene of its own, as every record has (the owner, 5 November 2026: «(а) По
+ * номеру»). Each stands in a place of its own, and in each stands the telephone on its post, the
+ * receiver off the hook: the sign of the line. The scenes do not darken with the road of the player:
+ * that rule is gone (the owner, 5 November 2026: «от этого мы тоже можем уйти сейчас»); each has the
+ * mood of what its caller says.
  */
-export const SCENE_STEPS = 7;
-
-/** What a step of the scenes shows: how heavy the picture is, how far the merge has gone, which tier of words. */
-export interface StepLook {
+export interface CallScene {
+  place: string;
+  /** What stands in it besides the telephone. */
+  things: readonly string[];
+  /** How heavy its picture is, 0..1. */
   contact: number;
-  mixing: number;
-  /** A light day by the sea or in the field: empty, or, at the second step of the merge, with one thing that does not belong. */
-  light: boolean;
-  /** The places it is never in. */
-  without: readonly string[];
-  tier: 1 | 2 | 3 | 4;
+  /** Values laid over the place: where the telephone stands, and how. */
+  values: Partial<ParamValues>;
 }
 
-/** The steps, the first live session first. The red sun waits for the last. */
-export const STEP_LOOKS: readonly StepLook[] = [
-  { contact: 0, mixing: 1, light: true, without: [], tier: 1 },
-  { contact: 0.04, mixing: 1, light: true, without: [], tier: 1 },
-  // Still a light day, but something stands in it that does not belong there.
-  { contact: 0.08, mixing: 2, light: true, without: [], tier: 2 },
-  { contact: 0.24, mixing: 2, light: false, without: ['glare', 'nightwater'], tier: 2 },
-  { contact: 0.42, mixing: 3, light: false, without: ['glare'], tier: 3 },
-  { contact: 0.6, mixing: 3, light: false, without: ['glare'], tier: 3 },
-  { contact: 0.85, mixing: 4, light: false, without: [], tier: 4 },
+/**
+ * Where the telephone stands in an open place: it comes most of the way towards the camera from its
+ * spot, which is off to the side, and a little back towards the middle, so that a narrow screen sees it too.
+ */
+const PHONE_OPEN = { [thingParam('phone', 'near')]: 0.6, [thingParam('phone', 'x')]: -1.4 };
+
+export const CALL_SCENES: readonly CallScene[] = [
+  // 1 «Проверка линии»: a number that has not answered in a long time; a light field.
+  { place: 'field', things: ['tree'], contact: 0.1, values: PHONE_OPEN },
+  // 2 «Шесть»: six channels, and the noise that is everyone at once; the roof with the antenna.
+  { place: 'roof', things: ['antenna'], contact: 0.35, values: { ...PHONE_OPEN, [thingParam('phone', 'x')]: -0.4 } },
+  // 3 «Тихое событие»: the dice go under the water; the telephone half under it.
+  { place: 'nightwater', things: ['lamp'], contact: 0.25, values: { ...PHONE_OPEN, [thingParam('phone', 'sink')]: 0.25, [thingParam('phone', 'tilt')]: 10 } },
+  // 4: the room with the table of the device.
+  { place: 'room', things: ['table'], contact: 0.2, values: { [thingParam('phone', 'near')]: 0.45, [thingParam('phone', 'x')]: 1 } },
+  // 5: the sea with the pole, the line itself.
+  { place: 'sea', things: ['pole'], contact: 0.3, values: PHONE_OPEN },
+  // 6: the corridor; the telephone stands at its end.
+  { place: 'corridor', things: [], contact: 0.4, values: {} },
+  // 7: the glare under the red sun; the telephone stands a little aside, so that the sun is seen.
+  { place: 'glare', things: ['sun'], contact: 0.5, values: { [thingParam('phone', 'near')]: 0.2, [thingParam('phone', 'x')]: 0.35 } },
 ];
 
-export function stepLook(step: number): StepLook {
-  return STEP_LOOKS[Math.min(SCENE_STEPS, Math.max(1, Math.round(step))) - 1];
+/** The calls there are scenes for; a call past the last shows the last. */
+export const CALL_SCENE_COUNT = CALL_SCENES.length;
+
+/** An echo of the line, after Endless and in a glimpse, is the scene of the last call, this much lighter. */
+export const ECHO_CONTACT = 0.5;
+
+/** The scene of a call, 1..7. */
+export function callScene(call: number): CallScene {
+  return CALL_SCENES[Math.min(CALL_SCENE_COUNT, Math.max(1, Math.round(call))) - 1];
 }
 
-/**
- * The light days of the first steps: whole sets of colours, so the sky, the horizon and the
- * ground never disagree - pale noon, dawn, a warm afternoon, a misty morning, a lilac haze.
- */
-export const LIGHT_DAYS: Record<'sea' | 'field', readonly { skyTop: string; skyHorizon: string; ground: string }[]> = {
-  sea: [
-    { skyTop: '#bcd6e6', skyHorizon: '#f2f0ea', ground: '#cfd8dc' },
-    { skyTop: '#d6c8da', skyHorizon: '#f6e6dc', ground: '#d6d0d8' },
-    { skyTop: '#c6d8e2', skyHorizon: '#f7ead4', ground: '#d8d6ca' },
-    { skyTop: '#c2dedc', skyHorizon: '#eef4ec', ground: '#c8dcd6' },
-    { skyTop: '#c8c8e2', skyHorizon: '#efe9f0', ground: '#d0d0e0' },
-  ],
-  field: [
-    { skyTop: '#bfd9e6', skyHorizon: '#eef2e4', ground: '#9db88a' },
-    { skyTop: '#cddae2', skyHorizon: '#f6ecd2', ground: '#b8bf8c' },
-    { skyTop: '#c6dde8', skyHorizon: '#f1f3e6', ground: '#a8c89a' },
-    { skyTop: '#d4cce0', skyHorizon: '#f4e8de', ground: '#a9b59c' },
-  ],
-};
-
-/**
- * A light frame: the sea or the field by day in one of the light sets of colours, with its own
- * thing or with nothing at all, no glints and no glow. With `stranger`, one thing that does not
- * belong there stands in it too.
- */
-export function lightFrame(random: () => number, stranger = false): Frame {
-  const place = random() < 0.6 ? 'sea' : 'field';
-  const native = nativeRecipe(place);
-  const empty = !stranger && random() < 0.3;
-  const day = pick(LIGHT_DAYS[place], random);
-  const values: Partial<ParamValues> = {
-    ...day,
-    lightAmount: round(between(0.45, 0.65, random)),
-    glint: 0,
-    glow: 0,
+/** The frame of a call: its scene, with the telephone in it. */
+export function callFrame(call: number): Frame {
+  const scene = callScene(call);
+  const native = nativeRecipe(scene.place);
+  const things = [...scene.things, 'phone'];
+  return {
+    recipe: { id: `${scene.place}:${things.join('+')}:call`, place: scene.place, things, variants: native.variants },
+    variant: 'a',
+    values: { ...scene.values },
+    mixing: 2,
   };
-  const things = empty ? [] : [...native.things];
-  if (stranger) {
-    // Nothing that frightens: no mannequin, no sun; a chair, a door, a lamp on a light day.
-    const pool = visitors(place).filter((id) => !things.includes(id) && id !== 'mannequin');
-    const visitor = pick(pool, random);
-    things.push(visitor);
-    comeNear(values, visitor, random);
-  }
-  return { recipe: { id: `${place}:${things.join('+') || 'empty'}:light`, place, things }, variant: 'a', values, mixing: stranger ? 2 : 1 };
-}
-
-/** A frame of a step of the scenes. */
-export function stepFrame(random: () => number, step: number): Frame {
-  const look = stepLook(step);
-  if (look.light) return lightFrame(random, look.mixing >= 2);
-  return randomFrame(random, look.contact, { mixing: look.mixing, without: look.without });
 }

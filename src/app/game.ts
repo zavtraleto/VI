@@ -1127,7 +1127,7 @@ export class Game {
     }
     // Now and then something is seen before the session, for less than a second. Not before
     // the first frame: that run is only set up behind what the program opens on.
-    if (this.lastFrame > 0) this.signal.glimpse(this.sceneStep());
+    if (this.lastFrame > 0) this.signal.glimpse(this.lastCall());
   }
 
   /**
@@ -1150,10 +1150,10 @@ export class Game {
   }
 
   /**
-   * The step of the scenes the player has come to: the calls seen to an end, the first when none is
-   * (the owner, 29 October 2026: the further, the darker the scenes).
+   * The call whose scene the echo of the line shows, after Endless and in a glimpse: the last seen to
+   * an end, the first when none is (docs/superpowers/specs/2026-11-05-vi-scenes-story-binding-design.md, section 2).
    */
-  private sceneStep(): number {
+  private lastCall(): number {
     return Math.max(1, this.settings.levels.calls.done);
   }
 
@@ -1316,7 +1316,7 @@ export class Game {
       const after = (): void => (doubled ? next() : interstitial('live_end', data, number, next));
       const talk = done && !calls.heard.includes(step) ? callEpisode(step, language()) : null;
       if (!talk) {
-        this.signal.answer(this.sceneStep(), after);
+        this.signal.answer(step, after);
         return;
       }
       calls.heard.push(step);
@@ -2819,7 +2819,7 @@ export class Game {
     // After it, at the break between sessions, the platform may show its advertisement.
     const answered = (next: () => void): void => {
       this.shell.hide();
-      this.signal.answer(this.sceneStep(), () => interstitial('session_end', this.step(), this.rowNumber(), next));
+      this.signal.answer(this.lastCall(), () => interstitial('session_end', this.step(), this.rowNumber(), next), true);
     };
     result();
   }
