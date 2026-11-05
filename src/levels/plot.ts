@@ -30,6 +30,13 @@ export interface Coming {
   away?: number;
   /** Where the working face is at the start: any of those named; left out, wherever it comes. */
   starts?: readonly Side[];
+  /**
+   * The die that stands in its way (docs/superpowers/specs/2026-11-05-vi-solution-first-design.md): the die starts in
+   * one line with the cell of its event, the named die between them, so that the straight way is shut and it goes round.
+   */
+  around?: string;
+  /** The die it is pushed up against: its last move is a push, and the named die stands next beyond the cell of its event. */
+  against?: string;
 }
 
 export interface PlotDie {
@@ -231,6 +238,14 @@ export function checkPlot(plot: Plot): string[] {
     if (comes.seq !== undefined && (comes.by !== undefined || comes.rolls !== undefined)) wrong.push(`die ${die.name}: seq and by/rolls both said`);
     if (comes.rolls && (comes.rolls[0] < 1 || comes.rolls[1] < comes.rolls[0])) wrong.push(`die ${die.name}: rolls ${comes.rolls.join('-')} are no span of moves`);
     if (comes.away !== undefined && (comes.away < 0 || !Number.isInteger(comes.away))) wrong.push(`die ${die.name}: away ${comes.away}`);
+    for (const [word, other] of [['around', comes.around], ['against', comes.against]] as const) {
+      if (other === undefined) continue;
+      const named = plot.dice.find((one) => one.name === other);
+      if (!named) wrong.push(`die ${die.name}: no die ${other} to go ${word}`);
+      else if (named === die) wrong.push(`die ${die.name} goes ${word} itself`);
+      else if (named.comes || named.on !== undefined) wrong.push(`die ${die.name} goes ${word} ${other}, which does not stand on the cell of its event`);
+    }
+    if (comes.against !== undefined && !seqsOf(comes).every((seq) => seq.endsWith('p'))) wrong.push(`die ${die.name} is pushed against ${comes.against} and does not come by a push`);
   }
   for (const die of plot.dice) {
     if (die.on === undefined) continue;

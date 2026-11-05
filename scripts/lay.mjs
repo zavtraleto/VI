@@ -15,6 +15,11 @@
 //      written, five, of other shapes first; dry: only the size of the space; loose: write the best boards even where they miss a gate)
 //     kind=insight idea="…" lemma="…" frame=5x3   the thought of the place over the plot's own (src/levels/plot.ts, PLOT_KINDS):
 //      the kind orders the finalists after the gates and the troubles, the frame makes the field a rectangle, all go into the note
+//   node scripts/lay.mjs lay solution=wall-loop         lay the solution an author wrote (boards/solutions/<name>.txt, the language of
+//                                                       src/levels/solution.ts): its events in order, its faces and field; the
+//                                                       thought is held against the row first, and a plot whose thought the row has
+//                                                       had at 0.85 or more is not laid (force lays it all the same)
+//   node scripts/lay.mjs thought solution=wall-loop     only that: the places the thought is like, and faces that would be new
 //   node scripts/lay.mjs passport file=<board>          the passport of any board: the measures of the scale and how like
 //                                                       the row it is
 //
@@ -33,7 +38,8 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 
 const COMMANDS = {
   plots: { keys: [], flags: ['json'] },
-  lay: { keys: ['plot', 'from', 'vary', 'workers', 'limit', 'seed', 'states', 'upto', 'final', 'keep', 'share', 'phase', 'runs', 'row', 'd', 'kind', 'idea', 'lemma', 'frame'], flags: ['dry', 'loose', 'rejudge', 'json'] },
+  lay: { keys: ['plot', 'from', 'solution', 'vary', 'workers', 'limit', 'seed', 'states', 'upto', 'final', 'keep', 'share', 'phase', 'runs', 'row', 'd', 'kind', 'idea', 'lemma', 'frame'], flags: ['dry', 'loose', 'rejudge', 'json', 'force'] },
+  thought: { keys: ['plot', 'solution', 'row'], flags: ['json'] },
   passport: { keys: ['file', 'plot', 'runs', 'row'], flags: ['json'] },
 };
 
@@ -58,6 +64,7 @@ const number = (key, fallback) => {
 const { parseBoard, readBoardHead } = await load('/src/levels/boardFile.ts');
 const { PLOTS } = await load('/src/levels/plots.ts');
 const plotLib = await load('/src/levels/plot.ts');
+const solutionLib = await load('/src/levels/solution.ts');
 const final = await load('/src/levels/plotFinal.ts');
 
 /** A board by a path or by its name in boards/. */
@@ -91,13 +98,21 @@ function plotAsked() {
   if (named.plot) {
     plot = PLOTS[named.plot];
     if (!plot) refuse(`${command}: no plot ${named.plot}: the plots are ${Object.keys(PLOTS).join(' ')}`);
+  } else if (named.solution) {
+    const path = [resolve(process.cwd(), named.solution), resolve(root, 'boards', 'solutions', `${named.solution}.txt`)].find((one) => existsSync(one) && /\.txt$/i.test(one));
+    if (!path) refuse(`${command}: no solution ${named.solution} (boards/solutions/<name>.txt)`);
+    try {
+      plot = solutionLib.readSolution(readFileSync(path, 'utf8'), path.replace(/^.*[\\/]/, '').replace(/\.txt$/i, ''));
+    } catch (error) {
+      refuse(`${command}: ${error.message}`);
+    }
   } else if (named.from) {
     try {
       plot = plotLib.plotOfBoard(boardOf(named.from).spec);
     } catch (error) {
       refuse(`${command}: ${error.message}`);
     }
-  } else refuse(`${command}: name a plot, as in plot=wall, or a board to read one off, as in from=act-k21`);
+  } else refuse(`${command}: name a plot, as in plot=wall, a solution, as in solution=wall-loop, or a board to read one off, as in from=act-k21`);
   if (named.vary) {
     plot = plotLib.varyPlot(plot, varyOf(named.vary));
     plot = { ...plot, name: `${plot.name}-${named.vary.replace(/(\d)-(\d)/g, '$1to$2').replace(/[^a-z0-9]+/g, '-')}` };
@@ -174,6 +189,31 @@ async function rowBoards() {
 
 const STAGES = ['laid', 'path', 'lesson', 'final'];
 
+/**
+ * What a plot's thought is like before a board of it is laid (src/levels/solution.ts): its core, the places of the row
+ * it comes nearest whatever the layout, and, where the nearest is too like, faces that would be new. `shut` where the
+ * nearest is at the gate of novelty of the passport (`TOO_LIKE`) or more and the plot asks to be new.
+ */
+async function thoughtOf(plot) {
+  const { coreKey, SIMILAR_ROW } = await load('/src/levels/signature.ts');
+  const core = solutionLib.plotCore(plot);
+  const row = (await rowBoards()).map(({ code, number, core }) => ({ code, number, core }));
+  const near = solutionLib.thoughtFloor(plot, row);
+  const novel = plot.want?.novel !== false;
+  const bound = solutionLib.thoughtBound(plot, row);
+  const shut = novel && bound !== null && bound.sim >= final.TOO_LIKE;
+  const lines = [
+    `thought of ${plot.name}: ${core.route} on ${core.faces.join(', ') || '—'}${core.needs.length ? `, ${core.needs.join(' ')}` : ''}${core.alone ? `, one event: ${core.alone.dice} dice, ${core.alone.length}` : ''} (${coreKey(core)})`,
+    `  like, whatever the layout: ${near.map((one) => `${one.code} (${one.number}) ${one.sim.toFixed(2)}`).join(', ') || 'none'}; ${bound ? `at the least ${bound.sim.toFixed(2)} (${bound.code})` : 'the least not known: the route is not said'}`,
+  ];
+  let free = [];
+  if (near.length > 0 && near[0].sim >= SIMILAR_ROW) {
+    free = solutionLib.freeFaces(plot, row, SIMILAR_ROW).slice(0, 5);
+    lines.push(`  ${shut ? 'no board of it can be new' : near[0].sim >= final.TOO_LIKE ? `boards of it will hardly be new (${final.TOO_LIKE})` : `rule 17 warns at ${SIMILAR_ROW}`}; faces of the events under ${SIMILAR_ROW}: ${free.map((one) => `${one.faces.join(' ')} (${one.near} ${one.floor.toFixed(2)})`).join(', ') || 'none: the route is had whatever the faces'}`);
+  }
+  return { plot: plot.name, core, near, bound, shut, free, lines };
+}
+
 if (command === 'plots') {
   const rows = Object.values(PLOTS).map((plot) => {
     const [lo, hi] = plotLib.plotLength(plot);
@@ -186,8 +226,21 @@ if (command === 'plots') {
   const plot = named.plot ? PLOTS[named.plot] ?? refuse(`passport: no plot ${named.plot}`) : null;
   const passport = final.passportOf(plot, spec, { runs: number('runs', 30), row: await rowBoards() });
   print(final.passportLine(spec.id, passport), passport);
+} else if (command === 'thought') {
+  const plot = plotAsked();
+  const said = await thoughtOf(plot);
+  print(said.lines.join('\n'), said);
 } else if (command === 'lay') {
   const plot = plotAsked();
+  // The thought before the layouts: a plot whose route and faces the row has had shuts the gate of novelty for every board of it.
+  if (named.share === undefined) {
+    const said = await thoughtOf(plot);
+    console.error(said.lines.join('\n'));
+    if (said.shut && !flag('force') && !flag('rejudge')) {
+      console.error(`lay: not laid: no board of ${plot.name} can be new (force lays it all the same)`);
+      process.exit(1);
+    }
+  }
   const out = resolve(root, 'boards', 'out', 'lay', plot.name);
   const faces = plot.dice.map((die) => die.face);
   const boardsDir = resolve(root, 'boards');
@@ -341,7 +394,7 @@ if (command === 'plots') {
     }
     mkdirSync(out, { recursive: true });
     // What the batch is laid from, so that the workshop can ask for ten more of it.
-    writeFileSync(resolve(out, 'args.json'), JSON.stringify({ args: ['plot', 'from', 'vary', 'kind', 'idea', 'lemma', 'frame'].filter((key) => named[key] !== undefined).map((key) => `${key}=${named[key]}`) }));
+    writeFileSync(resolve(out, 'args.json'), JSON.stringify({ args: ['plot', 'from', 'solution', 'vary', 'kind', 'idea', 'lemma', 'frame'].filter((key) => named[key] !== undefined).map((key) => `${key}=${named[key]}`) }));
     const round = readdirSync(out).filter((file) => /^report-\d+\.txt$/.test(file)).length + 1;
     const { writtenBefore, playedKeys, offShapes, liked } = batchState();
     const began = Date.now();

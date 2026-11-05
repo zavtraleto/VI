@@ -53,6 +53,8 @@ interface Ways {
   length: number[];
   /** `way * 4 + north`. */
   lies: Orientation[];
+  /** The direction of the last move of every way: what `against` asks after. */
+  last: (Dir | null)[];
 }
 
 const sideOf = (o: Orientation, face: number): Side =>
@@ -88,13 +90,14 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
   };
   const waysFrom = (die: PlotDie, cell: number): Ways => {
     const ends = ALL_ORIENTATIONS.filter((o) => o.top === die.face);
-    const out: Ways = { count: 0, from: [], length: [], lies: [] };
+    const out: Ways = { count: 0, from: [], length: [], lies: [], last: [] };
     const home = { x: cell % size, z: Math.floor(cell / size) };
     if (!die.comes) {
       out.count = 1;
       out.from.push(cell);
       out.length.push(0);
       out.lies.push(...ends);
+      out.last.push(null);
       return out;
     }
     const comes = die.comes;
@@ -132,6 +135,7 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
         out.from.push(from);
         out.length.push(n);
         out.lies.push(...lies);
+        out.last.push(n > 0 ? dirs[n - 1] : null);
       };
       const back = (j: number) => {
         if (j < 0) return done();
@@ -159,6 +163,20 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
   const starts = named !== undefined ? [index.get(named)!] : dice.flatMap((die, at) => (die.fixed ? [] : [at]));
   const faces = plot.faces ? [...plot.faces] : [...new Set(dice.map((die) => die.face))].sort((a, b) => a - b);
 
+  // The dice whose way is shaped by another: by their place, with the place of the die named.
+  const shaped: [number, { around?: number; against?: number }][] = dice.flatMap((die, at) => {
+    const { around, against } = die.comes ?? {};
+    if (around === undefined && against === undefined) return [];
+    return [[at, { ...(around !== undefined ? { around: index.get(around)! } : {}), ...(against !== undefined ? { against: index.get(against)! } : {}) }]];
+  });
+  /** The cell `mid` stands in one line with `a` and `b` and strictly between them. */
+  const between = (a: number, mid: number, b: number): boolean => {
+    const [ax, az, mx, mz, bx, bz] = [a % size, Math.floor(a / size), mid % size, Math.floor(mid / size), b % size, Math.floor(b / size)];
+    if (ax === bx && mx === ax) return mz > Math.min(az, bz) && mz < Math.max(az, bz);
+    if (az === bz && mz === az) return mx > Math.min(ax, bx) && mx < Math.max(ax, bx);
+    return false;
+  };
+
   const cum = new Float64Array(placements.length + 1);
   placements.forEach((cells, at) => {
     let product = starts.length;
@@ -182,6 +200,7 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
     rest = Math.floor(rest / starts.length);
     const laid: PuzzleDie[] = [];
     const moves: number[] = [];
+    const lastOf: (Dir | null)[] = [];
     const taken = new Set<number>();
     let length = 0;
     for (let die = 0; die < dice.length; die++) {
@@ -197,6 +216,20 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
       laid.push({ x: from % size, z: Math.floor(from / size), top: lie.top, north: lie.north, ...(dice[die].fixed ? { fixed: true } : {}) });
       moves.push(way.length[pick]);
       length += way.length[pick];
+      lastOf.push(way.last[pick]);
+    }
+    // The ways that go round a die or are pushed up against one (`Coming.around`, `Coming.against`).
+    for (const [die, rule] of shaped) {
+      const home = cells[die];
+      const from = laid[die].z * size + laid[die].x;
+      if (rule.around !== undefined && !between(from, cells[rule.around], home)) return null;
+      if (rule.against !== undefined) {
+        const dir = lastOf[die];
+        if (!dir) return null;
+        const x = (home % size) + DELTA[dir].dx;
+        const z = Math.floor(home / size) + DELTA[dir].dz;
+        if (!isCell(x, z) || z * size + x !== cells[rule.against]) return null;
+      }
     }
     const spec: LevelSpec = {
       id: `${plot.name}-${i}`,
