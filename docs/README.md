@@ -79,6 +79,7 @@
 | [superpowers/specs/2026-10-03-vi-pace-v2-design.md](superpowers/specs/2026-10-03-vi-pace-v2-design.md) | решение | темп: волны, рост, режиссёр (действуют дополнения 4–8) |
 | [superpowers/specs/2026-10-03-vi-floor-and-islands-design.md](superpowers/specs/2026-10-03-vi-floor-and-islands-design.md) | решение | пол и острова |
 | [VI_Randomness_Research.md](VI_Randomness_Research.md) | исследование | случайность и честная помощь |
+| [VI_Live_Sessions_Layer_Research.md](VI_Live_Sessions_Layer_Research.md) | исследование | **черновик, ждёт слова владельца.** Сеансы вживую как отдельный слой: что они сейчас (семь ступеней, места, окно, клетка `LIVE`), телеметрия (шесть игроков: из пяти начавших до следующей доски дошли двое), слова владельца по датам — 5 ноября возвращает 5×5 и «трубку» 19–20 октября; на 360×640 поле 7×7 не входит; чужой опыт (King's Nightmare, события Royal Match, Dreamworld, Playrix, Devil Dice); разбор пяти слов, кто может звонить по лору; варианты А / Б / В, предложение — Б «Звонок» в два шага; пять вопросов |
 | [VI_Retention_Research.md](VI_Retention_Research.md) | исследование | удержание, разрыв между сильным и слабым игроком |
 
 Команды: темп — `node scripts/pace.mjs` (`grid`, `styles`, `survival`, `edges`, `rush`). Код: `src/rules/config.ts`, `src/rules/sim.ts`.
