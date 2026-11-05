@@ -38,7 +38,7 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 
 const COMMANDS = {
   plots: { keys: [], flags: ['json'] },
-  lay: { keys: ['plot', 'from', 'solution', 'vary', 'workers', 'limit', 'seed', 'states', 'upto', 'final', 'keep', 'share', 'phase', 'runs', 'row', 'd', 'kind', 'idea', 'lemma', 'frame'], flags: ['dry', 'loose', 'rejudge', 'json', 'force'] },
+  lay: { keys: ['plot', 'from', 'solution', 'vary', 'workers', 'limit', 'seed', 'states', 'upto', 'final', 'keep', 'share', 'phase', 'runs', 'row', 'd', 'kind', 'idea', 'lemma', 'frame', 'strict'], flags: ['dry', 'loose', 'rejudge', 'json', 'force'] },
   thought: { keys: ['plot', 'solution', 'row'], flags: ['json'] },
   passport: { keys: ['file', 'plot', 'runs', 'row'], flags: ['json'] },
 };
@@ -189,6 +189,9 @@ async function rowBoards() {
 
 const STAGES = ['laid', 'path', 'lesson', 'final'];
 
+/** Strict, how many times the limit of layouts may be tried to lay so many that hold. */
+const OVERDRAW = 20;
+
 /**
  * What a plot's thought is like before a board of it is laid (src/levels/solution.ts): its core, the places of the row
  * it comes nearest whatever the layout, and, where the nearest is too like, faces that would be new. `shut` where the
@@ -331,7 +334,10 @@ if (command === 'plots') {
   const limit = number('limit', 200_000);
   const upto = named.upto ?? 'final';
   if (!STAGES.includes(upto)) refuse(`lay: "upto=${upto}" is none of ${STAGES.join(', ')}`);
-  const space = layBack(plot, { seed });
+  // Strict (src/levels/layBack.ts): a die goes to its event over cells free then; the default for a solution, strict=0 or 1 says.
+  if (named.strict !== undefined && !['0', '1'].includes(named.strict)) refuse(`lay: "strict=${named.strict}" is 0 or 1`);
+  const strict = named.strict !== undefined ? named.strict === '1' : named.solution !== undefined;
+  const space = layBack(plot, { seed, strict });
   const sampled = space.sampled || space.total > limit;
 
   if (named.share !== undefined && named.phase === 'final') {
@@ -347,8 +353,11 @@ if (command === 'plots') {
   } else if (named.share !== undefined) {
     // A worker of the funnel: its share of the layouts, laid and judged up to the lesson.
     const [index, of] = named.share.split('/').map(Number);
-    const indices = sampled ? indexOrder(space.total, seed, limit) : null;
+    // Strict, a layout that does not hold is not counted to the limit: up to OVERDRAW times as many are tried.
+    const indices = sampled ? indexOrder(space.total, seed, strict ? Math.min(space.total, limit * OVERDRAW) : limit) : null;
     const count = indices ? indices.length : space.total;
+    const mine = Math.ceil(limit / of);
+    let held = 0;
     const seen = new Set();
     const tally = { laid: 0, stage: [0, 0, 0, 0], reasons: {} };
     const near = [];
@@ -362,6 +371,7 @@ if (command === 'plots') {
         tally.reasons['0 cells meet'] = (tally.reasons['0 cells meet'] ?? 0) + 1;
         continue;
       }
+      if (strict && sampled && ++held > mine) break;
       const judged = judgeLaid(plot, laid, { states: number('states', 20_000), seen, upto: upto === 'final' ? 'lesson' : upto });
       for (let stage = 0; stage < judged.stage; stage++) tally.stage[stage]++;
       if (judged.reason) {
@@ -387,7 +397,7 @@ if (command === 'plots') {
   } else {
     // The main process: the size of the space, the funnel shared out, the finalists measured, the batch written.
     const count = sampled ? Math.min(limit, space.total) : space.total;
-    const head = `lay ${plot.name}, ${sampled ? `sampled ${count} of ${space.total}` : `every layout: ${space.total}`}`;
+    const head = `lay ${plot.name}, ${sampled ? `sampled ${count} of ${space.total}` : `every layout: ${space.total}`}${strict ? `, strict${sampled ? ` (up to ${Math.min(space.total, limit * OVERDRAW)} tried)` : ''}` : ''}`;
     if (flag('dry')) {
       print(head, { plot: plot.name, total: space.total, sampled, count });
       process.exit(0);

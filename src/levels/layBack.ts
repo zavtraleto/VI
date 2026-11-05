@@ -55,6 +55,8 @@ interface Ways {
   lies: Orientation[];
   /** The direction of the last move of every way: what `against` asks after. */
   last: (Dir | null)[];
+  /** The cells of every way, from where the die starts to the cell of its event: what `strict` holds against the others. */
+  paths: number[][];
 }
 
 const sideOf = (o: Orientation, face: number): Side =>
@@ -71,8 +73,8 @@ function streamOf(seed: number): () => number {
   };
 }
 
-export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}): Space {
-  const { seed = 1, cap = PLACEMENT_CAP } = opts;
+export function layBack(plot: Plot, opts: { seed?: number; cap?: number; strict?: boolean } = {}): Space {
+  const { seed = 1, cap = PLACEMENT_CAP, strict = false } = opts;
   const { size } = plot;
   const cellCount = size * size;
   const cut = new Set((plot.holes ?? []).map(({ x, z }) => z * size + x));
@@ -90,7 +92,7 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
   };
   const waysFrom = (die: PlotDie, cell: number): Ways => {
     const ends = ALL_ORIENTATIONS.filter((o) => o.top === die.face);
-    const out: Ways = { count: 0, from: [], length: [], lies: [], last: [] };
+    const out: Ways = { count: 0, from: [], length: [], lies: [], last: [], paths: [] };
     const home = { x: cell % size, z: Math.floor(cell / size) };
     if (!die.comes) {
       out.count = 1;
@@ -98,6 +100,7 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
       out.length.push(0);
       out.lies.push(...ends);
       out.last.push(null);
+      out.paths.push([cell]);
       return out;
     }
     const comes = die.comes;
@@ -136,6 +139,7 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
         out.length.push(n);
         out.lies.push(...lies);
         out.last.push(n > 0 ? dirs[n - 1] : null);
+        out.paths.push(xs.map((x, j) => zs[j] * size + x));
       };
       const back = (j: number) => {
         if (j < 0) return done();
@@ -201,6 +205,7 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
     const laid: PuzzleDie[] = [];
     const moves: number[] = [];
     const lastOf: (Dir | null)[] = [];
+    const pathOf: number[][] = [];
     const taken = new Set<number>();
     let length = 0;
     for (let die = 0; die < dice.length; die++) {
@@ -217,6 +222,25 @@ export function layBack(plot: Plot, opts: { seed?: number; cap?: number } = {}):
       moves.push(way.length[pick]);
       length += way.length[pick];
       lastOf.push(way.last[pick]);
+      pathOf.push(way.paths[pick]);
+    }
+    // Strict: the events go in their order, and a die goes to its event over cells that are free then. Every die of a
+    // later event stands where it starts, every die of its own event that does not come stands on its cell; the dice of
+    // the events before are gone (a die that ends on one of them comes over it as it leaves). Two dice of one event that
+    // both come may come in either order, so they are not held against each other.
+    if (strict) {
+      for (let die = 0; die < dice.length; die++) {
+        const path = pathOf[die];
+        for (let step = 1; step < path.length; step++) {
+          const cell = path[step];
+          for (let other = 0; other < dice.length; other++) {
+            if (other === die) continue;
+            const later = dice[other].event > dice[die].event;
+            const stands = dice[other].event === dice[die].event && !dice[other].comes;
+            if ((later || stands) && pathOf[other][0] === cell) return null;
+          }
+        }
+      }
     }
     // The ways that go round a die or are pushed up against one (`Coming.around`, `Coming.against`).
     for (const [die, rule] of shaped) {

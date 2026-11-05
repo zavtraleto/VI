@@ -142,3 +142,34 @@ describe('the thought before the board', () => {
     expect(free.some((one) => one.faces.join() === '4,3')).toBe(false);
   });
 });
+
+describe('strict laying: a die goes to its event over cells free then', () => {
+  // Small enough to go through whole: about 360 000 layouts.
+  const plot = framedPlot(readSolution('frame 3x2\ncombo 2: a o<r1\ncombo 2: b g<r1-2', 'strict'));
+  const loose = layBack(plot);
+  const strict = layBack(plot, { strict: true });
+  const names = plot.dice.map((die) => die.name);
+
+  it('lays only boards the loose laying lays, and fewer of them, and no die over a cell a later one stands on', () => {
+    expect(strict.total).toBe(loose.total);
+    let both = 0;
+    let looseOnly = 0;
+    let differ = 0;
+    let over = 0;
+    for (let i = 0; i < loose.total; i++) {
+      const s = strict.at(i);
+      const l = loose.at(i);
+      if (l && !s) looseOnly++;
+      if (!s) continue;
+      both++;
+      if (!l || JSON.stringify(l.spec.layout) !== JSON.stringify(s.spec.layout)) differ++;
+      // o comes first; b and g of the second combo stand where they start meanwhile, and its cell is none of theirs.
+      const home = strict.cellsOf(s.placement)[names.indexOf('o')];
+      const starts = s.spec.layout!.dice.map((die) => die.z * plot.size + die.x);
+      if (['b', 'g'].some((later) => starts[names.indexOf(later)] === home)) over++;
+    }
+    expect([differ, over]).toEqual([0, 0]);
+    expect(both).toBeGreaterThan(0);
+    expect(looseOnly).toBeGreaterThan(0);
+  });
+});
