@@ -518,7 +518,7 @@ export interface ClearedData {
   stars: number | null;
   /** Motion kept low: the stars stand at once. */
   still: boolean;
-  /** Under `?novel`: the sum of the stars of the row and how far the next record of the link is, a line under the stars. */
+  /** Under `?novel`: how many stars are left to the next record of the link, a line under the stars; none after the last record. */
   starLine?: string;
 }
 
@@ -531,8 +531,7 @@ export interface ClearedData {
 export function clearedPanel(data: ClearedData, actions: { onNext: () => void; onAgain: () => void; onStar?: (index: number) => void; onAllStars?: () => void }): PanelSpec {
   const rows: PanelRow[] = [];
   if (data.stars !== null) rows.push({ kind: 'stars', count: data.stars, shine: { still: data.still, onLit: actions.onStar, onAll: actions.onAllStars } });
-  // The kana of the stars alone: the line has no room for the word of a language too (ESTRELLAS · REGISTRO).
-  if (data.starLine !== undefined) rows.push({ kind: 'field', label: { native: RESULT.stars.native, name: '' }, value: data.starLine });
+  if (data.starLine !== undefined) rows.push({ kind: 'field', label: RESULT.toRecord, value: data.starLine });
   rows.push(
     { kind: 'field', label: RESULT.moves, value: digits(data.moves, 3) },
     { kind: 'field', label: RESULT.par, value: data.par === null ? '---' : digits(data.par, 3) },

@@ -260,6 +260,8 @@ export const RESULT = {
   rank: { native: 'ランク', name: 'RANK' },
   /** "Stars": the sum of the stars of the row, under `?novel`. */
   stars: { native: 'ほし', name: 'STARS' },
+  /** "To the record": the stars that are left to the next record of the link, under `?novel`. */
+  toRecord: { native: 'きろくまで', name: 'TO RECORD' },
 } as const satisfies Record<string, PanelName>;
 
 /** The log of sessions: its name and the heads of its columns. */

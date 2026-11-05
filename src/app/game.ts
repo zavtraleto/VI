@@ -1207,11 +1207,10 @@ export class Game {
     return starsSum(CAMPAIGN.map(({ spec }) => spec), (id) => stats[id]?.bestMoves);
   }
 
-  /** Under `?novel`, the line of the window between two boards: the sum of the stars, and how far the next record is; the sum alone after the last. */
-  private starLine(): string {
-    const sum = this.starTotal();
-    const next = novelNext(sum);
-    return next ? `${digits(sum, 3)} · ${t('novelRecord')} ${digits(next.number, 2)} — ${next.left}` : digits(sum, 3);
+  /** Under `?novel`, the line of the window between two boards: the stars left to the next record, and nothing of what it brings; no line after the last record. */
+  private starLine(): string | undefined {
+    const next = novelNext(this.starTotal());
+    return next ? digits(next.left, 3) : undefined;
   }
 
   /**

@@ -336,11 +336,11 @@ describe('the window between two boards', () => {
 
 describe('the records of the link, under ?novel', () => {
 
-  it('put the sum of the stars on a line under the stars of the window between two boards, and nothing without it', () => {
-    const spec = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: '017 · RECORD 02 — 3' }, { onNext: nothing, onAgain: nothing });
+  it('put the stars left to the next record on a line under the stars of the window between two boards, and nothing without it', () => {
+    const spec = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: '017' }, { onNext: nothing, onAgain: nothing });
     expect(spec.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'field', 'gap', 'command', 'command']);
-    expect(row(spec, 'field', 0).label).toEqual({ native: 'ほし', name: '' });
-    expect(row(spec, 'field', 0).value).toBe('017 · RECORD 02 — 3');
+    expect(row(spec, 'field', 0).label).toEqual({ native: 'きろくまで', name: 'TO RECORD' });
+    expect(row(spec, 'field', 0).value).toBe('017');
     const plain = clearedPanel({ moves: 5, par: 3, stars: 2, still: false }, { onNext: nothing, onAgain: nothing });
     expect(plain.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'gap', 'command', 'command']);
   });
@@ -366,7 +366,7 @@ describe('the records of the link, under ?novel', () => {
   it('have their words fit a panel of a phone in every language', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      const cleared = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: `017 · ${t('novelRecord')} 02 — 19` }, { onNext: nothing, onAgain: nothing });
+      const cleared = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: '020' }, { onNext: nothing, onAgain: nothing });
       const line = row(cleared, 'field', 0);
       expect(textWidth(`${line.label.native} ${word(line.label.name)}`) + 2 * CELL_W + textWidth(String(line.value)), code).toBeLessThanOrEqual(248);
       for (const name of [t('novelOperator'), t('novelVoice')]) expect(name, code).toBe(name.toLocaleUpperCase(code));
