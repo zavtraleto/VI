@@ -146,6 +146,6 @@ describe('a save from before the calls', () => {
     expect(callsFromLives(undefined)).toMatchObject({ came: false, done: 0 });
     expect(callsFromLives({ 'live-1': { plays: 0 } })).toMatchObject({ came: false, done: 0 });
     expect(callsFromLives({ 'live-1': { plays: 2 } })).toMatchObject({ came: true, done: 1 });
-    expect(callsFromLives({ 'live-1': { plays: 1 }, 'live-2': { plays: 1 }, 'live-3': { plays: 4 } })).toMatchObject({ came: true, done: 2, stats: {}, heard: [] });
+    expect(callsFromLives({ 'live-1': { plays: 1 }, 'live-2': { plays: 1 }, 'live-3': { plays: 4 } })).toMatchObject({ came: true, done: 2, stats: {} });
   });
 });

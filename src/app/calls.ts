@@ -24,8 +24,6 @@ export interface CallProgress {
   came: boolean;
   /** The best score and the plays of every step, by code `call-<step>`. */
   stats: Record<string, CallStat>;
-  /** The steps whose conversation has been heard. */
-  heard: number[];
 }
 
 /** The first call: after this place is passed (the owner, 20 October 2026: «первый звонок после 16-го места — отлично»). */
@@ -49,7 +47,7 @@ export function drawGap(random: () => number): number {
 
 /** What a player who has had no call keeps of them. */
 export function newCalls(random: () => number = Math.random): CallProgress {
-  return { done: 0, since: 0, gap: drawGap(random), came: false, stats: {}, heard: [] };
+  return { done: 0, since: 0, gap: drawGap(random), came: false, stats: {} };
 }
 
 /** The step of the next call: one above the calls seen to an end, and no further than the last. */

@@ -187,23 +187,22 @@ describe('the result of a call', () => {
 });
 
 describe('the screen of ENDLESS once a call has come', () => {
-  it('plays free Endless first, then the calls that have come, then the talks heard, and leads back', () => {
+  it('plays free Endless first, then the calls that have come, and leads back', () => {
     const done: string[] = [];
     const spec = callsPanel(
       [
-        { kind: 'call', step: 1, best: 2471 },
-        { kind: 'call', step: 2, best: 0 },
-        { kind: 'talk', step: 1, title: 'Line check' },
+        { step: 1, best: 2471 },
+        { step: 2, best: 0 },
       ],
-      { onPlay: () => done.push('play'), onCall: (step) => done.push(`call ${step}`), onTalk: (step) => done.push(`talk ${step}`), onBack: () => done.push('back') },
+      { onPlay: () => done.push('play'), onCall: (step) => done.push(`call ${step}`), onBack: () => done.push('back') },
     );
     expect(spec.title).toBe(PANELS.endless);
     expect(spec.home).toBe('play');
-    expect(commands(spec)).toEqual(['play', 'call-1', 'call-2', 'talk-1', 'back']);
+    expect(commands(spec)).toEqual(['play', 'call-1', 'call-2', 'back']);
     const names = spec.rows.flatMap((one) => (one.kind === 'command' ? [one.label.name] : []));
-    expect(names).toEqual(['PLAY', '01 · 002471', '02 · 000000', '01 · LINE CHECK', 'BACK']);
+    expect(names).toEqual(['PLAY', '01 · 002471', '02 · 000000', 'BACK']);
     for (const one of spec.rows) if (one.kind === 'command') one.action();
-    expect(done).toEqual(['play', 'call 1', 'call 2', 'talk 1', 'back']);
+    expect(done).toEqual(['play', 'call 1', 'call 2', 'back']);
   });
 });
 

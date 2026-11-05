@@ -206,9 +206,8 @@ export const COMMANDS = {
 export const CALL = {
   /** "Number": who calls, over the line saying that the number is not known. */
   number: { native: 'ばんごう', name: '??????' },
-  /** "Call", "conversation": the calls that have come and the talks heard, on the screen of `ENDLESS`. */
+  /** "Call": the calls that have come, on the screen of `ENDLESS`. */
   calls: { native: 'つうわ', name: 'CALLS' },
-  talks: { native: 'かいわ', name: 'TALKS' },
   /** "Cut off": the board filled, and the call ended before its time. */
   lineLost: { native: 'せつだん', name: 'LINE LOST' },
 } as const satisfies Record<string, PanelName>;

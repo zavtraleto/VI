@@ -79,7 +79,7 @@ describe('the language of the player', () => {
   it('says the calls in every language: who calls, how long, and the line of the rules', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      for (const key of ['callUnknown', 'callLength', 'callerName', 'howCall'] as const) expect(t(key).length, `${key} ${code}`).toBeGreaterThan(0);
+      for (const key of ['callUnknown', 'callLength', 'howCall'] as const) expect(t(key).length, `${key} ${code}`).toBeGreaterThan(0);
       // Who calls is written in the capitals of the program, on one line of a phone.
       expect(textWidth(t('callUnknown').toLocaleUpperCase(code)), code).toBeLessThanOrEqual(240);
     }
@@ -97,7 +97,7 @@ describe('the language of the player', () => {
 describe('the words of the program a player presses', () => {
   const names = (group: Record<string, unknown>): string[] =>
     Object.values(group).flatMap((value) => (typeof value === 'string' ? [value] : value && typeof value === 'object' && 'name' in value ? [String(value.name)] : []));
-  const said = [...MENU_FILES.flatMap((file) => [file.name, file.field[0]]), MENU_COMMAND.going, MENU_COMMAND.first, ...names(EXEC), ...names(PANELS), ...names(COMMANDS), ...names(RESULT), ...names(SYSTEM), CALL.calls.name, CALL.talks.name, CALL.lineLost.name, RECORDS.title.name, RECORDS.empty.name, RECORDS.nameless, RECORDS.you];
+  const said = [...MENU_FILES.flatMap((file) => [file.name, file.field[0]]), MENU_COMMAND.going, MENU_COMMAND.first, ...names(EXEC), ...names(PANELS), ...names(COMMANDS), ...names(RESULT), ...names(SYSTEM), CALL.calls.name, CALL.lineLost.name, RECORDS.title.name, RECORDS.empty.name, RECORDS.nameless, RECORDS.you];
   const inEvery = (check: (code: string) => void): void => {
     for (const code of LANGUAGES) {
       setLanguage(code);

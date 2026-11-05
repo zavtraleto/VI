@@ -129,7 +129,6 @@ const RU = {
   campaignEnd: 'Продолжение следует. В ожидании новых уровней вы можете попробовать {бесконечный режим}.',
   callUnknown: 'Номер не определён',
   callLength: 'звонок · около трёх минут',
-  callerName: '???',
   // The records of the link, under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md): the window
   // before a record, whose link puts it off; who speaks in it, our side and the other; the word of a record in the
   // line of the sum of the stars. What a record says is in `novel.ts`.
@@ -239,7 +238,6 @@ const EN: typeof RU = {
   campaignEnd: 'To be continued. While new levels are on their way, you can try {endless mode}.',
   callUnknown: 'Number unknown',
   callLength: 'call · about three minutes',
-  callerName: '???',
   novelIntro: 'A new record of the link. {Later}',
   novelOperator: 'OPERATOR',
   novelVoice: 'VOICE',

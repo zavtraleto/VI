@@ -91,7 +91,6 @@ export const PT: Texts = {
   campaignEnd: 'Continua. Enquanto novos níveis não chegam, você pode experimentar o {modo infinito}.',
   callUnknown: 'Número desconhecido',
   callLength: 'chamada · uns três minutos',
-  callerName: '???',
   novelIntro: 'Um novo registro da ligação. {Mais tarde}',
   novelOperator: 'OPERADOR',
   novelVoice: 'VOZ',

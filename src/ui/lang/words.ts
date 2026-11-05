@@ -40,7 +40,6 @@ export const WORDS = {
   DECLINE: { ru: 'СБРОСИТЬ', es: 'RECHAZAR', pt: 'RECUSAR', tr: 'REDDET', de: 'ABLEHNEN', fr: 'REFUSER' },
   'HANG UP': { ru: 'ПОЛОЖИТЬ ТРУБКУ', es: 'COLGAR', pt: 'DESLIGAR', tr: 'KAPAT', de: 'AUFLEGEN', fr: 'RACCROCHER' },
   CALLS: { ru: 'ЗВОНКИ', es: 'LLAMADAS', pt: 'CHAMADAS', tr: 'ARAMALAR', de: 'ANRUFE', fr: 'APPELS' },
-  TALKS: { ru: 'РАЗГОВОРЫ', es: 'CHARLAS', pt: 'CONVERSAS', tr: 'KONUŞMALAR', de: 'GESPRÄCHE', fr: 'ÉCHANGES' },
   'LINE LOST': { ru: 'СВЯЗЬ ПРЕРВАЛАСЬ', es: 'SIN LÍNEA', pt: 'LINHA CAIU', tr: 'HAT KOPTU', de: 'LEITUNG WEG', fr: 'LIGNE COUPÉE' },
   // A record of the link, under `?novel`: the word of `novelRecord` in `src/ui/i18n.ts`.
   RECORD: { ru: 'ЗАПИСЬ', es: 'REGISTRO', pt: 'REGISTRO', tr: 'KAYIT', de: 'AUFNAHME', fr: 'BANDE' },

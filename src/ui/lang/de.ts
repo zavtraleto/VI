@@ -91,7 +91,6 @@ export const DE: Texts = {
   campaignEnd: 'Fortsetzung folgt. Bis neue Level kommen, kannst du den {Endlosmodus} ausprobieren.',
   callUnknown: 'Nummer unbekannt',
   callLength: 'Anruf · etwa drei Minuten',
-  callerName: '???',
   novelIntro: 'Eine neue Aufzeichnung der Verbindung. {Später}',
   novelOperator: 'OPERATOR',
   novelVoice: 'STIMME',

@@ -12,7 +12,7 @@ function saved(settings: object | null): void {
 afterEach(() => vi.unstubAllGlobals());
 
 /** What a player who has had no call keeps of them; the gap to the first is drawn at random. */
-const NO_CALLS = { done: 0, since: 0, gap: expect.any(Number), came: false, stats: {}, heard: [] };
+const NO_CALLS = { done: 0, since: 0, gap: expect.any(Number), came: false, stats: {} };
 
 describe('the experiments a player has saved', () => {
   it('start from the defaults of the rules where nothing was saved', () => {
@@ -251,21 +251,27 @@ describe('the calls a player has had', () => {
   it('are none in a new save', () => {
     saved(null);
     const { calls } = loadSettings().levels;
-    expect(calls).toMatchObject({ done: 0, since: 0, came: false, stats: {}, heard: [] });
+    expect(calls).toMatchObject({ done: 0, since: 0, came: false, stats: {} });
     expect(calls.gap).toBeGreaterThanOrEqual(8);
     expect(calls.gap).toBeLessThanOrEqual(14);
   });
 
   it('come back as they were kept', () => {
-    const calls = { done: 3, since: 5, gap: 11, came: true, stats: { 'call-1': { best: 900, plays: 2 } }, heard: [1, 2] };
+    const calls = { done: 3, since: 5, gap: 11, came: true, stats: { 'call-1': { best: 900, plays: 2 } } };
     saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: {}, calls } });
+    expect(loadSettings().levels.calls).toEqual(calls);
+  });
+
+  it('forget the talks heard that a save from before 5 November 2026 kept', () => {
+    const calls = { done: 3, since: 5, gap: 11, came: true, stats: {} };
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: {}, calls: { ...calls, heard: [1, 2] } } });
     expect(loadSettings().levels.calls).toEqual(calls);
   });
 
   it('are brought over from the live sessions a save from before them played, and the sessions are kept', () => {
     saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: { 'live-1': { best: 900, plays: 3 }, 'live-2': { best: 10, plays: 0 } } } });
     const { levels } = loadSettings();
-    expect(levels.calls).toMatchObject({ came: true, done: 1, since: 0, stats: {}, heard: [] });
+    expect(levels.calls).toMatchObject({ came: true, done: 1, since: 0, stats: {} });
     expect(levels.lives).toEqual({ 'live-1': { best: 900, plays: 3 }, 'live-2': { best: 10, plays: 0 } });
     saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: { 'live-1': { best: 1, plays: 1 }, 'live-2': { best: 1, plays: 1 }, 'live-3': { best: 1, plays: 1 } } } });
     expect(loadSettings().levels.calls).toMatchObject({ came: true, done: 2 });
@@ -278,8 +284,8 @@ describe('the calls a player has had', () => {
     const settings = loadSettings();
     expect(settings.levels.calls).toMatchObject({ came: true, done: 1 });
     expect(settings.muted).toBe(true);
-    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], calls: { done: 1, since: 2, gap: 9, came: true, stats: { 'call-1': { best: 'x' }, 'call-2': { best: 5, plays: 1 } }, heard: [1, 'a'] } } });
-    expect(loadSettings().levels.calls).toEqual({ done: 1, since: 2, gap: 9, came: true, stats: { 'call-2': { best: 5, plays: 1 } }, heard: [1] });
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], calls: { done: 1, since: 2, gap: 9, came: true, stats: { 'call-1': { best: 'x' }, 'call-2': { best: 5, plays: 1 } } } } });
+    expect(loadSettings().levels.calls).toEqual({ done: 1, since: 2, gap: 9, came: true, stats: { 'call-2': { best: 5, plays: 1 } } });
   });
 });
 

@@ -24,7 +24,7 @@
 | `progression_completed` | уровень пройден; сеанс вживую дожил до конца часов; уровень внутри сеанса Endless (`step_id` `<режим>_level`) | уровень: `moves`, `left`, `limit`, `par`, `undos`, `try`, `hinted`, `duration_sec`, `stars`; сеанс: сводка `runSummary`; уровень сеанса: `levelSummary` |
 | `progression_failed` | уровень или сеанс не дошёл | `reason`: `moves`, `stuck` (тупик), `full` (доска полна), `left` (ушёл в меню или к списку LEVELS), `restart`, `declined` (сбросил звонок; до 5 ноября 2026 — `skipped`, пропустил сеанс вживую); с теми же полями, что и `completed`, у уровня ещё `short` |
 | `call_offered` | встал экран входящего вызова (с 5 ноября 2026) | `step_id` (`call-<ступень>`), `step_index` — номер пройденного места, `since` — досок с прошлого звонка |
-| `call_heard` | разговор со звонящим дослушан или пропущен (с 5 ноября 2026) | `step_id`, `skipped` |
+| `call_heard` | **снято 5 ноября 2026 вместе с разговором (0.2.114).** Было: разговор со звонящим дослушан или пропущен | `step_id`, `skipped` |
 | `progression_resumed` | продолжен сохранённый сеанс | `step_id`, `duration_sec` |
 | `session_checkpoint` | каждая целая минута сеанса Endless | `minute`, `score`, `level`, `cubes`, `removed`, `max_chain`, `danger_sec` |
 | `tutorial_hint` | показана подсказка обучения (один раз на игрока) | `hint`: `hintMount`, `hintLow`, `hintChain`, `hintFloor`, `hintOne` |

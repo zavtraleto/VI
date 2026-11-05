@@ -91,7 +91,6 @@ export const TR: Texts = {
   campaignEnd: 'Devamı gelecek. Yeni bölümler gelene kadar {sonsuz modu} deneyebilirsin.',
   callUnknown: 'Numara bilinmiyor',
   callLength: 'arama · yaklaşık üç dakika',
-  callerName: '???',
   novelIntro: 'Bağlantının yeni bir kaydı. {Sonra}',
   novelOperator: 'OPERATÖR',
   novelVoice: 'SES',

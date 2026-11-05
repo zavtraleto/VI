@@ -569,31 +569,27 @@ export function storyPanel(
   return { title: PANELS.story, home, back: actions.onBack, rows };
 }
 
-/** A line of the screen of `ENDLESS`: a call that has come, by its step and its best; or a talk heard, by its step and its title. */
-export type CallsEntry = { kind: 'call'; step: number; best: number } | { kind: 'talk'; step: number; title: string };
+/** A line of the screen of `ENDLESS`: a call that has come, by its step and its best. */
+export interface CallsEntry {
+  step: number;
+  best: number;
+}
 
 /**
  * What the file `ENDLESS` of the menu opens once a call has come (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md,
  * section 7.4): free Endless first, then the calls that have come, each to be played again with no
- * screen of the call before it, then the talks heard, each to be heard again. A call that has not
- * come is not shown: what comes next, the game does not say. Modelled on `storyPanel`.
+ * screen of the call before it. A call that has not come is not shown: what comes next, the game does
+ * not say. The talks heard are gone with the talks (5 November 2026). Modelled on `storyPanel`.
  */
 export function callsPanel(
   entries: readonly CallsEntry[],
-  actions: { onPlay: () => void; onCall: (step: number) => void; onTalk: (step: number) => void; onBack: () => void },
+  actions: { onPlay: () => void; onCall: (step: number) => void; onBack: () => void },
   home = 'play',
 ): PanelSpec {
   const rows: PanelRow[] = [{ kind: 'command', id: 'play', label: { native: EXEC.play.native, name: EXEC.play.name }, action: actions.onPlay }];
-  const calls = entries.filter((entry) => entry.kind === 'call');
-  const talks = entries.filter((entry) => entry.kind === 'talk');
-  if (calls.length > 0) rows.push({ kind: 'gap' });
-  for (const entry of calls) {
+  if (entries.length > 0) rows.push({ kind: 'gap' });
+  for (const entry of entries) {
     rows.push({ kind: 'command', id: `call-${entry.step}`, label: { native: CALL.calls.native, name: `${digits(entry.step, 2)} · ${digits(entry.best, 6)}` }, action: () => actions.onCall(entry.step) });
-  }
-  if (talks.length > 0) rows.push({ kind: 'gap' });
-  for (const entry of talks) {
-    if (entry.kind !== 'talk') continue;
-    rows.push({ kind: 'command', id: `talk-${entry.step}`, label: { native: CALL.talks.native, name: `${digits(entry.step, 2)} · ${entry.title.toUpperCase()}` }, action: () => actions.onTalk(entry.step) });
   }
   rows.push({ kind: 'gap' }, { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
   return { title: PANELS.endless, home, back: actions.onBack, rows };

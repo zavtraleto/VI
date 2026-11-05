@@ -62,7 +62,7 @@ export interface LevelProgress {
    * kept as it is, read only to bring a save over to `calls`.
    */
   lives: Record<string, { best: number; plays: number }>;
-  /** The calls (src/app/calls.ts): their step, the count to the next, the best of every step, the talks heard. */
+  /** The calls (src/app/calls.ts): their step, the count to the next, the best of every step. */
   calls: CallProgress;
 }
 
@@ -267,11 +267,8 @@ function mend(loaded: Loose, fallback: Settings): boolean {
     if (calls) {
       const stats = table(calls, 'stats', (stat) => isRecord(stat) && isNumber(stat.best) && isNumber(stat.plays));
       if (!stats) calls.stats = {};
-      const heard = calls.heard as unknown[];
-      if (!heard.every(isNumber)) {
-        calls.heard = heard.filter(isNumber);
-        broken = true;
-      }
+      // The talks heard were kept here until the talks were taken out of the game (5 November 2026).
+      delete calls.heard;
     }
     const lives = table(levels, 'lives', isRecord);
     for (const live of Object.values(lives ?? {}) as Loose[]) {
@@ -289,7 +286,7 @@ function mend(loaded: Loose, fallback: Settings): boolean {
 /** The form of what is kept of the calls: its counts, whether one came, its table and its list. */
 function isCalls(value: unknown): boolean {
   if (!isRecord(value)) return false;
-  return isNumber(value.done) && isNumber(value.since) && isNumber(value.gap) && isFlag(value.came) && isRecord(value.stats) && Array.isArray(value.heard);
+  return isNumber(value.done) && isNumber(value.since) && isNumber(value.gap) && isFlag(value.came) && isRecord(value.stats);
 }
 
 function isRunRecord(value: unknown): value is RunRecord {

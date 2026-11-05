@@ -94,7 +94,6 @@ export const FR: Texts = {
   campaignEnd: 'À suivre. En attendant de nouveaux niveaux, tu peux essayer le {mode infini}.',
   callUnknown: 'Numéro inconnu',
   callLength: 'appel · environ trois minutes',
-  callerName: '???',
   novelIntro: 'Un nouvel enregistrement de la liaison. {Plus tard}',
   novelOperator: 'OPÉRATEUR',
   novelVoice: 'VOIX',

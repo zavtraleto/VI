@@ -31,7 +31,7 @@ describe('the lines of scenes', () => {
   });
 
   it('say nothing of the seventh place being filled, and no dates of 2001 (the novel goes by variant A)', () => {
-    const gone = ['b02', 'b09', 'b12', 'c06', 'd03', 'd10', 'd12'];
+    const gone = ['b02', 'b09', 'b12', 'c06', 'd03', 'd10', 'd12', 'd14'];
     expect(SCENE_LINES.filter((line) => gone.includes(line.id))).toEqual([]);
   });
 

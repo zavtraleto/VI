@@ -58,7 +58,7 @@ import { GameHud, type HudCounter, type HudLabel, type HudLock, type HudSeal, ty
 import { Climb } from '../shell/climb';
 import { clearedPanel, languagePanel, levelIntroPanel, levelResultPanel, levelRulesPanel, levelsPanel, callResultPanel, callsPanel, pausePanel, readmePanel, recordsPanel, resultPanel, storyPanel, systemPanel, type CallsEntry, type StoryEntry, type SystemValues } from '../shell/panels';
 import { Shell } from '../shell/shell';
-import { CALL, COMMANDS, LANGUAGE_NAMES, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
+import { COMMANDS, LANGUAGE_NAMES, LOGO_TEXT, PANELS, RECORDS, digits, type PanelName } from '../shell/text';
 import { shellDefaults } from '../shell/theme';
 import { boardShapes, boxCorners, pickCell, type CellShape } from './tapPick';
 import { makesGroup, planTap, stepHolds } from './tapWay';
@@ -69,7 +69,6 @@ import { novelEpisode } from '../ui/novel';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive, liveArchive } from './archive';
 import { callCame, callCode, callDone, callDue, callStep, callsPlayed, countBoard, noteCall, raiseCall, type CallEnd } from './calls';
-import { callEpisode } from '../ui/calls';
 import { clockGone, secondsLeft } from './clock';
 import { Hints } from './hints';
 import { shortOf } from './levelStats';
@@ -1281,9 +1280,10 @@ export class Game {
    * The result of a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 6):
    * what it came to is kept and told, and the panel says it. A call that faded out, or was hung up
    * after a minute, is seen to its end and raises the step, where it is the step the calls stand at.
-   * Once the panel is left, a call seen to its end has its talk, where the talk of its step has not
-   * been heard; otherwise the program answers as after a session. After it the platform may show
-   * its advertisement, as after a session of Endless.
+   * Once the panel is left, the program answers with the scene of the call and a line of the voices on
+   * the line under it; the talk with the caller after a call is gone (the owner, 5 November 2026:
+   * «после звонков - убирай, пока не нужно и очень сложно»). After it the platform may show its
+   * advertisement, as after a session of Endless.
    */
   private endCall(how: CallEnd): void {
     const { state } = this;
@@ -1314,14 +1314,7 @@ export class Game {
       this.shell.hide();
       // An advertisement watched for the doubled score is the advertisement of this result: none comes after it.
       const after = (): void => (doubled ? next() : interstitial('live_end', data, number, next));
-      const talk = done && !calls.heard.includes(step) ? callEpisode(step, language()) : null;
-      if (!talk) {
-        this.signal.answer(step, after);
-        return;
-      }
-      calls.heard.push(step);
-      saveSettings(this.settings);
-      this.showTalk(step, after);
+      this.signal.answer(step, after);
     };
     let offered = platform.rewardedSupported;
     if (offered) platform.track('reward_offered', { placement: 'double_score', ...data });
@@ -1376,35 +1369,8 @@ export class Game {
   }
 
   /**
-   * The talk with the caller after a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md,
-   * section 8): as a record of the link is shown (`SignalPlayer.record`), over the place of a record
-   * of the novel by the step of the call, the early ones light and the later darker, with no figure in
-   * it: the caller has none yet. `onClose` comes after it; it is told whether it was heard to its end.
-   */
-  private showTalk(step: number, onClose: () => void): void {
-    const episode = callEpisode(step, language());
-    if (!episode) return onClose();
-    let whole = false;
-    const names = { caller: t('callerName'), program: '' };
-    this.signal.record({
-      code: `n${digits(Math.min(7, Math.max(1, step)), 2)}`,
-      title: `${word(CALL.talks.name)} ${digits(step, 2)} · ${episode.title.toUpperCase()}`,
-      skip: word(COMMANDS.skip.name),
-      lines: episode.lines.map(({ who, text }) => ({ who, name: names[who], text })),
-      figure: false,
-      wordMs: Number(this.look.board.hintWordMs),
-      reduced: prefersReducedMotion(this.settings),
-      onLast: () => (whole = true),
-      onDone: () => {
-        platform.track('call_heard', { step_id: callCode(step), skipped: !whole });
-        onClose();
-      },
-    });
-  }
-
-  /**
-   * What the file `ENDLESS` opens once a call has come (section 7.4): free Endless, the calls that have
-   * come to play again, and the talks heard to hear again.
+   * What the file `ENDLESS` opens once a call has come (section 7.4): free Endless, and the calls that
+   * have come to play again.
    */
   private showCalls(home?: string): void {
     this.leaveRun('menu');
@@ -1414,13 +1380,7 @@ export class Game {
     this.audio.setPaused(true);
     this.tools?.hide();
     const { calls } = this.settings.levels;
-    const entries: CallsEntry[] = [
-      ...callsPlayed(calls).map((step): CallsEntry => ({ kind: 'call', step, best: calls.stats[callCode(step)]?.best ?? 0 })),
-      ...[...calls.heard].sort((a, b) => a - b).flatMap((step): CallsEntry[] => {
-        const episode = callEpisode(step, language());
-        return episode ? [{ kind: 'talk', step, title: episode.title }] : [];
-      }),
-    ];
+    const entries: CallsEntry[] = callsPlayed(calls).map((step) => ({ step, best: calls.stats[callCode(step)]?.best ?? 0 }));
     this.shell.showPanel(
       callsPanel(
         entries,
@@ -1437,7 +1397,6 @@ export class Game {
             this.audio.setPaused(false);
             this.startCall(step, 'endless');
           },
-          onTalk: (step) => this.showTalk(step, () => this.showCalls(`talk-${step}`)),
           onBack: () => this.showMenu('protocol'),
         },
         home,
