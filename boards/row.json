@@ -5,12 +5,12 @@
       "places": [
         { "board": "R01", "role": "meet", "archetype": "roll", "emotion": "gift", "help": { "sign": "N", "plaques": "near", "wait": "first", "camera": "hold" } },
         { "board": "side-up-1", "role": "learn", "archetype": "ride", "emotion": "gift", "help": { "plaques": "near", "wait": "lesson", "camera": "hold" } },
+        { "board": "three-under-1", "role": "meet", "teaches": "seven", "archetype": "the face under", "emotion": "insight", "event": "the rule of seven", "help": { "hint": "hintSeven", "plaques": "near", "wait": "free", "camera": "hold" } },
         { "board": "R03", "role": "apply", "archetype": "first free board", "emotion": "insight", "event": "first free board", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
         { "board": "B01_s290", "role": "meet", "teaches": "loop", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "a straight roll turns the face away", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
         { "board": "H06", "role": "apply", "archetype": "three 3s: one roll, then the die beside", "emotion": "flow", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
         { "board": "H08", "role": "apply", "archetype": "the way round keeps the face", "emotion": "mastery", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "three-under-1", "role": "meet", "teaches": "seven", "archetype": "the face under", "emotion": "insight", "event": "the rule of seven", "help": { "hint": "hintSeven", "plaques": "near", "wait": "free", "camera": "hold" } }
+        { "board": "fours-short-rolls-1", "role": "apply", "archetype": "the way round keeps the face, on 4s", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } }
       ]
     },
     {
@@ -24,7 +24,7 @@
         { "board": "P07", "role": "peak", "archetype": "two combos from one die", "emotion": "fiero" },
         { "board": "C1-07", "role": "rest", "archetype": "collapse", "emotion": "payoff", "event": "first big clearing, with a way to it" },
         { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "emotion": "insight", "event": "first chain", "help": { "hint": "roadHintChain", "camera": "cells" } },
-        { "board": "act-k17", "role": "apply", "archetype": "the face under, by a link", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } }
+        { "board": "R08", "role": "apply", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } }
       ]
     },
     {
@@ -39,14 +39,14 @@
       "places": [
         { "board": "P02", "role": "apply", "archetype": "bridge to a link", "emotion": "recognition", "help": { "plaques": "near" } },
         { "board": "which-first-3", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "R08", "role": "apply", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } },
-        { "board": "first-sixes-1", "role": "event", "archetype": "ready heap", "emotion": "payoff", "event": "first sixes" },
+        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition" },
+        { "board": "first-fours-1", "role": "event", "archetype": "a heap and a link over leaving dice", "emotion": "payoff", "event": "first fours" },
         { "board": "roll-in-1", "role": "meet", "teaches": "glass", "archetype": "roll into leaving", "emotion": "surprise", "event": "the leaving die is a cell", "help": { "hint": "hintRollIn" } },
         { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "emotion": "insight" },
         { "board": "two-pairs-1", "role": "apply", "archetype": "two pairs, the walk to a link", "emotion": "recognition" },
         { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
-        { "board": "first-fours-1", "role": "event", "archetype": "a heap and a link over leaving dice", "emotion": "payoff", "event": "first fours" },
-        { "board": "P24", "role": "rest", "archetype": "domino in a corridor", "emotion": "flow", "event": "first corridor" },
+        { "board": "fives-in-four-1", "role": "apply", "archetype": "K on 5: five fives in four rolls", "emotion": "relief" },
+        { "board": "sixes-make-room-1", "role": "rest", "archetype": "six sixes: step aside, let one in, come back", "emotion": "payoff", "note": "an easy place with a fine end before the live session (VI_One_More_Level_Research.md, conclusions, 1)" },
         { "board": "domino-3", "role": "event", "archetype": "long domino over leaving dice", "emotion": "flow", "event": "a long chain" }
       ]
     },
@@ -196,7 +196,7 @@
     }
   ],
   "lives": [
-    { "after": "act-k17", "step": 1 },
+    { "after": "R08", "step": 1 },
     { "after": "domino-3", "step": 2 },
     { "after": "collapse-3", "step": 3, "note": "about the 43rd place, after a rest; step 3" },
     { "after": "ones-over-leaving-1", "step": 4, "note": "about the 55th place, after a rest; step 4" },

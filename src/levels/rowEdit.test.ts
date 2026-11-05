@@ -134,7 +134,7 @@ describe('rowFileText', () => {
     expect(() => buildRow(next, texts)).toThrow(`row: ${name}: the file says status`);
     for (const [code, status] of Object.entries(statuses)) texts.set(code, withStatus(texts.get(code)!, status));
     const row = buildRow(readRowFile(rowFileText(next)), texts);
-    expect(row.places[3].code).toBe(name);
+    expect(row.places[row.places.findIndex((place) => place.code === 'R03') + 1].code).toBe(name);
     expect(row.places).toHaveLength(buildRow(file, BOARD_TEXTS).places.length + 1);
   });
 });

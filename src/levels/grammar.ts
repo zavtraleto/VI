@@ -432,11 +432,11 @@ export const REPEAT_FROM = 31;
  * of the row lets them be, and the table and the workshop mark them (`KNOWN_REPEAT`). The rebuild empties it.
  */
 export const KNOWN_REPEATS: readonly string[] = [
-  'места 5 (H06) и 62 (hidden-face-1): одна раскладка',
+  'места 6 (H06) и 62 (hidden-face-1): одна раскладка',
   'места 9 (which-first-2) и 65 (R09): одна мысль — K K, twoFaces, грани 2 3',
   'места 13 (P07) и 67 (C2-05): одна мысль — K K, seven twoFaces, грани 2 3',
-  'места 3 (R03) и 70 (dd-25-pocket): одна раскладка',
-  'места 6 (H08) и 70 (dd-25-pocket): одна мысль — K, loop, грани 2',
+  'места 4 (R03) и 70 (dd-25-pocket): одна раскладка',
+  'места 7 (H08) и 70 (dd-25-pocket): одна мысль — K, loop, грани 2',
   'места 66 (fixed-combo-1) и 73 (dd-11-wood-pushes): одна мысль — K, грани 4',
   'места 23 (C1-05) и 75 (chaser-1): одна мысль — K ~ L, glass link walk, грани 3',
   'места 57 (climb-twos-threes-4) и 76 (act-k25): одна раскладка',
@@ -445,9 +445,11 @@ export const KNOWN_REPEATS: readonly string[] = [
   'места 59 (under-fives-1) и 83 (dd-21-wood-fives): одна раскладка',
   'места 84 (dd-14-turn-to-fours) и 85 (dd-72-fours-and-one): одна мысль — K, грани 4',
   'места 47 (rescue-3) и 92 (rescue-4): одна мысль — K v Q, lift link push seven, грани 4',
-  'места 7 (H07) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
-  'места 7 (H07) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
+  'места 20 (H07) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
+  'места 20 (H07) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
   'места 95 (dd-13-stone-row) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
+  // 26 since the playtest of 5 November 2026; last-rest-1 leaves the 99th place at step 2 of the rebuild.
+  'места 26 (fives-in-four-1) и 99 (last-rest-1): одна раскладка',
 ];
 
 /** Whether a breach is one of the repeats known till the row is rebuilt. */
