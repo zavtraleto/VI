@@ -6,11 +6,11 @@
         { "board": "R01", "role": "meet", "archetype": "roll", "emotion": "gift", "help": { "sign": "N", "plaques": "near", "wait": "first", "camera": "hold" } },
         { "board": "side-up-1", "role": "learn", "archetype": "ride", "emotion": "gift", "help": { "plaques": "near", "wait": "lesson", "camera": "hold" } },
         { "board": "three-under-1", "role": "meet", "teaches": "seven", "archetype": "the face under", "emotion": "insight", "event": "the rule of seven", "help": { "hint": "hintSeven", "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "R03", "role": "apply", "archetype": "first free board", "emotion": "insight", "event": "first free board", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "B01_s290", "role": "meet", "teaches": "loop", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "a straight roll turns the face away", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "step-lesson-1", "role": "learn", "archetype": "the step: your die is locked in, step onto the next one", "emotion": "insight", "note": "the lesson of the step before H06, the first board that needs it (the owner's word of 5 November, «Доска-урок»)", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
         { "board": "H06", "role": "apply", "archetype": "three 3s: one roll, then the die beside", "emotion": "flow", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "H08", "role": "apply", "archetype": "the way round keeps the face", "emotion": "mastery", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "fours-short-rolls-1", "role": "apply", "archetype": "the way round keeps the face, on 4s", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } }
+        { "board": "B01_s290", "role": "meet", "teaches": "loop", "archetype": "the way round keeps the face", "emotion": "surprise", "event": "a straight roll turns the face away", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "fours-short-rolls-1", "role": "apply", "archetype": "the way round keeps the face, on 4s", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
+        { "board": "H08", "role": "apply", "archetype": "the way round keeps the face", "emotion": "mastery", "help": { "plaques": "near", "wait": "free", "camera": "hold" } }
       ]
     },
     {

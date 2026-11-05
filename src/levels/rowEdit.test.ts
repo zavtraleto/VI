@@ -129,12 +129,12 @@ describe('rowFileText', () => {
       }
     })());
     expect(name).toBeDefined();
-    const { file: next, statuses } = rowEdit(file, { op: 'insert', board: name!, chapter: 0, after: 'R03', place: { role: 'apply', archetype: 'test', help: helpNear(file, 0, 'R03') } });
+    const { file: next, statuses } = rowEdit(file, { op: 'insert', board: name!, chapter: 0, after: 'three-under-1', place: { role: 'apply', archetype: 'test', help: helpNear(file, 0, 'three-under-1') } });
     const texts = new Map(BOARD_TEXTS);
     expect(() => buildRow(next, texts)).toThrow(`row: ${name}: the file says status`);
     for (const [code, status] of Object.entries(statuses)) texts.set(code, withStatus(texts.get(code)!, status));
     const row = buildRow(readRowFile(rowFileText(next)), texts);
-    expect(row.places[row.places.findIndex((place) => place.code === 'R03') + 1].code).toBe(name);
+    expect(row.places[row.places.findIndex((place) => place.code === 'three-under-1') + 1].code).toBe(name);
     expect(row.places).toHaveLength(buildRow(file, BOARD_TEXTS).places.length + 1);
   });
 });

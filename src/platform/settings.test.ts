@@ -188,9 +188,9 @@ describe('the place in the row a player has saved', () => {
   });
 
   it('is the piece a save of the seventh edition of the road stood on, with all it passed', () => {
-    saved({ levels: { passed: { R01: true, R02: true }, stats: {}, road: 'R03', roadEdition: 7 } });
+    saved({ levels: { passed: { R01: true, R02: true }, stats: {}, road: 'side-up-1', roadEdition: 7 } });
     const { levels } = loadSettings();
-    expect(levels).toEqual({ passed: { R01: true, R02: true }, stats: {}, told: [], lives: {}, at: 'R03', rowEdition: ROW_EDITION });
+    expect(levels).toEqual({ passed: { R01: true, R02: true }, stats: {}, told: [], lives: {}, at: 'side-up-1', rowEdition: ROW_EDITION });
   });
 
   it('starts again in a save of any edition before the seventh: the stars and the place dropped, what the player was told kept', () => {

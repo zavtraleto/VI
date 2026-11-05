@@ -45,8 +45,8 @@ describe('the faces a level asks for', () => {
     expect(goalFaces(broom)).toEqual([4, 1]);
     const ones = goalOf(broom).find((goal) => goal.face === 1)!;
     expect(ones.dice).toBeGreaterThan(0);
-    expect(goalFaces(placed('R03'))).not.toContain(1);
+    expect(goalFaces(placed('three-under-1'))).not.toContain(1);
     // A board that keeps no way shows the faces it names, and a 1 among them does not come up.
-    expect(goalFaces({ ...placed('R03'), solution: undefined, faces: [1, 3] })).toEqual([3]);
+    expect(goalFaces({ ...placed('three-under-1'), solution: undefined, faces: [1, 3] })).toEqual([3]);
   });
 });
