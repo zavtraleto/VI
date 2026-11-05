@@ -73,7 +73,7 @@
 
 | # | Что | Где | Кому | Разм. | Проверка | Нужно от владельца |
 |---|---|---|---|---|---|---|
-| W1 | Пересборка мест 61–100 (шаг 2 плана), потом шаг 3; сначала досчитать кэш пяти мест без D | `boards/row.json`, `boards/*.txt`, [план](docs/superpowers/plans/2026-10-28-vi-rebuild-31-100.md) | game-designer → developer | L | `node scripts/ladder.mjs campaign`, `node scripts/row.mjs check`, `npm test`; qa — 360×640 | `Q1`, `Q2` |
+| W1 | Пересборка мест 61–100 (шаг 2 плана): **открыта для 61–80** словом владельца 5 ноября; бриф по местам — директор в роли `level-designer`, строит game-designer по десятку, одна версия на двадцатку, потом его плейтест 61–80; 81–100 и шаг 3 — после | `boards/row.json`, `boards/*.txt`, [план](docs/superpowers/plans/2026-10-28-vi-rebuild-31-100.md); снимок 61–80 — [плейтест 4 ноября](docs/VI_Levels_Playtest_2026-11-04.md), раздел 14 | game-designer → developer | L | `node scripts/ladder.mjs campaign`, `node scripts/row.mjs check`, `npm test`; qa — 360×640 | `Q2`: 10.2, 10.4, 10.6 и «ок» на 81–100 |
 | W2 | Окно первого сеанса вживую говорит, что правило пола другое; семь языков, сверка с Lore и Claims | `src/ui/i18n.ts` (`liveIntro`), `src/ui/lang/` | ui-ux-designer | S | qa — место 16 на двух экранах и двух языках | `Q3` |
 | W3 | Петля возврата: два-три варианта словами | — | game-designer | S | обсуждение с владельцем | `Q4`, `Q5` |
 | W5 | Остаток CrazyGames: обложки 1920×1080 / 800×1200 / 800×800, видео 15–20 с, Safari и iOS, читаемость при dpr 1 в окнах 907×510 и 800×450, отправка | `platforms/crazygames/README.md`, [исследование](docs/VI_CrazyGames_Research.md) | владелец (обложки, видео); qa-engineer (проверки) | S–M | список требований исследования закрыт | `Q7` |
