@@ -8,7 +8,7 @@
 
 ## 1. Что сеансы сейчас
 
-Правила — [VI_Endless_Rules.md](VI_Endless_Rules.md), раздел 13; спека — [сеансы вживую](superpowers/specs/2026-10-22-vi-live-sessions-design.md) (построено в 0.2.79, 23 октября 2026). Ниже — по коду на 5 ноября 2026, версия 0.2.102.
+Правила — [VI_Endless_Rules.md](VI_Endless_Rules.md), раздел 13; спека — сеансы вживую (`docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md`, в истории git, коммит `9e9d6dd`) (построено в 0.2.79, 23 октября 2026). Ниже — по коду на 5 ноября 2026, версия 0.2.102.
 
 **Где стоят.** Список `lives` в `boards/row.json`; номера досок не сдвигаются, код сеанса — `live-<ступень>`.
 
@@ -74,7 +74,7 @@
 
 ### 2.2. Слова владельца по датам
 
-Дословно — [VI_Owner_Words.md](VI_Owner_Words.md), разделы 2, 6 и 10; [отдых в кампании](VI_Rest_And_Bonus_Research.md), разделы 1 и 9; [спека сеансов](superpowers/specs/2026-10-22-vi-live-sessions-design.md), раздел 1.
+Дословно — [VI_Owner_Words.md](VI_Owner_Words.md), разделы 2, 6 и 10; [отдых в кампании](VI_Rest_And_Bonus_Research.md), разделы 1 и 9; спека сеансов (`docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md`, в истории git, коммит `9e9d6dd`), раздел 1.
 
 | Дата | Слово | Вошло в сборку? |
 |---|---|---|

@@ -3,7 +3,7 @@
 > Вид: решение. Статус: в силе (принято владельцем 23 октября 2026 в чате планирования релиза на Fable; построено 23 октября 2026, v0.2.80; что вышло иначе — раздел 6). Дата: 2026-10-23.
 > Что заменило: —. Что живёт в коде: `src/platform/platform.ts` (`rewardedSupported`, `rewarded`), `platforms/playgama/adapter.ts`, `platforms/playgama/playgama-bridge-config.json`, `src/app/game.ts` (`wayOffered`, `askWay`, `wayShown`, `WAY_AFTER_STUCK`, `showPause`, `showLiveResult`), `src/app/wayPress.ts`, `src/shell/panels.ts`, `src/platform/settings.ts` (`hinted`, `raiseLive`).
 
-Исполнитель читает эту спеку и файлы раздела 4. Строится после [сеансов вживую](2026-10-22-vi-live-sessions-design.md) и рекламы за отмены (убрана из дерева: `git show 39406a6:docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md`), которые уже в `main` (0.2.79).
+Исполнитель читает эту спеку и файлы раздела 4. Строится после сеансов вживую (`docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md`, в истории git, коммит `9e9d6dd`) и рекламы за отмены (убрана из дерева: `git show 39406a6:docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md`), которые уже в `main` (0.2.79).
 
 ## 1. Слова владельца, 23 октября 2026
 

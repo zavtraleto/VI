@@ -1,6 +1,6 @@
 # VI — аналитика
 
-> Вид: истина. Статус: в силе. Дата: 2026-11-04. Проверено: 2026-11-04.
+> Вид: истина. Статус: в силе. Дата: 2026-11-04. Проверено: 2026-11-05.
 > Что заменило: —. Что живёт в коде: `src/app/telemetry.ts`, `src/app/health.ts`, `src/app/adverts.ts`, `src/app/leaving.ts`, вызовы `platform.track` в `src/app/game.ts` и `src/platform/storage.ts`.
 > Какие события игра шлёт в аналитику площадки, с какими полями, и куда они уходят на каждой площадке.
 
@@ -22,7 +22,9 @@
 |---|---|---|
 | `progression_started` | начат уровень, сеанс Endless или сеанс вживую; первый уровень, на котором открылась программа, — с первым ходом | `step_id` (`level_<код>`, `endless`, код сеанса вживую), `step_index` (номер в ряду), у уровня `try` |
 | `progression_completed` | уровень пройден; сеанс вживую дожил до конца часов; уровень внутри сеанса Endless (`step_id` `<режим>_level`) | уровень: `moves`, `left`, `limit`, `par`, `undos`, `try`, `hinted`, `duration_sec`, `stars`; сеанс: сводка `runSummary`; уровень сеанса: `levelSummary` |
-| `progression_failed` | уровень или сеанс не дошёл | `reason`: `moves`, `stuck` (тупик), `full` (доска полна), `left` (ушёл в меню или к списку LEVELS), `restart`, `skipped` (пропустил сеанс вживую); с теми же полями, что и `completed`, у уровня ещё `short` |
+| `progression_failed` | уровень или сеанс не дошёл | `reason`: `moves`, `stuck` (тупик), `full` (доска полна), `left` (ушёл в меню или к списку LEVELS), `restart`, `declined` (сбросил звонок; до 5 ноября 2026 — `skipped`, пропустил сеанс вживую); с теми же полями, что и `completed`, у уровня ещё `short` |
+| `call_offered` | встал экран входящего вызова (с 5 ноября 2026) | `step_id` (`call-<ступень>`), `step_index` — номер пройденного места, `since` — досок с прошлого звонка |
+| `call_heard` | разговор со звонящим дослушан или пропущен (с 5 ноября 2026) | `step_id`, `skipped` |
 | `progression_resumed` | продолжен сохранённый сеанс | `step_id`, `duration_sec` |
 | `session_checkpoint` | каждая целая минута сеанса Endless | `minute`, `score`, `level`, `cubes`, `removed`, `max_chain`, `danger_sec` |
 | `tutorial_hint` | показана подсказка обучения (один раз на игрока) | `hint`: `hintMount`, `hintLow`, `hintChain`, `hintFloor`, `hintOne` |
@@ -31,7 +33,7 @@
 
 Значения обучения Endless (`tutorial`, `tutorial_step`) и пазлов (`task`) ушли вместе с их кодом 15 октября 2026. У уровня `step_id` — `level_<id>`, например `level_P06`; в событиях попытки уровня (`progression_completed`, `progression_failed`) с 0.2.80 есть `hinted` — показан ли на этой попытке путь доски за рекламу.
 
-Сеанс вживую (с 0.2.79): `step_id` — код сеанса `live-<ступень>` (`live-1` … `live-7`), `step_index` — номер места, после которого он стоит (с 0.2.85 — 16, 28, 43, 56, 71, 85, 92). `progression_started` — начало сеанса; `progression_completed` — сеанс дошёл до конца по часам, со сводкой сессии и `ticks`; `progression_failed` с `reason`: `full` — поле заполнилось раньше часов, `skipped` — ссылка «пропустить» в окне перед сеансом (только `step_id` и `step_index`), `left` — уход в меню, `restart` — заново из паузы. `session_checkpoint` и уровни сессии (`endless_level`) сеанс не шлёт.
+Звонок (с 5 ноября 2026, [спека звонков](superpowers/specs/2026-11-05-vi-live-calls-design.md), раздел 10; до того — сеанс вживую с кодами `live-<ступень>`, с 0.2.79): `step_id` — `call-<ступень>` (`call-1` … `call-7`), `step_index` — номер места, после которого звонок пришёл; из экрана `ENDLESS` — 0. `call_offered` — встал экран вызова. `progression_started` — звонок принят, с `from`: `row` или `endless`. `progression_completed` — погас сам или трубку положили, со сводкой сессии, `ticks`, `how` (`faded`, `hangup`) и `done` (доигран ли: погас или положен после 60 секунд). `progression_failed` с `reason`: `declined` — сброшен (только `step_id`, `step_index`), `full` — поле заполнилось, `left` — уход в меню, `restart` — заново из паузы. `call_heard` — разговор после звонка, `skipped` — закрыт до последней реплики. `session_checkpoint` и уровни сессии (`endless_level`) звонок не шлёт. Межстраничная после итога — прежний `reason: 'live_end'` (имя не меняли, чтобы старые данные были сравнимы); `reward_*` — с `step_id` звонка.
 
 Сводка сессии (по ней настраивается темп и приход костей): `rules` — ключ правил, `score`, `level`, `duration_sec`, `max_chain`, `best_chain_score`, `clears`, `removed`, `spawned`, `cubes_end`, `first_clear_sec`, `steps`, `blocked_steps`, `falls`, `ground_sec`, `floor_climbs` (подъёмы с пола на кость, которую нельзя толкнуть), `dock_descents` и `dock_climbs` (сходы с уходящей кости на клетку рядом с цепочкой и подъёмы с такой клетки на стоящую кость), `danger_sec`, `saves` (сколько раз поле уходило от опасной отметки), `chain_quiet_max_sec`, `match_2`…`match_6` (группы по числу на гранях), `ones`, `chains_2`, `chains_3`, `chains_4plus` (цепочки по длине), `contact`, `scored`, `best`. Считает [src/app/telemetry.ts](../src/app/telemetry.ts).
 
@@ -56,7 +58,7 @@
 
 | Событие | Когда | Поля |
 |---|---|---|
-| `ad_requested` | игра просит рекламу, где площадка её показывает: межстраничную или за награду (по нажатию игрока) | `kind`: `interstitial`, `rewarded`; `reason`: у межстраничной `session_end` (конец сеанса Endless), `live_end` (конец сеанса вживую), `level_end` (уход с итога доски дальше по ряду, до следующей доски) — с 5 ноября 2026 только с 8-го места ряда и после 180 с визита, а реклама, которую игра не попросила, не шлётся (`AD_MIN_PLACE`, `AD_MIN_VISIT_SEC` в `src/app/game.ts`); до 0.2.106 была ещё `undos` (каждая третья отмена хода), у рекламы за награду — её `placement`: `show_way`, `double_score`; `step_id`, `step_index` — что играется (место ряда); `visit_sec` |
+| `ad_requested` | игра просит рекламу, где площадка её показывает: межстраничную или за награду (по нажатию игрока) | `kind`: `interstitial`, `rewarded`; `reason`: у межстраничной `session_end` (конец сеанса Endless), `live_end` (конец звонка; до 5 ноября 2026 — сеанса вживую), `level_end` (уход с итога доски дальше по ряду, до следующей доски) — с 5 ноября 2026 только с 8-го места ряда и после 180 с визита, а реклама, которую игра не попросила, не шлётся (`AD_MIN_PLACE`, `AD_MIN_VISIT_SEC` в `src/app/game.ts`); до 0.2.106 была ещё `undos` (каждая третья отмена хода), у рекламы за награду — её `placement`: `show_way`, `double_score`; `step_id`, `step_index` — что играется (место ряда); `visit_sec` |
 | `reward_offered` | показана кнопка рекламы за награду: раз за попытку уровня, раз за итог сеанса вживую | `placement`: `show_way`, `double_score`; `step_id`, `step_index` |
 | `reward_result` | реклама за награду закончилась | `placement`, `rewarded` (досмотрена), `step_id`, `step_index`, `visit_sec` |
 | `reward_double` | счёт сеанса вживую удвоен | `step_id`, `step_index`, `score` |
