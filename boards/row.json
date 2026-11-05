@@ -22,8 +22,11 @@
         { "board": "R11", "role": "apply", "archetype": "bridge", "emotion": "surprise", "event": "two faces on one board", "help": { "plaques": "near" } },
         { "board": "two-pairs-2", "role": "apply", "archetype": "bridge two faces", "emotion": "recognition" },
         { "board": "P07", "role": "peak", "archetype": "two combos from one die", "emotion": "fiero" },
-        { "board": "C1-07", "role": "rest", "archetype": "collapse", "emotion": "payoff", "event": "first big clearing, with a way to it" },
         { "board": "R07", "role": "meet", "teaches": "link", "archetype": "chain", "emotion": "insight", "event": "first chain", "help": { "hint": "roadHintChain", "camera": "cells" } },
+        { "board": "first-fours-1", "role": "event", "archetype": "a heap and a link over leaving dice", "emotion": "payoff", "event": "first fours" },
+        { "board": "roll-in-1", "role": "meet", "teaches": "glass", "archetype": "roll into leaving", "emotion": "surprise", "event": "the leaving die is a cell", "help": { "hint": "hintRollIn" } },
+        { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "emotion": "insight" },
+        { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
         { "board": "R08", "role": "apply", "archetype": "domino", "emotion": "flow", "event": "domino", "help": { "wait": "free", "camera": "cells" } }
       ]
     },
@@ -39,13 +42,10 @@
       "places": [
         { "board": "P02", "role": "apply", "archetype": "bridge to a link", "emotion": "recognition", "help": { "plaques": "near" } },
         { "board": "which-first-3", "role": "apply", "archetype": "which first", "emotion": "recognition", "help": { "plaques": "near", "wait": "free", "camera": "hold" } },
-        { "board": "H07", "role": "apply", "archetype": "the way round keeps the face", "emotion": "recognition" },
-        { "board": "first-fours-1", "role": "event", "archetype": "a heap and a link over leaving dice", "emotion": "payoff", "event": "first fours" },
-        { "board": "roll-in-1", "role": "meet", "teaches": "glass", "archetype": "roll into leaving", "emotion": "surprise", "event": "the leaving die is a cell", "help": { "hint": "hintRollIn" } },
-        { "board": "C1-05", "role": "apply", "archetype": "roll onto leaving", "emotion": "insight" },
+        { "board": "course-9", "role": "apply", "archetype": "two pairs over the leaving, the far one by a walk", "emotion": "flow", "note": "in for H07 on 5 November (VI_Levels_Playtest_2026-11-04.md, section 15)" },
         { "board": "two-pairs-1", "role": "apply", "archetype": "two pairs, the walk to a link", "emotion": "recognition" },
-        { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
-        { "board": "fives-in-four-1", "role": "apply", "archetype": "K on 5: five fives in four rolls", "emotion": "relief" },
+        { "board": "chapter1-4-3", "role": "apply", "archetype": "three 3s by rolls alone, which die first", "emotion": "insight", "note": "in for fives-in-four-1 on 5 November: forks 3 where it had none (VI_Levels_Playtest_2026-11-04.md, section 15)" },
+        { "board": "domino-5", "role": "apply", "archetype": "a chain of five over the leaving, many ways to break it", "emotion": "mastery", "note": "in for C1-07 on 5 November, a step up to domino-3 (VI_Levels_Playtest_2026-11-04.md, section 15)" },
         { "board": "domino-3", "role": "event", "archetype": "long domino over leaving dice", "emotion": "flow", "event": "a long chain" },
         { "board": "sixes-make-room-1", "role": "rest", "archetype": "six sixes: step aside, let one in, come back", "emotion": "payoff", "note": "an easy place with a fine end right before the live session (VI_One_More_Level_Research.md, conclusions, 1; swapped with domino-3 on 5 November)" }
       ]
@@ -55,7 +55,7 @@
       "floor": "open",
       "places": [
         { "board": "floor-first-1", "role": "meet", "teaches": "push", "archetype": "push to a waiting die", "emotion": "relief", "event": "first push", "help": { "hint": "roadHintPush" } },
-        { "board": "carry-1", "role": "apply", "archetype": "carry by pushes", "emotion": "recognition" }
+        { "board": "push-link-1", "role": "apply", "archetype": "a push from the floor joins the leaving heap", "emotion": "insight", "note": "in for carry-1 on 5 November: the push makes a link, not the combo of 29 (VI_Levels_Playtest_2026-11-04.md, section 15)" }
       ]
     },
     {

@@ -1,5 +1,5 @@
 id: domino-5
-status: D
+status: R
 origin: проба 7 октября, резерв (P20)
 was: P20_s30220
 faces: 3

@@ -1,5 +1,5 @@
 id: chapter1-4-3
-status: D
+status: R
 origin: курс 6 октября, резерв (C104)
 was: C104_s10486
 faces: 3

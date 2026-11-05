@@ -1,5 +1,5 @@
 id: course-9
-status: D
+status: R
 origin: курс 6 октября
 was: T09
 faces: 2
