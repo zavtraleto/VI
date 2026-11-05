@@ -11,7 +11,7 @@ import { LEVEL_RULES_PAGE, levelIntroPanel, levelResultPanel, levelRulesPanel, l
 import { Climb } from './climb';
 import { nextFocus } from './input';
 import type { ShellContext } from './screen';
-import { PanelScreen, type PanelRow, type PanelSpec } from './screens/panel';
+import { PanelScreen, cutRows, scrollThumb, type PanelRow, type PanelSpec } from './screens/panel';
 import { CALL, COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText } from './text';
 import { CallScreen, callLayout } from './screens/call';
 import { shellDefaults } from './theme';
@@ -264,14 +264,14 @@ describe('the panels on the grid', () => {
     setLanguage('en');
   });
 
-  it.each(SCREENS)('lay the cells of the levels on a %s across the whole screen, six on a phone and twelve on a desk, a gap of the grid apart, grown on the grid to fill it', (name, window, ratio) => {
+  it.each(SCREENS)('lay the cells of the levels on a %s across the whole screen, six on a phone and twelve on a desk, a gap of the grid apart, grown to fill it with a row cut at the bottom', (name, window, ratio) => {
     const shown = context(window, ratio);
     const zoom = window.height / shown.picture().height;
     const cells = new PanelScreen(shown, levelsPanel(campaignCells({ passed: {}, stats: {} }), 0, { onPick: nothing, onBack: nothing }), true)
       .items()
       .filter((item) => item.id.startsWith('level-'))
       .map((item) => ({ x: item.rect.x / zoom, y: item.rect.y / zoom, w: item.rect.width / zoom, h: item.rect.height / zoom }));
-    const [w, h, across] = name === 'phone' ? [33, 40, 6] : [43, 44, 12];
+    const [w, h, across] = name === 'phone' ? [33, 37, 6] : [43, 41, 12];
     expect(cells[0].w).toBeCloseTo(w, 6);
     expect(cells[0].h).toBeCloseTo(h, 6);
     expect(cells[1].x - cells[0].x).toBeCloseTo(w + 8, 6);
@@ -341,16 +341,19 @@ describe('the list of the levels on a screen', () => {
   const cells = campaignCells({ passed: { R01: true, R02: true }, stats: { R01: { bestMoves: fileBoard('R01').par! }, R02: { bestMoves: 99 } } });
   const actions = { onPick: nothing, onBack: nothing };
 
-  it.each(SCREENS)('fits the window of a %s: the cells in sight from the first, the arrows where the list scrolls, and the menu, each large enough for a finger', (_name, window, ratio) => {
+  it.each(SCREENS)('fits the window of a %s: the cells in sight from the first, no arrows, and the menu, each large enough for a finger', (_name, window, ratio) => {
     const screen = new PanelScreen(context(window, ratio), levelsPanel(cells, 0, actions), true);
     const items = screen.items();
     const shown = items.filter((item) => item.id.startsWith('level-')).length;
     expect(shown).toBeGreaterThan(0);
     const cellIds = cells.slice(0, shown).map((_, index) => `level-${index}`);
-    expect(items.map((item) => item.id)).toEqual(shown < cells.length ? ['scroll-up', ...cellIds, 'scroll-down', 'back'] : [...cellIds, 'back']);
+    expect(items.map((item) => item.id)).toEqual([...cellIds, 'back']);
     expect(screen.home).toBe('level-0');
+    // The row cut at the bottom takes a press in what is in sight of it; the rest are a finger at least.
+    const cutTop = Math.max(...items.filter((item) => item.id.startsWith('level-')).map((item) => item.rect.y));
     for (const item of items) {
-      expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
+      const cut = item.id.startsWith('level-') && item.rect.y === cutTop;
+      if (!cut) expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.x).toBeGreaterThanOrEqual(0);
       expect(item.rect.y).toBeGreaterThanOrEqual(0);
@@ -426,7 +429,9 @@ describe('the list of the levels on a screen', () => {
     // No higher than the ring round a cell at the top of the list.
     expect(cut.y).toBeGreaterThanOrEqual(top.y - 3);
     expect(cut.height).toBeLessThan(top.height);
-    expect(level('level-6')!.rect.y).toBeCloseTo(top.y + row / 2, 0);
+    // On whole dots of the picture: within one of where the finger put it.
+    const dot = SCREENS[0][1].height / context(SCREENS[0][1], SCREENS[0][2]).picture().height;
+    expect(Math.abs(level('level-6')!.rect.y - (top.y + row / 2))).toBeLessThanOrEqual(dot + 1e-6);
     // It cannot be drawn past its ends.
     screen.drag(-10 * row);
     expect(level('level-0')!.rect).toEqual(top);
@@ -467,28 +472,49 @@ describe('the list of the levels on a screen', () => {
     expect(screen.items().map((item) => item.id)).toContain(`level-${last}`);
   });
 
-  it('scrolls the list on a phone a page at a time by its arrows, a thin one over the cells and one under them', () => {
+  it.each(SCREENS)('opens on a %s with a row more at the bottom, cut by the edge, its numbers in sight at least to their middle', (_name, window, ratio) => {
+    const shown = context(window, ratio);
+    const zoom = window.height / shown.picture().height;
+    const screen = new PanelScreen(shown, levelsPanel(cells, 0, actions), true);
+    const level = screen.items().filter((item) => item.id.startsWith('level-'));
+    const tops = [...new Set(level.map((item) => item.rect.y))].sort((a, b) => a - b);
+    const whole = level.find((item) => item.rect.y === tops[0])!.rect;
+    const cut = level.find((item) => item.rect.y === tops[tops.length - 1])!.rect;
+    const across = level.filter((item) => item.rect.y === tops[0]).length;
+    // The cut row is a whole row of cells; in sight of it, more than half a cell and plainly less than one (the zone takes the ring of a cell too).
+    expect(level.filter((item) => item.rect.y === cut.y).length).toBe(across);
+    const part = (cut.height - 2 * zoom) / whole.height;
+    expect(part).toBeGreaterThanOrEqual(0.5);
+    expect(part).toBeLessThanOrEqual(0.8);
+  });
+
+  it('puts the thumb of the bars where the list stands, as long as its share in sight, and moves it with a finger', () => {
+    expect(scrollThumb(100, 0, 4, 16)).toEqual([0, 25]);
+    expect(scrollThumb(100, 12, 4, 16)).toEqual([75, 25]);
+    expect(scrollThumb(100, 6, 4, 16)).toEqual([38, 25]);
+    // No shorter than the grid's step, and the whole bar where all is in sight.
+    expect(scrollThumb(100, 0, 1, 1000)[1]).toBe(4);
+    expect(scrollThumb(100, 0, 8, 8)).toEqual([0, 100]);
     const screen = new PanelScreen(context(SCREENS[0][1], SCREENS[0][2]), levelsPanel(cells, 0, actions), true);
-    const ids = () => screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.id);
-    const press = (id: string) => screen.items().find((item) => item.id === id)!.action();
-    const first = ids();
-    const [up, down] = ['scroll-up', 'scroll-down'].map((id) => screen.items().find((item) => item.id === id)!.rect);
-    const cellRects = screen.items().filter((item) => item.id.startsWith('level-')).map((item) => item.rect);
-    const last = cellRects[cellRects.length - 1];
-    expect(up.width).toBeGreaterThanOrEqual(last.x + last.width - cellRects[0].x - 1);
-    expect(up.y + up.height).toBeLessThanOrEqual(cellRects[0].y);
-    expect(down.y).toBeGreaterThanOrEqual(last.y + last.height);
-    press('scroll-up');
-    expect(ids()).toEqual(first);
-    press('scroll-down');
-    const second = ids();
-    expect(second).not.toEqual(first);
-    // A page: the last row in sight stays in sight, at the top.
-    expect(second).toContain(first[first.length - 1]);
-    for (let i = 0; i < 20; i++) press('scroll-down');
-    expect(ids()).toContain(`level-${cells.length - 1}`);
-    for (let i = 0; i < 20; i++) press('scroll-up');
-    expect(ids()).toEqual(first);
+    const view = () => (screen as unknown as { levels(): { view: { from: number; shown: number; rows: number } } }).levels().view;
+    const at = () => scrollThumb(100, view().from, view().shown, view().rows)[0];
+    expect(at()).toBe(0);
+    screen.drag(60);
+    expect(at()).toBeGreaterThan(0);
+    screen.drag(100_000);
+    expect(at()).toBe(100 - scrollThumb(100, 0, view().shown, view().rows)[1]);
+    screen.drag(-100_000);
+    expect(at()).toBe(0);
+  });
+
+  it('cuts the row at the bottom by a share of a cell that reads', () => {
+    // A room of 382 dots, cells of 36 at the least, eight rows grown to fill it: 37 dots, eight whole and 0.59 of a cell more.
+    const fit = cutRows(382, 36, 8);
+    expect(fit.cell).toBe(37);
+    const cut = (382 - Math.floor(fit.shown) * (fit.cell + 8)) / fit.cell;
+    expect(cut).toBeGreaterThanOrEqual(0.55);
+    expect(cut).toBeLessThanOrEqual(0.75);
+    expect(fit.shown).toBeCloseTo(390 / 45, 6);
   });
 
   it.each(SCREENS)('takes the whole screen of a %s: the plate from edge to edge, the menu at its bottom, the cells across its width', (_name, window, ratio) => {
@@ -508,13 +534,20 @@ describe('the list of the levels on a screen', () => {
     const right = Math.max(...level.map((rect) => rect.x + rect.width)) / zoom;
     expect(left - (plate.x + 8)).toBeLessThanOrEqual(4);
     expect(plate.x + plate.w - 8 - right).toBeLessThanOrEqual(4);
+    // The bars stand in the edge between the frame and the cells, alike at both sides, clear of the ring round a cell.
+    const bars = (screen as unknown as { levelBars(plate: unknown): [number, number] }).levelBars(plate);
+    expect(bars[0] - plate.x).toBe(plate.x + plate.w - (bars[1] + 2));
+    expect(bars[0]).toBeGreaterThan(plate.x);
+    expect(bars[0] + 2).toBeLessThan(left - 2);
+    expect(bars[1]).toBeGreaterThan(right + 2);
+    expect(bars[1] + 2).toBeLessThan(plate.x + plate.w - 1);
   });
 
-  it('scrolls on a desk too, since the row is a hundred places: four rows of twelve in sight from the first, the rest a scroll away', () => {
+  it('scrolls on a desk too, since the row is a hundred places: five rows of twelve in sight from the first and a sixth cut, the rest a scroll away', () => {
     const screen = new PanelScreen(context(SCREENS[1][1], SCREENS[1][2]), levelsPanel(cells, 0, actions), true);
     const shown = screen.items().filter((item) => item.id.startsWith('level-')).length;
     expect(shown).toBeLessThan(cells.length);
-    expect(shown).toBe(48);
+    expect(shown).toBe(72);
     screen.scroll('down', 4000, 'level-0');
     expect(screen.items().map((item) => item.id)).toContain(`level-${cells.length - 1}`);
   });
@@ -530,8 +563,10 @@ describe('the list of the levels on a screen', () => {
     const items = screen.items().filter((item) => item.id.startsWith('level-'));
     expect(items.length).toBeGreaterThan(0);
     expect(items.length).toBeLessThanOrEqual(entries.length);
+    // The row cut at the bottom is lower than a finger where it is cut.
+    const cutTop = Math.max(...items.map((item) => item.rect.y));
     for (const item of items) {
-      expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
+      if (item.rect.y < cutTop) expect(item.rect.height).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.width).toBeGreaterThanOrEqual(MIN_ZONE);
       expect(item.rect.x + item.rect.width).toBeLessThanOrEqual(window.width);
       expect(item.rect.y + item.rect.height).toBeLessThanOrEqual(window.height);

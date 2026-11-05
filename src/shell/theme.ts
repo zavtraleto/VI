@@ -31,6 +31,20 @@ export const MARK = 4;
  * this wide with a gap between them, and never fewer than across a tall one (six).
  */
 export const LEVEL_CELL_W = 40;
+/**
+ * The list of the levels where it scrolls (the owner, 5 November 2026: «убери кнопки "вверх" и
+ * "вниз", и сделай такую высоту, чтобы при первом открытии в самом низу было видно ещё один ряд
+ * квадратиков ... добавь по бокам очень тонкие скроллбары, симметрично»): a row more stands cut at
+ * its bottom, at least `cutLeast` of its cells in sight, so that their numbers in the middle are
+ * read, and no more than `cutMost`, so that it is plainly cut.
+ */
+export const LEVELS_LIST = { cutLeast: 0.55, cutMost: 0.75 } as const;
+/**
+ * The bar of a list or a log that scrolls: a strip `width` dots wide, `inset` in from a frame of the
+ * panel, in the middle of the edge between the frame and the lines, so that it stands over nothing
+ * and the cells keep their width for a finger - the track dotted in `faint`, the thumb solid in `dim`.
+ */
+export const SCROLL_BAR = { width: 2, inset: 3 } as const;
 
 /**
  * The main menu of cards on a desk (docs/superpowers/specs/2026-11-05-vi-menu-design.md, section 5),

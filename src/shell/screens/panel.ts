@@ -4,7 +4,7 @@ import { CELL_H, CELL_W, fingerOf, textWidth, zoneOf, type Box, type Dir4 } from
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { word } from '../../ui/i18n';
 import { paintStar, paintStarGhost, paintStarSmall, type StarColours } from '../star';
-import { BAR_H, BUTTON_H, EDGE, GAP, LEVEL_CELL_W, MARK, PANEL_SAY_SIZE, UNIT } from '../theme';
+import { BAR_H, BUTTON_H, EDGE, GAP, LEVEL_CELL_W, LEVELS_LIST, MARK, PANEL_SAY_SIZE, SCROLL_BAR, UNIT } from '../theme';
 import { digits, type PanelName } from '../text';
 
 /** Something a panel can be told to do: a line that is pressed. */
@@ -191,9 +191,9 @@ function shineSize(since: number): number {
 const SHINE_FRAME_MS = 33;
 /** The fewest rows of cells of the levels a panel shows where the list does not fit and scrolls. */
 const LEVELS_SHOWN_MIN = 3;
-/** The zones of the arrows of a list that scrolls; their bars are buttons. */
-const SCROLL_UP = 'scroll-up';
-const SCROLL_DOWN = 'scroll-down';
+/** The list of the levels where it scrolls, and the bars of what scrolls (`theme.ts`). */
+const { cutLeast: LEVELS_CUT_LEAST, cutMost: LEVELS_CUT_MOST } = LEVELS_LIST;
+const { width: SCROLL_W, inset: SCROLL_IN } = SCROLL_BAR;
 /** Half a blink of the bar of the name, in milliseconds. */
 const BLINK_MS = 110;
 /** Rows a log keeps for the line of the one who plays and the lines next to it. */
@@ -216,9 +216,6 @@ interface LevelView {
   from: number;
   shown: number;
   rows: number;
-  /** The bars of the arrows over the cells and under them, where the list scrolls; null where it fits. */
-  up: Box | null;
-  down: Box | null;
   /** What of the list is in sight, the rings of the cells with it: a row half in sight is cut at its edge. */
   window: Box;
 }
@@ -274,6 +271,41 @@ export function commandParts(box: Box, commands: readonly PanelCommand[]): Box[]
     x += w + GAP;
   });
   return parts;
+}
+
+/**
+ * The thumb of a bar `tall` dots long of a list `total` long, `shown` of it in sight from `first`:
+ * where it starts along the bar, and how long it is - its share of the whole, and no shorter than
+ * the grid's step.
+ */
+export function scrollThumb(tall: number, first: number, shown: number, total: number): [at: number, length: number] {
+  const thumb = Math.min(tall, Math.max(UNIT, Math.round((tall * shown) / Math.max(shown, total))));
+  const span = Math.max(1e-6, total - shown);
+  const at = Math.round(((tall - thumb) * Math.max(0, Math.min(first, span))) / span);
+  return [at, thumb];
+}
+
+/**
+ * Cells of a list on the whole screen that scrolls, `room` dots tall: as tall as `base`, or taller,
+ * so that the rows wholly in sight leave a share of the next one between `LEVELS_CUT_LEAST`
+ * and `LEVELS_CUT_MOST` of a cell, the cut row; of all such heights the one nearest to what `whole`
+ * rows would grow to filling the room, as the cells stood before the cut row. Where no height gives
+ * such a share, the cells grow to fill the room with whole rows. `shown` is the rows in sight, the
+ * cut row a share of one.
+ */
+export function cutRows(room: number, base: number, whole: number): { cell: number; shown: number } {
+  const filling = Math.max(base, Math.floor((room + CELL_GAP) / Math.max(1, whole) - CELL_GAP));
+  let best: number | null = null;
+  // On whole dots and not on the grid: the grid's step is too coarse to cut a row so and keep the cells near square.
+  for (let cell = base; cell <= base * 2; cell++) {
+    const step = cell + CELL_GAP;
+    const rows = Math.floor((room + CELL_GAP) / step);
+    const cut = (room - rows * step) / cell;
+    if (rows < 2 || cut < LEVELS_CUT_LEAST || cut > LEVELS_CUT_MOST) continue;
+    if (best === null || Math.abs(cell - filling) < Math.abs(best - filling)) best = cell;
+  }
+  const cell = best ?? filling;
+  return { cell, shown: (room + CELL_GAP) / (cell + CELL_GAP) };
 }
 
 export class PanelScreen implements ShellScreen {
@@ -535,13 +567,13 @@ export class PanelScreen implements ShellScreen {
             kit.text(value, valueStart, y, ink, { bold: rank === 1 || mine === true });
             kit.leader(labelEnd + CELL_W, valueStart - CELL_W, y, faint);
           });
-          this.scrollBar(kit, plate, box.y + TABLE_HEAD, count * CELL_H, near > 0 ? 0 : top, count, all.length);
+          this.scrollBar(kit, plate.x + plate.w - SCROLL_IN - SCROLL_W, box.y + TABLE_HEAD, count * CELL_H, near > 0 ? 0 : top, count, all.length);
           break;
         }
         case 'climb': {
           const count = this.tableLines(row.lines, box.h);
           const range = row.range?.(count);
-          if (range && range[0] < range[1]) this.scrollBar(kit, plate, box.y, count * CELL_H, this.logShift - range[0], count, range[1] - range[0] + count);
+          if (range && range[0] < range[1]) this.scrollBar(kit, plate.x + plate.w - SCROLL_IN - SCROLL_W, box.y, count * CELL_H, this.logShift - range[0], count, range[1] - range[0] + count);
           const lines = row.rows(count, this.logShift);
           lines.forEach((line, i) => {
             if (!line) return;
@@ -577,8 +609,8 @@ export class PanelScreen implements ShellScreen {
               kit.rect(cell.x + 2, cell.y + 2, MARK, MARK, kit.palette.signal);
             }
           }));
-          if (view.up) this.arrow(kit, view.up, 'up', focus.focus === SCROLL_UP, view.from > 0);
-          if (view.down) this.arrow(kit, view.down, 'down', focus.focus === SCROLL_DOWN, view.from + view.shown < view.rows - 1e-6);
+          // Where it scrolls, a thin bar at each side, alike (the owner, 5 November 2026: «очень тонкие скроллбары, симметрично»).
+          for (const x of this.levelBars(plate)) this.scrollBar(kit, x, box.y, view.window.h - 2 * CELL_RING, view.from, view.shown, view.rows);
           break;
         }
         case 'stars':
@@ -599,36 +631,22 @@ export class PanelScreen implements ShellScreen {
   }
 
   /**
-   * An arrow of a list that scrolls: a bar across the list, as tall as a button, with a small arrow
-   * in its middle, in the faint tone of a frame, the arrow dim while there are rows that way and
-   * faint where there are none. It stands a gap from the cells, as one line of a panel from the
-   * next; where a finger is taller than the bar, its zone grows as a button's does (`zoneOf`).
+   * What says a list scrolls: a strip two dots wide between its lines and a frame of the panel, at
+   * `x`, as tall as its lines in sight - half seen in the faint tone, with the part in sight solid
+   * in the dim one, where it stands and as much of the strip as is in sight of the whole. Only
+   * where the list has more than is in sight. It is not pressed.
    */
-  private arrow(kit: Kit, bar: Box, dir: 'up' | 'down', on: boolean, more: boolean): void {
-    const { ink, dim, faint } = kit.palette;
-    kit.frame(bar, on ? ink : faint);
-    const centre = Math.round(bar.x + bar.w / 2);
-    const tone = on ? ink : more ? dim : faint;
-    // Four lines of the arrow, the point towards where it scrolls.
-    for (let i = 0; i < 4; i++) {
-      const half = dir === 'up' ? i : 3 - i;
-      kit.rect(centre - half, bar.y + Math.round((bar.h - 4) / 2) + i, half * 2 + 1, 1, tone);
-    }
+  private scrollBar(kit: Kit, x: number, y: number, tall: number, first: number, shown: number, total: number): void {
+    if (total <= shown + 1e-6 || tall <= 0) return;
+    const { dim, faint } = kit.palette;
+    kit.dither(x, y, SCROLL_W, tall, faint, 2);
+    const [at, thumb] = scrollThumb(tall, first, shown, total);
+    kit.rect(x, y + at, SCROLL_W, thumb, dim);
   }
 
-  /**
-   * What says a log scrolls: a strip two dots wide between its lines and the right frame of the
-   * panel, as tall as its lines in sight - half seen in the faint tone, with the part in sight
-   * solid in the dim one. Only where the log has more lines than are in sight.
-   */
-  private scrollBar(kit: Kit, plate: Box, y: number, tall: number, first: number, shown: number, total: number): void {
-    if (total <= shown || tall <= 0) return;
-    const { dim, faint } = kit.palette;
-    const x = plate.x + plate.w - 5;
-    kit.dither(x, y, 2, tall, faint, 2);
-    const thumb = Math.max(4, Math.round((tall * shown) / total));
-    const at = Math.round(((tall - thumb) * Math.max(0, Math.min(first, total - shown))) / Math.max(1, total - shown));
-    kit.rect(x, y + at, 2, thumb, dim);
+  /** Where the bars of a list stand across a panel: at its left and at its right, as far from each frame. */
+  private levelBars(plate: Box): [number, number] {
+    return [plate.x + SCROLL_IN, plate.x + plate.w - SCROLL_IN - SCROLL_W];
   }
 
   /**
@@ -734,14 +752,10 @@ export class PanelScreen implements ShellScreen {
     return cells.length === 0 ? 0 : Math.round(cells[cells.length - 1].y / (this.cellHeight() + CELL_GAP)) + 1;
   }
 
-  /**
-   * Height of the list of the levels with `shown` of its `rows` rows of cells in sight: the cells,
-   * and the bars of the arrows where it scrolls.
-   */
+  /** Height of the list of the levels with `shown` of its `rows` rows of cells in sight; a share of a row is a row cut at the bottom. */
   private levelsHeight(rows: number, shown: number): number {
     const seen = Math.min(rows, shown);
-    const cells = seen * (this.cellHeight() + CELL_GAP) - CELL_GAP;
-    return cells + (seen < rows ? 2 * (this.buttonHeight() + GAP) : 0);
+    return Math.round(seen * (this.cellHeight() + CELL_GAP) - CELL_GAP);
   }
 
   /**
@@ -755,26 +769,11 @@ export class PanelScreen implements ShellScreen {
     const rows = rowOf.length === 0 ? 0 : rowOf[rowOf.length - 1] + 1;
     const shown = Math.max(1, Math.min(rows, inSight));
     const from = Math.max(0, Math.min(this.top ?? 0, rows - shown));
-    // Where the list scrolls, an arrow over the cells and one under them, across the list.
-    const scrolls = shown < rows;
-    const bar = this.buttonHeight();
-    const top = box.y + (scrolls ? bar + GAP : 0);
+    const top = box.y;
     // On whole dots, wherever between rows the list stands.
     const cells = laid.map((cell, i) => ({ ...cell, y: top + Math.round((rowOf[i] - from) * step) }));
-    const up = scrolls ? { x: box.x, y: box.y, w: box.w, h: bar } : null;
-    const down = scrolls ? { x: box.x, y: top + shown * step - CELL_GAP + GAP, w: box.w, h: bar } : null;
-    const window = { x: box.x - CELL_RING, y: top - CELL_RING, w: box.w + 2 * CELL_RING, h: shown * step - CELL_GAP + 2 * CELL_RING };
-    return { cells, rowOf, from, shown, rows, up, down, window };
-  }
-
-  /** An arrow of the list pressed: the list goes a page that way, the last row in sight staying in sight. */
-  private page(dir: 'up' | 'down'): void {
-    const list = this.levels();
-    if (!list) return;
-    const { view } = list;
-    const by = Math.max(1, view.shown - 1);
-    this.coast = 0;
-    this.top = Math.max(0, Math.min(view.rows - view.shown, Math.round(view.from) + (dir === 'down' ? by : -by)));
+    const window = { x: box.x - CELL_RING, y: top - CELL_RING, w: box.w + 2 * CELL_RING, h: Math.round(shown * step - CELL_GAP) + 2 * CELL_RING };
+    return { cells, rowOf, from, shown, rows, window };
   }
 
   /** Some of the cell is in sight: it is drawn, cut at the edge of the list, and takes a press there. */
@@ -850,8 +849,11 @@ export class PanelScreen implements ShellScreen {
     this.coast = 0;
     this.top = from;
     const index = focus !== null && focus.startsWith(`${row.id}-`) ? Number(focus.slice(row.id.length + 1)) : -1;
-    if (index < 0) return focus ?? `${row.id}-${view.cells.findIndex((_cell, i) => view.rowOf[i] === from)}`;
-    const near = Math.max(from, Math.min(from + view.shown - 1, view.rowOf[index]));
+    // The rows wholly in sight: the list stands between rows at its end, a row cut at the other edge.
+    const first = Math.ceil(from - 1e-6);
+    const last = Math.max(first, Math.floor(from + view.shown - 1 + 1e-6));
+    if (index < 0) return focus ?? `${row.id}-${view.cells.findIndex((_cell, i) => view.rowOf[i] === first)}`;
+    const near = Math.max(first, Math.min(last, view.rowOf[index]));
     return near === view.rowOf[index] ? focus : `${row.id}-${this.nearestIn(view, near, index)}`;
   }
 
@@ -989,11 +991,11 @@ export class PanelScreen implements ShellScreen {
     if (list?.kind === 'levels') {
       shown = this.levelRows(list, inner);
       while (shown > LEVELS_SHOWN_MIN && total() > room) shown--;
-      // On the whole screen, the rows in sight grow, on the grid, into the room they leave over.
+      // On the whole screen, the cells grow till the list fills the room left over with a row cut at its bottom.
       if (this.spec.full && shown < this.levelRows(list, inner)) {
-        const base = this.cellHeight();
-        const grown = Math.floor(((shown * (base + CELL_GAP) + room - total()) / shown - CELL_GAP) / UNIT) * UNIT;
-        if (grown > base) this.cellTall = grown;
+        const fit = cutRows(room - total() + this.levelsHeight(Infinity, shown), this.cellHeight(), shown);
+        this.cellTall = fit.cell;
+        shown = fit.shown;
       }
       // The first time, the row of the cell of the place stands in sight, about the middle.
       if (this.top === null) {
@@ -1053,12 +1055,10 @@ export class PanelScreen implements ShellScreen {
         for (let i = 0; i < count; i++) items.push({ id: `${row.id}-${i}`, rect: toWindow(this.part(box, i, count)), action: () => row.pick(i) });
       } else if (row.kind === 'levels') {
         const view = this.levelView(row, box, shown);
-        if (view.up) items.push({ id: SCROLL_UP, rect: toWindow(view.up), action: () => this.page('up') });
         // A cell half in sight takes a press in the part of it that is.
         view.cells.forEach((cell, i) => {
           if (this.inSight(view, i)) items.push({ id: `${row.id}-${i}`, rect: toWindow(cell, view.window), action: () => row.pick(i) });
         });
-        if (view.down) items.push({ id: SCROLL_DOWN, rect: toWindow(view.down), action: () => this.page('down') });
       }
     }
     return items;
