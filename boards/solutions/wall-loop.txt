@@ -5,5 +5,4 @@ lemma Фиксированную не катят и не толкают; к не
 frame 5x3
 combo 3: a w! o<r4-5/around=w
 par 4-5
-fixedcost 2
 d 4.5-5.5
