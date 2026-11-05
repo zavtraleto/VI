@@ -182,9 +182,10 @@ function shareOut(extra, onLine) {
 async function rowBoards() {
   const { CAMPAIGN } = await load('/src/levels/campaign.ts');
   const { rowAfterRebuild } = await load('/src/levels/plots.ts');
-  // A new board is new against the row as the rebuild of 31–100 leaves it, unless row=now asks for the row as it stands.
+  // A new board is new against the row as it stands (5 November 2026: the rebuild of 31–80 is in the row); row=rebuild asks
+  // for the row as the rebuild of 31–100 began, the places up to 47 and the boards it kept.
   if (named.row !== undefined && !['now', 'rebuild'].includes(named.row)) refuse(`${command}: "row=${named.row}" is now or rebuild`);
-  return final.rowBoardsOf(named.row === 'now' ? CAMPAIGN : rowAfterRebuild(CAMPAIGN));
+  return final.rowBoardsOf(named.row === 'rebuild' ? rowAfterRebuild(CAMPAIGN) : CAMPAIGN);
 }
 
 const STAGES = ['laid', 'path', 'lesson', 'final'];
