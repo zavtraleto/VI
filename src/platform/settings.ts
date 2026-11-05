@@ -2,6 +2,7 @@ import { RULES_VERSION, defaultExperiments, type ExperimentConfig, type Tuning }
 import { CAMPAIGN, placeOfCode, type LiveStat } from '../levels/campaign';
 import type { Place } from '../levels/row';
 import { loadJson, saveJson, tellBroken } from './storage';
+import { callsFromLives, newCalls, type CallProgress } from '../app/calls';
 
 /** How the board is played: `swipe` by swipes, `tap` by a tap or a click on a cell. The keys step either way. */
 export type ControlSetting = 'swipe' | 'tap';
@@ -56,8 +57,13 @@ export interface LevelProgress {
    * before a live session by its code (`live:<code>`).
    */
   told: string[];
-  /** The live sessions of the row by their codes: the best score and how many were played. */
+  /**
+   * The live sessions of the row by their codes, as they were kept before the calls took their place:
+   * kept as it is, read only to bring a save over to `calls`.
+   */
   lives: Record<string, LiveStat>;
+  /** The calls (src/app/calls.ts): their step, the count to the next, the best of every step, the talks heard. */
+  calls: CallProgress;
 }
 
 export interface Settings {
@@ -127,7 +133,7 @@ function defaults(): Settings {
     camera: { ...DEFAULT_CAMERA },
     debugPanel: false,
     runs: {},
-    levels: { passed: {}, stats: {}, told: [], lives: {} },
+    levels: { passed: {}, stats: {}, told: [], lives: {}, calls: newCalls() },
     heardLines: [],
   };
 }
@@ -152,6 +158,11 @@ function settle(loaded: Settings): Settings {
   // the live sessions has played none: it takes `lives`. The line about a dim
   // die is said no more (the owner, 15 October 2026), and what was kept of it goes.
   loaded.levels = toRowEdition({ ...fallback.levels, ...loaded.levels });
+  // A save from before the calls, or one whose calls are broken, takes them from the live sessions it played.
+  if (!loaded.levels.calls || loaded.levels.calls === fallback.levels.calls) {
+    const kept = (loaded as unknown as { levels: { calls?: CallProgress } }).levels;
+    kept.calls = callsFromLives(loaded.levels.lives);
+  }
   delete (loaded.levels as Partial<{ fixedSaid: boolean }>).fixedSaid;
   // The exercise of Endless is gone from the game (the owner, 15 October 2026): what was kept of it goes.
   delete (loaded as Partial<{ tutorialDone: boolean }>).tutorialDone;
@@ -251,6 +262,17 @@ function mend(loaded: Loose, fallback: Settings): boolean {
     texts(levels, 'told');
     const stats = table(levels, 'stats', isRecord);
     if (stats) for (const stat of Object.values(stats)) broken = mendStat(stat as Loose) || broken;
+    field(levels, 'calls', isCalls, () => undefined);
+    const calls = levels.calls as Loose | undefined;
+    if (calls) {
+      const stats = table(calls, 'stats', (stat) => isRecord(stat) && isNumber(stat.best) && isNumber(stat.plays));
+      if (!stats) calls.stats = {};
+      const heard = calls.heard as unknown[];
+      if (!heard.every(isNumber)) {
+        calls.heard = heard.filter(isNumber);
+        broken = true;
+      }
+    }
     const lives = table(levels, 'lives', isRecord);
     for (const live of Object.values(lives ?? {}) as Loose[]) {
       for (const key of ['best', 'plays']) {
@@ -262,6 +284,12 @@ function mend(loaded: Loose, fallback: Settings): boolean {
   }
   texts(loaded, 'heardLines');
   return broken;
+}
+
+/** The form of what is kept of the calls: its counts, whether one came, its table and its list. */
+function isCalls(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return isNumber(value.done) && isNumber(value.since) && isNumber(value.gap) && isFlag(value.came) && isRecord(value.stats) && Array.isArray(value.heard);
 }
 
 function isRunRecord(value: unknown): value is RunRecord {

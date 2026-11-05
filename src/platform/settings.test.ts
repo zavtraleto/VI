@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
 import { FIXTURE } from '../levels/rowFixture';
-import { DEFAULT_CAMERA, ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, levelStat, loadSettings, noteLive, raiseLive, saveSettings, toRowEdition, type RowKept } from './settings';
+import { DEFAULT_CAMERA, ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, levelStat, loadSettings, saveSettings, toRowEdition, type RowKept } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -10,6 +10,9 @@ function saved(settings: object | null): void {
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+/** What a player who has had no call keeps of them; the gap to the first is drawn at random. */
+const NO_CALLS = { done: 0, since: 0, gap: expect.any(Number), came: false, stats: {}, heard: [] };
 
 describe('the experiments a player has saved', () => {
   it('start from the defaults of the rules where nothing was saved', () => {
@@ -145,24 +148,6 @@ describe('the live sessions a player has played', () => {
     expect(levels.told).toEqual(['live:live-1']);
   });
 
-  it('count every play and keep the best score', () => {
-    saved(null);
-    const settings = loadSettings();
-    expect(noteLive(settings, 'live-2', 300)).toEqual({ best: 300, plays: 1 });
-    expect(noteLive(settings, 'live-2', 120)).toEqual({ best: 300, plays: 2 });
-    expect(noteLive(settings, 'live-2', 450)).toEqual({ best: 450, plays: 3 });
-    expect(settings.levels.lives).toEqual({ 'live-2': { best: 450, plays: 3 } });
-  });
-
-  it('take a score doubled for an advertisement as the best where it is, with no play added', () => {
-    saved(null);
-    const settings = loadSettings();
-    noteLive(settings, 'live-1', 400);
-    noteLive(settings, 'live-1', 300);
-    expect(raiseLive(settings, 'live-1', 600)).toEqual({ best: 600, plays: 2 });
-    expect(raiseLive(settings, 'live-1', 500)).toEqual({ best: 600, plays: 2 });
-  });
-
   it('are not dropped where a save of the row is brought to its edition', () => {
     const kept = { passed: {}, stats: {}, rowEdition: ROW_EDITION, lives: { 'live-1': { best: 5, plays: 1 } } };
     expect(toRowEdition(kept, FIXTURE.places).lives).toEqual({ 'live-1': { best: 5, plays: 1 } });
@@ -172,7 +157,7 @@ describe('the live sessions a player has played', () => {
 describe('the place in the row a player has saved', () => {
   it('is none where nothing was saved, and none in a save from before the road, whose levels are of other boards', () => {
     saved(null);
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], lives: {}, rowEdition: ROW_EDITION });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], lives: {}, calls: NO_CALLS, rowEdition: ROW_EDITION });
     saved({ levels: { passed: { F1: true, P01: true }, stats: {} } });
     const { levels } = loadSettings();
     expect(levels.at).toBeUndefined();
@@ -190,15 +175,15 @@ describe('the place in the row a player has saved', () => {
   it('is the piece a save of the seventh edition of the road stood on, with all it passed', () => {
     saved({ levels: { passed: { R01: true, R02: true }, stats: {}, road: 'side-up-1', roadEdition: 7 } });
     const { levels } = loadSettings();
-    expect(levels).toEqual({ passed: { R01: true, R02: true }, stats: {}, told: [], lives: {}, at: 'side-up-1', rowEdition: ROW_EDITION });
+    expect(levels).toEqual({ passed: { R01: true, R02: true }, stats: {}, told: [], lives: {}, calls: NO_CALLS, at: 'side-up-1', rowEdition: ROW_EDITION });
   });
 
   it('starts again in a save of any edition before the seventh: the stars and the place dropped, what the player was told kept', () => {
     const stat = { tries: 2, passes: 1, fails: 0, firstPassTry: 1, bestLeft: null, bestMoves: 3, undos: 0, stuck: 0, short: [], playMs: 100 };
     saved({ levels: { passed: { R01: true, R08: true, P01: true, P02: true }, stats: { R01: stat, R08: stat, P01: stat }, road: 'R09' } });
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], lives: {}, rowEdition: ROW_EDITION });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: [], lives: {}, calls: NO_CALLS, rowEdition: ROW_EDITION });
     saved({ levels: { passed: { R01: true, P13: true, K17: true }, stats: { R01: stat, K17: stat }, road: 'R12', roadEdition: 6, told: ['R07'] } });
-    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: ['R07'], lives: {}, rowEdition: ROW_EDITION });
+    expect(loadSettings().levels).toEqual({ passed: {}, stats: {}, told: ['R07'], lives: {}, calls: NO_CALLS, rowEdition: ROW_EDITION });
   });
 });
 
@@ -262,6 +247,42 @@ async function freshStart(): Promise<{ loadSettings: typeof loadSettings; tracke
   return { loadSettings: (await import('./settings')).loadSettings, tracked };
 }
 
+describe('the calls a player has had', () => {
+  it('are none in a new save', () => {
+    saved(null);
+    const { calls } = loadSettings().levels;
+    expect(calls).toMatchObject({ done: 0, since: 0, came: false, stats: {}, heard: [] });
+    expect(calls.gap).toBeGreaterThanOrEqual(8);
+    expect(calls.gap).toBeLessThanOrEqual(14);
+  });
+
+  it('come back as they were kept', () => {
+    const calls = { done: 3, since: 5, gap: 11, came: true, stats: { 'call-1': { best: 900, plays: 2 } }, heard: [1, 2] };
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: {}, calls } });
+    expect(loadSettings().levels.calls).toEqual(calls);
+  });
+
+  it('are brought over from the live sessions a save from before them played, and the sessions are kept', () => {
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: { 'live-1': { best: 900, plays: 3 }, 'live-2': { best: 10, plays: 0 } } } });
+    const { levels } = loadSettings();
+    expect(levels.calls).toMatchObject({ came: true, done: 1, since: 0, stats: {}, heard: [] });
+    expect(levels.lives).toEqual({ 'live-1': { best: 900, plays: 3 }, 'live-2': { best: 10, plays: 0 } });
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: { 'live-1': { best: 1, plays: 1 }, 'live-2': { best: 1, plays: 1 }, 'live-3': { best: 1, plays: 1 } } } });
+    expect(loadSettings().levels.calls).toMatchObject({ came: true, done: 2 });
+    saved({ levels: { passed: { R01: true }, stats: {}, at: 'R02', rowEdition: ROW_EDITION, told: [] } });
+    expect(loadSettings().levels.calls).toMatchObject({ came: false, done: 0 });
+  });
+
+  it('start over from the live sessions where their form is broken, and keep the rest of the save', () => {
+    saved({ muted: true, levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], lives: { 'live-1': { best: 1, plays: 1 } }, calls: { done: 'two' } } });
+    const settings = loadSettings();
+    expect(settings.levels.calls).toMatchObject({ came: true, done: 1 });
+    expect(settings.muted).toBe(true);
+    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [], calls: { done: 1, since: 2, gap: 9, came: true, stats: { 'call-1': { best: 'x' }, 'call-2': { best: 5, plays: 1 } }, heard: [1, 'a'] } } });
+    expect(loadSettings().levels.calls).toEqual({ done: 1, since: 2, gap: 9, came: true, stats: { 'call-2': { best: 5, plays: 1 } }, heard: [1] });
+  });
+});
+
 describe('a save broken in its fields', () => {
   const nothing = (): ReturnType<typeof loadSettings> => {
     saved(null);
@@ -278,7 +299,7 @@ describe('a save broken in its fields', () => {
     expect(settings.muted).toBe(true);
     expect(() => {
       levelStat(settings, 'R01').tries++;
-      noteLive(settings, 'L1', 10);
+      settings.levels.calls.since++;
     }).not.toThrow();
   });
 
@@ -332,7 +353,9 @@ describe('a save broken in its fields', () => {
   it('opens on the defaults when what was kept is not a save at all', () => {
     for (const raw of ['5', '"text"', '[1,2,3]', 'true', 'null']) {
       savedText(raw);
-      expect(loadSettings()).toEqual(nothing());
+      const loaded = loadSettings();
+      expect(loaded.levels.calls).toEqual(NO_CALLS);
+      expect({ ...loaded, levels: { ...loaded.levels, calls: null } }).toEqual({ ...nothing(), levels: { ...nothing().levels, calls: null } });
     }
   });
 
