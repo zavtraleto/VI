@@ -9524,43 +9524,6 @@ export const ROW: Row = {
       "emotion": "fiero",
       "help": {}
     }
-  ],
-  "lives": [
-    {
-      "code": "live-1",
-      "step": 1,
-      "after": 15
-    },
-    {
-      "code": "live-2",
-      "step": 2,
-      "after": 27
-    },
-    {
-      "code": "live-3",
-      "step": 3,
-      "after": 42
-    },
-    {
-      "code": "live-4",
-      "step": 4,
-      "after": 54
-    },
-    {
-      "code": "live-5",
-      "step": 5,
-      "after": 73
-    },
-    {
-      "code": "live-6",
-      "step": 6,
-      "after": 85
-    },
-    {
-      "code": "live-7",
-      "step": 7,
-      "after": 91
-    }
   ]
 };
 

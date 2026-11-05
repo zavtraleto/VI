@@ -1,5 +1,5 @@
 import { RULES_VERSION, defaultExperiments, type ExperimentConfig, type Tuning } from '../rules';
-import { CAMPAIGN, placeOfCode, type LiveStat } from '../levels/campaign';
+import { CAMPAIGN, placeOfCode } from '../levels/campaign';
 import type { Place } from '../levels/row';
 import { loadJson, saveJson, tellBroken } from './storage';
 import { callsFromLives, newCalls, type CallProgress } from '../app/calls';
@@ -61,7 +61,7 @@ export interface LevelProgress {
    * The live sessions of the row by their codes, as they were kept before the calls took their place:
    * kept as it is, read only to bring a save over to `calls`.
    */
-  lives: Record<string, LiveStat>;
+  lives: Record<string, { best: number; plays: number }>;
   /** The calls (src/app/calls.ts): their step, the count to the next, the best of every step, the talks heard. */
   calls: CallProgress;
 }
@@ -400,24 +400,6 @@ export function levelStat(settings: Settings, id: string): LevelStat {
   stat.bestMoves ??= null;
   stat.stuck ??= 0;
   stat.hinted ??= 0;
-  return stat;
-}
-
-/** Notes a live session played to its end: one more play, and its score as the best where it is. */
-export function noteLive(settings: Settings, code: string, score: number): LiveStat {
-  const stat = (settings.levels.lives[code] ??= { best: 0, plays: 0 });
-  stat.plays++;
-  stat.best = Math.max(stat.best, score);
-  return stat;
-}
-
-/**
- * The score of a live session already noted, doubled for an advertisement: the best is counted
- * from it as it now stands, and no play is added, for the session was counted when it ended.
- */
-export function raiseLive(settings: Settings, code: string, score: number): LiveStat {
-  const stat = (settings.levels.lives[code] ??= { best: 0, plays: 0 });
-  stat.best = Math.max(stat.best, score);
   return stat;
 }
 

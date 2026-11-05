@@ -194,14 +194,5 @@
         { "board": "finale-1", "role": "peak", "archetype": "everything", "emotion": "fiero", "note": "the hundredth place, the peak of the campaign" }
       ]
     }
-  ],
-  "lives": [
-    { "after": "R08", "step": 1 },
-    { "after": "sixes-make-room-1", "step": 2, "note": "about the 28th place, after an easy place with a fine end; step 2" },
-    { "after": "fives-heap-1", "step": 3, "note": "about the 43rd place, after an easy place with a fine end; step 3" },
-    { "after": "ones-over-leaving-1", "step": 4, "note": "about the 55th place, after a rest; step 4" },
-    { "after": "rescue-1", "step": 5, "note": "about the 71st place, after a rest; step 5" },
-    { "after": "P06", "step": 6, "note": "about the 85th place, the end of the chapter eighty; step 6" },
-    { "after": "rescue-4", "step": 7, "note": "about the 92nd place, after a rest and the end of the chapter ninety; step 7" }
   ]
 }

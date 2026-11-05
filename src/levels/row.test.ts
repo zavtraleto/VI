@@ -88,25 +88,11 @@ describe('buildRow', () => {
   });
 });
 
-describe('the live sessions of a row', () => {
-  const two = (lives: unknown[]): RowFile => ({ ...file(), lives } as RowFile);
-
-  it('stand after the boards they name, with the codes of their steps', () => {
-    const row = buildRow(two([{ after: 'B', step: 2 }, { after: 'A', step: 1, note: 'first' }]), boards);
-    expect(row.lives).toEqual([
-      { code: 'live-1', step: 1, after: 0 },
-      { code: 'live-2', step: 2, after: 1 },
-    ]);
-    expect(buildRow(file(), boards).lives).toEqual([]);
-  });
-
-  it('are refused after a board that is not in the row, on a step twice, on a step that is not a whole number from 1', () => {
-    expect(refusal(two([{ after: 'C', step: 1 }]))).toBe('row: live after C: there is no board C in the row');
-    expect(refusal(two([{ after: 'A', step: 1 }, { after: 'B', step: 1 }]))).toBe('row: live after B: step 1 is in the row twice');
-    expect(refusal(two([{ after: 'A', step: 0 }]))).toBe('row: live after A: "step: 0" is a whole number from 1');
-    expect(refusal(two([{ after: 'A', step: 1.5 }]))).toBe('row: live after A: "step: 1.5" is a whole number from 1');
-    expect(refusal(two([{ after: 'A', step: 1 }, { after: 'A', step: 2 }]))).toBe('row: live after A: the board has a live session after it already');
-    expect(refusal(two([{ after: 'A', step: 1, when: 'now' }]))).toBe('row: live after A: unknown key "when"');
+describe('the calls', () => {
+  it('are not in the row: it lays its chapters and its places, and nothing else (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 5)', () => {
+    expect(Object.keys(buildRow(file(), boards)).sort()).toEqual(['chapters', 'places']);
+    expect(Object.keys(ROW).sort()).toEqual(['chapters', 'places']);
+    expect(Object.keys(readRowFile(rowJson))).toEqual(['chapters']);
   });
 });
 
@@ -128,16 +114,6 @@ describe('the row of the game', () => {
   it('is a hundred places long, and its last is the finale', () => {
     expect(ROW.places).toHaveLength(100);
     expect(ROW.places[ROW.places.length - 1].code).toBe('finale-1');
-  });
-
-  it('has its live sessions after boards of the row, each step once and in order: after places 16, 28, 43, 55, 74, 86 and 92, each the end of its chapter, a rest, or an easy place with a fine end (the word of the owner, 5 November 2026), never a peak', () => {
-    expect(ROW.lives.map((live) => [live.code, ROW.places[live.after].number])).toEqual([['live-1', 16], ['live-2', 28], ['live-3', 43], ['live-4', 55], ['live-5', 74], ['live-6', 86], ['live-7', 92]]);
-    expect(ROW.lives.map((live) => live.step)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    for (const live of ROW.lives) {
-      const place = ROW.places[live.after];
-      expect(ROW.chapters[place.chapter].last === live.after || place.role === 'rest' || place.emotion === 'payoff', live.code).toBe(true);
-      expect(place.role, live.code).not.toBe('peak');
-    }
   });
 
   it('clears every place by the way its file keeps, in as many moves as it says, and the solver finds none shorter', { timeout: 120_000 }, () => {
