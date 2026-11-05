@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { moveOf } from '../rules/levelSolver';
 import { fileBoard } from './boardFiles';
-import { craftOf, motifOf, troublesOf, type TroubleFacts } from './craft';
+import { parseBoard } from './boardFile';
+import { boardTroublesOf, COVERED_HOLE, coveredHolesOf, craftOf, motifOf, troublesOf, type TroubleFacts } from './craft';
+import { ROW } from './row.gen';
 
 /**
  * The passport of the kind of a board and its troubles (docs/superpowers/specs/2026-11-04-vi-level-craft-design.md,
@@ -53,3 +55,28 @@ describe('the troubles of a board', () => {
     expect(troublesOf(hard)).toEqual([]);
   });
 });
+
+describe('a cut cell the dice hide from the camera (the owner on the 34th place, 5 November 2026)', () => {
+  const board = (rows: readonly string[]) => parseBoard(['id: t', 'faces: 4', '---', ...rows, ''].join('\n'), 't');
+
+  it('is the cut cell inside the field with a die south, east or south-east of it', () => {
+    // The 34th place as it stood on 4 November: the cut (1,1) between dice west, north and east, the player's die east of it.
+    const hidden = board(['41  42   .   .', '42   -  42*  .', ' .   .  45   .', ' -   -   -   -']);
+    expect(coveredHolesOf(hidden)).toEqual([{ x: 1, z: 1 }]);
+    expect(boardTroublesOf(hidden)).toEqual([COVERED_HOLE]);
+  });
+
+  it('is not a cut at the edge the camera faces, nor a row cut away, nor a cut with nothing in front of it', () => {
+    // A notch in the front edge, open to the south: seen as a missing cell.
+    expect(coveredHolesOf(board([' .   .  46  45', '54*  .   .  46', ' .   .   -   .', ' -   -   -   -']))).toEqual([]);
+    // A column cut away on the west, dice east of it: the edge of the field.
+    expect(coveredHolesOf(board([' -  21   .   .', ' -   .  41* 41', ' -  23   .   .', ' -   -   -   -']))).toEqual([]);
+    // A cut inside with its south, east and south-east open: seen.
+    expect(coveredHolesOf(board(['41  42   .   .', '42   -   .   .', ' .   .   .  45*', ' -   -   -   -']))).toEqual([]);
+  });
+
+  it('is on no place of the row', () => {
+    expect(ROW.places.filter((place) => coveredHolesOf(place.spec).length > 0).map((place) => place.code)).toEqual([]);
+  });
+});
+

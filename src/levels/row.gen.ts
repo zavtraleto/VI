@@ -3199,10 +3199,6 @@ export const ROW: Row = {
         "size": 4,
         "holes": [
           {
-            "x": 1,
-            "z": 1
-          },
-          {
             "x": 0,
             "z": 3
           },

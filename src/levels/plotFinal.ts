@@ -8,7 +8,7 @@ import { depthOf, type Depth } from './depth';
 import { firstsOf, hiddenOf, rankOf, rankShares, safeFirstOf, shareOf, type Shares } from './measures';
 import type { Plot, PlotKind, Want } from './plot';
 import { difficulty, riskOf, searchOf } from './scale';
-import { craftOf, peopleOf, troublesOf, type CraftFacts, type People } from './craft';
+import { boardTroublesOf, craftOf, peopleOf, troublesOf, type CraftFacts, type People } from './craft';
 import { coreKey, coreOf, layoutSim, SAME_LAYOUT, SIMILAR_ROW, similarityOf, type Core } from './signature';
 
 /**
@@ -169,7 +169,7 @@ export function passportOf(plot: Plot | null, spec: LevelSpec, opts: FinalOption
     search: searchOf(shares),
     craft,
     people,
-    troubles: troublesOf({ par, hidden, safeFirst: safeFirstOf(measured), craft, people }),
+    troubles: [...boardTroublesOf(spec), ...troublesOf({ par, hidden, safeFirst: safeFirstOf(measured), craft, people })],
     firsts: firstsOf(measured, par),
     sig: key,
     nearest,

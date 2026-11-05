@@ -126,6 +126,33 @@ export function troublesOf(facts: TroubleFacts): string[] {
   return out;
 }
 
+/** The trouble of a cut cell the dice hide (the owner on the 34th place, 5 November 2026: «её совсем не видно и непонятно, почему не работает передвижение. ощущается как баг!»). */
+export const COVERED_HOLE = 'вырез под костями';
+
+/**
+ * The cut cells of a board inside its field that dice hide from the camera at the start. The camera looks from the
+ * south-east, so what stands south, east or south-east of a cell is in front of it; a cut cell shows only by the lines of
+ * the grid it lacks, and under the side of a die there are none to see. A cut cell is inside where live cells lie on both
+ * sides of it along one way, west and east or north and south: a cut at the edge of the field, or a row cut away, is the
+ * edge, and is seen as the edge.
+ */
+export function coveredHolesOf(spec: LevelSpec): { x: number; z: number }[] {
+  const key = (x: number, z: number) => `${x},${z}`;
+  const holes = new Set((spec.holes ?? []).map(({ x, z }) => key(x, z)));
+  const live = (x: number, z: number) => x >= 0 && z >= 0 && x < spec.size && z < spec.size && !holes.has(key(x, z));
+  const dice = new Set((spec.layout?.dice ?? []).map(({ x, z }) => key(x, z)));
+  const die = (x: number, z: number) => dice.has(key(x, z));
+  return (spec.holes ?? []).filter(({ x, z }) => {
+    const inside = (live(x - 1, z) && live(x + 1, z)) || (live(x, z - 1) && live(x, z + 1));
+    return inside && (die(x, z + 1) || die(x + 1, z) || die(x + 1, z + 1));
+  });
+}
+
+/** The troubles read off the board itself, before any player: a cut cell the dice hide. */
+export function boardTroublesOf(spec: LevelSpec): string[] {
+  return coveredHolesOf(spec).length > 0 ? [COVERED_HOLE] : [];
+}
+
 /**
  * What the table of the row keeps of a board beside its slow measures, in a cache of its own (`boards/.craft/<key>.json`,
  * scripts/measureCache.mjs): the way move by move, the two people, and what the troubles read. JSON values only.

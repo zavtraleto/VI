@@ -13,7 +13,7 @@ import { BARRED, held, knownRepeat, markOf, type Barred, type SlowFacts, type Vi
 import type { SlowMeasures } from './measureCache';
 import { explorerFacts, firstsOf, hiddenOf, lostOf, nearOf, rankOf, rankShares, shareOf, tailOf, trapOf, turnsOf, type Shares } from './measures';
 import { BANDS, difficulty, riskOf, searchOf } from './scale';
-import { troublesOf, type CraftMeasures } from './craft';
+import { boardTroublesOf, troublesOf, type CraftMeasures } from './craft';
 import { MEASURE_HEAD, PERSONA_FLOOR_RUNS, layOutRows, measureRow } from './select';
 import { SIMILAR_NEAR, SIMILAR_ROW, coreKey, coreOf, similarity } from './signature';
 import { walkBoards, type Walk } from './walk';
@@ -165,7 +165,7 @@ export function campaignRow(number: number, spec: LevelSpec, role: string, m: Sl
     percent(m.reader),
     coreKey(coreOf(spec)),
     c ? String(c.craft.narrow) : '?',
-    c ? troublesOf(c).join(', ') || '-' : '?',
+    c ? [...boardTroublesOf(spec), ...troublesOf(c)].join(', ') || '-' : boardTroublesOf(spec).join(', ') || '?',
   ];
 }
 
