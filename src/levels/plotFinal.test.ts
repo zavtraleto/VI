@@ -5,14 +5,14 @@ import { kindOrder, likeDistance, missesOf, otherShapesFirst, passportOf, pickFi
 
 describe('the last stage of the generator', () => {
   it('reads a board of the row as a repeat of itself, and as new where it deepens that board', () => {
-    const spec = fileBoard('act-k23');
-    const row = rowBoardsOf(CAMPAIGN.filter((place) => place.code === 'act-k23'));
-    const plot = { name: 'act-k23', size: 4, dice: [], events: [] };
+    const spec = fileBoard('act-k21');
+    const row = rowBoardsOf(CAMPAIGN.filter((place) => place.code === 'act-k21'));
+    const plot = { name: 'act-k21', size: 4, dice: [], events: [] };
     const repeat = passportOf(plot, spec, { runs: 6, row });
-    expect(repeat.par).toBe(4);
-    expect(repeat.nearest?.code).toBe('act-k23');
-    expect(repeat.misses.some((miss) => miss.includes('act-k23'))).toBe(true);
-    const deeper = passportOf({ ...plot, want: { instead: ['act-k23'] } }, spec, { runs: 6, row });
+    expect(repeat.par).toBe(5);
+    expect(repeat.nearest?.code).toBe('act-k21');
+    expect(repeat.misses.some((miss) => miss.includes('act-k21'))).toBe(true);
+    const deeper = passportOf({ ...plot, want: { instead: ['act-k21'] } }, spec, { runs: 6, row });
     expect(deeper.nearest).toBeNull();
     expect(deeper.misses).toEqual([]);
     expect(deeper.d).toBeGreaterThanOrEqual(1);
@@ -36,7 +36,7 @@ describe('the last stage of the generator', () => {
   });
 
   it('takes the finalists one to a shape first, and puts the passports in order', () => {
-    const spec = fileBoard('act-k23');
+    const spec = fileBoard('act-k21');
     expect(shapeOf(spec, ['top', 'top', 'south', 'top'])).toContain('top');
     const passed = [
       { spec, shape: 'a', order: 3 },
