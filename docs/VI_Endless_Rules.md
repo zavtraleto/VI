@@ -1,6 +1,6 @@
 # VI — правила Endless
 
-> Вид: истина. Статус: в силе (v0.2.79: сеансы вживую; vVERSION: звонки, раздел 13). Дата: 2026-10-08. Проверено: 2026-11-05.
+> Вид: истина. Статус: в силе (v0.2.79: сеансы вживую; v0.2.110: звонки, раздел 13). Дата: 2026-10-08. Проверено: 2026-11-05.
 > Что заменило: docs/RITE_Design_MVP.md, docs/superpowers/specs/2026-10-01-vi-mvp-design.md (в истории git, коммит 7780049). Что живёт в коде: src/rules/config.ts, src/rules/orientation.ts, src/rules/board.ts, src/rules/movement.ts, src/rules/reactions.ts, src/rules/sim.ts, src/rules/spawn.ts, src/rules/wave.ts, src/rules/live.ts, src/app/calls.ts, src/app/ritual.ts, src/app/game.ts (рекорды).
 
 Это правила сеанса Endless, записанные с кода. Числа — значения по умолчанию; рядом с каждым стоит имя константы и файл. Числа без файла — из `DEFAULT_TUNING` в `config.ts`. При расхождении страницы с кодом верен код, а страницу правят.
