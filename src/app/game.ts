@@ -68,7 +68,7 @@ import { h } from '../ui/dom';
 import { novelEpisode } from '../ui/novel';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive, liveArchive } from './archive';
-import { callCame, callCode, callDone, callDue, callStep, callsCame, countBoard, noteCall, raiseCall, type CallEnd } from './calls';
+import { callCame, callCode, callDone, callDue, callStep, callsPlayed, countBoard, noteCall, raiseCall, type CallEnd } from './calls';
 import { callEpisode } from '../ui/calls';
 import { clockGone, secondsLeft } from './clock';
 import { Hints } from './hints';
@@ -1410,7 +1410,7 @@ export class Game {
     this.tools?.hide();
     const { calls } = this.settings.levels;
     const entries: CallsEntry[] = [
-      ...callsCame(calls).map((step): CallsEntry => ({ kind: 'call', step, best: calls.stats[callCode(step)]?.best ?? 0 })),
+      ...callsPlayed(calls).map((step): CallsEntry => ({ kind: 'call', step, best: calls.stats[callCode(step)]?.best ?? 0 })),
       ...[...calls.heard].sort((a, b) => a - b).flatMap((step): CallsEntry[] => {
         const episode = callEpisode(step, language());
         return episode ? [{ kind: 'talk', step, title: episode.title }] : [];
@@ -2385,8 +2385,8 @@ export class Game {
       case 'levels':
         return this.showLevels();
       case 'endless':
-        // Once a call has come, the file opens its screen: free Endless and the calls. Before that it starts at once, as it did.
-        return this.settings.levels.calls.came ? this.showCalls() : this.startRun('endless');
+        // Once a call has been taken, the file opens its screen: free Endless and the calls. Before that it starts at once, as it did.
+        return callsPlayed(this.settings.levels.calls).length > 0 ? this.showCalls() : this.startRun('endless');
       case 'rules':
         return this.showHowTo();
       case 'readme':
@@ -3239,7 +3239,8 @@ export class Game {
       this.backdrop.clear();
     }
     span('board', drawFrom);
-    const shown = !covered && !this.inMenu && !this.signal.busy;
+    // Under the screen of a call the readings are not shown: it is a screen of its own over the board (section 7.1).
+    const shown = !covered && !this.inMenu && !this.signal.busy && !this.shell.calling;
     // Under a panel, and while the board takes no input, a piece shows no sign and its wait is not counted.
     const waitFrom = performance.now();
     this.waiting = this.wait?.frame(state, time, shown && this.inputEnabled()) ?? { dir: null, blink: false };

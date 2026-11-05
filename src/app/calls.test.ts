@@ -9,7 +9,7 @@ import {
   callDone,
   callDue,
   callStep,
-  callsCame,
+  callsPlayed,
   callsFromLives,
   countBoard,
   newCalls,
@@ -129,14 +129,15 @@ describe('a call seen to its end', () => {
 });
 
 describe('the list of calls', () => {
-  it('shows the steps that have come and none ahead', () => {
+  it('shows the steps whose calls were taken, and none declined or ahead', () => {
     const calls = newCalls();
-    expect(callsCame(calls)).toEqual([]);
     callCame(calls, () => 0);
-    expect(callsCame(calls)).toEqual([1]);
+    expect(callsPlayed(calls)).toEqual([]);
     noteCall(calls, 1, 10, true);
+    expect(callsPlayed(calls)).toEqual([1]);
+    expect(callStep(calls)).toBe(2);
     noteCall(calls, 2, 10, false);
-    expect(callsCame(calls)).toEqual([1, 2]);
+    expect(callsPlayed(calls)).toEqual([1, 2]);
   });
 });
 

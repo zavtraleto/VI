@@ -146,6 +146,11 @@ export class Shell {
     return this.screen instanceof MenuScreen;
   }
 
+  /** The screen of an incoming call is up: it is the whole of the interface, and the readings of the board are not shown under it. */
+  get calling(): boolean {
+    return this.screen instanceof CallScreen;
+  }
+
   /** The screen hides the board altogether (menu) instead of lying over it (pause). */
   get covers(): boolean {
     return this.screen !== null && this.covering;

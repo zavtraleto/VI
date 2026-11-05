@@ -106,7 +106,9 @@ export function drawCall(kit: Kit, layout: CallLayout, focus: ShellFocus, timeMs
     if (half > sign.reach) continue;
     kit.frame({ x: sign.x - half, y: sign.y - half, w: half * 2, h: half * 2 }, along < 0.45 ? ink : along < 0.8 ? dim : faint);
   }
-  // Who calls: the number is not known.
+  // Who calls: the number is not known. Its lines lie on the dark of the tube, so that the lines of the board do not run through them.
+  const plateTop = layout.number.y - 6;
+  kit.box({ x: layout.say.x, y: plateTop, w: layout.say.w, h: layout.say.y + CELL_H * 2 - plateTop }, bg);
   kit.text(`${CALL.number.native} ${CALL.number.name}`, layout.number.x, layout.number.y, dim, { align: 'center' });
   kit.text(t('callUnknown').toLocaleUpperCase(), layout.number.x, layout.number.y + CELL_H + 4, ink, { align: 'center' });
   // The two buttons: decline is the program's dim frame, the call is taken by the filled one.
@@ -168,7 +170,10 @@ export class CallScreen implements ShellScreen {
   draw(kit: Kit, focus: ShellFocus): void {
     const layout = this.layout();
     drawCall(kit, layout, focus, this.drawnPhase * 100, this.context.reducedMotion());
-    this.context.voice.say({ text: t('callLength'), box: kit.toWindow(layout.say), size: PANEL_SAY_SIZE, align: 'center', dim: true });
+    // The line is as tall as a line of the program around it, on a phone and on a wide screen alike.
+    const zoom = this.context.window().height / Math.max(1, this.context.picture().height);
+    const size = Math.max(PANEL_SAY_SIZE, Math.round(CELL_H * zoom));
+    this.context.voice.say({ text: t('callLength'), box: kit.toWindow(layout.say), size, align: 'center', dim: true });
   }
 
   back(): void {

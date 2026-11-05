@@ -116,13 +116,14 @@ export function raiseCall(calls: CallProgress, step: number, score: number): Cal
 }
 
 /**
- * The steps whose calls have come, taken or declined, in order: the list of calls of `ENDLESS`. The
- * step the calls stand at has come once a call came; the steps under it were seen to an end. A step
- * that has not come is not shown: what comes next, the game does not say.
+ * The steps whose calls have been taken, in order: the list of calls of `ENDLESS`, and the screen of
+ * `ENDLESS` opens once there is one. A call only declined will come again; a step that has not come
+ * is not shown: what comes next, the game does not say (the owner, 5 November 2026).
  */
-export function callsCame(calls: CallProgress): number[] {
-  if (!calls.came) return [];
-  return Array.from({ length: callStep(calls) }, (_, i) => i + 1);
+export function callsPlayed(calls: CallProgress): number[] {
+  const steps: number[] = [];
+  for (let step = 1; step <= CALL_STEPS; step++) if ((calls.stats[callCode(step)]?.plays ?? 0) > 0) steps.push(step);
+  return steps;
 }
 
 /**
