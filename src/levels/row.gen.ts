@@ -2557,6 +2557,98 @@ export const ROW: Row = {
     {
       "number": 27,
       "chapter": 3,
+      "code": "domino-3",
+      "spec": {
+        "id": "domino-3",
+        "seed": 30084,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          3
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          3
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 3
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 1,
+              "top": 6,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 3,
+              "north": 5
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "1,3,N",
+          "0,2,S",
+          "0,3,E",
+          "1,2,E",
+          "3,2,S",
+          "1,1,E"
+        ]
+      },
+      "role": "event",
+      "archetype": "long domino over leaving dice",
+      "emotion": "flow",
+      "event": "a long chain",
+      "help": {}
+    },
+    {
+      "number": 28,
+      "chapter": 3,
       "code": "sixes-make-room-1",
       "spec": {
         "id": "sixes-make-room-1",
@@ -2649,98 +2741,6 @@ export const ROW: Row = {
       "role": "rest",
       "archetype": "six sixes: step aside, let one in, come back",
       "emotion": "payoff",
-      "help": {}
-    },
-    {
-      "number": 28,
-      "chapter": 3,
-      "code": "domino-3",
-      "spec": {
-        "id": "domino-3",
-        "seed": 30084,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          2,
-          3
-        ],
-        "norm": 7,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          2,
-          3
-        ],
-        "layout": {
-          "start": {
-            "x": 1,
-            "z": 3
-          },
-          "dice": [
-            {
-              "x": 1,
-              "z": 1,
-              "top": 6,
-              "north": 3
-            },
-            {
-              "x": 2,
-              "z": 1,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 3,
-              "z": 1,
-              "top": 2,
-              "north": 3
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 5,
-              "north": 1
-            },
-            {
-              "x": 3,
-              "z": 2,
-              "top": 5,
-              "north": 3
-            },
-            {
-              "x": 1,
-              "z": 3,
-              "top": 5,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 3,
-              "top": 3,
-              "north": 5
-            }
-          ]
-        },
-        "chapter": 0,
-        "par": 6,
-        "exact": true,
-        "solution": [
-          "1,3,N",
-          "0,2,S",
-          "0,3,E",
-          "1,2,E",
-          "3,2,S",
-          "1,1,E"
-        ]
-      },
-      "role": "event",
-      "archetype": "long domino over leaving dice",
-      "emotion": "flow",
-      "event": "a long chain",
       "help": {}
     },
     {

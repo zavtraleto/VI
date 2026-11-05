@@ -46,8 +46,8 @@
         { "board": "two-pairs-1", "role": "apply", "archetype": "two pairs, the walk to a link", "emotion": "recognition" },
         { "board": "C1-06", "role": "twist", "archetype": "bridge both ways", "emotion": "tension", "event": "the road goes both ways, briefly" },
         { "board": "fives-in-four-1", "role": "apply", "archetype": "K on 5: five fives in four rolls", "emotion": "relief" },
-        { "board": "sixes-make-room-1", "role": "rest", "archetype": "six sixes: step aside, let one in, come back", "emotion": "payoff", "note": "an easy place with a fine end before the live session (VI_One_More_Level_Research.md, conclusions, 1)" },
-        { "board": "domino-3", "role": "event", "archetype": "long domino over leaving dice", "emotion": "flow", "event": "a long chain" }
+        { "board": "domino-3", "role": "event", "archetype": "long domino over leaving dice", "emotion": "flow", "event": "a long chain" },
+        { "board": "sixes-make-room-1", "role": "rest", "archetype": "six sixes: step aside, let one in, come back", "emotion": "payoff", "note": "an easy place with a fine end right before the live session (VI_One_More_Level_Research.md, conclusions, 1; swapped with domino-3 on 5 November)" }
       ]
     },
     {
@@ -197,7 +197,7 @@
   ],
   "lives": [
     { "after": "R08", "step": 1 },
-    { "after": "domino-3", "step": 2 },
+    { "after": "sixes-make-room-1", "step": 2, "note": "about the 28th place, after an easy place with a fine end; step 2" },
     { "after": "fives-heap-1", "step": 3, "note": "about the 43rd place, after an easy place with a fine end; step 3" },
     { "after": "ones-over-leaving-1", "step": 4, "note": "about the 55th place, after a rest; step 4" },
     { "after": "rescue-1", "step": 5, "note": "about the 71st place, after a rest; step 5" },
