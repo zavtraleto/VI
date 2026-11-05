@@ -27,6 +27,28 @@ const AD_LOADING_MS = 8000;
 const AD_OPEN_MS = 60_000;
 /** The break the advertisement stands in: named in `playgama-bridge-config.json`. */
 const AD_PLACEMENT = 'session_end';
+/**
+ * Between two advertisements over the whole screen, three to five minutes (word of the owner,
+ * 5 November 2026: «давай интервал между показами 3-5 минут»). The clock is Bridge's own: after
+ * each one shown it is given the next pause, drawn between these. The config of Bridge names no
+ * pause, or Bridge would not take one from the game.
+ */
+export const AD_GAP_MIN_SEC = 180;
+export const AD_GAP_MAX_SEC = 300;
+
+/** The pause before the next advertisement, in whole seconds: `draw` is a number from 0 up to 1, as `Math.random` gives. */
+export function nextAdGap(draw: number): number {
+  return Math.round(AD_GAP_MIN_SEC + Math.min(1, Math.max(0, draw)) * (AD_GAP_MAX_SEC - AD_GAP_MIN_SEC));
+}
+
+/** Gives Bridge the pause before the next advertisement; Bridge counts it from now. */
+function setAdGap(bridge: PlaygamaBridge, seconds: number): void {
+  try {
+    bridge.advertisement.setMinimumDelayBetweenInterstitial(seconds);
+  } catch {
+    // Bridge keeps the pause it had.
+  }
+}
 
 let sdk: PlaygamaBridge | null = null;
 /** How far the clock of the platform is ahead of the clock of the device, once the platform has said. */
@@ -119,6 +141,8 @@ export const platform = {
       if (!(await Promise.race([started, patience]))) return;
       candidate.gameVersion = import.meta.env.VI_VERSION;
       sdk = candidate;
+      // The first advertisement waits the shortest pause; the floor of the visit in the game keeps it later still.
+      setAdGap(candidate, AD_GAP_MIN_SEC);
       // The day everyone shares is counted by the clock of the platform, where it has one. Not waited for.
       const asked = Date.now();
       void candidate.platform.getServerTime().then(
@@ -151,10 +175,10 @@ export const platform = {
     listener(sdk.platform.isAudioEnabled);
   },
   /**
-   * An advertisement over the whole screen, at a break between sessions, and on a level after every
-   * third move taken back, once the move is back (the owner, 23 October 2026).
-   * The platform keeps its own count of how often one may come. One that is on its way is
-   * waited for, so it does not open over the session that comes next.
+   * An advertisement over the whole screen, at a pause: between boards, at the end of a session
+   * (the owner, 5 November 2026). The platform keeps its own count of how often one may come; one
+   * that was shown gives it the pause before the next (`nextAdGap`). One that is on its way is
+   * waited for, so it does not open over the board or session that comes next.
    */
   interstitial(done) {
     const bridge = sdk;
@@ -164,6 +188,7 @@ export const platform = {
     }
     const { LOADING, OPENED, CLOSED, FAILED } = bridge.INTERSTITIAL_STATE;
     let finished = false;
+    let shown = false;
     const finish = (): void => {
       if (finished) return;
       finished = true;
@@ -174,9 +199,12 @@ export const platform = {
     let timer = window.setTimeout(finish, AD_SILENCE_MS);
     const onState = (state: string): void => {
       if (state === CLOSED || state === FAILED) {
+        // Only one that was on screen moves the clock on: a pause asked for too early leaves it as it runs.
+        if (state === CLOSED && shown) setAdGap(bridge, nextAdGap(Math.random()));
         finish();
         return;
       }
+      if (state === OPENED) shown = true;
       // While it is being fetched it is given some time; once it is on screen, its end, up to a limit.
       window.clearTimeout(timer);
       if (state === LOADING) timer = window.setTimeout(finish, AD_LOADING_MS);

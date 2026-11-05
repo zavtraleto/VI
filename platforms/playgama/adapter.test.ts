@@ -201,6 +201,11 @@ function interstitialSdk() {
       on: (event: string, listener: (state: string) => void) => listeners.set(event, listener),
       off: (event: string) => listeners.delete(event),
       showInterstitial: () => undefined,
+      /** The pauses the game has given Bridge, in order. */
+      gaps: [] as number[],
+      setMinimumDelayBetweenInterstitial(seconds: number) {
+        this.gaps.push(seconds);
+      },
     },
   };
   vi.stubGlobal('window', globalThis);
@@ -211,6 +216,39 @@ function interstitialSdk() {
 }
 
 describe('an advertisement over the whole screen on Playgama', () => {
+  it('gives Bridge three minutes before the first, and after each one shown a pause of three to five minutes (the owner, 5 November 2026)', async () => {
+    const sdk = interstitialSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    expect(sdk.bridge.advertisement.gaps).toEqual([180]);
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    platform.interstitial(() => undefined);
+    sdk.send('loading', 'opened', 'closed');
+    expect(sdk.bridge.advertisement.gaps).toEqual([180, 240]);
+    vi.restoreAllMocks();
+  });
+
+  it('leaves the clock of Bridge as it runs where none was shown: too early, or failed', async () => {
+    const sdk = interstitialSdk();
+    vi.stubGlobal('bridge', sdk.bridge);
+    const platform = await fresh();
+    await platform.init();
+    platform.interstitial(() => undefined);
+    sdk.send('closed');
+    platform.interstitial(() => undefined);
+    sdk.send('loading', 'failed');
+    expect(sdk.bridge.advertisement.gaps).toEqual([180]);
+  });
+
+  it('draws the pause between three and five minutes, in whole seconds', async () => {
+    const { nextAdGap } = await import('./adapter');
+    expect(nextAdGap(0)).toBe(180);
+    expect(nextAdGap(0.999999)).toBe(300);
+    expect(nextAdGap(0.25)).toBe(210);
+    expect(nextAdGap(2)).toBe(300);
+  });
+
   it('lets the game go on once it is closed', async () => {
     const sdk = interstitialSdk();
     vi.stubGlobal('bridge', sdk.bridge);
