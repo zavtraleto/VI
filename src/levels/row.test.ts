@@ -8,8 +8,8 @@ import { createRun, step } from '../rules/sim';
 import { sameBoard } from './variety';
 import { hasReadyGroup } from '../rules/spawn';
 import { t } from '../ui/i18n';
-import { BOARD_TEXTS } from './boardFiles';
-import { buildRow, readRowFile, rowText, touchesRow, type RowFile } from './row';
+import { BOARD_TEXTS, fileBoard } from './boardFiles';
+import { buildRow, floorOpenBoards, readRowFile, rowText, touchesRow, withFloorOpen, type RowFile } from './row';
 import { ROW } from './row.gen';
 
 /** The board of B01_s290 under other codes: two 2s a cell apart, cleared by the way round in three moves. */
@@ -167,5 +167,22 @@ describe('the row of the game', () => {
     for (let i = 0; i < 20; i++) step(state, null);
     expect(state.tick).toBeGreaterThan(0);
     expect(packRun('endless', state, new RunTally())).toBeNull();
+  });
+});
+
+describe('the floor of a chapter, for the tools that play a place by its board file', () => {
+  it('names every board whose chapter opens the floor, and the row plays each on an open floor', () => {
+    const open = floorOpenBoards(readRowFile(rowJson));
+    // R11 says `floor: shut` in its file and stands in a chapter that opens it (chapter1-9-3 of 0.2.117 is another).
+    expect(open.has('R11')).toBe(true);
+    expect(fileBoard('R11').floor).toBe(false);
+    for (const place of ROW.places) if (open.has(place.code)) expect(place.spec.floor).toBeUndefined();
+  });
+
+  it('opens the floor of a board as the row does', () => {
+    const shut = fileBoard('R11');
+    const opened = withFloorOpen(shut);
+    expect(opened.floor).toBeUndefined();
+    expect({ ...opened, floor: shut.floor }).toEqual(shut);
   });
 });

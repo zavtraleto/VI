@@ -23,7 +23,7 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 const args = process.argv.slice(2);
 const named = Object.fromEntries(args.filter((a) => a.includes('=')).map((a) => [a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)]));
 const flags = new Set(args.filter((a) => !a.includes('=')));
-const KEYS = ['boards', 'places', 'people', 'workers', 'one', 'path', 'who', 'tune', 'set', 'plaques', 'step'];
+const KEYS = ['boards', 'places', 'people', 'workers', 'one', 'path', 'who', 'tune', 'set', 'plaques', 'step', 'open'];
 for (const key of Object.keys(named)) if (!KEYS.includes(key)) refuse(`unknown key ${key}`);
 for (const flag of flags) if (!['calibrate', 'json'].includes(flag)) refuse(`unknown flag ${flag}`);
 const people = Number(named.people ?? 20);
@@ -40,7 +40,10 @@ if (named.one) {
   const { fileBoard } = await load('/src/levels/boardFiles.ts');
   const { HUMANS, humanFacts } = await load('/src/rules/humanBot.ts');
   const { readFileSync } = await import('node:fs');
-  const spec = named.path ? parseBoard(readFileSync(named.path, 'utf8'), named.one) : fileBoard(named.one);
+  const { withFloorOpen } = await load('/src/levels/row.ts');
+  const filed = named.path ? parseBoard(readFileSync(named.path, 'utf8'), named.one) : fileBoard(named.one);
+  // `open=1`: a place of the row whose chapter opens the floor is played on it, as the row plays it (`floor: "open"`).
+  const spec = named.open === '1' ? withFloorOpen(filed) : filed;
   const who = named.who ? named.who.split(',') : Object.keys(HUMANS);
   const tuned = tunedOf(HUMANS, named.tune);
   // The plaques over the dice of a place of the row (`help.plaques` in boards/row.json) show their sides: nothing is misread there.
@@ -78,6 +81,7 @@ function factsOf(job) {
     if (named.tune) argv.push(`tune=${named.tune}`);
     if (job.plaques) argv.push('plaques=1');
     if (job.stepUnknown) argv.push('step=0');
+    if (job.open) argv.push('open=1');
     const child = spawn(process.execPath, argv, { cwd: root });
     let out = '';
     child.stdout.on('data', (chunk) => (out += chunk));
@@ -121,14 +125,17 @@ if (flags.has('calibrate')) {
   const { readFileSync } = await import('node:fs');
   const row = JSON.parse(readFileSync(resolve(root, 'boards/row.json'), 'utf8'));
   const PLAQUES = new Set(row.chapters.flatMap((chapter) => chapter.places ?? []).filter((place) => place.help?.plaques).map((place) => place.board));
+  // The boards were played at their places: on the floor of their chapter.
+  const { floorOpenBoards } = await load('/src/levels/row.ts');
+  const OPEN = floorOpenBoards(row);
   const sets = named.set ? [named.set] : ['crowd', 'owner'];
   // The players of the platform met the step first on the first of their boards whose way needs it: there they did not know it.
   const { fileBoard } = await load('/src/levels/boardFiles.ts');
   const { wayNeedsStep } = await load('/src/rules/humanBot.ts');
   const firstStep = CROWD.find((b) => wayNeedsStep(fileBoard(b.code)))?.code;
   const jobs = [
-    ...(sets.includes('crowd') ? CROWD.map((b) => ({ code: b.code, key: `crowd:${b.code}`, who: ['newcomer'], plaques: PLAQUES.has(b.code), stepUnknown: b.code === firstStep })) : []),
-    ...(sets.includes('owner') ? OWNER_PLAYS.map((p) => ({ code: p.code, key: `owner:${p.code}`, who: ['owner'], path: boardAt(PLAYED_AT, p.code) })) : []),
+    ...(sets.includes('crowd') ? CROWD.map((b) => ({ code: b.code, key: `crowd:${b.code}`, who: ['newcomer'], plaques: PLAQUES.has(b.code), stepUnknown: b.code === firstStep, open: OPEN.has(b.code) })) : []),
+    ...(sets.includes('owner') ? OWNER_PLAYS.map((p) => ({ code: p.code, key: `owner:${p.code}`, who: ['owner'], path: boardAt(PLAYED_AT, p.code), open: OPEN.has(p.code) })) : []),
   ];
   const facts = await run(jobs);
   const rows = [];
@@ -180,7 +187,14 @@ if (flags.has('calibrate')) {
     const first = ROW.places.find((place) => wayNeedsStep(place.spec));
     if (first) unknown.add(first.code);
   }
-  const facts = await run(codes.map((code) => ({ code, stepUnknown: unknown.has(code) })));
+  // A place of the row is played on the floor of its chapter, as `ladder` and the row play it; a board named by boards= as its file says.
+  const open = new Set();
+  if (!named.boards) {
+    const { readFileSync } = await import('node:fs');
+    const { floorOpenBoards } = await load('/src/levels/row.ts');
+    for (const code of floorOpenBoards(JSON.parse(readFileSync(resolve(root, 'boards/row.json'), 'utf8')))) open.add(code);
+  }
+  const facts = await run(codes.map((code) => ({ code, stepUnknown: unknown.has(code), open: open.has(code) })));
   if (flags.has('json')) console.log(JSON.stringify(Object.fromEntries(facts), null, 2));
   else {
     console.log('board: first try · failed once · gave up · tries · moves, for each person');

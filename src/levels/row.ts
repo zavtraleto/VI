@@ -152,10 +152,7 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
       if (status !== 'R') throw new Error(`row: ${said.board}: the file says status ${status ?? '—'}; a board of the row is R`);
       let spec = parseBoard(text, said.board);
       if (chapter.faces) spec = { ...spec, faces: [...chapter.faces], values: [...chapter.faces] };
-      if (chapter.floor === 'open') {
-        const { floor: _floor, ...open } = spec;
-        spec = open;
-      }
+      if (chapter.floor === 'open') spec = withFloorOpen(spec);
       places.push({
         number,
         chapter: id,
@@ -173,6 +170,20 @@ export function buildRow(file: RowFile, boards: ReadonlyMap<string, string>): Ro
     chapters.push({ id, title: chapter.title, faces: chapter.faces ? [...chapter.faces] : null, first, last: places.length - 1 });
   });
   return { chapters, places };
+}
+
+/** A board as a chapter that opens the floor plays it (`floor: "open"`): whatever its file says of the floor, it is open. */
+export function withFloorOpen(spec: LevelSpec): LevelSpec {
+  const { floor: _floor, ...open } = spec;
+  return open;
+}
+
+/**
+ * The boards of the row whose chapter opens the floor: what the players of a place play on, and what the tools that
+ * play a place of the row by its board file (`scripts/humans.mjs`) open, as the row does.
+ */
+export function floorOpenBoards(file: RowFile): Set<string> {
+  return new Set(file.chapters.filter((chapter) => chapter.floor === 'open').flatMap((chapter) => chapter.places.map((place) => place.board)));
 }
 
 /** Whether a file of `boards/` written anew changes the row: row.json itself, or the file of a board in it. */
