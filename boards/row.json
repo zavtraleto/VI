@@ -111,9 +111,9 @@
       "floor": "open",
       "places": [
         { "board": "dd-94-four-ones", "role": "apply", "archetype": "four ones in a square: which to stand on", "emotion": "insight", "note": "temporary at 61: the best board of the shelf and the pool for the gates of the place (brief 61-80, 8.4; director, 5 November)" },
-        { "board": "wall-corridor-1", "role": "meet", "archetype": "the wall: a die that does not move sets the way", "emotion": "surprise", "note": "the meeting of the fixed die, by a board and not a window (brief 61-80, 4.1)" },
+        { "board": "wall-under-1", "role": "meet", "archetype": "the wall: a die that does not move sets the way", "emotion": "surprise", "note": "the meeting of the fixed die, by a board and not a window (brief 61-80, 4.1; second pass)" },
         { "board": "act-k21", "role": "apply", "archetype": "snowball: the first move pulls a chain", "emotion": "tension" },
-        { "board": "far-faces-10", "role": "apply", "archetype": "two far faces: which heap first", "emotion": "insight" },
+        { "board": "far-twos-sixes-1", "role": "apply", "archetype": "twos and sixes far apart", "emotion": "insight" },
         { "board": "stop-6", "role": "apply", "archetype": "the stop: push it against the die that does not move", "emotion": "insight" },
         { "board": "fixed-combo1-deep-rolls1-3", "role": "apply", "archetype": "the fixed face is part of the combo", "emotion": "recognition" },
         { "board": "pair-and-fours-1", "role": "peak", "archetype": "a pair of twos is the bridge to the fours", "emotion": "fiero" },
@@ -127,14 +127,14 @@
       "floor": "open",
       "places": [
         { "board": "P09", "role": "apply", "archetype": "bridge with a link", "emotion": "mastery", "note": "its kept way is a bridge with a link (K ~ L), no floor and no push: the name of its probe place said otherwise" },
-        { "board": "far-heaps-1", "role": "apply", "archetype": "two heaps far apart: which first", "emotion": "insight" },
+        { "board": "plan-push-twice-1", "role": "apply", "archetype": "two pushes from the standing four", "emotion": "insight" },
         { "board": "trap-5", "role": "event", "archetype": "greed on the first move", "emotion": "trick", "event": "first-move trap" },
         { "board": "dd-87-three-fours", "role": "apply", "archetype": "three fours: who becomes the fourth", "emotion": "tension" },
         { "board": "dd72-two-iron-fours-deep-rolls1-1", "role": "twist", "archetype": "two fixed fours in the combo", "emotion": "surprise" },
         { "board": "dd-80-form-leads", "role": "apply", "archetype": "the form of the field leads", "emotion": "insight" },
         { "board": "gift-threes-1", "role": "rest", "archetype": "five threes go at once", "emotion": "gift", "note": "an easy place with a fine end before the peak (brief 61-80, 4.3)" },
-        { "board": "roll-in-transfer-1", "role": "twist", "archetype": "roll in and transfer", "emotion": "insight", "note": "temporary at 78 till the second pass of 61-80 (brief 61-80, 8.4)" },
-        { "board": "dd-58-six-ones", "role": "apply", "archetype": "six ones and the sixes", "emotion": "recognition", "note": "at 79 in the first pass; the peak 78 in the second (brief 61-80, 8.5)" },
+        { "board": "dd-58-six-ones", "role": "peak", "archetype": "six ones and the sixes", "emotion": "fiero" },
+        { "board": "deeds-twos-fours-5", "role": "apply", "archetype": "three deeds on twos and fours, after the peak", "emotion": "mastery" },
         { "board": "far-faces-1", "role": "apply", "archetype": "far faces", "emotion": "tension", "note": "temporary at 80 till the second pass of 61-80 (brief 61-80, 8.4)" }
       ]
     },
@@ -145,7 +145,7 @@
         { "board": "R16", "role": "twist", "archetype": "everything at once", "emotion": "insight" },
         { "board": "ones-threes-2", "role": "apply", "archetype": "K ~ L v U on 3 (lift link ones push walk)", "emotion": "recognition", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
         { "board": "dd-21-wood-fives", "role": "apply", "archetype": "turn to fives", "emotion": "recognition" },
-        { "board": "dd-57-all-faces", "role": "apply", "archetype": "all the faces on a wide field", "emotion": "insight", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
+        { "board": "dd-36-stone-fours", "role": "apply", "archetype": "stone fours", "emotion": "insight", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
         { "board": "dd-38-three-threes", "role": "peak", "archetype": "three threes in a corridor, a long way", "emotion": "tension", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
         { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" }
       ]

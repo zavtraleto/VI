@@ -1,0 +1,55 @@
+{
+  "road": {
+    "firsts": 1,
+    "worst": 12,
+    "lost": 3,
+    "boards": 300,
+    "capped": true
+  },
+  "facts": {
+    "lost": true,
+    "planner": 0.9666666666666667,
+    "casual": 0,
+    "order": false,
+    "cleared": {
+      "walk": 8,
+      "link": 6,
+      "glass": 6,
+      "lift": 8,
+      "push": 8,
+      "ones": 6
+    }
+  },
+  "shares": {
+    "hasty": 0,
+    "casual": 0,
+    "careful": 0.7,
+    "planner": 0.9666666666666667
+  },
+  "reader": 0.43333333333333335,
+  "explorer": {
+    "careful": {
+      "offPar": 0.5263157894736842,
+      "waysSeen": 10
+    },
+    "planner": {
+      "offPar": 0.5,
+      "waysSeen": 10
+    }
+  },
+  "depth": {
+    "par": 6,
+    "forks": 2,
+    "ways": 1,
+    "waysLong": 18,
+    "slack": 2,
+    "lossAt": 3,
+    "lostShare": 0.036619718309859155,
+    "complete": false,
+    "waysCapped": false,
+    "longCapped": false,
+    "lossSampled": true
+  },
+  "hidden": 2,
+  "states": 3546
+}

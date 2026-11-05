@@ -1,6 +1,6 @@
 id: far-twos-sixes-1
 note: замысел far-twos-sixes, круг 1; вид: план и порядок; мысль: Две кучки разных граней: какую первой
-status: N
+status: R
 batch: far-twos-sixes 2026-11-05
 faces: 2 6
 par: 6

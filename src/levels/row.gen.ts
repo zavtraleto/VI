@@ -5843,59 +5843,31 @@ export const ROW: Row = {
     {
       "number": 62,
       "chapter": 8,
-      "code": "wall-corridor-1",
+      "code": "wall-under-1",
       "spec": {
-        "id": "wall-corridor-1",
+        "id": "wall-under-1",
         "seed": 0,
-        "size": 6,
+        "size": 5,
         "holes": [
           {
             "x": 0,
-            "z": 0
+            "z": 3
           },
           {
             "x": 1,
-            "z": 0
+            "z": 3
           },
           {
             "x": 2,
-            "z": 0
+            "z": 3
           },
           {
             "x": 3,
-            "z": 0
+            "z": 3
           },
           {
             "x": 4,
-            "z": 0
-          },
-          {
-            "x": 5,
-            "z": 0
-          },
-          {
-            "x": 0,
-            "z": 1
-          },
-          {
-            "x": 1,
-            "z": 1
-          },
-          {
-            "x": 2,
-            "z": 1
-          },
-          {
-            "x": 3,
-            "z": 1
-          },
-          {
-            "x": 4,
-            "z": 1
-          },
-          {
-            "x": 5,
-            "z": 1
+            "z": 3
           },
           {
             "x": 0,
@@ -5916,34 +5888,6 @@ export const ROW: Row = {
           {
             "x": 4,
             "z": 4
-          },
-          {
-            "x": 5,
-            "z": 4
-          },
-          {
-            "x": 0,
-            "z": 5
-          },
-          {
-            "x": 1,
-            "z": 5
-          },
-          {
-            "x": 2,
-            "z": 5
-          },
-          {
-            "x": 3,
-            "z": 5
-          },
-          {
-            "x": 4,
-            "z": 5
-          },
-          {
-            "x": 5,
-            "z": 5
           }
         ],
         "goal": {
@@ -5953,7 +5897,7 @@ export const ROW: Row = {
         "values": [
           3
         ],
-        "norm": 4,
+        "norm": 3,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
@@ -5962,45 +5906,40 @@ export const ROW: Row = {
         ],
         "layout": {
           "start": {
-            "x": 5,
-            "z": 2
+            "x": 1,
+            "z": 0
           },
           "dice": [
             {
               "x": 1,
-              "z": 2,
+              "z": 0,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 1,
               "top": 3,
               "north": 1,
               "fixed": true
             },
             {
-              "x": 5,
+              "x": 0,
               "z": 2,
-              "top": 4,
-              "north": 6
-            },
-            {
-              "x": 2,
-              "z": 3,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 3,
-              "z": 3,
               "top": 3,
               "north": 5
             }
           ]
         },
-        "par": 5,
+        "par": 6,
         "exact": true,
         "solution": [
-          "5,2,S",
-          "5,3,W",
-          "4,3,N",
-          "4,2,W",
-          "3,2,W"
+          "1,0,E",
+          "2,0,E",
+          "3,0,S",
+          "3,1,S",
+          "3,2,W",
+          "2,2,W"
         ]
       },
       "role": "meet",
@@ -6087,9 +6026,9 @@ export const ROW: Row = {
     {
       "number": 64,
       "chapter": 8,
-      "code": "far-faces-10",
+      "code": "far-twos-sixes-1",
       "spec": {
-        "id": "far-faces-10",
+        "id": "far-twos-sixes-1",
         "seed": 0,
         "size": 5,
         "goal": {
@@ -6097,81 +6036,86 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          3,
-          4
+          2,
+          6
         ],
-        "norm": 7,
+        "norm": 8,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          3,
-          4
+          2,
+          6
         ],
         "layout": {
           "start": {
-            "x": 4,
+            "x": 0,
             "z": 3
           },
           "dice": [
             {
-              "x": 1,
-              "z": 0,
-              "top": 4,
-              "north": 6
-            },
-            {
-              "x": 2,
-              "z": 0,
-              "top": 4,
-              "north": 2
-            },
-            {
-              "x": 2,
+              "x": 0,
               "z": 1,
-              "top": 4,
-              "north": 2
+              "top": 5,
+              "north": 1
             },
             {
-              "x": 4,
+              "x": 3,
+              "z": 1,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 0,
               "z": 2,
-              "top": 4,
+              "top": 2,
               "north": 6
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 6,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 6,
+              "north": 4
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 6,
+              "north": 4
             },
             {
               "x": 4,
               "z": 3,
-              "top": 5,
-              "north": 4
+              "top": 6,
+              "north": 3
             },
             {
-              "x": 0,
+              "x": 4,
               "z": 4,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 1,
-              "z": 4,
-              "top": 3,
-              "north": 6
+              "top": 6,
+              "north": 3
             }
           ]
         },
-        "par": 7,
+        "par": 6,
         "exact": true,
         "solution": [
-          "4,2,W",
-          "3,2,S",
-          "4,3,N",
-          "4,2,W",
-          "3,2,W",
-          "3,3,W,p",
-          "2,3,W"
+          "0,2,E",
+          "1,2,S",
+          "0,1,S,p",
+          "0,2,E",
+          "1,2,N",
+          "1,1,E"
         ]
       },
       "role": "apply",
-      "archetype": "two far faces: which heap first",
+      "archetype": "twos and sixes far apart",
       "emotion": "insight",
       "help": {}
     },
@@ -6881,96 +6825,88 @@ export const ROW: Row = {
     {
       "number": 72,
       "chapter": 9,
-      "code": "far-heaps-1",
+      "code": "plan-push-twice-1",
       "spec": {
-        "id": "far-heaps-1",
+        "id": "plan-push-twice-1",
         "seed": 0,
-        "size": 5,
+        "size": 4,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          3,
-          5
+          2,
+          4
         ],
-        "norm": 8,
+        "norm": 7,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          3,
-          5
+          2,
+          4
         ],
         "layout": {
           "start": {
-            "x": 1,
+            "x": 3,
             "z": 0
           },
           "dice": [
             {
+              "x": 3,
+              "z": 0,
+              "top": 4,
+              "north": 6
+            },
+            {
               "x": 1,
-              "z": 0,
-              "top": 5,
-              "north": 4
-            },
-            {
-              "x": 3,
-              "z": 0,
-              "top": 3,
-              "north": 5
-            },
-            {
-              "x": 3,
               "z": 1,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 3,
-              "z": 2,
               "top": 2,
               "north": 6
             },
             {
-              "x": 0,
-              "z": 3,
-              "top": 5,
-              "north": 6
+              "x": 3,
+              "z": 1,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 4,
+              "north": 1
             },
             {
               "x": 1,
               "z": 3,
-              "top": 5,
-              "north": 4
+              "top": 2,
+              "north": 1
             },
             {
-              "x": 0,
-              "z": 4,
-              "top": 5,
-              "north": 6
-            },
-            {
-              "x": 1,
-              "z": 4,
-              "top": 5,
+              "x": 3,
+              "z": 3,
+              "top": 2,
               "north": 4
             }
           ]
         },
-        "par": 6,
+        "par": 4,
         "exact": true,
         "solution": [
-          "1,0,E",
-          "2,0,S",
-          "2,1,S",
-          "2,2,W",
-          "3,2,W,p",
-          "2,2,E"
+          "2,2,N",
+          "1,3,E,p",
+          "1,1,S,p",
+          "1,2,E,p"
         ]
       },
       "role": "apply",
-      "archetype": "two heaps far apart: which first",
+      "archetype": "two pushes from the standing four",
       "emotion": "insight",
       "help": {}
     },
@@ -7481,80 +7417,6 @@ export const ROW: Row = {
     {
       "number": 78,
       "chapter": 9,
-      "code": "roll-in-transfer-1",
-      "spec": {
-        "id": "roll-in-transfer-1",
-        "seed": 0,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          2
-        ],
-        "norm": 5,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          2
-        ],
-        "layout": {
-          "start": {
-            "x": 0,
-            "z": 2
-          },
-          "dice": [
-            {
-              "x": 2,
-              "z": 1,
-              "top": 3,
-              "north": 2
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 2,
-              "north": 4
-            },
-            {
-              "x": 0,
-              "z": 3,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 1,
-              "z": 3,
-              "top": 2,
-              "north": 3
-            },
-            {
-              "x": 2,
-              "z": 3,
-              "top": 3,
-              "north": 5
-            }
-          ]
-        },
-        "par": 4,
-        "exact": true,
-        "solution": [
-          "2,3,N",
-          "2,1,W",
-          "1,1,S",
-          "0,3,E"
-        ]
-      },
-      "role": "twist",
-      "archetype": "roll in and transfer",
-      "emotion": "insight",
-      "help": {}
-    },
-    {
-      "number": 79,
-      "chapter": 9,
       "code": "dd-58-six-ones",
       "spec": {
         "id": "dd-58-six-ones",
@@ -7677,9 +7539,99 @@ export const ROW: Row = {
           "2,0,E,p"
         ]
       },
-      "role": "apply",
+      "role": "peak",
       "archetype": "six ones and the sixes",
-      "emotion": "recognition",
+      "emotion": "fiero",
+      "help": {}
+    },
+    {
+      "number": 79,
+      "chapter": 9,
+      "code": "deeds-twos-fours-5",
+      "spec": {
+        "id": "deeds-twos-fours-5",
+        "seed": 0,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          2,
+          4
+        ],
+        "norm": 7,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          2,
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 3,
+              "z": 0,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 1,
+              "top": 4,
+              "north": 2
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 4,
+              "north": 5
+            }
+          ]
+        },
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "1,2,N",
+          "1,1,E",
+          "2,1,E",
+          "3,2,N",
+          "3,1,N",
+          "2,2,W,p"
+        ]
+      },
+      "role": "apply",
+      "archetype": "three deeds on twos and fours, after the peak",
+      "emotion": "mastery",
       "help": {}
     },
     {
@@ -8053,67 +8005,19 @@ export const ROW: Row = {
     {
       "number": 84,
       "chapter": 10,
-      "code": "dd-57-all-faces",
+      "code": "dd-36-stone-fours",
       "spec": {
-        "id": "dd-57-all-faces",
+        "id": "dd-36-stone-fours",
         "seed": 0,
-        "size": 7,
+        "size": 4,
         "holes": [
           {
-            "x": 0,
-            "z": 5
-          },
-          {
-            "x": 1,
-            "z": 5
+            "x": 3,
+            "z": 0
           },
           {
             "x": 2,
-            "z": 5
-          },
-          {
-            "x": 3,
-            "z": 5
-          },
-          {
-            "x": 4,
-            "z": 5
-          },
-          {
-            "x": 5,
-            "z": 5
-          },
-          {
-            "x": 6,
-            "z": 5
-          },
-          {
-            "x": 0,
-            "z": 6
-          },
-          {
-            "x": 1,
-            "z": 6
-          },
-          {
-            "x": 2,
-            "z": 6
-          },
-          {
-            "x": 3,
-            "z": 6
-          },
-          {
-            "x": 4,
-            "z": 6
-          },
-          {
-            "x": 5,
-            "z": 6
-          },
-          {
-            "x": 6,
-            "z": 6
+            "z": 2
           }
         ],
         "goal": {
@@ -8121,74 +8025,63 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          1,
-          2
+          4
         ],
-        "norm": 6,
+        "norm": 4,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          1,
-          2
+          4
         ],
         "layout": {
           "start": {
-            "x": 3,
-            "z": 3
+            "x": 0,
+            "z": 1
           },
           "dice": [
             {
-              "x": 1,
+              "x": 0,
               "z": 1,
-              "top": 2,
+              "top": 4,
               "north": 1
             },
             {
-              "x": 3,
-              "z": 1,
-              "top": 1,
-              "north": 3
-            },
-            {
-              "x": 5,
-              "z": 1,
-              "top": 3,
-              "north": 2
-            },
-            {
               "x": 1,
-              "z": 2,
-              "top": 3,
-              "north": 5
+              "z": 1,
+              "top": 4,
+              "north": 1,
+              "fixed": true
             },
             {
               "x": 3,
-              "z": 3,
-              "top": 5,
-              "north": 4
+              "z": 1,
+              "top": 4,
+              "north": 1,
+              "fixed": true
             },
             {
-              "x": 5,
-              "z": 3,
+              "x": 0,
+              "z": 2,
               "top": 4,
-              "north": 6
+              "north": 1
             }
           ]
         },
-        "par": 6,
+        "par": 7,
         "exact": true,
         "solution": [
-          "3,3,E",
-          "5,3,N",
-          "5,1,W",
-          "3,1,W",
-          "1,2,E",
-          "2,2,N"
+          "0,2,S",
+          "0,3,E",
+          "1,3,N",
+          "0,1,N",
+          "0,0,E",
+          "1,0,E",
+          "2,0,S"
         ]
       },
       "role": "apply",
-      "archetype": "all the faces on a wide field",
+      "archetype": "stone fours",
       "emotion": "insight",
       "help": {}
     },

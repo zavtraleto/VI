@@ -1,6 +1,6 @@
 id: far-heaps-1
 note: замысел far-heaps, круг 1; вид: план и порядок; мысль: Две кучки разных граней: какую первой
-status: R
+status: D
 batch: far-heaps 2026-11-05
 faces: 3 5
 par: 6
