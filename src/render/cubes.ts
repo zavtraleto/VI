@@ -481,9 +481,10 @@ export class CubeMeshes {
     const { shared, values } = this;
     const n = (name: string): number => Number(values[name] ?? 0);
     // Light is paler than the channel it belongs to, so that the darkest of them still shows
-    // in the dark. The one is not a channel: its light is the red of its pip.
+    // in the dark. The one is no different: its edges are in the tone of the program like the others'
+    // (word of the owner, 5 November 2026); only its pip is red.
     for (let value = 1; value <= 6; value++) {
-      this.channels[value - 1] = new THREE.Color(value === 1 ? palette.signal : mixHex(palette.channels[value - 1], '#ffffff', EDGE_PALE));
+      this.channels[value - 1] = new THREE.Color(mixHex(palette.channels[value - 1], '#ffffff', EDGE_PALE));
       shared.uChannels.value[value - 1].set(mixHex(palette.channels[value - 1], '#000000', n('faceMute')));
     }
     shared.uSignal.value.set(palette.signal);
