@@ -16,8 +16,9 @@ const NO_ONES: readonly number[] = [2, 3, 4, 5, 6];
  * (доску меньше, режиссёр - подыгрывает игроку)»): a board of 5 and of 6, fewer cubes, more help,
  * and no cube comes with a 1 up. Steps 3 to 7 are the old steps 1, 2, 3, 5 and 7 of the live
  * sessions, each faster than the one before and with fewer gifts (26 October 2026: «сложность
- * сеансов тоже должна расти»). Every one lasts three minutes, the last 15 seconds of it with no
- * cube coming.
+ * сеансов тоже должна расти»). Every one lasts three minutes. On steps 1 to 3 no cube comes in the last 15 seconds;
+ * from step 4 on cubes come to the end (the owner, 5 November 2026: «начиная с 4ого звонка это
+ * правило не используется»).
  */
 export const LIVE_STEPS: readonly LiveStep[] = [
   {
@@ -35,10 +36,10 @@ export const LIVE_STEPS: readonly LiveStep[] = [
     arriveFaces: NO_ONES,
   },
   { tuning: { liveSec: 180, gentleSec: 180, liveStartMs: 3500, liveEndMs: 2500, giftRate: 0.08 } },
-  { tuning: { liveSec: 180, gentleSec: 60, liveStartMs: 3000, liveEndMs: 1500, giftRate: 0.08 } },
-  { tuning: { liveSec: 180, gentleSec: 0, liveStartMs: 2500, liveEndMs: 1000, giftRate: 0.04 } },
-  { tuning: { liveSec: 180, gentleSec: 0, liveStartMs: 2100, liveEndMs: 850, giftRate: 0.035 } },
-  { tuning: { liveSec: 180, gentleSec: 0, liveStartMs: 2100, liveEndMs: 800, giftRate: 0.03 } },
+  { tuning: { liveSec: 180, gentleSec: 60, liveStartMs: 3000, liveEndMs: 1500, giftRate: 0.08, liveFadeSec: 0 } },
+  { tuning: { liveSec: 180, gentleSec: 0, liveStartMs: 2500, liveEndMs: 1000, giftRate: 0.04, liveFadeSec: 0 } },
+  { tuning: { liveSec: 180, gentleSec: 0, liveStartMs: 2100, liveEndMs: 850, giftRate: 0.035, liveFadeSec: 0 } },
+  { tuning: { liveSec: 180, gentleSec: 0, liveStartMs: 2100, liveEndMs: 800, giftRate: 0.03, liveFadeSec: 0 } },
 ];
 
 /** The step of the table for a step number (1-based); a step past the last plays the last. */

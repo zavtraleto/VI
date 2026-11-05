@@ -141,11 +141,11 @@ describe('the pace of a live session', () => {
 });
 
 describe('the steps of the calls', () => {
-  it('are seven, every one three minutes long, the last 15 seconds of it with no cube coming', () => {
+  it('are seven, every one three minutes long; on the first three no cube comes in the last 15 seconds', () => {
     expect(LIVE_STEPS).toHaveLength(7);
     for (let step = 1; step <= 7; step++) {
       expect(liveConfig(step).liveTicks).toBe(3 * minute);
-      expect(liveConfig(step).liveFadeTicks).toBe(msToTicks(15_000));
+      expect(liveConfig(step).liveFadeTicks).toBe(step <= 3 ? msToTicks(15_000) : 0);
     }
   });
 
@@ -233,8 +233,8 @@ describe('a gentle call', () => {
 });
 
 describe('the end of a call', () => {
-  it('brings no new cube in its last 15 seconds, and plays the board out to the clock', () => {
-    for (const at of [1, 3, 7]) {
+  it('brings no new cube in its last 15 seconds on steps 1 to 3, and plays the board out to the clock', () => {
+    for (const at of [1, 3]) {
       const s = createRun({ seed: 3, config: liveConfig(at, { floorLift: false }, { liveStartMs: 6000, liveEndMs: 6000 }), live: true });
       const fade = s.config.liveTicks - s.config.liveFadeTicks;
       const late: GameEvent[] = [];
@@ -244,6 +244,20 @@ describe('the end of a call', () => {
       }
       expect(s.endReason, `step ${at}`).toBe('time');
       expect(late.filter((e) => e.type === 'spawn' || e.type === 'warned'), `step ${at}`).toEqual([]);
+    }
+  });
+
+  it('keeps cubes coming to the clock from step 4 on', () => {
+    for (const at of [4, 7]) {
+      const s = createRun({ seed: 3, config: liveConfig(at, { floorLift: false }, { liveStartMs: 6000, liveEndMs: 6000 }), live: true });
+      const last = s.config.liveTicks - msToTicks(15_000);
+      const late: GameEvent[] = [];
+      while (!s.over) {
+        step(s, null);
+        if (s.tick > last) late.push(...s.events);
+      }
+      expect(s.endReason, `step ${at}`).toBe('time');
+      expect(late.filter((e) => e.type === 'spawn').length, `step ${at}`).toBeGreaterThan(0);
     }
   });
 });
