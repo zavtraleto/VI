@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# The catalog of boards is only appended to: two sides of a merge are both taken.
+boards/catalog/*.jsonl merge=union
