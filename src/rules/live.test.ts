@@ -140,18 +140,26 @@ describe('the pace of a live session', () => {
   });
 });
 
-describe('the steps of the live sessions', () => {
-  it('are seven, every one three minutes long', () => {
+describe('the steps of the calls', () => {
+  it('are seven, every one three minutes long, the last 15 seconds of it with no cube coming', () => {
     expect(LIVE_STEPS).toHaveLength(7);
-    for (let step = 1; step <= 7; step++) expect(liveConfig(step).liveTicks).toBe(3 * minute);
+    for (let step = 1; step <= 7; step++) {
+      expect(liveConfig(step).liveTicks).toBe(3 * minute);
+      expect(liveConfig(step).liveFadeTicks).toBe(msToTicks(15_000));
+    }
   });
 
-  it('grow harder: a faster pace, a shorter gentle start, fewer gifts', () => {
-    const [one, two, three] = [1, 2, 3].map((step) => liveConfig(step));
-    expect(one.gentleTicks).toBeGreaterThanOrEqual(one.liveTicks);
-    expect(two.gentleTicks).toBeLessThan(one.gentleTicks);
-    expect(three.giftRate).toBeLessThan(two.giftRate);
-    for (let step = 1; step < 7; step++) {
+  it('start on a board of 5, then of 6, and play on 7 from the third on', () => {
+    expect([1, 2, 3, 4, 5, 6, 7].map((step) => liveConfig(step).size)).toEqual([5, 6, 7, 7, 7, 7, 7]);
+    expect(liveConfig(1).warnOccupied).toBe(16);
+    expect(liveConfig(2).warnOccupied).toBe(25);
+    expect(liveConfig(3).warnOccupied).toBe(42);
+  });
+
+  it('grow harder from the third on: a faster pace, a shorter gentle start, fewer gifts', () => {
+    expect(liveConfig(3).gentleTicks).toBeGreaterThanOrEqual(liveConfig(3).liveTicks);
+    expect(liveConfig(4).gentleTicks).toBeLessThan(liveConfig(3).gentleTicks);
+    for (let step = 3; step < 7; step++) {
       const [now, next] = [liveConfig(step), liveConfig(step + 1)];
       expect(next.liveStartMs, `step ${step + 1}`).toBeLessThanOrEqual(now.liveStartMs);
       expect(next.liveEndMs, `step ${step + 1}`).toBeLessThanOrEqual(now.liveEndMs);
@@ -159,7 +167,7 @@ describe('the steps of the live sessions', () => {
       const harder = next.liveStartMs < now.liveStartMs || next.liveEndMs < now.liveEndMs || next.giftRate < now.giftRate;
       expect(harder, `step ${step + 1}`).toBe(true);
     }
-    for (let step = 3; step <= 7; step++) expect(liveConfig(step).gentleTicks, `step ${step}`).toBe(0);
+    for (let step = 5; step <= 7; step++) expect(liveConfig(step).gentleTicks, `step ${step}`).toBe(0);
   });
 
   it('play the last step past the last, and the first below the first', () => {
@@ -167,18 +175,87 @@ describe('the steps of the live sessions', () => {
     expect(liveConfig(0)).toEqual(liveConfig(1));
   });
 
-  it('keep the first one from being lost with nobody at it: it is all gentle start', () => {
-    const s = createRun({ seed: 5, config: liveConfig(1, { floorLift: false }), live: true });
-    run(s, s.config.liveTicks);
-    expect(s.endReason).toBe('time');
+  it('keep the first three from being lost with nobody at them', () => {
+    for (const at of [1, 2, 3]) {
+      const s = createRun({ seed: 5, config: liveConfig(at, { floorLift: false }), live: true });
+      run(s, s.config.liveTicks);
+      expect(s.endReason, `step ${at}`).toBe('time');
+    }
   });
 
-  it('let the third one and those after it be lost: with nobody at it the board fills before the clock runs out', () => {
-    for (const at of [3, 4, 7]) {
+  it('let the fifth one and those after it be lost: with nobody at it the board fills before the clock runs out', () => {
+    for (const at of [5, 6, 7]) {
       const s = createRun({ seed: 5, config: liveConfig(at, { floorLift: false }), live: true });
       run(s, s.config.liveTicks);
       expect(s.endReason, `step ${at}`).toBe('full');
       expect(s.tick, `step ${at}`).toBeLessThan(s.config.liveTicks);
     }
+  });
+});
+
+describe('a gentle call', () => {
+  it('sets up a board of 5 and of 6, with the figure on its own cell and every die on the board', () => {
+    for (const [step, size] of [[1, 5], [2, 6]] as const) {
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        const s = createRun({ seed, config: liveConfig(step), live: true });
+        expect(s.config.size).toBe(size);
+        expect(s.grid).toHaveLength(size * size);
+        expect([s.player.x, s.player.z]).toEqual([s.config.startX, s.config.startZ]);
+        expect(s.config.startX).toBe(Math.floor(size / 2));
+        expect(s.cubes.some((c) => c.x === s.player.x && c.z === s.player.z)).toBe(true);
+        for (const c of s.cubes) {
+          expect(c.x).toBeLessThan(size);
+          expect(c.z).toBeLessThan(size);
+        }
+        expect(s.cubes).toHaveLength(s.config.startCubes);
+      }
+    }
+  });
+
+  it('sends no new cube with a 1 up on steps 1 and 2', () => {
+    for (const at of [1, 2]) {
+      for (const seed of [1, 2, 3]) {
+        const s = createRun({ seed, config: liveConfig(at), live: true });
+        const dirs: Dir[] = ['N', 'E', 'S', 'W'];
+        let spawned = 0;
+        for (let i = 0; i < s.config.liveTicks && !s.over; i++) {
+          step(s, i % 9 === 0 ? dirs[(i / 9) % 4 | 0] : null);
+          for (const e of s.events) {
+            if (e.type !== 'spawn') continue;
+            spawned++;
+            expect(s.cubes.find((c) => c.id === e.cubeId)?.ori.top, `step ${at} seed ${seed}`).not.toBe(1);
+          }
+        }
+        expect(spawned).toBeGreaterThan(10);
+      }
+    }
+  });
+});
+
+describe('the end of a call', () => {
+  it('brings no new cube in its last 15 seconds, and plays the board out to the clock', () => {
+    for (const at of [1, 3, 7]) {
+      const s = createRun({ seed: 3, config: liveConfig(at, { floorLift: false }, { liveStartMs: 6000, liveEndMs: 6000 }), live: true });
+      const fade = s.config.liveTicks - s.config.liveFadeTicks;
+      const late: GameEvent[] = [];
+      while (!s.over) {
+        step(s, null);
+        if (s.tick > fade + s.config.warnTicks) late.push(...s.events);
+      }
+      expect(s.endReason, `step ${at}`).toBe('time');
+      expect(late.filter((e) => e.type === 'spawn' || e.type === 'warned'), `step ${at}`).toEqual([]);
+    }
+  });
+});
+
+describe('the rules of Endless and the levels', () => {
+  it('keep the config they had before the calls came', () => {
+    const c = defaultConfig();
+    expect(c.size).toBe(7);
+    expect([c.startX, c.startZ]).toEqual([3, 4]);
+    expect(c.warnOccupied).toBe(42);
+    expect(c.arriveFaces).toBeUndefined();
+    expect(c.custom).toBe(false);
+    expect(defaultConfig({}, { size: 7, warnShare: 42 / 49, liveFadeSec: 15 }).custom).toBe(false);
   });
 });

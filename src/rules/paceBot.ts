@@ -1,6 +1,6 @@
 import { RUSH, SKILL_NAMES, STYLE_NAMES, botCommand, createBot, skillOf, styled, type HandsName, type SkillName, type StyleName } from './bot';
 import { defaultConfig } from './config';
-import { LIVE_STEPS } from './live';
+import { liveConfig } from './live';
 import { createRun, step } from './sim';
 import { chainQuiet } from './spawn';
 import type { ExperimentConfig, RunState, Tuning } from './types';
@@ -102,8 +102,8 @@ export interface PaceOptions {
 
 export function playPace(opts: PaceOptions): PaceRun {
   const { skill, seed = 1, limitMinutes = 30 } = opts;
-  const live = opts.live ? LIVE_STEPS[Math.min(LIVE_STEPS.length, Math.max(1, opts.live)) - 1] : null;
-  const config = defaultConfig(opts.experiments, { ...live, ...opts.tuning });
+  const live = opts.live ? opts.live : null;
+  const config = live ? liveConfig(live, opts.experiments, opts.tuning) : defaultConfig(opts.experiments, opts.tuning);
   const state = createRun({ seed, config, live: live !== null });
   const head = opts.head ?? skill;
   const hands = opts.hands ?? skill;

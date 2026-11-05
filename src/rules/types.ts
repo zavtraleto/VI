@@ -185,6 +185,12 @@ export interface Tuning {
   liveSec: number;
   liveStartMs: number;
   liveEndMs: number;
+  /** A live session: the last seconds of its clock, in which no cube comes and the board is played out. */
+  liveFadeSec: number;
+  /** The side of the board: 7 everywhere but a gentle call, which plays on a smaller one. */
+  size: number;
+  /** The danger mark, and where the gentle start stops bringing cubes, as a share of the cells of the board. */
+  warnShare: number;
   helpRate: number;
   targetCubes: number;
   /** Interval below the target on the first levels, and from level 15 on. */
@@ -297,6 +303,13 @@ export interface RulesConfig {
   liveTicks: number;
   liveStartMs: number;
   liveEndMs: number;
+  /** A live session: the ticks at the end of its clock in which no cube is announced or comes. */
+  liveFadeTicks: number;
+  /**
+   * Top faces a new cube of Endless or a live session may come with; left out, any. A gentle call
+   * leaves out the 1. A level has its own faces, `LevelSpec.values`, and they win.
+   */
+  arriveFaces?: readonly number[];
   /** True when any tuning value differs from the defaults. */
   custom: boolean;
   experiments: ExperimentConfig;

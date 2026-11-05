@@ -176,20 +176,40 @@ const FALLBACK_CELLS: readonly [number, number][] = [
   [3, 2], [5, 2], [0, 4], [6, 4], [0, 6], [2, 6], [4, 6],
 ];
 
-export function fallbackLayout(count = FALLBACK_CELLS.length): Placement[] {
+/**
+ * The board a run starts on when no drawn one will do. On a board smaller than 7 it keeps the
+ * cells of the list that are on the board and takes the rest in the order of the cells.
+ */
+export function fallbackLayout(count = FALLBACK_CELLS.length, size = 7): Placement[] {
   const ori = orientationsWithTop(6)[0];
-  return FALLBACK_CELLS.slice(0, count).map(([x, z]) => ({ x, z, ori }));
+  const cells = FALLBACK_CELLS.filter(([x, z]) => inBounds(size, x, z));
+  for (let i = 0; i < size * size && cells.length < count; i++) {
+    const cell: [number, number] = [i % size, Math.floor(i / size)];
+    if (!cells.some(([x, z]) => x === cell[0] && z === cell[1])) cells.push(cell);
+  }
+  return cells.slice(0, count).map(([x, z]) => ({ x, z, ori }));
+}
+
+/** May a new cube of this run come with `top` up? */
+function comesWith(state: RunState, top: number): boolean {
+  const faces = arrivingFaces(state);
+  return !faces || faces.includes(top);
+}
+
+/** The top faces a new cube may come with: a level's own, or those of the run; undefined for any. */
+function arrivingFaces(state: RunState): readonly number[] | undefined {
+  return state.levelRun?.spec.values ?? state.config.arriveFaces;
 }
 
 export function placeStartLayout(state: RunState, forceFallback = false): void {
-  const { startCubes, startX, startZ } = state.config;
+  const { startCubes, startX, startZ, size } = state.config;
   const opening = state.config.experiments.opening && state.mode !== 'level';
   let layout: Placement[] | null = null;
   for (let attempt = 0; attempt < 100 && !forceFallback && !layout; attempt++) {
-    layout = tryStartLayout(state, opening);
+    layout = tryStartLayout(state, opening, opening ? state.config.arriveFaces : undefined);
   }
   if (!layout) {
-    layout = fallbackLayout(startCubes);
+    layout = fallbackLayout(startCubes, size);
     // The fallback is drawn for the usual start cell; any other start takes its first cube.
     if (!layout.some((p) => p.x === startX && p.z === startZ)) layout[0] = { ...layout[0], x: startX, z: startZ };
   }
@@ -330,7 +350,7 @@ const FACES: readonly number[] = [1, 2, 3, 4, 5, 6];
  */
 function chooseOrientation(state: RunState, x: number, z: number, helpful = false): Orientation {
   const tops = topsGrid(state);
-  const faces = state.levelRun?.spec.values;
+  const faces = arrivingFaces(state);
   const weights = faces ? FACES.map((face) => (faces.includes(face) ? 1 : 0)) : topWeights(state.config, state.level);
   const near = helpful ? neighbourTops(state, x, z) : [];
   const wanted = faces ? near.filter((top) => faces.includes(top)) : near;
@@ -398,7 +418,7 @@ function gift(state: RunState, free: readonly { x: number; z: number }[]): Place
           const x = tx - DELTA[dir].dx;
           const z = tz - DELTA[dir].dz;
           if (!isOpen(x, z) || beside(x, z)) continue;
-          const oris = ALL_ORIENTATIONS.filter((o) => roll(o, dir).top === value && staysQuiet(state, tops, x, z, o.top));
+          const oris = ALL_ORIENTATIONS.filter((o) => roll(o, dir).top === value && comesWith(state, o.top) && staysQuiet(state, tops, x, z, o.top));
           if (oris.length === 0) continue;
           // A die that stands beside the cell is the way onto the gift without going down to the floor.
           const touches = DIRS.some((d) => cubeAt(state, x + DELTA[d].dx, z + DELTA[d].dz)?.state === 'idle');
@@ -537,12 +557,12 @@ function chainFeeder(state: RunState, free: readonly { x: number; z: number }[])
       // The cell the cube is brought to: empty, and next to the chain.
       if (!isOpen(x + dx, z + dz) || !touchesChain(x + dx, z + dz)) continue;
       // A push needs floor behind the cube for the player to stand on.
-      if (pushFrom(x - dx, z - dz) && staysQuiet(state, tops, x, z, value)) {
+      if (pushFrom(x - dx, z - dz) && comesWith(state, value) && staysQuiet(state, tops, x, z, value)) {
         options.push({ x, z, oris: orientationsWithTop(value) });
         weights.push((onFloor ? 3 : 1) * near);
       }
       if (!SHOWN_ROLLS.includes(dir)) continue;
-      const oris = ALL_ORIENTATIONS.filter((o) => roll(o, dir).top === value && staysQuiet(state, tops, x, z, o.top));
+      const oris = ALL_ORIENTATIONS.filter((o) => roll(o, dir).top === value && comesWith(state, o.top) && staysQuiet(state, tops, x, z, o.top));
       if (oris.length > 0) {
         options.push({ x, z, oris });
         weights.push((onFloor ? 1 : 3) * near);
@@ -719,6 +739,11 @@ export function runSpawn(state: RunState): void {
   // Out of danger: the next stay at the mark has its silence to give again.
   if (state.cubes.length < state.config.warnOccupied) state.edgeCalmSpent = false;
   if (!state.spawnEnabled) return;
+  // The last seconds of a live session: nothing more comes, and the board is played out.
+  if (state.mode === 'live' && state.tick >= state.config.liveTicks - state.config.liveFadeTicks) {
+    state.spawnTimer = 0;
+    return;
+  }
   const quiet = silent(state) || chainQuiet(state) || state.edgeCalmLeft > 0;
   spendChainQuiet(state);
   if (state.chainCalmLeft > 0) state.chainCalmLeft--;

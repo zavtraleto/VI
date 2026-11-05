@@ -83,6 +83,10 @@ export function unpackRun(raw: unknown): KeptRun | null {
   // A run of other rules is let go as it is; one of these rules that is not a run is a broken save.
   const rules = (kept.state as { config?: { rulesVersion?: unknown } } | undefined)?.config?.rulesVersion;
   if (rules !== RULES_VERSION) return null;
+  // The quiet end of a call came after this version of the form: a run of Endless never reads it,
+  // so a run kept before it goes on with the default.
+  const config = (kept.state as { config?: Record<string, unknown> } | undefined)?.config;
+  if (config && config.liveFadeTicks === undefined) config.liveFadeTicks = defaultConfig().liveFadeTicks;
   let whole = false;
   try {
     whole = isRun(kept.state) && isObject(kept.tally);

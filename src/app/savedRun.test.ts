@@ -57,6 +57,14 @@ describe('a run kept for later', () => {
     expect(unpackRun(other)).toBeNull();
   });
 
+  it('takes back a run kept before calls had a quiet end', () => {
+    const kept = stored(packRun('endless', running(), new RunTally())) as { state: { config: Record<string, unknown> } };
+    delete kept.state.config.liveFadeTicks;
+    const back = unpackRun(kept);
+    expect(back).not.toBeNull();
+    expect(back!.state.config.liveFadeTicks).toBe(defaultConfig().liveFadeTicks);
+  });
+
   it('lets a session of the day that was kept go: there is no such session any more', () => {
     const kept = { version: 1, kind: 'timed', day: '2026-10-03', state: { ...running(), mode: 'timed' }, tally: new RunTally().keep() };
     expect(unpackRun(stored(kept))).toBeNull();
@@ -88,7 +96,7 @@ describe('a run kept for later', () => {
  */
 const KEPT_FORM = {
   state: ['chainCalmLeft', 'chainQuietSpent', 'config', 'cubes', 'edgeCalmLeft', 'edgeCalmSpent', 'endReason', 'events', 'feedDeck', 'fullTicks', 'grid', 'helpDeck', 'level', 'levelRun', 'liftTimer', 'maxChain', 'mode', 'nextCubeId', 'nextReactionId', 'over', 'pending', 'player', 'reactions', 'removed', 'rng', 'score', 'seed', 'sinceClear', 'spawnEnabled', 'spawnTimer', 'stats', 'tick', 'wave'],
-  config: ['actionTicks', 'breatherEvery', 'breatherFactor', 'chainCalmMaxTicks', 'chainCalmTicks', 'chainLift', 'chainLiftMin', 'crowdedFactor', 'cubesPerLevel', 'custom', 'easyLevels', 'edgeCalmTicks', 'edgeFactor', 'experiments', 'feedRate', 'floorLiftTicks', 'gentleTicks', 'giftMax', 'giftRate', 'helpRate', 'levelTicks', 'liveEndMs', 'liveStartMs', 'liveTicks', 'lowHeight', 'mountHeight', 'paceFlatLevels', 'paceGrowth', 'paceMinMs', 'paceStartMs', 'refillEndMs', 'refillMs', 'rescueTicks', 'restFlow', 'restTicks', 'risingTicks', 'rulesVersion', 'sinkFloorTicks', 'sinkLowHeight', 'sinkStartTicks', 'sinkingTicks', 'size', 'startCubes', 'startX', 'startZ', 'stepDownHeight', 'surgeCubes', 'surgeMax', 'targetCubes', 'tickMs', 'warnOccupied', 'warnTicks', 'waveEase', 'wavePeak', 'waveSpread', 'waveTicks', 'wipeBonus'],
+  config: ['actionTicks', 'breatherEvery', 'breatherFactor', 'chainCalmMaxTicks', 'chainCalmTicks', 'chainLift', 'chainLiftMin', 'crowdedFactor', 'cubesPerLevel', 'custom', 'easyLevels', 'edgeCalmTicks', 'edgeFactor', 'experiments', 'feedRate', 'floorLiftTicks', 'gentleTicks', 'giftMax', 'giftRate', 'helpRate', 'levelTicks', 'liveEndMs', 'liveFadeTicks', 'liveStartMs', 'liveTicks', 'lowHeight', 'mountHeight', 'paceFlatLevels', 'paceGrowth', 'paceMinMs', 'paceStartMs', 'refillEndMs', 'refillMs', 'rescueTicks', 'restFlow', 'restTicks', 'risingTicks', 'rulesVersion', 'sinkFloorTicks', 'sinkLowHeight', 'sinkStartTicks', 'sinkingTicks', 'size', 'startCubes', 'startX', 'startZ', 'stepDownHeight', 'surgeCubes', 'surgeMax', 'targetCubes', 'tickMs', 'warnOccupied', 'warnTicks', 'waveEase', 'wavePeak', 'waveSpread', 'waveTicks', 'wipeBonus'],
   experiments: ['boardPreview', 'chainCalm', 'dockSteps', 'floorClimb', 'floorLift', 'gentleStart', 'gift', 'guidedStart', 'lastSliver', 'matchHint', 'opening', 'soloOne', 'surge', 'timeFloor', 'waves'],
   player: ['level', 'x', 'z'],
   stats: ['bestChainScore', 'blockedSteps', 'chainQuietTicks', 'clearTicks', 'clears', 'dangerTicks', 'dockClimbs', 'dockDescents', 'falls', 'floorClimbs', 'gifts', 'groundTicks', 'levels', 'longestChainQuiet', 'steps', 'wipes'],

@@ -75,6 +75,9 @@ export const DEFAULT_TUNING: Readonly<Tuning> = {
   liveSec: 180,
   liveStartMs: 3000,
   liveEndMs: 1500,
+  liveFadeSec: 15,
+  size: 7,
+  warnShare: 42 / 49,
   helpRate: 0.65,
   targetCubes: 14,
   refillMs: 2200,
@@ -127,6 +130,9 @@ export const TUNING_RANGES: Readonly<Record<keyof Tuning, readonly [number, numb
   liveSec: [30, 600, 15],
   liveStartMs: [500, 8000, 100],
   liveEndMs: [300, 8000, 100],
+  liveFadeSec: [0, 60, 5],
+  size: [5, 7, 1],
+  warnShare: [0.5, 0.95, 0.01],
   helpRate: [0, 1, 0.05],
   targetCubes: [0, 30, 1],
   refillMs: [300, 5000, 100],
@@ -148,13 +154,15 @@ export function isCustomTuning(tuning: Partial<Tuning>): boolean {
 export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tuning: Partial<Tuning> = {}): RulesConfig {
   const exp = { ...defaultExperiments(), ...experiments };
   const t = { ...DEFAULT_TUNING, ...tuning };
+  const size = Math.min(7, Math.max(5, Math.round(t.size)));
   return {
     rulesVersion: RULES_VERSION,
-    size: 7,
+    size,
     tickMs: TICK_MS,
     startCubes: Math.max(2, Math.round(t.startCubes)),
-    startX: 3,
-    startZ: 4,
+    // For 7 the start cell of every board before: 3, 4.
+    startX: Math.floor(size / 2),
+    startZ: Math.min(size - 1, Math.floor(size / 2) + 1),
     actionTicks: msToTicks(t.stepMs),
     warnTicks: Math.round(t.warnMs / TICK_MS),
     risingTicks: msToTicks(t.riseMs),
@@ -180,7 +188,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     chainCalmMaxTicks: Math.round(t.chainCalmMaxMs / TICK_MS),
     cubesPerLevel: Math.max(1, Math.round(t.cubesPerLevel)),
     levelTicks: msToTicks(t.levelSec * 1000),
-    warnOccupied: 42,
+    warnOccupied: Math.round(size * size * t.warnShare),
     rescueTicks: msToTicks(t.rescueMs),
     lowHeight: t.lowHeight,
     sinkLowHeight: t.sinkLowHeight,
@@ -204,6 +212,7 @@ export function defaultConfig(experiments: Partial<ExperimentConfig> = {}, tunin
     liveTicks: msToTicks(t.liveSec * 1000),
     liveStartMs: t.liveStartMs,
     liveEndMs: t.liveEndMs,
+    liveFadeTicks: Math.round((t.liveFadeSec * 1000) / TICK_MS),
     custom: isCustomTuning(tuning),
     experiments: exp,
   };
@@ -229,8 +238,12 @@ export function ruleKey(config: RulesConfig): string {
   return `${config.rulesVersion}${flags ? '-' + flags : ''}`;
 }
 
-/** Cubes in play at which spawning is at its slowest. */
+/** Cubes in play at which spawning is at its slowest, on a board of 7: a smaller board crowds sooner, by its cells. */
 const CROWDED_CUBES = 30;
+
+function crowdedCubes(config: RulesConfig): number {
+  return (CROWDED_CUBES * config.size * config.size) / 49;
+}
 /** Cubes short of the target at which refilling runs at full speed. */
 const REFILL_FULL = 2;
 /** Levels at the start of a run on which the refill and the chain window keep their first values. */
@@ -303,7 +316,7 @@ export function paceIntervalTicks(config: RulesConfig, mode: RunMode, level: num
     const short = Math.min(1, (target - cubes) / REFILL_FULL);
     return msToTicks(atTarget + (Math.min(refill, atTarget) - atTarget) * short);
   }
-  const fill = Math.min(1, (cubes - target) / Math.max(1, CROWDED_CUBES - target));
+  const fill = Math.min(1, (cubes - target) / Math.max(1, crowdedCubes(config) - target));
   let stretch = 1 + (config.crowdedFactor - 1) * fill;
   if (config.experiments.lastSliver && cubes > config.warnOccupied) {
     const cells = config.size * config.size;
