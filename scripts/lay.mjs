@@ -228,7 +228,9 @@ if (command === 'plots') {
   if (!named.file) refuse('passport: name a board, as in file=act-k21');
   const { spec } = boardOf(named.file);
   const plot = named.plot ? PLOTS[named.plot] ?? refuse(`passport: no plot ${named.plot}`) : null;
-  const passport = final.passportOf(plot, spec, { runs: number('runs', 30), row: await rowBoards() });
+  // A board of the row is held against the other places, not its own: the passport says how like the others it is.
+  const row = (await rowBoards()).filter((board) => board.code !== spec.id);
+  const passport = final.passportOf(plot, spec, { runs: number('runs', 30), row });
   print(final.passportLine(spec.id, passport), passport);
 } else if (command === 'thought') {
   const plot = plotAsked();
