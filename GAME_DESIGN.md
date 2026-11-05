@@ -39,7 +39,7 @@
 | Лор и текст | [docs/art/VI_Lore.md](docs/art/VI_Lore.md), [docs/art/VI_Claims.md](docs/art/VI_Claims.md) | [docs/VI_Story_Brief.md](docs/VI_Story_Brief.md) (черновик) |
 | Звук | истины нет | [спека звука](docs/superpowers/specs/2026-10-03-vi-sound-design.md), [звук уровней](docs/superpowers/specs/2026-10-12-vi-sound-levels-design.md); слова — [docs/VI_Owner_Words.md](docs/VI_Owner_Words.md), раздел 5 |
 | Рекорды и журналы | [README.md](README.md), «Журнал сеансов» | код — `src/app/standings.ts`, `src/app/archive.ts` |
-| Реклама и площадки | [docs/VI_Analytics.md](docs/VI_Analytics.md) (события) | [реклама после отмен](docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md), [по желанию](docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md) |
+| Реклама и площадки | [docs/VI_Analytics.md](docs/VI_Analytics.md) (события) | реклама после отмен (убрана из дерева: `git show 39406a6:docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md`) (вытеснена 5 ноября 2026: реклама только в паузах), [по желанию](docs/superpowers/specs/2026-10-23-vi-rewarded-ads-design.md) |
 
 ## Что заморожено
 
@@ -58,7 +58,6 @@
 | Q3 | Окно первого сеанса вживую: сказать, что правило пола в эфире другое, — какими словами | [спека сеансов вживую](docs/superpowers/specs/2026-10-22-vi-live-sessions-design.md); [docs/VI_Endless_Rules.md](docs/VI_Endless_Rules.md), раздел 13 |
 | Q4 | Что дают звёзды и как сделать экран LEVELS интереснее (вид — его) | [docs/ROADMAP.md](docs/ROADMAP.md), «Очки за звёзды» и «Список уровней — сделать интереснее» |
 | Q5 | Что игрок копит между визитами: сумма звёзд и вехи, собранные сцены после сеансов, повод дня | [docs/VI_Owner_Words.md](docs/VI_Owner_Words.md), раздел 6 (сцены 29 октября); [свод психологии](docs/VI_Game_Psychology_Digest.md) |
-| Q6 | Межстраничная реклама за отмены — не раньше N-го места или M минут визита | [спека рекламы после отмен](docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md) |
 | Q7 | CrazyGames: обложки и видео, когда отправлять, включать ли рекламу | [docs/VI_CrazyGames_Research.md](docs/VI_CrazyGames_Research.md) |
 | Q8 | Архив вымышленных игроков сыгран по правилам 4 октября и выше нынешнего счёта: пересчитать или оставить | [план релиза Playgama](docs/superpowers/plans/2026-10-22-vi-release-playgama.md), 1.6 |
 | Q9 | Endless: провис длинной партии и предложения исследования удержания | [docs/VI_Retention_Research.md](docs/VI_Retention_Research.md), «Предложения»; [docs/VI_Owner_Words.md](docs/VI_Owner_Words.md), раздел 2 |

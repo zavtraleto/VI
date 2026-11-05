@@ -11,7 +11,7 @@ import { bindKeyboard } from '../input/keyboard';
 import { bindTaps } from '../input/tap';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
-import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, noteUndoForAd, prefersReducedMotion, raiseLive, saveSettings, type LevelStat, type Settings } from '../platform/settings';
+import { SETTINGS_KEY, addRun, bestOf, levelStat, loadSettings, noteLive, noteShort, prefersReducedMotion, raiseLive, saveSettings, type LevelStat, type Settings } from '../platform/settings';
 import { hasSaved, loadJson, saveAll, saveJson, storageAvailable } from '../platform/storage';
 import { Backdrop } from '../render/backdrop';
 import { Water } from '../render/water';
@@ -133,11 +133,21 @@ function shareOut(text: string): Promise<Shared> {
 }
 
 /**
- * The advertisement of the platform between sessions. One that was open took the keys with it: the game takes them back.
+ * The first minutes of a newcomer go without advertisements: none is asked for before this many
+ * seconds of the visit, nor before the player stands on this place of the row (word of the owner,
+ * 5 November 2026: «нужно делать это реже, реклама может отпугивать игроков»). The interval
+ * between two advertisements is the platform's own (Bridge): the game keeps no clock of its own.
+ */
+const AD_MIN_VISIT_SEC = 180;
+const AD_MIN_PLACE = 8;
+
+/**
+ * The advertisement of the platform at a pause: between boards, between sessions. One that was open took the keys
+ * with it: the game takes them back. `place` is the number of the place of the row the player stands on.
  * The analytics hear what brought it and where the player stood (`src/app/adverts.ts`).
  */
-function interstitial(reason: InterstitialReason, step: EventData, next: () => void): void {
-  askInterstitial(reason, step, () => {
+function interstitial(reason: InterstitialReason, step: EventData, place: number | null, next: () => void): void {
+  askInterstitial(reason, step, { place, minPlace: AD_MIN_PLACE, minVisitSec: AD_MIN_VISIT_SEC }, () => {
     takeFocus();
     next();
   });
@@ -214,11 +224,6 @@ const SEAL_SHOWN: boolean = false;
  * Word of the owner, 15 October 2026: no limit for the playtest; later three to five, for an advert.
  */
 const UNDO_LIMIT: number | null = null;
-/**
- * Every so many moves taken back on the levels, through levels and visits, the platform shows its
- * advertisement once the move is back (the owner, 23 October 2026: «3 отмены - реклама - 3 отмены»).
- */
-const UNDOS_PER_AD = 3;
 /**
  * A board of the row the player has been stuck on this many times (its dead ends and its failed tries, counted
  * together) offers its way for an advertisement of the platform, in the pause of the board (the owner,
@@ -847,6 +852,12 @@ export class Game {
     return this.place === null ? null : CAMPAIGN[this.place].number;
   }
 
+  /** The number of the place of the row the player stands on, whatever is played now. */
+  private rowNumber(): number {
+    const { levels } = this.settings;
+    return CAMPAIGN[openingPlace(levels.at, levels.passed, CAMPAIGN)].number;
+  }
+
   /** The level being played, or last played: a board of the lab, or the board of the place of the row. */
   private levelSpec(): LevelSpec {
     return this.labSpec ?? CAMPAIGN[this.place ?? 0].spec;
@@ -1257,7 +1268,7 @@ export class Game {
       gone = true;
       this.shell.hide();
       // An advertisement watched for the doubled score is the advertisement of this result: none comes after it.
-      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial('live_end', liveStep(live), next)));
+      this.signal.answer(this.sceneStep(), () => (doubled ? next() : interstitial('live_end', liveStep(live), CAMPAIGN[live.after].number, next)));
     };
     let offered = platform.rewardedSupported;
     if (offered) platform.track('reward_offered', { placement: 'double_score', ...liveStep(live) });
@@ -1462,11 +1473,6 @@ export class Game {
     // With motion kept low the board is put back as it was, with nothing played.
     if (trail.length === 0 || prefersReducedMotion(this.settings)) this.view.reset();
     else this.rewind = { frames: trail, at: trail.length - 1 };
-    // Every third move taken back brings the advertisement of the platform, once the move is back. The game and
-    // its sound wait while it is on by the events of the platform (`setAway`); where it shows none, nothing waits.
-    const advert = noteUndoForAd(this.settings, UNDOS_PER_AD);
-    this.later.after(() => saveSettings(this.settings), 'settings');
-    if (advert) interstitial('undos', this.step(), () => undefined);
   }
 
   /**
@@ -1867,19 +1873,29 @@ export class Game {
   /**
    * The small window between two boards (word of the owner, 29 October 2026): the stars of the
    * pass, the moves made and the fewest, the command that goes on and the one that starts the
-   * board over. The passage waits under it; going on lets it run from where it stood.
+   * board over. The passage waits under it; going on lets it run from where it stood. Going on is
+   * the pause between boards: the platform may show its advertisement there, and the passage waits
+   * for its end before the next board is put on (the owner, 5 November 2026).
    */
   private showCleared(passage: NonNullable<Game['passage']>): void {
     const run = this.state.levelRun!;
     const par = run.spec.par ?? null;
+    // The board being left, as the analytics name it and as its place in the row: read before anything moves on.
+    const step = this.step();
+    const number = this.boardNumber();
+    let gone = false;
     this.frames.flush(this.lastFrame);
     this.shell.showPanel(
       clearedPanel(
         { moves: run.moves, par, stars: par === null ? null : levelStars(run.moves, par), still: prefersReducedMotion(this.settings), starLine: NOVEL_FLAG ? this.starLine() : undefined },
         {
           onNext: () => {
+            if (gone) return;
+            gone = true;
             this.shell.hide();
-            if (this.passage === passage) passage.held = false;
+            interstitial('level_end', step, number, () => {
+              if (this.passage === passage) passage.held = false;
+            });
           },
           onAgain: () => this.startRun('level'),
           onStar: (index) => this.audio.play({ kind: 'star', index }),
@@ -2099,7 +2115,8 @@ export class Game {
 
   /**
    * The window of a level that is over. A dead end can be taken back from here while the try has
-   * moves to take back. No advertisement comes between levels.
+   * moves to take back. Going on from it to the next place of the row is the pause between boards:
+   * the platform may show its advertisement there, before the next board is put on.
    */
   private showLevelResult(): void {
     const { state } = this;
@@ -2111,6 +2128,10 @@ export class Game {
     const short = shortOf(state);
     const lines: GoalLine[] = goalLines(state);
     const stat = this.levelRecord();
+    // The board being left, as the analytics name it and as its place in the row: read before anything moves on.
+    const step = this.step();
+    const number = this.boardNumber();
+    let gone = false;
     this.frames.flush(this.lastFrame);
     this.shell.showPanel(
       levelResultPanel(
@@ -2135,7 +2156,12 @@ export class Game {
           undos: 0,
         },
         {
-          onNext: () => this.startPlace((this.place ?? 0) + 1, true),
+          onNext: () => {
+            if (gone) return;
+            gone = true;
+            this.shell.hide();
+            interstitial('level_end', step, number, () => this.startPlace((this.place ?? 0) + 1, true));
+          },
           onAgain: () => this.startRun('level'),
           onLevels: () => this.showLevels(),
           onUndo: () => this.undoLevel(),
@@ -2634,7 +2660,7 @@ export class Game {
     // After it, at the break between sessions, the platform may show its advertisement.
     const answered = (next: () => void): void => {
       this.shell.hide();
-      this.signal.answer(this.sceneStep(), () => interstitial('session_end', this.step(), next));
+      this.signal.answer(this.sceneStep(), () => interstitial('session_end', this.step(), this.rowNumber(), next));
     };
     result();
   }
@@ -2963,8 +2989,6 @@ export class Game {
               urgent: (this.state.over && deadEnd(this.state)) || this.noWay,
               retryLit: this.retryLitAt !== null && this.lastFrame - this.retryLitAt < RETRY_LIT_MS,
               left: UNDO_LIMIT === null ? undefined : this.undosLeft,
-              // Every third move taken back brings an advertisement where the platform shows them: the button counts down to it.
-              untilAd: platform.interstitialSupported ? UNDOS_PER_AD - (this.settings.undosForAd ?? 0) : undefined,
             }
           : { canUndo: false, urgent: false, retryOnly: true }
         : null,

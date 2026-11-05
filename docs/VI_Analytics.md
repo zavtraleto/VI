@@ -56,7 +56,7 @@
 
 | Событие | Когда | Поля |
 |---|---|---|
-| `ad_requested` | игра просит рекламу, где площадка её показывает: межстраничную или за награду (по нажатию игрока) | `kind`: `interstitial`, `rewarded`; `reason`: у межстраничной `session_end` (конец сеанса Endless), `live_end` (конец сеанса вживую), `undos` (каждая третья отмена хода), у рекламы за награду — её `placement`: `show_way`, `double_score`; `step_id`, `step_index` — что играется (место ряда); `visit_sec` |
+| `ad_requested` | игра просит рекламу, где площадка её показывает: межстраничную или за награду (по нажатию игрока) | `kind`: `interstitial`, `rewarded`; `reason`: у межстраничной `session_end` (конец сеанса Endless), `live_end` (конец сеанса вживую), `level_end` (уход с итога доски дальше по ряду, до следующей доски) — с 5 ноября 2026 только с 8-го места ряда и после 180 с визита, а реклама, которую игра не попросила, не шлётся (`AD_MIN_PLACE`, `AD_MIN_VISIT_SEC` в `src/app/game.ts`); до 0.2.106 была ещё `undos` (каждая третья отмена хода), у рекламы за награду — её `placement`: `show_way`, `double_score`; `step_id`, `step_index` — что играется (место ряда); `visit_sec` |
 | `reward_offered` | показана кнопка рекламы за награду: раз за попытку уровня, раз за итог сеанса вживую | `placement`: `show_way`, `double_score`; `step_id`, `step_index` |
 | `reward_result` | реклама за награду закончилась | `placement`, `rewarded` (досмотрена), `step_id`, `step_index`, `visit_sec` |
 | `reward_double` | счёт сеанса вживую удвоен | `step_id`, `step_index`, `score` |

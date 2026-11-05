@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RULES_VERSION, defaultExperiments } from '../rules';
 import { FIXTURE } from '../levels/rowFixture';
-import { DEFAULT_CAMERA, ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, levelStat, loadSettings, noteLive, noteUndoForAd, raiseLive, saveSettings, toRowEdition, type RowKept } from './settings';
+import { DEFAULT_CAMERA, ROW_EDITION, SETTINGS_KEY, bestOf, joinRuns, levelStat, loadSettings, noteLive, raiseLive, saveSettings, toRowEdition, type RowKept } from './settings';
 
 /** The browser's storage holding what an earlier start of the game saved. */
 function saved(settings: object | null): void {
@@ -114,36 +114,22 @@ describe('the windows a player has closed', () => {
   });
 });
 
-describe('the moves taken back towards an advertisement', () => {
-  /** The browser's storage, keeping what is written to it. */
-  function storage(): void {
-    const kept = new Map<string, string>();
-    vi.stubGlobal('window', { localStorage: { getItem: (key: string) => kept.get(key) ?? null, setItem: (key: string, value: string) => kept.set(key, value) } });
-  }
-
-  it('call for one on the third, not on the fourth, again on the sixth: three, an advertisement, three', () => {
-    storage();
+describe('the count of moves taken back towards an advertisement, gone (the owner, 5 November 2026)', () => {
+  it('is let go of: a save that kept it reads as it was, without it, and is written back without it', () => {
+    const written: string[] = [];
+    const raw = JSON.stringify({ muted: true, undosForAd: 2, levels: { passed: { R01: true }, stats: {}, rowEdition: ROW_EDITION, told: [] } });
+    vi.stubGlobal('window', { localStorage: { getItem: (key: string) => (key === SETTINGS_KEY ? raw : null), setItem: (_: string, value: string) => written.push(value) } });
     const settings = loadSettings();
-    expect(settings.undosForAd).toBe(0);
-    const calls = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(() => noteUndoForAd(settings, 3));
-    expect(calls).toEqual([false, false, true, false, false, true, false, false, true]);
-    expect(settings.undosForAd).toBe(0);
+    expect(settings.muted).toBe(true);
+    expect(settings.levels.passed).toEqual({ R01: true });
+    expect('undosForAd' in settings).toBe(false);
+    expect(saveSettings(settings)).toBe(true);
+    expect(JSON.parse(written.at(-1)!)).not.toHaveProperty('undosForAd');
   });
 
-  it('are counted through visits: the count outlives a save and a load', () => {
-    storage();
-    const first = loadSettings();
-    noteUndoForAd(first, 3);
-    noteUndoForAd(first, 3);
-    expect(saveSettings(first)).toBe(true);
-    const second = loadSettings();
-    expect(second.undosForAd).toBe(2);
-    expect(noteUndoForAd(second, 3)).toBe(true);
-  });
-
-  it('start from none in a save from before them', () => {
-    saved({ levels: { passed: {}, stats: {}, rowEdition: ROW_EDITION, told: [] } });
-    expect(loadSettings().undosForAd).toBe(0);
+  it('is let go of whatever it held, broken too', () => {
+    saved({ undosForAd: 'many' });
+    expect('undosForAd' in loadSettings()).toBe(false);
   });
 });
 
@@ -330,7 +316,7 @@ describe('a save broken in its fields', () => {
     expect(settings.language).toBeNull();
     expect(settings.hintsSeen).toEqual(['a']);
     expect(settings.heardLines).toEqual(['x']);
-    expect(settings.undosForAd).toBe(0);
+    expect('undosForAd' in settings).toBe(false);
     expect(settings.experiments).toEqual({ ...defaultExperiments(), soloOne: true });
     expect(settings.tuning).toEqual({ stepMs: 180 });
     expect(settings.camera).toEqual({ yaw: 30, pitch: 40, swipeTilt: 0.5 });

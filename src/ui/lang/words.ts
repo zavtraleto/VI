@@ -57,7 +57,6 @@ export const WORDS = {
   SENT: { ru: 'ОТПРАВЛЕНО', es: 'ENVIADO', pt: 'ENVIADO', tr: 'GÖNDERİLDİ', de: 'GESENDET', fr: 'ENVOYÉ' },
   // A command that brings an advertisement of the platform says so: the word for one stands in it.
   'HINT · AD': { ru: 'ПОДСКАЗКА ЗА РЕКЛАМУ', es: 'PISTA · ANUNCIO', pt: 'DICA · ANÚNCIO', tr: 'İPUCU · REKLAM', de: 'TIPP · WERBUNG', fr: 'INDICE · PUB' },
-  'UNDO · AD': { ru: 'ОТМЕНИТЬ · РЕКЛАМА', es: 'DESHACER · ANUNCIO', pt: 'DESFAZER · ANÚNCIO', tr: 'GERİ AL · REKLAM', de: 'RÜCKGÄNGIG · WERBUNG', fr: 'ANNULER · PUB' },
   'DOUBLE · AD': { ru: 'УДВОИТЬ ЗА РЕКЛАМУ', es: 'DOBLAR · ANUNCIO', pt: 'DOBRAR · ANÚNCIO', tr: 'İKİ KAT · REKLAM', de: 'VERDOPPELN · WERBUNG', fr: 'DOUBLER · PUB' },
   // The readings of a result and of the log.
   SCORE: { ru: 'СЧЁТ', es: 'PUNTOS', pt: 'PONTOS', tr: 'PUAN', de: 'PUNKTE', fr: 'SCORE' },

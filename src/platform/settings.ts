@@ -87,11 +87,6 @@ export interface Settings {
    */
   runs: Record<string, RunRecord[]>;
   levels: LevelProgress;
-  /**
-   * Moves taken back on the levels since the last advertisement, through levels and visits: every
-   * so many of them the platform shows one (docs/superpowers/specs/2026-10-23-vi-ads-after-undos-design.md).
-   */
-  undosForAd: number;
   /** The lines of the other side the player has heard under transmissions, by their ids (`src/signal/sceneLines.ts`): none is said twice before all of its tier are. */
   heardLines: string[];
 }
@@ -133,7 +128,6 @@ function defaults(): Settings {
     debugPanel: false,
     runs: {},
     levels: { passed: {}, stats: {}, told: [], lives: {} },
-    undosForAd: 0,
     heardLines: [],
   };
 }
@@ -176,8 +170,8 @@ function settle(loaded: Settings): Settings {
   delete old.view;
   // A save from before taps plays by swipes, as the game did.
   if (loaded.control !== 'tap') loaded.control = 'swipe';
-  // A save from before the advertisement after undos has taken none back since one.
-  if (typeof loaded.undosForAd !== 'number') loaded.undosForAd = 0;
+  // The advertisement after undos is gone from the game (the owner, 5 November 2026): the count kept for it goes.
+  delete (loaded as Partial<{ undosForAd: unknown }>).undosForAd;
   // A save from before the lines of scenes has heard none.
   if (!Array.isArray(loaded.heardLines)) loaded.heardLines = [];
   if (loaded.camera.yaw === OLD_CAMERA.yaw && loaded.camera.pitch === OLD_CAMERA.pitch) {
@@ -266,7 +260,6 @@ function mend(loaded: Loose, fallback: Settings): boolean {
       }
     }
   }
-  field(loaded, 'undosForAd', isNumber, () => fallback.undosForAd);
   texts(loaded, 'heardLines');
   return broken;
 }
@@ -380,17 +373,6 @@ export function levelStat(settings: Settings, id: string): LevelStat {
   stat.stuck ??= 0;
   stat.hinted ??= 0;
   return stat;
-}
-
-/**
- * Counts a move taken back on a level towards the advertisement. True on every `every`-th: the
- * count starts over, and the platform is to show one, whether it can or not.
- */
-export function noteUndoForAd(settings: Settings, every: number): boolean {
-  settings.undosForAd = (settings.undosForAd ?? 0) + 1;
-  if (settings.undosForAd < every) return false;
-  settings.undosForAd = 0;
-  return true;
 }
 
 /** Notes a live session played to its end: one more play, and its score as the best where it is. */

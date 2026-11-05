@@ -225,8 +225,6 @@ export const COMMANDS = {
   skip: { native: 'スキップ', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
   undo: { native: 'とりけし', name: 'UNDO' },
-  /** The move taken back that brings an advertisement of the platform after it says so. */
-  undoAd: { native: 'とりけし', name: 'UNDO · AD' },
   /** "Registration": the platform gives the player a name. */
   register: { native: 'とうろく', name: 'REGISTER' },
   /** "Sharing": the player's result goes out with a link to the game. What it answers: "copied", "sent", "failure". */

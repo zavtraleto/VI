@@ -106,7 +106,7 @@ Vitest, блок `test` в `vite.config.ts`: `src/**/*.test.ts`, `platforms/**/*
 
 Тонко:
 
-- `src/app/game.ts` — без теста (отмена, реклама после отмен, сохранение при уходе, возврат, награды); также `standings.ts`, `stats.ts`, `clock.ts`, `hints.ts`.
+- `src/app/game.ts` — без теста (отмена, реклама в паузах, сохранение при уходе, возврат, награды); также `standings.ts`, `stats.ts`, `clock.ts`, `hints.ts`.
 - `src/display/present.ts`, `layer.ts`, `display.ts`; `src/render/view.ts`, `water.ts`, `cubes.ts`; `src/shell/hud.ts` (косвенно — `hudLayout.test.ts`), `shell.ts`, `kit.ts`, `screens/panel.ts`; `src/audio/engine.ts`; `src/signal/player.ts`.
 - Хрупкие: время на стене (`src/app/signWay.test.ts:177-180`, `src/levels/depth.test.ts:55-59`), 22 теста с тайм-аутом от 10 с, `src/levels/row.test.ts:129-134` закрепляет 100 мест и места сеансов.
 
