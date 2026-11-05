@@ -242,8 +242,15 @@ function worthOf(state: RunState, persona: Persona, depth: number): number {
 }
 
 /** The move a persona makes: the first of the way to the best board it finds within its bounds. Null with no move. */
-export function personaMove(state: RunState, persona: Persona, rng: { rng: number }): SolverMove | null {
-  const first = scan(state).moves;
+export function personaMove(
+  state: RunState,
+  persona: Persona,
+  rng: { rng: number },
+  only?: (state: RunState, move: SolverMove) => boolean,
+): SolverMove | null {
+  // `only`: the moves a player knows of on a board (a person who has not found the step, `humanBot.ts`); all, without it.
+  const movesOf = (board: RunState) => (only ? scan(board).moves.filter((move) => only(board, move)) : scan(board).moves);
+  const first = movesOf(state);
   if (first.length === 0) return null;
   if (nextRandom(rng) < persona.slip) {
     // A move made without thinking is made where the player stands: nobody steps down to the floor by a slip.
@@ -260,7 +267,7 @@ export function personaMove(state: RunState, persona: Persona, rng: { rng: numbe
       const worth = worthOf(node.state, persona, depth);
       best[node.index] = Math.max(best[node.index], worth);
       if (node.state.over || worth <= LOST || depth >= persona.depth || tried >= persona.budget) continue;
-      for (const move of scan(node.state).moves) {
+      for (const move of movesOf(node.state)) {
         if (tried >= persona.budget) break;
         tried++;
         next.push({ state: playMove(node.state, move), index: node.index });

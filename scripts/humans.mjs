@@ -6,7 +6,9 @@
 //   node scripts/humans.mjs places=31-60            places of the row (src/levels/row.gen.ts)
 //   node scripts/humans.mjs calibrate [set=crowd|owner]   the people against people, by Spearman over the boards
 //   tune=owner.figure=3,newcomer.lure=0.6  a person changed for the run: <person>.<field>=<number>, a field of the persona
-//                                           (depth, budget, slip, misread, figure, counts 0 or 1) or of the person (lure, load, loadDepth, bored, tries)
+//                                           (depth, budget, slip, misread, figure, counts 0 or 1) or of the person (lure, load, loadDepth, bored, tries, step)
+//   step=0 with boards=: each board met not knowing the step onto another die; with places=, the first place whose way
+//   needs the step is met so on its own, and so is the first board of the players of Playgama that needs it in calibrate
 //   people=20 workers=6 json
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -21,7 +23,7 @@ const load = async (path) => (await runnerImport(path, { root, configFile: false
 const args = process.argv.slice(2);
 const named = Object.fromEntries(args.filter((a) => a.includes('=')).map((a) => [a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)]));
 const flags = new Set(args.filter((a) => !a.includes('=')));
-const KEYS = ['boards', 'places', 'people', 'workers', 'one', 'path', 'who', 'tune', 'set', 'plaques'];
+const KEYS = ['boards', 'places', 'people', 'workers', 'one', 'path', 'who', 'tune', 'set', 'plaques', 'step'];
 for (const key of Object.keys(named)) if (!KEYS.includes(key)) refuse(`unknown key ${key}`);
 for (const flag of flags) if (!['calibrate', 'json'].includes(flag)) refuse(`unknown flag ${flag}`);
 const people = Number(named.people ?? 20);
@@ -44,7 +46,9 @@ if (named.one) {
   // The plaques over the dice of a place of the row (`help.plaques` in boards/row.json) show their sides: nothing is misread there.
   if (named.plaques === '1') for (const name of Object.keys(tuned)) tuned[name].persona.misread = 0;
   const out = {};
-  for (const name of who) out[name] = humanFacts(spec, tuned[name], people);
+  // `step=0`: the person comes to the board not knowing it may step onto another die (src/rules/humanBot.ts, `step`).
+  const coming = { stepKnown: named.step !== '0' };
+  for (const name of who) out[name] = humanFacts(spec, tuned[name], people, coming);
   console.log(JSON.stringify(out));
   process.exit(0);
 }
@@ -53,7 +57,7 @@ if (named.one) {
 function tunedOf(humans, tune) {
   const out = structuredClone(humans);
   const PERSONA = ['depth', 'budget', 'slip', 'misread', 'figure', 'counts'];
-  const HUMAN = ['lure', 'load', 'loadDepth', 'bored', 'tries'];
+  const HUMAN = ['lure', 'load', 'loadDepth', 'bored', 'tries', 'step'];
   for (const part of (tune ?? '').split(',').filter(Boolean)) {
     const [path, value] = part.split('=');
     const [name, field] = path.split('.');
@@ -73,6 +77,7 @@ function factsOf(job) {
     if (job.who) argv.push(`who=${job.who.join(',')}`);
     if (named.tune) argv.push(`tune=${named.tune}`);
     if (job.plaques) argv.push('plaques=1');
+    if (job.stepUnknown) argv.push('step=0');
     const child = spawn(process.execPath, argv, { cwd: root });
     let out = '';
     child.stdout.on('data', (chunk) => (out += chunk));
@@ -117,8 +122,12 @@ if (flags.has('calibrate')) {
   const row = JSON.parse(readFileSync(resolve(root, 'boards/row.json'), 'utf8'));
   const PLAQUES = new Set(row.chapters.flatMap((chapter) => chapter.places ?? []).filter((place) => place.help?.plaques).map((place) => place.board));
   const sets = named.set ? [named.set] : ['crowd', 'owner'];
+  // The players of the platform met the step first on the first of their boards whose way needs it: there they did not know it.
+  const { fileBoard } = await load('/src/levels/boardFiles.ts');
+  const { wayNeedsStep } = await load('/src/rules/humanBot.ts');
+  const firstStep = CROWD.find((b) => wayNeedsStep(fileBoard(b.code)))?.code;
   const jobs = [
-    ...(sets.includes('crowd') ? CROWD.map((b) => ({ code: b.code, key: `crowd:${b.code}`, who: ['newcomer'], plaques: PLAQUES.has(b.code) })) : []),
+    ...(sets.includes('crowd') ? CROWD.map((b) => ({ code: b.code, key: `crowd:${b.code}`, who: ['newcomer'], plaques: PLAQUES.has(b.code), stepUnknown: b.code === firstStep })) : []),
     ...(sets.includes('owner') ? OWNER_PLAYS.map((p) => ({ code: p.code, key: `owner:${p.code}`, who: ['owner'], path: boardAt(PLAYED_AT, p.code) })) : []),
   ];
   const facts = await run(jobs);
@@ -129,6 +138,8 @@ if (flags.has('calibrate')) {
     rows.push({ people: `${label}: ${read.name}`, bot, measure: measure.name, rho: spearman(pairs.map((p) => p[0]), pairs.map((p) => p[1])), n: pairs.length });
   };
   const failedShare = (b) => b.failedPlayers / b.began;
+  const leftShare = (b) => 1 - b.passed / b.began;
+  const gaveUp = (f) => f.gaveUp;
   const failuresEach = (b) => b.failures / b.began;
   const movesOverPar = (p) => p.moves / p.par;
   const failedOnce = (f) => f.failedOnce;
@@ -136,6 +147,7 @@ if (flags.has('calibrate')) {
   const notFirst = (f) => 1 - f.first;
   against('crowd', CROWD, failedShare, 'newcomer', failedOnce);
   against('crowd', CROWD, failuresEach, 'newcomer', triesOver1);
+  against('crowd', CROWD, leftShare, 'newcomer', gaveUp);
   against('owner', OWNER_PLAYS, movesOverPar, 'owner', notFirst);
   against('owner', OWNER_PLAYS, movesOverPar, 'owner', triesOver1);
   // The owner's moves against the bot's moves over par: the par of each board divides.
@@ -145,7 +157,7 @@ if (flags.has('calibrate')) {
   }
   if (flags.has('json')) console.log(JSON.stringify({ rows, facts: Object.fromEntries(facts) }, null, 2));
   else {
-    console.log('people against people (Spearman over the boards)');
+    console.log('people against people (Spearman over the boards)' + (firstStep ? `; the step not known on ${firstStep}` : ''));
     for (const r of rows) console.log(`  ${r.people.padEnd(28)} ${r.bot.padEnd(9)} ${r.measure.padEnd(16)} ${r.rho === null ? '—' : r.rho.toFixed(2)}  n=${r.n}`);
     console.log('\nboards: first try · failed once · gave up · tries · moves');
     for (const [key, f] of facts) {
@@ -154,13 +166,21 @@ if (flags.has('calibrate')) {
   }
 } else {
   let codes;
-  if (named.boards) codes = named.boards.split(',');
-  else {
+  const unknown = new Set();
+  if (named.boards) {
+    codes = named.boards.split(',');
+    // `step=0` with boards: each is met not knowing the step.
+    if (named.step === '0') for (const code of codes) unknown.add(code);
+  } else {
     const { ROW } = await load('/src/levels/row.gen.ts');
+    const { wayNeedsStep } = await load('/src/rules/humanBot.ts');
     const [lo, hi] = (named.places ?? '1-30').split('-').map(Number);
     codes = ROW.places.filter((place) => place.number >= lo && place.number <= (hi ?? lo)).map((place) => place.code);
+    // A place of the row is met not knowing the step until a board before it needed the step (a window of the step would show it too; the row has none).
+    const first = ROW.places.find((place) => wayNeedsStep(place.spec));
+    if (first) unknown.add(first.code);
   }
-  const facts = await run(codes.map((code) => ({ code })));
+  const facts = await run(codes.map((code) => ({ code, stepUnknown: unknown.has(code) })));
   if (flags.has('json')) console.log(JSON.stringify(Object.fromEntries(facts), null, 2));
   else {
     console.log('board: first try · failed once · gave up · tries · moves, for each person');

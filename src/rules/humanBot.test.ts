@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fileBoard } from '../levels/boardFiles';
-import { HUMANS, humanFacts, humanPlay, type Human } from './humanBot';
+import { HUMANS, humanFacts, humanPlay, wayNeedsStep, type Human } from './humanBot';
 import { PERSONAS, rollsToFace } from './levelBot';
 
 /**
@@ -50,5 +50,29 @@ describe('the figure a person sees', () => {
 
   it('is no part of the personas of the scale, so their numbers stay as they were', () => {
     for (const persona of Object.values(PERSONAS)) expect('figure' in persona).toBe(false);
+  });
+});
+
+describe('a person who does not know the step onto another die (the players of Playgama on H06, 5 November 2026)', () => {
+  it('tells the boards whose way needs the step: H06 does, the first boards of the row do not', () => {
+    expect(wayNeedsStep(fileBoard('H06'))).toBe(true);
+    for (const code of ['R01', 'side-up-1', 'three-under-1', 'R03', 'B01_s290']) expect(wayNeedsStep(fileBoard(code)), code).toBe(false);
+  });
+
+  it('never clears H06 by rolling the die under it, and clears it once it knows the step', () => {
+    const blind: Human = { ...HUMANS.newcomer, step: 0 };
+    expect(humanFacts(fileBoard('H06'), blind, 5, { stepKnown: false }).gaveUp).toBe(1);
+    expect(humanFacts(fileBoard('H06'), blind, 5).gaveUp).toBe(0);
+    // The owner knows the step however he comes to a board.
+    expect(humanFacts(fileBoard('H06'), HUMANS.owner, 5, { stepKnown: false }).gaveUp).toBe(0);
+  });
+
+  it('finds the step now and then: the newcomer gives H06 up more often met not knowing it, and clears a board that needs none either way', () => {
+    const H06 = fileBoard('H06');
+    expect(humanFacts(H06, HUMANS.newcomer, 10, { stepKnown: false }).gaveUp).toBeGreaterThan(humanFacts(H06, HUMANS.newcomer, 10).gaveUp);
+    const R03 = fileBoard('R03');
+    // Not knowing the step it even clears R03 at once more often: the moves off other dice are not there to lead it astray.
+    expect(humanFacts(R03, HUMANS.newcomer, 10, { stepKnown: false }).gaveUp).toBe(0);
+    expect(humanFacts(R03, HUMANS.newcomer, 10).gaveUp).toBe(0);
   });
 });
