@@ -9,11 +9,11 @@ import { PLATE_WIDTH, captionLook, drawCaption, plainCaption, wordsShown, type C
 import { GLIMPSE_SECONDS, callCard, cardScene, cardTitle, type SignalCard } from './card';
 import { lineText, pickLine } from './sceneLines';
 import { language, t } from '../ui/i18n';
-import { RecordBands } from './bands';
-import { VoiceFigure } from './figure';
+import type { RecordBands } from './bands';
+import type { VoiceFigure } from './figure';
 import { hintCard } from './hintFrame';
 import { SignalLeak, type LeakKind } from './leak';
-import { NOVEL_LOOK, faceAt, novelCard, novelScene } from './record';
+import type { NovelKit } from './novelKit';
 import { signalLook, type ParamValues, type SceneInstance } from './scene';
 import type { SessionReading } from './terminal';
 import { BAR, windowLayout, type WindowLayout, type WindowPlace } from './window';
@@ -52,6 +52,8 @@ export interface Telling {
 export interface Recording {
   /** The code of the record: which place it is shown in. */
   code: string;
+  /** The part of the code that shows a record, fetched before it opens (`src/signal/novelKit.ts`). */
+  novel: NovelKit;
   /** The name of the file, in the bar of the window. */
   title: string;
   /** The word in the bar the record is closed by before its end. */
@@ -297,7 +299,7 @@ export class SignalPlayer {
       return;
     }
     const layout = windowLayout(this.pictureNow(), 1, TOLD_PLACE);
-    const card = novelCard(recording.code, this.random, layout.content.w / Math.max(1, layout.content.h));
+    const card = recording.novel.novelCard(recording.code, this.random, layout.content.w / Math.max(1, layout.content.h));
     const record: Recorded = { recording, line: 0, band: null, skips: [], revealFrom: null };
     this.play(card, card.contact, recording.onDone, false, 1, TOLD_PLACE, this.lineTold(recording, 0), record);
   }
@@ -313,8 +315,8 @@ export class SignalPlayer {
   }
 
   /** The figure of the voice, asked for once; it is there for every record after the first. */
-  private voiceFigure(): Promise<VoiceFigure | null> {
-    this.figureLoading ??= VoiceFigure.load().then((figure) => {
+  private voiceFigure(novel: NovelKit): Promise<VoiceFigure | null> {
+    this.figureLoading ??= novel.VoiceFigure.load().then((figure) => {
       this.figure = figure;
       // A picture that could not be fetched is asked for again by the next record.
       if (!figure) this.figureLoading = null;
@@ -416,16 +418,17 @@ export class SignalPlayer {
     this.picture.render(playing.instance.scene, playing.instance.camera, { rect });
     const { record, told } = playing;
     if (record) {
-      const { reduced } = record.recording;
+      const { reduced, novel } = record.recording;
+      const { NOVEL_LOOK } = novel;
       // A silhouette's face comes through on its line of the record, through the bands of interference.
-      const scene = novelScene(record.recording.code);
+      const scene = novel.novelScene(record.recording.code);
       if (scene.revealAt !== null && record.line >= scene.revealAt) record.revealFrom ??= timeMs;
       const since = record.revealFrom === null ? null : timeMs - record.revealFrom;
-      const face = faceAt(scene, record.line, since, reduced);
+      const face = novel.faceAt(scene, record.line, since, reduced);
       const shown = record.recording.figure !== false;
       const revealing = shown && scene.figure === 'silhouette' && since !== null && !reduced && since < NOVEL_LOOK.figure.reveal.ms;
       const boost = revealing ? Math.sin((since / NOVEL_LOOK.figure.reveal.ms) * Math.PI) : 0;
-      const bands = (this.bands ??= new RecordBands());
+      const bands = (this.bands ??= new novel.RecordBands());
       const banded = bands.update(timeMs, reduced, boost);
       if (this.figure && shown) {
         const speaking = record.recording.lines[record.line]?.who === 'voice';
@@ -491,14 +494,14 @@ export class SignalPlayer {
     };
     this.playing = playing;
     // The programs of the scene are built before the window opens, not on its first frame.
-    // A record waits for the voice of the other side as well, for a while: its picture is fetched with the first record.
+    // A record waits for the voice of the other side as well, for a while: its picture may not have come before it.
     const figure = record
       ? Promise.race([
-          this.voiceFigure().then((one) => one && this.picture.warm(one.scene, one.camera)),
+          this.voiceFigure(record.recording.novel).then((one) => one && this.picture.warm(one.scene, one.camera)),
           new Promise((resolve) => window.setTimeout(resolve, FIGURE_PATIENCE_MS)),
         ])
       : null;
-    const bands = record ? (this.bands ??= new RecordBands()) : null;
+    const bands = record ? (this.bands ??= new record.recording.novel.RecordBands()) : null;
     const banded = bands ? this.picture.warm(bands.scene, bands.camera) : null;
     playing.warmed = Promise.all([this.picture.warm(playing.instance.scene, playing.instance.camera), figure, banded]).then(() => (playing.ready = true));
     this.drawn = '';

@@ -66,6 +66,7 @@ TypeScript 7.0 (`strict`, `noUnused*`, target ES2022), Vite 8.3 (сборка ro
 ## 5. Сборка и выкладка
 
 - `npm run build` = `tsc --noEmit && vite build`; конфиг — `vite.config.ts`: `base './'`, версия из `package.json` в `import.meta.env.VI_VERSION`, без sourcemap, чанк `vendor` для `node_modules`. Код игры, `vendor`, воркер подсказки комбо, строки `?perf`, текст `STORY` (`src/ui/readme.ts`; запрашивается за первым кадром); лабораторий и инструментов разработки в сборке нет (`import.meta.env.DEV`).
+- Записи новеллы — чанк `novelKit` (`src/signal/novelKit.ts`: тексты `src/ui/novel.ts`, фигура, полосы, вид мест; 18 КБ, 8 gzip) через `import()` и `Lazy` (`src/signal/lazy.ts`): под `?novel` грузится в паузе после доски, когда до следующей записи ≤ 6 звёзд, и по требованию при открытии записи (ждём до 10 с) или `STORY`; картинки голоса — ассеты (`src/signal/sprites.ts`, карта настроение → файл), грузятся тогда же, фигура ждёт их до 3 с. Общий с записями код rolldown кладёт в чанк `card` (56 КБ), он предзагружается с `index`.
 - `VI_PLATFORM` (только `vite build`): `@platform` → `platforms/none.ts` или `platforms/<имя>/adapter.ts`; плагины площадок — `platforms/plugins.ts`. Дев-сервер, тесты и Pages — всегда `none`.
 - Обфускация — только `VI_OBFUSCATE=1` (`javascript-obfuscator`, чанк `vendor` не трогает).
 - `npm run pack -- playgama|crazygames` (`scripts/pack.mjs`) — сборка под площадку и zip в `release/vi-<версия>-<площадка>.zip`.

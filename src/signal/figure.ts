@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import voiceUrl from './people/voice.webp';
 import type { Band } from './bands';
 import { NOVEL_LOOK, figureBox, figureMask, type FigureMask } from './record';
+import { loadPicture, spriteOf } from './sprites';
 
 /** The corners of the figure's picture are put where `uBox` says, in shares of the frame. */
 const VERTEX = /* glsl */ `
@@ -98,13 +98,9 @@ function stored(hex: string, into = new THREE.Vector3()): THREE.Vector3 {
 let loading: Promise<{ mask: FigureMask; sprite: number } | null> | null = null;
 
 function loadMask(): Promise<{ mask: FigureMask; sprite: number } | null> {
-  loading ??= new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = voiceUrl;
-  })
+  loading ??= loadPicture(spriteOf())
     .then((image) => {
+      if (!image) throw new Error('no picture');
       const sprite = image.naturalWidth / Math.max(1, image.naturalHeight);
       const height = NOVEL_LOOK.figure.maskLines;
       const width = Math.max(1, Math.round(height * sprite));
@@ -135,9 +131,9 @@ function dataTexture(data: Uint8Array, width: number, height: number): THREE.Dat
 /**
  * The voice of the other side in a record of the link: a figure to the waist in the middle of the
  * frame, drawn over the picture of the place and under the band of the words, and going through
- * the signal of the transmission with it. Its picture is fetched with the first record, not
- * before. While the operator speaks she is dimmer and her light is less; it goes from one to the
- * other slowly.
+ * the signal of the transmission with it. Its picture is fetched in the pause before a record
+ * (`warmNovel` in `novelKit.ts`), or with the record. While the operator speaks she is dimmer and
+ * her light is less; it goes from one to the other slowly.
  */
 export class VoiceFigure {
   readonly scene = new THREE.Scene();

@@ -62,10 +62,11 @@ import { COMMANDS, LANGUAGE_NAMES, LOGO_TEXT, PANELS, RECORDS, digits, type Pane
 import { shellDefaults } from '../shell/theme';
 import { boardShapes, boxCorners, pickCell, type CellShape } from './tapPick';
 import { makesGroup, planTap, stepHolds } from './tapWay';
+import { Lazy, within } from '../signal/lazy';
+import type { NovelKit } from '../signal/novelKit';
 import { SignalPlayer } from '../signal/player';
 import type { DevTools } from '../ui/devtools';
 import { h } from '../ui/dom';
-import { novelEpisode } from '../ui/novel';
 import { LANGUAGES, language, setLanguage, t, word, type TextKey } from '../ui/i18n';
 import { endlessArchive, liveArchive } from './archive';
 import { callCame, callCode, callDone, callDue, callStep, callsPlayed, countBoard, noteCall, raiseCall, type CallEnd } from './calls';
@@ -200,6 +201,14 @@ const LAB = import.meta.env.DEV && new URLSearchParams(window.location.search).h
  */
 const HOW_TO_PLAY: readonly TextKey[] = ['howRoll', 'howCombo', 'howChain', 'lessonGlass', 'lessonFloor', 'howOnes', 'howLevels', 'howCall', 'howProtocol'];
 /** A window lower than this, in CSS pixels, and lying on its side shows the note that came with the program so many signs at a time. */
+/**
+ * The records of the link are a part of the code of their own (`src/signal/novelKit.ts`): it is
+ * fetched in the pause between boards once the sum of the stars is this near the next record, two
+ * boards of three stars, or when a record is opened.
+ */
+const NOVEL_AHEAD_STARS = 6;
+/** A record that is opened waits for its code no longer than this; without it the record does not open, and is there in `STORY`. */
+const NOVEL_PATIENCE_MS = 10_000;
 const README_LOW = 520;
 const README_SIGNS = 330;
 /** What the report of the levels says before any level has been played. */
@@ -479,6 +488,8 @@ export class Game {
   private untold: (() => void)[] | null = [];
   /** The note that came with the program (`STORY`): a chunk of its own, asked for behind the first picture. */
   private readme: typeof import('../ui/readme') | null = null;
+  /** The code of the records of the link, fetched before the first is wanted. */
+  private readonly novel = new Lazy<NovelKit>(() => import('../signal/novelKit'));
   /** The command the program opens on has been on screen with its letters, and its moment is marked. */
   private startSeen = false;
   /** The platform lets the game sound. */
@@ -1235,6 +1246,18 @@ export class Game {
     return this.signal.busy;
   }
 
+  /**
+   * Under `?novel`, in the pause between boards: the code of the records and the pictures of the
+   * next one are fetched once the sum of the stars is near it, so the record does not wait for them.
+   */
+  private warmNovel(): void {
+    if (!NOVEL_FLAG || this.labSpec !== null) return;
+    const sum = this.starTotal();
+    const entry = novelDue(sum, this.settings.levels.told) ?? novelNext(sum)?.entry;
+    if (!entry || entry.stars - sum > NOVEL_AHEAD_STARS) return;
+    void this.novel.get().then((novel) => novel?.warmNovel(entry.code));
+  }
+
   /** The stars held on every board of the row, by the fewest moves each was passed in. */
   private starTotal(): number {
     const { stats } = this.settings.levels;
@@ -1253,11 +1276,19 @@ export class Game {
    */
   private showNovel(code: string, onClose: () => void): void {
     const index = NOVEL.findIndex((entry) => entry.code === code);
-    const episode = novelEpisode(code, language());
-    if (index < 0 || !episode) return onClose();
+    if (index < 0) return onClose();
+    void within(this.novel.get(), NOVEL_PATIENCE_MS).then((novel) => {
+      const episode = novel?.novelEpisode(code, language());
+      if (!novel || !episode) return onClose();
+      this.openNovel(novel, code, index, episode, onClose);
+    });
+  }
+
+  private openNovel(novel: NovelKit, code: string, index: number, episode: NonNullable<ReturnType<NovelKit['novelEpisode']>>, onClose: () => void): void {
     const names = { operator: t('novelOperator'), voice: t('novelVoice') };
     this.signal.record({
       code,
+      novel,
       title: `${word(PANELS.novel.name)} ${digits(index + 1, 2)} · ${episode.title.toUpperCase()}`,
       skip: word(COMMANDS.skip.name),
       lines: episode.lines.map(({ who, text }) => ({ who, name: names[who], text })),
@@ -1968,6 +1999,7 @@ export class Game {
     const number = this.boardNumber();
     let gone = false;
     this.frames.flush(this.lastFrame);
+    this.later.after(() => this.warmNovel(), 'novel');
     this.shell.showPanel(
       clearedPanel(
         { moves: run.moves, par, stars: par === null ? null : levelStars(run.moves, par), still: prefersReducedMotion(this.settings), starLine: NOVEL_FLAG ? this.starLine() : undefined },
@@ -2394,10 +2426,20 @@ export class Game {
   private showStory(home?: string): void {
     // The note is a chunk of its own: asked for now, it is there by the time its line is pressed.
     void this.loadReadme();
+    // So are the records, and the titles of those come with them; where they cannot come, the menu leads to the note alone.
+    const novel = this.novel.now;
+    if (!novel) {
+      void this.novel.get().then((found) => {
+        if (!this.shell.inMenu) return;
+        if (found) this.showStory(home);
+        else this.showReadme();
+      });
+      return;
+    }
     const sum = this.starTotal();
     const entries: StoryEntry[] = [
       { kind: 'readme' },
-      ...NOVEL.map((entry, index): StoryEntry => ({ kind: 'record', number: index + 1, title: sum >= entry.stars ? (novelEpisode(entry.code, language())?.title ?? null) : null, stars: entry.stars })),
+      ...NOVEL.map((entry, index): StoryEntry => ({ kind: 'record', number: index + 1, title: sum >= entry.stars ? (novel.novelEpisode(entry.code, language())?.title ?? null) : null, stars: entry.stars })),
     ];
     const { levels } = this.settings;
     this.shell.showPanel(
