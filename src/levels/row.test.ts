@@ -130,12 +130,13 @@ describe('the row of the game', () => {
     expect(ROW.places[ROW.places.length - 1].code).toBe('finale-1');
   });
 
-  it('has its live sessions after boards of the row, each step once and in order: after places 16, 28, 43, 55, 74, 86 and 92, each the end of its chapter or a rest', () => {
+  it('has its live sessions after boards of the row, each step once and in order: after places 16, 28, 43, 55, 74, 86 and 92, each the end of its chapter, a rest, or an easy place with a fine end (the word of the owner, 5 November 2026), never a peak', () => {
     expect(ROW.lives.map((live) => [live.code, ROW.places[live.after].number])).toEqual([['live-1', 16], ['live-2', 28], ['live-3', 43], ['live-4', 55], ['live-5', 74], ['live-6', 86], ['live-7', 92]]);
     expect(ROW.lives.map((live) => live.step)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     for (const live of ROW.lives) {
       const place = ROW.places[live.after];
-      expect(ROW.chapters[place.chapter].last === live.after || place.role === 'rest', live.code).toBe(true);
+      expect(ROW.chapters[place.chapter].last === live.after || place.role === 'rest' || place.emotion === 'payoff', live.code).toBe(true);
+      expect(place.role, live.code).not.toBe('peak');
     }
   });
 

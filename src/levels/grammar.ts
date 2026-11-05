@@ -444,7 +444,6 @@ export const KNOWN_REPEATS: readonly string[] = [
   'места 61 (bridge-5) и 79 (P09): одна мысль — K ~ L, link walk, грани 3',
   'места 59 (under-fives-1) и 83 (dd-21-wood-fives): одна раскладка',
   'места 84 (dd-14-turn-to-fours) и 85 (dd-72-fours-and-one): одна мысль — K, грани 4',
-  'места 47 (rescue-3) и 92 (rescue-4): одна мысль — K v Q, lift link push seven, грани 4',
   'места 20 (H07) и 95 (dd-13-stone-row): одна мысль — K, loop, грани 3',
   'места 20 (H07) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
   'места 95 (dd-13-stone-row) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',

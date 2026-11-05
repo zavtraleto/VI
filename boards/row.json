@@ -80,11 +80,11 @@
       "places": [
         { "board": "ones-twos-2", "role": "meet", "teaches": "ones", "archetype": "K v U Q on 2 (lift link ones push seven)", "emotion": "insight", "help": { "hint": "hintOnesPush" } },
         { "board": "roll-fours-link-1", "role": "apply", "archetype": "K L on 4: fours by rolls, a roll-in link", "emotion": "insight" },
-        { "board": "collapse-3", "role": "rest", "archetype": "six sixes, an easy heap", "emotion": "payoff", "note": "the owner's word of 12 October, «изи катка… простой, дофаминовый», against D 7.5 of the bots" },
+        { "board": "fives-heap-1", "role": "apply", "archetype": "K on 5: five fives rolled into one heap", "emotion": "payoff", "note": "an easy place with a fine end before the live session (VI_One_More_Level_Research.md, conclusions, 1; the owner's word of 5 November, «да, согласен»)" },
         { "board": "ones-fours-2", "role": "twist", "archetype": "K v U on 4 (lift ones push seven)", "emotion": "trick" },
         { "board": "climb-twos-2", "role": "twist", "archetype": "K v ^ K v Q on 2 (lift link push)", "emotion": "tension" },
+        { "board": "collapse-3", "role": "peak", "archetype": "six sixes, an easy heap", "emotion": "tension", "note": "a peak in the middle of the decade (the owner's word of 5 November, «да, согласен»); the owner's word of 12 October, «изи катка… простой, дофаминовый», against D 7.5 of the bots" },
         { "board": "twos-then-fives-1", "role": "apply", "archetype": "K K on 2 5: a small heap opens the way to the big one", "emotion": "insight" },
-        { "board": "rescue-3", "role": "apply", "archetype": "five fours go, with a trap", "emotion": "payoff" },
         { "board": "dd-15-no-way-down", "role": "apply", "archetype": "all from above", "emotion": "mastery" },
         { "board": "fives-bridge-link-1", "role": "apply", "archetype": "K ~ L on 5: the die left out catches the heap by a link", "emotion": "recognition" },
         { "board": "climb-twos-threes-3", "role": "peak", "archetype": "K ~ K v ^ L v ^ L on 2 3 (lift link seven twoFaces walk)", "emotion": "fiero" }
@@ -198,7 +198,7 @@
   "lives": [
     { "after": "R08", "step": 1 },
     { "after": "domino-3", "step": 2 },
-    { "after": "collapse-3", "step": 3, "note": "about the 43rd place, after a rest; step 3" },
+    { "after": "fives-heap-1", "step": 3, "note": "about the 43rd place, after an easy place with a fine end; step 3" },
     { "after": "ones-over-leaving-1", "step": 4, "note": "about the 55th place, after a rest; step 4" },
     { "after": "rescue-1", "step": 5, "note": "about the 71st place, after a rest; step 5" },
     { "after": "P06", "step": 6, "note": "about the 85th place, the end of the chapter eighty; step 6" },

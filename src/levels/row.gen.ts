@@ -4019,27 +4019,71 @@ export const ROW: Row = {
     {
       "number": 43,
       "chapter": 6,
-      "code": "collapse-3",
+      "code": "fives-heap-1",
       "spec": {
-        "id": "collapse-3",
-        "seed": 30120,
-        "size": 4,
+        "id": "fives-heap-1",
+        "seed": 0,
+        "size": 5,
         "holes": [
+          {
+            "x": 0,
+            "z": 0
+          },
+          {
+            "x": 1,
+            "z": 0
+          },
+          {
+            "x": 2,
+            "z": 0
+          },
           {
             "x": 3,
             "z": 0
           },
           {
-            "x": 3,
-            "z": 1
+            "x": 4,
+            "z": 0
           },
           {
-            "x": 3,
-            "z": 2
+            "x": 0,
+            "z": 3
+          },
+          {
+            "x": 1,
+            "z": 3
+          },
+          {
+            "x": 2,
+            "z": 3
           },
           {
             "x": 3,
             "z": 3
+          },
+          {
+            "x": 4,
+            "z": 3
+          },
+          {
+            "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
+            "z": 4
+          },
+          {
+            "x": 4,
+            "z": 4
           }
         ],
         "goal": {
@@ -4047,72 +4091,65 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          6
+          5
         ],
-        "norm": 6,
+        "norm": 5,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          6
+          5
         ],
         "layout": {
           "start": {
-            "x": 2,
+            "x": 1,
             "z": 2
           },
           "dice": [
             {
               "x": 0,
-              "z": 0,
-              "top": 6,
-              "north": 2
-            },
-            {
-              "x": 1,
-              "z": 0,
-              "top": 6,
-              "north": 3
-            },
-            {
-              "x": 2,
-              "z": 0,
-              "top": 6,
-              "north": 5
+              "z": 1,
+              "top": 5,
+              "north": 1
             },
             {
               "x": 1,
               "z": 1,
-              "top": 6,
-              "north": 3
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 2,
+              "top": 5,
+              "north": 1
             },
             {
               "x": 1,
               "z": 2,
-              "top": 3,
-              "north": 1
+              "top": 6,
+              "north": 4
             },
             {
               "x": 2,
               "z": 2,
-              "top": 3,
-              "north": 5
+              "top": 5,
+              "north": 1
             }
           ]
         },
-        "chapter": 0,
         "par": 5,
         "exact": true,
         "solution": [
-          "2,0,S",
-          "1,2,W",
-          "0,2,N",
-          "2,2,W",
-          "2,1,N"
+          "2,2,N",
+          "1,2,E",
+          "1,1,S",
+          "2,1,E",
+          "3,1,S"
         ]
       },
-      "role": "rest",
-      "archetype": "six sixes, an easy heap",
+      "role": "apply",
+      "archetype": "K on 5: five fives rolled into one heap",
       "emotion": "payoff",
       "help": {}
     },
@@ -4301,6 +4338,106 @@ export const ROW: Row = {
     {
       "number": 46,
       "chapter": 6,
+      "code": "collapse-3",
+      "spec": {
+        "id": "collapse-3",
+        "seed": 30120,
+        "size": 4,
+        "holes": [
+          {
+            "x": 3,
+            "z": 0
+          },
+          {
+            "x": 3,
+            "z": 1
+          },
+          {
+            "x": 3,
+            "z": 2
+          },
+          {
+            "x": 3,
+            "z": 3
+          }
+        ],
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          6
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          6
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 0,
+              "z": 0,
+              "top": 6,
+              "north": 2
+            },
+            {
+              "x": 1,
+              "z": 0,
+              "top": 6,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 0,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 6,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 3,
+              "north": 5
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 5,
+        "exact": true,
+        "solution": [
+          "2,0,S",
+          "1,2,W",
+          "0,2,N",
+          "2,2,W",
+          "2,1,N"
+        ]
+      },
+      "role": "peak",
+      "archetype": "six sixes, an easy heap",
+      "emotion": "tension",
+      "help": {}
+    },
+    {
+      "number": 47,
+      "chapter": 6,
       "code": "twos-then-fives-1",
       "spec": {
         "id": "twos-then-fives-1",
@@ -4428,81 +4565,6 @@ export const ROW: Row = {
       "role": "apply",
       "archetype": "K K on 2 5: a small heap opens the way to the big one",
       "emotion": "insight",
-      "help": {}
-    },
-    {
-      "number": 47,
-      "chapter": 6,
-      "code": "rescue-3",
-      "spec": {
-        "id": "rescue-3",
-        "seed": 30627,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          4
-        ],
-        "norm": 5,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          4
-        ],
-        "layout": {
-          "start": {
-            "x": 2,
-            "z": 0
-          },
-          "dice": [
-            {
-              "x": 2,
-              "z": 0,
-              "top": 4,
-              "north": 5
-            },
-            {
-              "x": 2,
-              "z": 1,
-              "top": 3,
-              "north": 6
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 4,
-              "north": 2
-            },
-            {
-              "x": 1,
-              "z": 2,
-              "top": 4,
-              "north": 1
-            },
-            {
-              "x": 1,
-              "z": 3,
-              "top": 4,
-              "north": 5
-            }
-          ]
-        },
-        "chapter": 0,
-        "par": 4,
-        "exact": true,
-        "solution": [
-          "2,1,W",
-          "1,1,W",
-          "2,0,W,p",
-          "1,0,W,p"
-        ]
-      },
-      "role": "apply",
-      "archetype": "five fours go, with a trap",
-      "emotion": "payoff",
       "help": {}
     },
     {
