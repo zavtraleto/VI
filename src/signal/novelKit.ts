@@ -1,5 +1,5 @@
 import { novelEpisode } from '../ui/novel';
-import { warmSprites } from './sprites';
+import { RECORD_MOODS, warmSprites } from './sprites';
 
 /**
  * What the records of the link need and nothing else does: their words, the voice of the other side
@@ -11,12 +11,13 @@ export { novelEpisode } from '../ui/novel';
 export { RecordBands } from './bands';
 export { VoiceFigure } from './figure';
 export { NOVEL_LOOK, faceAt, novelCard, novelScene } from './record';
+export { moodAt } from './sprites';
 
 /** The part as it comes. */
 export type NovelKit = typeof import('./novelKit');
 
-/** Fetches the pictures of a record before it opens: those of the moods of its lines (none is said yet, so the one picture there is). */
+/** Fetches the pictures of a record before it opens: those of the moods of its lines, or the one picture where it says none. */
 export function warmNovel(code: string): void {
-  const episode = novelEpisode(code, 'en');
-  if (episode) warmSprites([undefined]);
+  if (!novelEpisode(code, 'en')) return;
+  warmSprites(RECORD_MOODS[code] ?? [undefined]);
 }

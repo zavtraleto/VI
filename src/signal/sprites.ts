@@ -11,9 +11,10 @@ import { Lazy } from './lazy';
 
 /**
  * The pictures of the voice of the other side. The eight of her moods are named by the list of the
- * idea of the story (docs/superpowers/specs/2026-11-05-vi-story-idea-design.md, section 11); the
- * lines of a record do not say a mood yet, so every record shows the one picture, `voice.webp`.
- * The files go into the build as files and are fetched only when a record asks for them.
+ * idea of the story (docs/superpowers/specs/2026-11-05-vi-story-idea-design.md, section 11). The
+ * records of act II give every line a mood (`RECORD_MOODS`, the owner, 6 November 2026: wire them);
+ * act I is a silhouette and shows the one picture it had, `voice.webp`. The files go into the build
+ * as files and are fetched only when a record asks for them.
  */
 export type VoiceMood = 'alarm' | 'calm' | 'empty' | 'listen' | 'longing' | 'recall' | 'smile' | 'stare';
 
@@ -27,6 +28,28 @@ export const MOOD_SPRITES: Readonly<Record<VoiceMood, string>> = {
   smile: smileUrl,
   stare: stareUrl,
 };
+
+/**
+ * The mood of her face on every line of a record, by its code: the lines the operator says too, as
+ * she listens to them. The same in every language: the lines of a record are as many in each.
+ * A record not here shows `voice.webp` on every line.
+ */
+export const RECORD_MOODS: Readonly<Record<string, readonly VoiceMood[]>> = {
+  // "Face": the silhouette, then her face; she asks, forgets, and he says she looks right at him.
+  n04: ['calm', 'calm', 'listen', 'listen', 'longing', 'listen', 'stare', 'stare'],
+  // "Room": she remembers, and it was warm.
+  n05: ['recall', 'calm', 'recall', 'recall', 'listen', 'smile', 'smile', 'stare'],
+  // "Water": she sinks when he leaves.
+  n06: ['longing', 'recall', 'longing', 'longing', 'stare', 'stare', 'calm'],
+  // "We": her voice is his.
+  n07: ['recall', 'listen', 'stare', 'stare', 'smile', 'smile', 'stare', 'stare'],
+};
+
+/** The mood of a line of a record; none where the record says none. */
+export function moodAt(code: string, line: number): VoiceMood | undefined {
+  const moods = RECORD_MOODS[code];
+  return moods?.[Math.max(0, Math.min(moods.length - 1, line))];
+}
 
 /** The file of a mood; the one picture there is now where none is said. */
 export function spriteOf(mood?: VoiceMood): string {

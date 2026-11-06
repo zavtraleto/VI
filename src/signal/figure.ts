@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Band } from './bands';
 import { NOVEL_LOOK, figureBox, figureMask, type FigureMask } from './record';
-import { loadPicture, spriteOf } from './sprites';
+import { type VoiceMood, loadPicture, spriteOf } from './sprites';
 
 /** The corners of the figure's picture are put where `uBox` says, in shares of the frame. */
 const VERTEX = /* glsl */ `
@@ -94,12 +94,22 @@ function stored(hex: string, into = new THREE.Vector3()): THREE.Vector3 {
   return into.set(((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255);
 }
 
-/** The picture of the voice of the other side, as it is worked out once; null while it has not come, or could not. */
-let loading: Promise<{ mask: FigureMask; sprite: number } | null> | null = null;
+/** A picture of the voice of the other side as it is worked out, once a file; a fetch that failed is asked for again. */
+interface Worked {
+  mask: FigureMask;
+  /** The picture, width over height, without the air around it. */
+  sprite: number;
+  masked: THREE.DataTexture;
+  color: THREE.DataTexture;
+}
 
-function loadMask(): Promise<{ mask: FigureMask; sprite: number } | null> {
-  loading ??= loadPicture(spriteOf())
-    .then((image) => {
+const worked = new Map<string, Promise<Worked | null>>();
+
+function loadMask(url: string): Promise<Worked | null> {
+  const known = worked.get(url);
+  if (known) return known;
+  const loading = loadPicture(url)
+    .then((image): Worked => {
       if (!image) throw new Error('no picture');
       const sprite = image.naturalWidth / Math.max(1, image.naturalHeight);
       const height = NOVEL_LOOK.figure.maskLines;
@@ -109,13 +119,15 @@ function loadMask(): Promise<{ mask: FigureMask; sprite: number } | null> {
       canvas.height = height;
       const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(image, 0, 0, width, height);
-      return { mask: figureMask(ctx.getImageData(0, 0, width, height).data, width, height), sprite };
+      const mask = figureMask(ctx.getImageData(0, 0, width, height).data, width, height);
+      return { mask, sprite, masked: dataTexture(mask.data, mask.width, mask.height), color: dataTexture(mask.color, mask.width, mask.height) };
     })
     .catch(() => {
       // Asked for again by the next record.
-      loading = null;
+      worked.delete(url);
       return null;
     });
+  worked.set(url, loading);
   return loading;
 }
 
@@ -133,7 +145,8 @@ function dataTexture(data: Uint8Array, width: number, height: number): THREE.Dat
  * frame, drawn over the picture of the place and under the band of the words, and going through
  * the signal of the transmission with it. Its picture is fetched in the pause before a record
  * (`warmNovel` in `novelKit.ts`), or with the record. While the operator speaks she is dimmer and
- * her light is less; it goes from one to the other slowly.
+ * her light is less; it goes from one to the other slowly. Her face is the mood of the line
+ * (`mood`): a new one stands in its place once its picture has been worked out.
  */
 export class VoiceFigure {
   readonly scene = new THREE.Scene();
@@ -145,16 +158,24 @@ export class VoiceFigure {
   private speaking: number | null = null;
   private last = 0;
 
-  private constructor(
-    private readonly mask: FigureMask,
-    /** The picture of the figure, width over height, without the air around it. */
-    private readonly sprite: number,
-  ) {
+  /** The file of the picture she has now, and the one asked for. */
+  private shown: string;
+  private wanted: string;
+  /** The picture asked for last, as it comes. */
+  private asked: Promise<void> = Promise.resolve();
+  private mask: FigureMask;
+  /** The picture of the figure, width over height, without the air around it. */
+  private sprite: number;
+
+  private constructor(url: string, first: Worked) {
+    this.shown = this.wanted = url;
+    this.mask = first.mask;
+    this.sprite = first.sprite;
     const look = NOVEL_LOOK.figure;
     this.material = new THREE.ShaderMaterial({
       uniforms: {
-        uMask: { value: dataTexture(mask.data, mask.width, mask.height) },
-        uColor: { value: dataTexture(mask.color, mask.width, mask.height) },
+        uMask: { value: first.masked },
+        uColor: { value: first.color },
         uBox: { value: this.box },
         uShadow: { value: new THREE.Vector3() },
         uHigh: { value: stored(look.grade.highlight) },
@@ -189,9 +210,29 @@ export class VoiceFigure {
     this.scene.add(mesh);
   }
 
-  /** The figure, once its picture has come and been worked out; null if it could not be fetched. */
-  static load(): Promise<VoiceFigure | null> {
-    return loadMask().then((found) => (found ? new VoiceFigure(found.mask, found.sprite) : null));
+  /** The figure in a mood, once its picture has come and been worked out; null if it could not be fetched. */
+  static load(mood?: VoiceMood): Promise<VoiceFigure | null> {
+    const url = spriteOf(mood);
+    return loadMask(url).then((found) => (found ? new VoiceFigure(url, found) : null));
+  }
+
+  /**
+   * Her face in this mood (none: the one picture of act I). The picture she has stays till the new
+   * one has been worked out, then the new stands in its place at once; one that cannot be fetched
+   * leaves her as she is. The promise is kept once it stands, or could not.
+   */
+  mood(mood?: VoiceMood): Promise<void> {
+    const url = spriteOf(mood);
+    if (url === this.wanted) return this.asked;
+    this.wanted = url;
+    return (this.asked = loadMask(url).then((found) => {
+      if (!found || this.wanted !== url || this.shown === url) return;
+      this.shown = url;
+      this.mask = found.mask;
+      this.sprite = found.sprite;
+      this.material.uniforms.uMask.value = found.masked;
+      this.material.uniforms.uColor.value = found.color;
+    }));
   }
 
   /**

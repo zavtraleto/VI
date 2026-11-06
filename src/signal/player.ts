@@ -431,6 +431,8 @@ export class SignalPlayer {
       const bands = (this.bands ??= new novel.RecordBands());
       const banded = bands.update(timeMs, reduced, boost);
       if (this.figure && shown) {
+        // Her face is the mood of the line (`RECORD_MOODS`); a new one stands once its picture has come.
+        void this.figure.mood(novel.moodAt(record.recording.code, record.line));
         const speaking = record.recording.lines[record.line]?.who === 'voice';
         this.figure.update(timeMs, rect.width / Math.max(1, rect.height), speaking, scene.fill, reduced, bands.now, face);
         this.picture.renderOver(this.figure.scene, this.figure.camera, { rect });
@@ -497,7 +499,8 @@ export class SignalPlayer {
     // A record waits for the voice of the other side as well, for a while: its picture may not have come before it.
     const figure = record
       ? Promise.race([
-          this.voiceFigure(record.recording.novel).then((one) => one && this.picture.warm(one.scene, one.camera)),
+          // In the mood of its first line, so she does not change on the first frame.
+          this.voiceFigure(record.recording.novel).then((one) => one && Promise.all([this.picture.warm(one.scene, one.camera), one.mood(record.recording.novel.moodAt(record.recording.code, 0))])),
           new Promise((resolve) => window.setTimeout(resolve, FIGURE_PATIENCE_MS)),
         ])
       : null;
