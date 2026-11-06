@@ -521,7 +521,7 @@ export interface ClearedData {
   stars: number | null;
   /** Motion kept low: the stars stand at once. */
   still: boolean;
-  /** Under `?novel`: how many stars are left to the next record of the link, a line under the stars; none after the last record. */
+  /** How many stars are left to the next record of the link, a line under the stars; none after the last record. */
   starLine?: string;
 }
 
@@ -546,27 +546,32 @@ export function clearedPanel(data: ClearedData, actions: { onNext: () => void; o
   return { title: PANELS.cleared, home: 'next', back: actions.onNext, rows };
 }
 
-/** A line of the list `STORY`: the note, or a record of the link, open with its title or closed with the sum it opens on. */
-export type StoryEntry = { kind: 'readme' } | { kind: 'record'; number: number; title: string | null; stars: number };
-
 /**
- * What the file `STORY` of the menu opens under `?novel`: the note first, then the records of the
- * link. An open record is named by its title and opens; a closed one says the sum of the stars it
- * opens on, and is not pressed. `home` is the line the list opens on.
+ * What the file `STORY` of the menu opens (the owner, 6 November 2026: «сделай просто ячейки (как на
+ * списке уровней), которые поначалу закрыты и постепенно открываются»): the records of the link as
+ * the cells of the list of the levels, numbered from one, and no words. A record the sum of the
+ * stars has not come to is closed: faint, and not pressed. `current` is the cell in focus, the last
+ * open one; -1 where none is open.
  */
-export function storyPanel(
-  entries: readonly StoryEntry[],
-  actions: { onReadme: () => void; onRecord: (number: number) => void; onBack: () => void },
-  home = 'readme',
-): PanelSpec {
-  const rows: PanelRow[] = entries.map((entry): PanelRow => {
-    if (entry.kind === 'readme') return { kind: 'command', id: 'readme', label: { native: PANELS.story.native, name: 'README' }, action: actions.onReadme };
-    const number = digits(entry.number, 2);
-    if (entry.title === null) return { kind: 'field', label: { native: PANELS.novel.native, name: number }, value: `${word(RESULT.stars.name)} ${digits(entry.stars, 3)}` };
-    return { kind: 'command', id: `record-${entry.number}`, label: { native: PANELS.novel.native, name: `${number} · ${entry.title.toUpperCase()}` }, action: () => actions.onRecord(entry.number) };
-  });
-  rows.push({ kind: 'gap' }, { kind: 'command', id: 'back', label: COMMANDS.back, action: actions.onBack });
-  return { title: PANELS.story, home, back: actions.onBack, rows };
+export function storyPanel(records: readonly { open: boolean }[], current: number, actions: { onRecord: (number: number) => void; onBack: () => void }): PanelSpec {
+  return {
+    title: PANELS.story,
+    full: true,
+    home: current >= 0 ? `record-${current}` : 'back',
+    back: actions.onBack,
+    rows: [
+      {
+        kind: 'levels',
+        id: 'record',
+        levels: records.map((record) => ({ stars: 0, closed: !record.open })),
+        current,
+        pick: (index) => {
+          if (records[index]?.open) actions.onRecord(index + 1);
+        },
+      },
+      { kind: 'commands', commands: [{ id: 'back', label: COMMANDS.menu, action: actions.onBack }] },
+    ],
+  };
 }
 
 /** A line of the screen of `ENDLESS`: a call that has come, by its step and its best. */

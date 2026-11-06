@@ -57,12 +57,13 @@ export type PanelRow =
    * The boards of the levels, as numbered cells with what each has earned, and nothing under them
    * (the owner, 30 October 2026). `marks` is how many a cell can earn, three when left out. Only
    * boards stand in it: the calls are a layer of their own (the owner, 5 November 2026: «клетки из
-   * списка давай убирать»).
+   * списка давай убирать»). The same cells hold the records of the link in `STORY` (the owner,
+   * 6 November 2026): a `closed` one is drawn faint and is not pressed.
    */
   | {
       kind: 'levels';
       id: string;
-      levels: readonly { stars: number }[];
+      levels: readonly { stars: number; closed?: boolean }[];
       current: number;
       pick: (index: number) => void;
       marks?: number;
@@ -602,7 +603,7 @@ export class PanelScreen implements ShellScreen {
             const id = `${row.id}-${i}`;
             const on = focus.focus === id;
             kit.frame(cell, on || i === row.current ? ink : faint);
-            this.levelCell(kit, cell, digits(i + 1, 2), row.levels[i].stars, row.marks ?? 3);
+            this.levelCell(kit, cell, digits(i + 1, 2), row.levels[i].stars, row.marks ?? 3, row.levels[i].closed === true);
             // In focus: a ring round the cell, a little out from it, and the red mark of the seventh in its corner.
             if (on) {
               kit.frame({ x: cell.x - CELL_RING, y: cell.y - CELL_RING, w: cell.w + 2 * CELL_RING, h: cell.h + 2 * CELL_RING }, focus.pressed === id ? faint : ink);
@@ -655,8 +656,13 @@ export class PanelScreen implements ShellScreen {
    * whole cell for three; its number at the size of the font in the middle, dark where the fill
    * is behind it and light above, the line between them running through the signs.
    */
-  private levelCell(kit: Kit, cell: Box, label: string, stars: number, marks: number): void {
-    const { bg, ink } = kit.palette;
+  private levelCell(kit: Kit, cell: Box, label: string, stars: number, marks: number, closed = false): void {
+    const { bg, ink, faint } = kit.palette;
+    // A closed cell: its number in the faint tone, nothing else.
+    if (closed) {
+      kit.text(label, cell.x + cell.w / 2, Math.round(cell.y + (cell.h - CELL_H) / 2), faint, { align: 'center', bold: true });
+      return;
+    }
     const fill = Math.round((cell.h * Math.max(0, Math.min(marks, stars))) / Math.max(1, marks));
     const line = cell.y + cell.h - fill;
     if (fill > 0) kit.rect(cell.x, line, cell.w, fill, kit.palette.star.light);
@@ -1057,7 +1063,7 @@ export class PanelScreen implements ShellScreen {
         const view = this.levelView(row, box, shown);
         // A cell half in sight takes a press in the part of it that is.
         view.cells.forEach((cell, i) => {
-          if (this.inSight(view, i)) items.push({ id: `${row.id}-${i}`, rect: toWindow(cell, view.window), action: () => row.pick(i) });
+          if (this.inSight(view, i) && row.levels[i].closed !== true) items.push({ id: `${row.id}-${i}`, rect: toWindow(cell, view.window), action: () => row.pick(i) });
         });
       }
     }

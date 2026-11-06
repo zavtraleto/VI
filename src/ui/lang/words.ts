@@ -41,7 +41,7 @@ export const WORDS = {
   'HANG UP': { ru: 'ПОЛОЖИТЬ ТРУБКУ', es: 'COLGAR', pt: 'DESLIGAR', tr: 'KAPAT', de: 'AUFLEGEN', fr: 'RACCROCHER' },
   CALLS: { ru: 'ЗВОНКИ', es: 'LLAMADAS', pt: 'CHAMADAS', tr: 'ARAMALAR', de: 'ANRUFE', fr: 'APPELS' },
   'LINE LOST': { ru: 'СВЯЗЬ ПРЕРВАЛАСЬ', es: 'SIN LÍNEA', pt: 'LINHA CAIU', tr: 'HAT KOPTU', de: 'LEITUNG WEG', fr: 'LIGNE COUPÉE' },
-  // A record of the link, under `?novel`: the word of `novelRecord` in `src/ui/i18n.ts`.
+  // A record of the link: the word of `novelRecord` in `src/ui/i18n.ts`.
   RECORD: { ru: 'ЗАПИСЬ', es: 'REGISTRO', pt: 'REGISTRO', tr: 'KAYIT', de: 'AUFNAHME', fr: 'BANDE' },
   // The commands.
   SKIP: { ru: 'ПРОПУСТИТЬ', es: 'SALTAR', pt: 'PULAR', tr: 'ATLA', de: 'ÜBERSPRINGEN', fr: 'PASSER' },

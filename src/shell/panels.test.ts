@@ -355,7 +355,7 @@ describe('the window between two boards', () => {
   });
 });
 
-describe('the records of the link, under ?novel', () => {
+describe('the records of the link', () => {
 
   it('put the stars left to the next record on a line under the stars of the window between two boards, and nothing without it', () => {
     const spec = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: '017' }, { onNext: nothing, onAgain: nothing });
@@ -366,22 +366,20 @@ describe('the records of the link, under ?novel', () => {
     expect(plain.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'gap', 'command', 'command']);
   });
 
-  it('list the note first in STORY, an open record by its title and a closed one by the sum it opens on, which is not pressed', () => {
+  it('stand in STORY as cells with no words, a closed one faint and not pressed', () => {
     const picked: string[] = [];
-    const spec = storyPanel(
-      [{ kind: 'readme' }, { kind: 'record', number: 1, title: 'Reception', stars: 20 }, { kind: 'record', number: 3, title: null, stars: 60 }],
-      { onReadme: () => picked.push('readme'), onRecord: (number) => picked.push(`record ${number}`), onBack: () => picked.push('back') },
-    );
-    expect(spec.rows.map((one) => one.kind)).toEqual(['command', 'command', 'field', 'gap', 'command']);
-    expect(pressed(spec)).toEqual(['readme', 'record-1', 'back']);
-    expect(row(spec, 'command', 0).label.name).toBe('README');
-    expect(row(spec, 'command', 1).label.name).toBe('01 · RECEPTION');
-    expect(row(spec, 'field', 0)).toMatchObject({ label: { name: '03' }, value: 'STARS 060' });
-    expect(spec.home).toBe('readme');
-    row(spec, 'command', 0).action();
-    row(spec, 'command', 1).action();
+    const spec = storyPanel([{ open: true }, { open: true }, { open: false }], 1, { onRecord: (number) => picked.push(`record ${number}`), onBack: () => picked.push('back') });
+    expect(spec.full).toBe(true);
+    expect(spec.home).toBe('record-1');
+    const cells = spec.rows[0];
+    if (cells.kind !== 'levels') throw new Error('no cells');
+    expect(cells.levels.map((one) => one.closed)).toEqual([false, false, true]);
+    expect(cells.current).toBe(1);
+    cells.pick(0);
+    cells.pick(2);
     spec.back?.();
-    expect(picked).toEqual(['readme', 'record 1', 'back']);
+    expect(picked).toEqual(['record 1', 'back']);
+    expect(storyPanel([{ open: false }], -1, { onRecord: nothing, onBack: nothing }).home).toBe('back');
   });
 
   it('have their words fit a panel of a phone in every language', () => {

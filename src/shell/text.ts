@@ -146,9 +146,9 @@ export const PANELS = {
   failed: { native: 'しっぱい', name: 'FAILED' },
   /** "New record": what a result is named once the session has taken its place above the best there was. */
   record: { native: 'しんきろく', name: 'NEW RECORD' },
-  /** "Record": a record of the link, under `?novel` (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md). */
+  /** "Record": a record of the link (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md). */
   novel: { native: 'きろく', name: 'RECORD' },
-  /** "Story": the list the file of the menu opens under `?novel`, the note first and the records after it. */
+  /** "Story": the list the file of the menu opens, the note first and the records after it. */
   story: { native: 'ものがたり', name: 'STORY' },
   /** "Incoming": the screen of a call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.1). */
   incoming: { native: 'ちゃくしん', name: 'INCOMING' },
@@ -178,7 +178,7 @@ export const COMMANDS = {
   exit: { native: 'おわる', name: 'EXIT' },
   /** "Start". */
   start: { native: 'はじめる', name: 'START' },
-  /** "Skip": a record of the link under `?novel`, closed before its last line. */
+  /** "Skip": a record of the link, closed before its last line. */
   skip: { native: 'スキップ', name: 'SKIP' },
   /** "Take back": the last move of a level, from its result. */
   undo: { native: 'とりけし', name: 'UNDO' },
@@ -227,9 +227,9 @@ export const RESULT = {
   left: { native: 'あと', name: 'MOVES LEFT' },
   /** "Rank": the place the session took in the log. */
   rank: { native: 'ランク', name: 'RANK' },
-  /** "Stars": the sum of the stars of the row, under `?novel`. */
+  /** "Stars": the sum of the stars of the row. */
   stars: { native: 'ほし', name: 'STARS' },
-  /** "To the record": the stars that are left to the next record of the link, under `?novel`. */
+  /** "To the record": the stars that are left to the next record of the link. */
   toRecord: { native: 'きろくまで', name: 'TO RECORD' },
 } as const satisfies Record<string, PanelName>;
 

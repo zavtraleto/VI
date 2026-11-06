@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LANGUAGES } from '../ui/i18n';
 import { novelEpisode } from '../ui/novel';
-import { NOVEL, NOVEL_FLAG, novelDue, novelKey, novelNext } from './novel';
+import { NOVEL, novelDue, novelKey, novelNext } from './novel';
 
 describe('the records of the link', () => {
   it('are seven, acts I and II, one every 20 stars, in order', () => {
@@ -11,10 +11,6 @@ describe('the records of the link', () => {
 
   it('are kept among the windows told as novel:<code>', () => {
     expect(novelKey('n02')).toBe('novel:n02');
-  });
-
-  it('are behind the address ?novel: a page without it, or a test, has none', () => {
-    expect(NOVEL_FLAG).toBe(false);
   });
 });
 

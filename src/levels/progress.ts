@@ -38,7 +38,7 @@ export function starsHeld(bestMoves: number | null | undefined, par: number | un
 /**
  * The sum of the stars: those held on every board given, a level of the list or a piece of the
  * road. It is the sum of the best passes, so a board passed again adds only the stars it had not
- * earned before. Under `?novel` the records of the link open on it (`src/app/novel.ts`).
+ * earned before. The records of the link open on it (`src/app/novel.ts`).
  */
 export function starsSum(boards: readonly Pick<LevelSpec, 'id' | 'par'>[], bestMoves: (id: string) => number | null | undefined): number {
   return boards.reduce((sum, board) => sum + starsHeld(bestMoves(board.id), board.par), 0);

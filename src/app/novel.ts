@@ -1,5 +1,5 @@
 /**
- * The records of the link, a first plain build under `?novel`
+ * The records of the link, in the game for every player since 6 November 2026 (before, only under `?novel`)
  * (docs/superpowers/specs/2026-11-04-vi-star-novel-design.md): the stars of the row add up, and on
  * a sum a record opens, a short scene of two voices. Which ones there are, on what sums, and which
  * one is due. What a record says is in `src/ui/novel.ts`.
@@ -22,12 +22,6 @@ export const NOVEL: readonly NovelEntry[] = [
   { code: 'n06', stars: 120 },
   { code: 'n07', stars: 140 },
 ];
-
-/**
- * The records are there only where the address asks for them, `?novel`: a player without it sees
- * nothing of them. False where there is no page to ask, as in a test.
- */
-export const NOVEL_FLAG: boolean = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('novel');
 
 /** How a record is kept among the windows a player has been shown (`LevelProgress.told`): once there, its window does not come again. */
 export function novelKey(code: string): string {
