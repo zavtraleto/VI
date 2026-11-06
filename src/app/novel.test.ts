@@ -4,9 +4,9 @@ import { novelEpisode } from '../ui/novel';
 import { NOVEL, novelDue, novelKey, novelNext } from './novel';
 
 describe('the records of the link', () => {
-  it('are seven, acts I and II, one every 20 stars, in order', () => {
-    expect(NOVEL.map((entry) => entry.code)).toEqual(['n01', 'n02', 'n03', 'n04', 'n05', 'n06', 'n07']);
-    expect(NOVEL.map((entry) => entry.stars)).toEqual([20, 40, 60, 80, 100, 120, 140]);
+  it('are fifteen, acts I to IV, one every 20 stars, in order, the last on all the stars of the row', () => {
+    expect(NOVEL.map((entry) => entry.code)).toEqual(Array.from({ length: 15 }, (_, i) => `n${String(i + 1).padStart(2, '0')}`));
+    expect(NOVEL.map((entry) => entry.stars)).toEqual(Array.from({ length: 15 }, (_, i) => (i + 1) * 20));
   });
 
   it('are kept among the windows told as novel:<code>', () => {
@@ -50,7 +50,7 @@ describe('the record next', () => {
   });
 
   it('is none once the sum has come to the last', () => {
-    expect(novelNext(140)).toBeUndefined();
+    expect(novelNext(140)?.entry.code).toBe('n08');
     expect(novelNext(300)).toBeUndefined();
   });
 });
@@ -69,7 +69,19 @@ describe('what a record says', () => {
     expect(novelEpisode('n99', 'en')).toBeUndefined();
   });
 
-  it('has the other side speak in small letters', () => {
-    for (const { code } of NOVEL) for (const line of novelEpisode(code, 'ru')!.lines) if (line.who === 'voice') expect(line.text).toBe(line.text.toLowerCase());
+  it('has the other side speak in small letters till act IV, and from act III his lines lose their capitals; in act IV hers have them', () => {
+    const lines = (from: number, to: number) => NOVEL.slice(from, to).flatMap(({ code }) => novelEpisode(code, 'ru')!.lines);
+    const small = (text: string) => text === text.toLowerCase();
+    for (const line of lines(0, 11)) if (line.who === 'voice') expect(line.text).toBe(line.text.toLowerCase());
+    expect(lines(9, 11).filter((line) => line.who === 'operator').every((line) => small(line.text))).toBe(true);
+    expect(lines(11, 14).filter((line) => line.who === 'voice').every((line) => !small(line.text))).toBe(true);
+    expect(lines(11, 14).filter((line) => line.who === 'operator').every((line) => small(line.text))).toBe(true);
+  });
+
+  it('ends act III with her wish to get out and his «we hear», the words of the other side in 01', () => {
+    const last = (code: string) => novelEpisode(code, 'ru')!.lines.at(-1)!;
+    expect(novelEpisode('n11', 'ru')!.lines.some((line) => line.who === 'voice' && line.text === 'я хочу выйти.')).toBe(true);
+    expect(last('n11')).toEqual({ who: 'operator', text: '…мы слышим.' });
+    expect(novelEpisode('n01', 'ru')!.lines.some((line) => line.text === '…мы слышим.')).toBe(true);
   });
 });

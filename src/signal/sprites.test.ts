@@ -5,8 +5,8 @@ import { novelEpisode } from '../ui/novel';
 import { MOOD_SPRITES, RECORD_MOODS, moodAt, spriteOf } from './sprites';
 
 describe('the moods of the voice in the records', () => {
-  it('are said for every line of a record of act II, in every language, and are moods there is a picture of', () => {
-    for (const code of ['n04', 'n05', 'n06', 'n07']) {
+  it('are said for every line of a record of acts II to IV, in every language, and are moods there is a picture of', () => {
+    for (const code of ['n04', 'n05', 'n06', 'n07', 'n08', 'n09', 'n10', 'n11', 'n12', 'n13', 'n14', 'n15']) {
       const moods = RECORD_MOODS[code];
       expect(moods, code).toBeDefined();
       for (const language of LANGUAGES) expect(moods.length, `${code} ${language}`).toBe(novelEpisode(code, language)?.lines.length);

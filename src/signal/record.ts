@@ -63,6 +63,16 @@ export const NOVEL_LOOK = {
       revealAt: null,
     },
     n07: { recipe: 'room_chair', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'face', revealAt: null },
+    // Acts III and IV: the places the records already have, in the same cold. 08 the corridor of the others, 10 and 13 the room
+    // with his table, 11 and 14 the dark water of the surface, 12 and 15 the sea with the pole of 01: the link comes back to where it began.
+    n08: { recipe: 'corridor_door', values: { wall: '#27344c', wallLow: '#1a2539', floor: '#11192a', ceiling: '#212c42', doorColor: '#0a0f20', doorLight: '#8eaee0', lampColor: '#9eb4de', dark: '#060a16', ambient: 0.4 }, aside: null, fill: '#08101d', figure: 'face', revealAt: null },
+    n09: { recipe: 'room_chair', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'face', revealAt: null },
+    n10: { recipe: 'room_table', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'face', revealAt: null },
+    n11: { recipe: 'nightwater_lamp', values: { skyTop: '#040818', skyHorizon: '#16244a', ground: '#060d24', glintColor: '#a8c0ec', 'lamp.light': '#a8c0ec' }, aside: { thing: 'lamp', share: 0.62, color: '#111a2e' }, fill: '#070e1f', figure: 'face', revealAt: null },
+    n12: { recipe: 'sea_pole', values: { skyTop: '#050a18', skyHorizon: '#1a2a4a', ground: '#08122a', lightAmount: 0.3, glint: 0, glow: 0 }, aside: { thing: 'pole', share: 0.62, color: '#111a2e' }, fill: '#08101f', figure: 'face', revealAt: null },
+    n13: { recipe: 'room_table', values: { wall: '#25324a', floor: '#131b2e', lampColor: '#a4bde6', dark: '#070c18', ambient: 0.4 }, aside: null, fill: '#0a1121', figure: 'face', revealAt: null },
+    n14: { recipe: 'nightwater_lamp', values: { skyTop: '#040818', skyHorizon: '#16244a', ground: '#060d24', glintColor: '#a8c0ec', 'lamp.light': '#a8c0ec' }, aside: { thing: 'lamp', share: 0.62, color: '#111a2e' }, fill: '#070e1f', figure: 'face', revealAt: null },
+    n15: { recipe: 'sea_pole', values: { skyTop: '#050a18', skyHorizon: '#1a2a4a', ground: '#08122a', lightAmount: 0.3, glint: 0, glow: 0 }, aside: { thing: 'pole', share: 0.62, color: '#111a2e' }, fill: '#08101f', figure: 'face', revealAt: null },
   } as Record<string, NovelScene>,
   /** The voice of the other side, a figure to the waist standing in the middle of the frame. */
   figure: {

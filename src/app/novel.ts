@@ -21,6 +21,15 @@ export const NOVEL: readonly NovelEntry[] = [
   { code: 'n05', stars: 100 },
   { code: 'n06', stars: 120 },
   { code: 'n07', stars: 140 },
+  // Act III "Voices" and act IV "Bridge" (the same idea of the story, section 13): the last, 15, on all the 300 stars of the row.
+  { code: 'n08', stars: 160 },
+  { code: 'n09', stars: 180 },
+  { code: 'n10', stars: 200 },
+  { code: 'n11', stars: 220 },
+  { code: 'n12', stars: 240 },
+  { code: 'n13', stars: 260 },
+  { code: 'n14', stars: 280 },
+  { code: 'n15', stars: 300 },
 ];
 
 /** How a record is kept among the windows a player has been shown (`LevelProgress.told`): once there, its window does not come again. */

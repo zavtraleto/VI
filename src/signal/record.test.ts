@@ -17,15 +17,15 @@ function lightness(hex: string): number {
 }
 
 describe('the scene of a record of the link', () => {
-  it('is a place there is for every record: the sea, the room and the corridor, then the room, and the water for 06; the first for any other', () => {
+  it('is a place there is for every record: the sea, the room and the corridor, then the room, the water for 06, and acts III and IV in the same places, back to the sea at the end; the first for any other', () => {
     const places = NOVEL.map(({ code }) => novelCard(code, seq(1), 16 / 9).frame.recipe.id);
-    expect(places).toEqual(['sea_pole', 'room_chair', 'corridor_door', 'room_chair', 'room_chair', 'nightwater_lamp', 'room_chair']);
+    expect(places).toEqual(['sea_pole', 'room_chair', 'corridor_door', 'room_chair', 'room_chair', 'nightwater_lamp', 'room_chair', 'corridor_door', 'room_chair', 'room_table', 'nightwater_lamp', 'sea_pole', 'room_table', 'nightwater_lamp', 'sea_pole']);
     expect(novelScene('n99')).toBe(NOVEL_LOOK.scenes.n01);
   });
 
-  it('shows her as a silhouette in act I, her face coming through on the second line of 04, and her face from 05 on', () => {
-    expect(NOVEL.map(({ code }) => novelScene(code).figure)).toEqual(['silhouette', 'silhouette', 'silhouette', 'silhouette', 'face', 'face', 'face']);
-    expect(NOVEL.map(({ code }) => novelScene(code).revealAt)).toEqual([null, null, null, 1, null, null, null]);
+  it('shows her as a silhouette in act I, her face coming through on the second line of 04, and her face from 05 to the end', () => {
+    expect(NOVEL.map(({ code }) => novelScene(code).figure)).toEqual([...Array(4).fill('silhouette'), ...Array(11).fill('face')]);
+    expect(NOVEL.map(({ code }) => novelScene(code).revealAt)).toEqual([null, null, null, 1, ...Array(11).fill(null)]);
   });
 
   it('is in the cold mood, stays until it is closed, says nothing of its own, and is dark', () => {

@@ -43,6 +43,16 @@ export const RECORD_MOODS: Readonly<Record<string, readonly VoiceMood[]>> = {
   n06: ['longing', 'recall', 'longing', 'longing', 'stare', 'stare', 'calm'],
   // "We": her voice is his.
   n07: ['recall', 'listen', 'stare', 'stare', 'smile', 'smile', 'stare', 'stare'],
+  // Act III "Voices": the others behind her, and the pull.
+  n08: ['listen', 'alarm', 'listen', 'recall', 'listen', 'calm', 'longing', 'longing'],
+  n09: ['calm', 'stare', 'stare', 'listen', 'stare', 'longing', 'alarm', 'alarm'],
+  n10: ['recall', 'listen', 'stare', 'stare', 'stare', 'listen', 'longing', 'alarm'],
+  n11: ['alarm', 'alarm', 'longing', 'stare', 'listen', 'longing', 'listen', 'alarm'],
+  // Act IV "Bridge": she has the capitals now; in 15 the picture is the others, and he is among them.
+  n12: ['calm', 'smile', 'smile', 'listen', 'listen', 'longing', 'calm', 'stare'],
+  n13: ['stare', 'listen', 'calm', 'stare', 'recall', 'listen', 'smile', 'smile'],
+  n14: ['calm', 'stare', 'listen', 'calm', 'listen', 'stare', 'listen', 'smile'],
+  n15: ['empty', 'empty', 'empty', 'empty', 'empty', 'empty', 'empty'],
 };
 
 /** The mood of a line of a record; none where the record says none. */
