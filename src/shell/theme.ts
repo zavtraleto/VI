@@ -118,6 +118,14 @@ export const MENU_PHONE = {
   sideVeil: 0.6,
   sideStrip: 0.6,
   sideFrame: 0.8,
+  /**
+   * A card brought to the middle goes there in this many milliseconds, slowing as it comes; a row
+   * let go goes on to the next card where it was drawn this share of the way, or let go this fast,
+   * in CSS pixels a millisecond, and back where it was otherwise.
+   */
+  glideMs: 250,
+  far: 1 / 3,
+  flick: 0.3,
 } as const;
 
 /** Letters of the voice, in CSS pixels: prose is one size wherever it stands - a line of a panel, the README, the note under the list of the levels, the note over the board. */

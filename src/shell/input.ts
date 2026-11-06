@@ -123,6 +123,10 @@ export interface InputHost {
   drag?(pixels: number): boolean;
   /** The finger let the list go at so many CSS pixels a millisecond, up counted up. */
   fling?(speed: number): void;
+  /** A finger held and drawn so many CSS pixels sideways since the last time, right counted up: true where a row goes with it. */
+  slide?(pixels: number): boolean;
+  /** The finger let the row go at so many CSS pixels a millisecond, right counted up. */
+  slideEnd?(speed: number): void;
   /** A finger put down: the list stops where it goes on by itself; true where it was moving. */
   hold?(): boolean;
   /** A key asked for a step, and there is nowhere to go that way. */
@@ -138,7 +142,8 @@ export interface InputHost {
  * sideways is offered to the screen as a swipe first, and runs nothing where the screen takes it;
  * a press drawn up or down, and the wheel of a mouse, are offered to it as a scroll. A finger drawn
  * up or down over a list that goes with it moves the list as it goes and lets it go on when it
- * is lifted, and runs nothing.
+ * is lifted, and runs nothing; a finger drawn sideways over a row that goes with it does the same
+ * across.
  */
 export class ShellInput {
   focus: string | null = null;
@@ -148,8 +153,8 @@ export class ShellInput {
   private from: { x: number; y: number } | null = null;
   /** The focus before the press: a finger that takes a list leaves it as it was. */
   private before: string | null = null;
-  /** A finger is moving a list: where it was last, and where it was over the last moments. */
-  private dragging: { y: number; trail: { y: number; t: number }[] } | null = null;
+  /** A finger is moving a list (up or down) or a row (sideways): where it was last along the way, and where it was over the last moments. */
+  private dragging: { across: boolean; at: number; trail: { at: number; t: number }[] } | null = null;
 
   constructor(private readonly host: InputHost) {
     window.addEventListener('pointermove', (e) => this.onMove(e));
@@ -208,36 +213,46 @@ export class ShellInput {
     this.host.changed();
   }
 
-  /** A finger held and moving: once it has gone far enough up or down, a list that takes it goes with it. */
+  /**
+   * A finger held and moving: once it has gone far enough up or down, a list that takes it goes
+   * with it; far enough sideways, a row that takes it.
+   */
   private onDrag(e: PointerEvent): void {
     const from = this.from;
     if (!from || this.taken(e)) return;
     const now = e.timeStamp;
     if (!this.dragging) {
+      const dx = e.clientX - from.x;
       const dy = e.clientY - from.y;
-      if (Math.abs(dy) < DRAG_MIN || Math.abs(dy) <= Math.abs(e.clientX - from.x)) return;
-      if (!this.host.drag?.(-dy)) return;
-      // The list has the finger: what it went down on is not pressed, and the focus is where it was.
-      this.dragging = { y: e.clientY, trail: [{ y: from.y, t: now - 1 }, { y: e.clientY, t: now }] };
+      const across = Math.abs(dx) > Math.abs(dy);
+      if (Math.abs(across ? dx : dy) < DRAG_MIN) return;
+      if (!(across ? this.host.slide?.(dx) : this.host.drag?.(-dy))) return;
+      // The list or the row has the finger: what it went down on is not pressed, and the focus is where it was.
+      const at = across ? e.clientX : e.clientY;
+      this.dragging = { across, at, trail: [{ at: across ? from.x : from.y, t: now - 1 }, { at, t: now }] };
       this.down = null;
       this.focus = this.before;
       this.host.changed();
       return;
     }
-    const by = this.dragging.y - e.clientY;
-    this.dragging.y = e.clientY;
-    this.dragging.trail.push({ y: e.clientY, t: now });
+    const { across } = this.dragging;
+    const at = across ? e.clientX : e.clientY;
+    const by = at - this.dragging.at;
+    this.dragging.at = at;
+    this.dragging.trail.push({ at, t: now });
     while (this.dragging.trail.length > 2 && now - this.dragging.trail[0].t > FLING_MS) this.dragging.trail.shift();
-    if (by !== 0 && this.host.drag?.(by)) this.host.changed();
+    if (by !== 0 && (across ? this.host.slide?.(by) : this.host.drag?.(-by))) this.host.changed();
   }
 
-  /** The speed, in CSS pixels a millisecond, up counted up, a finger moving a list is lifted at. */
+  /** The speed, in CSS pixels a millisecond, a finger moving a list or a row is lifted at: right and down counted up. */
   private flingSpeed(e: PointerEvent): number {
-    const trail = this.dragging?.trail ?? [];
-    const last = { y: e.clientY, t: e.timeStamp };
+    const dragging = this.dragging;
+    if (!dragging) return 0;
+    const last = { at: dragging.across ? e.clientX : e.clientY, t: e.timeStamp };
+    const { trail } = dragging;
     const first = trail.find((point) => last.t - point.t <= FLING_MS) ?? trail[trail.length - 1];
     if (!first || last.t - first.t <= 0) return 0;
-    return (first.y - last.y) / (last.t - first.t);
+    return (last.at - first.at) / (last.t - first.t);
   }
 
   private onUp(e: PointerEvent): void {
@@ -245,11 +260,13 @@ export class ShellInput {
     const from = this.from;
     this.from = null;
     if (this.dragging) {
-      // The finger lets the list go: it goes on at the speed it was let go at, and nothing is pressed.
+      // The finger lets the list or the row go: it goes on at the speed it was let go at, and nothing is pressed.
       const speed = this.flingSpeed(e);
+      const { across } = this.dragging;
       this.dragging = null;
       this.down = null;
-      this.host.fling?.(speed);
+      if (across) this.host.slideEnd?.(speed);
+      else this.host.fling?.(-speed);
       this.host.changed();
       return;
     }
@@ -293,8 +310,10 @@ export class ShellInput {
   private release(): void {
     this.from = null;
     if (this.dragging) {
+      const { across } = this.dragging;
       this.dragging = null;
-      this.host.fling?.(0);
+      if (across) this.host.slideEnd?.(0);
+      else this.host.fling?.(0);
     }
     if (this.down === null) return;
     this.down = null;

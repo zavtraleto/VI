@@ -95,6 +95,14 @@ export class MenuScreen implements ShellScreen {
   private readonly actions: Record<string, () => void>;
   /** The file the figure stands on: on a desk the lit card, on a phone the middle one. */
   private current: MenuFile;
+  /**
+   * On a phone, how far the row of cards stands off its place, in pixels of the picture, right
+   * counted up: at minus a step of the row the card after stands in the middle. The figure, the
+   * die and the dots stay with the file the figure is on until the row is at its place again.
+   */
+  private offset = 0;
+  /** The row going by itself to a place: from where, to where, since when, in how long. */
+  private glide: { from: number; to: number; start: number | null; ms: number } | null = null;
 
   constructor(
     private readonly context: ShellContext,
@@ -132,12 +140,13 @@ export class MenuScreen implements ShellScreen {
     }
     const { card, command } = plan;
     // The middle card above its command opens its file: the levels open their list, which the command passes by.
-    items.push({ id: this.current.id, rect: this.toWindow({ x: card.x, y: card.y, w: card.w, h: command.y - card.y }), action: this.actions[this.current.id] });
-    items.push({ id: COMMAND_ID, rect: this.toWindow(command), action: () => this.run(this.current) });
+    // A row still going lands first: what opens is the card that comes to the middle.
+    items.push({ id: this.current.id, rect: this.toWindow({ x: card.x, y: card.y, w: card.w, h: command.y - card.y }), action: () => (this.land(), this.actions[this.current.id]()) });
+    items.push({ id: COMMAND_ID, rect: this.toWindow(command), action: () => (this.land(), this.run(this.current)) });
     // A neighbour is pressed from the edge of the screen to the middle card, as high as it: it comes to the middle, as by a swipe.
     items.push(
-      { id: 'prev', rect: this.toWindow({ x: plan.left, y: card.y, w: card.x - plan.left, h: card.h }), action: () => this.context.focus(this.beside(-1)), passive: true, instant: true, quiet: true },
-      { id: 'next', rect: this.toWindow({ x: card.x + card.w, y: card.y, w: plan.right - card.x - card.w, h: card.h }), action: () => this.context.focus(this.beside(1)), passive: true, instant: true, quiet: true },
+      { id: 'prev', rect: this.toWindow({ x: plan.left, y: card.y, w: card.x - plan.left, h: card.h }), action: () => this.turn(-1), passive: true, instant: true, quiet: true },
+      { id: 'next', rect: this.toWindow({ x: card.x + card.w, y: card.y, w: plan.right - card.x - card.w, h: card.h }), action: () => this.turn(1), passive: true, instant: true, quiet: true },
     );
     // A die brings its card to the middle and opens nothing. Its zone stops where the cards begin.
     const projection = this.projection(plan.net);
@@ -148,7 +157,7 @@ export class MenuScreen implements ShellScreen {
       items.push({
         id: `die-${file.id}`,
         rect: this.toWindow({ ...zone, h: bottom - zone.y }),
-        action: () => this.context.focus(this.stand(file)),
+        action: () => (this.land(), this.context.focus(this.stand(file))),
         passive: true,
         instant: true,
         quiet: true,
@@ -157,10 +166,39 @@ export class MenuScreen implements ShellScreen {
     return items;
   }
 
-  /** On a phone a swipe anywhere brings the card after (to the left) or before (to the right). A desk makes nothing of it. */
+  /**
+   * On a phone a swipe anywhere, as of a mouse, brings the card after (to the left) or before (to
+   * the right): the row goes there, and the focus with the figure follows when it is there. A desk
+   * makes nothing of it.
+   */
   swipe(dir: 'left' | 'right'): string | null {
     if (this.plan().kind !== 'phone') return null;
-    return this.beside(dir === 'left' ? 1 : -1);
+    this.turn(dir === 'left' ? 1 : -1);
+    return this.current.id;
+  }
+
+  /** On a phone the row of cards goes with a finger drawn sideways, never further than the next card either way. */
+  slide(pixels: number): boolean {
+    const plan = this.plan();
+    if (plan.kind !== 'phone') return false;
+    // A finger that catches the row going by itself holds it where it is.
+    this.glide = null;
+    const step = this.step(plan);
+    this.offset = Math.max(-step, Math.min(step, this.offset + pixels / this.zoom()));
+    return true;
+  }
+
+  /** The row let go goes on to the next card where it was drawn far enough or let go fast enough, and back where it was otherwise. */
+  slideEnd(speed: number): void {
+    const plan = this.plan();
+    if (plan.kind !== 'phone') return;
+    const step = this.step(plan);
+    const { far, flick } = MENU_PHONE;
+    // A flick against the way the row was drawn takes it back, not past where it was: never more than one card.
+    let to = 0;
+    if (Math.abs(speed) >= flick) to = Math.sign(speed) === -Math.sign(this.offset) ? 0 : Math.sign(speed) * step;
+    else if (Math.abs(this.offset) >= step * far) to = Math.sign(this.offset) * step;
+    this.go(to, step);
   }
 
   /**
@@ -171,6 +209,7 @@ export class MenuScreen implements ShellScreen {
   move(focus: string | null, dir: Dir4): string | null {
     const on = focus === null ? undefined : fileOf(focus);
     if (this.plan().kind === 'phone') {
+      this.land();
       if (dir === 'left' || dir === 'right') return this.beside(dir === 'right' ? 1 : -1);
       return dir === 'down' ? COMMAND_ID : this.current.id;
     }
@@ -184,8 +223,15 @@ export class MenuScreen implements ShellScreen {
     return fileOf(id.replace(/^die-/, ''))?.face ?? null;
   }
 
-  update(): boolean {
-    return false;
+  /** The row going by itself: it slows as it comes, and lands at its place. */
+  update(timeMs: number): boolean {
+    const glide = this.glide;
+    if (!glide) return false;
+    glide.start ??= timeMs;
+    const t = glide.ms <= 0 ? 1 : Math.min(1, (timeMs - glide.start) / glide.ms);
+    this.offset = glide.from + (glide.to - glide.from) * (1 - (1 - t) ** 3);
+    if (t >= 1) this.land();
+    return true;
   }
 
   scene(layer: Layer, palette: Palette, focus: ShellFocus, timeMs: number): boolean {
@@ -213,6 +259,38 @@ export class MenuScreen implements ShellScreen {
   private run(file: MenuFile): void {
     if (file.id === 'levels') this.menu.onPlay();
     else this.actions[file.id]();
+  }
+
+  /** A step of the row of a phone: from the middle of a card to the middle of the next. */
+  private step(plan: Extract<Plan, { kind: 'phone' }>): number {
+    return plan.card.w + MENU_PHONE.gap;
+  }
+
+  /** A tap brings the card after (1) or before (-1) to the middle: a row still going lands first, so two quick taps go two cards on. */
+  private turn(side: 1 | -1): void {
+    const plan = this.plan();
+    if (plan.kind !== 'phone') return;
+    this.land();
+    this.go(-side * this.step(plan), this.step(plan));
+  }
+
+  /** The row goes by itself from where it stands to a place, in a time as long as the way it has left. */
+  private go(to: number, step: number): void {
+    const ms = this.context.reducedMotion() ? 0 : (MENU_PHONE.glideMs * Math.abs(to - this.offset)) / step;
+    this.glide = { from: this.offset, to, start: null, ms };
+    if (ms <= 0) this.land();
+  }
+
+  /**
+   * The row is at its place: where it went a step, the card that came to the middle is the file
+   * the figure stands on, and the focus goes to it.
+   */
+  private land(): void {
+    const to = this.glide ? this.glide.to : 0;
+    const moved = this.glide !== null && to !== 0;
+    this.glide = null;
+    this.offset = 0;
+    if (moved) this.context.focus(this.beside(to < 0 ? 1 : -1));
   }
 
   /** The file so many numbers on from the one the figure stands on, round the six; the figure is on it from this moment. */
@@ -368,9 +446,10 @@ export class MenuScreen implements ShellScreen {
   /**
    * The command: filled with the tone, its word in the dark, twice its size where it fits. Under the
    * pointer a light around it and the red mark at its left; held, it is a frame with its word lit.
+   * On a card of a phone on its way out of the middle the tone goes down towards the dark.
    */
-  private drawCommand(kit: Kit, box: Box, label: string, hover: boolean, pressed: boolean): void {
-    const { bg, ink } = kit.palette;
+  private drawCommand(kit: Kit, box: Box, label: string, hover: boolean, pressed: boolean, ink = kit.palette.ink): void {
+    const { bg } = kit.palette;
     if (hover) for (let r = MENU_DESK.commandRings; r >= 1; r--) kit.light(box.x - r, box.y - r, box.w + 2 * r, box.h + 2 * r, ink, MENU_DESK.commandGlow);
     if (pressed) kit.frame(box, ink);
     else kit.box(box, ink);
@@ -380,35 +459,52 @@ export class MenuScreen implements ShellScreen {
   }
 
   private drawPhone(kit: Kit, plan: Extract<Plan, { kind: 'phone' }>, focus: ShellFocus): void {
-    const { bg, ink, dim, faint, channels } = kit.palette;
+    const { ink, faint } = kit.palette;
     const count = MENU_FILES.length;
     const file = this.current;
-    const before = byFace(((file.face - 2 + count) % count) + 1);
-    const after = byFace((file.face % count) + 1);
-    for (const [side, box] of [[before, plan.prev], [after, plan.next]] as const) {
-      kit.light(box.x, box.y, box.w, box.h, bg, MENU_PHONE.sideVeil);
-      kit.frame(box, mixHex(bg, faint, MENU_PHONE.sideFrame));
-      this.drawStrip(kit, side, box, mixHex(bg, channels[side.face - 1], MENU_PHONE.sideStrip), MENU_PHONE.strip, MENU_PHONE.pips);
+    const step = this.step(plan);
+    // The row: the middle card and two either side, for the row drawn a whole card along. Each is
+    // as tall and as lit as it is near the middle; the one nearest it is drawn last.
+    const row = [-2, -1, 0, 1, 2].map((k) => ({ k, far: Math.min(1, Math.abs(k * step + this.offset) / step) })).sort((a, b) => b.far - a.far);
+    for (const { k, far } of row) {
+      const x = Math.round(plan.card.x + k * step + this.offset);
+      if (x >= plan.right || x + plan.card.w <= plan.left) continue;
+      const inset = Math.round(far * MENU_PHONE.inset);
+      const box: Box = { x, y: plan.card.y + inset, w: plan.card.w, h: plan.card.h - 2 * inset };
+      const pressed = k === 0 && this.offset === 0 && focus.pressed === COMMAND_ID;
+      this.drawPhoneCard(kit, byFace(((((file.face - 1 + k) % count) + count) % count) + 1), box, 1 - far, pressed);
     }
-    const box = plan.card;
-    const channel = channels[file.face - 1];
-    kit.light(box.x, box.y, box.w, box.h, bg, MENU_PHONE.veil);
-    kit.frame(box, channel);
-    const nameX = this.drawStrip(kit, file, box, channel, MENU_PHONE.strip, MENU_PHONE.pips);
-    const name = word(file.name);
-    // Twice its size; a name too long for that in some language is written at its own size.
-    const scale = textWidth(name, 2) <= box.x + box.w - EDGE - nameX ? 2 : 1;
-    kit.text(name, nameX, box.y + 1 + Math.round((MENU_PHONE.strip - CELL_H * scale) / 2), bg, { scale, bold: true });
-    // The value midway between the strip and the command.
-    const y = Math.round((box.y + 1 + MENU_PHONE.strip + plan.command.y - CELL_H) / 2);
-    kit.text(word(file.field[0]), box.x + EDGE, y, dim);
-    kit.text(this.value(file.field[1]), box.x + box.w - EDGE, y, ink, { align: 'right' });
-    const label = file.id === 'levels' ? `${word(MENU_COMMAND.first)} · ${digits(this.data.place, 2)}` : word(file.exec.name);
-    this.drawCommand(kit, plan.command, label, false, focus.pressed === COMMAND_ID);
     // The dots of the pages: the one of the middle card lit.
     const { dot, dotStep } = MENU_PHONE;
     const start = Math.round((plan.left + plan.right) / 2 - (count * dotStep) / 2);
     for (let i = 0; i < count; i++) kit.rect(start + i * dotStep + (dotStep - dot) / 2, plan.dots - dot / 2, dot, dot, i === file.face - 1 ? ink : faint);
+  }
+
+  /**
+   * A card of a phone, as near the middle as `near` says: in the middle (1) its frame and strip in
+   * its colour, its name, what it counts and its command; at a side (0) a quiet frame, a strip dimmed
+   * towards the dark and nothing written. On the way between it goes from one to the other.
+   */
+  private drawPhoneCard(kit: Kit, file: MenuFile, box: Box, near: number, pressed: boolean): void {
+    const { bg, ink, dim, faint } = kit.palette;
+    const channel = kit.palette.channels[file.face - 1];
+    const { veil, sideVeil, sideFrame, sideStrip, strip, pips, command: commandH } = MENU_PHONE;
+    kit.light(box.x, box.y, box.w, box.h, bg, sideVeil + (veil - sideVeil) * near);
+    kit.frame(box, mixHex(mixHex(bg, faint, sideFrame), channel, near));
+    const stripColor = mixHex(bg, channel, sideStrip + (1 - sideStrip) * near);
+    const nameX = this.drawStrip(kit, file, box, stripColor, strip, pips);
+    if (near <= 0) return;
+    const name = word(file.name);
+    // Twice its size; a name too long for that in some language is written at its own size.
+    const scale = textWidth(name, 2) <= box.x + box.w - EDGE - nameX ? 2 : 1;
+    kit.text(name, nameX, box.y + 1 + Math.round((strip - CELL_H * scale) / 2), mixHex(stripColor, bg, near), { scale, bold: true });
+    const command: Box = { x: box.x + EDGE, y: box.y + box.h - EDGE - commandH, w: box.w - 2 * EDGE, h: commandH };
+    // The value midway between the strip and the command.
+    const y = Math.round((box.y + 1 + strip + command.y - CELL_H) / 2);
+    kit.text(word(file.field[0]), box.x + EDGE, y, mixHex(bg, dim, near));
+    kit.text(this.value(file.field[1]), box.x + box.w - EDGE, y, mixHex(bg, ink, near), { align: 'right' });
+    const label = file.id === 'levels' ? `${word(MENU_COMMAND.first)} · ${digits(this.data.place, 2)}` : word(file.exec.name);
+    this.drawCommand(kit, command, label, false, pressed, mixHex(bg, ink, near));
   }
 
   /** What a card counts, as it is written on it: plain numbers, with no leading zeros but those of the levels. */

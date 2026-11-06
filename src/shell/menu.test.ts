@@ -154,15 +154,67 @@ describe('the main menu on a phone', () => {
     const focused: string[] = [];
     const { actions, ran } = recorded();
     const menu = new MenuScreen(context(...PHONE, (id) => focused.push(id)), actions, DATA);
-    expect(menu.swipe('left')).toBe('protocol');
-    expect(menu.swipe('right')).toBe('levels');
-    expect(menu.swipe('right')).toBe('system');
+    const settle = (): void => void (menu.update(0), menu.update(1000));
+    // The row goes first; the focus, and the figure with it, follow when the card is in the middle.
+    expect(menu.swipe('left')).toBe('levels');
+    expect(focused).toEqual([]);
+    expect(menu.update(0)).toBe(true);
+    expect(menu.update(100)).toBe(true);
+    expect(focused).toEqual([]);
+    menu.update(1000);
+    expect(focused).toEqual(['protocol']);
+    expect(menu.update(1100)).toBe(false);
+    menu.swipe('right');
+    settle();
+    menu.swipe('right');
+    settle();
     menu.items().find((item) => item.id === 'next')!.action();
+    settle();
     menu.items().find((item) => item.id === 'prev')!.action();
+    settle();
     menu.items().find((item) => item.id === 'die-readme')!.action();
-    expect(focused).toEqual(['levels', 'system', 'readme']);
+    expect(focused).toEqual(['protocol', 'levels', 'system', 'levels', 'system', 'readme']);
+    // Two quick taps go two cards on: the first lands as the second sets off.
+    menu.items().find((item) => item.id === 'next')!.action();
+    menu.items().find((item) => item.id === 'next')!.action();
+    settle();
+    expect(focused.slice(-2)).toEqual(['records', 'system']);
     expect(ran).toEqual([]);
     menu.dispose();
+  });
+
+  it('takes the row with a finger drawn sideways, one card at most; lets it go on, or back', () => {
+    const focused: string[] = [];
+    const menu = new MenuScreen(context(...PHONE, (id) => focused.push(id)), recorded().actions, DATA);
+    const settle = (): void => void (menu.update(0), menu.update(1000));
+    // A step of the row is 232 pixels of the picture, 309 CSS pixels of this window; a third of it is enough.
+    expect(menu.slide(-60)).toBe(true);
+    menu.slideEnd(0);
+    settle();
+    expect(focused).toEqual([]);
+    menu.slide(-60);
+    menu.slide(-60);
+    menu.slideEnd(0);
+    settle();
+    expect(focused).toEqual(['protocol']);
+    // Drawn as far as it goes, the row stops at the next card.
+    menu.slide(2000);
+    expect((menu as unknown as { offset: number }).offset).toBe(232);
+    menu.slideEnd(0);
+    settle();
+    expect(focused).toEqual(['protocol', 'levels']);
+    // A flick is enough the way it goes, and takes the row back against the way it was drawn.
+    menu.slide(-10);
+    menu.slideEnd(-0.5);
+    settle();
+    menu.slide(150);
+    menu.slideEnd(-0.5);
+    settle();
+    expect(focused).toEqual(['protocol', 'levels', 'protocol']);
+    menu.dispose();
+    const desk = new MenuScreen(context(...DESK), recorded().actions, DATA);
+    expect(desk.slide(-60)).toBe(false);
+    desk.dispose();
   });
 
   it('opens the list of the levels from their card and starts the place from their command; any other command opens its file', () => {

@@ -108,6 +108,13 @@ export interface ShellScreen {
   drag?(pixels: number): boolean;
   fling?(speed: number): void;
   hold?(): boolean;
+  /**
+   * A finger held and drawn sideways so many CSS pixels since the last time, right counted up, on a
+   * screen with a row that goes with the finger: true where the screen takes it. `slideEnd` is the
+   * speed the finger let it go at, in CSS pixels a millisecond, right counted up.
+   */
+  slide?(pixels: number): boolean;
+  slideEnd?(speed: number): void;
   /** The face of the die a zone stands on, on a screen that is made of dice. */
   face?(id: string): number | null;
   /**

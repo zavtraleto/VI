@@ -126,6 +126,8 @@ export class Shell {
       scroll: (dir, pixels, focus, wheel) => this.screen?.scroll?.(dir, pixels, focus, wheel),
       drag: (pixels) => this.screen?.drag?.(pixels) ?? false,
       fling: (speed) => this.screen?.fling?.(speed),
+      slide: (pixels) => this.screen?.slide?.(pixels) ?? false,
+      slideEnd: (speed) => this.screen?.slideEnd?.(speed),
       hold: () => this.screen?.hold?.() ?? false,
       stuck: () => this.sound({ kind: 'stuck' }),
       back: () => {
