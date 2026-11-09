@@ -4,9 +4,6 @@ import type { Place } from '../levels/row';
 import { loadJson, saveJson, tellBroken } from './storage';
 import { callsFromLives, newCalls, type CallProgress } from '../app/calls';
 
-/** How the board is played: `swipe` by swipes, `tap` by a tap or a click on a cell. The keys step either way. */
-export type ControlSetting = 'swipe' | 'tap';
-
 /** One finished Endless run, kept for the local records register. */
 export interface RunRecord {
   score: number;
@@ -74,8 +71,6 @@ export interface Settings {
   muted: boolean;
   /** Effects kept calm: no shake of the screen, motion kept low. null follows the system preference. */
   reducedMotion: boolean | null;
-  /** How the board is played: by swipes, or by taps and the mouse (docs/superpowers/specs/2026-10-29-vi-tap-control-design.md). The keys step either way. */
-  control: ControlSetting;
   /** The language the player has picked, as `src/ui/i18n.ts` names it; null follows the platform, then the browser. */
   language: string | null;
   /** Overrides of gameplay variables set in the debug panel. */
@@ -127,7 +122,6 @@ function defaults(): Settings {
     hintsSeen: [],
     muted: false,
     reducedMotion: null,
-    control: 'swipe',
     language: null,
     tuning: {},
     camera: { ...DEFAULT_CAMERA },
@@ -179,8 +173,8 @@ function settle(loaded: Settings): Settings {
   if (old.shake === false && loaded.reducedMotion === null) loaded.reducedMotion = true;
   delete old.shake;
   delete old.view;
-  // A save from before taps plays by swipes, as the game did.
-  if (loaded.control !== 'tap') loaded.control = 'swipe';
+  // Swipes, taps and the keys play at once (the owner, 9 November 2026): the switch between them is gone.
+  delete (loaded as Partial<{ control: unknown }>).control;
   // The advertisement after undos is gone from the game (the owner, 5 November 2026): the count kept for it goes.
   delete (loaded as Partial<{ undosForAd: unknown }>).undosForAd;
   // A save from before the lines of scenes has heard none.
@@ -242,7 +236,6 @@ function mend(loaded: Loose, fallback: Settings): boolean {
   texts(loaded, 'hintsSeen');
   field(loaded, 'muted', isFlag, () => fallback.muted);
   field(loaded, 'reducedMotion', (value) => value === null || isFlag(value), () => null);
-  field(loaded, 'control', (value) => value === 'swipe' || value === 'tap', () => fallback.control);
   field(loaded, 'language', (value) => value === null || isText(value), () => null);
   table(loaded, 'tuning', isNumber);
   const camera = table(loaded, 'camera', () => true);

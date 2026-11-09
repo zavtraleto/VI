@@ -1,4 +1,3 @@
-import type { ControlSetting } from '../platform/settings';
 import type { GoalLine } from '../rules';
 import { word, type LanguageCode } from '../ui/i18n';
 import type { Climb } from './climb';
@@ -42,15 +41,12 @@ export function pausePanel(actions: {
 export interface SystemValues {
   muted: boolean;
   reducedMotion: boolean;
-  control: ControlSetting;
   language: LanguageCode;
 }
 
 export function systemPanel(actions: {
   values: () => SystemValues;
   onToggle: (key: Exclude<keyof SystemValues, 'language'>) => void;
-  /** The screen is touched, not pointed at with a mouse: the ways to play are named swipes and taps, and not keys and the mouse. */
-  touch?: boolean;
   /** The languages are many: the line opens their list. */
   onLanguage: () => void;
   /** Commands of the development tools; a production build passes none. */
@@ -60,7 +56,6 @@ export function systemPanel(actions: {
   onBack: () => void;
 }): PanelSpec {
   const { values } = actions;
-  const [byDirection, byAim] = actions.touch ? [SYSTEM.swipe, SYSTEM.tap] : [SYSTEM.keys, SYSTEM.mouse];
   return {
     title: PANELS.system,
     home: actions.home ?? 'sound',
@@ -74,7 +69,6 @@ export function systemPanel(actions: {
         value: () => word(values().reducedMotion ? SYSTEM.calm : SYSTEM.all),
         action: () => actions.onToggle('reducedMotion'),
       },
-      { kind: 'switch', id: 'control', label: SYSTEM.control, value: () => word(values().control === 'tap' ? byAim : byDirection), action: () => actions.onToggle('control') },
       { kind: 'switch', id: 'language', label: SYSTEM.language, value: () => LANGUAGE_NAMES[values().language].name, action: actions.onLanguage },
       { kind: 'gap' },
       { kind: 'commands', commands: [...(actions.tools ?? []), { id: 'back', label: COMMANDS.back, action: actions.onBack }] },

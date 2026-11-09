@@ -7,7 +7,7 @@ import { quality } from '../display/quality';
 import type { Rect } from '../display/sizing';
 import { InputController } from '../input/controller';
 import { CARDINAL_DIRS, GestureTracker, bindGestures, leanDirs, nearestDir, type ScreenDirs } from '../input/gesture';
-import { bindKeyboard } from '../input/keyboard';
+import { KEY_DIR, bindKeyboard } from '../input/keyboard';
 import { bindTaps } from '../input/tap';
 import { platform } from '@platform';
 import { takeFocus, type BoardEntry, type Shared } from '../platform/platform';
@@ -468,6 +468,8 @@ export class Game {
   private rewardAsked = false;
   /** What the player last played with: the swipe sign is a key for those who press keys. */
   private lastInput: 'keys' | 'pointer' | null = null;
+  /** The ways the board has been played with since the run began, for its summary. */
+  private readonly playedWith = new Set<'keys' | 'swipe' | 'tap'>();
   /** When the level on the board was lost: it stands as it is for a moment before its window. Null on a level that is not. */
   private failedAt: number | null = null;
   /** What the level on the board came to has been written down: it is, once, the moment the level ends. */
@@ -597,13 +599,27 @@ export class Game {
 
     // Swipes lean half-way from plain up, right, down and left towards the board's own directions.
     // On a level a swipe steps when the finger is lifted: every step there may be a move that counts.
-    this.tracker = new GestureTracker(this.controller, now, () => this.swipeDirs, () => Boolean(this.state.levelRun));
-    // Swipes or taps on the board, as the player has set; the keys step either way.
-    bindGestures(play, this.tracker, () => enabled() && this.settings.control === 'swipe');
-    bindTaps(play, (x, y) => this.tap(x, y), () => enabled() && this.settings.control === 'tap');
+    // A step the swipes give is marked for the summary of the run.
+    const swipes = new Proxy(this.controller, {
+      get: (controller, key) => {
+        if (key === 'press' || key === 'redirect') this.playedWith.add('swipe');
+        const value: unknown = Reflect.get(controller, key);
+        return typeof value === 'function' ? value.bind(controller) : value;
+      },
+    });
+    this.tracker = new GestureTracker(swipes, now, () => this.swipeDirs, () => Boolean(this.state.levelRun));
+    // Swipes, taps and the keys all play at once (the owner, 9 November 2026): a press that moves
+    // past the slop of a tap is a swipe, one that does not is a tap.
+    bindGestures(play, this.tracker, () => enabled());
+    bindTaps(play, (x, y) => this.tap(x, y), () => enabled());
     // Where the mouse points over the board: the frame of a tap stands on where a click there would take the player.
+    // A key puts the frame away until the mouse moves again: the mouse left lying over the board is not aiming.
     play.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'mouse') this.hoverAt = { x: e.clientX, y: e.clientY };
+    });
+    window.addEventListener('keydown', (e) => {
+      this.hoverAt = null;
+      if (e.code in KEY_DIR && enabled()) this.playedWith.add('keys');
     });
     play.addEventListener('pointerleave', () => (this.hoverAt = null));
     // Esc opens the pause over a session. Over a panel it is the panel's "back", and the shell
@@ -836,7 +852,7 @@ export class Game {
       losses_in_row: this.lossesInRow,
       resumed: this.resumed,
       touch: window.matchMedia?.('(pointer: coarse)').matches ?? false,
-      control: this.settings.control,
+      control: this.playedWith.size ? [...this.playedWith].sort().join('+') : 'none',
     };
     if (this.sinceLastRun >= 0) data.since_last_run_sec = this.sinceLastRun;
     return data;
@@ -916,6 +932,7 @@ export class Game {
    * knocks as a step into a wall does.
    */
   private tap(px: number, py: number): void {
+    this.playedWith.add('tap');
     const cell = this.cellAt(px, py);
     const way = cell ? planTap(this.state, cell.x, cell.z) : null;
     this.tapTarget = way ? cell : null;
@@ -942,7 +959,7 @@ export class Game {
    * the one a click where the mouse is would take them to. None where a click would do nothing.
    */
   private lockView(state: RunState): HudLock | null {
-    if (this.settings.control !== 'tap' || !this.inputEnabled()) {
+    if (!this.inputEnabled()) {
       this.pointsBoard = false;
       return null;
     }
@@ -1456,6 +1473,7 @@ export class Game {
     this.passage = null;
     this.rewind = null;
     this.tally.reset();
+    this.playedWith.clear();
     this.runner = new Runner(state);
     this.applyCamera();
     // A board lies at the start of the world and is put in its frame at once; one that a passage
@@ -2627,25 +2645,20 @@ export class Game {
     const values = (): SystemValues => ({
       muted: this.settings.muted,
       reducedMotion: prefersReducedMotion(this.settings),
-      control: this.settings.control,
       language: language(),
     });
     this.shell.showPanel(
       systemPanel({
         values,
         home,
-        touch: coarsePointer,
         // Back from the list of languages the panel stands on the line it was left at.
         onLanguage: () => this.showLanguages(() => this.showSystem(back, 'language')),
         onToggle: (key) => {
           if (key === 'muted') {
             this.settings.muted = !this.settings.muted;
             this.applySound();
-          } else if (key === 'reducedMotion') {
-            this.settings.reducedMotion = !prefersReducedMotion(this.settings);
           } else {
-            this.settings.control = this.settings.control === 'tap' ? 'swipe' : 'tap';
-            this.controller.cancel();
+            this.settings.reducedMotion = !prefersReducedMotion(this.settings);
           }
           saveSettings(this.settings);
           platform.track('settings_changed', { setting: key, value: String(values()[key]) });

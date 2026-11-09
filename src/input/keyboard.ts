@@ -1,7 +1,7 @@
 import type { Dir } from '../rules';
 import type { InputController } from './controller';
 
-const KEY_DIR: Record<string, Dir> = {
+export const KEY_DIR: Record<string, Dir> = {
   ArrowUp: 'N',
   KeyW: 'N',
   ArrowRight: 'E',

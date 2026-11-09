@@ -97,13 +97,8 @@ export const WORDS = {
   SOUND: { ru: 'ЗВУК', es: 'SONIDO', pt: 'SOM', tr: 'SES', de: 'TON', fr: 'SON' },
   EFFECTS: { ru: 'ЭФФЕКТЫ', es: 'EFECTOS', pt: 'EFEITOS', tr: 'EFEKTLER', de: 'EFFEKTE', fr: 'EFFETS' },
   // The owner, 30 October 2026: «на русском "ввод" пусть будет».
-  CONTROLS: { ru: 'ВВОД', es: 'CONTROLES', pt: 'CONTROLES', tr: 'KONTROL', de: 'EINGABE', fr: 'CONTRÔLES' },
   ON: { ru: 'ВКЛ', es: 'SÍ', pt: 'SIM', tr: 'AÇIK', de: 'AN', fr: 'OUI' },
   OFF: { ru: 'ВЫКЛ', es: 'NO', pt: 'NÃO', tr: 'KAPALI', de: 'AUS', fr: 'NON' },
   ALL: { ru: 'ВСЕ', es: 'TODOS', pt: 'TODOS', tr: 'TÜMÜ', de: 'ALLE', fr: 'TOUS' },
   CALM: { ru: 'СПОКОЙНО', es: 'SUAVES', pt: 'SUAVES', tr: 'SAKİN', de: 'RUHIG', fr: 'CALMES' },
-  SWIPE: { ru: 'СВАЙПЫ', es: 'GESTOS', pt: 'GESTOS', tr: 'KAYDIRMA', de: 'WISCHEN', fr: 'GESTES' },
-  TAP: { ru: 'НАЖАТИЯ', es: 'TOQUES', pt: 'TOQUES', tr: 'DOKUNMA', de: 'TIPPEN', fr: 'TOUCHER' },
-  KEYS: { ru: 'КЛАВИШИ', es: 'TECLAS', pt: 'TECLAS', tr: 'TUŞLAR', de: 'TASTEN', fr: 'CLAVIER' },
-  MOUSE: { ru: 'МЫШЬ', es: 'RATÓN', pt: 'MOUSE', tr: 'FARE', de: 'MAUS', fr: 'SOURIS' },
 } as const satisfies Record<string, Record<'ru' | 'es' | 'pt' | 'tr' | 'de' | 'fr', string>>;

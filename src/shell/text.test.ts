@@ -128,9 +128,9 @@ describe('the words of the program a player presses', () => {
     inEvery((code) => {
       for (const command of Object.values(COMMANDS)) expect(textWidth(`${command.native} ${word(command.name)}`), `${command.name} ${code}`).toBeLessThanOrEqual(228);
       for (const title of Object.values(PANELS)) expect(textWidth(`${title.native}  ${word(title.name)} 0/0`), `${title.name} ${code}`).toBeLessThanOrEqual(252);
-      const values = [SYSTEM.on, SYSTEM.off, SYSTEM.all, SYSTEM.calm, SYSTEM.swipe, SYSTEM.tap, SYSTEM.keys, SYSTEM.mouse];
+      const values = [SYSTEM.on, SYSTEM.off, SYSTEM.all, SYSTEM.calm];
       const widest = Math.max(...values.map((value) => textWidth(word(value))));
-      for (const label of [SYSTEM.sound, SYSTEM.effects, SYSTEM.control, SYSTEM.language]) {
+      for (const label of [SYSTEM.sound, SYSTEM.effects, SYSTEM.language]) {
         expect(textWidth(`${label.native} ${word(label.name)}`) + 16 + widest, `${label.name} ${code}`).toBeLessThanOrEqual(226);
       }
       for (const reading of Object.values(RESULT)) expect(textWidth(`${reading.native} ${word(reading.name)}`), `${reading.name} ${code}`).toBeLessThanOrEqual(160);

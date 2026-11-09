@@ -33,7 +33,6 @@ const LABELS: Record<string, string> = {
  */
 export function startLockLab(game: Game): void {
   const inside = game as unknown as Inside;
-  inside.settings.control = 'tap';
   inside.startPlace(0);
 
   const gui = new GUI({ title: 'VI · рамка цели' });

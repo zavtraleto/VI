@@ -339,7 +339,7 @@ describe('a save broken in its fields', () => {
     expect(settings.muted).toBe(true);
     expect(settings.debugPanel).toBe(false);
     expect(settings.reducedMotion).toBeNull();
-    expect(settings.control).toBe('swipe');
+    expect('control' in settings).toBe(false);
     expect(settings.language).toBeNull();
     expect(settings.hintsSeen).toEqual(['a']);
     expect(settings.heardLines).toEqual(['x']);

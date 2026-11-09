@@ -257,20 +257,12 @@ export const SYSTEM = {
   sound: { native: 'サウンド', name: 'SOUND' },
   /** "Effects": the shake of the screen and the motion of the board, all of them, or calm (the owner, 30 October 2026: one line for the two). */
   effects: { native: 'こうか', name: 'EFFECTS' },
-  /** "Operation": by direction (swipes, keys) or by aim (taps, the mouse); its values name what the player does on this device. */
-  control: { native: 'そうさ', name: 'CONTROLS' },
   /** "Language": the one the voice speaks to the player in. The program keeps its own. */
   language: { native: 'ことば', name: 'LANGUAGE' },
   on: 'ON',
   off: 'OFF',
   all: 'ALL',
   calm: 'CALM',
-  /** The two ways to play, on a phone. */
-  swipe: 'SWIPE',
-  tap: 'TAP',
-  /** The same two, at a computer. */
-  keys: 'KEYS',
-  mouse: 'MOUSE',
 } as const;
 
 /**
