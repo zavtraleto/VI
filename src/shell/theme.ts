@@ -56,8 +56,14 @@ export const MENU_DESK = {
   /** Width of a column of cards, and the gutter between a column and the dice. */
   column: 160,
   gutter: 24,
-  /** The dice get at least this much across; a picture on its side too narrow for that is laid out as a phone (mine, not in the spec). */
+  /** The dice get at least this much across; a picture on its side too narrow for that is laid out as a phone where a finger points (mine, not in the spec). */
   minNet: 160,
+  /**
+   * Where a mouse points and the picture is too narrow for that (the owner, 9 November 2026): the
+   * gutter and the dice go down to these, and the columns to what the longest line of a card needs.
+   */
+  squeezeGutter: 16,
+  squeezeNet: 128,
   /** The cards and the dice start this far down a picture this tall; the cards and the command end this far down it. */
   height: 360,
   top: 40,
@@ -118,6 +124,9 @@ export const MENU_PHONE = {
   sideVeil: 0.6,
   sideStrip: 0.6,
   sideFrame: 0.8,
+  /** How much of `dim` the label of a neighbour keeps, as a card of a desk at rest (its value is `dim`), and how much of `ink` its command. */
+  sideLabel: 0.75,
+  sideCommand: 0.5,
   /**
    * A card brought to the middle goes there in this many milliseconds, slowing as it comes; a row
    * let go goes on to the next card where it was drawn this share of the way, or let go this fast,

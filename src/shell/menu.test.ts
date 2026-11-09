@@ -20,7 +20,7 @@ function recorded(): { actions: MenuActions; ran: string[] } {
   };
 }
 
-function context(window: Size, ratio: number, focus: (id: string) => void = nothing): ShellContext {
+function context(window: Size, ratio: number, focus: (id: string) => void = nothing, coarse = false): ShellContext {
   const values = shellDefaults();
   const picture = pictureSize({ width: window.width * ratio, height: window.height * ratio }, Number(values.pixelsTall), Number(values.pixelsWide));
   return {
@@ -29,6 +29,7 @@ function context(window: Size, ratio: number, focus: (id: string) => void = noth
     picture: () => picture,
     safe: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
     reducedMotion: () => false,
+    coarse: () => coarse,
     voice: {} as Voice,
     sound: nothing,
     focus,
@@ -41,6 +42,8 @@ const inside = (inner: Box, outer: Box): boolean => inner.x >= outer.x && inner.
 /** A phone held upright and a desk screen: the window in CSS pixels and the pixels of the canvas to one of them. */
 const PHONE: [Size, number] = [{ width: 360, height: 640 }, 3];
 const DESK: [Size, number] = [{ width: 1920, height: 1080 }, 1];
+/** A small window of a desk, near 4:3: its picture 512 by 384, narrower than three cards a side want. */
+const SMALL: [Size, number] = [{ width: 1024, height: 768 }, 1];
 
 type DeskPlan = { kind: 'desk'; net: Box; command: Box; cards: { file: { id: string }; box: Box }[] };
 type PhonePlan = { kind: 'phone'; net: Box; card: Box; prev: Box; next: Box; command: Box; dots: number };
@@ -115,6 +118,32 @@ describe('the main menu on a desk', () => {
     expect(menu.swipe('left')).toBeNull();
     menu.dispose();
   });
+
+  it('keeps the desk in a small window where a mouse points, its columns as narrow as its longest line in every language', () => {
+    for (const language of LANGUAGES) {
+      setLanguage(language);
+      const menu = new MenuScreen(context(...SMALL), recorded().actions, DATA);
+      const plan = planOf<DeskPlan>(menu);
+      expect(plan.kind, language).toBe('desk');
+      const whole: Box = { x: 0, y: 0, w: 512, h: 384 };
+      const blocks: [string, Box][] = [['dice', plan.net], ['command', plan.command], ...plan.cards.map((card): [string, Box] => [card.file.id, card.box])];
+      for (const [name, box] of blocks) expect(inside(box, whole), `${language} ${name}`).toBe(true);
+      for (let a = 0; a < blocks.length; a++) for (let b = a + 1; b < blocks.length; b++) expect(meet(blocks[a][1], blocks[b][1]), `${language} ${blocks[a][0]} ${blocks[b][0]}`).toBe(false);
+      expect(plan.net.w, language).toBeGreaterThanOrEqual(128);
+      menu.dispose();
+    }
+    setLanguage('en');
+    // Narrower still, the columns go in: a picture 450 wide is too narrow for cards 160 wide.
+    const narrow = new MenuScreen(context({ width: 900, height: 700 }, 1), recorded().actions, DATA);
+    const squeezed = planOf<DeskPlan>(narrow);
+    expect(squeezed.kind).toBe('desk');
+    expect(squeezed.cards[0].box.w).toBeLessThan(160);
+    narrow.dispose();
+    // Where a finger points, the same window is a phone's.
+    const touch = new MenuScreen(context(...SMALL, nothing, true), recorded().actions, DATA);
+    expect(planOf<PhonePlan>(touch).kind).toBe('phone');
+    touch.dispose();
+  });
 });
 
 describe('the main menu on a phone', () => {
@@ -180,6 +209,23 @@ describe('the main menu on a phone', () => {
     settle();
     expect(focused.slice(-2)).toEqual(['records', 'system']);
     expect(ran).toEqual([]);
+    menu.dispose();
+  });
+
+  it('turns the cards by the keys left and right as by a tap on a neighbour: the row goes, the focus follows', () => {
+    const focused: string[] = [];
+    const menu = new MenuScreen(context(...PHONE, (id) => focused.push(id)), recorded().actions, DATA);
+    expect(menu.move('levels', 'right')).toBe('levels');
+    expect(focused).toEqual([]);
+    menu.update(0);
+    menu.update(100);
+    expect((menu as unknown as { offset: number }).offset).toBeLessThan(0);
+    menu.update(1000);
+    expect(focused).toEqual(['protocol']);
+    menu.move('protocol', 'left');
+    menu.update(0);
+    menu.update(1000);
+    expect(focused).toEqual(['protocol', 'levels']);
     menu.dispose();
   });
 

@@ -70,6 +70,8 @@ export interface ShellContext {
   /** What the edges of the screen keep to themselves, in pixels of the picture. */
   safe(): Insets;
   reducedMotion(): boolean;
+  /** A finger points, not a mouse: the screen of a phone or a tablet. False where left out. */
+  coarse?(): boolean;
   /** Prose in the language of the player: a screen says it while it draws. */
   readonly voice: Voice;
   /** Something a screen has done that can be heard. */

@@ -209,8 +209,12 @@ export class MenuScreen implements ShellScreen {
   move(focus: string | null, dir: Dir4): string | null {
     const on = focus === null ? undefined : fileOf(focus);
     if (this.plan().kind === 'phone') {
+      // Left and right turn the row as a tap on a neighbour does: it goes there, and the focus with it when it is there.
+      if (dir === 'left' || dir === 'right') {
+        this.turn(dir === 'right' ? 1 : -1);
+        return this.current.id;
+      }
       this.land();
-      if (dir === 'left' || dir === 'right') return this.beside(dir === 'right' ? 1 : -1);
       return dir === 'down' ? COMMAND_ID : this.current.id;
     }
     if (!on) return dir === 'up' ? this.current.id : COMMAND_ID;
@@ -327,17 +331,38 @@ export class MenuScreen implements ShellScreen {
   }
 
   private plan(): Plan {
-    const picture = this.context.picture();
     const frame = this.frame();
-    const { column, gutter, minNet } = MENU_DESK;
-    // A picture that lies on its side but is too narrow for two columns and the dice between them is laid out as a phone.
-    const desk = isWide(picture) && frame.right - frame.left - 2 * (EDGE + column + gutter) >= minNet;
-    return desk ? this.desk(frame) : this.phone(frame);
+    const { column, gutter, minNet, squeezeGutter, squeezeNet } = MENU_DESK;
+    const across = frame.right - frame.left - 2 * EDGE;
+    if (isWide(this.context.picture())) {
+      if (across - 2 * (column + gutter) >= minNet) return this.desk(frame, column, gutter);
+      // Where a mouse points, a picture too narrow for that keeps the desk with narrower columns and
+      // dice (the owner, 9 November 2026); a finger gets the phone, as does a picture narrower still.
+      if (!this.context.coarse?.()) {
+        const fits = Math.min(column, Math.floor((across - 2 * squeezeGutter - squeezeNet) / 2 / UNIT) * UNIT);
+        if (fits >= this.cardNeeds()) return this.desk(frame, fits, squeezeGutter);
+      }
+    }
+    return this.phone(frame);
   }
 
-  /** The desk: the dice in the middle, the command under them, three cards either side (section 5). */
-  private desk(frame: { left: number; top: number; right: number; bottom: number }): Plan {
-    const { column, gutter, card, command: commandH } = MENU_DESK;
+  /** How wide a card of a desk has to be for its name and its line in the language of the player: the widest of the six. */
+  private cardNeeds(): number {
+    const { strip, pips } = MENU_DESK;
+    const nameAt = 1 + (strip - pips) / 2 + pips + EDGE / 2;
+    let needs = 0;
+    for (const file of MENU_FILES) {
+      // A bold name is a dot wider than its plain one.
+      const name = nameAt + textWidth(word(file.name)) + 1 + EDGE;
+      const line = EDGE + textWidth(word(file.field[0])) + GAP + textWidth(this.value(file.field[1])) + EDGE;
+      needs = Math.max(needs, name, line);
+    }
+    return Math.ceil(needs / UNIT) * UNIT;
+  }
+
+  /** The desk: the dice in the middle, the command under them, three cards either side, the columns so wide and so far from the dice (section 5). */
+  private desk(frame: { left: number; top: number; right: number; bottom: number }, column: number, gutter: number): Plan {
+    const { card, command: commandH } = MENU_DESK;
     const top = frame.top + MENU_DESK.top;
     const bottom = frame.bottom - (MENU_DESK.height - MENU_DESK.bottom);
     const netX = frame.left + EDGE + column + gutter;
@@ -482,29 +507,31 @@ export class MenuScreen implements ShellScreen {
 
   /**
    * A card of a phone, as near the middle as `near` says: in the middle (1) its frame and strip in
-   * its colour, its name, what it counts and its command; at a side (0) a quiet frame, a strip dimmed
-   * towards the dark and nothing written. On the way between it goes from one to the other.
+   * its colour, its name, what it counts and its command; at a side (0) a quiet frame, a strip and a
+   * command dimmed towards the dark, and its words dimmed as on a card of a desk at rest (the owner,
+   * 9 November 2026: a neighbour with nothing written on it looked broken). On the way between it
+   * goes from one to the other.
    */
   private drawPhoneCard(kit: Kit, file: MenuFile, box: Box, near: number, pressed: boolean): void {
     const { bg, ink, dim, faint } = kit.palette;
     const channel = kit.palette.channels[file.face - 1];
-    const { veil, sideVeil, sideFrame, sideStrip, strip, pips, command: commandH } = MENU_PHONE;
+    const { veil, sideVeil, sideFrame, sideStrip, sideLabel, sideCommand, strip, pips, command: commandH } = MENU_PHONE;
+    const lit = (side: number): number => side + (1 - side) * near;
     kit.light(box.x, box.y, box.w, box.h, bg, sideVeil + (veil - sideVeil) * near);
     kit.frame(box, mixHex(mixHex(bg, faint, sideFrame), channel, near));
-    const stripColor = mixHex(bg, channel, sideStrip + (1 - sideStrip) * near);
+    const stripColor = mixHex(bg, channel, lit(sideStrip));
     const nameX = this.drawStrip(kit, file, box, stripColor, strip, pips);
-    if (near <= 0) return;
     const name = word(file.name);
     // Twice its size; a name too long for that in some language is written at its own size.
     const scale = textWidth(name, 2) <= box.x + box.w - EDGE - nameX ? 2 : 1;
-    kit.text(name, nameX, box.y + 1 + Math.round((strip - CELL_H * scale) / 2), mixHex(stripColor, bg, near), { scale, bold: true });
+    kit.text(name, nameX, box.y + 1 + Math.round((strip - CELL_H * scale) / 2), bg, { scale, bold: true });
     const command: Box = { x: box.x + EDGE, y: box.y + box.h - EDGE - commandH, w: box.w - 2 * EDGE, h: commandH };
     // The value midway between the strip and the command.
     const y = Math.round((box.y + 1 + strip + command.y - CELL_H) / 2);
-    kit.text(word(file.field[0]), box.x + EDGE, y, mixHex(bg, dim, near));
-    kit.text(this.value(file.field[1]), box.x + box.w - EDGE, y, mixHex(bg, ink, near), { align: 'right' });
+    kit.text(word(file.field[0]), box.x + EDGE, y, mixHex(bg, dim, lit(sideLabel)));
+    kit.text(this.value(file.field[1]), box.x + box.w - EDGE, y, mixHex(dim, ink, near), { align: 'right' });
     const label = file.id === 'levels' ? `${word(MENU_COMMAND.first)} · ${digits(this.data.place, 2)}` : word(file.exec.name);
-    this.drawCommand(kit, command, label, false, pressed, mixHex(bg, ink, near));
+    this.drawCommand(kit, command, label, false, pressed, mixHex(bg, ink, lit(sideCommand)));
   }
 
   /** What a card counts, as it is written on it: plain numbers, with no leading zeros but those of the levels. */

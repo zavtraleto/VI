@@ -104,6 +104,7 @@ export class Shell {
         return { top: css.top * scale, right: css.right * scale, bottom: css.bottom * scale, left: css.left * scale };
       },
       reducedMotion: () => prefersReducedMotion(this.settings),
+      coarse: () => window.matchMedia?.('(pointer: coarse)').matches ?? false,
       voice: this.voice,
       sound: (event) => this.sound(event),
       focus: (id) => {
