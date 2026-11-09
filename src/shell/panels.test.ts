@@ -354,7 +354,7 @@ describe('the records of the link', () => {
   it('put the stars left to the next record on a line under the stars of the window between two boards, and nothing without it', () => {
     const spec = clearedPanel({ moves: 5, par: 3, stars: 2, still: false, starLine: '017' }, { onNext: nothing, onAgain: nothing });
     expect(spec.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'field', 'gap', 'command', 'command']);
-    expect(row(spec, 'field', 0).label).toEqual({ native: 'きろくまで', name: 'TO RECORD' });
+    expect(row(spec, 'field', 0).label).toEqual({ native: 'つなぐまで', name: 'TO CONNECTION' });
     expect(row(spec, 'field', 0).value).toBe('017');
     const plain = clearedPanel({ moves: 5, par: 3, stars: 2, still: false }, { onNext: nothing, onAgain: nothing });
     expect(plain.rows.map((one) => one.kind)).toEqual(['stars', 'field', 'field', 'gap', 'command', 'command']);

@@ -528,7 +528,7 @@ export interface ClearedData {
 export function clearedPanel(data: ClearedData, actions: { onNext: () => void; onAgain: () => void; onStar?: (index: number) => void; onAllStars?: () => void }): PanelSpec {
   const rows: PanelRow[] = [];
   if (data.stars !== null) rows.push({ kind: 'stars', count: data.stars, shine: { still: data.still, onLit: actions.onStar, onAll: actions.onAllStars } });
-  if (data.starLine !== undefined) rows.push({ kind: 'field', label: RESULT.toRecord, value: data.starLine });
+  if (data.starLine !== undefined) rows.push({ kind: 'field', label: RESULT.toConnection, value: data.starLine });
   rows.push(
     { kind: 'field', label: RESULT.moves, value: digits(data.moves, 3) },
     { kind: 'field', label: RESULT.par, value: data.par === null ? '---' : digits(data.par, 3) },

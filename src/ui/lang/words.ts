@@ -74,7 +74,7 @@ export const WORDS = {
   FEWEST: { ru: 'МИНИМУМ', es: 'MÍNIMO', pt: 'MÍNIMO', tr: 'EN AZ', de: 'MINIMUM', fr: 'MINIMUM' },
   'MOVES LEFT': { ru: 'ОСТАЛОСЬ ХОДОВ', es: 'RESTANTES', pt: 'RESTANTES', tr: 'KALAN HAMLE', de: 'ZÜGE ÜBRIG', fr: 'COUPS RESTANTS' },
   RANK: { ru: 'МЕСТО', es: 'PUESTO', pt: 'POSIÇÃO', tr: 'SIRA', de: 'RANG', fr: 'RANG' },
-  'TO RECORD': { ru: 'ДО ЗАПИСИ', es: 'AL REGISTRO', pt: 'AO REGISTRO', tr: 'KAYDA KADAR', de: 'BIS AUFNAHME', fr: 'AVANT BANDE' },
+  'TO CONNECTION': { ru: 'ДО СВЯЗИ', es: 'HASTA ENLACE', pt: 'ATÉ CONEXÃO', tr: 'BAĞLANTIYA', de: 'BIS KONTAKT', fr: 'AVANT LIAISON' },
   STARS: { ru: 'ЗВЁЗДЫ', es: 'ESTRELLAS', pt: 'ESTRELAS', tr: 'YILDIZ', de: 'STERNE', fr: 'ÉTOILES' },
   'NO ENTRY': { ru: 'НЕТ ЗАПИСЕЙ', es: 'SIN REGISTROS', pt: 'SEM REGISTROS', tr: 'KAYIT YOK', de: 'KEINE EINTRÄGE', fr: 'AUCUNE ENTRÉE' },
   'NO NAME': { ru: 'БЕЗ ИМЕНИ', es: 'SIN NOMBRE', pt: 'SEM NOME', tr: 'İSİMSİZ', de: 'OHNE NAMEN', fr: 'SANS NOM' },
