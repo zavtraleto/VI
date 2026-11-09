@@ -93,7 +93,8 @@ export const FR: Texts = {
   signalTitle: 'TRANSMISSION',
   campaignEnd: 'À suivre. En attendant de nouveaux niveaux, tu peux essayer le {mode infini}.',
   callUnknown: 'Numéro inconnu',
-  callLength: 'appel · environ trois minutes',
+  callFirst: 'EN DIRECT · ENVIRON 3 MINUTES\nLES DÉS ARRIVENT TOUT SEULS\nLE PLATEAU NE DOIT PAS ÊTRE PLEIN',
+  callAgain: 'EN DIRECT · ~3:00',
   novelIntro: 'Un nouvel enregistrement de la liaison. {Plus tard}',
   novelOperator: 'OPÉRATEUR',
   novelVoice: 'VOIX',
@@ -103,7 +104,7 @@ export const FR: Texts = {
   howChain: "Un combo ne s'en va pas tout de suite.\nPendant qu'il s'en va, amène-lui un dé de plus avec la même face : il part avec le combo. C'est une chaîne.",
   howOnes: "Les 1 ne forment pas de combo.\nAmène un 1 à un combo qui s'en va, et tous les autres 1 du plateau s'en vont.",
   howLevels: "NIVEAUX : enlève tous les dés du plateau.\nLes faces dans le coin sont celles à réunir.\nLe sol a ici ses propres règles : on ne remonte que par un dé qui s'en va.",
-  howCall: 'APPELS : de temps en temps, quelqu’un appelle entre les niveaux.\nRépondre ou refuser.',
+  howCall: 'APPELS : de temps en temps, quelqu’un appelle entre les niveaux.\nUn appel est en direct, environ trois minutes : les dés arrivent tout seuls.\nRépondre ou refuser.',
   howProtocol: 'SANS FIN : les dés arrivent tout seuls.\nUne chaîne multiplie le score.\nSi le plateau se remplit et reste plein, la partie est finie.',
   shareScore: "VI — envoyé de l'autre côté : {score}",
 };

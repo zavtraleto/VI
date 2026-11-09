@@ -90,7 +90,8 @@ export const DE: Texts = {
   signalTitle: 'ÜBERTRAGUNG',
   campaignEnd: 'Fortsetzung folgt. Bis neue Level kommen, kannst du den {Endlosmodus} ausprobieren.',
   callUnknown: 'Nummer unbekannt',
-  callLength: 'Anruf · etwa drei Minuten',
+  callFirst: 'LIVE · ETWA 3 MINUTEN\nDIE WÜRFEL KOMMEN VON SELBST\nFELD NICHT VOLLLAUFEN LASSEN',
+  callAgain: 'LIVE · ~3:00',
   novelIntro: 'Eine neue Aufzeichnung der Verbindung. {Später}',
   novelOperator: 'OPERATOR',
   novelVoice: 'STIMME',
@@ -100,7 +101,7 @@ export const DE: Texts = {
   howChain: 'Ein Combo geht nicht sofort.\nSolange es geht, rolle noch einen Würfel mit derselben Seite heran: Er geht mit dem Combo. Das ist eine Kette.',
   howOnes: 'Einsen bilden kein Combo.\nBring eine 1 an ein gehendes Combo, und alle anderen 1er auf dem Feld gehen.',
   howLevels: 'STUFEN: Räume alle Würfel vom Feld.\nDie Seiten in der Ecke sind die, die du zusammenbringen musst.\nAm Boden gelten hier eigene Regeln: Nach oben geht es nur über einen gehenden Würfel.',
-  howCall: 'ANRUFE: ab und zu ruft zwischen den Stufen jemand an.\nAnnehmen oder ablehnen.',
+  howCall: 'ANRUFE: ab und zu ruft zwischen den Stufen jemand an.\nEin Anruf ist live, etwa drei Minuten: Die Würfel kommen von selbst.\nAnnehmen oder ablehnen.',
   howProtocol: 'ENDLOS: Die Würfel kommen von selbst.\nEine Kette vervielfacht die Punkte.\nLäuft das Feld voll und bleibt voll, ist das Spiel vorbei.',
   shareScore: 'VI — auf die andere Seite gesendet: {score}',
 };

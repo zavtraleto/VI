@@ -90,7 +90,8 @@ export const TR: Texts = {
   signalTitle: 'İLETİM',
   campaignEnd: 'Devamı gelecek. Yeni bölümler gelene kadar {sonsuz modu} deneyebilirsin.',
   callUnknown: 'Numara bilinmiyor',
-  callLength: 'arama · yaklaşık üç dakika',
+  callFirst: 'CANLI · YAKLAŞIK 3 DAKİKA\nZARLAR KENDİLİĞİNDEN GELİR\nALANIN DOLMASINA İZİN VERME',
+  callAgain: 'CANLI · ~3:00',
   novelIntro: 'Bağlantının yeni bir kaydı. {Sonra}',
   novelOperator: 'OPERATÖR',
   novelVoice: 'SES',
@@ -100,7 +101,7 @@ export const TR: Texts = {
   howChain: 'Kombo hemen gitmez.\nO giderken yanına aynı yüzlü bir zar daha yuvarla: komboyla birlikte gider. Buna zincir denir.',
   howOnes: "1'ler kombo oluşturmaz.\nBir 1'i giden bir komboya getir: tahtadaki diğer bütün 1'ler gider.",
   howLevels: 'SEVİYELER: tahtadaki bütün zarları temizle.\nKöşedeki yüzler, bir araya getirmen gerekenlerdir.\nBurada zeminin kuralları ayrıdır: yukarı yalnızca giden bir zarın üstünden çıkılır.',
-  howCall: 'ARAMALAR: ara sıra seviyeler arasında biri arar.\nKabul edebilir ya da reddedebilirsin.',
+  howCall: 'ARAMALAR: ara sıra seviyeler arasında biri arar.\nArama yaklaşık üç dakikalık canlı yayındır: zarlar kendiliğinden gelir.\nKabul edebilir ya da reddedebilirsin.',
   howProtocol: 'SONSUZ: zarlar kendiliğinden gelir.\nZincir puanı katlar.\nAlan dolar ve dolu kalırsa oyun biter.',
   shareScore: 'VI — karşı tarafa gönderildi: {score}',
 };

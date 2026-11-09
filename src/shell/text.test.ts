@@ -79,7 +79,7 @@ describe('the language of the player', () => {
   it('says the calls in every language: who calls, how long, and the line of the rules', () => {
     for (const code of LANGUAGES) {
       setLanguage(code);
-      for (const key of ['callUnknown', 'callLength', 'howCall'] as const) expect(t(key).length, `${key} ${code}`).toBeGreaterThan(0);
+      for (const key of ['callUnknown', 'callFirst', 'callAgain', 'howCall'] as const) expect(t(key).length, `${key} ${code}`).toBeGreaterThan(0);
       // Who calls is written in the capitals of the program, on one line of a phone.
       expect(textWidth(t('callUnknown').toLocaleUpperCase(code)), code).toBeLessThanOrEqual(240);
     }

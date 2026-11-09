@@ -1200,6 +1200,7 @@ export class Game {
     platform.track('call_offered', { ...callData(step, place), since });
     passage.held = true;
     this.shell.showCall({
+      first: callsPlayed(calls).length === 0,
       onAccept: () => {
         this.shell.hide();
         this.startCall(step, 'row');
@@ -1216,6 +1217,7 @@ export class Game {
   /** Development: the screen of a call over the board that is on, whatever the rule says (`vi.offerCall()` in the console of the preview). */
   offerCall(step = callStep(this.settings.levels.calls)): void {
     this.shell.showCall({
+      first: callsPlayed(this.settings.levels.calls).length === 0,
       onAccept: () => {
         this.shell.hide();
         this.startCall(step, 'row');

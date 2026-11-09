@@ -183,9 +183,10 @@ export class Shell {
 
   /**
    * The screen of an incoming call over the board that waits: the board stays in sight and steps
-   * back (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.1).
+   * back (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md, section 7.1). `first`: the
+   * player has not taken a call yet, and the program says in three lines what a call is.
    */
-  showCall(actions: { onAccept: () => void; onDecline: () => void }): void {
+  showCall(actions: { onAccept: () => void; onDecline: () => void; first?: boolean }): void {
     if (!this.acting) this.sound({ kind: 'open' });
     this.show(new CallScreen(this.context, actions), false);
   }

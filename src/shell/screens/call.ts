@@ -4,14 +4,15 @@ import type { Kit } from '../kit';
 import { CELL_H, MIN_ZONE, textWidth, type Box, type Insets } from '../layout';
 import type { ShellContext, ShellFocus, ShellItem, ShellScreen } from '../screen';
 import { CALL, COMMANDS, PANELS } from '../text';
-import { PANEL_SAY_SIZE } from '../theme';
 
 /**
  * The screen of an incoming call (docs/superpowers/specs/2026-11-05-vi-live-calls-design.md,
  * section 7.1; the owner, 5 November 2026: «как будто игроку кто-то позвонил… это не сцена, это
- * немного иной интерфейс… принять звонок или сбросить его»). It says no rules: who calls is not
- * known, and the call is about three minutes. Two large buttons under the thumb: decline on the
- * left, take it on the right. Enter takes it, Esc declines it.
+ * немного иной интерфейс… принять звонок или сбросить его»). Who calls is not known. Under it the program says what a call is, in its own letters (the owner, 9 November 2026:
+ * «белый шрифт у нас только для сцен и сюжета»): to a player who has not taken one yet, three lines
+ * (live, about three minutes, the dice come by themselves, the board must not fill up); after that,
+ * one line. Two large buttons under the thumb: decline on the left, take it on the right. Enter
+ * takes it, Esc declines it.
  *
  * The look is variant B1, "the phone of the program", a proposal of the agent: the owner leads the
  * look, and the whole of it is drawn by `drawCall` and laid out by `callLayout`, so that another
@@ -35,6 +36,10 @@ const RING_STEP = 14;
 const RING_MS = 1000;
 /** The call rings again so often while its screen is up: two tones and a pause. */
 const RING_AGAIN_MS = 2400;
+/** From the top of one line of what the program says of the call to the next. */
+const LINE = CELL_H;
+/** Between the line of who calls and what the program says of the call. */
+const SAY_GAP = 6;
 
 const ceilTo = (value: number, step: number): number => Math.ceil(value / step) * step;
 
@@ -46,19 +51,25 @@ export interface CallLayout {
   sign: { x: number; y: number; reach: number };
   /** Who calls: the line of the number, under the sign. */
   number: { x: number; y: number };
-  /** The line in the voice of the player: a call of about three minutes. */
+  /** What the program says of the call: the box of its lines, one under the other. */
   say: Box;
   decline: Box;
   accept: Box;
 }
 
+/** The lines the program says of the call: three to a player who has not taken a call yet, one after. */
+export function callLines(first: boolean): string[] {
+  return t(first ? 'callFirst' : 'callAgain').split('\n');
+}
+
 /**
  * The layout of the screen of a call for a picture of this size, a window of this size in CSS
- * pixels and the edges the screen keeps to itself. The buttons are each at least the zone of a
- * finger the interface keeps to (`MIN_ZONE`), side by side in the middle; on a phone held upright
- * they stand low, under the thumb.
+ * pixels, the edges the screen keeps to itself and the lines the program says of the call. The
+ * buttons are each at least the zone of a finger the interface keeps to (`MIN_ZONE`), side by side
+ * in the middle; on a phone held upright they stand low, under the thumb. The sign of the call
+ * moves up where the lines would come down to the buttons.
  */
-export function callLayout(picture: Size, window: Size, safe: Insets): CallLayout {
+export function callLayout(picture: Size, window: Size, safe: Insets, lines = 1): CallLayout {
   const zoom = window.height / Math.max(1, picture.height);
   const room = picture.width - safe.left - safe.right;
   const left = safe.left;
@@ -67,20 +78,27 @@ export function callLayout(picture: Size, window: Size, safe: Insets): CallLayou
   const h = Math.max(CELL_H * SCALE + 16, ceilTo((1.5 * MIN_ZONE) / Math.max(0.1, zoom), 4));
   const upright = window.height > window.width;
   const bottom = picture.height - safe.bottom;
-  const y = upright ? bottom - Math.round(picture.height / THUMB) - h : Math.round(safe.top + (picture.height - safe.top - safe.bottom) * 0.72);
+  const top = safe.top + MARGIN * 2;
+  const reach = RING_STEP * (RINGS + 1);
+  const sayH = LINE * lines;
+  // Under the middle of the sign: its reach, the number, the line of who calls, a gap, the lines of the program.
+  const under = reach + CELL_H * 3 + SAY_GAP + sayH + 6;
+  // The highest the sign stands: its squares clear of the label at the top.
+  const highest = top + CELL_H + 8 + reach;
+  const placed = upright ? bottom - Math.round(picture.height / THUMB) - h : Math.round(safe.top + (picture.height - safe.top - safe.bottom) * 0.72);
+  // On a wide screen the buttons step down where the lines would not fit above them.
+  const y = upright ? placed : Math.min(bottom - h - MARGIN, Math.max(placed, highest + under + MARGIN * 2));
   const middle = Math.round(left + room / 2);
   const decline = { x: middle - Math.floor(GAP / 2) - w, y, w, h };
   const accept = { x: middle + Math.ceil(GAP / 2), y, w, h };
-  const top = safe.top + MARGIN * 2;
-  const reach = RING_STEP * (RINGS + 1);
-  const signY = Math.round(top + CELL_H * 2 + (y - top - CELL_H * 6) * 0.42);
+  const signY = Math.round(Math.max(highest, Math.min(top + CELL_H * 2 + (y - top - CELL_H * 6) * 0.42, y - MARGIN - under)));
   const numberY = signY + reach + CELL_H;
   const sayW = Math.min(room - 2 * MARGIN, 260);
   return {
     label: { x: middle, y: top },
     sign: { x: middle, y: signY, reach },
     number: { x: middle, y: numberY },
-    say: { x: Math.round(middle - sayW / 2), y: numberY + CELL_H * 2, w: sayW, h: CELL_H * 3 },
+    say: { x: Math.round(middle - sayW / 2), y: numberY + CELL_H * 2 + SAY_GAP, w: sayW, h: sayH },
     decline,
     accept,
   };
@@ -88,10 +106,10 @@ export function callLayout(picture: Size, window: Size, safe: Insets): CallLayou
 
 /**
  * Draws the screen of a call over the board, which stays in sight and steps back: the line of the
- * program at the top, the sign of the call going out in squares, who calls, and the two buttons.
- * `timeMs` moves the sign; with `still` it stands.
+ * program at the top, the sign of the call going out in squares, who calls, what the call is, and
+ * the two buttons. `timeMs` moves the sign; with `still` it stands.
  */
-export function drawCall(kit: Kit, layout: CallLayout, focus: ShellFocus, timeMs: number, still: boolean): void {
+export function drawCall(kit: Kit, layout: CallLayout, focus: ShellFocus, timeMs: number, still: boolean, lines: readonly string[]): void {
   const { bg, ink, dim, faint, signal } = kit.palette;
   kit.veil();
   // The line of the program: its word in kana and in the language of the player.
@@ -108,9 +126,11 @@ export function drawCall(kit: Kit, layout: CallLayout, focus: ShellFocus, timeMs
   }
   // Who calls: the number is not known. Its lines lie on the dark of the tube, so that the lines of the board do not run through them.
   const plateTop = layout.number.y - 6;
-  kit.box({ x: layout.say.x, y: plateTop, w: layout.say.w, h: layout.say.y + CELL_H * 2 - plateTop }, bg);
+  kit.box({ x: layout.say.x, y: plateTop, w: layout.say.w, h: layout.say.y + layout.say.h + 6 - plateTop }, bg);
   kit.text(`${CALL.number.native} ${CALL.number.name}`, layout.number.x, layout.number.y, dim, { align: 'center' });
   kit.text(t('callUnknown').toLocaleUpperCase(), layout.number.x, layout.number.y + CELL_H + 4, ink, { align: 'center' });
+  // What the call is, in the letters of the program: the first of three lines in ink, the rest dim.
+  lines.forEach((line, i) => kit.text(line, layout.number.x, layout.say.y + i * LINE, lines.length > 1 && i === 0 ? ink : dim, { align: 'center' }));
   // The two buttons: decline is the program's dim frame, the call is taken by the filled one.
   button(kit, layout.decline, word(COMMANDS.decline.name), focus, DECLINE_ID, { fill: bg, edge: focus.focus === DECLINE_ID ? ink : dim, text: dim });
   button(kit, layout.accept, word(COMMANDS.accept.name), focus, ACCEPT_ID, { fill: ink, edge: ink, text: bg });
@@ -134,11 +154,15 @@ export class CallScreen implements ShellScreen {
 
   constructor(
     private readonly context: ShellContext,
-    private readonly actions: { onAccept: () => void; onDecline: () => void },
+    private readonly actions: { onAccept: () => void; onDecline: () => void; first?: boolean },
   ) {}
 
+  private lines(): string[] {
+    return callLines(this.actions.first ?? false);
+  }
+
   private layout(): CallLayout {
-    return callLayout(this.context.picture(), this.context.window(), this.context.safe());
+    return callLayout(this.context.picture(), this.context.window(), this.context.safe(), this.lines().length);
   }
 
   items(): ShellItem[] {
@@ -168,12 +192,7 @@ export class CallScreen implements ShellScreen {
   }
 
   draw(kit: Kit, focus: ShellFocus): void {
-    const layout = this.layout();
-    drawCall(kit, layout, focus, this.drawnPhase * 100, this.context.reducedMotion());
-    // The line is as tall as a line of the program around it, on a phone and on a wide screen alike.
-    const zoom = this.context.window().height / Math.max(1, this.context.picture().height);
-    const size = Math.max(PANEL_SAY_SIZE, Math.round(CELL_H * zoom));
-    this.context.voice.say({ text: t('callLength'), box: kit.toWindow(layout.say), size, align: 'center', dim: true });
+    drawCall(kit, this.layout(), focus, this.drawnPhase * 100, this.context.reducedMotion(), this.lines());
   }
 
   back(): void {

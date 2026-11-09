@@ -13,7 +13,7 @@ import { nextFocus } from './input';
 import type { ShellContext } from './screen';
 import { PanelScreen, cutRows, scrollThumb, type PanelRow, type PanelSpec } from './screens/panel';
 import { CALL, COMMANDS, PANELS, RESULT, goalLabel, goalProgress, goalText } from './text';
-import { CallScreen, callLayout } from './screens/call';
+import { CallScreen, callLayout, callLines } from './screens/call';
 import { shellDefaults } from './theme';
 import type { Voice } from './voice';
 
@@ -613,6 +613,25 @@ describe('the screen of an incoming call on a screen', () => {
       const picture = pictureSize({ width: 360 * 3, height: 640 * 3 }, Number(shellDefaults().pixelsTall), Number(shellDefaults().pixelsWide));
       const layout = callLayout(picture, { width: 360, height: 640 }, { top: 0, right: 0, bottom: 0, left: 0 });
       for (const name of [COMMANDS.accept.name, COMMANDS.decline.name]) expect(textWidth(word(name)), `${name} ${code}`).toBeLessThanOrEqual(layout.accept.w - 12);
+    }
+    setLanguage('en');
+  });
+
+  it.each(SCREENS)('says what a call is in the letters of the program on a %s: three lines to a first call, one after, between the sign and the buttons', (_name, window, ratio) => {
+    const picture = pictureSize({ width: window.width * ratio, height: window.height * ratio }, Number(shellDefaults().pixelsTall), Number(shellDefaults().pixelsWide));
+    const safe = { top: 0, right: 0, bottom: 0, left: 0 };
+    for (const code of LANGUAGES) {
+      setLanguage(code);
+      expect(callLines(true), code).toHaveLength(3);
+      expect(callLines(false), code).toHaveLength(1);
+      for (const first of [true, false]) {
+        const lines = callLines(first);
+        const layout = callLayout(picture, window, safe, lines.length);
+        for (const line of lines) expect(textWidth(line), `${line} ${code}`).toBeLessThanOrEqual(layout.say.w - 8);
+        // The plate of the lines ends above the buttons, and the sign stays under the label at the top.
+        expect(layout.say.y + layout.say.h + 6, code).toBeLessThan(layout.accept.y);
+        expect(layout.sign.y - layout.sign.reach, code).toBeGreaterThan(layout.label.y + 16);
+      }
     }
     setLanguage('en');
   });

@@ -90,7 +90,8 @@ export const ES: Texts = {
   signalTitle: 'TRANSMISIÓN',
   campaignEnd: 'Continuará. Mientras llegan nuevos niveles, puedes probar el {modo infinito}.',
   callUnknown: 'Número desconocido',
-  callLength: 'llamada · unos tres minutos',
+  callFirst: 'EN DIRECTO · UNOS 3 MINUTOS\nLOS DADOS LLEGAN SOLOS\nQUE EL TABLERO NO SE LLENE',
+  callAgain: 'EN DIRECTO · ~3:00',
   novelIntro: 'Un nuevo registro del enlace. {Más tarde}',
   novelOperator: 'OPERADOR',
   novelVoice: 'VOZ',
@@ -100,7 +101,7 @@ export const ES: Texts = {
   howChain: 'Un combo no se va enseguida.\nMientras se va, acércale otro dado con la misma cara: se irá con el combo. Esto es una cadena.',
   howOnes: 'Los 1 no forman combo.\nLleva un 1 a un combo que se va, y se irán todos los demás 1 del tablero.',
   howLevels: 'NIVELES: quita todos los dados del tablero.\nLas caras de la esquina son las que hay que juntar.\nEl suelo tiene aquí sus propias reglas: solo se sube por un dado que se va.',
-  howCall: 'LLAMADAS: de vez en cuando alguien llama entre niveles.\nPuedes aceptar o rechazar.',
+  howCall: 'LLAMADAS: de vez en cuando alguien llama entre niveles.\nUna llamada va en directo unos tres minutos: los dados llegan solos.\nPuedes aceptar o rechazar.',
   howProtocol: 'SIN FIN: los dados llegan solos.\nUna cadena multiplica los puntos.\nSi el tablero se llena y sigue lleno, la partida termina.',
   shareScore: 'VI — enviado al otro lado: {score}',
 };

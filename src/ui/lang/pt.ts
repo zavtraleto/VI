@@ -90,7 +90,8 @@ export const PT: Texts = {
   signalTitle: 'TRANSMISSÃO',
   campaignEnd: 'Continua. Enquanto novos níveis não chegam, você pode experimentar o {modo infinito}.',
   callUnknown: 'Número desconhecido',
-  callLength: 'chamada · uns três minutos',
+  callFirst: 'AO VIVO · UNS 3 MINUTOS\nOS DADOS CHEGAM SOZINHOS\nNÃO DEIXE O TABULEIRO ENCHER',
+  callAgain: 'AO VIVO · ~3:00',
   novelIntro: 'Um novo registro da ligação. {Mais tarde}',
   novelOperator: 'OPERADOR',
   novelVoice: 'VOZ',
@@ -100,7 +101,7 @@ export const PT: Texts = {
   howChain: 'Um combo não sai na hora.\nEnquanto ele sai, role até ele mais um dado com a mesma face: ele sai junto com o combo. Isso é uma corrente.',
   howOnes: 'Os 1 não formam combo.\nLeve um 1 até um combo que está saindo, e todos os outros 1 do tabuleiro saem.',
   howLevels: 'NÍVEIS: tire todos os dados do tabuleiro.\nAs faces no canto são as que você precisa juntar.\nAqui o chão tem regras próprias: só se sobe por um dado que está saindo.',
-  howCall: 'CHAMADAS: de vez em quando alguém liga entre os níveis.\nAtenda ou recuse.',
+  howCall: 'CHAMADAS: de vez em quando alguém liga entre os níveis.\nUma chamada é ao vivo, uns três minutos: os dados chegam sozinhos.\nAtenda ou recuse.',
   howProtocol: 'INFINITO: os dados chegam sozinhos.\nUma corrente multiplica os pontos.\nSe o tabuleiro encher e continuar cheio, a partida acaba.',
   shareScore: 'VI — enviado para o outro lado: {score}',
 };
