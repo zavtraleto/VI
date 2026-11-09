@@ -1,0 +1,15 @@
+id: twos-link-down-1
+note: каталог recipe:P13:as, ключ 6f39fdc648; грани по пути (в каталоге названы неверно)
+status: R
+batch: twos-link-down 2026-11-09
+faces: 1 2
+seed: 2
+chapter: 0
+par: 7
+exact: yes
+way: 1,0,S 3,0,S 2,0,E 2,2,W 2,1,S 2,3,W 1,1,E,p
+---
+ .  41  63  62
+ .   .  42   .
+ .   .  64*  .
+ .   .  64   .

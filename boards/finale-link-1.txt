@@ -1,0 +1,14 @@
+id: finale-link-1
+note: каталог row:three-moves-1:as, ключ 02402c5264
+status: R
+batch: finale-link 2026-11-09
+faces: 2 3
+par: 7
+exact: yes
+way: 2,2,N 2,1,N 2,0,E 4,2,N,p 4,1,W 0,2,S,p 3,3,W,p
+---
+ .   .   .   .  26
+ .   .   .   .   .
+26   .  31*  .  64
+ .  35   .  35   .
+21  32   .   .   .

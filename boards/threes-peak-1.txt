@@ -1,0 +1,15 @@
+id: threes-peak-1
+note: каталог recipe:P20:as, ключ d9b0e85c8a; грани по пути (в каталоге названы неверно)
+status: R
+batch: threes-peak 2026-11-09
+faces: 2 3
+seed: 13
+chapter: 0
+par: 7
+exact: yes
+way: 2,2,N 2,1,E 2,0,S 2,1,S 3,3,N 3,0,S 1,2,S,p
+---
+ .   .  53  32
+ .   .   .   .
+ .  32  63   .
+32   .  35  35*

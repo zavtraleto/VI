@@ -1,0 +1,14 @@
+id: fours-small-room-1
+note: каталог recipe:P15:as, ключ a9ae858e9e; грани по пути (в каталоге названы неверно)
+status: R
+batch: fours-small-room 2026-11-09
+faces: 1 2 4
+seed: 15
+chapter: 0
+par: 8
+exact: yes
+way: 2,0,S 1,0,E 1,2,W 1,1,S 2,1,W 2,2,N 1,2,W 0,2,N
+---
+42  23  65
+24  41*  .
+ .  64  53

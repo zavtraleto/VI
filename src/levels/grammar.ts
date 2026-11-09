@@ -440,7 +440,6 @@ export const REPEAT_FROM = 31;
  * of the row lets them be, and the table and the workshop mark them (`KNOWN_REPEAT`). The rebuild empties it.
  */
 export const KNOWN_REPEATS: readonly string[] = [
-  'места 95 (dd-13-stone-row) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
 ];
 
 /** Whether a breach is one of the repeats known till the row is rebuilt. */

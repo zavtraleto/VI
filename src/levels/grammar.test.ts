@@ -486,10 +486,12 @@ describe('repeats of a thought and of a layout: rules 16 and 17', () => {
   });
 
   it('ends the line of a known repeat with its mark, and of a repeat not known with nothing', () => {
-    const known = { rule: 16 as const, at: 33, text: KNOWN_REPEATS[0] };
     const other = { rule: 16 as const, at: 33, text: 'места 1 (R01) и 33 (R01): одна раскладка' };
-    expect([knownRepeat(known), markOf(known)]).toEqual([true, ' (известный повтор)']);
     expect([knownRepeat(other), held(other), markOf(other)]).toEqual([false, true, '']);
+    // The list is empty since the row was built to 100 (0.2.132); a repeat it keeps again is marked.
+    if (KNOWN_REPEATS.length === 0) return;
+    const known = { rule: 16 as const, at: 33, text: KNOWN_REPEATS[0] };
+    expect([knownRepeat(known), markOf(known)]).toEqual([true, ' (известный повтор)']);
     // The text of a known repeat under another rule is no known repeat.
     expect(markOf({ rule: 17, at: 33, text: KNOWN_REPEATS[0], warning: true })).toBe(WARNING);
   });

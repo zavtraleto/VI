@@ -1,0 +1,15 @@
+id: four-two-one-1
+note: каталог recipe:P20:as, ключ e6101622f3; грани по пути (в каталоге названы неверно)
+status: R
+batch: four-two-one 2026-11-09
+faces: 1 2 4
+seed: 36
+chapter: 0
+par: 7
+exact: yes
+way: 0,1,E 0,2,N 2,2,E 3,3,W 2,3,N 2,2,N 3,2,N,p
+---
+ .  41  26   .
+56*  .   .   .
+53  45  23   .
+ .   .   .  31

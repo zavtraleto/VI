@@ -1,0 +1,15 @@
+id: twos-rest-1
+note: каталог recipe:P16:as, ключ 300f66e5cb; грани по пути (в каталоге названы неверно)
+status: R
+batch: twos-rest 2026-11-09
+faces: 2
+seed: 17
+chapter: 0
+par: 5
+exact: yes
+way: 1,1,S 2,2,E 3,0,S 0,1,S,p 0,3,E
+---
+ .   .   .  32
+26  32*  .  24
+ .   .  63   .
+31   .   .   .

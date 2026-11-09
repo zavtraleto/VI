@@ -1,0 +1,15 @@
+id: twos-threes-under-1
+note: каталог recipe:P12:as, ключ 390277bf08; грани по пути (в каталоге названы неверно)
+status: R
+batch: twos-threes-under 2026-11-09
+faces: 2 3
+seed: 45
+chapter: 0
+par: 6
+exact: yes
+way: 3,0,W 0,1,S,p 0,2,S 0,3,E 1,3,E 3,1,S,p
+---
+ .   .   .  41
+54   .  21  32
+ .  36  31*  .
+ .   .   .   .

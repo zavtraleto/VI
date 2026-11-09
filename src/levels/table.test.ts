@@ -139,6 +139,9 @@ describe('grammarText', () => {
     expect(grammarText([{ rule: 4, at: 2, text: 'x' }, { rule: 1, at: 1, text: 'y' }])).toBe('grammar:\n  1  y\n  4  x (предупреждение)\nдержат ряд: 1');
     expect(grammarText([])).toBe('grammar: clean');
     // A repeat known till the row is rebuilt is marked as such, a repeat of rule 16 that is not is held as it is.
+    expect(grammarText([{ rule: 16, at: 40, text: 'z' }])).toBe('grammar:\n  16  z\nдержат ряд: 1');
+    // The list of known repeats is empty since the row was built to 100 (0.2.132).
+    if (KNOWN_REPEATS.length === 0) return;
     expect(grammarText([{ rule: 16, at: 33, text: KNOWN_REPEATS[0] }, { rule: 16, at: 40, text: 'z' }])).toBe(`grammar:
   16  ${KNOWN_REPEATS[0]} (известный повтор)
   16  z

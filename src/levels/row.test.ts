@@ -113,7 +113,7 @@ describe('the row of the game', () => {
 
   it('is a hundred places long, and its last is the finale', () => {
     expect(ROW.places).toHaveLength(100);
-    expect(ROW.places[ROW.places.length - 1].code).toBe('finale-1');
+    expect(ROW.places[ROW.places.length - 1].code).toBe('finale-link-1');
   });
 
   it('clears every place by the way its file keeps, in as many moves as it says, and the solver finds none shorter', { timeout: 120_000 }, () => {

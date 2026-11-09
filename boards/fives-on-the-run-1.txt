@@ -1,0 +1,14 @@
+id: fives-on-the-run-1
+note: каталог row:twos-then-fives-1:as, ключ 0506718737
+status: R
+batch: fives-on-the-run 2026-11-09
+faces: 2 5
+par: 6
+exact: yes
+way: 2,2,E 1,0,W 0,0,S 1,2,E 2,2,N 3,2,W
+---
+ .  42* 56  51   .
+ .  21   .  56   .
+ .  32  54   .   .
+ -   -   -   -   -
+ -   -   -   -   -

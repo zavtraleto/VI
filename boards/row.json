@@ -158,22 +158,22 @@
         { "board": "iron-fours-peak-1", "role": "peak", "archetype": "two iron dice and fours, the long way", "emotion": "fiero", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
         { "board": "fours-down-under-1", "role": "apply", "archetype": "fours: down and under, first move on another die", "emotion": "payoff", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
         { "board": "fours-link-twice-1", "role": "apply", "archetype": "fours over two links, the first move on another die", "emotion": "insight", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
-        { "board": "P08", "role": "apply", "archetype": "which first", "emotion": "recognition" },
-        { "board": "rescue-4", "role": "rest", "archetype": "the last four pushed in", "emotion": "gift" }
+        { "board": "twos-link-down-1", "role": "apply", "archetype": "twos: two combos over a walk, a link, then down and the one pushed in; the first move on another die", "emotion": "recognition", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "twos-threes-under-1", "role": "apply", "archetype": "twos and threes: down and up again, a combo, down and a link pushed in; the first move on another die", "emotion": "tension", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" }
       ]
     },
     {
       "title": "hundred (0.2.88)",
       "floor": "open",
       "places": [
-        { "board": "ones-broom-below-1", "role": "twist", "archetype": "broom below", "emotion": "insight" },
-        { "board": "collapse-after-prep-1", "role": "event", "archetype": "collapse after preparation", "emotion": "payoff", "event": "the board clears at once" },
-        { "board": "dd-13-stone-row", "role": "apply", "archetype": "stone row", "emotion": "mastery" },
-        { "board": "dd-19-three-threes-apart", "role": "apply", "archetype": "three apart", "emotion": "recognition" },
-        { "board": "three-moves-2", "role": "peak", "archetype": "three moves: glass, ones, two faces", "emotion": "fiero" },
-        { "board": "tight-room-4", "role": "twist", "archetype": "tight room", "emotion": "mastery", "note": "the tight room of the chapter ninety comes back as a twist (rule 3): two faces, a link, a walk and a roll in on seven dice" },
-        { "board": "last-rest-1", "role": "rest", "archetype": "ready heap", "emotion": "gift" },
-        { "board": "finale-1", "role": "peak", "archetype": "everything", "emotion": "fiero", "note": "the hundredth place, the peak of the campaign" }
+        { "board": "fives-on-the-run-1", "role": "apply", "archetype": "twos and fives: two combos with a walk between; the first move on another die", "emotion": "insight", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "twos-rest-1", "role": "rest", "archetype": "five moves: a walk, a link, down, a push and up onto a link", "emotion": "relief", "event": "a short board of five moves", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "three-faces-row-1", "role": "apply", "archetype": "three faces on a long field: a combo, the ones, a combo", "emotion": "flow", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "four-two-one-1", "role": "apply", "archetype": "fours, twos and a one: a walk, down and the one pushed in", "emotion": "mastery", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "fours-small-room-1", "role": "apply", "archetype": "fours, twos and a one in a small room, a long way; the first move on another die", "emotion": "tension", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "threes-peak-1", "role": "peak", "archetype": "twos and threes: a walk, a link, down and a push; the first move on another die", "emotion": "fiero", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "ones-threes-turn-1", "role": "apply", "archetype": "threes and a one: a walk, a link, down and the one pushed in; the first move on another die", "emotion": "payoff", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" },
+        { "board": "finale-link-1", "role": "event", "archetype": "eight dice on the big field: down, up, a link and two pushes", "emotion": "fiero", "event": "the last heaps go on a link and two pushes", "note": "from the catalog, 9 November 2026 (owner: the row to 100 from the catalog)" }
       ]
     }
   ]
