@@ -1,0 +1,15 @@
+id: fours-short-rest-1
+note: каталог recipe:C1-07:as, ключ 933b52139b; грани по пути (в каталоге названы неверно)
+status: R
+batch: fours-short-rest 2026-11-09
+faces: 4
+seed: 82
+chapter: 0
+par: 4
+exact: yes
+way: 0,1,S 1,1,S,p 1,2,E 3,3,N
+---
+ .   .   .   .
+24* 56   .   .
+ .   .   .   .
+45  41  46  53

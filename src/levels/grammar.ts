@@ -440,9 +440,6 @@ export const REPEAT_FROM = 31;
  * of the row lets them be, and the table and the workshop mark them (`KNOWN_REPEAT`). The rebuild empties it.
  */
 export const KNOWN_REPEATS: readonly string[] = [
-  // 87 (chaser-1) is a temporary board of 81-100 since the build of 61-80.
-  'места 59 (under-fives-1) и 83 (dd-21-wood-fives): одна раскладка',
-  'места 17 (C1-05) и 87 (chaser-1): одна мысль — K ~ L, glass link walk, грани 3',
   'места 95 (dd-13-stone-row) и 96 (dd-19-three-threes-apart): одна мысль — K, loop, грани 3',
 ];
 

@@ -1,0 +1,15 @@
+id: fours-down-under-1
+note: каталог recipe:P17:as, ключ 45e10cb1c5; грани по пути (в каталоге названы неверно)
+status: R
+batch: fours-down-under 2026-11-09
+faces: 1 5
+seed: 10
+chapter: 0
+par: 7
+exact: yes
+way: 1,0,W 1,1,N 0,1,E 3,2,N 2,2,W 3,1,N 1,2,E,p
+---
+ .  32  56   .
+41  42  56*  .
+ .   .  45  23
+ .   .   .   .

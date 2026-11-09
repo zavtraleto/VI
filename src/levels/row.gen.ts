@@ -7727,643 +7727,204 @@ export const ROW: Row = {
     {
       "number": 81,
       "chapter": 10,
-      "code": "R16",
+      "code": "fives-link-1",
       "spec": {
-        "id": "R16",
-        "seed": 8116,
-        "size": 4,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          3,
-          2
-        ],
-        "norm": 6,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          3,
-          2
-        ],
-        "layout": {
-          "start": {
-            "x": 2,
-            "z": 3
-          },
-          "dice": [
-            {
-              "x": 0,
-              "z": 0,
-              "top": 2,
-              "north": 3
-            },
-            {
-              "x": 2,
-              "z": 0,
-              "top": 2,
-              "north": 3
-            },
-            {
-              "x": 2,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 3,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 4,
-              "north": 6
-            },
-            {
-              "x": 2,
-              "z": 3,
-              "top": 2,
-              "north": 4
-            }
-          ]
-        },
-        "undos": 3,
-        "chapter": 0,
-        "par": 4,
-        "exact": true,
-        "solution": [
-          "2,3,N",
-          "2,0,W,p",
-          "0,2,N,p",
-          "0,1,E"
-        ]
-      },
-      "role": "twist",
-      "archetype": "everything at once",
-      "emotion": "insight",
-      "help": {}
-    },
-    {
-      "number": 82,
-      "chapter": 10,
-      "code": "ones-threes-2",
-      "spec": {
-        "id": "ones-threes-2",
-        "seed": 0,
-        "size": 3,
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          1,
-          3
-        ],
-        "norm": 5,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          1,
-          3
-        ],
-        "layout": {
-          "start": {
-            "x": 2,
-            "z": 0
-          },
-          "dice": [
-            {
-              "x": 1,
-              "z": 0,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 0,
-              "top": 5,
-              "north": 1
-            },
-            {
-              "x": 1,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 2,
-              "north": 6
-            },
-            {
-              "x": 2,
-              "z": 2,
-              "top": 6,
-              "north": 3
-            }
-          ]
-        },
-        "chapter": 0,
-        "par": 8,
-        "exact": true,
-        "solution": [
-          "1,1,S",
-          "2,2,N",
-          "2,1,W",
-          "2,0,S",
-          "1,1,W",
-          "1,2,N",
-          "0,2,E",
-          "2,1,N,p"
-        ]
-      },
-      "role": "apply",
-      "archetype": "K ~ L v U on 3 (lift link ones push walk)",
-      "emotion": "recognition",
-      "help": {}
-    },
-    {
-      "number": 83,
-      "chapter": 10,
-      "code": "dd-21-wood-fives",
-      "spec": {
-        "id": "dd-21-wood-fives",
+        "id": "fives-link-1",
         "seed": 0,
         "size": 5,
-        "holes": [
-          {
-            "x": 4,
-            "z": 0
-          },
-          {
-            "x": 4,
-            "z": 1
-          },
-          {
-            "x": 4,
-            "z": 2
-          },
-          {
-            "x": 4,
-            "z": 3
-          },
-          {
-            "x": 0,
-            "z": 4
-          },
-          {
-            "x": 1,
-            "z": 4
-          },
-          {
-            "x": 2,
-            "z": 4
-          },
-          {
-            "x": 3,
-            "z": 4
-          },
-          {
-            "x": 4,
-            "z": 4
-          }
-        ],
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
+          3,
           5
         ],
-        "norm": 5,
+        "norm": 8,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
+          3,
           5
         ],
         "layout": {
           "start": {
-            "x": 1,
+            "x": 4,
             "z": 3
           },
           "dice": [
             {
-              "x": 1,
-              "z": 0,
-              "top": 6,
-              "north": 4
-            },
-            {
-              "x": 3,
-              "z": 0,
-              "top": 1,
-              "north": 4
-            },
-            {
-              "x": 0,
+              "x": 2,
               "z": 1,
               "top": 5,
               "north": 1
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 4,
+              "z": 1,
+              "top": 3,
+              "north": 2
             },
             {
               "x": 2,
               "z": 2,
               "top": 5,
-              "north": 4
+              "north": 3
             },
             {
-              "x": 1,
+              "x": 4,
               "z": 3,
               "top": 2,
               "north": 4
-            }
-          ]
-        },
-        "par": 5,
-        "exact": true,
-        "solution": [
-          "1,3,N",
-          "1,2,N",
-          "1,0,E",
-          "3,0,S",
-          "3,1,W"
-        ]
-      },
-      "role": "apply",
-      "archetype": "turn to fives",
-      "emotion": "recognition",
-      "help": {}
-    },
-    {
-      "number": 84,
-      "chapter": 10,
-      "code": "dd-36-stone-fours",
-      "spec": {
-        "id": "dd-36-stone-fours",
-        "seed": 0,
-        "size": 4,
-        "holes": [
-          {
-            "x": 3,
-            "z": 0
-          },
-          {
-            "x": 2,
-            "z": 2
-          }
-        ],
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          4
-        ],
-        "norm": 4,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          4
-        ],
-        "layout": {
-          "start": {
-            "x": 0,
-            "z": 1
-          },
-          "dice": [
+            },
             {
               "x": 0,
-              "z": 1,
-              "top": 4,
-              "north": 1
+              "z": 4,
+              "top": 3,
+              "north": 2
             },
             {
               "x": 1,
-              "z": 1,
-              "top": 4,
-              "north": 1,
-              "fixed": true
+              "z": 4,
+              "top": 3,
+              "north": 6
             },
             {
-              "x": 3,
-              "z": 1,
-              "top": 4,
-              "north": 1,
-              "fixed": true
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 4,
-              "north": 1
+              "x": 2,
+              "z": 4,
+              "top": 5,
+              "north": 3
             }
           ]
         },
         "par": 7,
         "exact": true,
         "solution": [
-          "0,2,S",
-          "0,3,E",
-          "1,3,N",
-          "0,1,N",
-          "0,0,E",
-          "1,0,E",
-          "2,0,S"
+          "4,3,W",
+          "3,3,W",
+          "4,1,S",
+          "4,2,S",
+          "4,3,W",
+          "3,3,S",
+          "3,4,W"
         ]
       },
       "role": "apply",
-      "archetype": "stone fours",
-      "emotion": "insight",
+      "archetype": "threes and fives on a link",
+      "emotion": "flow",
       "help": {}
     },
     {
-      "number": 85,
+      "number": 82,
       "chapter": 10,
-      "code": "dd-38-three-threes",
+      "code": "fives-first-other-1",
       "spec": {
-        "id": "dd-38-three-threes",
-        "seed": 0,
-        "size": 7,
-        "holes": [
-          {
-            "x": 0,
-            "z": 3
-          },
-          {
-            "x": 1,
-            "z": 3
-          },
-          {
-            "x": 2,
-            "z": 3
-          },
-          {
-            "x": 3,
-            "z": 3
-          },
-          {
-            "x": 4,
-            "z": 3
-          },
-          {
-            "x": 5,
-            "z": 3
-          },
-          {
-            "x": 6,
-            "z": 3
-          },
-          {
-            "x": 0,
-            "z": 4
-          },
-          {
-            "x": 1,
-            "z": 4
-          },
-          {
-            "x": 2,
-            "z": 4
-          },
-          {
-            "x": 3,
-            "z": 4
-          },
-          {
-            "x": 4,
-            "z": 4
-          },
-          {
-            "x": 5,
-            "z": 4
-          },
-          {
-            "x": 6,
-            "z": 4
-          },
-          {
-            "x": 0,
-            "z": 5
-          },
-          {
-            "x": 1,
-            "z": 5
-          },
-          {
-            "x": 2,
-            "z": 5
-          },
-          {
-            "x": 3,
-            "z": 5
-          },
-          {
-            "x": 4,
-            "z": 5
-          },
-          {
-            "x": 5,
-            "z": 5
-          },
-          {
-            "x": 6,
-            "z": 5
-          },
-          {
-            "x": 0,
-            "z": 6
-          },
-          {
-            "x": 1,
-            "z": 6
-          },
-          {
-            "x": 2,
-            "z": 6
-          },
-          {
-            "x": 3,
-            "z": 6
-          },
-          {
-            "x": 4,
-            "z": 6
-          },
-          {
-            "x": 5,
-            "z": 6
-          },
-          {
-            "x": 6,
-            "z": 6
-          }
-        ],
-        "goal": {
-          "kind": "clear"
-        },
-        "moves": 0,
-        "values": [
-          2
-        ],
-        "norm": 3,
-        "arrival": "none",
-        "sinkMoves": 2,
-        "liftMoves": 1,
-        "faces": [
-          2
-        ],
-        "layout": {
-          "start": {
-            "x": 0,
-            "z": 1
-          },
-          "dice": [
-            {
-              "x": 0,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 1,
-              "z": 1,
-              "top": 3,
-              "north": 1
-            },
-            {
-              "x": 4,
-              "z": 2,
-              "top": 3,
-              "north": 5
-            }
-          ]
-        },
-        "par": 11,
-        "exact": true,
-        "solution": [
-          "0,1,N",
-          "0,0,E",
-          "1,1,E",
-          "2,1,N",
-          "2,0,E",
-          "3,0,E",
-          "4,0,S",
-          "4,2,W",
-          "3,2,N",
-          "1,0,E,p",
-          "2,0,E,p"
-        ]
-      },
-      "role": "peak",
-      "archetype": "three threes in a corridor, a long way",
-      "emotion": "tension",
-      "help": {}
-    },
-    {
-      "number": 86,
-      "chapter": 10,
-      "code": "P06",
-      "spec": {
-        "id": "P06",
-        "seed": 30282,
+        "id": "fives-first-other-1",
+        "seed": 8,
         "size": 4,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          2
+          5
         ],
-        "norm": 5,
+        "norm": 6,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2
+          5
         ],
         "layout": {
           "start": {
-            "x": 3,
-            "z": 0
+            "x": 1,
+            "z": 2
           },
           "dice": [
             {
-              "x": 3,
+              "x": 0,
+              "z": 0,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 0,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 2,
               "z": 0,
               "top": 5,
-              "north": 3
+              "north": 6
             },
             {
               "x": 1,
               "z": 1,
-              "top": 2,
-              "north": 1
-            },
-            {
-              "x": 2,
-              "z": 2,
               "top": 6,
-              "north": 3
-            },
-            {
-              "x": 3,
-              "z": 2,
-              "top": 2,
-              "north": 1
+              "north": 5
             },
             {
               "x": 2,
-              "z": 3,
+              "z": 1,
+              "top": 5,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 2,
               "top": 2,
-              "north": 3
+              "north": 6
             }
           ]
         },
         "chapter": 0,
-        "par": 4,
+        "par": 6,
         "exact": true,
         "solution": [
-          "3,0,W",
-          "2,0,W",
-          "3,2,S,p",
-          "2,2,E"
+          "0,0,S",
+          "1,2,E",
+          "1,1,S",
+          "1,0,S",
+          "2,2,W,p",
+          "1,2,E"
         ]
       },
-      "role": "apply",
-      "archetype": "down and back",
-      "emotion": "fiero",
+      "role": "twist",
+      "archetype": "fives: down and up again, the first move on another die",
+      "emotion": "surprise",
       "help": {}
     },
     {
-      "number": 87,
-      "chapter": 11,
-      "code": "chaser-1",
+      "number": 83,
+      "chapter": 10,
+      "code": "fives-small-room-1",
       "spec": {
-        "id": "chaser-1",
-        "seed": 30762,
+        "id": "fives-small-room-1",
+        "seed": 10,
         "size": 3,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          3
+          5
         ],
-        "norm": 4,
+        "norm": 6,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          3
+          5
         ],
         "layout": {
           "start": {
@@ -8372,8 +7933,8 @@ export const ROW: Row = {
           },
           "dice": [
             {
-              "x": 0,
-              "z": 1,
+              "x": 2,
+              "z": 0,
               "top": 3,
               "north": 5
             },
@@ -8381,18 +7942,30 @@ export const ROW: Row = {
               "x": 1,
               "z": 1,
               "top": 5,
-              "north": 4
+              "north": 1
             },
             {
               "x": 2,
               "z": 1,
+              "top": 2,
+              "north": 1
+            },
+            {
+              "x": 0,
+              "z": 2,
               "top": 5,
               "north": 6
             },
             {
+              "x": 1,
+              "z": 2,
+              "top": 3,
+              "north": 2
+            },
+            {
               "x": 2,
               "z": 2,
-              "top": 6,
+              "top": 5,
               "north": 4
             }
           ]
@@ -8402,65 +7975,147 @@ export const ROW: Row = {
         "exact": true,
         "solution": [
           "1,1,N",
-          "1,0,E",
-          "2,2,W",
+          "2,1,W",
+          "2,0,S",
+          "1,1,W",
           "1,2,N",
-          "2,0,W",
-          "2,1,W"
+          "1,0,S"
         ]
       },
       "role": "apply",
-      "archetype": "the chasing die",
-      "emotion": "fiero",
+      "archetype": "fives on a link in a small room",
+      "emotion": "recognition",
       "help": {}
     },
     {
-      "number": 88,
-      "chapter": 11,
-      "code": "tight-room-5",
+      "number": 84,
+      "chapter": 10,
+      "code": "fours-short-rest-1",
       "spec": {
-        "id": "tight-room-5",
-        "seed": 30402,
-        "size": 3,
+        "id": "fours-short-rest-1",
+        "seed": 82,
+        "size": 4,
         "goal": {
           "kind": "clear"
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          4
         ],
-        "norm": 7,
+        "norm": 6,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          4
         ],
         "layout": {
           "start": {
-            "x": 1,
-            "z": 2
+            "x": 0,
+            "z": 1
           },
           "dice": [
             {
               "x": 0,
-              "z": 0,
+              "z": 1,
               "top": 2,
-              "north": 3
+              "north": 4
             },
             {
               "x": 1,
-              "z": 0,
-              "top": 3,
+              "z": 1,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 4,
               "north": 5
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 2,
+              "z": 3,
+              "top": 4,
+              "north": 6
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 5,
+              "north": 3
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 4,
+        "exact": true,
+        "solution": [
+          "0,1,S",
+          "1,1,S,p",
+          "1,2,E",
+          "3,3,N"
+        ]
+      },
+      "role": "rest",
+      "archetype": "fours: four moves, down, up and over a link",
+      "emotion": "relief",
+      "event": "a short board of four moves",
+      "help": {}
+    },
+    {
+      "number": 85,
+      "chapter": 10,
+      "code": "fives-push-1",
+      "spec": {
+        "id": "fives-push-1",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3,
+          5
+        ],
+        "norm": 8,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3,
+          5
+        ],
+        "layout": {
+          "start": {
+            "x": 1,
+            "z": 0
+          },
+          "dice": [
+            {
+              "x": 1,
+              "z": 0,
+              "top": 2,
+              "north": 6
+            },
+            {
+              "x": 4,
+              "z": 0,
+              "top": 5,
+              "north": 1
             },
             {
               "x": 0,
               "z": 1,
-              "top": 3,
-              "north": 2
+              "top": 2,
+              "north": 6
             },
             {
               "x": 2,
@@ -8469,48 +8124,54 @@ export const ROW: Row = {
               "north": 4
             },
             {
-              "x": 0,
-              "z": 2,
-              "top": 6,
-              "north": 5
+              "x": 3,
+              "z": 1,
+              "top": 5,
+              "north": 3
             },
             {
-              "x": 1,
+              "x": 3,
               "z": 2,
-              "top": 6,
-              "north": 5
+              "top": 5,
+              "north": 6
             },
             {
               "x": 2,
-              "z": 2,
-              "top": 2,
-              "north": 6
+              "z": 3,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 3,
+              "north": 2
             }
           ]
         },
-        "chapter": 0,
-        "par": 6,
+        "par": 7,
         "exact": true,
         "solution": [
-          "2,1,N",
-          "1,2,N",
+          "1,0,E",
+          "2,1,W",
+          "0,1,S",
+          "0,2,E",
           "1,1,E",
-          "0,1,E",
-          "1,1,S",
-          "0,2,N"
+          "2,0,E",
+          "1,2,E,p"
         ]
       },
       "role": "apply",
-      "archetype": "tight room",
-      "emotion": "recognition",
+      "archetype": "threes and fives: down and push",
+      "emotion": "tension",
       "help": {}
     },
     {
-      "number": 89,
-      "chapter": 11,
-      "code": "three-moves-1",
+      "number": 86,
+      "chapter": 10,
+      "code": "stop-fours-1",
       "spec": {
-        "id": "three-moves-1",
+        "id": "stop-fours-1",
         "seed": 0,
         "size": 5,
         "goal": {
@@ -8518,69 +8179,70 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          2,
-          3
+          3,
+          4
         ],
         "norm": 8,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
-          2,
-          3
+          3,
+          4
         ],
         "layout": {
           "start": {
-            "x": 2,
-            "z": 2
+            "x": 3,
+            "z": 0
           },
           "dice": [
             {
-              "x": 4,
+              "x": 3,
               "z": 0,
-              "top": 2,
-              "north": 3
-            },
-            {
-              "x": 0,
-              "z": 2,
-              "top": 2,
+              "top": 6,
               "north": 4
             },
             {
-              "x": 2,
-              "z": 2,
-              "top": 3,
-              "north": 6
-            },
-            {
-              "x": 4,
-              "z": 2,
-              "top": 3,
-              "north": 6
-            },
-            {
-              "x": 1,
-              "z": 3,
+              "x": 0,
+              "z": 1,
               "top": 3,
               "north": 5
             },
             {
-              "x": 3,
-              "z": 3,
-              "top": 3,
-              "north": 1
-            },
-            {
               "x": 0,
-              "z": 4,
-              "top": 2,
-              "north": 3
+              "z": 2,
+              "top": 3,
+              "north": 5
             },
             {
               "x": 1,
+              "z": 2,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 3,
               "z": 4,
-              "top": 3,
+              "top": 4,
+              "north": 5,
+              "fixed": true
+            },
+            {
+              "x": 4,
+              "z": 4,
+              "top": 4,
               "north": 6
             }
           ]
@@ -8588,55 +8250,139 @@ export const ROW: Row = {
         "par": 7,
         "exact": true,
         "solution": [
-          "2,2,E",
-          "3,2,N",
-          "3,1,N",
-          "4,2,N,p",
-          "4,1,W",
-          "0,2,S,p",
-          "3,3,W,p"
+          "3,0,S",
+          "3,1,W",
+          "2,1,W",
+          "1,3,S",
+          "1,4,E",
+          "2,4,N",
+          "1,2,E,p"
         ]
       },
-      "role": "peak",
-      "archetype": "three moves: floor, link, order",
-      "emotion": "fiero",
+      "role": "apply",
+      "archetype": "a fixed die stops the fours",
+      "emotion": "mastery",
       "help": {}
     },
     {
-      "number": 90,
+      "number": 87,
       "chapter": 11,
-      "code": "dd-20-chain-on-the-run",
+      "code": "far-heaps-fives-1",
       "spec": {
-        "id": "dd-20-chain-on-the-run",
+        "id": "far-heaps-fives-1",
+        "seed": 0,
+        "size": 5,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          3,
+          5
+        ],
+        "norm": 8,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          3,
+          5
+        ],
+        "layout": {
+          "start": {
+            "x": 3,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 3,
+              "z": 0,
+              "top": 3,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 1,
+              "top": 3,
+              "north": 1
+            },
+            {
+              "x": 3,
+              "z": 2,
+              "top": 6,
+              "north": 5
+            },
+            {
+              "x": 0,
+              "z": 3,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 1,
+              "z": 3,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 0,
+              "z": 4,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 1,
+              "z": 4,
+              "top": 5,
+              "north": 4
+            }
+          ]
+        },
+        "par": 6,
+        "exact": true,
+        "solution": [
+          "2,1,S",
+          "2,2,S",
+          "2,3,E",
+          "3,2,W",
+          "2,2,S",
+          "3,3,N"
+        ]
+      },
+      "role": "apply",
+      "archetype": "far heaps of threes and fives, the first move on another die",
+      "emotion": "tension",
+      "help": {}
+    },
+    {
+      "number": 88,
+      "chapter": 11,
+      "code": "iron-fours-peak-1",
+      "spec": {
+        "id": "iron-fours-peak-1",
         "seed": 0,
         "size": 5,
         "holes": [
           {
             "x": 0,
-            "z": 0
+            "z": 3
           },
           {
-            "x": 4,
-            "z": 0
+            "x": 1,
+            "z": 3
           },
           {
-            "x": 0,
-            "z": 1
+            "x": 2,
+            "z": 3
           },
           {
-            "x": 4,
-            "z": 1
-          },
-          {
-            "x": 0,
-            "z": 2
-          },
-          {
-            "x": 4,
-            "z": 2
-          },
-          {
-            "x": 0,
+            "x": 3,
             "z": 3
           },
           {
@@ -8645,6 +8391,18 @@ export const ROW: Row = {
           },
           {
             "x": 0,
+            "z": 4
+          },
+          {
+            "x": 1,
+            "z": 4
+          },
+          {
+            "x": 2,
+            "z": 4
+          },
+          {
+            "x": 3,
             "z": 4
           },
           {
@@ -8657,34 +8415,126 @@ export const ROW: Row = {
         },
         "moves": 0,
         "values": [
-          1,
-          2
+          4
         ],
-        "norm": 6,
+        "norm": 4,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 4,
+              "north": 6,
+              "fixed": true
+            },
+            {
+              "x": 4,
+              "z": 0,
+              "top": 4,
+              "north": 6,
+              "fixed": true
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 6,
+              "north": 3
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 2,
+              "north": 1
+            }
+          ]
+        },
+        "par": 8,
+        "exact": true,
+        "solution": [
+          "2,2,N",
+          "1,1,N",
+          "2,1,S",
+          "2,2,W",
+          "1,2,N",
+          "1,1,E",
+          "2,1,E",
+          "3,1,N"
+        ]
+      },
+      "role": "peak",
+      "archetype": "two iron dice and fours, the long way",
+      "emotion": "fiero",
+      "help": {}
+    },
+    {
+      "number": 89,
+      "chapter": 11,
+      "code": "fours-down-under-1",
+      "spec": {
+        "id": "fours-down-under-1",
+        "seed": 10,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          1,
+          5
+        ],
+        "norm": 7,
         "arrival": "none",
         "sinkMoves": 2,
         "liftMoves": 1,
         "faces": [
           1,
-          2
+          5
         ],
         "layout": {
           "start": {
-            "x": 1,
+            "x": 2,
             "z": 1
           },
           "dice": [
             {
               "x": 1,
+              "z": 0,
+              "top": 3,
+              "north": 2
+            },
+            {
+              "x": 2,
+              "z": 0,
+              "top": 5,
+              "north": 6
+            },
+            {
+              "x": 0,
               "z": 1,
-              "top": 1,
-              "north": 5
+              "top": 4,
+              "north": 1
+            },
+            {
+              "x": 1,
+              "z": 1,
+              "top": 4,
+              "north": 2
             },
             {
               "x": 2,
               "z": 1,
-              "top": 3,
-              "north": 1
+              "top": 5,
+              "north": 6
             },
             {
               "x": 2,
@@ -8695,37 +8545,110 @@ export const ROW: Row = {
             {
               "x": 3,
               "z": 2,
-              "top": 3,
+              "top": 2,
+              "north": 3
+            }
+          ]
+        },
+        "chapter": 0,
+        "par": 7,
+        "exact": true,
+        "solution": [
+          "1,0,W",
+          "1,1,N",
+          "0,1,E",
+          "3,2,N",
+          "2,2,W",
+          "3,1,N",
+          "1,2,E,p"
+        ]
+      },
+      "role": "apply",
+      "archetype": "fours: down and under, first move on another die",
+      "emotion": "payoff",
+      "help": {}
+    },
+    {
+      "number": 90,
+      "chapter": 11,
+      "code": "fours-link-twice-1",
+      "spec": {
+        "id": "fours-link-twice-1",
+        "seed": 4,
+        "size": 4,
+        "goal": {
+          "kind": "clear"
+        },
+        "moves": 0,
+        "values": [
+          4
+        ],
+        "norm": 6,
+        "arrival": "none",
+        "sinkMoves": 2,
+        "liftMoves": 1,
+        "faces": [
+          4
+        ],
+        "layout": {
+          "start": {
+            "x": 2,
+            "z": 2
+          },
+          "dice": [
+            {
+              "x": 2,
+              "z": 0,
+              "top": 2,
+              "north": 4
+            },
+            {
+              "x": 2,
+              "z": 1,
+              "top": 4,
+              "north": 5
+            },
+            {
+              "x": 2,
+              "z": 2,
+              "top": 4,
               "north": 6
             },
             {
               "x": 3,
-              "z": 3,
-              "top": 2,
-              "north": 1
+              "z": 2,
+              "top": 3,
+              "north": 2
             },
             {
               "x": 2,
-              "z": 4,
-              "top": 1,
-              "north": 4
+              "z": 3,
+              "top": 5,
+              "north": 3
+            },
+            {
+              "x": 3,
+              "z": 3,
+              "top": 3,
+              "north": 2
             }
           ]
         },
-        "par": 5,
+        "chapter": 0,
+        "par": 6,
         "exact": true,
         "solution": [
-          "2,1,E",
-          "2,2,N",
-          "3,2,W",
-          "1,1,S,p",
-          "3,3,N,p"
+          "3,2,N",
+          "3,1,N",
+          "3,3,N",
+          "3,2,N",
+          "2,0,S",
+          "2,3,N"
         ]
       },
-      "role": "event",
-      "archetype": "a long chain with a choice",
-      "emotion": "flow",
-      "event": "a long chain with a choice",
+      "role": "apply",
+      "archetype": "fours over two links, the first move on another die",
+      "emotion": "insight",
       "help": {}
     },
     {

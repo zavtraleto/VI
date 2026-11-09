@@ -1,0 +1,15 @@
+id: fours-link-twice-1
+note: каталог recipe:P12:as, ключ 7f9afc1f8c; грани по пути (в каталоге названы неверно)
+status: R
+batch: fours-link-twice 2026-11-09
+faces: 4
+seed: 4
+chapter: 0
+par: 6
+exact: yes
+way: 3,2,N 3,1,N 3,3,N 3,2,N 2,0,S 2,3,N
+---
+ .   .  24   .
+ .   .  45   .
+ .   .  46* 32
+ .   .  53  32

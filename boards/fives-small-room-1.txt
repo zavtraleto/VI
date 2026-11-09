@@ -1,0 +1,14 @@
+id: fives-small-room-1
+note: каталог recipe:P05:as, ключ 4242fa8664; грани по пути (в каталоге названы неверно)
+status: R
+batch: fives-small-room 2026-11-09
+faces: 5
+seed: 10
+chapter: 0
+par: 6
+exact: yes
+way: 1,1,N 2,1,W 2,0,S 1,1,W 1,2,N 1,0,S
+---
+ .   .  35
+ .  51* 21
+56  32  54

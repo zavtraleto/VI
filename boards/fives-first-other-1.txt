@@ -1,0 +1,15 @@
+id: fives-first-other-1
+note: каталог recipe:P31:as, ключ 457e0260f7; грани по пути (в каталоге названы неверно)
+status: R
+batch: fives-first-other 2026-11-09
+faces: 5
+seed: 8
+chapter: 0
+par: 6
+exact: yes
+way: 0,0,S 1,2,E 1,1,S 1,0,S 2,2,W,p 1,2,E
+---
+45  65  56   .
+ .  65  51   .
+ .  26*  .   .
+ .   .   .   .

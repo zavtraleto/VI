@@ -142,22 +142,22 @@
       "title": "eighty (0.2.88)",
       "floor": "open",
       "places": [
-        { "board": "R16", "role": "twist", "archetype": "everything at once", "emotion": "insight" },
-        { "board": "ones-threes-2", "role": "apply", "archetype": "K ~ L v U on 3 (lift link ones push walk)", "emotion": "recognition", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
-        { "board": "dd-21-wood-fives", "role": "apply", "archetype": "turn to fives", "emotion": "recognition" },
-        { "board": "dd-36-stone-fours", "role": "apply", "archetype": "stone fours", "emotion": "insight", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
-        { "board": "dd-38-three-threes", "role": "peak", "archetype": "three threes in a corridor, a long way", "emotion": "tension", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
-        { "board": "P06", "role": "apply", "archetype": "down and back", "emotion": "fiero" }
+        { "board": "fives-link-1", "role": "apply", "archetype": "threes and fives on a link", "emotion": "flow", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "fives-first-other-1", "role": "twist", "archetype": "fives: down and up again, the first move on another die", "emotion": "surprise", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "fives-small-room-1", "role": "apply", "archetype": "fives on a link in a small room", "emotion": "recognition", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "fours-short-rest-1", "role": "rest", "archetype": "fours: four moves, down, up and over a link", "emotion": "relief", "event": "a short board of four moves", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "fives-push-1", "role": "apply", "archetype": "threes and fives: down and push", "emotion": "tension", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "stop-fours-1", "role": "apply", "archetype": "a fixed die stops the fours", "emotion": "mastery", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" }
       ]
     },
     {
       "title": "ninety (0.2.88)",
       "floor": "open",
       "places": [
-        { "board": "chaser-1", "role": "apply", "archetype": "the chasing die", "emotion": "fiero", "note": "temporary till the rebuild of 81-100 (brief 61-80, 8.1 and 8.4)" },
-        { "board": "tight-room-5", "role": "apply", "archetype": "tight room", "emotion": "recognition" },
-        { "board": "three-moves-1", "role": "peak", "archetype": "three moves: floor, link, order", "emotion": "fiero" },
-        { "board": "dd-20-chain-on-the-run", "role": "event", "archetype": "a long chain with a choice", "emotion": "flow", "event": "a long chain with a choice" },
+        { "board": "far-heaps-fives-1", "role": "apply", "archetype": "far heaps of threes and fives, the first move on another die", "emotion": "tension", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "iron-fours-peak-1", "role": "peak", "archetype": "two iron dice and fours, the long way", "emotion": "fiero", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "fours-down-under-1", "role": "apply", "archetype": "fours: down and under, first move on another die", "emotion": "payoff", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
+        { "board": "fours-link-twice-1", "role": "apply", "archetype": "fours over two links, the first move on another die", "emotion": "insight", "note": "from the catalog, 9 November 2026 (owner: the row to 90 from the catalog)" },
         { "board": "P08", "role": "apply", "archetype": "which first", "emotion": "recognition" },
         { "board": "rescue-4", "role": "rest", "archetype": "the last four pushed in", "emotion": "gift" }
       ]

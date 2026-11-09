@@ -1,0 +1,14 @@
+id: fives-link-1
+note: каталог solution:far-order-fives:rolls1, ключ 1c8ea9a43c; вид order; Две кучки разных граней: какую первой
+status: R
+batch: fives-link 2026-11-09
+faces: 3 5
+par: 7
+exact: yes
+way: 4,3,W 3,3,W 4,1,S 4,2,S 4,3,W 3,3,S 3,4,W
+---
+ .   .   .   .   .
+ .   .  51  56  32
+ .   .  53   .   .
+ .   .   .   .  24*
+32  36  53   .   .

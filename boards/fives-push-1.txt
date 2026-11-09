@@ -1,0 +1,14 @@
+id: fives-push-1
+note: каталог solution:far-order-fives:rolls1, ключ b17bb431ac; вид order; Две кучки разных граней: какую первой
+status: R
+batch: fives-push 2026-11-09
+faces: 3 5
+par: 7
+exact: yes
+way: 1,0,E 2,1,W 0,1,S 0,2,E 1,1,E 2,0,E 1,2,E,p
+---
+ .  26*  .   .  51
+26   .  54  53   .
+ .   .   .  56   .
+ .   .  32  32   .
+ .   .   .   .   .
